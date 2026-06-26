@@ -163,6 +163,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.compose.markdown)
+    implementation(libs.compose.markdown.code)
     implementation(libs.jetbrains.markdown)
     implementation(libs.coil.compose)
     implementation(libs.jlatexmath.android)

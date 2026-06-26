@@ -54,6 +54,11 @@ import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.getTextInNode
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCode
+import dev.snipme.highlights.Highlights
+import dev.snipme.highlights.model.SyntaxThemes
+
 
 /**
  * The memoized markdown rendering assets shared by a single [MessageItem]: the main
@@ -319,12 +324,21 @@ private fun CustomCodeBlock(
                 .horizontalScroll(rememberScrollState())
                 .padding(12.dp)
         ) {
-            Text(
-                text = code,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = MonoFamily
-                ),
+            val isDark = isSystemInDarkTheme()
+            val highlightsBuilder = remember(isDark) {
+                Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDark))
+            }
+            val textStyle = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            MarkdownHighlightedCode(
+                code = code,
+                language = language,
+                style = textStyle,
+                highlightsBuilder = highlightsBuilder,
+                showHeader = false,
+                immediate = true
             )
         }
     }
