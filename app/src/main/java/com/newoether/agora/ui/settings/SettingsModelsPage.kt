@@ -62,17 +62,22 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val lastFingerprint by viewModel.settings.lastModelsFetchFingerprint.collectAsState()
 
     val providers = remember(availableModels, searchQuery, modelAliases) {
+        val parsedList = availableModels.entries.filter { it.value.isNotEmpty() }.map { (name, modelsList) ->
+            name to modelsList.map { model ->
+                val parsed = com.newoether.agora.model.ModelId.parse(model)
+                val alias = modelAliases[model]
+                val displayName = alias ?: parsed.apiModelName
+                ParsedModel(model, parsed, displayName)
+            }
+        }
         if (searchQuery.isBlank()) {
-            availableModels.entries.filter { it.value.isNotEmpty() }.map { it.key to it.value }
+            parsedList
         } else {
-            availableModels.entries.map { (name, models) ->
-                val filteredModels = models.filter { model ->
-                    val alias = modelAliases[model]
-                    val parsed = com.newoether.agora.model.ModelId.parse(model)
-                    val displayName = alias ?: parsed.apiModelName
-                    displayName.contains(searchQuery, ignoreCase = true) || model.contains(searchQuery, ignoreCase = true)
+            parsedList.map { (name, parsedModels) ->
+                val filtered = parsedModels.filter {
+                    it.displayName.contains(searchQuery, ignoreCase = true) || it.rawId.contains(searchQuery, ignoreCase = true)
                 }
-                name to filteredModels
+                name to filtered
             }.filter { it.second.isNotEmpty() }
         }
     }
@@ -232,7 +237,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 if (isExpanded) {
                     itemsIndexed(
                         items = models,
-                        key = { _, model -> "model_${name}_${model}" }
+                        key = { _, model -> "model_${name}_${model.rawId}" }
                     ) { modelIndex, model ->
                         val isLastModel = modelIndex == models.lastIndex
                         val modelShape = when {
@@ -241,37 +246,18 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             else -> FlatShape
                         }
 
-                        CardSurface(
-                            shape = modelShape,
-                            addTopGap = false,
+                        ModelItemRow(
+                            parsedModel = model,
+                            isEnabled = enabledModels.contains(model.rawId),
+                            modelShape = modelShape,
+                            onRenameClick = { showModelAliasDialog = model.rawId },
+                            onCheckedChange = { isChecked ->
+                                viewModel.settings.setEnabledModels(
+                                    if (isChecked) enabledModels + model.rawId else enabledModels - model.rawId
+                                )
+                            },
                             modifier = Modifier.animateItem()
-                        ) {
-                            val isEnabled = enabledModels.contains(model)
-                            val alias = modelAliases[model]
-                            val parsed = com.newoether.agora.model.ModelId.parse(model)
-                            val displayName = alias ?: parsed.apiModelName
-
-                            SettingsItem(
-                                headlineContent = { Text(displayName) },
-                                supportingContent = alias?.let { { Text(parsed.apiModelName) } },
-                                trailingContent = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        IconButton(onClick = { showModelAliasDialog = model }) {
-                                            Icon(
-                                                Icons.Default.Edit,
-                                                contentDescription = stringResource(R.string.models_rename),
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                        Checkbox(checked = isEnabled, onCheckedChange = {
-                                            viewModel.settings.setEnabledModels(if (it) enabledModels + model else enabledModels - model)
-                                        })
-                                    }
-                                },
-                                modifier = Modifier.padding(start = 16.dp)
-                            )
-                        }
+                        )
                     }
                 }
             }
@@ -395,5 +381,48 @@ private fun CardSurface(
             .then(if (addTopGap) Modifier.padding(top = 2.dp) else Modifier)
     ) {
         content()
+    }
+}
+
+private data class ParsedModel(
+    val rawId: String,
+    val parsedId: com.newoether.agora.model.ModelId,
+    val displayName: String
+)
+
+@Composable
+private fun ModelItemRow(
+    parsedModel: ParsedModel,
+    isEnabled: Boolean,
+    modelShape: Shape,
+    onRenameClick: () -> Unit,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    CardSurface(
+        shape = modelShape,
+        addTopGap = false,
+        modifier = modifier
+    ) {
+        SettingsItem(
+            headlineContent = { Text(parsedModel.displayName) },
+            supportingContent = if (parsedModel.displayName != parsedModel.parsedId.apiModelName) {
+                { Text(parsedModel.parsedId.apiModelName) }
+            } else null,
+            trailingContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onRenameClick) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = stringResource(R.string.models_rename),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Checkbox(checked = isEnabled, onCheckedChange = onCheckedChange)
+                }
+            },
+            modifier = Modifier.padding(start = 16.dp)
+        )
     }
 }
