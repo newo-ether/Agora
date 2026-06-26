@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.Participant
+import com.newoether.agora.model.StableModelAliases
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.components.*
@@ -37,7 +38,7 @@ fun MessageItem(
     isEditing: Boolean = false,
     isSwitching: Boolean = false,
     isInContext: Boolean = false,
-    modelAliases: Map<String, String> = emptyMap(),
+    modelAliases: StableModelAliases = StableModelAliases(),
     visualizeContextRollout: Boolean = false,
     toolCallDisplayMode: String = ToolCallDisplayModes.DEFAULT,
     onStartEdit: () -> Unit = {},
@@ -80,7 +81,7 @@ fun MessageItem(
     if (showInfoDialog) {
         MessageInfoDialog(
             message = message,
-            modelAliases = modelAliases,
+            modelAliases = modelAliases.map,
             onDismiss = { showInfoDialog = false }
         )
     }

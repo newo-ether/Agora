@@ -42,6 +42,7 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 compose-markdown = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "composeMarkdown" }
+compose-markdown-code = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-code", version.ref = "composeMarkdown" }
 jetbrains-markdown = { group = "org.jetbrains", name = "markdown", version.ref = "jetbrainsMarkdown" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version = "2.7.0" }
 jlatexmath-android = { group = "ru.noties", name = "jlatexmath-android", version = "0.2.0" }

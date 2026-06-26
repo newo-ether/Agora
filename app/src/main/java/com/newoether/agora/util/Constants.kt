@@ -36,6 +36,7 @@ object Constants {
     const val PROVIDER_ANTHROPIC = "Anthropic"
     const val PROVIDER_DEEPSEEK = "DeepSeek"
     const val PROVIDER_QWEN = "Qwen"
+    const val PROVIDER_GROQ = "Groq"
     const val PROVIDER_OPEN_ROUTER = "Open Router"
     const val PROVIDER_UNKNOWN = "Unknown"
     /** Placeholder model ID used as StateFlow/DataStore cold-start fallback and

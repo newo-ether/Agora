@@ -4,6 +4,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -345,6 +351,36 @@ internal fun AssistantMessageContent(
                         targetValue = if (isThoughtExpanded) 12.dp else 4.dp,
                         animationSpec = tween(500), label = "mergedPad"
                     )
+                    val infiniteTransition = rememberInfiniteTransition(label = "thinkingPulse")
+                    val pulseScale by infiniteTransition.animateFloat(
+                        initialValue = 0.85f,
+                        targetValue = 1.15f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "scale"
+                    )
+                    val pulseAlpha by infiniteTransition.animateFloat(
+                        initialValue = 0.4f,
+                        targetValue = 0.8f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "alpha"
+                    )
+                    val isAnimating = isStreaming && (isThinking || isToolCalling || isTranscribing || isToolInProgress)
+                    val iconModifier = Modifier
+                        .size(16.dp)
+                        .then(
+                            if (isAnimating) Modifier.graphicsLayer {
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                                alpha = pulseAlpha
+                            } else Modifier
+                        )
+
                     Surface(
                         tonalElevation = 2.dp,
                         shape = RoundedCornerShape(18.dp),
@@ -364,13 +400,13 @@ internal fun AssistantMessageContent(
                                 .padding(10.dp)
                         ) {
                             if (isToolCalling || isToolInProgress) {
-                                Icon(Icons.Default.Build, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                                Icon(Icons.Default.Build, null, modifier = iconModifier, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                             } else if (!isThinking && !hasThought && toolCount > 0) {
-                                Icon(Icons.Default.Build, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                                Icon(Icons.Default.Build, null, modifier = iconModifier, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                             } else if (isTranscribing || collapsedTitle == "Image Transcription") {
-                                Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                                Icon(Icons.Filled.Image, null, modifier = iconModifier, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                             } else {
-                                Icon(androidx.compose.ui.res.painterResource(id = com.newoether.agora.R.drawable.neurology_24), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                                Icon(androidx.compose.ui.res.painterResource(id = com.newoether.agora.R.drawable.neurology_24), null, modifier = iconModifier, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -672,6 +708,27 @@ internal fun AssistantMessageContent(
                                     IconButton(onClick = { onSwitchBranch(1) }, enabled = branchIndex < totalBranches - 1 && isEditingAllowed, modifier = Modifier.size(24.dp)) {
                                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, modifier = Modifier.size(16.dp))
                                     }
+                                }
+                            }
+
+                            if (message.tokenCount > 0) {
+                                Spacer(modifier = Modifier.weight(1f))
+                                val modelDisplayName = message.modelName?.substringAfterLast("/")?.substringAfterLast(":") ?: ""
+                                val displayText = if (modelDisplayName.isNotEmpty()) {
+                                    "$modelDisplayName • ${message.tokenCount} tokens"
+                                } else {
+                                    "${message.tokenCount} tokens"
+                                }
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    shape = RoundedCornerShape(100),
+                                ) {
+                                    Text(
+                                        text = displayText,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
                                 }
                             }
                         }

@@ -138,8 +138,8 @@ fun WelcomeScreen(
     // ── Onboarding state ──
     val builtInProviders = listOf(
         Constants.PROVIDER_GOOGLE, Constants.PROVIDER_OPENAI, Constants.PROVIDER_ANTHROPIC,
-        Constants.PROVIDER_DEEPSEEK, Constants.PROVIDER_QWEN, Constants.PROVIDER_OLLAMA,
-        Constants.PROVIDER_OPEN_ROUTER
+        Constants.PROVIDER_DEEPSEEK, Constants.PROVIDER_QWEN, Constants.PROVIDER_GROQ,
+        Constants.PROVIDER_OLLAMA, Constants.PROVIDER_OPEN_ROUTER
     )
     val customProviders by viewModel.settings.customProviders.collectAsState()
     val allProviders = (builtInProviders + customProviders.map { it.name } + "Custom" + Constants.PROVIDER_LOCAL).distinct()

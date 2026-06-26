@@ -7,6 +7,7 @@ import com.newoether.agora.api.local.LocalProvider
 import com.newoether.agora.api.ollama.OllamaProvider
 import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.api.openai.DeepSeekProvider
+import com.newoether.agora.api.openai.GroqProvider
 import com.newoether.agora.api.openai.OpenAiProvider
 import com.newoether.agora.api.openai.OpenRouterProvider
 import com.newoether.agora.api.openai.QwenProvider
@@ -41,6 +42,7 @@ class ProviderRegistry(
         Constants.PROVIDER_ANTHROPIC to AnthropicProvider(),
         Constants.PROVIDER_DEEPSEEK to DeepSeekProvider(),
         Constants.PROVIDER_QWEN to QwenProvider(),
+        Constants.PROVIDER_GROQ to GroqProvider(),
         Constants.PROVIDER_OLLAMA to OllamaProvider(),
         Constants.PROVIDER_OPEN_ROUTER to OpenRouterProvider(),
         Constants.PROVIDER_LOCAL to localProvider
@@ -57,7 +59,7 @@ class ProviderRegistry(
     fun getInstance(name: String): LlmProvider = providers[name] ?: GeminiProvider()
 
     fun getEffectiveBaseUrl(providerName: String): String? =
-        settings.providerBaseUrls.value[providerName]
+        settings.providerBaseUrls.value[providerName]?.takeIf { it.isNotBlank() }
             ?: if (!isBuiltIn(providerName)) getInstance(providerName).defaultBaseUrl else null
 
     fun isConfigured(providerName: String, activeKey: String): Boolean = when {
@@ -119,7 +121,7 @@ class ProviderRegistry(
         val baseUrl = if (!isBuiltIn(name)) {
             settings.providerBaseUrls.value[name]?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
         } else {
-            settings.providerBaseUrls.value[name]
+            settings.providerBaseUrls.value[name]?.takeIf { it.isNotBlank() }
         }
 
         // Resolve the "/v1" ambiguity ONCE here (config time) and persist the canonical

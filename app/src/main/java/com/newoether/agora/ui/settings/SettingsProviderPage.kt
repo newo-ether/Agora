@@ -59,7 +59,7 @@ fun SettingsProviderPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     onBack = { selectedProvider = null }
                 )
             } else {
-                val builtInNames = listOf(Constants.PROVIDER_GOOGLE, Constants.PROVIDER_OPENAI, Constants.PROVIDER_ANTHROPIC, Constants.PROVIDER_DEEPSEEK, Constants.PROVIDER_QWEN, Constants.PROVIDER_OLLAMA, Constants.PROVIDER_OPEN_ROUTER)
+                val builtInNames = listOf(Constants.PROVIDER_GOOGLE, Constants.PROVIDER_OPENAI, Constants.PROVIDER_ANTHROPIC, Constants.PROVIDER_DEEPSEEK, Constants.PROVIDER_QWEN, Constants.PROVIDER_GROQ, Constants.PROVIDER_OLLAMA, Constants.PROVIDER_OPEN_ROUTER)
 
                 @Composable
                 fun isConfigured(name: String): Boolean = when (name) {
@@ -92,7 +92,15 @@ fun SettingsProviderPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                 }
                                             )
                                         },
-                                        leadingContent = { Icon(painterResource(providerIcon(name)), null, tint = if (configured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(24.dp)) },
+                                        leadingContent = {
+                                            val iconRes = providerIcon(name)
+                                            val tint = if (configured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                            if (iconRes != 0) {
+                                                Icon(painterResource(iconRes), null, tint = tint, modifier = Modifier.size(24.dp))
+                                            } else {
+                                                Icon(Icons.Default.Cloud, null, tint = tint, modifier = Modifier.size(24.dp))
+                                            }
+                                        },
                                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
                                         modifier = Modifier.clickable { selectedProvider = name }
                                     )

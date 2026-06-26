@@ -11,11 +11,17 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -58,6 +64,8 @@ import com.newoether.agora.ui.components.TypewriterText
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
 import com.newoether.agora.model.MessageStatus
+import com.newoether.agora.model.StableMessageList
+import com.newoether.agora.model.StableModelAliases
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -536,8 +544,8 @@ fun ChatApp(
                                 Modifier.fillMaxSize()
                             }
                             MessageList(
-                                messages = messages,
-                                allMessages = allMessages,
+                                messages = StableMessageList(messages),
+                                allMessages = StableMessageList(allMessages),
                                 modifier = messageListModifier,
                                 state = listState,
                                 // Global generation gate: while ANY generation is in
@@ -550,7 +558,7 @@ fun ChatApp(
                                 visualizeContextRollout = visualizeContextRollout,
                                 toolCallDisplayMode = toolCallDisplayMode,
                                 maxContextWindow = contextWindow,
-                                modelAliases = modelAliases,
+                                modelAliases = StableModelAliases(modelAliases),
                                 bottomBarHeight = bottomBarHeight,
                                 viewportHeight = viewportHeightPx,
                                 messageHeights = messageHeights,
@@ -641,26 +649,41 @@ fun ChatApp(
                             FloatingActionButton(onClick = { scope.launch { scrollToLastUserMessage(animate = true, easing = SCROLL_EASING) } }, containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp), contentColor = MaterialTheme.colorScheme.onSurface, shape = CircleShape, elevation = FloatingActionButtonDefaults.elevation(fabElevation), modifier = Modifier.size(40.dp)) {
                                 Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.scroll_to_bottom), modifier = Modifier.size(24.dp))
                             }
+                            
+                            val hasNewTokens = isLoading
+                            if (hasNewTokens) {
+                                val infiniteTransition = rememberInfiniteTransition(label = "badgePulse")
+                                val badgeScale by infiniteTransition.animateFloat(
+                                    initialValue = 0.8f,
+                                    targetValue = 1.2f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(800, easing = FastOutSlowInEasing),
+                                        repeatMode = RepeatMode.Reverse
+                                    ),
+                                    label = "badgeScale"
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = (-4).dp, y = 4.dp)
+                                        .graphicsLayer {
+                                            scaleX = badgeScale
+                                            scaleY = badgeScale
+                                        }
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.error)
+                                )
+                            }
                         }
                     }
 
                     AnimatedVisibility(
                         visible = isSwitching && !isTransitioningToNewChat,
-                        enter = fadeIn(animationSpec = tween(200)),
-                        exit = fadeOut(animationSpec = tween(200))
+                        enter = fadeIn(animationSpec = tween(250)),
+                        exit = fadeOut(animationSpec = tween(250))
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.background),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(48.dp),
-                                strokeWidth = 5.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        com.newoether.agora.ui.components.ShimmerChatPlaceholder()
                     }
                 }
             }

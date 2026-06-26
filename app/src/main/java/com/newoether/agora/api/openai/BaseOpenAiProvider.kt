@@ -82,7 +82,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
         messages: List<ChatMessage>,
         config: ProviderConfig
     ): Flow<StreamEvent> = flow {
-        val baseUrl = config.baseUrl?.trimEnd('/') ?: defaultBaseUrl
+        val baseUrl = config.baseUrl?.takeIf { it.isNotBlank() }?.trimEnd('/') ?: defaultBaseUrl
         val endpointUrls = endpointCandidates(baseUrl, "chat/completions")
 
         val validatedMessages = prepareMessages(messages, config.maxContextWindow)

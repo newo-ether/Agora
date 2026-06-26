@@ -23,14 +23,16 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
+import com.newoether.agora.model.StableMessageList
+import com.newoether.agora.model.StableModelAliases
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.ui.chat.message.MessageItem
 import com.newoether.agora.util.Constants
 
 @Composable
 fun MessageList(
-    messages: List<ChatMessage>,
-    allMessages: List<ChatMessage> = emptyList(),
+    messages: StableMessageList,
+    allMessages: StableMessageList = StableMessageList(),
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(8.dp),
     state: LazyListState = rememberLazyListState(),
@@ -40,7 +42,7 @@ fun MessageList(
     visualizeContextRollout: Boolean = false,
     toolCallDisplayMode: String = ToolCallDisplayModes.DEFAULT,
     maxContextWindow: Int = 20,
-    modelAliases: Map<String, String> = emptyMap(),
+    modelAliases: StableModelAliases = StableModelAliases(),
     bottomBarHeight: androidx.compose.ui.unit.Dp = 0.dp,
     viewportHeight: Int = 0,
     messageHeights: SnapshotStateMap<String, Int> = remember { mutableStateMapOf() },
@@ -57,17 +59,17 @@ fun MessageList(
     LaunchedEffect(isLoading) { if (isLoading) editingMessageId = null }
     val density = androidx.compose.ui.platform.LocalDensity.current
 
-    val currentPath = messages.filter { it.participant != Participant.ERROR }
+    val currentPath = messages.list.filter { it.participant != Participant.ERROR }
     val contextStartIndex = if (currentPath.size > maxContextWindow) currentPath.size - maxContextWindow else 0
     val inContextIds = currentPath.drop(contextStartIndex).map { it.id }.toSet()
 
-    val lastUserMessageIndex = messages.indexOfLast { it.participant == Participant.USER }
+    val lastUserMessageIndex = messages.list.indexOfLast { it.participant == Participant.USER }
 
     // Precompute branch siblings grouped by parent once per allMessages change.
     // Previously this filter+sort ran per visible item (O(n²) and re-run on every
     // streaming-token recomposition of the active message).
     val siblingsByParent = remember(allMessages) {
-        allMessages
+        allMessages.list
             .filter { !it.id.startsWith(Constants.TOOL_MSG_PREFIX) && !it.id.startsWith(Constants.RESULT_MSG_PREFIX) }
             .groupBy { it.parentId }
             .mapValues { (_, v) -> v.sortedBy { it.timestamp } }
@@ -81,8 +83,8 @@ fun MessageList(
             val targetTopDp = 140.dp
             val availableSpaceDp = vDp - targetTopDp - (bottomBarHeight + 8.dp)
             var contentHeightPx = 0
-            for (i in lastUserMessageIndex until messages.size) {
-                contentHeightPx += messageHeights[messages[i].id] ?: 0
+            for (i in lastUserMessageIndex until messages.list.size) {
+                contentHeightPx += messageHeights[messages.list[i].id] ?: 0
             }
             val contentHeightDp = contentHeightPx.toDp()
             (availableSpaceDp - contentHeightDp).coerceAtLeast(0.dp)
@@ -97,8 +99,8 @@ fun MessageList(
             state = state,
             userScrollEnabled = userScrollEnabled
         ) {
-            items(messages, key = { it.id }) { message ->
-                val isLastMessage = messages.lastOrNull()?.id == message.id
+            items(messages.list, key = { it.id }) { message ->
+                val isLastMessage = messages.list.lastOrNull()?.id == message.id
                 val isInContext = inContextIds.contains(message.id)
                 val siblings = siblingsByParent[message.parentId].orEmpty()
                 val branchIndex = siblings.indexOfFirst { it.id == message.id }

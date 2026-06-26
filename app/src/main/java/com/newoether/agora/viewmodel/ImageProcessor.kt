@@ -64,18 +64,22 @@ class ImageProcessor(
                         }
                     }
                     mimeType?.startsWith("image/") == true || mimeType == null -> {
-                        val bytes = app.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        if (bytes != null) {
-                            val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                        val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        app.contentResolver.openInputStream(uri)?.use { stream ->
+                            android.graphics.BitmapFactory.decodeStream(stream, null, options)
+                        }
 
+                        if (options.outWidth > 0 && options.outHeight > 0) {
                             var scale = 1
                             while (options.outWidth / scale / 2 >= 1024 && options.outHeight / scale / 2 >= 1024) {
                                 scale *= 2
                             }
 
                             val decodeOptions = android.graphics.BitmapFactory.Options().apply { inSampleSize = scale }
-                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions)
+                            val bitmap = app.contentResolver.openInputStream(uri)?.use { stream ->
+                                android.graphics.BitmapFactory.decodeStream(stream, null, decodeOptions)
+                            }
+
                             if (bitmap != null) {
                                 val file = File(app.filesDir, "img_${UUID.randomUUID()}.jpg")
                                 file.outputStream().use { out ->
