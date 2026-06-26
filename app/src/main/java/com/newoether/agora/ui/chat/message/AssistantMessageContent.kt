@@ -710,6 +710,27 @@ internal fun AssistantMessageContent(
                                     }
                                 }
                             }
+
+                            if (message.tokenCount > 0) {
+                                Spacer(modifier = Modifier.weight(1f))
+                                val modelDisplayName = message.modelName?.substringAfterLast("/")?.substringAfterLast(":") ?: ""
+                                val displayText = if (modelDisplayName.isNotEmpty()) {
+                                    "$modelDisplayName • ${message.tokenCount} tokens"
+                                } else {
+                                    "${message.tokenCount} tokens"
+                                }
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    shape = RoundedCornerShape(100),
+                                ) {
+                                    Text(
+                                        text = displayText,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
