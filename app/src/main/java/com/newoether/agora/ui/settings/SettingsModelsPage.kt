@@ -1,15 +1,11 @@
 package com.newoether.agora.ui.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
@@ -57,12 +53,11 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val selectedModel by viewModel.settings.selectedModel.collectAsState()
     var showActiveModelDialog by remember { mutableStateOf(false) }
     var showModelAliasDialog by remember { mutableStateOf<String?>(null) }
-    val expandedProviders = remember { mutableStateMapOf<String, MutableTransitionState<Boolean>>() }
-    val modelBlockHeights = remember { mutableStateMapOf<String, Float>() }
+    val expandedProviders = remember { mutableStateMapOf<String, Boolean>() }
 
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val lastFingerprint by viewModel.settings.lastModelsFetchFingerprint.collectAsState()
-    val providers = availableModels.entries.filter { it.value.isNotEmpty() }
+    val providers = availableModels.entries.filter { it.value.isNotEmpty() }.map { it.key to it.value }
 
     // Auto-fetch models when entering the page if provider config has changed
     LaunchedEffect(Unit) {
@@ -146,20 +141,17 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             // Providers
             for ((providerIndex, entry) in providers.withIndex()) {
                 val (name, models) = entry
-                val transitionState = expandedProviders.getOrPut(name) { MutableTransitionState(false) }
-                val isExpanded = transitionState.targetState
+                val isExpanded = expandedProviders[name] ?: false
                 val isLastProvider = providerIndex == providers.lastIndex
 
                 // ── Provider header ──
                 item(key = "hdr_$name") {
-                    // Bottom corners track model block height:
-                    // height >= radius → ratio=0 → flat (merge with content)
-                    // height = 0     → ratio=1 → fully rounded
-                    // Interpolates linearly in [0, radius].
                     val collapsedRadiusDp = if (isLastProvider) 24f else 5f
-                    val currentHeight = modelBlockHeights[name] ?: 0f
-                    val ratio = (1f - currentHeight / collapsedRadiusDp).coerceIn(0f, 1f)
-                    val bottomRadius = (collapsedRadiusDp * ratio).dp
+                    val targetBottomRadius = if (isExpanded) 0.dp else collapsedRadiusDp.dp
+                    val bottomRadius by animateDpAsState(
+                        targetValue = targetBottomRadius,
+                        label = "radius_$name"
+                    )
                     val headerShape = RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp, bottomStart = bottomRadius, bottomEnd = bottomRadius)
 
                     CardSurface(shape = headerShape, addTopGap = true) {
@@ -182,62 +174,55 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 )
                             },
                             modifier = Modifier.clickable {
-                                transitionState.targetState = !transitionState.targetState
+                                expandedProviders[name] = !isExpanded
                             }
                         )
                     }
                 }
 
-                // ── Model block (one AnimatedVisibility → Column, like the original) ──
-                item(key = "models_$name") {
-                    val density = LocalDensity.current
-                    AnimatedVisibility(
-                        visibleState = transitionState,
-                        enter = expandVertically(),
-                        exit = shrinkVertically(),
-                        modifier = Modifier.onGloballyPositioned { coordinates ->
-                            modelBlockHeights[name] = coordinates.size.height / density.density
+                // ── Model block items (inlined dynamically directly into LazyColumn) ──
+                if (isExpanded) {
+                    itemsIndexed(
+                        items = models,
+                        key = { _, model -> "model_${name}_${model}" }
+                    ) { modelIndex, model ->
+                        val isLastModel = modelIndex == models.lastIndex
+                        val modelShape = when {
+                            isLastModel && isLastProvider -> FlatToBottom
+                            isLastModel -> FiveBottom
+                            else -> FlatShape
                         }
-                    ) {
-                        Column {
-                            for ((modelIndex, model) in models.withIndex()) {
-                                val isLastModel = modelIndex == models.lastIndex
-                                // Within the block models touch seamlessly (FlatShape).
-                                // The last model closes the group: 24dp if last provider, else 5dp.
-                                val modelShape = when {
-                                    isLastModel && isLastProvider -> FlatToBottom
-                                    isLastModel -> FiveBottom
-                                    else -> FlatShape
-                                }
 
-                                CardSurface(shape = modelShape, addTopGap = false) {
-                                    val isEnabled = enabledModels.contains(model)
-                                    val alias = modelAliases[model]
-                                    val parsed = com.newoether.agora.model.ModelId.parse(model)
-                                    val displayName = alias ?: parsed.apiModelName
+                        CardSurface(
+                            shape = modelShape,
+                            addTopGap = false,
+                            modifier = Modifier.animateItem()
+                        ) {
+                            val isEnabled = enabledModels.contains(model)
+                            val alias = modelAliases[model]
+                            val parsed = com.newoether.agora.model.ModelId.parse(model)
+                            val displayName = alias ?: parsed.apiModelName
 
-                                    SettingsItem(
-                                        headlineContent = { Text(displayName) },
-                                        supportingContent = if (alias != null) { { Text(parsed.apiModelName) } } else null,
-                                        trailingContent = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                IconButton(onClick = { showModelAliasDialog = model }) {
-                                                    Icon(
-                                                        Icons.Default.Edit,
-                                                        contentDescription = stringResource(R.string.models_rename),
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
-                                                }
-                                                Checkbox(checked = isEnabled, onCheckedChange = {
-                                                    viewModel.settings.setEnabledModels(if (it) enabledModels + model else enabledModels - model)
-                                                })
-                                            }
-                                        },
-                                        modifier = Modifier.padding(start = 16.dp)
-                                    )
-                                }
-                            }
+                            SettingsItem(
+                                headlineContent = { Text(displayName) },
+                                supportingContent = alias?.let { { Text(parsed.apiModelName) } },
+                                trailingContent = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = { showModelAliasDialog = model }) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = stringResource(R.string.models_rename),
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Checkbox(checked = isEnabled, onCheckedChange = {
+                                            viewModel.settings.setEnabledModels(if (it) enabledModels + model else enabledModels - model)
+                                        })
+                                    }
+                                },
+                                modifier = Modifier.padding(start = 16.dp)
+                            )
                         }
                     }
                 }
@@ -346,12 +331,17 @@ private fun SectionLabel(text: String, firstInPage: Boolean) {
  * [addTopGap] adds a 2dp gap above when true (for items after the first in a group).
  */
 @Composable
-private fun CardSurface(shape: Shape, addTopGap: Boolean = false, content: @Composable () -> Unit) {
+private fun CardSurface(
+    shape: Shape,
+    addTopGap: Boolean = false,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
     Surface(
         shape = shape,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .then(if (addTopGap) Modifier.padding(top = 2.dp) else Modifier)
