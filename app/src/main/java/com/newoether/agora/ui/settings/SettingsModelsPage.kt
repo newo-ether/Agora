@@ -106,7 +106,11 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     // Scroll to search bar on text query or provider filter changes
     LaunchedEffect(searchQuery, selectedProviderFilter) {
         if (searchQuery.isNotEmpty() || selectedProviderFilter != null) {
-            listState.animateScrollToItem(4)
+            val firstVisible = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset
+            if (firstVisible < 4 || (firstVisible == 4 && offset > 0)) {
+                listState.animateScrollToItem(4)
+            }
         }
     }
 
