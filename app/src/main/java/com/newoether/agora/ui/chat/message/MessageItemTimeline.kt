@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.ui.unit.Velocity
@@ -289,6 +290,36 @@ private fun CompactSegmentBlock(
         label = "compactSegmentPad"
     )
 
+    val infiniteTransition = rememberInfiniteTransition(label = "timelinePulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+    val isAnimating = isStreaming && (isThinking || isToolCalling || isTranscribing || isToolInProgress)
+    val iconModifier = Modifier
+        .size(16.dp)
+        .then(
+            if (isAnimating) Modifier.graphicsLayer {
+                scaleX = pulseScale
+                scaleY = pulseScale
+                alpha = pulseAlpha
+            } else Modifier
+        )
+
     Surface(
         tonalElevation = 2.dp,
         shape = RoundedCornerShape(18.dp),
@@ -308,13 +339,13 @@ private fun CompactSegmentBlock(
                     .padding(10.dp)
             ) {
                 if (isToolCalling || isToolInProgress) {
-                    Icon(Icons.Default.Build, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                    Icon(Icons.Default.Build, null, modifier = iconModifier, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                 } else if (!isThinking && !hasThought && toolCount > 0) {
-                    Icon(Icons.Default.Build, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                    Icon(Icons.Default.Build, null, modifier = iconModifier, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                 } else if (isTranscribing || collapsedTitle == "Image Transcription") {
-                    Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                    Icon(Icons.Filled.Image, null, modifier = iconModifier, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                 } else {
-                    Icon(androidx.compose.ui.res.painterResource(id = com.newoether.agora.R.drawable.neurology_24), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                    Icon(androidx.compose.ui.res.painterResource(id = com.newoether.agora.R.drawable.neurology_24), null, modifier = iconModifier, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
