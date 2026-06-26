@@ -67,6 +67,11 @@ class ModelIdTest {
     }
 
     @Test
+    fun `heuristic groq → Groq`() {
+        assertEquals("Groq", ModelId.parse("llama-3.1-8b-instant-groq").providerName)
+    }
+
+    @Test
     fun `heuristic gemini prefix → Google`() {
         assertEquals("Google", ModelId.parse("gemini-1.5-flash").providerName)
     }

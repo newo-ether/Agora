@@ -4,8 +4,10 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
@@ -57,11 +59,17 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     var showModelAliasDialog by remember { mutableStateOf<String?>(null) }
     val expandedProviders = remember { mutableStateMapOf<String, Boolean>() }
     var searchQuery by remember { mutableStateOf("") }
+    var selectedProviderFilter by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
 
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val lastFingerprint by viewModel.settings.lastModelsFetchFingerprint.collectAsState()
 
-    val providers = remember(availableModels, searchQuery, modelAliases) {
+    val availableProvidersList = remember(availableModels) {
+        availableModels.filter { it.value.isNotEmpty() }.keys.toList().sorted()
+    }
+
+    val providers = remember(availableModels, searchQuery, modelAliases, selectedProviderFilter) {
         val parsedList = availableModels.entries.filter { it.value.isNotEmpty() }.map { (name, modelsList) ->
             name to modelsList.map { model ->
                 val parsed = com.newoether.agora.model.ModelId.parse(model)
@@ -70,10 +78,15 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 ParsedModel(model, parsed, displayName)
             }
         }
-        if (searchQuery.isBlank()) {
+        val providerFiltered = if (selectedProviderFilter == null) {
             parsedList
         } else {
-            parsedList.map { (name, parsedModels) ->
+            parsedList.filter { it.first == selectedProviderFilter }
+        }
+        if (searchQuery.isBlank()) {
+            providerFiltered
+        } else {
+            providerFiltered.map { (name, parsedModels) ->
                 val filtered = parsedModels.filter {
                     it.displayName.contains(searchQuery, ignoreCase = true) || it.rawId.contains(searchQuery, ignoreCase = true)
                 }
@@ -90,9 +103,17 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         }
     }
 
+    // Scroll to search bar on text query or provider filter changes
+    LaunchedEffect(searchQuery, selectedProviderFilter) {
+        if (searchQuery.isNotEmpty() || selectedProviderFilter != null) {
+            listState.animateScrollToItem(4)
+        }
+    }
+
     CollapsingSettingsLazyScaffold(
         title = stringResource(R.string.models_title),
         onBack = onBack,
+        listState = listState,
         contentHorizontalPadding = 0.dp,
         floatingActionButton = { if (showDocFab) DocumentationFab("models.md") }
     ) {
@@ -173,6 +194,43 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                         )
                     )
+                }
+            }
+
+            if (availableProvidersList.size > 1) {
+                item(key = "provider_filters") {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedProviderFilter == null,
+                                onClick = { selectedProviderFilter = null },
+                                label = { Text(stringResource(R.string.models_filter_all_providers)) }
+                            )
+                        }
+                        items(availableProvidersList) { name ->
+                            val isSelected = selectedProviderFilter == name
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedProviderFilter = if (isSelected) null else name },
+                                label = { Text(name) },
+                                leadingIcon = {
+                                    val iconRes = providerIcon(name)
+                                    val isLocal = name.equals(Constants.PROVIDER_LOCAL, ignoreCase = true)
+                                    when {
+                                        isLocal -> Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.size(18.dp))
+                                        iconRes != 0 -> Icon(painterResource(iconRes), null, modifier = Modifier.size(18.dp))
+                                        else -> Icon(Icons.Default.Cloud, null, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
