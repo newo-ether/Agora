@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import java.io.Closeable
 import java.io.File
+import java.util.concurrent.locks.ReentrantReadWriteLock
 
 interface NativeChatCallback {
     fun onToken(token: String)
@@ -32,6 +33,7 @@ class LlamaChatEngine(
 
     @Volatile
     private var nativeHandle: Long = 0
+    private val lock = ReentrantReadWriteLock()
 
     private external fun nativeChatLoadModel(path: String, nCtx: Int): Long
     private external fun nativeChatGetTemplate(handle: Long): String?
@@ -58,26 +60,41 @@ class LlamaChatEngine(
             DebugLog.e(TAG, "Model file not found: $modelPath")
             return false
         }
-        nativeHandle = nativeChatLoadModel(modelPath, nCtx)
-        if (nativeHandle == 0L) {
-            DebugLog.e(TAG, "Failed to load model: $modelPath")
-            return false
+        lock.writeLock().lock()
+        try {
+            nativeHandle = nativeChatLoadModel(modelPath, nCtx)
+            if (nativeHandle == 0L) {
+                DebugLog.e(TAG, "Failed to load model: $modelPath")
+                return false
+            }
+            DebugLog.d(TAG, "Model loaded: $modelPath, nCtx=$nCtx")
+            return true
+        } finally {
+            lock.writeLock().unlock()
         }
-        DebugLog.d(TAG, "Model loaded: $modelPath, nCtx=$nCtx")
-        return true
     }
 
     fun getChatTemplate(): String? {
-        if (nativeHandle == 0L) return null
-        return nativeChatGetTemplate(nativeHandle)
+        lock.readLock().lock()
+        try {
+            if (nativeHandle == 0L) return null
+            return nativeChatGetTemplate(nativeHandle)
+        } finally {
+            lock.readLock().unlock()
+        }
     }
 
     fun applyTemplate(
         messages: List<ChatTemplateMessage>,
         addAss: Boolean = true
     ): String? {
-        if (nativeHandle == 0L) return null
-        return nativeChatApplyTemplate(nativeHandle, messages.toTypedArray(), addAss)
+        lock.readLock().lock()
+        try {
+            if (nativeHandle == 0L) return null
+            return nativeChatApplyTemplate(nativeHandle, messages.toTypedArray(), addAss)
+        } finally {
+            lock.readLock().unlock()
+        }
     }
 
     fun generate(
@@ -107,45 +124,65 @@ class LlamaChatEngine(
         }
 
         launch(Dispatchers.IO) {
+            lock.readLock().lock()
             try {
-                nativeChatGenerate(nativeHandle, prompt, temperature, topP, maxTokens, callback)
+                val handle = nativeHandle
+                if (handle != 0L) {
+                    nativeChatGenerate(handle, prompt, temperature, topP, maxTokens, callback)
+                } else {
+                    callback.onError("Model closed before generation started")
+                }
             } catch (e: Exception) {
                 DebugLog.e(TAG, "nativeChatGenerate crashed", e)
                 close(e)
+            } finally {
+                lock.readLock().unlock()
             }
         }
 
         awaitClose {
-            synchronized(this@LlamaChatEngine) {
+            lock.readLock().lock()
+            try {
                 if (nativeHandle != 0L) {
                     nativeChatCancel(nativeHandle)
                 }
+            } finally {
+                lock.readLock().unlock()
             }
         }
     }
 
     fun loadMmproj(mmprojPath: String): Boolean {
-        synchronized(this) {
+        if (!File(mmprojPath).exists()) {
+            DebugLog.e(TAG, "mmproj file not found: $mmprojPath")
+            return false
+        }
+        lock.readLock().lock()
+        try {
             if (nativeHandle == 0L) return false
-            if (!File(mmprojPath).exists()) {
-                DebugLog.e(TAG, "mmproj file not found: $mmprojPath")
-                return false
-            }
             return nativeChatLoadMmproj(nativeHandle, mmprojPath)
+        } finally {
+            lock.readLock().unlock()
         }
     }
 
     fun hasMmproj(): Boolean {
-        synchronized(this) {
+        lock.readLock().lock()
+        try {
             return nativeHandle != 0L && nativeChatHasMmproj(nativeHandle)
+        } finally {
+            lock.readLock().unlock()
         }
     }
 
     fun unloadMmproj() {
-        synchronized(this) {
+        lock.readLock().lock()
+        try {
             if (nativeHandle != 0L) {
                 nativeChatUnloadMmproj(nativeHandle)
             }
+        } finally {
+            lock.readLock().unlock()
         }
     }
 
@@ -171,47 +208,76 @@ class LlamaChatEngine(
         }
 
         launch(Dispatchers.IO) {
+            lock.readLock().lock()
             try {
-                nativeChatGenerateWithImages(
-                    nativeHandle, prompt, imagePaths.toTypedArray(),
-                    temperature, topP, maxTokens, callback
-                )
+                val handle = nativeHandle
+                if (handle != 0L) {
+                    nativeChatGenerateWithImages(
+                        handle, prompt, imagePaths.toTypedArray(),
+                        temperature, topP, maxTokens, callback
+                    )
+                } else {
+                    callback.onError("Model closed before generation started")
+                }
             } catch (e: Exception) {
                 DebugLog.e(TAG, "nativeChatGenerateWithImages crashed", e)
                 close(e)
+            } finally {
+                lock.readLock().unlock()
             }
         }
 
         awaitClose {
-            synchronized(this@LlamaChatEngine) {
+            lock.readLock().lock()
+            try {
                 if (nativeHandle != 0L) nativeChatCancel(nativeHandle)
+            } finally {
+                lock.readLock().unlock()
             }
         }
     }
 
     fun cancel() {
-        synchronized(this) {
+        lock.readLock().lock()
+        try {
             if (nativeHandle != 0L) {
                 nativeChatCancel(nativeHandle)
             }
+        } finally {
+            lock.readLock().unlock()
         }
     }
 
     fun resetContext() {
-        synchronized(this) {
+        lock.readLock().lock()
+        try {
             if (nativeHandle != 0L) {
                 nativeChatReset(nativeHandle)
             }
+        } finally {
+            lock.readLock().unlock()
         }
     }
 
     override fun close() {
-        synchronized(this) {
+        lock.readLock().lock()
+        try {
+            if (nativeHandle != 0L) {
+                nativeChatCancel(nativeHandle)
+            }
+        } finally {
+            lock.readLock().unlock()
+        }
+
+        lock.writeLock().lock()
+        try {
             if (nativeHandle != 0L) {
                 nativeChatFreeModel(nativeHandle)
                 nativeHandle = 0L
                 DebugLog.d(TAG, "Model closed: $modelPath")
             }
+        } finally {
+            lock.writeLock().unlock()
         }
     }
 
