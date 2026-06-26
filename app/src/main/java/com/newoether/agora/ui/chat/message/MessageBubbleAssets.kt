@@ -321,7 +321,6 @@ private fun CustomCodeBlock(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
                 .padding(12.dp)
         ) {
             val isDark = isSystemInDarkTheme()
