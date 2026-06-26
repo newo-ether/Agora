@@ -20,11 +20,12 @@ data class ConversationUiState(
             selectedChildren: Map<String?, String>
         ): List<ChatMessage> {
             val path = mutableListOf<ChatMessage>()
+            val messagesByParent = allMessages.groupBy { it.parentId }
+                .mapValues { (_, list) -> list.sortedBy { it.timestamp } }
             var cursor: String? = null
 
             while (true) {
-                val siblings = allMessages.filter { it.parentId == cursor }
-                    .sortedBy { it.timestamp }
+                val siblings = messagesByParent[cursor] ?: break
                 if (siblings.isEmpty()) break
 
                 val selectedId = selectedChildren[cursor]
