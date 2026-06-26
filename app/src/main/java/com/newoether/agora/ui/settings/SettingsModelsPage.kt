@@ -11,11 +11,13 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,10 +56,26 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     var showActiveModelDialog by remember { mutableStateOf(false) }
     var showModelAliasDialog by remember { mutableStateOf<String?>(null) }
     val expandedProviders = remember { mutableStateMapOf<String, Boolean>() }
+    var searchQuery by remember { mutableStateOf("") }
 
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val lastFingerprint by viewModel.settings.lastModelsFetchFingerprint.collectAsState()
-    val providers = availableModels.entries.filter { it.value.isNotEmpty() }.map { it.key to it.value }
+
+    val providers = remember(availableModels, searchQuery, modelAliases) {
+        if (searchQuery.isBlank()) {
+            availableModels.entries.filter { it.value.isNotEmpty() }.map { it.key to it.value }
+        } else {
+            availableModels.entries.map { (name, models) ->
+                val filteredModels = models.filter { model ->
+                    val alias = modelAliases[model]
+                    val parsed = com.newoether.agora.model.ModelId.parse(model)
+                    val displayName = alias ?: parsed.apiModelName
+                    displayName.contains(searchQuery, ignoreCase = true) || model.contains(searchQuery, ignoreCase = true)
+                }
+                name to filteredModels
+            }.filter { it.second.isNotEmpty() }
+        }
+    }
 
     // Auto-fetch models when entering the page if provider config has changed
     LaunchedEffect(Unit) {
@@ -123,6 +141,36 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 )
             }
 
+            item(key = "search_bar") {
+                CardSurface(
+                    shape = FullRounded,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        placeholder = { Text(stringResource(R.string.models_search_placeholder)) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+            }
+
             // Sync button – always first in the Available card
             val hasProviders = providers.isNotEmpty()
             item(key = "sync") {
@@ -141,7 +189,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             // Providers
             for ((providerIndex, entry) in providers.withIndex()) {
                 val (name, models) = entry
-                val isExpanded = expandedProviders[name] ?: false
+                val isExpanded = searchQuery.isNotBlank() || (expandedProviders[name] ?: false)
                 val isLastProvider = providerIndex == providers.lastIndex
 
                 // ── Provider header ──

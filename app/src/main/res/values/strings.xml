@@ -276,6 +276,7 @@
     <string name="models_rename_current">Current ID: %1$s</string>
     <string name="models_alias_hint">Alias</string>
     <string name="models_select_default">Select Default Model</string>
+    <string name="models_search_placeholder">Search models...</string>
 
     <!-- Settings - Generation Page -->
     <string name="generation_title">Generation</string>
