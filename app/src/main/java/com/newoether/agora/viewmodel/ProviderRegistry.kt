@@ -57,7 +57,7 @@ class ProviderRegistry(
     fun getInstance(name: String): LlmProvider = providers[name] ?: GeminiProvider()
 
     fun getEffectiveBaseUrl(providerName: String): String? =
-        settings.providerBaseUrls.value[providerName]
+        settings.providerBaseUrls.value[providerName]?.takeIf { it.isNotBlank() }
             ?: if (!isBuiltIn(providerName)) getInstance(providerName).defaultBaseUrl else null
 
     fun isConfigured(providerName: String, activeKey: String): Boolean = when {
@@ -119,7 +119,7 @@ class ProviderRegistry(
         val baseUrl = if (!isBuiltIn(name)) {
             settings.providerBaseUrls.value[name]?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
         } else {
-            settings.providerBaseUrls.value[name]
+            settings.providerBaseUrls.value[name]?.takeIf { it.isNotBlank() }
         }
 
         // Resolve the "/v1" ambiguity ONCE here (config time) and persist the canonical

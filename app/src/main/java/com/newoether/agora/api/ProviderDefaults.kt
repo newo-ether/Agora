@@ -21,7 +21,7 @@ object ProviderDefaults {
 
     /** Resolves the base URL for OpenAI-compatible embedding, falling back to the default. */
     fun openAiCompatibleBaseUrl(baseUrls: Map<String, String>): String =
-        baseUrls[Constants.PROVIDER_OPENAI] ?: OPENAI_BASE_URL
+        baseUrls[Constants.PROVIDER_OPENAI]?.takeIf { it.isNotBlank() } ?: OPENAI_BASE_URL
 
     fun embeddingBaseUrl(provider: String): String = when (provider.lowercase()) {
         "openai" -> OPENAI_BASE_URL
