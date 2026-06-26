@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -167,10 +168,14 @@ internal fun rememberChatMarkdownAssets(textColor: Color): ChatMarkdownAssets {
                 )
             },
             codeBlock = { model ->
-                CustomCodeBlock(content = model.content, node = model.node, isFence = false)
+                DisableSelection {
+                    CustomCodeBlock(content = model.content, node = model.node, isFence = false)
+                }
             },
             codeFence = { model ->
-                CustomCodeBlock(content = model.content, node = model.node, isFence = true)
+                DisableSelection {
+                    CustomCodeBlock(content = model.content, node = model.node, isFence = true)
+                }
             }
         )
     }
