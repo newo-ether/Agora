@@ -58,6 +58,8 @@ import com.newoether.agora.ui.components.TypewriterText
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
 import com.newoether.agora.model.MessageStatus
+import com.newoether.agora.model.StableMessageList
+import com.newoether.agora.model.StableModelAliases
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -536,8 +538,8 @@ fun ChatApp(
                                 Modifier.fillMaxSize()
                             }
                             MessageList(
-                                messages = messages,
-                                allMessages = allMessages,
+                                messages = StableMessageList(messages),
+                                allMessages = StableMessageList(allMessages),
                                 modifier = messageListModifier,
                                 state = listState,
                                 // Global generation gate: while ANY generation is in
@@ -550,7 +552,7 @@ fun ChatApp(
                                 visualizeContextRollout = visualizeContextRollout,
                                 toolCallDisplayMode = toolCallDisplayMode,
                                 maxContextWindow = contextWindow,
-                                modelAliases = modelAliases,
+                                modelAliases = StableModelAliases(modelAliases),
                                 bottomBarHeight = bottomBarHeight,
                                 viewportHeight = viewportHeightPx,
                                 messageHeights = messageHeights,

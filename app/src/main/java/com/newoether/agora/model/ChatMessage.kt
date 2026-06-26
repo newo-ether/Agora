@@ -74,3 +74,9 @@ data class ChatConversation(
     val systemPromptId: String? = null,
     val modelId: String? = null
 )
+
+@Immutable
+data class StableMessageList(val list: List<ChatMessage> = emptyList())
+
+@Immutable
+data class StableModelAliases(val map: Map<String, String> = emptyMap())
