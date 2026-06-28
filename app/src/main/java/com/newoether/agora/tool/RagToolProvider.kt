@@ -115,10 +115,8 @@ class RagToolProvider(
             if (scoredResults.isEmpty())
                 return buildJsonObject { put("type", "search_conversations"); put("query", query); put("error", "no_results") }.toString()
 
-            // Exclude current conversation
-            val currentConvId = ctx.conversationId
             val scoreByMessageId = scoredResults.associate { it.first.id to it.second }
-            val matchesByConv = scoredResults.filter { it.first.conversationId != currentConvId }
+            val matchesByConv = scoredResults
                 .groupBy({ it.first.conversationId }, { it.first.id })
             if (matchesByConv.isEmpty())
                 return buildJsonObject { put("type", "search_conversations"); put("query", query); put("error", "no_results") }.toString()
@@ -129,7 +127,7 @@ class RagToolProvider(
             for ((convId, matchIds) in matchesByConv) {
                 val conversation = conversations.getConversation(convId) ?: continue
                 val allMsgs = conversations.getMessagesForConversation(convId).first()
-                    .filter { it.participant in listOf(Participant.USER, Participant.MODEL) && it.text.isNotEmpty() }
+                    .filter { it.participant in listOf(Participant.USER, Participant.MODEL) }
 
                 // Build selected branch as indexed list
                 val branch = buildSelectedBranch(allMsgs, conversation.selectedBranchesJson)
@@ -180,7 +178,7 @@ class RagToolProvider(
                     allWindows.add(SearchWindow(
                         conversationId = convId,
                         conversationTitle = conversation.title,
-                        messages = cappedRange.map { branch[it] },
+                        messages = cappedRange.map { branch[it] }.filter { it.text.isNotEmpty() && !it.id.startsWith(Constants.TOOL_MSG_PREFIX) && !it.id.startsWith(Constants.RESULT_MSG_PREFIX) },
                         topScore = score,
                         matchCount = matchedInWindow
                     ))
