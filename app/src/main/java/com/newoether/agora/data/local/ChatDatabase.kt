@@ -3,6 +3,7 @@ package com.newoether.agora.data.local
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.*
+import androidx.room.Fts4
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.newoether.agora.model.MessageStatus
@@ -141,8 +142,11 @@ interface ChatDao {
     @Query("DELETE FROM embeddings WHERE NOT EXISTS (SELECT 1 FROM messages WHERE messages.id = embeddings.messageId)")
     suspend fun deleteOrphanedEmbeddings()
 
+    @Query("SELECT m.* FROM messages m INNER JOIN messages_fts f ON m.id = f.messageId WHERE messages_fts MATCH :query AND m.participant IN ('USER', 'MODEL') AND m.text != '' AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%' ORDER BY m.timestamp DESC LIMIT :limit")
+    suspend fun searchMessagesFts(query: String, limit: Int): List<MessageEntity>
+
     @Query("SELECT m.* FROM messages m INNER JOIN conversations c ON m.conversationId = c.id WHERE (m.text LIKE '%' || :query || '%' OR c.title LIKE '%' || :query || '%') AND m.participant IN ('USER', 'MODEL') AND m.text != '' AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%' ORDER BY m.timestamp DESC LIMIT :limit")
-    suspend fun searchMessages(query: String, limit: Int = 10): List<MessageEntity>
+    suspend fun searchMessagesLike(query: String, limit: Int): List<MessageEntity>
 
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastMessageForConversation(conversationId: String): MessageEntity?
@@ -196,7 +200,7 @@ interface ChatDao {
 }
 
 @Database(
-    entities = [ChatEntity::class, MessageEntity::class, EmbeddingEntity::class],
+    entities = [ChatEntity::class, MessageEntity::class, EmbeddingEntity::class, MessageFtsEntity::class],
     version = ChatDatabase.CURRENT_VERSION,
     exportSchema = true
 )@TypeConverters(MessageConverters::class)
@@ -204,7 +208,7 @@ abstract class ChatDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 
     companion object {
-        const val CURRENT_VERSION = 12
+        const val CURRENT_VERSION = 13
         const val DB_NAME = "agora_db"
 
         val ALL_MIGRATIONS = listOf(
@@ -276,6 +280,16 @@ abstract class ChatDatabase : RoomDatabase() {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("ALTER TABLE messages ADD COLUMN attachmentMeta TEXT")
                 }
+            },
+            object : Migration(12, 13) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts4(messageId, text, conversationTitle, notindexed=messageId)")
+                    db.execSQL("INSERT INTO messages_fts(messageId, text, conversationTitle) SELECT m.id, m.text, c.title FROM messages m INNER JOIN conversations c ON m.conversationId = c.id WHERE m.participant IN ('USER', 'MODEL') AND m.text != '' AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%'")
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_insert AFTER INSERT ON messages FOR EACH ROW BEGIN INSERT INTO messages_fts(messageId, text, conversationTitle) VALUES (new.id, new.text, (SELECT title FROM conversations WHERE id = new.conversationId)); END")
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_update AFTER UPDATE OF text ON messages FOR EACH ROW BEGIN UPDATE messages_fts SET text = new.text WHERE messageId = new.id; END")
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_conversations_update AFTER UPDATE OF title ON conversations FOR EACH ROW BEGIN UPDATE messages_fts SET conversationTitle = new.title WHERE messageId IN (SELECT id FROM messages WHERE conversationId = new.id); END")
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_delete AFTER DELETE ON messages FOR EACH ROW BEGIN DELETE FROM messages_fts WHERE messageId = old.id; END")
+                }
             }
         )
 
@@ -298,8 +312,26 @@ abstract class ChatDatabase : RoomDatabase() {
                 ChatDatabase::class.java,
                 DB_NAME
             ).addMigrations(*ALL_MIGRATIONS.toTypedArray())
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        super.onCreate(db)
+                        db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_insert AFTER INSERT ON messages FOR EACH ROW BEGIN INSERT INTO messages_fts(messageId, text, conversationTitle) VALUES (new.id, new.text, (SELECT title FROM conversations WHERE id = new.conversationId)); END")
+                        db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_update AFTER UPDATE OF text ON messages FOR EACH ROW BEGIN UPDATE messages_fts SET text = new.text WHERE messageId = new.id; END")
+                        db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_conversations_update AFTER UPDATE OF title ON conversations FOR EACH ROW BEGIN UPDATE messages_fts SET conversationTitle = new.title WHERE messageId IN (SELECT id FROM messages WHERE conversationId = new.id); END")
+                        db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_delete AFTER DELETE ON messages FOR EACH ROW BEGIN DELETE FROM messages_fts WHERE messageId = old.id; END")
+                    }
+                })
                 .fallbackToDestructiveMigration(false)
                 .build()
         }
     }
 }
+
+@Fts4
+@Entity(tableName = "messages_fts")
+data class MessageFtsEntity(
+    @PrimaryKey val rowid: Int = 0,
+    val messageId: String,
+    val text: String,
+    val conversationTitle: String
+)

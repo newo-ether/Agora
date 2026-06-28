@@ -133,8 +133,17 @@ class ConversationRepository(
 
     // ── Search ────────────────────────────────────────────────
 
-    suspend fun searchMessages(query: String, limit: Int = 10): List<MessageEntity> =
-        chatDao.searchMessages(query, limit)
+    suspend fun searchMessages(query: String, limit: Int = 10): List<MessageEntity> {
+        val sanitized = query.replace(Regex("[*\"'():]"), " ").trim()
+        if (sanitized.isBlank()) return emptyList()
+        val ftsQuery = sanitized.split(Regex("\\s+")).joinToString(" ") { "$it*" }
+        return try {
+            chatDao.searchMessagesFts(ftsQuery, limit)
+        } catch (e: Exception) {
+            com.newoether.agora.util.DebugLog.e("AgoraDB", "FTS search failed, falling back to LIKE", e)
+            chatDao.searchMessagesLike(query, limit)
+        }
+    }
 
     suspend fun getAllConversationsList(): List<ChatEntity> =
         chatDao.getAllConversationsList()
