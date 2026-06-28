@@ -34,6 +34,8 @@ class RagToolProvider(
     private val conversations: ConversationRepository
 ) : ToolProvider {
 
+    private val embeddingCache = java.util.concurrent.ConcurrentHashMap<String, FloatArray>()
+
     override fun definitions(ctx: GenerationContext): List<ToolDefinition> {
         if (!ctx.accessPastConversations) return emptyList()
         return listOf(
@@ -50,12 +52,12 @@ class RagToolProvider(
             )),
             ToolDefinition(function = ToolFunction(
                 name = "list_conversations",
-                description = "List all past conversations. Use this to browse conversation history and find conversations to read. Returns conversation IDs, titles, and last-updated timestamps.",
+                description = "Get a list of past conversation titles and IDs, ordered by last updated. Helps locate general topics or historical sessions.",
                 parameters = ToolParameters(
                     properties = mapOf(
-                        "order" to ToolProperty("string", "Sort order by last updated time: 'asc' (oldest first) or 'desc' (newest first). Default: 'desc'."),
-                        "limit" to ToolProperty("integer", "Maximum conversations per page (1-50, default 20)."),
-                        "offset" to ToolProperty("integer", "Number of conversations to skip for pagination (default 0).")
+                        "limit" to ToolProperty("integer", "Maximum number of conversations to list (1-50, default 20)."),
+                        "offset" to ToolProperty("integer", "Pagination offset (default 0)."),
+                        "order" to ToolProperty("string", "Sort order: 'desc' (default, newest first) or 'asc' (oldest first).")
                     ),
                     required = emptyList()
                 )
@@ -66,8 +68,8 @@ class RagToolProvider(
                 parameters = ToolParameters(
                     properties = mapOf(
                         "conversation_id" to ToolProperty("string", "The conversation ID to read (from list_conversations or search_conversations results)."),
-                        "offset" to ToolProperty("integer", "Number of messages to skip for pagination (default 0)."),
-                        "limit" to ToolProperty("integer", "Maximum messages per page (1-100, default 50).")
+                        "page" to ToolProperty("integer", "Page index (default 0). Each page contains up to 20 messages."),
+                        "page_size" to ToolProperty("integer", "Number of messages per page (1-50, default 20).")
                     ),
                     required = listOf("conversation_id")
                 )
@@ -412,9 +414,12 @@ class RagToolProvider(
         DebugLog.d("AgoraVM", "GM RAG: ${all.size} stored embeddings, query dim=${queryEmbedding.size}")
         if (all.isEmpty()) return@withContext emptyList()
 
-        val scored = all.map {
-            val stored = EmbeddingIndexer.bytesToFloats(it.embedding)
-            it to EmbeddingIndexer.cosineSimilarity(queryEmbedding, stored)
+        val scored = all.map { entity ->
+            val cacheKey = "${entity.messageId}_${entity.modelId}"
+            val stored = embeddingCache.getOrPut(cacheKey) {
+                EmbeddingIndexer.bytesToFloats(entity.embedding)
+            }
+            entity to EmbeddingIndexer.cosineSimilarity(queryEmbedding, stored)
         }
         val best = scored.maxOfOrNull { it.second } ?: 0f
         DebugLog.d("AgoraVM", "GM RAG: best cosine = ${"%.4f".format(best)}")
