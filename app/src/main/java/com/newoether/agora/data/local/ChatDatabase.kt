@@ -208,7 +208,7 @@ abstract class ChatDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 
     companion object {
-        const val CURRENT_VERSION = 13
+        const val CURRENT_VERSION = 14
         const val DB_NAME = "agora_db"
 
         val ALL_MIGRATIONS = listOf(
@@ -283,8 +283,23 @@ abstract class ChatDatabase : RoomDatabase() {
             },
             object : Migration(12, 13) {
                 override fun migrate(db: SupportSQLiteDatabase) {
-                    db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts4(messageId, text, conversationTitle, notindexed=messageId)")
+                    db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts4(messageId, text, conversationTitle)")
                     db.execSQL("INSERT INTO messages_fts(messageId, text, conversationTitle) SELECT m.id, m.text, c.title FROM messages m INNER JOIN conversations c ON m.conversationId = c.id WHERE m.participant IN ('USER', 'MODEL') AND m.text != '' AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%'")
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_insert AFTER INSERT ON messages FOR EACH ROW BEGIN INSERT INTO messages_fts(messageId, text, conversationTitle) VALUES (new.id, new.text, (SELECT title FROM conversations WHERE id = new.conversationId)); END")
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_update AFTER UPDATE OF text ON messages FOR EACH ROW BEGIN UPDATE messages_fts SET text = new.text WHERE messageId = new.id; END")
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_conversations_update AFTER UPDATE OF title ON conversations FOR EACH ROW BEGIN UPDATE messages_fts SET conversationTitle = new.title WHERE messageId IN (SELECT id FROM messages WHERE conversationId = new.id); END")
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_delete AFTER DELETE ON messages FOR EACH ROW BEGIN DELETE FROM messages_fts WHERE messageId = old.id; END")
+                }
+            },
+            object : Migration(13, 14) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("DROP TABLE IF EXISTS messages_fts")
+                    db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts4(messageId, text, conversationTitle)")
+                    db.execSQL("INSERT INTO messages_fts(messageId, text, conversationTitle) SELECT m.id, m.text, c.title FROM messages m INNER JOIN conversations c ON m.conversationId = c.id WHERE m.participant IN ('USER', 'MODEL') AND m.text != '' AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%'")
+                    db.execSQL("DROP TRIGGER IF EXISTS tr_messages_insert")
+                    db.execSQL("DROP TRIGGER IF EXISTS tr_messages_update")
+                    db.execSQL("DROP TRIGGER IF EXISTS tr_conversations_update")
+                    db.execSQL("DROP TRIGGER IF EXISTS tr_messages_delete")
                     db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_insert AFTER INSERT ON messages FOR EACH ROW BEGIN INSERT INTO messages_fts(messageId, text, conversationTitle) VALUES (new.id, new.text, (SELECT title FROM conversations WHERE id = new.conversationId)); END")
                     db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_messages_update AFTER UPDATE OF text ON messages FOR EACH ROW BEGIN UPDATE messages_fts SET text = new.text WHERE messageId = new.id; END")
                     db.execSQL("CREATE TRIGGER IF NOT EXISTS tr_conversations_update AFTER UPDATE OF title ON conversations FOR EACH ROW BEGIN UPDATE messages_fts SET conversationTitle = new.title WHERE messageId IN (SELECT id FROM messages WHERE conversationId = new.id); END")
