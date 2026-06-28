@@ -424,10 +424,15 @@ class RagToolProvider(
         val best = scored.maxOfOrNull { it.second } ?: 0f
         DebugLog.d("AgoraVM", "GM RAG: best cosine = ${"%.4f".format(best)}")
         val aboveThreshold = scored.filter { it.second > ctx.ragThreshold }
-        val messagesById = conversations.getMessagesByIds(aboveThreshold.map { it.first.messageId }).associateBy { it.id }
-        val filtered = aboveThreshold
-            .filter { (messagesById[it.first.messageId]?.text?.length ?: 0) >= 10 }
             .sortedByDescending { it.second }
+        if (aboveThreshold.isEmpty()) return@withContext emptyList()
+
+        val candidateCount = (limit * 2).coerceAtMost(aboveThreshold.size)
+        val candidates = aboveThreshold.take(candidateCount)
+        val messagesById = conversations.getMessagesByIds(candidates.map { it.first.messageId }).associateBy { it.id }
+
+        val filtered = candidates
+            .filter { (messagesById[it.first.messageId]?.text?.length ?: 0) >= 10 }
             .take(limit)
         filtered.mapNotNull { (embedding, score) -> messagesById[embedding.messageId]?.let { it to score } }
     }
