@@ -40,7 +40,8 @@ fun SettingsLanguagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
         LanguageOption("pt-BR", "Português (Brasil)"),
         LanguageOption("ja", "日本語"),
         LanguageOption("ko", "한국어"),
-        LanguageOption("ar", "العربية")
+        LanguageOption("ar", "العربية"),
+        LanguageOption("vi", "Tiếng Việt")
     )
 
     CollapsingSettingsScaffold(

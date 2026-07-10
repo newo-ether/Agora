@@ -1,4 +1,4 @@
-﻿package com.newoether.agora
+package com.newoether.agora
 
 import android.Manifest
 import android.app.Activity
@@ -95,6 +95,7 @@ class MainActivity : ComponentActivity() {
             "ja" -> java.util.Locale("ja")
             "ko" -> java.util.Locale("ko")
             "ar" -> java.util.Locale("ar")
+            "vi" -> java.util.Locale("vi")
             "zh-Hant" -> java.util.Locale.forLanguageTag("zh-Hant")
             else -> null
         }

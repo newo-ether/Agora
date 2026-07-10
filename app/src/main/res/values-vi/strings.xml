@@ -1,0 +1,866 @@
+<resources>
+    <string name="app_name">Agora</string>
+    <string name="agora_responded">Agora đã phản hồi</string>
+
+    <!-- Chat Bottom Bar -->
+    <string name="add_attachment">Thêm tệp đính kèm</string>
+    <string name="photos">Ảnh</string>
+    <string name="videos">Video</string>
+    <string name="files">Tệp</string>
+    <string name="select_model">Chọn mô hình</string>
+    <string name="no_model_selected">Chưa chọn mô hình</string>
+    <string name="collapse">Thu gọn</string>
+    <string name="expand">Mở rộng</string>
+    <string name="settings">Cài đặt</string>
+    <string name="tools">Công cụ</string>
+    <string name="code_execution">Thực thi mã</string>
+    <string name="google_search">Tìm kiếm Google</string>
+    <string name="thinking">Đang suy nghĩ</string>
+    <string name="web_search">Tìm kiếm Web</string>
+    <string name="ask_agora">Hỏi Agora bất cứ điều gì...</string>
+    <string name="send">Gửi</string>
+
+    <!-- Tool Display -->
+    <string name="tool_look_up_memories">Tra cứu ký ức</string>
+    <string name="tool_read_memory">Đọc ký ức</string>
+    <string name="tool_add_memory">Thêm ký ức</string>
+    <string name="tool_edit_memory">Sửa ký ức</string>
+    <string name="tool_delete_memory">Xóa ký ức</string>
+    <string name="tool_update_active_memory">Cập nhật ký ức hoạt động</string>
+    <string name="tool_web_search">Tìm kiếm Web</string>
+    <string name="tool_web_fetch">Truy xuất Web</string>
+    <string name="tool_web_fetching">Đang truy xuất %1$s…</string>
+    <string name="tool_web_fetch_done">Đã truy xuất %1$s</string>
+    <string name="tool_web_fetch_default">Đang truy xuất trang web</string>
+    <string name="tool_web_fetch_failed">Truy xuất thất bại</string>
+    <string name="tool_search_conversations">Tìm kiếm cuộc trò chuyện</string>
+    <string name="tool_searching_web">Đang tìm kiếm \'%1$s\' trên web</string>
+    <string name="tool_searching_conversations">Đang tìm kiếm \'%1$s\' trong cuộc trò chuyện</string>
+    <string name="tool_search_failed">Tìm kiếm thất bại</string>
+    <string name="tool_web_search_no_result">Không tìm thấy kết quả nào cho \'%1$s\'</string>
+    <string name="tool_web_search_error">Lỗi khi tìm kiếm \'%1$s\'</string>
+    <string name="tool_conversation_search_no_result">Không tìm thấy kết quả khớp nào cho \'%1$s\'</string>
+    <string name="tool_conversation_search_error">Lỗi khi tìm kiếm cuộc trò chuyện cho \'%1$s\'</string>
+    <string name="tool_web_search_done">Tìm thấy %1$d kết quả cho \"%2$s\"</string>
+    <string name="tool_web_search_done_default">Đã tìm kiếm web</string>
+    <string name="tool_conversation_search_done_for">Tìm thấy %1$d cuộc trò chuyện cho \"%2$s\"</string>
+    <string name="tool_list_shells">Liệt kê Shell</string>
+    <string name="tool_shell_listing">Đang liệt kê các shell khả dụng</string>
+    <string name="tool_shell_list_done">Hoàn thành danh sách shell</string>
+    <string name="tool_shell_list_count">Đã liệt kê %1$d shell</string>
+    <string name="tool_execute_shell">Shell</string>
+    <string name="tool_shell_executing">Đã thực thi: %1$s</string>
+    <string name="tool_shell_done">Lệnh shell đã hoàn thành</string>
+    <string name="tool_shell_failed">Lệnh shell thất bại</string>
+    <string name="tool_thinking">Đang suy nghĩ</string>
+    <string name="tool_read_memory_success">Đã đọc ký ức</string>
+    <string name="tool_read_memory_failed">Đọc ký ức thất bại</string>
+    <string name="scroll_to_bottom">Cuộn xuống dưới cùng</string>
+    <string name="tool_read_memory_count">Đã đọc %1$d ký ức</string>
+    <string name="tool_read_memory_name">Đã đọc %1$s</string>
+    <string name="tool_save_memory_failed">Lưu ký ức thất bại</string>
+    <string name="tool_save_memory_name">Đã lưu %1$s</string>
+    <string name="tool_save_memory_default">Đã lưu một ký ức</string>
+    <string name="tool_edit_memory_failed">Sửa ký ức thất bại</string>
+    <string name="tool_edit_memory_name">Đã cập nhật %1$s</string>
+    <string name="tool_edit_memory_default">Đã cập nhật một ký ức</string>
+    <string name="tool_delete_memory_failed">Xóa ký ức thất bại</string>
+    <string name="tool_delete_memory_name">Đã xóa %1$s</string>
+    <string name="tool_delete_memory_default">Đã xóa một ký ức</string>
+    <string name="tool_lookup_failed">Tra cứu ký ức thất bại</string>
+    <string name="tool_lookup_count">Đã tìm qua %1$d ký ức đã lưu</string>
+    <string name="tool_lookup_default">Đã tìm qua các ký ức đã lưu</string>
+    <string name="tool_update_active_failed">Cập nhật ký ức hoạt động thất bại</string>
+    <string name="tool_update_active_default">Đã cập nhật ký ức hoạt động</string>
+    <string name="tool_searching_conversations_default">Đang tìm kiếm cuộc trò chuyện</string>
+    <string name="tool_call_failed">Gọi công cụ thất bại</string>
+    <string name="tool_done">Đã xong</string>
+    <string name="tool_context">Công cụ</string>
+
+    <!-- New tool display names (P0) -->
+    <string name="tool_list_conversations">Liệt kê cuộc trò chuyện</string>
+    <string name="tool_read_conversation">Đọc cuộc trò chuyện</string>
+    <string name="tool_file_read">Đọc tệp</string>
+    <string name="tool_file_write">Ghi tệp</string>
+    <string name="tool_file_edit">Sửa tệp</string>
+    <string name="tool_file_glob">Tìm tệp</string>
+    <string name="tool_file_grep">Tìm kiếm tệp</string>
+
+    <!-- Tool in-progress states (doing) -->
+    <string name="tool_listing_conversations">Đang liệt kê cuộc trò chuyện…</string>
+    <string name="tool_reading_conversation">Đang đọc cuộc trò chuyện…</string>
+    <string name="tool_reading_file">Đang đọc %1$s…</string>
+    <string name="tool_writing_file">Đang ghi %1$s…</string>
+    <string name="tool_editing_file">Đang sửa %1$s…</string>
+    <string name="tool_finding_files">Đang tìm %1$s…</string>
+    <string name="tool_searching_file">Đang tìm kiếm %1$s…</string>
+    <string name="tool_executing_shell">Đang thực thi: %1$s…</string>
+    <string name="tool_reading_memory">Đang đọc %1$s…</string>
+    <string name="tool_saving_memory">Đang lưu %1$s…</string>
+    <string name="tool_updating_memory">Đang cập nhật %1$s…</string>
+    <string name="tool_removing_memory">Đang xóa %1$s…</string>
+    <string name="tool_looking_up_memories">Đang tra cứu ký ức…</string>
+    <string name="tool_updating_active">Đang cập nhật ký ức hoạt động…</string>
+    <string name="tool_listing_shells">Đang liệt kê shell…</string>
+    <string name="tool_searching_for">Đang tìm kiếm \'%1$s\'…</string>
+
+    <!-- Tool done states (P0 + P1) -->
+    <string name="tool_listed_conversations">Đã liệt kê %1$d cuộc trò chuyện</string>
+    <string name="tool_listed_no_conversations">Không tìm thấy cuộc trò chuyện nào</string>
+    <string name="tool_read_conversation_done">Đã đọc cuộc trò chuyện: %1$s</string>
+    <string name="tool_read_file_done">Đã đọc %1$s</string>
+    <string name="tool_wrote_file">Đã ghi %1$s</string>
+    <string name="tool_edited_file">Đã sửa %1$s</string>
+    <string name="tool_found_files">Tìm thấy %1$d tệp</string>
+    <string name="tool_found_no_files">Không có tệp nào khớp</string>
+    <string name="tool_searched_file">Tìm thấy %1$d kết quả khớp</string>
+    <string name="tool_executed_shell">Đã thực thi: %1$s (%2$d byte)</string>
+    <string name="tool_executed_no_output">Đã thực thi: %1$s (không có đầu ra)</string>
+    <string name="tool_read_file_failed">Đọc tệp thất bại</string>
+    <string name="crash_log_label">Nhật ký sự cố</string>
+    <string name="message_info">Thông tin tin nhắn</string>
+    <string name="time_with_label">Thời gian: %1$s</string>
+    <string name="model_with_label">Mô hình: %1$s</string>
+    <string name="cancel">Hủy</string>
+    <string name="copy">Sao chép</string>
+    <string name="edit">Sửa</string>
+    <string name="info">Thông tin</string>
+    <string name="more">Thêm</string>
+    <string name="arguments_label">Đối số:</string>
+    <string name="result_label">Result:</string>
+    <string name="cost_tokens">Tiêu tốn %1$d token</string>
+    <string name="thinking_ellipsis">Đang suy nghĩ...</string>
+    <string name="answering_ellipsis">Đang trả lời...</string>
+    <string name="sending_ellipsis">Đang gửi...</string>
+    <string name="tool_calling_ellipsis">Đang gọi công cụ...</string>
+    <string name="thinking_complete">Đã suy nghĩ xong</string>
+    <string name="thought_for_seconds">Đã suy nghĩ trong %1$d giây</string>
+    <string name="thought_for_minutes">Đã suy nghĩ trong %1$d phút %2$d giây</string>
+    <string name="thought_for_seconds_called_tools">Đã suy nghĩ trong %1$d giây, gọi %2$d công cụ</string>
+    <string name="thought_for_minutes_called_tools">Đã suy nghĩ trong %1$d phút %2$d giây, gọi %3$d công cụ</string>
+    <string name="called_n_tools">Đã gọi %1$d công cụ</string>
+    <string name="failed_to_generate">Tạo thất bại.</string>
+    <string name="generation_stopped">Đã dừng tạo.</string>
+    <string name="import_invalid_gguf_title">Tệp GGUF không hợp lệ</string>
+    <string name="import_invalid_gguf_desc">Tệp đã chọn không phải là mô hình GGUF hợp lệ.</string>
+    <string name="ok">OK</string>
+    <string name="generation_retry_attempt">Thử lại %1$d/%2$d</string>
+    <string name="action">Hành động</string>
+    <string name="video">Video</string>
+
+    <!-- System Prompt -->
+    <string name="system_prompt">Gợi ý hệ thống</string>
+    <string name="no_system_prompt">Không có</string>
+
+    <!-- Drawer -->
+    <string name="conversations">Cuộc trò chuyện</string>
+    <string name="new_chat">Trò chuyện mới</string>
+
+    <!-- Settings - Main -->
+    <string name="settings_title">Cài đặt</string>
+    <string name="settings_provider">Nhà cung cấp</string>
+    <string name="settings_provider_desc">Khóa API, URL gốc và lựa chọn nhà cung cấp</string>
+    <string name="settings_prompts">Gợi ý hệ thống</string>
+    <string name="settings_prompts_desc">Tạo và quản lý hướng dẫn hệ thống</string>
+    <string name="settings_models">Mô hình</string>
+    <string name="settings_models_desc">Bật, tắt và cấu hình mô hình AI</string>
+    <string name="settings_generation">Tạo nội dung</string>
+    <string name="settings_generation_desc">Tham số LLM và cửa sổ ngữ cảnh</string>
+    <string name="settings_web_search">Tìm kiếm Web</string>
+    <string name="settings_web_search_desc">Cấu hình công cụ tìm kiếm web cho tất cả nhà cung cấp</string>
+    <string name="settings_title_gen">Tạo tiêu đề</string>
+    <string name="settings_title_gen_desc">Tự động tạo tiêu đề cuộc trò chuyện</string>
+    <string name="settings_transcription">Chuyển tả hình ảnh</string>
+    <string name="settings_transcription_desc">Sử dụng mô hình thị giác để mô tả hình ảnh cho các mô hình không hỗ trợ thị giác</string>
+    <string name="settings_memory">Bộ nhớ</string>
+    <string name="settings_memory_desc">Bộ nhớ hoạt động và tệp đã lưu</string>
+    <string name="search_title">Tìm kiếm cuộc trò chuyện</string>
+    <string name="search_desc">Truy cập lịch sử cuộc trò chuyện và phương thức tìm kiếm</string>
+
+    <!-- Settings - Provider Page -->
+    <string name="provider_api_provider">Nhà cung cấp AI</string>
+    <string name="provider_base_url">URL gốc</string>
+    <string name="provider_api_keys">Khóa API</string>
+    <string name="provider_api_keys_optional">Khóa API (Tùy chọn)</string>
+    <string name="provider_no_keys">Chưa cấu hình khóa cho %1$s</string>
+    <string name="provider_keys_count">Đã cấu hình %1$d khóa</string>
+    <string name="provider_add_key">Thêm khóa mới</string>
+    <string name="provider_select_provider">Chọn nhà cung cấp AI</string>
+    <string name="provider_edit_key">Sửa khóa API</string>
+    <string name="provider_add_key_title">Thêm khóa API</string>
+    <string name="provider_key_name_hint">Tên (ví dụ: Không gian làm việc)</string>
+    <string name="provider_delete_key_title">Xóa khóa API?</string>
+    <string name="provider_delete_key_text">Bạn có chắc chắn muốn xóa \'%1$s\'? Hành động này không thể hoàn tác.</string>
+    <string name="provider_close">Đóng</string>
+    <string name="provider_save">Lưu</string>
+    <string name="provider_add">Thêm</string>
+    <string name="provider_delete">Xóa</string>
+    <string name="provider_edit">Sửa</string>
+    <string name="provider_cancel">Hủy</string>
+    <string name="custom_provider_badge">Tùy chỉnh</string>
+    <string name="custom_provider_add">Thêm</string>
+    <string name="custom_provider_add_title">Thêm nhà cung cấp</string>
+    <string name="custom_provider_empty">Chưa thêm nhà cung cấp tùy chỉnh nào</string>
+    <string name="settings_group_multimodal">Đa phương thức</string>
+    <string name="settings_image_gen">Tạo hình ảnh</string>
+    <string name="settings_image_gen_desc">Tạo hình ảnh từ mô tả văn bản</string>
+    <string name="image_gen_enable">Bật tạo hình ảnh</string>
+    <string name="image_gen_enable_desc">Cho phép mô hình tạo hình ảnh qua lệnh gọi công cụ</string>
+    <string name="image_gen_model">Mô hình hình ảnh</string>
+    <string name="image_gen_no_model">Chưa chọn mô hình</string>
+    <string name="image_gen_select_model">Chọn mô hình hình ảnh</string>
+    <string name="image_gen_size">Kích thước mặc định</string>
+    <string name="image_gen_size_hint">1024x1024</string>
+    <string name="image_gen_show_all">Hiển thị tất cả mô hình</string>
+    <string name="tool_generate_image">Tạo hình ảnh</string>
+    <string name="tool_generating_image">Đang tạo hình ảnh…</string>
+    <string name="tool_generated_image">Đã tạo hình ảnh</string>
+    <string name="img_action_save">Lưu vào thư viện</string>
+    <string name="img_action_share">Chia sẻ</string>
+    <string name="img_saved">Đã lưu vào thư viện</string>
+    <string name="img_save_failed">Lưu thất bại</string>
+    <string name="img_info_dimensions">Kích thước</string>
+    <string name="img_info_size">Dung lượng</string>
+    <string name="custom_provider_name_label">Tên nhà cung cấp</string>
+    <string name="custom_provider_name_error">Tên đã tồn tại hoặc không hợp lệ</string>
+    <string name="custom_provider_url_error">Yêu cầu phải có URL gốc</string>
+    <string name="custom_provider_delete_title">Xóa nhà cung cấp</string>
+    <string name="custom_provider_delete_text">Xóa nhà cung cấp \"%1$s\" và toàn bộ dữ liệu liên quan? Hành động này không thể hoàn tác.</string>
+    <string name="custom_provider_rename">Lưu</string>
+    <string name="custom_provider_rename_title">Đổi tên nhà cung cấp</string>
+
+    <!-- Settings - Prompts Page -->
+    <string name="prompts_title">Gợi ý hệ thống</string>
+    <string name="prompts_default">Gợi ý hệ thống mặc định</string>
+    <string name="prompts_default_desc">Định nghĩa vai trò hoặc quy tắc toàn cục</string>
+    <string name="prompts_add">Thêm gợi ý mới</string>
+    <string name="prompts_edit_title">Sửa gợi ý hệ thống</string>
+    <string name="prompts_add_title">Thêm gợi ý hệ thống</string>
+    <string name="prompts_title_hint">Tiêu đề (ví dụ: Người dịch)</string>
+    <string name="prompts_template_title">Chọn một mẫu</string>
+    <string name="prompts_template_blank">Trống</string>
+    <string name="prompts_template_blank_desc">Bắt đầu với một gợi ý hệ thống trống có thể chỉnh sửa.</string>
+    <string name="prompts_template_default">Mặc định</string>
+    <string name="prompts_template_default_desc">Sử dụng gợi ý mặc định của Agora với ngữ cảnh thời gian chạy, bộ nhớ, tìm kiếm web, shell và hướng dẫn tệp thiết bị.</string>
+    <string name="prompts_duplicate">Tạo bản sao</string>
+    <string name="prompts_duplicate_title">Bản sao %1$s</string>
+    <string name="prompts_empty_preview">Gợi ý trống</string>
+    <string name="prompts_empty_title">Không có gợi ý hệ thống</string>
+    <string name="prompts_empty_desc">Tạo tính cách và hướng dẫn tùy chỉnh</string>
+    <string name="prompts_delete_title">Xóa hướng dẫn hệ thống?</string>
+    <string name="prompts_delete_text">Bạn có chắc chắn muốn xóa \'%1$s\'? Hành động này không thể hoàn tác.</string>
+    <string name="template_title_required">Yêu cầu phải có tiêu đề</string>
+    <string name="template_tab_system">Hệ thống</string>
+    <string name="template_tab_prepend">Tiền tố</string>
+    <string name="template_tab_postpend">Hậu tố</string>
+    <string name="template_tab_system_desc">Được gửi dưới dạng hướng dẫn hệ thống.</string>
+    <string name="template_tab_prepend_desc">Được chèn trước mỗi tin nhắn của người dùng.</string>
+    <string name="template_tab_postpend_desc">Được chèn sau mỗi tin nhắn của người dùng.</string>
+    <string name="template_empty_hint">Không có mục nào. Thêm văn bản hoặc biến bên dưới.</string>
+    <string name="template_add_text">Thêm văn bản</string>
+    <string name="template_add_variable">Thêm biến</string>
+    <string name="template_preview">Xem trước</string>
+    <string name="template_preview_empty">(Trống)</string>
+    <string name="template_variable_picker_title">Chọn biến</string>
+    <string name="template_custom_text_label">Văn bản</string>
+    <string name="template_insert_title">Chèn mục</string>
+    <string name="template_move_up">Di chuyển lên</string>
+    <string name="template_move_down">Di chuyển xuống</string>
+
+    <!-- Settings - Models Page -->
+    <string name="models_title">Mô hình</string>
+    <string name="models_default">Mô hình mặc định</string>
+    <string name="models_no_models">Không có mô hình nào được bật</string>
+    <string name="models_available">Mô hình khả dụng</string>
+    <string name="models_sync">Đồng bộ từ tất cả nhà cung cấp</string>
+    <string name="models_sync_desc">Lấy danh sách mô hình mới nhất từ tất cả các API đã cấu hình</string>
+    <string name="models_count">Có %1$d mô hình khả dụng</string>
+    <string name="models_rename">Đổi tên mô hình</string>
+    <string name="models_rename_current">ID hiện tại: %1$s</string>
+    <string name="models_alias_hint">Tên thay thế</string>
+    <string name="models_select_default">Chọn mô hình mặc định</string>
+
+    <!-- Settings - Generation Page -->
+    <string name="generation_title">Tạo nội dung</string>
+    <string name="context_window">Cửa sổ ngữ cảnh</string>
+    <string name="context_window_default">Cửa sổ ngữ cảnh mặc định</string>
+    <string name="context_retain">Giữ lại %1$d tin nhắn gần đây</string>
+    <string name="context_visualize">Trực quan hóa ngữ cảnh bị loại bỏ</string>
+    <string name="context_visualize_desc">Làm mờ tin nhắn nằm ngoài cửa sổ ngữ cảnh</string>
+    <string name="gen_temperature">Nhiệt độ (Temperature)</string>
+    <string name="gen_temperature_desc">Điều chỉnh độ ngẫu nhiên (0.0 = chính xác, 2.0 = sáng tạo)</string>
+    <string name="gen_max_tokens">Số token đầu ra tối đa</string>
+    <string name="gen_max_tokens_desc">Số lượng token tối đa trong phản hồi</string>
+    <string name="gen_not_specified">Chưa xác định</string>
+    <string name="gen_top_p">Top P</string>
+    <string name="gen_top_p_desc">Ngưỡng lấy mẫu hạt nhân (0.0-1.0)</string>
+    <string name="gen_frequency_penalty">Phạt tần suất (Frequency Penalty)</string>
+    <string name="gen_frequency_penalty_desc">Phạt lặp lại token (-2.0 đến 2.0)</string>
+    <string name="gen_presence_penalty">Phạt sự hiện diện (Presence Penalty)</string>
+    <string name="gen_presence_penalty_desc">Khuyến khích sự đa dạng chủ đề (-2.0 đến 2.0)</string>
+    <string name="gen_default_value">Mặc định</string>
+    <string name="gen_reset">Đặt lại</string>
+    <string name="generation_params">Tham số tạo mặc định</string>
+    <string name="default_thinking">Suy nghĩ mặc định</string>
+    <string name="gen_thinking_enabled">Suy nghĩ</string>
+    <string name="gen_thinking_enabled_desc">Bật khả năng suy nghĩ/suy luận của mô hình</string>
+    <string name="gen_thinking_level">Mức độ suy nghĩ</string>
+    <string name="gen_thinking_level_desc">Điều chỉnh độ sâu suy nghĩ; cao hơn = suy luận kỹ lưỡng hơn</string>
+    <string name="gen_thinking_level_minimal">Tối thiểu</string>
+    <string name="gen_thinking_level_low">Thấp</string>
+    <string name="gen_thinking_level_medium">Trung bình</string>
+    <string name="gen_thinking_level_high">Cao</string>
+    <string name="gen_thinking_level_xhigh">Rất cao</string>
+    <string name="gen_thinking_level_max">Tối đa</string>
+    <string name="thinking_effort_label">Nỗ lực suy nghĩ</string>
+    <string name="thinking_effort_desc">Điều khiển mức độ mô hình suy luận kỹ càng trước khi trả lời</string>
+    <string name="thinking_use_budget">Sử dụng giới hạn suy nghĩ</string>
+    <string name="thinking_budget_input_label">Giới hạn (token)</string>
+    <string name="thinking_control_off">Tắt</string>
+    <string name="thinking_control_auto">Tự động</string>
+    <string name="thinking_control_quick">Nhanh</string>
+    <string name="thinking_control_balanced">Cân bằng</string>
+    <string name="thinking_control_deep">Sâu</string>
+    <string name="thinking_control_extreme">Cực độ</string>
+    <string name="thinking_control_effort">Cường độ</string>
+    <string name="thinking_control_budget">Giới hạn token</string>
+    <string name="thinking_advanced_hide">Ẩn nâng cao</string>
+    <string name="thinking_budget_dynamic">Động</string>
+    <string name="thinking_budget_tokens">%1$d token</string>
+    <string name="thinking_budget_custom">Tùy chỉnh</string>
+    <string name="thinking_budget_note">Giới hạn suy nghĩ sử dụng các token ẩn trước khi hiển thị câu trả lời. Giá trị cao hơn có thể cải thiện các tác vụ khó nhưng có thể chậm hơn và tốn kém hơn.</string>
+    <string name="advanced_settings">Nâng cao</string>
+    <string name="advanced_generation_title">Cài đặt nâng cao</string>
+    <string name="advanced_per_conversation">Ghi đè cho từng cuộc trò chuyện</string>
+    <string name="message_display">Hiển thị tin nhắn</string>
+    <string name="tool_call_display_mode">Khối suy nghĩ &amp; công cụ</string>
+    <string name="tool_call_display_mode_timeline">Dòng thời gian</string>
+    <string name="tool_call_display_mode_grouped_timeline">Nhóm lại</string>
+    <string name="tool_call_display_mode_compact">Thu gọn</string>
+    <string name="tool_call_display_mode_timeline_desc">Hiển thị câu trả lời, suy nghĩ và khối công cụ theo thứ tự thời gian</string>
+    <string name="tool_call_display_mode_grouped_timeline_desc">Giữ thứ tự dòng thời gian nhưng gộp các khối suy nghĩ, công cụ và hình ảnh liên tiếp</string>
+    <string name="tool_call_display_mode_compact_desc">Nhóm các khối suy nghĩ và công cụ phía trên câu trả lời</string>
+
+    <!-- Settings - Web Search Page -->
+    <string name="web_search_title">Tìm kiếm Web</string>
+    <string name="web_search_enable">Bật tìm kiếm Web</string>
+    <string name="web_search_enable_desc">Cho phép mô hình tìm kiếm web thông qua gọi công cụ</string>
+    <string name="web_search_provider_label">Nhà cung cấp tìm kiếm</string>
+    <string name="web_search_brave">Brave</string>
+    <string name="web_search_serper">Serper</string>
+    <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_searxng">SearXNG</string>
+    <string name="web_search_duckduckgo">DuckDuckGo</string>
+    <string name="web_search_brave_desc">API tìm kiếm tập trung vào quyền riêng tư. Có gói miễn phí.</string>
+    <string name="web_search_serper_desc">API tìm kiếm Google nhanh. 2,500 truy vấn miễn phí/tháng.</string>
+    <string name="web_search_tavily_desc">API tìm kiếm tối ưu hóa cho AI. Được xây dựng cho các tác nhân LLM.</string>
+    <string name="web_search_searxng_desc">Công cụ tìm kiếm tổng hợp tự lưu trữ. Tốt nhất nên dùng với máy chủ của riêng bạn.</string>
+    <string name="web_search_duckduckgo_desc">Miễn phí, no API key. Web scraping lite.duckduckgo.com. May be unstable and trigger anti-bot protection.</string>
+    <string name="web_search_select_provider">Chọn nhà cung cấp tìm kiếm</string>
+    <string name="web_search_brave_key">Khóa API Brave Search</string>
+    <string name="web_search_brave_key_hint">Khóa API từ brave.com/search/api/</string>
+    <string name="web_search_serper_key">Khóa API Serper</string>
+    <string name="web_search_serper_key_hint">Khóa API từ serper.dev</string>
+    <string name="web_search_tavily_key">Khóa API Tavily</string>
+    <string name="web_search_tavily_key_hint">Khóa API từ tavily.com</string>
+    <string name="web_search_num_results">Kết quả tối đa</string>
+    <string name="web_search_num_results_desc">Số kết quả cần lấy: %1$d (1-10)</string>
+    <string name="web_search_searxng_fallback_desc">Các máy chủ công cộng thường bị giới hạn lượt truy cập. Khuyên dùng tự lưu trữ để sử dụng ổn định.</string>
+    <string name="web_search_advanced">Nâng cao</string>
+    <string name="web_search_searxng_url">URL gốc SearXNG</string>
+    <string name="web_search_searxng_url_hint">https://searx.be</string>
+
+    <!-- Settings - Shell Page -->
+    <string name="shell_title">Shell</string>
+    <string name="shell_desc">Thực thi lệnh shell từ xa</string>
+    <string name="shell_enable">Bật công cụ Shell</string>
+    <string name="shell_enable_desc">Cho phép mô hình thực thi các lệnh shell qua máy chủ từ xa</string>
+    <string name="shell_device_name">Tên</string>
+    <string name="shell_device_name_hint">Máy chủ của tôi</string>
+    <string name="shell_device_desc">Mô tả</string>
+    <string name="shell_device_desc_hint">Máy chủ build trong văn phòng</string>
+    <string name="shell_device_url">URL máy chủ</string>
+    <string name="shell_device_url_hint">http://192.168.1.100:14216</string>
+    <string name="shell_device_key">Khóa API</string>
+    <string name="shell_device_key_hint">Mã thông báo mang tùy chọn (bearer token)</string>
+    <string name="shell_device_timeout">Thời gian chờ (giây)</string>
+    <string name="shell_timeout_value">%d giây</string>
+    <string name="shell_devices">Thiết bị</string>
+    <string name="shell_add_device">Thêm thiết bị</string>
+    <string name="shell_remove_device">Gỡ bỏ</string>
+    <string name="shell_no_devices">Chưa cấu hình thiết bị nào</string>
+    <string name="shell_delete_confirm_title">Xóa thiết bị Shell</string>
+    <string name="shell_delete_confirm_message">Bạn có chắc muốn xóa \"%1$s\"?</string>
+    <string name="shell_result_command">Lệnh: %1$s</string>
+    <string name="shell_result_error">Lỗi: %1$s</string>
+    <string name="shell_result_exit_code">Mã thoát (Exit code): %1$d</string>
+    <string name="shell_result_server">Máy chủ: %1$s</string>
+    <string name="shell_device_type">Loại</string>
+
+    <!-- Settings - Linux Sandbox -->
+    <string name="sandbox_title">Hộp cát cục bộ (Sandbox)</string>
+    <string name="sandbox_enable">Bật hộp cát cục bộ</string>
+    <string name="sandbox_enable_desc">Chạy các lệnh trong môi trường Alpine Linux cô lập trên thiết bị</string>
+    <string name="shell_device_host">Host SSH</string>
+    <string name="shell_device_host_hint">192.168.1.100</string>
+    <string name="shell_device_port">Cổng</string>
+    <string name="shell_device_user">Tên đăng nhập</string>
+    <string name="shell_device_password">Mật khẩu</string>
+
+    <!-- Settings - Sandbox Management -->
+    <string name="sandbox_mgmt_title">Quản lý hộp cát</string>
+    <string name="sandbox_env">Môi trường</string>
+    <string name="sandbox_alpine_version">Alpine Linux</string>
+    <string name="sandbox_disk_usage">Dung lượng ổ đĩa</string>
+    <string name="sandbox_install">Cài đặt</string>
+    <string name="sandbox_upgrade">Nâng cấp</string>
+    <string name="sandbox_install_packages">Cài đặt gói (Package)</string>
+    <string name="sandbox_package_name">Tên gói</string>
+    <string name="sandbox_quick_install">Cài đặt nhanh</string>
+    <string name="sandbox_installed">Các gói đã cài đặt</string>
+    <string name="sandbox_no_packages">Không có gói nào được cài đặt. Chỉ có nền tảng Alpine.</string>
+    <string name="sandbox_danger_zone">Vùng nguy hiểm</string>
+    <string name="sandbox_reset">Đặt lại môi trường</string>
+    <string name="sandbox_reset_desc">Xóa Alpine rootfs và tất cả các gói</string>
+    <string name="sandbox_reset_confirm">Thao tác này sẽ xóa rootfs Alpine Linux và tất cả các gói đã cài đặt. Hành động này không thể hoàn tác.</string>
+    <string name="sandbox_not_supported">Không hỗ trợ hộp cát cục bộ</string>
+    <string name="sandbox_snackbar_installed">Đã cài đặt %s</string>
+    <string name="sandbox_snackbar_install_failed">Cài đặt %s thất bại</string>
+    <string name="sandbox_snackbar_removed">Đã xóa %s</string>
+    <string name="sandbox_snackbar_remove_failed">Xóa %s thất bại</string>
+    <string name="sandbox_snackbar_upgrade_done">Đã nâng cấp %d gói</string>
+    <string name="sandbox_snackbar_upgrade_none">Các gói đã được cập nhật bản mới nhất</string>
+    <string name="sandbox_snackbar_upgrade_failed">Nâng cấp thất bại</string>
+    <string name="sandbox_snackbar_reset">Đã đặt lại hộp cát</string>
+    <string name="sandbox_snackbar_reset_failed">Đặt lại thất bại</string>
+    <string name="sandbox_snackbar_error">Lỗi: %s</string>
+    <string name="sandbox_not_supported_desc">Tính năng này không khả dụng trong phiên bản hiện tại</string>
+    <string name="sandbox_not_installed">Chưa cài đặt</string>
+    <string name="sandbox_extracting_rootfs">Đang giải nén Alpine rootfs...</string>
+    <string name="sandbox_downloading_rootfs">Đang tải xuống Alpine rootfs… %d%%</string>
+    <string name="sandbox_install_failed">Cài đặt thất bại</string>
+    <string name="sandbox_installed_label">Đã cài đặt</string>
+    <string name="sandbox_failed_label">Thất bại</string>
+    <string name="sandbox_dashboard_summary">Đã cài đặt %d gói · aarch64</string>
+    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_remove_pkg_title">Xóa %s</string>
+    <string name="sandbox_remove_pkg_desc">Xóa %s khỏi hộp cát? Các gói không còn cần thiết cũng sẽ bị xóa bỏ.</string>
+    <string name="sandbox_remove_content_desc">Xóa gói</string>
+    <string name="sandbox_manage">Quản lý hộp cát cục bộ</string>
+    <string name="sandbox_manage_desc">Cài đặt, cấu hình các gói hoặc đặt lại</string>
+    <string name="sandbox_package_placeholder">python3, git, curl...</string>
+    <string name="sandbox_installed_fmt">Các gói đã cài đặt (%d)</string>
+    <string name="sandbox_browse_files">Duyệt tệp</string>
+    <string name="sandbox_browse_files_desc">Mở thư mục hộp cát trong trình quản lý tệp hệ thống</string>
+
+    <!-- Settings - Title Generation -->
+    <string name="title_gen_auto">Tự động tạo tiêu đề</string>
+    <string name="title_gen_auto_desc">Tạo tiêu đề sau phản hồi đầu tiên</string>
+    <string name="title_gen_model">Mô hình tiêu đề</string>
+    <string name="title_gen_current_model">Sử dụng mô hình hiện tại</string>
+    <string name="title_gen_select_model">Chọn mô hình tiêu đề</string>
+    <string name="title_gen_prompt">Gợi ý tiêu đề</string>
+    <string name="title_gen_prompt_desc">Hướng dẫn hệ thống được dùng khi tạo tiêu đề cuộc trò chuyện</string>
+
+    <!-- Settings - Image Transcription Page -->
+    <string name="transcription_model">Mô hình chuyển tả</string>
+    <string name="transcription_no_model">Chưa chọn</string>
+    <string name="transcription_select_model">Chọn mô hình chuyển tả</string>
+    <string name="transcription_batch_size">Kích thước lô (Batch Size)</string>
+    <string name="transcription_batch_size_desc">Số lượng hình ảnh cho mỗi cuộc gọi API (1–10)</string>
+    <string name="transcription_prompt">Gợi ý chuyển tả</string>
+    <string name="transcription_prompt_desc">Hướng dẫn được gửi kèm theo mỗi yêu cầu chuyển tả hình ảnh</string>
+    <string name="transcription_enabled_models">Mô hình được bật</string>
+    <string name="transcription_no_models_enabled">Không có mô hình nào được bật</string>
+    <string name="transcription_no_models_hint">Thêm các mô hình ở trên để bật tính năng chuyển tả hình ảnh</string>
+    <string name="transcription_add_model">Thêm mô hình</string>
+    <string name="transcription_ellipsis">Đang chuyển tả hình ảnh…</string>
+    <string name="transcription_progress">Đang chuyển tả hình ảnh %1$d/%2$d…</string>
+    <string name="prompt_content">Nội dung gợi ý</string>
+
+    <!-- Settings - Memory Page -->
+    <string name="memory_title">Bộ nhớ</string>
+    <string name="memory_access_saved">Truy cập ký ức đã lưu</string>
+    <string name="memory_access_saved_desc">Cho phép mô hình đọc, tạo và chỉnh sửa các tệp ký ức</string>
+    <string name="memory_access_active">Truy cập ký ức hoạt động</string>
+    <string name="memory_access_active_desc">Cho phép mô hình cập nhật ký ức hoạt động</string>
+    <string name="memory_access_past">Truy cập cuộc trò chuyện cũ</string>
+    <string name="memory_access_past_desc">Cho phép mô hình tìm kiếm lịch sử cuộc trò chuyện</string>
+    <string name="memory_active_title">Ký ức hoạt động</string>
+    <string name="memory_active_context">Ngữ cảnh ký ức hoạt động</string>
+    <string name="memory_active_empty">Chưa thiết lập ký ức hoạt động. Mô hình sẽ nhớ thông tin này trong tất cả các cuộc trò chuyện.</string>
+    <string name="memory_saved_title">Ký ức đã lưu</string>
+    <string name="memory_add">Thêm ký ức</string>
+    <string name="memory_add_desc">Thêm ký ức mới vào các ký ức đã lưu</string>
+    <string name="memory_no_files">Chưa có ký ức nào</string>
+    <string name="memory_create_hint">Tạo một ký ức hoặc để mô hình tự tạo qua lệnh gọi công cụ</string>
+    <string name="memory_edit_active">Sửa ký ức hoạt động</string>
+    <string name="memory_edit">Sửa ký ức</string>
+    <string name="memory_title_hint">Tiêu đề</string>
+    <string name="memory_desc_hint">Mô tả</string>
+    <string name="memory_content_hint">Nội dung</string>
+    <string name="memory_active_desc">Nội dung này được bao gồm trong mỗi cuộc gọi API. Hãy viết các sự thật, sở thích hoặc ngữ cảnh mà mô hình nên luôn ghi nhớ.</string>
+    <string name="memory_delete_title">Xóa ký ức?</string>
+    <string name="memory_delete_text">Bạn có chắc chắn muốn xóa \'%1$s\'? Hành động này không thể hoàn tác.</string>
+    <string name="memory_add_title">Thêm ký ức</string>
+    <string name="memory_create">Tạo</string>
+
+    <!-- Snackbar Messages -->
+    <string name="snackbar_fetching_models">Đang lấy danh sách các mô hình khả dụng...</string>
+    <string name="snackbar_generating_title">Đang tạo tiêu đề...</string>
+    <string name="snackbar_title_generated">Đã tạo tiêu đề.</string>
+    <string name="snackbar_title_error">Gặp lỗi khi tạo tiêu đề.</string>
+
+    <!-- Appearance -->
+    <string name="settings_appearance">Giao diện</string>
+    <string name="settings_appearance_desc">Chủ đề, bảng màu và màu sắc động</string>
+    <string name="appearance_title">Giao diện</string>
+    <string name="appearance_interface">Giao diện người dùng</string>
+    <string name="theme_mode">Chế độ chủ đề</string>
+    <string name="theme_mode_light">Sáng</string>
+    <string name="theme_mode_dark">Tối</string>
+    <string name="theme_mode_follow_device">Theo hệ thống</string>
+    <string name="color_scheme">Bảng màu</string>
+    <string name="color_scheme_midnight">Midnight</string>
+    <string name="color_scheme_nordic">Nordic</string>
+    <string name="color_scheme_forest">Forest</string>
+    <string name="color_scheme_sunset">Sunset</string>
+    <string name="color_scheme_rose">Rose</string>
+    <string name="color_scheme_lavender">Lavender</string>
+    <string name="color_scheme_slate">Slate</string>
+    <string name="color_scheme_ocean">Ocean</string>
+    <string name="scheme_style">Phong cách phối màu</string>
+    <string name="scheme_style_tonal_spot">Tonal Spot</string>
+    <string name="scheme_style_expressive">Expressive</string>
+    <string name="scheme_style_vibrant">Vibrant</string>
+    <string name="scheme_style_neutral">Neutral</string>
+    <string name="font_title">Phông chữ</string>
+    <string name="font_app_default">Mặc định của ứng dụng</string>
+    <string name="font_system_default">Mặc định của hệ thống</string>
+    <string name="font_custom">Phông chữ tùy chỉnh</string>
+    <string name="font_custom_pick">Chọn tệp phông chữ</string>
+    <string name="font_no_file_selected">Chưa chọn phông chữ</string>
+    <string name="font_invalid_file">Tệp phông chữ không hợp lệ</string>
+    <string name="dynamic_color">Màu động (Dynamic Color)</string>
+    <string name="dynamic_color_desc">Sử dụng màu sắc do hệ thống tự tạo dựa trên hình nền (Android 12+)</string>
+    <string name="visual_effects">Hiệu ứng thị giác</string>
+    <string name="blur_effects">Hiệu ứng làm mờ</string>
+    <string name="blur_effects_desc">Làm mờ phần đầu của danh sách trò chuyện dưới thanh công cụ. Tắt đi để tiết kiệm hiệu năng.</string>
+    <string name="interaction_feedback">Phản hồi tương tác</string>
+    <string name="haptic_feedback">Phản hồi xúc giác (Haptic)</string>
+    <string name="haptic_feedback_desc">Sử dụng rung nhẹ cho trạng thái tạo và các hành động chính.</string>
+
+    <!-- Language -->
+    <string name="language_title">Ngôn ngữ</string>
+    <string name="language_desc">Thay đổi ngôn ngữ hiển thị của ứng dụng</string>
+    <string name="language_system_default">Mặc định hệ thống</string>
+    <string name="language_restart_message">Khởi động lại ứng dụng để áp dụng cài đặt</string>
+    <string name="language_restart_action">Khởi động lại</string>
+
+    <!-- Sync -->
+    <string name="sync_success_providers">Đã đồng bộ thành công %1$d nhà cung cấp</string>
+    <string name="sync_partial">Đã đồng bộ: %1$s; Thất bại: %2$s</string>
+    <string name="sync_failed_providers">Đồng bộ thất bại: %1$s</string>
+    <string name="sync_no_providers">Không có nhà cung cấp nào được cấu hình để đồng bộ</string>
+    <string name="sync_completed">Đồng bộ hoàn tất</string>
+
+    <!-- Memory Access -->
+    <string name="memory_access_title">Truy cập</string>
+    <string name="search_methods_title">Phương thức tìm kiếm</string>
+    <string name="model_search_method">Phương thức tìm kiếm của mô hình</string>
+    <string name="model_search_method_desc">Cách mô hình tìm kiếm các cuộc trò chuyện cũ qua lệnh gọi công cụ</string>
+    <string name="manual_search_method">Phương thức tìm kiếm thủ công</string>
+    <string name="manual_search_method_desc">Cách thanh tìm kiếm trong ngăn kéo tìm thấy kết quả</string>
+    <string name="search_method_keyword">Từ khóa</string>
+    <string name="search_method_rag">Ngữ nghĩa (RAG)</string>
+    <string name="embedding_title">Nhúng (Embedding)</string>
+    <string name="embedding_model_label">Mô hình</string>
+    <string name="embedding_base_url_label">URL gốc</string>
+    <string name="embedding_provider_label">Nhà cung cấp</string>
+    <string name="embedding_api_key">Khóa API</string>
+    <string name="embedding_using_key">Sử dụng khóa của %1$s</string>
+    <string name="embedding_using_fallback_key">Sử dụng khóa của %1$s (không có khóa %2$s)</string>
+    <string name="embedding_key_autofill_hint">Để trống để sử dụng khóa trò chuyện tự động phân giải</string>
+    <string name="embedding_api_key_hint">Nhập khóa API</string>
+    <string name="embedding_no_key">Chưa cấu hình khóa API</string>
+    <string name="embedding_custom">Tùy chỉnh...</string>
+    <string name="embedding_custom_model_desc">Nhập bất kỳ tên mô hình nào được nhà cung cấp hỗ trợ</string>
+    <string name="embedding_batch_size">Kích thước lô (Batch Size)</string>
+    <string name="embedding_batch_size_desc">Số tin nhắn cần lưu bộ nhớ đệm cho mỗi yêu cầu (1-100)</string>
+    <string name="local_model_ready">Đã nhập mô hình.</string>
+    <string name="import_model">Nhập mô hình (.gguf)</string>
+    <string name="importing_model">Đang nhập...</string>
+    <string name="no_embedding_models">Chưa cấu hình mô hình nhúng nào</string>
+    <string name="embedding_type_remote">Từ xa</string>
+    <string name="embedding_type_local">Cục bộ</string>
+    <string name="cached">Đã lưu bộ đệm</string>
+    <string name="not_cached">Chưa lưu bộ đệm</string>
+    <string name="advanced_title">Nâng cao</string>
+    <string name="search_context_label">Tin nhắn ngữ cảnh cho mỗi kết quả tìm kiếm</string>
+    <string name="search_context_desc">%1$d tin nhắn</string>
+    <string name="search_match_label">Kết quả tìm kiếm tối đa</string>
+    <string name="search_match_desc">%1$d kết quả</string>
+    <string name="rag_threshold_label">Ngưỡng tương đồng</string>
+    <string name="auto_cache_title">Lưu bộ đệm</string>
+    <string name="auto_cache">Tự động lưu bộ đệm các tin nhắn mới</string>
+    <string name="auto_cache_desc">Tự động chỉ mục các tin nhắn mới bằng mô hình nhúng đã chọn. Khi tắt, các tin nhắn sẽ không bao giờ được lưu bộ đệm cho đến khi được kích hoạt thủ công.</string>
+    <string name="cache_action">Lưu bộ đệm</string>
+    <string name="recache_action">Lưu lại bộ đệm</string>
+    <string name="recache_confirm_title">Lưu lại bộ đệm tất cả tin nhắn</string>
+    <string name="recache_confirm_message">Thao tác này sẽ xóa tất cả các vector nhúng đã lưu bộ đệm và xử lý lại tất cả các tin nhắn. Hành động này không thể hoàn tác.</string>
+    <string name="add_remote_model">Thêm mô hình từ xa</string>
+    <string name="add_local_model">Thêm mô hình cục bộ</string>
+    <string name="model_name_label">Tên</string>
+    <string name="add">Thêm</string>
+    <string name="delete_model_title">Xóa mô hình nhúng</string>
+    <string name="delete_model_confirm">Thao tác này cũng sẽ xóa tất cả các vector nhúng đã lưu bộ đệm cho mô hình này.</string>
+
+    <!-- Errors -->
+    <string name="search_found_matches">Tìm thấy %1$d kết quả khớp cho \'%2$s\'.</string>
+    <string name="search_found_results">Tìm thấy %1$d kết quả cho \'%2$s\'.</string>
+    <string name="search_found_results_no_query">Tìm thấy %1$d kết quả.</string>
+    <string name="search_no_matches">Tìm thấy 0 kết quả khớp cho \'%1$s\'.</string>
+
+    <string name="unknown">Không xác định</string>
+    <string name="search_hint">Tìm kiếm cuộc trò chuyện...</string>
+    <string name="clear_search">Xóa tìm kiếm</string>
+    <string name="search_untitled">Không có tiêu đề</string>
+    <string name="search_role_user">Người dùng</string>
+    <string name="search_role_model">Mô hình</string>
+    <string name="search_no_query">Không có truy vấn tìm kiếm nào được cung cấp.</string>
+    <string name="search_no_response">Tìm kiếm thất bại: không có phản hồi</string>
+    <string name="search_no_results">Không tìm thấy kết quả tìm kiếm nào.</string>
+    <string name="search_error_format">Lỗi tìm kiếm: %1$s</string>
+
+    <!-- Conversation list / read tools -->
+    <string name="conversation_list_empty">Không tìm thấy cuộc trò chuyện nào.</string>
+    <string name="conversation_list_header">Đang hiển thị %1$d cuộc trò chuyện (tin nhắn từ %2$d-%3$d).</string>
+    <string name="conversation_list_more">Sử dụng giá trị offset lớn hơn để xem thêm cuộc trò chuyện.</string>
+    <string name="conversation_read_header">Cuộc trò chuyện: %1$s (%2$d tin nhắn)</string>
+    <string name="conversation_read_empty">Không có tin nhắn nào trong nhánh đã chọn.</string>
+    <string name="conversation_read_page">Trang: tin nhắn từ %1$d-%2$d</string>
+    <string name="conversation_read_more">Sử dụng giá trị offset lớn hơn để xem thêm tin nhắn.</string>
+
+    <!-- General -->
+    <string name="back">Quay lại</string>
+    <string name="remove">Xóa bỏ</string>
+    <string name="menu">Menu</string>
+    <string name="options">Tùy chọn</string>
+    <string name="video_thumbnail">Ảnh thu nhỏ video</string>
+    <string name="play">Phát</string>
+    <string name="video_preview">Xem trước video</string>
+    <string name="total_tokens">Tổng cộng: %1$d token</string>
+    <string name="welcome_to_agora">Chào mừng đến với Agora.</string>
+    <string name="database_incompatible">Cơ sở dữ liệu không tương thích</string>
+    <string name="database_incompatible_desc">Cơ sở dữ liệu không tương thích với phiên bản Agora này. Vui lòng xóa cơ sở dữ liệu và khởi động lại ứng dụng.</string>
+    <string name="quit">Thoát</string>
+    <string name="clear_database">Xóa cơ sở dữ liệu</string>
+    <string name="generate_title">Tạo tiêu đề</string>
+    <string name="rename">Đổi tên</string>
+    <string name="delete">Xóa</string>
+    <string name="rename_chat">Đổi tên trò chuyện</string>
+    <string name="delete_chat">Xóa cuộc trò chuyện?</string>
+    <string name="delete_chat_confirm">Bạn có chắc chắn muốn xóa cuộc trò chuyện này? Hành động này không thể hoàn tác.</string>
+    <string name="delete_message_title">Xóa tin nhắn?</string>
+    <string name="delete_message_confirm">Tin nhắn này và tất cả các phản hồi tiếp theo sẽ bị xóa vĩnh viễn.</string>
+    <string name="conversation_prompt">Gợi ý cuộc trò chuyện</string>
+    <string name="global_default_format">Mặc định toàn cục (%1$s)</string>
+    <string name="save">Lưu</string>
+
+    <!-- Local Chat Provider -->
+    <string name="local_chat_models">Mô hình trò chuyện cục bộ</string>
+    <string name="local_models_title">Mô hình cục bộ</string>
+    <string name="local_chat_models_count">Đã nhập %1$d mô hình</string>
+    <string name="local_title">Cục bộ</string>
+    <string name="not_configured">Chưa được cấu hình</string>
+    <string name="provider_built_in">Nhà cung cấp tích hợp sẵn</string>
+    <string name="custom_provider_section">Nhà cung cấp tùy chỉnh</string>
+    <string name="provider_local_models_summary">%1$d mô hình cục bộ</string>
+    <string name="provider_no_local_models">Chưa thêm mô hình nào</string>
+    <string name="provider_no_local_models_desc">Nhập mô hình GGUF để bắt đầu</string>
+    <string name="provider_keys_summary">%1$d khóa API</string>
+    <string name="provider_connection">Kết nối</string>
+    <string name="import_model_chat">Nhập mô hình GGUF</string>
+    <string name="add_local_chat_model">Thêm mô hình cục bộ</string>
+    <string name="local_ctx_size">Kích thước ngữ cảnh</string>
+    <string name="local_temperature">Nhiệt độ (Temperature)</string>
+    <string name="local_top_p">Top P</string>
+    <string name="local_max_tokens">Số token tối đa</string>
+    <string name="local_mmproj_path">Đường dẫn Vision Projector (tùy chọn)</string>
+    <string name="local_mmproj_path_hint">Đường dẫn tới tệp mmproj .gguf cho thị giác</string>
+    <string name="local_mmproj_path_label">Bộ chiếu thị giác (.mmproj)</string>
+    <string name="local_chat_delete_title">Xóa mô hình cục bộ?</string>
+    <string name="local_chat_delete_text">Bạn có chắc chắn muốn xóa \'%1$s\'? Thao tác này cũng sẽ xóa tệp mô hình.</string>
+    <string name="model_id_label">ID</string>
+    <string name="model_alias_label">Tên thay thế</string>
+
+    <!-- Settings - Group Labels -->
+    <string name="settings_group_memory_data">Bộ nhớ &amp; Dữ liệu</string>
+    <string name="settings_group_appearance_language">Giao diện &amp; Ngôn ngữ</string>
+    <string name="settings_group_services">Dịch vụ</string>
+    <string name="settings_group_responses">Phản hồi</string>
+    <string name="settings_group_tools">Công cụ</string>
+    <string name="settings_group_about">Giới thiệu</string>
+    <string name="rating_category">Đánh giá</string>
+
+    <!-- About -->
+    <string name="settings_about">Giới thiệu</string>
+    <string name="gpt_import_success">Nhập thành công</string>
+    <string name="gpt_import_success_detail">Đã nhập %1$d cuộc trò chuyện (%2$d tin nhắn).</string>
+    <string name="gpt_import_import">Nhập</string>
+    <string name="gpt_import_progress">Đang nhập…</string>
+    <string name="gpt_import_no_data">Tệp này không chứa dữ liệu có thể nhập.</string>
+    <string name="select_all">Chọn tất cả</string>
+    <string name="deselect_all">Bỏ chọn tất cả</string>
+
+    <!-- Video Slicing -->
+    <string name="video_slice_title">Trích xuất khung hình video</string>
+    <string name="video_duration">Thời lượng: %1$s</string>
+    <string name="by_frame_count">Theo số khung hình</string>
+    <string name="by_interval">Theo khoảng thời gian</string>
+    <string name="frames_count">Khung hình: %1$d</string>
+    <string name="interval_seconds">Khoảng thời gian: %1$d giây</string>
+    <string name="extract_frames">Trích xuất %1$d khung hình</string>
+
+    <!-- File Validation -->
+    <string name="file_unsupported_title">Tệp không được hỗ trợ</string>
+    <string name="file_unknown_type">Loại tệp không xác định</string>
+    <string name="file_unsupported_type">Loại tệp không được hỗ trợ: %1$s</string>
+    <string name="file_too_large">Tệp quá lớn (tối đa 20 MB)</string>
+    <string name="pdf_render_failed">Hiển thị PDF thất bại</string>
+    <string name="pdf_selected">Đã chọn</string>
+
+    <!-- Caching & Sync -->
+    <string name="embedding_model_caching">Mô hình nhúng \"%1$s\" đang lưu bộ đệm…</string>
+    <string name="messages_not_cached">%1$d trên %2$d tin nhắn chưa được lưu bộ đệm.</string>
+    <string name="cache_now">Lưu bộ đệm ngay</string>
+    <string name="no_messages_to_cache">Không có tin nhắn nào để lưu bộ đệm.</string>
+    <string name="all_messages_already_cached">Tất cả %1$d tin nhắn đã được lưu bộ đệm.</string>
+    <string name="no_api_key_configured">Chưa cấu hình khóa API.</string>
+    <string name="no_api_key_for_provider">Chưa cấu hình thông tin xác thực cho %s. Vui lòng thêm khóa API hoặc URL gốc trong phần Cài đặt.</string>
+    <string name="local_model_not_found">Không tìm thấy tệp mô hình cục bộ. Vui lòng nhập lại mô hình.</string>
+    <string name="local_context_exceeded">Cuộc trò chuyện này cần %1$d token prompt, nhưng ngữ cảnh của mô hình cục bộ là %2$d token. Hãy giảm cửa sổ ngữ cảnh hoặc tăng kích thước ngữ cảnh của mô hình.</string>
+    <string name="all_messages_cached">Tất cả %1$d tin nhắn đã được lưu bộ đệm.</string>
+    <string name="cached_partial_failed">Đã lưu bộ đệm %1$d trên %2$d. %3$d thất bại.</string>
+    <string name="retry">Thử lại</string>
+    <string name="parse_error">Lỗi phân tích cú pháp</string>
+    <string name="unknown_error">Lỗi không xác định</string>
+    <string name="could_not_read_file">Không thể đọc tệp</string>
+    <string name="import_file_too_large">Tệp quá lớn (%1$d MB). Vui lòng chọn một tệp xuất nhỏ hơn.</string>
+    <string name="import_out_of_memory">Không đủ bộ nhớ để nhập tệp này. Vui lòng chọn một tệp xuất nhỏ hơn.</string>
+
+    <!-- Documentation -->
+    <string name="documentation">Tài liệu hướng dẫn</string>
+    <string name="show_documentation_links">Hiển thị liên kết tài liệu hướng dẫn</string>
+    <string name="show_documentation_links_desc">Hiển thị nút tài liệu hướng dẫn trên các trang cài đặt</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome_title">Chào mừng đến với Agora</string>
+    <string name="onboarding_welcome_desc">Một ứng dụng BYOK (Tự mang khóa của bạn) giúp bạn giành lại chủ quyền dữ liệu.</string>
+    <string name="onboarding_byok_title">Tự mang khóa của bạn (BYOK)</string>
+    <string name="onboarding_byok_desc">Thiết lập khóa API của bạn hoặc nhập mô hình GGUF để mở khóa tính năng suy luận ngay trên thiết bị.</string>
+    <string name="onboarding_provider_title">Chọn nhà cung cấp</string>
+    <string name="onboarding_provider_desc">Chọn một nhà cung cấp AI để bắt đầu.</string>
+    <string name="onboarding_api_key_title">Khóa API</string>
+    <string name="onboarding_api_key_desc">Nhập khóa API của bạn để kết nối.</string>
+    <string name="onboarding_model_video_title">Chọn mô hình của bạn</string>
+    <string name="onboarding_model_video_desc">Kết nối với hơn 8 nhà cung cấp AI hoặc chạy mô hình cục bộ với llama.cpp.</string>
+    <string name="onboarding_model_select_title">Chọn mô hình</string>
+    <string name="onboarding_model_select_desc">Chọn mô hình bạn muốn trò chuyện.</string>
+    <string name="onboarding_auto_backup_title">Tự động sao lưu</string>
+    <string name="onboarding_auto_backup_desc">Tự động sao lưu dữ liệu của bạn theo lịch trình để không bao giờ bị mất mát.</string>
+    <string name="onboarding_done_title">Bạn đã sẵn sàng!</string>
+    <string name="onboarding_done_desc">Bắt đầu trò chuyện với toàn quyền kiểm soát dữ liệu và quyền riêng tư của bạn.</string>
+    <string name="onboarding_gguf_title">Mô hình GGUF</string>
+    <string name="onboarding_server_url_title">URL máy chủ</string>
+    <string name="onboarding_gguf_desc">Nhập mô hình GGUF để thực hiện suy luận trên thiết bị.</string>
+    <string name="onboarding_ollama_desc">Nhập URL máy chủ Ollama của bạn.</string>
+    <string name="onboarding_api_key_for">Nhập khóa API của bạn cho %1$s.</string>
+    <string name="onboarding_custom_title">Nhà cung cấp tùy chỉnh</string>
+    <string name="onboarding_custom_desc">Kết nối với bất kỳ API nào tương thích với OpenAI. Nhập URL gốc và khóa của nó.</string>
+    <string name="onboarding_custom_base_url_hint">URL gốc (ví dụ: https://api.example.com/v1)</string>
+    <string name="onboarding_skip">Bỏ qua</string>
+    <string name="onboarding_continue">Tiếp tục</string>
+    <string name="onboarding_get_started">Bắt đầu</string>
+    <string name="onboarding_skip_for_now">Bỏ qua lúc này</string>
+    <string name="onboarding_api_key_hint">Nhập khóa API của bạn…</string>
+    <string name="onboarding_ollama_hint">http://localhost:11434</string>
+    <string name="onboarding_import_gguf">Nhập mô hình GGUF</string>
+    <string name="onboarding_importing">Đang nhập…</string>
+    <string name="onboarding_no_provider">Chưa chọn nhà cung cấp.</string>
+    <string name="onboarding_no_models">Chưa tải mô hình nào.</string>
+    <string name="onboarding_invalid_gguf_title">Tệp GGUF không hợp lệ</string>
+    <string name="onboarding_invalid_gguf_desc">Tệp được chọn dường như không phải là mô hình GGUF hợp lệ.</string>
+    <string name="onboarding_hide_key">Ẩn khóa</string>
+    <string name="onboarding_show_key">Hiển thị khóa</string>
+
+    <!-- ── Auto Backup ── -->
+    <string name="auto_backup_title">Tự động sao lưu</string>
+    <string name="auto_backup_subtitle">Tự động xuất dữ liệu theo lịch trình</string>
+    <string name="auto_backup_period_label">Sao lưu mỗi</string>
+    <string name="auto_backup_period_1d">1 ngày</string>
+    <string name="auto_backup_period_3d">3 ngày</string>
+    <string name="auto_backup_period_5d">5 ngày</string>
+    <string name="auto_backup_period_1w">1 tuần</string>
+    <string name="auto_backup_period_1mo">1 tháng</string>
+    <string name="auto_backup_categories_label">Xuất nội dung</string>
+    <string name="auto_backup_categories_desc">Chọn những gì cần sao lưu</string>
+    <string name="auto_backup_categories_dialog_title">Nội dung sao lưu tự động</string>
+    <string name="auto_backup_api_key_warning">Các khóa API sẽ được lưu trữ mà không mã hóa trong tệp sao lưu</string>
+    <string name="auto_backup_directory_label">Vị trí sao lưu</string>
+    <string name="auto_delete_title">Tự động xóa các bản sao lưu cũ</string>
+    <string name="auto_delete_subtitle">Xóa các bản sao lưu cũ hơn khoảng thời gian được chỉ định</string>
+    <string name="auto_delete_period_label">Xóa cũ hơn</string>
+    <string name="auto_delete_period_1w">1 tuần</string>
+    <string name="auto_delete_period_1mo">1 tháng</string>
+    <string name="auto_delete_period_1y">1 năm</string>
+
+    <!-- PDF page selection dialog -->
+    <string name="pdf_select_title">Chọn các trang PDF</string>
+    <string name="pdf_select_subtitle">%1$d trang — chọn các trang để bao gồm</string>
+    <string name="pdf_rendering_progress">Đang hiển thị trang %1$d trên %2$d…</string>
+    <string name="pdf_send_pages">Gửi %1$d trang</string>
+    <string name="pdf_page_content_desc">Trang %1$d</string>
+    <string name="pdf_pages_selected">Đã chọn %1$d trang</string>
+    <string name="video_between_frames">~%1$s giữa các khung hình</string>
+
+    <!-- SSH host-key pinning -->
+    <string name="shell_ssh_verify_host_key">Xác minh &amp; ghim khóa máy chủ</string>
+    <string name="shell_ssh_host_key_pinned">Khóa máy chủ đã được ghim</string>
+    <string name="shell_ssh_host_key_not_pinned">Khóa máy chủ chưa được ghim — có nguy cơ bị chặn bắt dữ liệu</string>
+    <string name="shell_ssh_verify_title">Xác minh khóa máy chủ SSH</string>
+    <string name="shell_ssh_verify_message">Xác nhận xem dấu vân tay này có khớp với máy chủ của bạn trước khi tin cậy hay không. Ghim giúp bảo vệ chống lại tấn công giả mạo (man-in-the-middle).</string>
+    <string name="shell_ssh_trust">Tin cậy &amp; ghim</string>
+    <string name="shell_ssh_verify_failed">Không thể kết nối tới máy chủ: %1$s</string>
+    <string name="shell_ssh_verifying">Đang kết nối…</string>
+    <string name="shell_ssh_unpin">Gỡ bỏ khóa đã ghim</string>
+
+    <!-- Remote shell confirmation gate -->
+    <string name="shell_confirm_title">Cho phép hành động trên \"%1$s\"?</string>
+    <string name="shell_confirm_allow">Cho phép một lần</string>
+    <string name="shell_confirm_always">Luôn cho phép máy chủ này</string>
+    <string name="shell_confirm_deny">Từ chối</string>
+    <string name="shell_confirm_setting">Xác nhận các hành động shell từ xa</string>
+    <string name="shell_confirm_setting_desc">Hỏi trước khi trợ lý chạy các lệnh hoặc ghi tệp trên các máy chủ SSH/Conch từ xa</string>
+
+    <!-- Crash reporting -->
+    <string name="crash_title">Agora đã thoát đột ngột</string>
+    <string name="crash_message">Rất tiếc vì sự cố này. Bạn có thể giúp khắc phục lỗi bằng cách gửi một báo cáo sự cố ẩn danh.</string>
+    <string name="crash_submit">Gửi báo cáo</string>
+    <string name="crash_dismiss">Không gửi</string>
+    <string name="crash_privacy_note">Chỉ có nhật ký sự cố được gửi đến newoether.space. Không thu thập thêm thông tin nào khác.</string>
+    <string name="crash_submitted">Báo cáo sự cố đã được gửi. Xin cảm ơn bạn!</string>
+    <string name="settings_group_network">Mạng</string>
+    <string name="settings_proxy">Proxy</string>
+    <string name="settings_proxy_desc">Định tuyến lưu lượng truy cập mạng thông qua một proxy HTTP hoặc SOCKS</string>
+    <string name="proxy_enable">Bật proxy</string>
+    <string name="proxy_enable_desc">Định tuyến tất cả lưu lượng mạng của ứng dụng qua proxy</string>
+    <string name="proxy_type">Loại</string>
+    <string name="proxy_host">Host</string>
+    <string name="proxy_port">Cổng</string>
+    <string name="proxy_username">Tên đăng nhập (tùy chọn)</string>
+    <string name="proxy_password">Mật khẩu (tùy chọn)</string>
+    <string name="proxy_bypass">Danh sách bỏ qua</string>
+    <string name="proxy_bypass_desc">Các máy chủ và dải CIDR kết nối trực tiếp, mỗi địa chỉ một dòng</string>
+</resources>
