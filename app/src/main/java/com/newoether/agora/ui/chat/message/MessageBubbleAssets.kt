@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,7 @@ import com.mikepenz.markdown.compose.LocalMarkdownColors
 import com.mikepenz.markdown.compose.LocalMarkdownDimens
 import com.mikepenz.markdown.compose.LocalMarkdownPadding
 import com.mikepenz.markdown.m3.markdownColor
+import com.mikepenz.markdown.m3.markdownDimens
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.MarkdownColors
@@ -396,25 +398,31 @@ internal fun ChatMarkdownCodeBlock(
     modifier: Modifier = Modifier,
 ) {
     val assets = rememberChatMarkdownAssets(MaterialTheme.colorScheme.onSurface)
-    MarkdownCodeBackground(
-        color = assets.renderContext.colors.codeBackground,
-        shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        showHeader = true,
-        language = null,
-        code = code,
+    CompositionLocalProvider(
+        LocalMarkdownDimens provides markdownDimens(),
+        LocalMarkdownColors provides assets.renderContext.colors,
+        LocalMarkdownPadding provides assets.renderContext.padding,
     ) {
-        MarkdownBasicText(
-            text = AnnotatedString(code),
-            style = assets.renderContext.typography.code.copy(
-                color = MaterialTheme.colorScheme.onSurface,
-            ),
-            modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(assets.renderContext.padding.codeBlock),
-        )
+        MarkdownCodeBackground(
+            color = assets.renderContext.colors.codeBackground,
+            shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            showHeader = true,
+            language = null,
+            code = code,
+        ) {
+            MarkdownBasicText(
+                text = AnnotatedString(code),
+                style = assets.renderContext.typography.code.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(assets.renderContext.padding.codeBlock),
+            )
+        }
     }
 }
 
@@ -502,348 +510,4 @@ private fun SearchHighlightedMarkdownTableRow(
     val rowIndex = if (isHeader) 0 else LocalTableRowIndex.current
     val rowModifier = if (isHeader) {
         Modifier.widthIn(tableWidth).height(IntrinsicSize.Max)
-    } else {
-        Modifier.widthIn(tableWidth)
-    }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = rowModifier,
-    ) {
-        row.children.filter { it.type == CELL }.forEachIndexed { columnIndex, cell ->
-            Column(
-                modifier = Modifier
-                    .padding(LocalMarkdownDimens.current.tableCellPadding)
-                    .weight(1f)
-                    .semantics {
-                        if (isHeader) heading()
-                        collectionItemInfo = CollectionItemInfo(
-                            rowIndex = rowIndex,
-                            rowSpan = 1,
-                            columnIndex = columnIndex,
-                            columnSpan = 1,
-                        )
-                    },
-            ) {
-                SearchHighlightedMarkdownText(
-                    model = MarkdownComponentModel(
-                        content = content,
-                        node = cell,
-                        typography = typography,
-                    ),
-                    style = if (isHeader) style.copy(fontWeight = FontWeight.Bold) else style,
-                    spec = spec,
-                    highlightColor = highlightColor,
-                    activeHighlightColor = activeHighlightColor,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SearchHighlightedMarkdownText(
-    model: MarkdownComponentModel,
-    style: TextStyle = model.typography.text,
-    textNode: ASTNode = model.node,
-    modifier: Modifier = Modifier,
-    literalText: String? = null,
-    spec: SearchHighlightSpec?,
-    highlightColor: Color,
-    activeHighlightColor: Color,
-) {
-    val settings = annotatorSettings()
-    val base = remember(model.content, textNode, style, literalText, settings) {
-        if (literalText != null) {
-            AnnotatedString(literalText)
-        } else {
-            model.content.buildMarkdownAnnotatedString(
-                textNode = textNode,
-                style = style,
-                annotatorSettings = settings,
-            )
-        }
-    }
-    val streamingFadeSpec = LocalStreamingGlyphFadeSpec.current
-    val fadeTargetOffset = streamingFadeSpec?.lastVisibleSourceOffset
-    val fadeThisNode =
-        fadeTargetOffset != null &&
-            fadeTargetOffset > textNode.startOffset &&
-            fadeTargetOffset <= textNode.endOffset
-    val fadeColor = style.color
-        .takeUnless { it == Color.Unspecified }
-        ?: LocalContentColor.current
-    if (spec == null) {
-        val renderedText = rememberStreamingGlyphFade(
-            content = base,
-            color = fadeColor,
-            enabled = fadeThisNode,
-        )
-        MarkdownText(
-            content = renderedText,
-            node = model.node,
-            modifier = modifier,
-            style = style,
-            sourceContent = model.content,
-        )
-        return
-    }
-    val sourceMatches = remember(model.content, textNode, spec.query) {
-        sourceMatchesForNode(model.content, textNode, spec.query)
-    }
-    val displayRanges = remember(base.text, spec.query) {
-        caseInsensitiveMatchRanges(base.text, spec.query)
-    }
-    val displayMatches = remember(displayRanges, sourceMatches, spec.matchKeys) {
-        displayRanges.mapIndexedNotNull { index, range ->
-            val sourceOccurrence = sourceMatches.getOrNull(index) ?: return@mapIndexedNotNull null
-            spec.matchKeys.getOrNull(sourceOccurrence)?.let { key ->
-                DisplaySearchMatch(key, range)
-            }
-        }
-    }
-    val activeOccurrence = displayMatches.indexOfFirst { it.key == spec.activeKey }
-        .takeIf { it >= 0 }
-    val highlighted = remember(
-        base,
-        spec.query,
-        activeOccurrence,
-        highlightColor,
-        activeHighlightColor,
-    ) {
-        highlightedSearchText(
-            text = base,
-            query = spec.query,
-            activeOccurrence = activeOccurrence,
-            highlightColor = highlightColor,
-            activeHighlightColor = activeHighlightColor,
-        )
-    }
-    val renderedText = rememberStreamingGlyphFade(
-        content = highlighted.first,
-        color = fadeColor,
-        enabled = fadeThisNode,
-    )
-    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-    var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    ReportSearchPositions(
-        spec = spec,
-        displayMatches = displayMatches,
-        layoutResult = layoutResult,
-        coordinates = coordinates,
-    )
-    MarkdownText(
-        content = renderedText,
-        node = model.node,
-        modifier = modifier.onGloballyPositioned { coordinates = it },
-        style = style,
-        onTextLayout = { result, _ -> layoutResult = result },
-        sourceContent = model.content,
-    )
-}
-
-@Composable
-private fun SearchHighlightedMarkdownHeading(
-    model: MarkdownComponentModel,
-    style: TextStyle,
-    contentType: org.intellij.markdown.IElementType,
-    spec: SearchHighlightSpec?,
-    highlightColor: Color,
-    activeHighlightColor: Color,
-) {
-    SearchHighlightedMarkdownText(
-        model = model,
-        style = style,
-        textNode = model.node.findChildOfType(contentType) ?: model.node,
-        modifier = Modifier.semantics { heading() },
-        spec = spec,
-        highlightColor = highlightColor,
-        activeHighlightColor = activeHighlightColor,
-    )
-}
-
-@Composable
-private fun SearchHighlightedMarkdownCode(
-    model: MarkdownComponentModel,
-    fenced: Boolean,
-    spec: SearchHighlightSpec?,
-    highlightColor: Color,
-    activeHighlightColor: Color,
-) {
-    val streamingFadeSpec = LocalStreamingGlyphFadeSpec.current
-    val fadeTargetOffset = streamingFadeSpec?.lastVisibleSourceOffset
-    val fadeThisNode =
-        fadeTargetOffset != null &&
-            fadeTargetOffset > model.node.startOffset &&
-            fadeTargetOffset <= model.node.endOffset
-    // Every state — idle, streaming (fade), and search — renders through the header-bearing
-    // [SearchHighlightedMarkdownCodeText] path so the copy button is always present. Falling back
-    // to the library's plain fence at terminal is what made the button vanish once the streaming
-    // fade stopped. With spec == null and no fade the highlight is a no-op, so the idle block is
-    // just plain code text under the same copy header.
-
-    val sourceRange = if (spec == null) {
-        null
-    } else {
-        remember(model.content, model.node, fenced) {
-            markdownCodeSourceRange(model.content, model.node, fenced)
-        }
-    }
-    val sourceMatches = if (spec == null) {
-        emptyList()
-    } else {
-        remember(model.content, sourceRange, spec.query) {
-            sourceRange?.let { range ->
-                val all = visibleMarkdownMatchRanges(model.content, spec.query)
-                all.indices.filter { index ->
-                    val match = all[index]
-                    match.first >= range.first && match.last <= range.last
-                }
-            }.orEmpty()
-        }
-    }
-    val block: @Composable (String, String?, TextStyle) -> Unit = { code, language, style ->
-        SearchHighlightedMarkdownCodeText(
-            code = code,
-            language = language,
-            style = style,
-            spec = spec,
-            sourceMatches = sourceMatches,
-            highlightColor = highlightColor,
-            activeHighlightColor = activeHighlightColor,
-            fadeEnabled = fadeThisNode,
-        )
-    }
-    if (fenced) {
-        MarkdownCodeFence(model.content, model.node, model.typography.code, block)
-    } else {
-        MarkdownCodeBlock(model.content, model.node, model.typography.code, block)
-    }
-}
-
-@Composable
-private fun SearchHighlightedMarkdownCodeText(
-    code: String,
-    language: String?,
-    style: TextStyle,
-    spec: SearchHighlightSpec?,
-    sourceMatches: List<Int>,
-    highlightColor: Color,
-    activeHighlightColor: Color,
-    fadeEnabled: Boolean,
-) {
-    val displayMatches = if (spec == null) {
-        emptyList()
-    } else {
-        val displayRanges = remember(code, spec.query) {
-            caseInsensitiveMatchRanges(code, spec.query)
-        }
-        remember(displayRanges, sourceMatches, spec.matchKeys) {
-            displayRanges.mapIndexedNotNull { index, range ->
-                val sourceOccurrence =
-                    sourceMatches.getOrNull(index) ?: return@mapIndexedNotNull null
-                spec.matchKeys.getOrNull(sourceOccurrence)?.let { key ->
-                    DisplaySearchMatch(key, range)
-                }
-            }
-        }
-    }
-    val highlighted = if (spec == null) {
-        AnnotatedString(code)
-    } else {
-        val activeOccurrence = displayMatches.indexOfFirst { it.key == spec.activeKey }
-            .takeIf { it >= 0 }
-        remember(
-            code,
-            spec.query,
-            activeOccurrence,
-            highlightColor,
-            activeHighlightColor,
-        ) {
-            highlightedSearchText(
-                text = AnnotatedString(code),
-                query = spec.query,
-                activeOccurrence = activeOccurrence,
-                highlightColor = highlightColor,
-                activeHighlightColor = activeHighlightColor,
-            ).first
-        }
-    }
-    val fadeColor = style.color
-        .takeUnless { it == Color.Unspecified }
-        ?: LocalContentColor.current
-    val renderedText = rememberStreamingGlyphFade(
-        content = highlighted,
-        color = fadeColor,
-        enabled = fadeEnabled,
-    )
-    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-    var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    if (spec != null) {
-        ReportSearchPositions(
-            spec = spec,
-            displayMatches = displayMatches,
-            layoutResult = layoutResult,
-            coordinates = coordinates,
-        )
-    }
-
-    MarkdownCodeBackground(
-        color = LocalMarkdownColors.current.codeBackground,
-        shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        showHeader = true,
-        language = language,
-        code = code,
-    ) {
-        MarkdownBasicText(
-            text = renderedText,
-            style = style,
-            modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(LocalMarkdownPadding.current.codeBlock)
-                .onGloballyPositioned { coordinates = it },
-            onTextLayout = { layoutResult = it },
-        )
-    }
-}
-
-private fun sourceMatchesForNode(
-    content: String,
-    node: ASTNode,
-    query: String,
-): List<Int> {
-    val start = node.startOffset.coerceIn(0, content.length)
-    val end = node.endOffset.coerceIn(start, content.length)
-    val matches = visibleMarkdownMatchRanges(content, query)
-    return matches.indices.filter { index ->
-        val match = matches[index]
-        match.first >= start && match.last < end
-    }
-}
-
-private fun markdownCodeSourceRange(
-    content: String,
-    node: ASTNode,
-    fenced: Boolean,
-): IntRange? {
-    if (node.children.isEmpty()) return null
-    val start: Int
-    val endExclusive: Int
-    if (fenced) {
-        if (node.children.size < 3) return null
-        val language = node.findChildOfType(MarkdownTokenTypes.FENCE_LANG)
-        start = node.children[2].startOffset
-        val minimumEndIndex = if (language != null && node.children.size > 3) 3 else 2
-        endExclusive = node.children[
-            (node.children.size - 2).coerceAtLeast(minimumEndIndex)
-        ].endOffset
-    } else {
-        start = node.children.first().startOffset
-        endExclusive = node.children.last().endOffset
-    }
-    val safeStart = start.coerceIn(0, content.length)
-    val safeEnd = endExclusive.coerceIn(safeStart, content.length)
-    return safeStart until safeEnd
-}
+  
