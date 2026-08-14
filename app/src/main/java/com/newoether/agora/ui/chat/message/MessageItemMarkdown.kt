@@ -243,7 +243,7 @@ private fun MarkdownPreparedTextContent(
         if (state is State.Success || state is State.Error) currentOnReady()
     }
 
-    com.mikepenz.markdown.compose.Markdown(
+    com.mikepenz.markdown.m3.Markdown(
         state = state,
         modifier = modifier,
         colors = renderContext.colors,

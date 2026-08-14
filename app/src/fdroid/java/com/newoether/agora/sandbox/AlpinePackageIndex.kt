@@ -98,7 +98,11 @@ internal fun parseFullApkIndex(indexFile: File): Pair<Map<String, FullPkgEntry>,
                                     // p: lists all provides (so:libfoo.so.1=1.0 so:libbar.so.1=1.0)
                                     for (prov in provider.split(Regex("\\s+"))) {
                                         val pn = prov.takeWhile { it != '=' }
-                                        if (pn.isNotEmpty()) soToPkg[pn] = name
+                                        if (pn.isNotEmpty()) {
+                                            if (!soToPkg.containsKey(pn) || name == "busybox-binsh" || name == "busybox") {
+                                                soToPkg[pn] = name
+                                            }
+                                        }
                                     }
                                 }
                             }

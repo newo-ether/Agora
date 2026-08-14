@@ -112,7 +112,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     }
 
     val isDynamicAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val currentPreset = try { ColorSchemePreset.valueOf(colorSchemeName) } catch (_: Exception) { ColorSchemePreset.MIDNIGHT }
+    val currentPreset = try { ColorSchemePreset.valueOf(colorSchemeName) } catch (_: Exception) { ColorSchemePreset.GEMINI }
     val currentStyle = try { SchemeStyle.valueOf(schemeStyleName) } catch (_: Exception) { SchemeStyle.TONAL_SPOT }
     val systemDark = isSystemInDarkTheme()
     val isDark = when (themeMode) {
@@ -645,6 +645,8 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun presetDisplayName(preset: ColorSchemePreset): String = when (preset) {
+    ColorSchemePreset.GEMINI -> stringResource(R.string.color_scheme_gemini)
+    ColorSchemePreset.APPLE -> stringResource(R.string.color_scheme_apple)
     ColorSchemePreset.MIDNIGHT -> stringResource(R.string.color_scheme_midnight)
     ColorSchemePreset.NORDIC -> stringResource(R.string.color_scheme_nordic)
     ColorSchemePreset.FOREST -> stringResource(R.string.color_scheme_forest)

@@ -157,13 +157,13 @@ class MainActivity : ComponentActivity() {
             val themeMode by settingsManager.themeMode.collectAsState(initial = "FOLLOW_DEVICE")
             val colorSchemeName by settingsManager.colorScheme.collectAsState(initial = "DEFAULT")
             val schemeStyleName by settingsManager.schemeStyle.collectAsState(initial = "TONAL_SPOT")
-            val dynamicColor by settingsManager.dynamicColor.collectAsState(initial = true)
+            val dynamicColor by settingsManager.dynamicColor.collectAsState(initial = false)
             val fontPreference by settingsManager.fontPreference.collectAsState(initial = "app_default")
             val customFontPath by settingsManager.customFontPath.collectAsState(initial = "")
             val appReduceMotion by settingsManager.reduceMotion.collectAsState(initial = false)
 
             val themeModeEnum = try { com.newoether.agora.ui.theme.ThemeMode.valueOf(themeMode) } catch (_: Exception) { com.newoether.agora.ui.theme.ThemeMode.FOLLOW_DEVICE }
-            val colorSchemePreset = try { com.newoether.agora.ui.theme.ColorSchemePreset.valueOf(colorSchemeName) } catch (_: Exception) { com.newoether.agora.ui.theme.ColorSchemePreset.MIDNIGHT }
+            val colorSchemePreset = try { com.newoether.agora.ui.theme.ColorSchemePreset.valueOf(colorSchemeName) } catch (_: Exception) { com.newoether.agora.ui.theme.ColorSchemePreset.GEMINI }
             val schemeStyle = try { com.newoether.agora.ui.theme.SchemeStyle.valueOf(schemeStyleName) } catch (_: Exception) { com.newoether.agora.ui.theme.SchemeStyle.TONAL_SPOT }
 
             val systemDark = isSystemInDarkTheme()

@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Chat
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
@@ -466,6 +468,90 @@ fun SettingsProviderDetailPage(
                         }
                     )
                 }
+
+                // ── Account Balance & Quota (non-Local) ──
+                val activeKey = apiKeys.firstOrNull { it.id == activeApiKeyIds[currentName] && it.provider == currentName }
+                    ?: apiKeys.firstOrNull { it.provider == currentName }
+                val effectiveUrl = providerBaseUrls[currentName]
+                var isCheckingBalance by remember { mutableStateOf(false) }
+                var balanceResult by remember { mutableStateOf<com.newoether.agora.api.balance.ProviderBalanceResult?>(null) }
+
+                SettingsGroup(
+                    title = stringResource(R.string.provider_balance_title),
+                    items = buildList {
+                        add {
+                            SettingsItem(
+                                headlineContent = {
+                                    Text(
+                                        when (val res = balanceResult) {
+                                            is com.newoether.agora.api.balance.ProviderBalanceResult.Success -> res.formattedBalance
+                                            is com.newoether.agora.api.balance.ProviderBalanceResult.Error -> res.message
+                                            null -> stringResource(R.string.provider_check_balance)
+                                        },
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = when (balanceResult) {
+                                            is com.newoether.agora.api.balance.ProviderBalanceResult.Success -> MaterialTheme.colorScheme.primary
+                                            is com.newoether.agora.api.balance.ProviderBalanceResult.Error -> MaterialTheme.colorScheme.error
+                                            null -> MaterialTheme.colorScheme.onSurface
+                                        }
+                                    )
+                                },
+                                supportingContent = {
+                                    when (val res = balanceResult) {
+                                        is com.newoether.agora.api.balance.ProviderBalanceResult.Success -> {
+                                            if (res.details.isNotEmpty()) {
+                                                Column(modifier = Modifier.padding(top = 4.dp)) {
+                                                    res.details.forEach { (k, v) ->
+                                                        Text("$k: $v", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    }
+                                                }
+                                            } else {
+                                                Text(stringResource(R.string.provider_balance_available))
+                                            }
+                                        }
+                                        is com.newoether.agora.api.balance.ProviderBalanceResult.Error -> {
+                                            Text("点击右侧刷新按钮重新尝试查询", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        null -> {
+                                            Text(if (activeKey != null) "使用当前活动 Key 实时查询余额" else "请先添加并选择有效的 API Key")
+                                        }
+                                    }
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        Icons.Default.AccountBalanceWallet,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                trailingContent = {
+                                    if (isCheckingBalance) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        IconButton(
+                                            onClick = {
+                                                if (activeKey != null) {
+                                                    isCheckingBalance = true
+                                                    scope.launch {
+                                                        balanceResult = com.newoether.agora.api.balance.ProviderBalanceService.checkBalance(
+                                                            providerName = currentName,
+                                                            apiKey = activeKey.key,
+                                                            baseUrl = effectiveUrl,
+                                                        )
+                                                        isCheckingBalance = false
+                                                    }
+                                                }
+                                            },
+                                            enabled = activeKey != null,
+                                        ) {
+                                            Icon(Icons.Default.Refresh, stringResource(R.string.provider_check_balance))
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                )
             }
             }
     }

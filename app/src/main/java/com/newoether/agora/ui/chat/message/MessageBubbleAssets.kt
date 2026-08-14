@@ -42,9 +42,6 @@ import com.newoether.agora.ui.components.LatexImageTransformer
 import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
 import com.newoether.agora.ui.chat.visibleMarkdownMatchRanges
 import com.newoether.agora.ui.theme.ChatType
-import com.mikepenz.markdown.compose.LocalMarkdownColors
-import com.mikepenz.markdown.compose.LocalMarkdownDimens
-import com.mikepenz.markdown.compose.LocalMarkdownPadding
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownPadding
@@ -405,15 +402,12 @@ internal fun ChatMarkdownCodeBlock(
     modifier: Modifier = Modifier,
 ) {
     val assets = rememberChatMarkdownAssets(MaterialTheme.colorScheme.onSurface)
-    MarkdownCodeBackground(
+    androidx.compose.material3.Surface(
         color = assets.renderContext.colors.codeBackground,
-        shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
+        shape = RoundedCornerShape(8.dp),
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        showHeader = true,
-        language = null,
-        code = code,
     ) {
         MarkdownBasicText(
             text = AnnotatedString(code),
@@ -521,7 +515,7 @@ private fun SearchHighlightedMarkdownTableRow(
         row.children.filter { it.type == CELL }.forEachIndexed { columnIndex, cell ->
             Column(
                 modifier = Modifier
-                    .padding(LocalMarkdownDimens.current.tableCellPadding)
+                    .padding(8.dp)
                     .weight(1f)
                     .semantics {
                         if (isHeader) heading()
@@ -814,22 +808,19 @@ private fun SearchHighlightedMarkdownCodeText(
         }
     }
 
-    MarkdownCodeBackground(
-        color = LocalMarkdownColors.current.codeBackground,
-        shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
+    androidx.compose.material3.Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        showHeader = true,
-        language = language,
-        code = code,
     ) {
         MarkdownBasicText(
             text = renderedText,
             style = style,
             modifier = Modifier
                 .horizontalScroll(horizontalScrollState)
-                .padding(LocalMarkdownPadding.current.codeBlock)
+                .padding(8.dp)
                 .onGloballyPositioned { coordinates = it },
             onTextLayout = { layoutResult = it },
         )

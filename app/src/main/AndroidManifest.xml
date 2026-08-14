@@ -22,6 +22,7 @@
     </queries>
 
     <application
+        android:extractNativeLibs="true"
         android:name=".AgoraApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="true"

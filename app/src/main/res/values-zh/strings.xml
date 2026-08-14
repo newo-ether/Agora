@@ -566,11 +566,17 @@
     <string name="settings_appearance">外观</string>
     <string name="settings_appearance_desc">主题、配色方案和动态颜色</string>
     <string name="appearance_title">外观</string>
+    <string name="provider_balance_title">账户余额与状态</string>
+    <string name="provider_check_balance">查询余额与配额</string>
+    <string name="provider_checking_balance">正在查询...</string>
+    <string name="provider_balance_available">可用余额</string>
     <string name="theme_mode">主题模式</string>
     <string name="theme_mode_light">浅色</string>
     <string name="theme_mode_dark">深色</string>
     <string name="theme_mode_follow_device">跟随系统</string>
     <string name="color_scheme">配色方案</string>
+    <string name="color_scheme_gemini">Google Gemini 极光</string>
+    <string name="color_scheme_apple">Apple 苹果原风</string>
     <string name="color_scheme_midnight">午夜</string>
     <string name="color_scheme_nordic">北欧</string>
     <string name="color_scheme_forest">森林</string>

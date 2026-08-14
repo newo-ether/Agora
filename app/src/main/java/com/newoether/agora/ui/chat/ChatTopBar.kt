@@ -277,7 +277,9 @@ internal fun ChatTopBar(
                         if (showBrandTitle) {
                             Text(
                                 text = stringResource(R.string.app_name),
-                                style = ChatType.brandTitle,
+                                style = ChatType.brandTitle.copy(
+                                    brush = com.newoether.agora.ui.theme.GeminiAuroraGradient
+                                ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.widthIn(max = 180.dp)

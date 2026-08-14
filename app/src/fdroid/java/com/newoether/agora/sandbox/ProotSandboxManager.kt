@@ -538,7 +538,13 @@ class ProotSandboxManager(
                 val dn = dep.takeWhile { it != '=' && it != '>' && it != '<' && it != '~' }
                 if (dn.isNotEmpty()) {
                     if (dn in repoPkgs) resolve(dn, visited)
-                    else soToPkg[dn]?.let { resolve(it, visited) }
+                    else soToPkg[dn]?.let { provider ->
+                        if (provider !in installed && (dn == "cmd:sh" || dn == "/bin/sh") && installed.containsKey("busybox-binsh")) {
+                            // Already satisfied by installed busybox-binsh
+                        } else {
+                            resolve(provider, visited)
+                        }
+                    }
                 }
             }
         }
@@ -700,7 +706,13 @@ class ProotSandboxManager(
                 val dn = dep.takeWhile { it != '=' && it != '>' && it != '<' && it != '~' }
                 if (dn.isNotEmpty()) {
                     if (dn in repoPkgs) collect(dn)
-                    else soToPkg[dn]?.let { collect(it) }
+                    else soToPkg[dn]?.let { provider ->
+                        if (provider !in installed && (dn == "cmd:sh" || dn == "/bin/sh") && installed.containsKey("busybox-binsh")) {
+                            // Already satisfied by installed busybox-binsh
+                        } else {
+                            collect(provider)
+                        }
+                    }
                 }
             }
         }

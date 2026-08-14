@@ -75,9 +75,9 @@ private fun typographyWithFont(family: FontFamily): Typography {
 @Composable
 fun AgoraTheme(
     themeMode: ThemeMode = ThemeMode.FOLLOW_DEVICE,
-    colorSchemePreset: ColorSchemePreset = ColorSchemePreset.MIDNIGHT,
+    colorSchemePreset: ColorSchemePreset = ColorSchemePreset.GEMINI,
     schemeStyle: SchemeStyle = SchemeStyle.TONAL_SPOT,
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     fontPreference: String = "app_default",
     customFontPath: String = "",
     content: @Composable () -> Unit
@@ -89,14 +89,8 @@ fun AgoraTheme(
         ThemeMode.FOLLOW_DEVICE -> systemDark
     }
 
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        else -> remember(colorSchemePreset, schemeStyle, darkTheme) {
-            colorSchemeForPreset(colorSchemePreset, schemeStyle, darkTheme)
-        }
+    val colorScheme = remember(colorSchemePreset, schemeStyle, darkTheme) {
+        colorSchemeForPreset(colorSchemePreset, schemeStyle, darkTheme)
     }
 
     val fontFamily = effectiveFontFamily(fontPreference, customFontPath)

@@ -473,6 +473,8 @@
     <string name="theme_mode_dark">深色</string>
     <string name="theme_mode_follow_device">跟隨系統</string>
     <string name="color_scheme">配色方案</string>
+    <string name="color_scheme_gemini">Google Gemini 極光</string>
+    <string name="color_scheme_apple">Apple 蘋果原風</string>
     <string name="color_scheme_midnight">午夜</string>
     <string name="color_scheme_nordic">北歐</string>
     <string name="color_scheme_forest">森林</string>

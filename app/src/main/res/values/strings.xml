@@ -603,11 +603,17 @@
     <string name="settings_appearance_desc">Theme, color scheme, and dynamic color</string>
     <string name="appearance_title">Appearance</string>
     <string name="appearance_interface">Interface</string>
+    <string name="provider_balance_title">Account Balance &amp; Status</string>
+    <string name="provider_check_balance">Check Balance</string>
+    <string name="provider_checking_balance">Querying...</string>
+    <string name="provider_balance_available">Available Balance</string>
     <string name="theme_mode">Theme Mode</string>
     <string name="theme_mode_light">Light</string>
     <string name="theme_mode_dark">Dark</string>
     <string name="theme_mode_follow_device">Follow Device</string>
     <string name="color_scheme">Color Scheme</string>
+    <string name="color_scheme_gemini">Google Gemini (Aurora)</string>
+    <string name="color_scheme_apple">Apple (Cupertino)</string>
     <string name="color_scheme_midnight">Midnight</string>
     <string name="color_scheme_nordic">Nordic</string>
     <string name="color_scheme_forest">Forest</string>
