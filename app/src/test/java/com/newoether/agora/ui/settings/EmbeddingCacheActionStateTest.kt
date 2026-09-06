@@ -82,7 +82,7 @@ class EmbeddingCacheActionStateTest {
     }
 
     @Test
-    fun cacheActionSlotExpandsAndEveryLabelIsSingleLine() {
+    fun cacheActionSlotReservesAllLabelsBeforeLoadingAndKeepsChildrenCentered() {
         val start = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         val root = generateSequence(start) { it.parentFile }
             .first { File(it, "app/src/main").isDirectory }
@@ -91,22 +91,62 @@ class EmbeddingCacheActionStateTest {
             "app/src/main/java/com/newoether/agora/ui/settings/SettingsSearchPage.kt",
         ).readText().replace("\r\n", "\n")
 
-        assertTrue(source.contains("Modifier.widthIn(min = 76.dp)"))
+        assertTrue(source.contains("Modifier.size(cacheActionSize)"))
+        assertTrue(source.contains("actionLabelSizes.maxOf { it.width }"))
+        assertTrue(source.contains("actionLabelSizes.maxOf { it.height }"))
+        assertTrue(source.contains("ButtonDefaults.TextButtonContentPadding"))
+        assertTrue(source.contains("coerceAtLeast(76.dp)"))
+        assertTrue(source.contains("coerceAtLeast(48.dp)"))
         assertFalse(source.contains("Modifier.width(76.dp)"))
+        val sizing = source.substringAfter("val actionTextMeasurer")
+            .substringBefore("LaunchedEffect(embeddingModelIds)")
+        assertFalse(sizing.contains("visualPhase"))
+        val action = source.substringAfter("modifier = Modifier.size(cacheActionSize)")
+            .substringBefore("IconButton(onClick = { showMenuForModel")
+        assertEquals(2, Regex("Modifier\\.fillMaxSize\\(\\)").findAll(action).count())
+        assertTrue(action.contains("animationSpec = tween(250)"))
+        val child = action.substringAfter(") { phase ->")
+        assertTrue(child.indexOf("contentAlignment = androidx.compose.ui.Alignment.Center") <
+            child.indexOf("when (phase)"))
         listOf(
             "R.string.retry",
             "R.string.recache_action",
             "R.string.cache_action",
         ).forEach { label ->
-            val startIndex = source.indexOf("stringResource($label)")
+            assertTrue("Sizing must include $label", sizing.contains("stringResource($label)"))
+            val startIndex = action.indexOf("stringResource($label)")
             assertTrue("Missing $label action label", startIndex >= 0)
-            val labelBlock = source.substring(
+            val labelBlock = action.substring(
                 startIndex,
-                (startIndex + 350).coerceAtMost(source.length),
+                (startIndex + 350).coerceAtMost(action.length),
             )
             assertTrue("$label must stay on one line", labelBlock.contains("maxLines = 1"))
             assertTrue("$label must not wrap", labelBlock.contains("softWrap = false"))
         }
+    }
+    @Test
+    fun ratingContentSharesFixedCenteredBoundsAndUsesNeutralFailureSurface() {
+        val start = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
+        val root = generateSequence(start) { it.parentFile }
+            .first { File(it, "app/src/main").isDirectory }
+        val source = File(
+            root,
+            "app/src/main/java/com/newoether/agora/ui/settings/RatingForm.kt",
+        ).readText().replace("\r\n", "\n")
+        assertTrue(source.contains("Modifier.fillMaxWidth().height(52.dp)"))
+        val action = source.substringAfter("targetState = submitting to submitted,")
+        assertEquals(2, Regex("Modifier\\.fillMaxSize\\(\\)").findAll(action).count())
+        assertTrue(action.contains("animationSpec = tween(250)"))
+        assertTrue(action.indexOf("contentAlignment = Alignment.Center") <
+            action.indexOf("when {"))
+        assertTrue(action.contains("loading -> CircularProgressIndicator("))
+        assertTrue(action.contains("done -> Text("))
+        assertTrue(action.contains("else -> Text("))
+        val failure = source.substringAfter("if (submitError) {").substringBefore("val isReady")
+        assertTrue(failure.contains("color = MaterialTheme.colorScheme.surfaceContainerHigh"))
+        assertTrue(failure.contains("color = MaterialTheme.colorScheme.onSurfaceVariant,"))
+        assertFalse(failure.contains("colorScheme.errorContainer"))
+        assertFalse(failure.contains("colorScheme.onErrorContainer"))
     }
 
     private fun workSnapshot(remaining: Int, permille: Int) =

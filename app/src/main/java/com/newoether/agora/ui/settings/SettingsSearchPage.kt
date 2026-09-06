@@ -22,11 +22,15 @@ import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as Cir
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpSize
 import com.newoether.agora.R
 import com.newoether.agora.api.ProviderDefaults
 import com.newoether.agora.viewmodel.EmbeddingCacheRowPhase
@@ -64,6 +68,32 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
 
     val embeddingModelIds = remember(embeddingModels) {
         embeddingModels.map(com.newoether.agora.data.EmbeddingModelConfig::id)
+    }
+    val actionTextMeasurer = rememberTextMeasurer()
+    val actionLabelSizes = listOf(
+        stringResource(R.string.retry),
+        stringResource(R.string.recache_action),
+        stringResource(R.string.cache_action),
+    ).map { label ->
+        actionTextMeasurer.measure(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            softWrap = false,
+        ).size
+    }
+    val actionPadding = ButtonDefaults.TextButtonContentPadding
+    val layoutDirection = LocalLayoutDirection.current
+    // Reserve every action before loading resolves, including localized text and font scaling.
+    val cacheActionSize = with(LocalDensity.current) {
+        DpSize(
+            width = (actionLabelSizes.maxOf { it.width }.toDp() +
+                actionPadding.calculateLeftPadding(layoutDirection) +
+                actionPadding.calculateRightPadding(layoutDirection)).coerceAtLeast(76.dp),
+            height = (actionLabelSizes.maxOf { it.height }.toDp() +
+                actionPadding.calculateTopPadding() +
+                actionPadding.calculateBottomPadding()).coerceAtLeast(48.dp),
+        )
     }
     LaunchedEffect(embeddingModelIds) { viewModel.ragManager.loadCacheCounts() }
     var showRemoteDialog by remember { mutableStateOf(false) }
@@ -345,69 +375,75 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     trailingContent = {
                                         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                             Box(
-                                                modifier = Modifier.widthIn(min = 76.dp),
+                                                modifier = Modifier.size(cacheActionSize),
                                                 contentAlignment = androidx.compose.ui.Alignment.Center,
                                             ) {
                                                 Crossfade(
                                                     targetState = visualPhase,
+                                                    modifier = Modifier.fillMaxSize(),
                                                     animationSpec = tween(250),
                                                     label = "embeddingCacheAction-${model.id}",
                                                 ) { phase ->
-                                                    when (phase) {
-                                                        EmbeddingCacheRowPhase.CACHING,
-                                                        EmbeddingCacheRowPhase.FINALIZING -> {
-                                                            val progress = cacheRow.progress
-                                                            if (progress == null) {
+                                                    Box(
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentAlignment = androidx.compose.ui.Alignment.Center,
+                                                    ) {
+                                                        when (phase) {
+                                                            EmbeddingCacheRowPhase.CACHING,
+                                                            EmbeddingCacheRowPhase.FINALIZING -> {
+                                                                val progress = cacheRow.progress
+                                                                if (progress == null) {
+                                                                    CircularProgressIndicator(
+                                                                        modifier = Modifier.size(24.dp),
+                                                                        strokeWidth = 3.dp,
+                                                                    )
+                                                                } else {
+                                                                    CircularProgressIndicator(
+                                                                        progress = { progress.fraction },
+                                                                        modifier = Modifier.size(24.dp),
+                                                                        strokeWidth = 3.dp,
+                                                                    )
+                                                                }
+                                                            }
+                                                            EmbeddingCacheRowPhase.LOADING,
+                                                            EmbeddingCacheRowPhase.QUEUED ->
                                                                 CircularProgressIndicator(
                                                                     modifier = Modifier.size(24.dp),
                                                                     strokeWidth = 3.dp,
                                                                 )
-                                                            } else {
-                                                                CircularProgressIndicator(
-                                                                    progress = { progress.fraction },
-                                                                    modifier = Modifier.size(24.dp),
-                                                                    strokeWidth = 3.dp,
+                                                            EmbeddingCacheRowPhase.FAILED -> TextButton(
+                                                                onClick = {
+                                                                    viewModel.ragManager.retryCacheRow(model.id)
+                                                                },
+                                                            ) {
+                                                                Text(
+                                                                    stringResource(R.string.retry),
+                                                                    maxLines = 1,
+                                                                    softWrap = false,
                                                                 )
                                                             }
-                                                        }
-                                                        EmbeddingCacheRowPhase.LOADING,
-                                                        EmbeddingCacheRowPhase.QUEUED ->
-                                                            CircularProgressIndicator(
-                                                                modifier = Modifier.size(24.dp),
-                                                                strokeWidth = 3.dp,
-                                                            )
-                                                        EmbeddingCacheRowPhase.FAILED -> TextButton(
-                                                            onClick = {
-                                                                viewModel.ragManager.retryCacheRow(model.id)
-                                                            },
-                                                        ) {
-                                                            Text(
-                                                                stringResource(R.string.retry),
-                                                                maxLines = 1,
-                                                                softWrap = false,
-                                                            )
-                                                        }
-                                                        EmbeddingCacheRowPhase.RECACHE -> TextButton(
-                                                            onClick = { showRecacheConfirm = model.id },
-                                                        ) {
-                                                            Text(
-                                                                stringResource(R.string.recache_action),
-                                                                maxLines = 1,
-                                                                softWrap = false,
-                                                            )
-                                                        }
-                                                        EmbeddingCacheRowPhase.CACHE -> TextButton(
-                                                            onClick = {
-                                                                viewModel.ragManager.cacheMessagesForModel(
-                                                                    model.id,
+                                                            EmbeddingCacheRowPhase.RECACHE -> TextButton(
+                                                                onClick = { showRecacheConfirm = model.id },
+                                                            ) {
+                                                                Text(
+                                                                    stringResource(R.string.recache_action),
+                                                                    maxLines = 1,
+                                                                    softWrap = false,
                                                                 )
-                                                            },
-                                                        ) {
-                                                            Text(
-                                                                stringResource(R.string.cache_action),
-                                                                maxLines = 1,
-                                                                softWrap = false,
-                                                            )
+                                                            }
+                                                            EmbeddingCacheRowPhase.CACHE -> TextButton(
+                                                                onClick = {
+                                                                    viewModel.ragManager.cacheMessagesForModel(
+                                                                        model.id,
+                                                                    )
+                                                                },
+                                                            ) {
+                                                                Text(
+                                                                    stringResource(R.string.cache_action),
+                                                                    maxLines = 1,
+                                                                    softWrap = false,
+                                                                )
+                                                            }
                                                         }
                                                     }
                                                 }

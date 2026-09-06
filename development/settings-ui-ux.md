@@ -106,6 +106,13 @@ layout, states, density, or interaction design has been approved.
 - State changes inside a fixed layout slot use a 250 ms crossfade.
 - Async labels, leading icons, counts, and connection status must change in
   place without shifting the surrounding layout.
+- Embedding action slots reserve the largest localized Retry/Cache/Re-cache label plus the actual
+  TextButton padding at the current font scale, with 76 dp minimum width and 48 dp minimum height.
+  The Crossfade and every child occupy those same bounds and center their contents. Neither the
+  incoming button nor removal of the outgoing child may change the slot or move the progress ring.
+- Rating Submit retains its full-width 52 dp button. Idle, submitting, and submitted content fills
+  one centered slot and crossfades over 250 ms without changing its geometry. Its failure notice uses
+  surfaceContainerHigh with full onSurfaceVariant gray text, not error-colored content or fill.
 - Rows remain clickable as a whole and expose one clear semantic action.
 - When an Add bottom sheet launches a destination, dialog, or platform picker, the tap starts that
   action and `sheetState.hide()` together. The sheet remains composed until hide completes; one

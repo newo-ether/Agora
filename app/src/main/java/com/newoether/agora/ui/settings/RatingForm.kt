@@ -165,13 +165,13 @@ fun RatingForm(
         if (submitError) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.errorContainer,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
             ) {
                 Text(
                     text = stringResource(R.string.rating_failed),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(12.dp)
                 )
@@ -246,23 +246,33 @@ fun RatingForm(
             ),
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
-            Crossfade(targetState = submitting to submitted, label = "ratingBtn") { (loading, done) ->
-                when {
-                    loading -> CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        strokeWidth = 2.5.dp,
-                        color = btnContentColor
-                    )
-                    done -> Text(
-                        text = stringResource(R.string.rating_success),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    else -> Text(
-                        text = stringResource(R.string.rating_submit),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium
-                    )
+            Crossfade(
+                targetState = submitting to submitted,
+                modifier = Modifier.fillMaxSize(),
+                animationSpec = tween(250),
+                label = "ratingBtn",
+            ) { (loading, done) ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when {
+                        loading -> CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.5.dp,
+                            color = btnContentColor
+                        )
+                        done -> Text(
+                            text = stringResource(R.string.rating_success),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        else -> Text(
+                            text = stringResource(R.string.rating_submit),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }

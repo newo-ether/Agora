@@ -39,7 +39,7 @@ class ApprovedFeatureSourceContractTest {
         assertTrue(listOf("stringResource(R.string.loading_label)", "stringResource(R.string.tool_state_failed)",
             "viewModel.ragManager.retryCacheRow(model.id)").all(settings::contains))
         assertTrue(settings.split("animationSpec = tween(250)").size - 1 >= 2)
-        assertTrue(settings.contains("modifier = Modifier.widthIn(min = 76.dp)"))
+        assertTrue(settings.contains("modifier = Modifier.size(cacheActionSize)"))
         assertTrue(settings.contains("modifier = Modifier.size(24.dp)"))
         assertTrue(settings.contains("viewModel.ragManager.setAutoCacheEnabled"))
         assertTrue(listOf("cachingProgress", "val allCached =", "embeddingCacheActionState(")
