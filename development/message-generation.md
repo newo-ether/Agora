@@ -1147,8 +1147,12 @@ The shared Provider preparation order is deterministic:
 5. start the dispatched history at its first normal USER and never keep an older ordinary row while
    dropping a later ordinary row on that selected branch.
 
-The configured context value is a soft estimated request budget, not a hard byte limit. Fixed
-request cost consists of the system prompt, complete enabled tool schemas, and the optional
+The configured context value is a soft estimated request budget, not a hard byte limit.
+The shared default is `262,144` tokens (`256K`, using 1,024 tokens per K). It applies when no valid
+context budget is stored; explicit global/conversation values and legacy normalization remain
+authoritative. This default does not increase an embedded Local model's configured `nCtx`.
+
+Fixed request cost consists of the system prompt, complete enabled tool schemas, and the optional
 API-only initial USER prompt. It is subtracted exactly once from the configured budget before
 history rollout. The initial prompt is excluded from retained-history selection and appended
 exactly once afterward as the final USER request item. It is never merged into Room history,

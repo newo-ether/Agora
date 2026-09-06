@@ -2,7 +2,7 @@ package com.newoether.agora.model
 
 /** Shared storage/UI bounds for the provider-visible conversation token budget. */
 object ContextBudget {
-    const val DEFAULT_TOKENS = 32_768
+    const val DEFAULT_TOKENS = 262_144
     const val MIN_TOKENS = 4_096
     const val MAX_TOKENS = 1_048_576
 
