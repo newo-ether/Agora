@@ -144,3 +144,27 @@ internal val AUTO_DELETE_ENABLED = booleanPreferencesKey("auto_delete_enabled")
 internal val AUTO_DELETE_PERIOD_HOURS = intPreferencesKey("auto_delete_period_hours")
 internal val LAST_BACKUP_TIMESTAMP = longPreferencesKey("last_backup_timestamp")
 internal val LAST_MODELS_FETCH_FINGERPRINT = stringPreferencesKey("last_models_fetch_fingerprint")
+
+// ── Heartbeat ──────────────────────────────────────────────
+internal val HEARTBEAT_ENABLED = booleanPreferencesKey("heartbeat_enabled")
+internal val HEARTBEAT_INTERVAL_MINUTES = intPreferencesKey("heartbeat_interval_minutes")
+internal val HEARTBEAT_ACTIVE_HOURS_START = intPreferencesKey("heartbeat_active_hours_start")
+internal val HEARTBEAT_ACTIVE_HOURS_END = intPreferencesKey("heartbeat_active_hours_end")
+internal val HEARTBEAT_LAST_HEARTBEAT_EPOCH_MS = longPreferencesKey("heartbeat_last_heartbeat_epoch_ms")
+internal val HEARTBEAT_INSTANCE_ID = stringPreferencesKey("heartbeat_instance_id")
+internal val HEARTBEAT_PROMPT = stringPreferencesKey("heartbeat_prompt")
+internal val HEARTBEAT_MODEL = stringPreferencesKey("heartbeat_model")
+internal val HEARTBEAT_CONVERSATION_ID = stringPreferencesKey("heartbeat_conversation_id")
+
+// ── SMS ────────────────────────────────────────────────────
+internal val SMS_READ_ENABLED = booleanPreferencesKey("sms_read_enabled")
+internal val SMS_SEND_ENABLED = booleanPreferencesKey("sms_send_enabled")
+internal val SMS_POLL_INTERVAL_MINUTES = intPreferencesKey("sms_poll_interval_minutes")
+
+// ── Daemon ─────────────────────────────────────────────────
+internal val DAEMON_ENABLED = booleanPreferencesKey("daemon_enabled")
+
+// ── Notifications ───────────────────────────────────────────
+internal val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+internal val NOTIFICATIONS_PENDING = stringPreferencesKey("notifications_pending")
+internal val NOTIFICATIONS_SYNC_STATE = stringPreferencesKey("notifications_sync_state")

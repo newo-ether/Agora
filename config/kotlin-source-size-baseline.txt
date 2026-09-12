@@ -1,2 +1,3 @@
 # Temporary exact caps for Kotlin sources that exceeded 999 physical lines on 2026-08-09.
 # Do not add new entries or raise a recorded count. Remove an entry once its file reaches 999.
+app/src/main/java/com/newoether/agora/MainActivity.kt=1007

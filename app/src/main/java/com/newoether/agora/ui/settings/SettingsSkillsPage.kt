@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -52,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.SkillManager
+import com.newoether.agora.data.parseGitHubSkillUrl
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet as ModalBottomSheet
@@ -101,6 +104,9 @@ fun SettingsSkillsPage(
     var newFileContent by remember { mutableStateOf("") }
 
     var showDeleteFileConfirm by remember { mutableStateOf<String?>(null) }
+    var showGithubDialog by remember { mutableStateOf(false) }
+    var githubUrl by remember { mutableStateOf("") }
+    var showMarketplaces by remember { mutableStateOf(false) }
 
     fun reportSkillFailure(action: String, error: Throwable) {
         DebugLog.e("SettingsSkills", action, error)
@@ -395,6 +401,14 @@ fun SettingsSkillsPage(
         }
     }
 
+    if (showMarketplaces) {
+        SettingsSkillMarketplacePage(
+            viewModel = viewModel,
+            onBack = { showMarketplaces = false }
+        )
+        return
+    }
+
     if (showAddSkillSheet) {
         ModalBottomSheet(
             onDismissRequest = {
@@ -443,6 +457,22 @@ fun SettingsSkillsPage(
                             )
                         }
                     },
+            )
+            SettingsItem(
+                headlineContent = { Text("Add from GitHub URL", fontWeight = FontWeight.Medium) },
+                supportingContent = { Text("Download a skill from a GitHub repository or file", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                leadingContent = { Icon(Icons.Default.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                modifier = Modifier.fillMaxWidth().clickable(enabled = !addSkillActionInFlight) {
+                    runAddSkillAction { showGithubDialog = true }
+                }
+            )
+            SettingsItem(
+                headlineContent = { Text("Browse Marketplaces", fontWeight = FontWeight.Medium) },
+                supportingContent = { Text("Discover and install community-created skills", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                leadingContent = { Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                modifier = Modifier.fillMaxWidth().clickable(enabled = !addSkillActionInFlight) {
+                    runAddSkillAction { showMarketplaces = true }
+                }
             )
             SettingsItem(
                 headlineContent = {
@@ -754,6 +784,76 @@ fun SettingsSkillsPage(
                         newFileName = ""
                         newFileDescription = ""
                         newFileContent = ""
+                    },
+                    enabled = !skillOperationInFlight,
+                ) {
+                    Text(stringResource(R.string.provider_cancel))
+                }
+            },
+        )
+    }
+
+    if (showGithubDialog) {
+        AlertDialog(
+            modifier = Modifier.clearFocusOnTap(),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            onDismissRequest = {
+                if (!skillOperationInFlight) showGithubDialog = false
+            },
+            title = {
+                Text(
+                    "Add from GitHub",
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Column(Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = githubUrl,
+                        onValueChange = { githubUrl = it },
+                        label = { Text("GitHub URL") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (githubUrl.isNotBlank() && !skillOperationInFlight) {
+                            val parsed = parseGitHubSkillUrl(githubUrl)
+                            if (parsed == null) {
+                                reportSkillFailure("Unable to install skill from GitHub", IllegalArgumentException("Invalid GitHub URL"))
+                            } else {
+                                skillOperationInFlight = true
+                                scope.launch {
+                                    val installed = withContext(Dispatchers.IO) {
+                                        runCatching {
+                                            viewModel.skillManager.installFromGitHub(parsed.owner, parsed.repo, parsed.ref, parsed.path)
+                                        }
+                                    }
+                                    installed.onSuccess {
+                                        showGithubDialog = false
+                                        githubUrl = ""
+                                    }.onFailure { error ->
+                                        reportSkillFailure("Unable to install skill from GitHub", error)
+                                    }
+                                    skillOperationInFlight = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = githubUrl.isNotBlank() && !skillOperationInFlight,
+                ) {
+                    Text("Install")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showGithubDialog = false
+                        githubUrl = ""
                     },
                     enabled = !skillOperationInFlight,
                 ) {

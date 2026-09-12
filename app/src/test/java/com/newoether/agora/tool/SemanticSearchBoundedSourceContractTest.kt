@@ -9,8 +9,10 @@ class SemanticSearchBoundedSourceContractTest {
     @Test
     fun semanticSearchHotPathUsesKeysetPagesInsteadOfAFullEmbeddingList() {
         val root = locateMainSourceRoot()
-        val dao = File(root, "com/newoether/agora/data/local/ChatDao.kt")
-            .readText()
+        val dao = File(
+            root,
+            "com/newoether/agora/data/local/ChatEmbeddingDao.kt",
+        ).readText()
             .replace("\r\n", "\n")
         val repository = File(
             root,

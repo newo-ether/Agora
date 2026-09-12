@@ -77,4 +77,59 @@
     <string name="automation_exact_execution_on_desc">Dùng báo thức chính xác cho tác vụ và vòng lặp. Android vẫn có thể áp dụng giới hạn hệ thống.</string>
     <string name="automation_exact_execution_off_desc">Dùng báo thức không chính xác để tiết kiệm pin. Bật để yêu cầu quyền truy cập Báo thức và lời nhắc.</string>
     <string name="automation_exact_execution_off_legacy_desc">Dùng báo thức không chính xác để tiết kiệm pin. Trên phiên bản Android này, bạn có thể bật thực thi chính xác mà không cần quyền bổ sung.</string>
+    <!-- Daemon Mode, Heartbeat, SMS and Notifications -->
+    <string name="automation_daemon_mode">Chế độ daemon</string>
+    <string name="automation_daemon_mode_desc">Giữ dịch vụ chạy nền trước để các tác vụ nền (heartbeat, kiểm tra SMS, thông báo) tiếp tục khi ứng dụng không mở</string>
+    <string name="automation_heartbeat">Heartbeat</string>
+    <string name="heartbeat_enabled">Đã bật</string>
+    <string name="heartbeat_enabled_desc">Chạy tự kiểm tra định kỳ trong giờ hoạt động</string>
+    <string name="heartbeat_interval">Khoảng thời gian</string>
+    <string name="heartbeat_interval_desc">Tần suất chạy kiểm tra heartbeat: %d phút</string>
+    <string name="heartbeat_active_hours">Giờ hoạt động</string>
+    <string name="heartbeat_active_hours_desc">Khung giờ chạy heartbeat: %1$d:00 – %2$d:00</string>
+    <string name="heartbeat_model">Mô hình</string>
+    <string name="heartbeat_model_desc">Mô hình dùng cho heartbeat. Ghi đè mô hình của cuộc trò chuyện; để Mặc định để kế thừa.</string>
+    <string name="heartbeat_custom_prompt">Lời nhắc tùy chỉnh</string>
+    <string name="heartbeat_custom_prompt_desc">Hướng dẫn bổ sung cho lần kiểm tra heartbeat (%d ký tự)</string>
+    <string name="heartbeat_conversation">Cuộc trò chuyện</string>
+    <string name="heartbeat_conversation_desc">Cuộc trò chuyện dùng cho heartbeat. Mô hình, công cụ và lời nhắc hệ thống sẽ được kế thừa.</string>
+    <string name="heartbeat_conversation_none">Tự động (chuyên dụng)</string>
+    <string name="heartbeat_conversation_pick_title">Chọn cuộc trò chuyện heartbeat</string>
+    <string name="automation_sms">SMS</string>
+    <string name="sms_read_enabled">Đọc SMS đến</string>
+    <string name="sms_read_enabled_desc">Cho phép Agora đọc tin nhắn SMS đến (cần quyền READ_SMS)</string>
+    <string name="sms_send_enabled">Gửi SMS thay bạn</string>
+    <string name="sms_send_enabled_desc">Cho phép Agora soạn tin nhắn SMS để bạn xem lại và gửi (cần quyền SEND_SMS)</string>
+    <string name="sms_poll_interval">Khoảng kiểm tra</string>
+    <string name="sms_poll_interval_desc">Tần suất kiểm tra SMS mới: %d phút</string>
+    <string name="automation_notifications">Thông báo</string>
+    <string name="notifications_read_enabled">Đọc thông báo</string>
+    <string name="notifications_read_enabled_desc">Cho phép Agora đọc thông báo từ ứng dụng khác (cần quyền truy cập thông báo)</string>
+    <string name="notifications_listener_status">Trạng thái trình lắng nghe</string>
+    <string name="notifications_listener_active">Trình lắng nghe đang bật</string>
+    <string name="notifications_listener_inactive">Trình lắng nghe tắt – kiểm tra quyền truy cập thông báo</string>
+    <string name="notifications_manage_apps">Quản lý ứng dụng</string>
+    <string name="notifications_manage_apps_desc">Chọn ứng dụng mà Agora có thể đọc thông báo</string>
+    <string name="notifications_queued_count">Đang chờ</string>
+    <string name="notifications_queued_count_desc">%d thông báo đang chờ heartbeat tiếp theo</string>
+    <string name="notifications_clear_queue">Xóa hàng đợi</string>
+
+    <!-- Settings - Automation Page - SMS Status -->
+    <string name="sms_status">Trạng thái SMS</string>
+    <string name="sms_status_queued">%1$d tin nhắn đang chờ heartbeat tiếp theo</string>
+    <string name="sms_status_none">Không có tin nhắn nào đang chờ</string>
+    <string name="sms_refresh_now">Làm mới ngay bây giờ</string>
+    <string name="sms_status_never_polled">Chưa từng được kiểm tra</string>
+    <string name="sms_status_last_failed">Lần kiểm tra cuối thất bại: %1$s</string>
+    <string name="sms_status_just_now">Lần kiểm tra thành công cuối vừa xong</string>
+    <string name="sms_status_minutes_ago">Lần kiểm tra thành công cuối %1$d phút trước</string>
+    <string name="sms_status_hours_ago">Lần kiểm tra thành công cuối %1$d giờ trước</string>
+
+    <!-- Settings - Automation Page - Heartbeat Run Status -->
+    <string name="heartbeat_run_now">Chạy heartbeat ngay bây giờ</string>
+    <string name="heartbeat_run_now_desc">Chạy một heartbeat ngay lập tức, bỏ qua lịch trình.</string>
+    <string name="heartbeat_recent_runs">Các lần chạy gần đây</string>
+    <string name="heartbeat_no_runs">Chưa có lần chạy heartbeat nào được ghi nhận.</string>
+    <string name="heartbeat_log_ok">OK</string>
+    <string name="heartbeat_log_failed">Thất bại</string>
 </resources>

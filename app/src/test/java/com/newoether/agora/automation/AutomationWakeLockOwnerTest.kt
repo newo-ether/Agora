@@ -72,10 +72,20 @@ class AutomationWakeLockOwnerTest {
 
     @Test
     fun acquireFailureDoesNotBlockAutomationExecution() = runTest {
-        val owner = AutomationWakeLockOwner(
-            AutomationWakeLockLeaseFactory { error("not available") },
-        )
+        // The acquire failure path logs via DebugLog → android.util.Log, which is not
+        // available in unit tests.
+        io.mockk.mockkStatic(android.util.Log::class)
+        io.mockk.every { android.util.Log.e(any(), any()) } returns 0
+        io.mockk.every { android.util.Log.w(any(), any<String>()) } returns 0
+        io.mockk.every { android.util.Log.d(any(), any()) } returns 0
+        try {
+            val owner = AutomationWakeLockOwner(
+                AutomationWakeLockLeaseFactory { error("not available") },
+            )
 
-        assertEquals("done", owner.whileHeld(enabled = true) { "done" })
+            assertEquals("done", owner.whileHeld(enabled = true) { "done" })
+        } finally {
+            io.mockk.unmockkStatic(android.util.Log::class)
+        }
     }
 }

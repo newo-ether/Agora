@@ -100,7 +100,7 @@ android {
         }
     }
 
-    // Extract .so files to disk for ProcessBuilder exec (Kai approach)
+    // Extract .so files to disk for ProcessBuilder exec
     @Suppress("UnstableApiUsage")
     packaging {
         jniLibs {
@@ -200,4 +200,10 @@ tasks.whenTaskAdded {
     if (name.contains("StripDebugSymbols") || name.contains("MergeNativeDebugMetadata")) {
         enabled = false
     }
+}
+
+// Some test dependencies (e.g. the markdown renderer) ship Java 21 bytecode, so unit
+// tests must run on a JDK 21 toolchain instead of whatever JVM the Gradle daemon uses.
+tasks.withType<Test>().configureEach {
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
 }

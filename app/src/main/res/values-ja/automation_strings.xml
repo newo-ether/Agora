@@ -77,4 +77,59 @@
     <string name="automation_exact_execution_on_desc">タスクとループに正確なアラームを使用します。Androidのシステム制限が適用される場合があります。</string>
     <string name="automation_exact_execution_off_desc">省電力の不正確なアラームを使用します。有効にすると、アラームとリマインダーへのアクセスを要求します。</string>
     <string name="automation_exact_execution_off_legacy_desc">省電力の不正確なアラームを使用します。このAndroidバージョンでは、追加のアクセス権なしで正確な実行を有効にできます。</string>
+    <!-- Daemon Mode, Heartbeat, SMS and Notifications -->
+    <string name="automation_daemon_mode">デーモンモード</string>
+    <string name="automation_daemon_mode_desc">アプリを開いていないときもバックグラウンドタスク（ハートビート、SMSポーリング、通知）が継続するよう、フォアグラウンドサービスを維持します</string>
+    <string name="automation_heartbeat">ハートビート</string>
+    <string name="heartbeat_enabled">有効</string>
+    <string name="heartbeat_enabled_desc">アクティブ時間帯に定期的な自己チェックを実行</string>
+    <string name="heartbeat_interval">間隔</string>
+    <string name="heartbeat_interval_desc">ハートビートの実行間隔: %d分</string>
+    <string name="heartbeat_active_hours">アクティブ時間帯</string>
+    <string name="heartbeat_active_hours_desc">ハートビートを実行できる時間帯: %1$d:00 – %2$d:00</string>
+    <string name="heartbeat_model">モデル</string>
+    <string name="heartbeat_model_desc">ハートビートに使用するモデル。会話のモデルを上書きします。継承するには「デフォルト」のままにしてください。</string>
+    <string name="heartbeat_custom_prompt">カスタムプロンプト</string>
+    <string name="heartbeat_custom_prompt_desc">ハートビートチェックへの追加指示 (%d文字)</string>
+    <string name="heartbeat_conversation">会話</string>
+    <string name="heartbeat_conversation_desc">ハートビートに使用する会話。モデル、ツール、システムプロンプトが継承されます。</string>
+    <string name="heartbeat_conversation_none">自動（専用）</string>
+    <string name="heartbeat_conversation_pick_title">ハートビートの会話を選択</string>
+    <string name="automation_sms">SMS</string>
+    <string name="sms_read_enabled">受信SMSを読む</string>
+    <string name="sms_read_enabled_desc">Agoraが受信SMSメッセージを読み取ることを許可（READ_SMS権限が必要）</string>
+    <string name="sms_send_enabled">代わりにSMSを送信</string>
+    <string name="sms_send_enabled_desc">AgoraがSMSメッセージの下書きを作成し、確認して送信できるようにする（SEND_SMS権限が必要）</string>
+    <string name="sms_poll_interval">ポーリング間隔</string>
+    <string name="sms_poll_interval_desc">新しいSMSを確認する間隔: %d分</string>
+    <string name="automation_notifications">通知</string>
+    <string name="notifications_read_enabled">通知を読む</string>
+    <string name="notifications_read_enabled_desc">Agoraが他のアプリの通知を読み取ることを許可（通知アクセスが必要）</string>
+    <string name="notifications_listener_status">リスナー状態</string>
+    <string name="notifications_listener_active">リスナー有効</string>
+    <string name="notifications_listener_inactive">リスナー無効 – 通知アクセスを確認</string>
+    <string name="notifications_manage_apps">アプリを管理</string>
+    <string name="notifications_manage_apps_desc">Agoraが通知を読み取れるアプリを選択</string>
+    <string name="notifications_queued_count">待機中</string>
+    <string name="notifications_queued_count_desc">次のハートビートを待つ通知: %d件</string>
+    <string name="notifications_clear_queue">キューをクリア</string>
+
+    <!-- Settings - Automation Page - SMS Status -->
+    <string name="sms_status">SMSステータス</string>
+    <string name="sms_status_queued">%1$d 件のメッセージが次のハートビート待ち</string>
+    <string name="sms_status_none">キューにメッセージなし</string>
+    <string name="sms_refresh_now">今すぐ更新</string>
+    <string name="sms_status_never_polled">ポーリングされたことなし</string>
+    <string name="sms_status_last_failed">最後のポーリングが失敗: %1$s</string>
+    <string name="sms_status_just_now">最後の成功ポーリングはたった今</string>
+    <string name="sms_status_minutes_ago">最後の成功ポーリングは %1$d 分前</string>
+    <string name="sms_status_hours_ago">最後の成功ポーリングは %1$d 時間前</string>
+
+    <!-- Settings - Automation Page - Heartbeat Run Status -->
+    <string name="heartbeat_run_now">ハートビートを今すぐ実行</string>
+    <string name="heartbeat_run_now_desc">スケジュールをスキップして、ハートビートを即座に1回実行します。</string>
+    <string name="heartbeat_recent_runs">最近の実行</string>
+    <string name="heartbeat_no_runs">ハートビートの実行記録はまだありません。</string>
+    <string name="heartbeat_log_ok">成功</string>
+    <string name="heartbeat_log_failed">失敗</string>
 </resources>

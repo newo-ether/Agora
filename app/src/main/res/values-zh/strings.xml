@@ -1352,4 +1352,55 @@
     <string name="composer_clear_failed">消息已发送，但无法清除草稿。</string>
     <string name="models_show_provider_name">显示 Provider 名称</string>
     <string name="models_show_provider_name_desc">在模型名称后附加服务商名称。</string>
+    <!-- Daemon Mode, Heartbeat, SMS and Notifications -->
+    <string name="automation_daemon_mode">守护进程模式</string>
+    <string name="automation_daemon_mode_desc">保持前台服务运行，以便应用未打开时后台任务（心跳、SMS 轮询、通知）仍能继续</string>
+    <string name="automation_heartbeat">心跳</string>
+    <string name="heartbeat_enabled">已启用</string>
+    <string name="heartbeat_enabled_desc">在活跃时段定期运行自检</string>
+    <string name="heartbeat_interval">间隔</string>
+    <string name="heartbeat_interval_desc">心跳检查的运行频率：%d 分钟</string>
+    <string name="heartbeat_active_hours">活跃时段</string>
+    <string name="heartbeat_active_hours_desc">可运行心跳的时间窗口：%1$d:00 – %2$d:00</string>
+    <string name="heartbeat_model">模型</string>
+    <string name="heartbeat_model_desc">用于心跳的模型。会覆盖对话的模型；保持“默认”即可继承。</string>
+    <string name="heartbeat_custom_prompt">自定义提示词</string>
+    <string name="heartbeat_custom_prompt_desc">心跳检查的附加说明（%d 个字符）</string>
+    <string name="automation_sms">短信</string>
+    <string name="sms_read_enabled">读取收到的短信</string>
+    <string name="sms_read_enabled_desc">允许 Agora 读取收到的短信（需要 READ_SMS 权限）</string>
+    <string name="sms_send_enabled">代你发送短信</string>
+    <string name="sms_send_enabled_desc">允许 Agora 起草短信供你查看和发送（需要 SEND_SMS 权限）</string>
+    <string name="sms_poll_interval">轮询间隔</string>
+    <string name="sms_poll_interval_desc">检查新短信的频率：%d 分钟</string>
+    <string name="automation_notifications">通知</string>
+    <string name="notifications_read_enabled">读取通知</string>
+    <string name="notifications_read_enabled_desc">允许 Agora 读取其他应用的通知（需要通知监听权限）</string>
+    <string name="notifications_listener_status">监听器状态</string>
+    <string name="notifications_listener_active">监听器已启用</string>
+    <string name="notifications_listener_inactive">监听器未启用 – 检查通知权限</string>
+    <string name="notifications_manage_apps">管理应用</string>
+    <string name="notifications_manage_apps_desc">选择 Agora 可以读取通知的应用</string>
+    <string name="notifications_queued_count">排队中</string>
+    <string name="notifications_queued_count_desc">%d 条通知等待下一次心跳</string>
+    <string name="notifications_clear_queue">清空队列</string>
+
+    <!-- Settings - Automation Page - SMS Status -->
+    <string name="sms_status">短信状态</string>
+    <string name="sms_status_queued">%1$d 条短信排队等待下一次心跳</string>
+    <string name="sms_status_none">队列中无短信</string>
+    <string name="sms_refresh_now">立即刷新</string>
+    <string name="sms_status_never_polled">从未轮询</string>
+    <string name="sms_status_last_failed">上次轮询失败: %1$s</string>
+    <string name="sms_status_just_now">上次成功轮询刚刚</string>
+    <string name="sms_status_minutes_ago">上次成功轮询 %1$d 分钟前</string>
+    <string name="sms_status_hours_ago">上次成功轮询 %1$d 小时前</string>
+
+    <!-- Settings - Automation Page - Heartbeat Run Status -->
+    <string name="heartbeat_run_now">立即运行心跳</string>
+    <string name="heartbeat_run_now_desc">立即运行一次心跳，跳过计划。</string>
+    <string name="heartbeat_recent_runs">最近运行</string>
+    <string name="heartbeat_no_runs">尚无心跳运行记录。</string>
+    <string name="heartbeat_log_ok">成功</string>
+    <string name="heartbeat_log_failed">失败</string>
 </resources>

@@ -85,7 +85,7 @@ class GenerationManager(
     )
     private val completionEffects = GenerationCompletionEffectsExecutor(
         isAppInForeground = { AppForegroundTracker.isInForeground },
-        releaseForegroundLease = AgoraForegroundService::release,
+        releaseForegroundLease = AgoraForegroundService::releaseLease,
         notify = ::showTerminalNotification,
     )
 
@@ -262,7 +262,7 @@ class GenerationManager(
                 managedExternally = ctx.foregroundServiceManagedExternally,
                 acquire = {
                     withContext(Dispatchers.Main) {
-                        AgoraForegroundService.acquire(app, modelMessageId)
+                        AgoraForegroundService.acquireLease(modelMessageId)
                     }
                 },
             )

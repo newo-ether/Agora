@@ -445,7 +445,7 @@ SDK.
 
 ## 10. Data portability and recovery
 
-`.agora` export/import supports selective categories. Third-party importers support
+`.agora` export/import supports selective categories, including automation configurations (Daemon, SMS, Heartbeat, and Notifications). Third-party importers support
 ChatGPT and Claude exports. Auto backup uses WorkManager and configurable retention.
 
 Recovery rules:

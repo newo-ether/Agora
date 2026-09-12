@@ -77,4 +77,59 @@
     <string name="automation_exact_execution_on_desc">استخدام منبّهات دقيقة للمهام والحلقات. قد يظل Android يطبق قيود النظام.</string>
     <string name="automation_exact_execution_off_desc">استخدام منبّهات تقريبية موفرة للبطارية. فعّل هذا الخيار لطلب صلاحية المنبّهات والتذكيرات.</string>
     <string name="automation_exact_execution_off_legacy_desc">استخدام منبّهات تقريبية موفرة للبطارية. يمكنك تفعيل التنفيذ الدقيق دون صلاحية إضافية على إصدار Android هذا.</string>
+    <!-- Daemon Mode, Heartbeat, SMS and Notifications -->
+    <string name="automation_daemon_mode">وضع الخفي</string>
+    <string name="automation_daemon_mode_desc">إبقاء خدمة في المقدمة حتى تستمر المهام في الخلفية (heartbeat، استطلاع SMS، الإشعارات) عندما يكون التطبيق غير مفتوح</string>
+    <string name="automation_heartbeat">نبض النظام</string>
+    <string name="heartbeat_enabled">مفعّل</string>
+    <string name="heartbeat_enabled_desc">تشغيل فحوصات ذاتية دورية خلال ساعات النشاط</string>
+    <string name="heartbeat_interval">الفاصل الزمني</string>
+    <string name="heartbeat_interval_desc">عدد مرات تشغيل فحوصات نبض النظام: %d دقيقة</string>
+    <string name="heartbeat_active_hours">ساعات النشاط</string>
+    <string name="heartbeat_active_hours_desc">نافذة الوقت لتنفيذ نبضات النظام: %1$d:00 – %2$d:00</string>
+    <string name="heartbeat_model">النموذج</string>
+    <string name="heartbeat_model_desc">النموذج المستخدم لنبض النظام. يتجاوز نموذج المحادثة؛ اتركه على «الافتراضي» لوراثته.</string>
+    <string name="heartbeat_custom_prompt">موجه مخصص</string>
+    <string name="heartbeat_custom_prompt_desc">تعليمات إضافية لفحص نبض النظام (%d حرفًا)</string>
+    <string name="heartbeat_conversation">المحادثة</string>
+    <string name="heartbeat_conversation_desc">المحادثة المستخدمة لنبض النظام. تُورث نموذجها وأدواتها وموجّه النظام الخاص بها.</string>
+    <string name="heartbeat_conversation_none">تلقائي (مخصصة)</string>
+    <string name="heartbeat_conversation_pick_title">اختيار محادثة نبض النظام</string>
+    <string name="automation_sms">SMS</string>
+    <string name="sms_read_enabled">قراءة رسائل SMS الواردة</string>
+    <string name="sms_read_enabled_desc">السماح لـ Agora بقراءة رسائل SMS الواردة (يتطلب إذن READ_SMS)</string>
+    <string name="sms_send_enabled">إرسال SMS نيابة عنك</string>
+    <string name="sms_send_enabled_desc">السماح لـ Agora بإنشاء مسودات رسائل SMS لتستعرضها وترسلها (يتطلب إذن SEND_SMS)</string>
+    <string name="sms_poll_interval">فاصل الاستطلاع</string>
+    <string name="sms_poll_interval_desc">عدد مرات التحقق من رسائل SMS الجديدة: %d دقيقة</string>
+    <string name="automation_notifications">الإشعارات</string>
+    <string name="notifications_read_enabled">قراءة الإشعارات</string>
+    <string name="notifications_read_enabled_desc">السماح لـ Agora بقراءة إشعارات التطبيقات الأخرى (يتطلب الوصول إلى مستمع الإشعارات)</string>
+    <string name="notifications_listener_status">حالة المستمع</string>
+    <string name="notifications_listener_active">المستمع نشط</string>
+    <string name="notifications_listener_inactive">المستمع غير نشط – تحقق من الوصول إلى الإشعارات</string>
+    <string name="notifications_manage_apps">إدارة التطبيقات</string>
+    <string name="notifications_manage_apps_desc">اختر التطبيقات التي يمكن لـ Agora قراءة إشعاراتها</string>
+    <string name="notifications_queued_count">في الانتظار</string>
+    <string name="notifications_queued_count_desc">%d إشعارًا بانتظار نبض النظام التالي</string>
+    <string name="notifications_clear_queue">مسح قائمة الانتظار</string>
+
+    <!-- Settings - Automation Page - SMS Status -->
+    <string name="sms_status">حالة الرسائل القصيرة</string>
+    <string name="sms_status_queued">%1$d رسالة في انتظار النبض التالي</string>
+    <string name="sms_status_none">لا توجد رسائل في الانتظار</string>
+    <string name="sms_refresh_now">تحديث الآن</string>
+    <string name="sms_status_never_polled">لم يتم الاستعلام أبدًا</string>
+    <string name="sms_status_last_failed">فشل آخر استعلام: %1$s</string>
+    <string name="sms_status_just_now">آخر استعلام ناجح الآن</string>
+    <string name="sms_status_minutes_ago">آخر استعلام ناجح منذ %1$d دقيقة</string>
+    <string name="sms_status_hours_ago">آخر استعلام ناجح منذ %1$d ساعة</string>
+
+    <!-- Settings - Automation Page - Heartbeat Run Status -->
+    <string name="heartbeat_run_now">تشغيل النبض الآن</string>
+    <string name="heartbeat_run_now_desc">ينفذ نبضًا واحدًا فورًا، متجاوزًا الجدول الزمني.</string>
+    <string name="heartbeat_recent_runs">عمليات تشغيل حديثة</string>
+    <string name="heartbeat_no_runs">لا توجد عمليات تشغيل للنبض مسجلة بعد.</string>
+    <string name="heartbeat_log_ok">تم</string>
+    <string name="heartbeat_log_failed">فشل</string>
 </resources>

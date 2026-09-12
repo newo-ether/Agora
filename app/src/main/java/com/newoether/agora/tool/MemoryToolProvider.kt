@@ -113,6 +113,19 @@ class MemoryToolProvider(
                                 required = listOf("name")
                             )
                         )
+                    ),
+                    ToolDefinition(
+                        function = ToolFunction(
+                            name = "pin_memory_file",
+                            description = "Pin or unpin a memory file. Pinned files are considered promoted and will no longer be suggested as promotion candidates.",
+                            parameters = ToolParameters(
+                                properties = mapOf(
+                                    "name" to ToolProperty("string", "The file name to pin/unpin."),
+                                    "pinned" to ToolProperty("boolean", "True to pin, false to unpin.")
+                                ),
+                                required = listOf("name", "pinned")
+                            )
+                        )
                     )
                 )
             )
@@ -158,6 +171,8 @@ class MemoryToolProvider(
             Json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(argsStr)
         fun arg(key: String): String =
             (args[key] as? JsonPrimitive)?.content ?: ""
+        fun argBool(key: String): Boolean =
+            (args[key] as? JsonPrimitive)?.content?.toBooleanStrictOrNull() ?: false
 
         when (name) {
             "list_memory_files" -> {
@@ -176,6 +191,7 @@ class MemoryToolProvider(
                                     buildJsonObject {
                                         put("name", f.name)
                                         put("description", f.description)
+                                        put("pinned", f.pinned)
                                     }
                                 )
                             }
@@ -246,6 +262,8 @@ class MemoryToolProvider(
             }
 
             "delete_memory_file" -> memoryManager.deleteFile(arg("name"))
+            
+            "pin_memory_file" -> memoryManager.pinFile(arg("name"), argBool("pinned"))
 
             "update_active_memory" -> {
                 val mode = arg("mode").ifBlank { "replace" }
@@ -268,6 +286,7 @@ class MemoryToolProvider(
         "create_memory_file",
         "edit_memory_file",
         "delete_memory_file",
+        "pin_memory_file",
         "update_active_memory"
     )
 }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -35,7 +36,9 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.rememberModalBottomSheetState
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
+import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet as ModalBottomSheet
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,6 +73,9 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.McpServerConfig
 import com.newoether.agora.data.McpTransportType
+import com.newoether.agora.mcp.PopularMcpServer
+import com.newoether.agora.mcp.popularMcpServers
+import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
 import com.newoether.agora.mcp.McpConnectionStatus
 import com.newoether.agora.mcp.McpServerSnapshot
 import com.newoether.agora.util.noOpBringIntoView
@@ -104,6 +111,8 @@ fun SettingsMcpPage(
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     var editorRoute by remember { mutableStateOf<McpEditorRoute?>(null) }
     var deleteId by remember { mutableStateOf<String?>(null) }
+    var showAddServerSheet by remember { mutableStateOf(false) }
+    val addServerSheetState = rememberModalBottomSheetState()
 
     LaunchedEffect(Unit) {
         viewModel.refreshMcpServersOnPageEntry()
@@ -292,12 +301,7 @@ fun SettingsMcpPage(
                             add {
                                 SettingsAddItem(
                                     label = stringResource(R.string.mcp_add_server),
-                                    onClick = {
-                                        editorRoute = McpEditorRoute(
-                                            initial = McpServerConfig(),
-                                            isNew = true,
-                                        )
-                                    },
+                                    onClick = { showAddServerSheet = true },
                                 )
                             }
                         },
@@ -344,6 +348,100 @@ fun SettingsMcpPage(
                 }
             },
         )
+    }
+
+    if (showAddServerSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAddServerSheet = false },
+            sheetState = addServerSheetState,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            DialogWindowEdgeToEdge()
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.mcp_add_server),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsItem(
+                    headlineContent = { Text(stringResource(R.string.mcp_custom_server), fontWeight = FontWeight.Medium) },
+                    supportingContent = { Text(stringResource(R.string.mcp_custom_server_desc), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    leadingContent = { Icon(Icons.Default.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showAddServerSheet = false
+                            editorRoute = McpEditorRoute(initial = McpServerConfig(), isNew = true)
+                        },
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.mcp_popular_servers),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                popularMcpServers.forEach { popularServer ->
+                    val isAuthRequired = popularServer.requiresAuth
+                    Surface(
+                        onClick = {
+                            showAddServerSheet = false
+                            if (isAuthRequired) {
+                                // Prefill editor with auth header field
+                                editorRoute = McpEditorRoute(
+                                    initial = McpServerConfig(
+                                        id = UUID.randomUUID().toString(),
+                                        name = popularServer.name,
+                                        url = popularServer.url,
+                                        headers = mapOf("Authorization" to ""),
+                                    ),
+                                    isNew = true,
+                                )
+                            } else {
+                                // One-tap add
+                                editorRoute = McpEditorRoute(
+                                    initial = McpServerConfig(
+                                        id = UUID.randomUUID().toString(),
+                                        name = popularServer.name,
+                                        url = popularServer.url,
+                                        headers = popularServer.headers,
+                                    ),
+                                    isNew = true,
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        tonalElevation = 1.dp,
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = popularServer.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = popularServer.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
     }
 }
 

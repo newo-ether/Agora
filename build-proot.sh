@@ -197,10 +197,15 @@ echo "  [2/4] Done: $(stat -c%s "$PROOT_BLD/proot") bytes"
 # ── Step 3: Strip and deploy binaries to jniLibs ───────────────
 echo "  [3/4] Stripping and deploying..."
 
+# Strip to temp location on Linux filesystem (WSL can't write stripped
+# binaries directly to /mnt/c/... Windows filesystem due to permission issues)
+STRIP_DIR="/tmp/build-proot-stripped-$$"
+mkdir -p "$STRIP_DIR"
+
 # proot PIE executable -> libproot_exec.so
 "$STRIP" --strip-all \
     "$BLD_DIR/src/proot" \
-    -o "$JNILIBS/libproot_exec.so"
+    -o "$STRIP_DIR/libproot_exec.so"
 
 # Loader (static ELF, already stripped by make) -> libproot_loader.so
 LOADER_SRC="$BLD_DIR/src/loader/loader"
@@ -208,17 +213,25 @@ if [ ! -f "$LOADER_SRC" ]; then
     echo "ERROR: loader binary not found at $LOADER_SRC"
     exit 1
 fi
-cp "$LOADER_SRC" "$JNILIBS/libproot_loader.so"
+cp "$LOADER_SRC" "$STRIP_DIR/libproot_loader.so"
 
 # talloc -> jniLibs (strip)
 "$STRIP" --strip-all \
     "$SYSROOT_LIB/libtalloc.so" \
-    -o "$JNILIBS/libtalloc.so"
+    -o "$STRIP_DIR/libtalloc.so"
+
+# Copy stripped binaries to jniLibs (cp works on /mnt/c/...)
+cp "$STRIP_DIR/libproot_exec.so" "$JNILIBS/libproot_exec.so"
+cp "$STRIP_DIR/libproot_loader.so" "$JNILIBS/libproot_loader.so"
+cp "$STRIP_DIR/libtalloc.so" "$JNILIBS/libtalloc.so"
 
 echo "  [3/4] Binaries deployed:"
 echo "    $(stat -c%s "$JNILIBS/libproot_exec.so") bytes  libproot_exec.so"
 echo "    $(stat -c%s "$JNILIBS/libproot_loader.so") bytes  libproot_loader.so"
 echo "    $(stat -c%s "$JNILIBS/libtalloc.so") bytes  libtalloc.so"
+
+# Cleanup temp strip directory
+rm -rf "$STRIP_DIR"
 
 # ── Step 4: Sync to fdroid jniLibs flavor ──────────────────────
 echo "  [4/4] Syncing to fdroid jniLibs..."

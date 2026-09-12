@@ -10,7 +10,7 @@ A `.agora` file is a versioned ZIP archive (currently format version 4). Dependi
 - attachments, tool media, and draft media;
 - active memory, saved memories, and Skills;
 - system prompts;
-- application settings and an imported custom font;
+- application settings (including UI preferences and Automation configurations like Daemon, SMS polling, Heartbeat, and Notification whitelist), and an imported custom font;
 - provider API keys and other secrets, only when explicitly selected.
 
 !!! warning "Protect archives that contain secrets"

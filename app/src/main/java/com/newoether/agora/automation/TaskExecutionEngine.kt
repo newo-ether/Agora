@@ -88,6 +88,10 @@ class TaskExecutionEngine(
     private val automationWakeLockOwner: AutomationWakeLockOwner =
         AutomationWakeLockOwner(appContext),
     private val pauseConversationLoop: suspend (String) -> Unit = {},
+    // Extra tool providers beyond mcpToolProvider (e.g. Heartbeat's promote_learning,
+    // SMS/Notification tools) that headless callers like HeartbeatScheduler need available
+    // during runOnce(), without changing the tool set Task/Loop executions see by default.
+    extraToolProviders: List<com.newoether.agora.tool.ToolProvider> = emptyList(),
 ) {
     sealed interface Result {
         data class Success(val modelMessageId: String, val text: String) : Result
@@ -338,7 +342,7 @@ class TaskExecutionEngine(
         skillManager = skillManager,
         context = appContext,
         sandboxFactory = sandboxFactory,
-        additionalToolProviders = listOf(mcpToolProvider),
+        additionalToolProviders = listOf(mcpToolProvider) + extraToolProviders,
         customProviders = { settings.customProviders.value },
     ).also {
         // Foreground Task/Loop executions share the exact same prompt and session trust state as
@@ -552,8 +556,9 @@ class TaskExecutionEngine(
             if (preCompactMessageId != null) {
                 val preCompactMessage = convRepo.getMessage(preCompactMessageId)
                 if (!automaticCompactAllowsHandoff(preCompactMessage?.status)) {
+                    // Same rule as the terminal path below: no message text in the reason.
                     return Result.Failure(
-                        preCompactMessage?.text?.takeIf(String::isNotBlank)
+                        preCompactMessage?.let { "Compact generation ended with status ${it.status}" }
                             ?: "Compact generation did not complete successfully",
                     )
                 }
@@ -725,7 +730,14 @@ class TaskExecutionEngine(
             if (finalMsg != null && finalMsg.status == MessageStatus.SUCCESS) {
                 Result.Success(finalModelMessageId, finalMsg.text)
             } else {
-                Result.Failure(finalMsg?.text?.takeIf { it.isNotBlank() } ?: "Generation failed")
+                // Never surface message text as the failure reason: a failed generation can
+                // leave partial answer or reasoning content in it, and this reason is
+                // persisted to durable logs (heartbeat_logs, task results) and shown in
+                // settings. The full message stays inspectable in the conversation itself.
+                Result.Failure(
+                    finalMsg?.let { "Generation ended with status ${it.status}" }
+                        ?: "Generation failed",
+                )
             }
         } catch (e: CancellationException) {
             withContext(NonCancellable) {

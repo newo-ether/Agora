@@ -9,7 +9,7 @@ import org.junit.Test
 class DrawerSearchLoadingSourceContractTest {
     @Test
     fun `keyword search uses a single SQLite LIKE escape character`() {
-        val dao = source("data/local/ChatDao.kt")
+        val dao = source("data/local/ChatSearchDao.kt")
         val repository = source("data/repository/ConversationRepository.kt")
         val globalSearchQuery = dao
             .substringBefore("suspend fun searchMessages")
@@ -28,7 +28,7 @@ class DrawerSearchLoadingSourceContractTest {
 
     @Test
     fun `drawer list uses a bounded projection with truthful fade-backed loading and search states`() {
-        val dao = source("data/local/ChatDao.kt")
+        val dao = source("data/local/ChatCoreDao.kt")
         val repository = source("data/repository/ConversationRepository.kt")
         val viewModel = source("viewmodel/ChatViewModel.kt")
         val normalizedViewModel = viewModel.replace("\r\n", "\n")

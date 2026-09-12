@@ -21,6 +21,7 @@ class MemoryToolProviderTest {
         every { createFile(any(), any(), any()) } returns "Created"
         every { editFile(any(), any(), any(), any(), any(), any()) } returns "Edited"
         every { deleteFile(any()) } returns "Deleted"
+        every { pinFile(any(), any()) } returns "Pinned"
         every { updateActiveMemory(any(), any(), any(), any()) } returns "Updated"
     }
     private val provider = MemoryToolProvider(memoryManager)
@@ -32,7 +33,7 @@ class MemoryToolProviderTest {
     @Test
     fun definitionsExposeSixMemoryToolsAndExplicitEditOperation() {
         val definitions = provider.definitions(enabled)
-        assertEquals(6, definitions.size)
+        assertEquals(7, definitions.size)
         assertEquals(
             setOf(
                 "list_memory_files",
@@ -40,6 +41,7 @@ class MemoryToolProviderTest {
                 "create_memory_file",
                 "edit_memory_file",
                 "delete_memory_file",
+                "pin_memory_file",
                 "update_active_memory",
             ),
             definitions.map { it.function.name }.toSet(),
@@ -274,6 +276,7 @@ class MemoryToolProviderTest {
     fun handlesOnlyMemoryTools() {
         assertTrue(provider.handles("list_memory_files"))
         assertTrue(provider.handles("update_active_memory"))
+        assertTrue(provider.handles("pin_memory_file"))
         assertFalse(provider.handles("web_search"))
         assertFalse(provider.handles("unknown_tool"))
     }

@@ -16,9 +16,17 @@ class MemoryManager(context: Context) {
 
     private val metaFile: File =
         File(memoryDir, "memory_meta.json")
+        
+    private val hitsFile: File = 
+        File(memoryDir, "memory_hits.json")
+
+    private val pinnedFile: File =
+        File(memoryDir, "memory_pinned.json")
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val metadata = DescriptionMetadataStore(metaFile, json)
+    private val hitsStore = DescriptionMetadataStore(hitsFile, json)
+    private val pinnedStore = DescriptionMetadataStore(pinnedFile, json)
     private val _activeMemoryRevision = MutableStateFlow(0L)
     val activeMemoryRevision = _activeMemoryRevision.asStateFlow()
     private val _catalogRevision = MutableStateFlow(0L)
@@ -27,6 +35,7 @@ class MemoryManager(context: Context) {
     data class MemoryFileInfo(
         val name: String,
         val description: String = "",
+        val pinned: Boolean = false,
     )
 
     @Synchronized
@@ -95,9 +104,10 @@ class MemoryManager(context: Context) {
     @Synchronized
     fun listFiles(): List<MemoryFileInfo> {
         val values = metadata.read()
+        val pinned = pinnedStore.read()
         return memoryDir.listFiles()
             ?.filter { it.extension == "md" }
-            ?.map { MemoryFileInfo(it.name, values[it.name].orEmpty()) }
+            ?.map { MemoryFileInfo(it.name, values[it.name].orEmpty(), pinned[it.name] == "true") }
             ?.sortedBy { it.name }
             .orEmpty()
     }
@@ -115,7 +125,40 @@ class MemoryManager(context: Context) {
     fun readFile(name: String): String {
         val file = resolveFile(name)
         require(file.exists()) { "File not found: $name" }
+        incrementHitCount(file.name)
         return file.readText()
+    }
+    
+    private fun incrementHitCount(name: String) {
+        val hits = hitsStore.read()
+        val count = hits[name]?.toIntOrNull() ?: 0
+        hits[name] = (count + 1).toString()
+        hitsStore.write(hits)
+    }
+
+    @Synchronized
+    fun getPromotionCandidates(minHits: Int = 5): List<MemoryFileInfo> {
+        val hits = hitsStore.read()
+        val meta = metadata.read()
+        val pinned = pinnedStore.read()
+        return hits.mapNotNull { (name, countStr) ->
+            if (pinned[name] == "true") return@mapNotNull null
+            val count = countStr.toIntOrNull() ?: 0
+            if (count >= minHits) {
+                MemoryFileInfo(name, meta[name].orEmpty(), false)
+            } else null
+        }.sortedByDescending { hits[it.name]?.toIntOrNull() ?: 0 }
+    }
+
+    @Synchronized
+    fun pinFile(name: String, pinned: Boolean): String {
+        val file = resolveFile(name)
+        require(file.exists()) { "File not found: $name" }
+        val values = pinnedStore.read()
+        if (pinned) values[file.name] = "true" else values.remove(file.name)
+        pinnedStore.write(values)
+        _catalogRevision.value += 1
+        return if (pinned) "Pinned ${file.name}" else "Unpinned ${file.name}"
     }
 
     @Synchronized
@@ -187,6 +230,15 @@ class MemoryManager(context: Context) {
         val targetName = renameTarget?.name ?: file.name
         if (renameTarget != null) {
             values?.remove(file.name)?.let { values[renameTarget.name] = it }
+            
+            // Also rename in hitsStore and pinnedStore
+            val hits = hitsStore.read()
+            hits.remove(file.name)?.let { hits[renameTarget.name] = it }
+            hitsStore.write(hits)
+            
+            val pins = pinnedStore.read()
+            pins.remove(file.name)?.let { pins[renameTarget.name] = it }
+            pinnedStore.write(pins)
         }
         if (description != null) {
             updateDescription(requireNotNull(values), targetName, description)
@@ -245,6 +297,15 @@ class MemoryManager(context: Context) {
         val content = file.readBytes()
         require(file.delete()) { "Unable to delete ${file.name}" }
         values.remove(file.name)
+        
+        val hits = hitsStore.read()
+        hits.remove(file.name)
+        hitsStore.write(hits)
+        
+        val pins = pinnedStore.read()
+        pins.remove(file.name)
+        pinnedStore.write(pins)
+        
         if (values != originalValues) {
             try {
                 metadata.write(values)

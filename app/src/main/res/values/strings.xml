@@ -831,6 +831,7 @@
     <string name="settings_group_services">Services</string>
     <string name="settings_group_responses">Responses</string>
     <string name="settings_group_tools">Tools</string>
+
     <string name="settings_group_about">About</string>
     <string name="rating_category">Rate</string>
 

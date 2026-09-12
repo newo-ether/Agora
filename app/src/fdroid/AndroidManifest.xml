@@ -11,7 +11,27 @@
         android:maxSdkVersion="29"
         tools:replace="android:maxSdkVersion" />
 
+    <!-- SMS permissions for F-Droid flavor only -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+
+    <!-- Notification listener permission for F-Droid flavor only -->
+    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
+
+    <!-- Allow querying all installed apps to display the notification app filter list -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
     <!-- Android 10 has no MANAGE_EXTERNAL_STORAGE API. Keep full shared-storage access available
          there only in the F-Droid sandbox flavor; Android 11+ uses the explicit all-files grant. -->
-    <application android:requestLegacyExternalStorage="true" />
+    <application android:requestLegacyExternalStorage="true">
+        <!-- Notification Listener Service for F-Droid flavor only -->
+        <service
+            android:name=".notifications.AgoraNotificationListenerService"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
 </manifest>

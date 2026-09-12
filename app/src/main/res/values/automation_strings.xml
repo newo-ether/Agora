@@ -66,7 +66,7 @@
     <string name="automation_notification_channel_desc">Ongoing notification while an Agora automation is running</string>
 
     <string name="settings_automation">Automation</string>
-    <string name="settings_automation_desc">Tasks, loops, and scheduling precision</string>
+    <string name="settings_automation_desc">Automation, heartbeat, SMS and notification settings</string>
     <string name="automation_ai_tools">Access Tasks and Loops</string>
     <string name="automation_ai_tools_desc">Let the model create and manage tasks or start and stop conversation loops. Disabled by default.</string>
     <string name="automation_background_execution">Background Execution</string>
@@ -95,4 +95,66 @@
     <string name="tool_started_loop">Started loop</string>
     <string name="tool_stopping_loop">Stopping loop…</string>
     <string name="tool_stopped_loop">Stopped loop</string>
+
+    <!-- Settings - Automation Page - Daemon Mode -->
+    <string name="automation_daemon_mode">Daemon Mode</string>
+    <string name="automation_daemon_mode_desc">Keep a foreground service running so background tasks (heartbeat, SMS polling, notifications) continue when the app is not open</string>
+
+    <!-- Settings - Automation Page - Heartbeat -->
+    <string name="automation_heartbeat">Heartbeat</string>
+    <string name="heartbeat_enabled">Enabled</string>
+    <string name="heartbeat_enabled_desc">Run periodic self-checks during active hours</string>
+    <string name="heartbeat_interval">Interval</string>
+    <string name="heartbeat_interval_desc">How often to run heartbeat checks: %d minutes</string>
+    <string name="heartbeat_active_hours">Active Hours</string>
+    <string name="heartbeat_active_hours_desc">Time window when heartbeats can run: %1$d:00 – %2$d:00</string>
+    <string name="heartbeat_model">Model</string>
+    <string name="heartbeat_model_desc">Model used for heartbeat. Overrides the conversation\'s model; leave as Default to inherit it.</string>
+    <string name="heartbeat_custom_prompt">Custom Prompt</string>
+    <string name="heartbeat_custom_prompt_desc">Additional instructions for the heartbeat check (%d chars)</string>
+    <string name="heartbeat_conversation">Conversation</string>
+    <string name="heartbeat_conversation_desc">Conversation to use for heartbeat. Its model, tools and system prompt are inherited.</string>
+    <string name="heartbeat_conversation_none">Auto (dedicated)</string>
+    <string name="heartbeat_conversation_pick_title">Select Heartbeat Conversation</string>
+
+    <!-- Settings - Automation Page - SMS -->
+    <string name="automation_sms">SMS</string>
+    <string name="sms_read_enabled">Read Incoming SMS</string>
+    <string name="sms_read_enabled_desc">Allow Agora to read incoming SMS messages (requires READ_SMS permission)</string>
+    <string name="sms_send_enabled">Send SMS on Your Behalf</string>
+    <string name="sms_send_enabled_desc">Allow Agora to draft SMS messages for you to review and send (requires SEND_SMS permission)</string>
+    <string name="sms_poll_interval">Poll Interval</string>
+    <string name="sms_poll_interval_desc">How often to check for new SMS: %d minutes</string>
+
+    <!-- Settings - Automation Page - SMS Status -->
+    <string name="sms_status">SMS status</string>
+    <string name="sms_status_queued">%1$d message(s) queued for the next heartbeat</string>
+    <string name="sms_status_none">No messages queued</string>
+    <string name="sms_refresh_now">Refresh now</string>
+    <string name="sms_status_never_polled">Never polled</string>
+    <string name="sms_status_last_failed">Last poll failed: %1$s</string>
+    <string name="sms_status_just_now">Last successful poll just now</string>
+    <string name="sms_status_minutes_ago">Last successful poll %1$dm ago</string>
+    <string name="sms_status_hours_ago">Last successful poll %1$dh ago</string>
+
+    <!-- Settings - Automation Page - Notifications -->
+    <string name="automation_notifications">Notifications</string>
+    <string name="notifications_read_enabled">Read Notifications</string>
+    <string name="notifications_read_enabled_desc">Allow Agora to read notifications from other apps (requires notification listener access)</string>
+    <string name="notifications_listener_status">Listener Status</string>
+    <string name="notifications_listener_active">Listener Active</string>
+    <string name="notifications_listener_inactive">Listener Inactive – Check Notification Access</string>
+    <string name="notifications_manage_apps">Manage Apps</string>
+    <string name="notifications_manage_apps_desc">Choose which apps Agora can read notifications from</string>
+    <string name="notifications_queued_count">Queued</string>
+    <string name="notifications_queued_count_desc">%d notifications waiting for next heartbeat</string>
+    <string name="notifications_clear_queue">Clear Queue</string>
+
+    <!-- Settings - Automation Page - Heartbeat Run Status -->
+    <string name="heartbeat_run_now">Run heartbeat now</string>
+    <string name="heartbeat_run_now_desc">Runs one heartbeat immediately, bypassing the schedule.</string>
+    <string name="heartbeat_recent_runs">Recent runs</string>
+    <string name="heartbeat_no_runs">No heartbeat runs recorded yet.</string>
+    <string name="heartbeat_log_ok">OK</string>
+    <string name="heartbeat_log_failed">Failed</string>
 </resources>

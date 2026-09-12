@@ -53,6 +53,7 @@ import com.newoether.agora.util.gradientBlur
 import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
 import com.newoether.agora.ui.chat.bottombar.LoopStatusBackdrop
+import com.newoether.agora.ui.chat.composables.PendingSmsBanner
 import com.newoether.agora.ui.components.AnimatedBlobBackground
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.components.TypewriterMode
@@ -60,7 +61,6 @@ import com.newoether.agora.ui.components.TypewriterText
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.model.StableMessageList
 import com.newoether.agora.model.StableModelAliases
 import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.viewmodel.validChatModels
@@ -527,9 +527,9 @@ fun ChatApp(
                             )
                             Box(modifier = Modifier.fillMaxSize()) {
                             MessageList(
-                                messages = StableMessageList(renderMessagesState.value),
-                                authoritativeMessages = StableMessageList(displayMessagesState.value),
-                                allMessages = StableMessageList(allMessagesState.value),
+                                messages = com.newoether.agora.model.StableMessageList(renderMessagesState.value),
+                                authoritativeMessages = com.newoether.agora.model.StableMessageList(displayMessagesState.value),
+                                allMessages = com.newoether.agora.model.StableMessageList(allMessagesState.value),
                                 conversationId = currentConversationId,
                                 modifier = Modifier.fillMaxSize().gradientBlur(
                                     blurAtTopDp = if (blurEffectsEnabled) 8f else 0f,
@@ -861,8 +861,8 @@ fun ChatApp(
                             }
                             .navigationBarsPadding()
                             .imePadding()
-                            .padding(8.dp),
                     ) {
+                        PendingSmsBanner(viewModel = viewModel)
                         // This is a sibling behind the complete outer bar, not a child of the
                         // composer. Its lower overflow is therefore occluded by the 28dp Surface
                         // and shadow below.

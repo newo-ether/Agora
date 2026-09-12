@@ -84,6 +84,19 @@ class AgoraApplication : Application() {
     fun requireContainer(): AppContainer =
         startupGate.requireReadyResource()
 
+    /**
+     * Non-throwing container access for system-created components (services, receivers)
+     * that can be created before the startup gate reaches Ready — e.g. a notification
+     * listener bound by the OS during a cold start. Returns null while startup is
+     * Checking, or if it ended Blocked; callers must fail gracefully.
+     */
+    fun containerIfAvailable(): AppContainer? =
+        if (startupGate.state.value is DatabaseStartupState.Ready) {
+            startupGate.requireReadyResource()
+        } else {
+            null
+        }
+
     suspend fun clearIncompatibleDatabase(): Boolean =
         startupGate.clearBlockedDatabase()
 }

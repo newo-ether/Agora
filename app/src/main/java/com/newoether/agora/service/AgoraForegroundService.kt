@@ -164,43 +164,54 @@ class AgoraForegroundService : Service() {
         private const val TAG = "AgoraForegroundService"
         private val mainHandler = Handler(Looper.getMainLooper())
         @Volatile private var instance: AgoraForegroundService? = null
+        // Populated by createChannels() at app startup, independent of `instance`. startService()
+        // must be able to call startForegroundService() the very first time a lease is acquired
+        // in a process lifetime, before the Service (and therefore `instance`) has ever existed —
+        // relying solely on `instance?.applicationContext` is circular and always fails cold.
+        @Volatile private var appContextRef: Context? = null
         private val ownerLeases = ForegroundOwnerLeases()
 
-        /** Acquires this generation's lease; returns false for a duplicate owner/start failure. */
-        fun acquire(context: Context, owner: String): Boolean {
+        /** Acquires a lease on the shared foreground service. Returns false if duplicate owner or start failed. */
+        fun acquireLease(owner: String): Boolean {
             if (owner.isBlank()) return false
             val transition = ownerLeases.acquire(owner)
             if (!transition.accepted) return false
-            if (transition.action == ForegroundServiceLeaseAction.Start && !startService(context)) {
+            if (transition.action == ForegroundServiceLeaseAction.Start && !startService()) {
                 ownerLeases.startRequestFailed(owner)
                 return false
             }
             CrashReporter.note(
-                "FGS.acquire owners=${ownerLeases.size()} state=${ownerLeases.lifecycleState()}"
+                "FGS.acquireLease owners=${ownerLeases.size()} state=${ownerLeases.lifecycleState()}"
             )
             return true
         }
 
-        private fun startService(context: Context): Boolean {
-            val appContext = context.applicationContext
+        /** Releases a lease on the shared foreground service. Stops service if no owners remain. */
+        fun releaseLease(owner: String) {
+            val transition = ownerLeases.release(owner)
+            val action = transition.action
+            if (action is ForegroundServiceLeaseAction.Stop) {
+                CrashReporter.note("FGS.stop requested startId=${action.startId}")
+                instance?.requestLeaseStop(action.startId)
+            }
+            CrashReporter.note(
+                "FGS.releaseLease released=${transition.accepted} owners=${ownerLeases.size()} " +
+                    "state=${ownerLeases.lifecycleState()}"
+            )
+        }
+
+        private fun startService(): Boolean {
+            val appContext = appContextRef ?: instance?.applicationContext ?: return false
             val intent = Intent(appContext, AgoraForegroundService::class.java)
-            // Record process importance (foreground vs background) at start — both as a diagnostic
-            // trail for the unreproducible "did not start in time" crash (#60) and as the gate.
             val info = ActivityManager.RunningAppProcessInfo()
             val importance = try {
                 ActivityManager.getMyMemoryState(info)
                 info.importance
             } catch (e: Exception) {
                 CrashReporter.note("FGS.start getMyMemoryState threw ${e.javaClass.simpleName}")
-                // If we can't read state, assume foreground so we don't silently disable FGS.
                 ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
             }
             CrashReporter.note("FGS.start api=${Build.VERSION.SDK_INT} importance=$importance trim=${info.lastTrimLevel}")
-            // Fail closed: starting a foreground service after the process is backgrounded risks
-            // ForegroundServiceDidNotStartInTimeException because the system may defer Service
-            // instantiation beyond the five-second promotion deadline (#60, 140 crashes). Returning
-            // false requires the generation caller to terminalize before provider or tool work begins.
-            // Foreground owners (importance <= FOREGROUND_SERVICE) always proceed.
             if (importance > ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE) {
                 CrashReporter.note("FGS.start skipped importance=$importance not-foreground")
                 DebugLog.w(TAG, "Skipping FGS start: process not foreground (importance=$importance)")
@@ -225,24 +236,8 @@ class AgoraForegroundService : Service() {
             instance?.updateNotificationText(text)
         }
 
-        /**
-         * Releases only [owner]'s lease. A running Service stops with its exact startId; a Service
-         * that is still starting is allowed to promote first and stops from onStartCommand().
-         */
-        fun release(owner: String) {
-            val transition = ownerLeases.release(owner)
-            val action = transition.action
-            if (action is ForegroundServiceLeaseAction.Stop) {
-                CrashReporter.note("FGS.stop requested startId=${action.startId}")
-                instance?.requestLeaseStop(action.startId)
-            }
-            CrashReporter.note(
-                "FGS.release released=${transition.accepted} owners=${ownerLeases.size()} " +
-                    "state=${ownerLeases.lifecycleState()}"
-            )
-        }
-
         fun createChannels(context: Context) {
+            appContextRef = context.applicationContext
             createGenerationChannel(context)
             createCompletionChannel(context)
         }
@@ -401,7 +396,6 @@ class AgoraForegroundService : Service() {
         CrashReporter.note("FGS.onDestroy owners=${ownerLeases.size()}")
         super.onDestroy()
 
-        val appContext = applicationContext
         // Posting is essential: starting from inside onDestroy() can target the ServiceRecord that
         // is still being brought down. The next main-loop turn runs after destruction completion.
         mainHandler.post {
@@ -410,7 +404,7 @@ class AgoraForegroundService : Service() {
                 "FGS.destroy complete owners=${ownerLeases.size()} " +
                     "state=${ownerLeases.lifecycleState()} restart=${action is ForegroundServiceLeaseAction.Start}"
             )
-            if (action == ForegroundServiceLeaseAction.Start && !startService(appContext)) {
+            if (action == ForegroundServiceLeaseAction.Start && !startService()) {
                 ownerLeases.startRequestFailed()
             }
         }

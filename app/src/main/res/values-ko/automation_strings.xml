@@ -77,4 +77,59 @@
     <string name="automation_exact_execution_on_desc">작업과 루프에 정확한 알람을 사용합니다. Android에서 시스템 제한을 적용할 수 있습니다.</string>
     <string name="automation_exact_execution_off_desc">배터리를 절약하는 부정확한 알람을 사용합니다. 사용 설정하면 알람 및 리마인더 접근 권한을 요청합니다.</string>
     <string name="automation_exact_execution_off_legacy_desc">배터리를 절약하는 부정확한 알람을 사용합니다. 이 Android 버전에서는 추가 권한 없이 정확한 실행을 켤 수 있습니다.</string>
+    <!-- Daemon Mode, Heartbeat, SMS and Notifications -->
+    <string name="automation_daemon_mode">데몬 모드</string>
+    <string name="automation_daemon_mode_desc">앱이 열려 있지 않을 때도 백그라운드 작업(하트비트, SMS 폴링, 알림)이 계속 실행되도록 포그라운드 서비스를 유지합니다</string>
+    <string name="automation_heartbeat">하트비트</string>
+    <string name="heartbeat_enabled">사용</string>
+    <string name="heartbeat_enabled_desc">활성 시간 동안 주기적으로 자체 점검 실행</string>
+    <string name="heartbeat_interval">간격</string>
+    <string name="heartbeat_interval_desc">하트비트 점검 실행 간격: %d분</string>
+    <string name="heartbeat_active_hours">활성 시간</string>
+    <string name="heartbeat_active_hours_desc">하트비트를 실행할 수 있는 시간대: %1$d:00 – %2$d:00</string>
+    <string name="heartbeat_model">모델</string>
+    <string name="heartbeat_model_desc">하트비트에 사용할 모델입니다. 대화의 모델을 재정의합니다. 상속하려면 기본값으로 두세요.</string>
+    <string name="heartbeat_custom_prompt">사용자 지정 프롬프트</string>
+    <string name="heartbeat_custom_prompt_desc">하트비트 점검에 대한 추가 지침 (%d자)</string>
+    <string name="heartbeat_conversation">대화</string>
+    <string name="heartbeat_conversation_desc">하트비트에 사용할 대화입니다. 해당 대화의 모델, 도구 및 시스템 프롬프트가 상속됩니다.</string>
+    <string name="heartbeat_conversation_none">자동 (전용)</string>
+    <string name="heartbeat_conversation_pick_title">하트비트 대화 선택</string>
+    <string name="automation_sms">SMS</string>
+    <string name="sms_read_enabled">수신 SMS 읽기</string>
+    <string name="sms_read_enabled_desc">Agora가 수신 SMS 메시지를 읽도록 허용(READ_SMS 권한 필요)</string>
+    <string name="sms_send_enabled">대신 SMS 보내기</string>
+    <string name="sms_send_enabled_desc">Agora가 SMS 메시지 초안을 작성하고 검토 후 보낼 수 있도록 허용(SEND_SMS 권한 필요)</string>
+    <string name="sms_poll_interval">폴링 간격</string>
+    <string name="sms_poll_interval_desc">새 SMS를 확인하는 간격: %d분</string>
+    <string name="automation_notifications">알림</string>
+    <string name="notifications_read_enabled">알림 읽기</string>
+    <string name="notifications_read_enabled_desc">Agora가 다른 앱의 알림을 읽도록 허용(알림 접근 권한 필요)</string>
+    <string name="notifications_listener_status">리스너 상태</string>
+    <string name="notifications_listener_active">리스너 활성</string>
+    <string name="notifications_listener_inactive">리스너 비활성 – 알림 접근 확인</string>
+    <string name="notifications_manage_apps">앱 관리</string>
+    <string name="notifications_manage_apps_desc">Agora가 알림을 읽을 수 있는 앱 선택</string>
+    <string name="notifications_queued_count">대기 중</string>
+    <string name="notifications_queued_count_desc">다음 하트비트를 기다리는 알림 %d개</string>
+    <string name="notifications_clear_queue">큐 지우기</string>
+
+    <!-- Settings - Automation Page - SMS Status -->
+    <string name="sms_status">SMS 상태</string>
+    <string name="sms_status_queued">%1$d 개의 메시지가 다음 하트비트 대기 중</string>
+    <string name="sms_status_none">대기 중인 메시지 없음</string>
+    <string name="sms_refresh_now">지금 새로 고침</string>
+    <string name="sms_status_never_polled">폴링된 적 없음</string>
+    <string name="sms_status_last_failed">마지막 폴링 실패: %1$s</string>
+    <string name="sms_status_just_now">마지막 성공 폴링 방금 전</string>
+    <string name="sms_status_minutes_ago">마지막 성공 폴링 %1$d 분 전</string>
+    <string name="sms_status_hours_ago">마지막 성공 폴링 %1$d 시간 전</string>
+
+    <!-- Settings - Automation Page - Heartbeat Run Status -->
+    <string name="heartbeat_run_now">지금 하트비트 실행</string>
+    <string name="heartbeat_run_now_desc">일정을 건너뛰고 하트비트를 즉시 한 번 실행합니다.</string>
+    <string name="heartbeat_recent_runs">최근 실행</string>
+    <string name="heartbeat_no_runs">아직 기록된 하트비트 실행이 없습니다.</string>
+    <string name="heartbeat_log_ok">성공</string>
+    <string name="heartbeat_log_failed">실패</string>
 </resources>

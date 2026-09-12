@@ -6,7 +6,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.newoether.agora.R
 import com.newoether.agora.api.*
-import com.newoether.agora.api.LlamaEngine
 import com.newoether.agora.api.anthropic.*
 import com.newoether.agora.api.gemini.*
 import com.newoether.agora.api.local.*
@@ -22,9 +21,7 @@ import com.newoether.agora.data.SkillManager
 import com.newoether.agora.data.PredefinedVariables
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
-
 import com.newoether.agora.data.ShellDeviceConfig
-
 import com.newoether.agora.data.local.ChatEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.ConversationSettingsTransferCoordinator
@@ -37,6 +34,10 @@ import com.newoether.agora.model.apiModelName
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.sandbox.SandboxManager
 import com.newoether.agora.sandbox.SandboxManagerFactory
+import com.newoether.agora.tool.AutomationToolProvider
+import com.newoether.agora.tool.HeartbeatToolProvider
+import com.newoether.agora.tool.McpToolProvider
+import com.newoether.agora.tool.SmsToolProvider
 import com.newoether.agora.service.AgoraForegroundService
 import com.newoether.agora.service.AppForegroundTracker
 import com.newoether.agora.util.DebugLog
@@ -86,9 +87,12 @@ class ChatViewModel(
     private val mcpRegistry: com.newoether.agora.mcp.McpRegistry,
     private val mcpToolProvider: com.newoether.agora.tool.McpToolProvider,
     private val taskExecutionEngine: com.newoether.agora.automation.TaskExecutionEngine,
+    private val heartbeatToolProvider: HeartbeatToolProvider, private val smsToolProvider: SmsToolProvider,
+    private val smsDraftStore: com.newoether.agora.data.SmsDraftStore, private val smsStore: com.newoether.agora.data.SmsStore, private val smsPoller: com.newoether.agora.data.SmsPoller, private val smsSender: com.newoether.agora.sms.SmsSender,
+    private val notificationToolProvider: com.newoether.agora.tool.NotificationToolProvider,
 ) : AndroidViewModel(application) {
-
     val settings: SettingsRepository = settingsRepository
+    val smsUi: SmsUiBridge = SmsUiBridge(smsDraftStore, smsStore, smsPoller, smsSender, viewModelScope)
 
     /**
      * Conversation/message persistence behind the repository layer. CRUD, cascade-delete,
@@ -270,7 +274,7 @@ class ChatViewModel(
             skillManager = skillManager,
             context = appContext,
             sandboxFactory = sandboxFactory,
-            additionalToolProviders = listOf(automationToolProvider, mcpToolProvider),
+            additionalToolProviders = listOf(automationToolProvider, mcpToolProvider, heartbeatToolProvider, smsToolProvider, notificationToolProvider),
             customProviders = { settings.customProviders.value },
         ).also { gm ->
             // Gate lives in RagManager.indexMessageForRag (autoCacheEnabled + active model).

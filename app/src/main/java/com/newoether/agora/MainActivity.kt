@@ -264,6 +264,16 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         AppForegroundTracker.setInForeground(true)
+
+        // Auto-start daemon if enabled
+        try {
+            val container = (applicationContext as AgoraApplication).requireContainer()
+            if (container.settingsRepository.daemonEnabled.value) {
+                container.daemonController.start()
+            }
+        } catch (e: Exception) {
+            com.newoether.agora.util.DebugLog.w("MainActivity", "Failed to auto-start daemon", e)
+        }
     }
 
     override fun onPause() {

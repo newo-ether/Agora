@@ -12,7 +12,7 @@ class ApprovedFeatureSourceContractTest {
         val root = sourceRoot()
         val rag = source(root, "com/newoether/agora/viewmodel/RagManager.kt")
         val settings = source(root, "com/newoether/agora/ui/settings/SettingsSearchPage.kt")
-        val dao = source(root, "com/newoether/agora/data/local/ChatDao.kt")
+        val dao = source(root, "com/newoether/agora/data/local/ChatEmbeddingDao.kt")
         val entities = source(root, "com/newoether/agora/data/local/ChatEntities.kt")
         val database = source(root, "com/newoether/agora/data/local/ChatDatabase.kt")
 
@@ -48,14 +48,12 @@ class ApprovedFeatureSourceContractTest {
         assertTrue(dao.contains("GROUP BY e.modelId"))
         assertTrue(dao.contains("getEmbeddingCountsByModels"))
         assertTrue(entities.contains("Index(value = [\"modelId\"])"))
-        assertTrue(database.contains("CURRENT_VERSION = 31"))
-        assertTrue(database.contains("MIGRATION_23_24"))
-        assertTrue(database.contains("MIGRATION_24_25"))
-        assertTrue(database.contains("MIGRATION_25_26"))
-        assertTrue(database.contains("MIGRATION_26_27"))
-        assertTrue(database.contains("MIGRATION_27_28"))
-        assertTrue(database.contains("MIGRATION_28_29"))
-        assertTrue(database.contains("MIGRATION_29_30"))
+        listOf(
+            "CURRENT_VERSION = 34",
+            "MIGRATION_23_24", "MIGRATION_24_25", "MIGRATION_25_26", "MIGRATION_26_27",
+            "MIGRATION_27_28", "MIGRATION_28_29", "MIGRATION_29_30", "MIGRATION_30_31",
+            "MIGRATION_31_32", "MIGRATION_32_33", "MIGRATION_33_34",
+        ).forEach { assertTrue(database.contains(it)) }
     }
 
     @Test

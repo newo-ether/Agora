@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="heartbeat_conversation">对话</string>
+    <string name="heartbeat_conversation_desc">用于心跳的对话。将继承其模型、工具与系统提示词。</string>
+    <string name="heartbeat_conversation_none">自动（专用）</string>
+    <string name="heartbeat_conversation_pick_title">选择心跳对话</string>
+</resources>

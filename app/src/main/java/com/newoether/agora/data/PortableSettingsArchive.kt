@@ -117,6 +117,28 @@ internal object PortableSettingsArchive {
         put("automationToolsEnabled", JsonPrimitive(sm.automationToolsEnabled.first()))
         put("exactExecutionEnabled", JsonPrimitive(sm.exactExecutionEnabled.first()))
         put("automationWakeLockEnabled", JsonPrimitive(sm.automationWakeLockEnabled.first()))
+        
+        // Automation background services
+        put("daemonEnabled", JsonPrimitive(sm.daemonEnabled.first()))
+        
+        // Heartbeat
+        put("heartbeatEnabled", JsonPrimitive(sm.heartbeatEnabled.first()))
+        put("heartbeatIntervalMinutes", JsonPrimitive(sm.heartbeatIntervalMinutes.first()))
+        put("heartbeatActiveHoursStart", JsonPrimitive(sm.heartbeatActiveHoursStart.first()))
+        put("heartbeatActiveHoursEnd", JsonPrimitive(sm.heartbeatActiveHoursEnd.first()))
+        put("heartbeatPrompt", JsonPrimitive(sm.heartbeatPrompt.first()))
+        putNullableString("heartbeatModel", sm.heartbeatModel.first())
+        
+        // SMS
+        put("smsReadEnabled", JsonPrimitive(sm.smsReadEnabled.first()))
+        put("smsSendEnabled", JsonPrimitive(sm.smsSendEnabled.first()))
+        put("smsPollIntervalMinutes", JsonPrimitive(sm.smsPollIntervalMinutes.first()))
+        
+        // Notifications
+        put("notificationsEnabled", JsonPrimitive(sm.settingsNotifications.notificationsEnabled.first()))
+        putEncoded("notificationsAllowedApps", sm.settingsNotifications.notificationsAllowedApps.first())
+        put("notificationsAppsInitialized", JsonPrimitive(sm.settingsNotifications.notificationsAppsInitialized.first()))
+        
         putEncoded("customProviders", sm.customProviders.first())
         putEncoded("mcpServers", sm.mcpServers.first().map(McpServerConfig::withoutSecrets))
 
@@ -398,6 +420,33 @@ internal object PortableSettingsArchive {
         obj.boolean("exactExecutionEnabled")?.let { sm.saveExactExecutionEnabled(it) }
         obj.boolean("automationWakeLockEnabled")?.let {
             sm.saveAutomationWakeLockEnabled(it)
+        }
+
+        // Automation background services
+        obj.boolean("daemonEnabled")?.let { sm.saveDaemonEnabled(it) }
+
+        // Heartbeat
+        obj.boolean("heartbeatEnabled")?.let { sm.saveHeartbeatEnabled(it) }
+        obj.int("heartbeatIntervalMinutes")?.let { sm.saveHeartbeatIntervalMinutes(it) }
+        obj.int("heartbeatActiveHoursStart")?.let { sm.saveHeartbeatActiveHoursStart(it) }
+        obj.int("heartbeatActiveHoursEnd")?.let { sm.saveHeartbeatActiveHoursEnd(it) }
+        obj.string("heartbeatPrompt")?.let { sm.saveHeartbeatPrompt(it) }
+        if (obj.containsKey("heartbeatModel")) {
+            sm.saveHeartbeatModel(obj.nullableString("heartbeatModel")?.let(::remapModel))
+        }
+
+        // SMS
+        obj.boolean("smsReadEnabled")?.let { sm.saveSmsReadEnabled(it) }
+        obj.boolean("smsSendEnabled")?.let { sm.saveSmsSendEnabled(it) }
+        obj.int("smsPollIntervalMinutes")?.let { sm.saveSmsPollIntervalMinutes(it) }
+
+        // Notifications
+        obj.boolean("notificationsEnabled")?.let { sm.settingsNotifications.saveNotificationsEnabled(it) }
+        obj.decode<Set<String>>("notificationsAllowedApps")?.let { imported ->
+            sm.settingsNotifications.saveNotificationsAllowedApps(imported)
+        }
+        obj.boolean("notificationsAppsInitialized")?.let {
+            if (it) sm.settingsNotifications.setNotificationsAppsInitialized()
         }
 
         if (obj.containsKey("customProviders")) {

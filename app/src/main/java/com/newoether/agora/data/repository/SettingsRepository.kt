@@ -21,6 +21,7 @@ import com.newoether.agora.data.CustomProviderIdentityMigration
 import com.newoether.agora.data.CustomProviderNamePolicy
 import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.LocalChatModelConfig
+import com.newoether.agora.data.NotificationListenerStatus
 import com.newoether.agora.data.PredefinedVariables
 import com.newoether.agora.data.PromptTemplateItem
 import com.newoether.agora.data.SettingsManager
@@ -60,7 +61,7 @@ import kotlinx.coroutines.withContext
  * so observable behavior is unchanged.
  */
 class SettingsRepository(
-    private val settingsManager: SettingsManager,
+    val settingsManager: SettingsManager,
     private val scope: CoroutineScope
 ) {
     /** One latch per eagerly-shared DataStore flow; populated completely during construction. */
@@ -265,6 +266,48 @@ class SettingsRepository(
     val autoDeleteEnabled: StateFlow<Boolean> = hot(settingsManager.autoDeleteEnabled, true)
     val autoDeletePeriodHours: StateFlow<Int> = hot(settingsManager.autoDeletePeriodHours, 168)
     val lastBackupTimestamp: StateFlow<Long> = hot(settingsManager.lastBackupTimestamp, 0L)
+
+    // ── Heartbeat ──────────────────────────────────────────────
+    val heartbeatEnabled: StateFlow<Boolean> = hot(settingsManager.heartbeatEnabled, true)
+    val heartbeatIntervalMinutes: StateFlow<Int> = hot(settingsManager.heartbeatIntervalMinutes, 30)
+    val heartbeatActiveHoursStart: StateFlow<Int> = hot(settingsManager.heartbeatActiveHoursStart, 8)
+    val heartbeatActiveHoursEnd: StateFlow<Int> = hot(settingsManager.heartbeatActiveHoursEnd, 22)
+    val heartbeatLastHeartbeatEpochMs: StateFlow<Long> = hot(settingsManager.heartbeatLastHeartbeatEpochMs, 0L)
+    val heartbeatInstanceId: StateFlow<String?> = hot(settingsManager.heartbeatInstanceId, null)
+    val heartbeatPrompt: StateFlow<String> = hot(settingsManager.heartbeatPrompt, "")
+    val heartbeatModel: StateFlow<String?> = hot(settingsManager.heartbeatModel, null)
+    val heartbeatConversationId: StateFlow<String?> = hot(settingsManager.heartbeatConversationId, null)
+
+    // ── SMS ────────────────────────────────────────────────────
+    val smsReadEnabled: StateFlow<Boolean> = hot(settingsManager.smsReadEnabled, false)
+    val smsSendEnabled: StateFlow<Boolean> = hot(settingsManager.smsSendEnabled, false)
+    val smsPollIntervalMinutes: StateFlow<Int> = hot(settingsManager.smsPollIntervalMinutes, 15)
+
+    // ── Daemon ─────────────────────────────────────────────────
+    val daemonEnabled: StateFlow<Boolean> = hot(settingsManager.daemonEnabled, false)
+
+    // ── Notifications ───────────────────────────────────────────
+    val notificationsEnabled: StateFlow<Boolean> = hot(settingsManager.settingsNotifications.notificationsEnabled, false)
+    val notificationsPending: StateFlow<String> = hot(settingsManager.settingsNotifications.notificationsPending, "[]")
+    val notificationsSyncState: StateFlow<String> = hot(settingsManager.settingsNotifications.notificationsSyncState, "{}")
+    val notificationsAllowedApps: StateFlow<Set<String>> = hot(settingsManager.settingsNotifications.notificationsAllowedApps, emptySet())
+    val notificationsAppsInitialized: StateFlow<Boolean> = hot(settingsManager.settingsNotifications.notificationsAppsInitialized, false)
+
+    // Notification listener status (fdroid only)
+    val notificationListenerStatus: StateFlow<NotificationListenerStatus> =
+        hot(
+            settingsManager.settingsNotifications.notificationListenerStatus,
+            NotificationListenerStatus(hasAccess = false, intentEnabled = false),
+        )
+
+    // Trigger to force notification listener status refresh (e.g., after returning from settings)
+    fun triggerNotificationListenerStatusRefresh() {
+        settingsManager.settingsNotifications.triggerNotificationListenerStatusRefresh()
+    }
+
+    // fdroid support gates
+    val smsReaderSupported: StateFlow<Boolean> = hot(settingsManager.settingsNotifications.smsReaderSupported, false)
+    val notificationListenerSupported: StateFlow<Boolean> = hot(settingsManager.settingsNotifications.notificationListenerSupported, false)
 
     // ── Write (fire-and-forget; read current state from own StateFlows) ──
     //
@@ -798,6 +841,40 @@ class SettingsRepository(
     }
     suspend fun saveEmbeddingModels(models: List<EmbeddingModelConfig>) = settingsManager.saveEmbeddingModels(models)
     suspend fun setActiveEmbeddingModelId(id: String) = settingsManager.setActiveEmbeddingModelId(id)
+
+    // ── Heartbeat ──────────────────────────────────────────────
+    fun setHeartbeatEnabled(enabled: Boolean) = scope.launch { settingsManager.saveHeartbeatEnabled(enabled) }
+    fun saveHeartbeatEnabled(enabled: Boolean) = scope.launch { settingsManager.saveHeartbeatEnabled(enabled) }
+    fun saveHeartbeatIntervalMinutes(minutes: Int) = scope.launch { settingsManager.saveHeartbeatIntervalMinutes(minutes) }
+    fun saveHeartbeatActiveHoursStart(hour: Int) = scope.launch { settingsManager.saveHeartbeatActiveHoursStart(hour) }
+    fun saveHeartbeatActiveHoursEnd(hour: Int) = scope.launch { settingsManager.saveHeartbeatActiveHoursEnd(hour) }
+    fun saveHeartbeatLastHeartbeatEpochMs(epochMs: Long) = scope.launch { settingsManager.saveHeartbeatLastHeartbeatEpochMs(epochMs) }
+    fun saveHeartbeatInstanceId(instanceId: String?) = scope.launch { settingsManager.saveHeartbeatInstanceId(instanceId) }
+    fun saveHeartbeatPrompt(prompt: String) = scope.launch { settingsManager.saveHeartbeatPrompt(prompt) }
+    fun saveHeartbeatModel(model: String?) = scope.launch { settingsManager.saveHeartbeatModel(model) }
+    fun saveHeartbeatConversationId(id: String?) = scope.launch { settingsManager.saveHeartbeatConversationId(id) }
+
+    // ── SMS ────────────────────────────────────────────────────
+    fun setSmsReadEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSmsReadEnabled(enabled) }
+    fun setSmsSendEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSmsSendEnabled(enabled) }
+    fun saveSmsReadEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSmsReadEnabled(enabled) }
+    fun saveSmsSendEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSmsSendEnabled(enabled) }
+    fun saveSmsPollIntervalMinutes(minutes: Int) = scope.launch { settingsManager.saveSmsPollIntervalMinutes(minutes) }
+
+    // ── Daemon ─────────────────────────────────────────────────
+    fun setDaemonEnabled(enabled: Boolean) = scope.launch { settingsManager.saveDaemonEnabled(enabled) }
+    fun saveDaemonEnabled(enabled: Boolean) = scope.launch { settingsManager.saveDaemonEnabled(enabled) }
+
+    // ── Notifications ───────────────────────────────────────────
+    fun setNotificationsEnabled(enabled: Boolean) = scope.launch { settingsManager.settingsNotifications.saveNotificationsEnabled(enabled) }
+    fun setNotificationsAllowedApps(apps: Set<String>) = scope.launch { settingsManager.settingsNotifications.saveNotificationsAllowedApps(apps) }
+    fun setNotificationsAppsInitialized() = scope.launch { settingsManager.settingsNotifications.setNotificationsAppsInitialized() }
+    fun saveNotificationsEnabled(enabled: Boolean) = scope.launch { settingsManager.settingsNotifications.saveNotificationsEnabled(enabled) }
+    fun saveNotificationsPending(pendingJson: String) = scope.launch { settingsManager.settingsNotifications.saveNotificationsPending(pendingJson) }
+    fun saveNotificationsSyncState(syncStateJson: String) = scope.launch { settingsManager.settingsNotifications.saveNotificationsSyncState(syncStateJson) }
+    fun clearNotificationsPending() = scope.launch { settingsManager.settingsNotifications.clearNotificationsPending() }
+
+    // ── Auto Backup ───────────────────────────────────────────
     suspend fun saveAutoBackupEnabled(enabled: Boolean) = settingsManager.saveAutoBackupEnabled(enabled)
     suspend fun saveAutoBackupPeriodHours(hours: Int) = settingsManager.saveAutoBackupPeriodHours(hours)
     suspend fun saveAutoBackupCategories(categories: String) = settingsManager.saveAutoBackupCategories(categories)

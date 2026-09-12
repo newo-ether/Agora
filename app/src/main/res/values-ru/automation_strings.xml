@@ -77,4 +77,59 @@
     <string name="automation_exact_execution_on_desc">Использовать точные будильники для задач и циклов. Android по-прежнему может применять системные ограничения.</string>
     <string name="automation_exact_execution_off_desc">Использовать неточные будильники для экономии заряда. Включите, чтобы запросить доступ к будильникам и напоминаниям.</string>
     <string name="automation_exact_execution_off_legacy_desc">Использовать неточные будильники для экономии заряда. В этой версии Android точное выполнение можно включить без дополнительного доступа.</string>
+    <!-- Daemon Mode, Heartbeat, SMS and Notifications -->
+    <string name="automation_daemon_mode">Режим демона</string>
+    <string name="automation_daemon_mode_desc">Держать службу на переднем плане, чтобы фоновые задачи (heartbeat, проверка SMS, уведомления) продолжали работать, когда приложение не открыто</string>
+    <string name="automation_heartbeat">Heartbeat</string>
+    <string name="heartbeat_enabled">Включено</string>
+    <string name="heartbeat_enabled_desc">Выполнять периодические самопроверки в активные часы</string>
+    <string name="heartbeat_interval">Интервал</string>
+    <string name="heartbeat_interval_desc">Как часто выполнять проверки heartbeat: %d минут</string>
+    <string name="heartbeat_active_hours">Активные часы</string>
+    <string name="heartbeat_active_hours_desc">Временное окно для heartbeats: %1$d:00 – %2$d:00</string>
+    <string name="heartbeat_model">Модель</string>
+    <string name="heartbeat_model_desc">Модель для heartbeat. Переопределяет модель беседы; оставьте «По умолчанию», чтобы наследовать её.</string>
+    <string name="heartbeat_custom_prompt">Свой запрос</string>
+    <string name="heartbeat_custom_prompt_desc">Дополнительные инструкции для проверки heartbeat (%d символов)</string>
+    <string name="heartbeat_conversation">Беседа</string>
+    <string name="heartbeat_conversation_desc">Беседа, используемая для heartbeat. Её модель, инструменты и системный промпт наследуются.</string>
+    <string name="heartbeat_conversation_none">Авто (выделенная)</string>
+    <string name="heartbeat_conversation_pick_title">Выбрать беседу для heartbeat</string>
+    <string name="automation_sms">SMS</string>
+    <string name="sms_read_enabled">Читать входящие SMS</string>
+    <string name="sms_read_enabled_desc">Разрешить Agora читать входящие SMS-сообщения (требуется разрешение READ_SMS)</string>
+    <string name="sms_send_enabled">Отправлять SMS от вашего имени</string>
+    <string name="sms_send_enabled_desc">Разрешить Agora создавать черновики SMS для проверки и отправки (требуется разрешение SEND_SMS)</string>
+    <string name="sms_poll_interval">Интервал проверки</string>
+    <string name="sms_poll_interval_desc">Как часто проверять новые SMS: %d минут</string>
+    <string name="automation_notifications">Уведомления</string>
+    <string name="notifications_read_enabled">Читать уведомления</string>
+    <string name="notifications_read_enabled_desc">Разрешить Agora читать уведомления других приложений (требуется доступ к службе уведомлений)</string>
+    <string name="notifications_listener_status">Статус службы</string>
+    <string name="notifications_listener_active">Служба активна</string>
+    <string name="notifications_listener_inactive">Служба неактивна – проверьте доступ к уведомлениям</string>
+    <string name="notifications_manage_apps">Управление приложениями</string>
+    <string name="notifications_manage_apps_desc">Выберите приложения, уведомления которых может читать Agora</string>
+    <string name="notifications_queued_count">В очереди</string>
+    <string name="notifications_queued_count_desc">%d уведомлений ожидают следующего heartbeat</string>
+    <string name="notifications_clear_queue">Очистить очередь</string>
+
+    <!-- Settings - Automation Page - SMS Status -->
+    <string name="sms_status">Статус SMS</string>
+    <string name="sms_status_queued">%1$d сообщ. в очереди на следующий heartbeat</string>
+    <string name="sms_status_none">Сообщений в очереди нет</string>
+    <string name="sms_refresh_now">Обновить сейчас</string>
+    <string name="sms_status_never_polled">Никогда не опрашивалось</string>
+    <string name="sms_status_last_failed">Последний опрос не удался: %1$s</string>
+    <string name="sms_status_just_now">Последний успешный опрос только что</string>
+    <string name="sms_status_minutes_ago">Последний успешный опрос %1$d мин назад</string>
+    <string name="sms_status_hours_ago">Последний успешный опрос %1$d ч назад</string>
+
+    <!-- Settings - Automation Page - Heartbeat Run Status -->
+    <string name="heartbeat_run_now">Выполнить heartbeat сейчас</string>
+    <string name="heartbeat_run_now_desc">Выполняет один heartbeat немедленно, игнорируя расписание.</string>
+    <string name="heartbeat_recent_runs">Недавние запуски</string>
+    <string name="heartbeat_no_runs">Запуски heartbeat пока не записывались.</string>
+    <string name="heartbeat_log_ok">OK</string>
+    <string name="heartbeat_log_failed">Ошибка</string>
 </resources>

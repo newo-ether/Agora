@@ -15,23 +15,42 @@ import com.newoether.agora.data.repository.TaskRepository
 import com.newoether.agora.data.AutoBackupManager
 import com.newoether.agora.api.LocalModelRuntime
 import com.newoether.agora.api.local.LocalProvider
-import com.newoether.agora.automation.AutomationScheduler
 import com.newoether.agora.automation.AutomationExecutionGate
+import com.newoether.agora.automation.AutomationScheduler
 import com.newoether.agora.automation.ConversationExecutionCoordinator
+import com.newoether.agora.automation.HeartbeatScheduler
 import com.newoether.agora.automation.LoopManager
 import com.newoether.agora.automation.TaskExecutionEngine
 import com.newoether.agora.automation.TaskManager
-import com.newoether.agora.tool.AutomationToolProvider
-import com.newoether.agora.tool.McpToolProvider
+import com.newoether.agora.daemon.DaemonController
+import com.newoether.agora.data.HeartbeatManager
+import com.newoether.agora.data.SmsDraftStore
+import com.newoether.agora.data.SmsPoller
+import com.newoether.agora.data.SmsReader
+import com.newoether.agora.data.SmsStore
+import com.newoether.agora.data.NotificationListenerController
+import com.newoether.agora.data.NotificationReader
+import com.newoether.agora.data.NotificationStore
+import com.newoether.agora.data.SmsMessageData
 import com.newoether.agora.mcp.McpRegistry
 import com.newoether.agora.sandbox.SandboxManagerFactory
+import com.newoether.agora.service.AgoraForegroundService
+import com.newoether.agora.service.AppForegroundTracker
+import com.newoether.agora.service.HeartbeatNotifier
+import com.newoether.agora.service.LoopWorker
 import com.newoether.agora.service.MaintenanceDebtWorker
 import com.newoether.agora.service.TaskWorker
-import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.sms.SmsSender
+import com.newoether.agora.tool.AutomationToolProvider
+import com.newoether.agora.tool.HeartbeatToolProvider
+import com.newoether.agora.tool.McpToolProvider
+import com.newoether.agora.tool.NotificationToolProvider
+import com.newoether.agora.tool.SmsToolProvider
 import com.newoether.agora.viewmodel.ChatViewModelFactory
 import com.newoether.agora.viewmodel.ConversationStateRegistry
 import com.newoether.agora.viewmodel.ProviderRegistry
 import com.newoether.agora.viewmodel.ShellConfirmationController
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -114,6 +133,13 @@ class AppContainer(
         }
         appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             conversationSettingsTransfers.replayPending()
+        }
+        // Keep the daemon in sync with its setting so toggling it in settings starts/stops
+        // the heartbeat scheduler immediately instead of only on the next process start.
+        appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            settingsRepository.daemonEnabled.collect { enabled ->
+                if (enabled) daemonController.start() else daemonController.stop()
+            }
         }
     }
     val taskRepository: TaskRepository by lazy {
@@ -219,6 +245,10 @@ class AppContainer(
             mcpToolProvider = mcpToolProvider,
             generationRegistry = conversationStateRegistry,
             pauseConversationLoop = { conversationId -> loopManager.stopLoop(conversationId) },
+            // HeartbeatScheduler runs the heartbeat prompt through this same engine; without
+            // these, promote_learning/SMS/notification tools would be invisible during a
+            // heartbeat run even though they're wired into the interactive ChatViewModel.
+            extraToolProviders = listOf(heartbeatToolProvider, smsToolProvider, notificationToolProvider),
         )
     }
 
@@ -273,6 +303,162 @@ class AppContainer(
         AutoBackupManager(appContext, database, settingsManager, chatDao, memoryManager, skillManager)
     }
 
+    // ── Heartbeat/SMS/Daemon ────────────────────────────────
+
+    val heartbeatManager: HeartbeatManager by lazy {
+        HeartbeatManager(settingsRepository, memoryManager, taskManager, conversationRepository, chatDao)
+    }
+
+    val smsStore: SmsStore by lazy {
+        SmsStore(chatDao, database)
+    }
+
+    val smsDraftStore: SmsDraftStore by lazy {
+        SmsDraftStore(chatDao, database)
+    }
+
+    val smsPoller: SmsPoller by lazy {
+        SmsPoller(smsStore, smsReader)
+    }
+
+    /** Flavor-specific SmsReader implementation (fdroid has SmsReaderImpl). */
+    val smsReader: SmsReader by lazy {
+        try {
+            Class.forName("com.newoether.agora.sms.SmsReaderImpl")
+                .getDeclaredConstructor(android.content.Context::class.java)
+                .newInstance(appContext) as SmsReader
+        } catch (_: ClassNotFoundException) {
+            // Play flavor or fdroid without implementation - return no-op
+            noopSmsReader()
+        } catch (e: Exception) {
+            com.newoether.agora.util.DebugLog.e("AppContainer", "SmsReaderImpl init failed", e)
+            noopSmsReader()
+        }
+    }
+
+    /** Flavor-specific SmsSender implementation (fdroid has SmsSenderImpl). */
+    val smsSender: SmsSender by lazy {
+        try {
+            Class.forName("com.newoether.agora.sms.SmsSenderImpl")
+                .getDeclaredConstructor(android.content.Context::class.java)
+                .newInstance(appContext) as SmsSender
+        } catch (_: ClassNotFoundException) {
+            // Play flavor or fdroid without implementation - return no-op
+            noopSmsSender()
+        } catch (e: Exception) {
+            com.newoether.agora.util.DebugLog.e("AppContainer", "SmsSenderImpl init failed", e)
+            noopSmsSender()
+        }
+    }
+
+    private fun noopSmsReader(): SmsReader = object : SmsReader {
+        override fun isSupported() = false
+        override fun hasPermission() = false
+        override suspend fun readNewMessages(lastSeenId: Long, limit: Int) = emptyList<SmsMessageData>()
+        override suspend fun readById(id: Long) = null
+        override suspend fun search(query: String, limit: Int) = emptyList<SmsMessageData>()
+        override suspend fun currentMaxInboxId() = 0L
+    }
+
+    private fun noopSmsSender(): SmsSender = object : SmsSender {
+        override fun isSupported() = false
+        override fun hasPermission() = false
+        override suspend fun sendSms(address: String, body: String) =
+            com.newoether.agora.sms.SmsSendResult.Failure("SMS sending not supported on this build")
+    }
+
+    val daemonController: DaemonController by lazy {
+        DaemonController(appContext, settingsRepository, heartbeatScheduler, AppForegroundTracker)
+    }
+
+    val heartbeatScheduler: HeartbeatScheduler by lazy {
+        HeartbeatScheduler(
+            appContext = appContext,
+            heartbeatManager = heartbeatManager,
+            settingsRepository = settingsRepository,
+            smsStore = smsStore,
+            smsPoller = smsPoller,
+            notificationStore = notificationStore,
+            heartbeatNotifier = heartbeatNotifier,
+            taskExecutionEngine = taskExecutionEngine,
+            appForegroundTracker = AppForegroundTracker,
+            loopManager = loopManager,
+        )
+    }
+
+    val heartbeatNotifier: HeartbeatNotifier by lazy {
+        HeartbeatNotifier(appContext, settingsRepository)
+    }
+
+    val heartbeatToolProvider: HeartbeatToolProvider by lazy {
+        HeartbeatToolProvider(skillManager, settingsManager)
+    }
+
+    val smsToolProvider: SmsToolProvider by lazy {
+        SmsToolProvider(smsStore, smsReader, smsSender, smsDraftStore, settingsRepository)
+    }
+
+    // ── Notifications ────────────────────────────────────────
+
+    val notificationStore: NotificationStore by lazy {
+        NotificationStore(settingsRepository, chatDao)
+    }
+
+    /** Flavor-specific NotificationReader implementation (fdroid has NotificationReaderImpl). */
+    val notificationReader: NotificationReader by lazy {
+        try {
+            Class.forName("com.newoether.agora.notifications.NotificationReaderImpl")
+                .getDeclaredConstructor(
+                    android.content.Context::class.java,
+                    com.newoether.agora.data.NotificationStore::class.java,
+                )
+                .newInstance(appContext, notificationStore) as NotificationReader
+        } catch (_: ClassNotFoundException) {
+            // Play flavor - return no-op implementation
+            object : NotificationReader {
+                override fun isSupported() = false
+                override suspend fun getNotificationById(key: String) = null
+                override suspend fun searchNotifications(query: String, packageName: String?, limit: Int) = emptyList<com.newoether.agora.data.NotificationRecord>()
+                override suspend fun getCurrentRecords(limit: Int) = emptyList<com.newoether.agora.data.NotificationRecord>()
+            }
+        } catch (e: Exception) {
+            com.newoether.agora.util.DebugLog.e("AppContainer", "NotificationReaderImpl init failed", e)
+            object : NotificationReader {
+                override fun isSupported() = false
+                override suspend fun getNotificationById(key: String) = null
+                override suspend fun searchNotifications(query: String, packageName: String?, limit: Int) = emptyList<com.newoether.agora.data.NotificationRecord>()
+                override suspend fun getCurrentRecords(limit: Int) = emptyList<com.newoether.agora.data.NotificationRecord>()
+            }
+        }
+    }
+
+    /** Flavor-specific NotificationListenerController implementation (fdroid has NotificationListenerControllerImpl). */
+    val notificationListenerController: NotificationListenerController by lazy {
+        try {
+            Class.forName("com.newoether.agora.notifications.NotificationListenerControllerImpl")
+                .getDeclaredConstructor(android.content.Context::class.java)
+                .newInstance(appContext) as NotificationListenerController
+        } catch (_: ClassNotFoundException) {
+            // Play flavor - return no-op implementation
+            object : NotificationListenerController {
+                override fun isListenerAccessGranted() = false
+                override suspend fun openNotificationListenerSettings() {}
+                override suspend fun getListenerStatus() = com.newoether.agora.data.NotificationListenerStatus(hasAccess = false, intentEnabled = false)
+            }
+        } catch (e: Exception) {
+            com.newoether.agora.util.DebugLog.e("AppContainer", "NotificationListenerControllerImpl init failed", e)
+            object : NotificationListenerController {
+                override fun isListenerAccessGranted() = false
+                override suspend fun openNotificationListenerSettings() {}
+                override suspend fun getListenerStatus() = com.newoether.agora.data.NotificationListenerStatus(hasAccess = false, intentEnabled = false)
+            }
+        }
+    }
+
+    val notificationToolProvider: NotificationToolProvider by lazy {
+        NotificationToolProvider(notificationStore, notificationReader)
+    }
+
     // ── ViewModel Factory ─────────────────────────────────────
 
     fun chatViewModelFactory(): ChatViewModelFactory =
@@ -283,5 +469,7 @@ class AppContainer(
             taskManager, loopManager, automationToolProvider, conversationExecutionCoordinator,
             automationExecutionGate, conversationStateRegistry, shellConfirmationController,
             mcpRegistry, mcpToolProvider, taskExecutionEngine,
+            heartbeatToolProvider, smsToolProvider, smsDraftStore, smsStore, smsPoller, smsSender,
+            notificationToolProvider,
         )
 }

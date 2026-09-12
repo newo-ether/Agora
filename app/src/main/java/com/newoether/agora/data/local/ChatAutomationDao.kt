@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
  * This interface owns no mutable state and is not a second Room DAO; [ChatDao] remains the sole
  * annotated database access surface.
  */
-interface ChatAutomationDao {
+interface ChatAutomationDao : ChatModelReferenceDao {
     // ── Tasks ─────────────────────────────────────────────────
     @Query("SELECT * FROM tasks ORDER BY createdAt DESC")
     fun getAllTasks(): Flow<List<TaskEntity>>
@@ -25,7 +25,7 @@ interface ChatAutomationDao {
     suspend fun upsertTask(task: TaskEntity)
 
     @Query("UPDATE tasks SET modelId = :newModelId WHERE modelId = :oldModelId")
-    suspend fun replaceTaskModelReferences(
+    override suspend fun replaceTaskModelReferences(
         oldModelId: String,
         newModelId: String?,
     ): Int
@@ -37,7 +37,7 @@ interface ChatAutomationDao {
         WHERE substr(modelId, 1, length(:oldProvider) + 1) = :oldProvider || ':'
         """
     )
-    suspend fun renameTaskProviderModelReferences(
+    override suspend fun renameTaskProviderModelReferences(
         oldProvider: String,
         newProvider: String,
     ): Int

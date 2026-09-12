@@ -80,7 +80,10 @@ The following JSON field names are the complete current portable allowlist.
 | Search and embedding | `ragSearchEnabled`, `modelSearchMethod`, `manualSearchMethod`, `remoteEmbeddingModels`, `activeRemoteEmbeddingModelId`, `searchContextWindow`, `searchMatchLimit`, `ragThreshold`, `autoCacheEnabled`, `showUncachedNotification` |
 | Language, Web Search, and image generation | `appLanguage`, `webSearchEnabled`, `webSearchProvider`, `webSearchNumResults`, `webSearchBaseUrl`, `imageGenEnabled`, `imageGenModel`, `imageGenSize`, `autoUpdateCheck` |
 | Image transcription | `imageTranscriptionEnabled`, `imageTranscriptionEnabledModels`, `imageTranscriptionModel`, `imageTranscriptionBatchSize`, `imageTranscriptionPrompt` |
-| Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, secret-free `mcpServers` |
+| Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `automationWakeLockEnabled`, `daemonEnabled`, `customProviders`, secret-free `mcpServers` |
+| Heartbeat | `heartbeatEnabled`, `heartbeatIntervalMinutes`, `heartbeatActiveHoursStart`, `heartbeatActiveHoursEnd`, `heartbeatPrompt`, nullable `heartbeatModel` |
+| SMS | `smsReadEnabled`, `smsSendEnabled`, `smsPollIntervalMinutes` |
+| Notifications | `notificationsEnabled`, `notificationsAllowedApps`, `notificationsAppsInitialized` |
 | Proxy | `proxyEnabled`, `proxyType`, `proxyHost`, `proxyPort`, `proxyUsername`, `proxyBypass` |
 | Appearance | `showDocumentationFab`, `themeMode`, `amoledEnabled`, `colorScheme`, `dynamicColor`, `blurEffectsEnabled`, `reduceMotion`, `stickToBottom`, `parseInlineDollarMath`, `hapticsEnabled`, `detailedTokenUsage`, `toolCallDisplayMode`, `thinkingSegmentDisplayMode`, `autoExpandActiveGroup`, `schemeStyle` |
 | Custom font | `fontPreference`; `customFontName` only when `custom_font/font` is included. The device file path is never portable. |

@@ -45,6 +45,11 @@ class MessageConverters {
             value.split("|||")
         }
     }
+
+    @TypeConverter
+    fun fromSmsDraftStatus(value: SmsDraftStatus) = value.name
+    @TypeConverter
+    fun toSmsDraftStatus(value: String) = SmsDraftStatus.valueOf(value)
 }
 @Entity(tableName = "new_chat_persist")
 data class NewChatPersistEntity(
@@ -338,6 +343,117 @@ data class ToolRoundCommit(
     /** False only when the exact same complete round was already durable. */
     val inserted: Boolean,
 )
+
+/** SMS draft status. */
+enum class SmsDraftStatus {
+    PENDING,
+    SENDING,
+    SENT,
+    FAILED,
+}
+
+/** Heartbeat log entry stored in Room. */
+@Entity(tableName = "heartbeat_logs")
+data class HeartbeatLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val timestampEpochMs: Long,
+    val success: Boolean,
+    val error: String? = null,
+)
+
+/** SMS message stored in Room. */
+@Entity(tableName = "sms_messages")
+data class SmsMessageEntity(
+    @PrimaryKey val id: Long,
+    val address: String,
+    val date: Long,
+    val preview: String,
+    val body: String = "",
+    val read: Boolean = false,
+)
+
+/** SMS sync state stored in Room. */
+@Entity(tableName = "sms_sync_state")
+data class SmsSyncStateEntity(
+    @PrimaryKey val id: Int = SINGLETON_ID,
+    val lastSeenId: Long = 0L,
+    val lastSyncEpochMs: Long = 0L,
+    val lastAttemptEpochMs: Long = 0L,
+    val unreadCount: Int = 0,
+    val lastError: String? = null,
+) {
+    init {
+        require(id == SINGLETON_ID)
+    }
+
+    companion object {
+        const val SINGLETON_ID = 0
+    }
+}
+
+/** SMS draft stored in Room. */
+@Entity(tableName = "sms_drafts")
+data class SmsDraftEntity(
+    @PrimaryKey val id: String,
+    val address: String,
+    val body: String,
+    val createdAtEpochMs: Long,
+    val inReplyToSmsId: Long? = null,
+    val status: SmsDraftStatus = SmsDraftStatus.PENDING,
+    val lastError: String? = null,
+)
+
+/**
+ * SMS awaiting the next heartbeat. Polled messages are queued here (capped FIFO)
+ * so the heartbeat prompt can surface exactly the messages the AI has not seen
+ * yet; the full body is fetched on demand by `read_sms` from the system provider.
+ * The snapshot shown to the AI is removed only after a successful run.
+ */
+@Entity(tableName = "sms_pending")
+data class SmsPendingEntity(
+    @PrimaryKey val id: Long,
+    val address: String,
+    val date: Long,
+    val preview: String,
+    val read: Boolean = false,
+)
+
+/** Notification record stored in Room. */
+@Entity(
+    tableName = "notifications",
+    indices = [Index(value = ["package_name"]), Index(value = ["posted_at"])]
+)
+data class NotificationRecordEntity(
+    @PrimaryKey val id: String,
+    val package_name: String,
+    val app_label: String,
+    val title: String,
+    val text: String,
+    val subtext: String? = null,
+    val posted_at: Long,
+    val category: String? = null,
+    val preview: String,
+)
+
+/** Notification sync state stored in Room. */
+@Entity(tableName = "notification_sync_state")
+data class NotificationSyncStateEntity(
+    @PrimaryKey val id: Int = SINGLETON_ID,
+    val lastSeenKey: String? = null,
+    val pendingKeysJson: String = "[]",
+    val recordsCount: Int = 0,
+    val lastSyncEpochMs: Long = 0L,
+    val lastAttemptEpochMs: Long = 0L,
+    val lastError: String? = null,
+) {
+    init {
+        require(id == SINGLETON_ID)
+    }
+
+    companion object {
+        const val SINGLETON_ID = 0
+    }
+}
 
 /** Pure validation/idempotency policy shared by the Room transaction and JVM tests. */
 internal object ToolRoundCommitPolicy {

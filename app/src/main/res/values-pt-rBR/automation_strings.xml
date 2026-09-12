@@ -77,4 +77,59 @@
     <string name="automation_exact_execution_on_desc">Usar alarmes exatos para tarefas e loops. O Android ainda pode aplicar limites do sistema.</string>
     <string name="automation_exact_execution_off_desc">Usar alarmes inexatos que economizam bateria. Ative para solicitar acesso a Alarmes e lembretes.</string>
     <string name="automation_exact_execution_off_legacy_desc">Usar alarmes inexatos que economizam bateria. Nesta versão do Android, você pode ativar a execução exata sem acesso adicional.</string>
+    <!-- Daemon Mode, Heartbeat, SMS and Notifications -->
+    <string name="automation_daemon_mode">Modo daemon</string>
+    <string name="automation_daemon_mode_desc">Manter um serviço em primeiro plano para que tarefas em segundo plano (heartbeat, verificação de SMS, notificações) continuem quando o app não estiver aberto</string>
+    <string name="automation_heartbeat">Heartbeat</string>
+    <string name="heartbeat_enabled">Ativado</string>
+    <string name="heartbeat_enabled_desc">Executar autoverificações periódicas durante os horários ativos</string>
+    <string name="heartbeat_interval">Intervalo</string>
+    <string name="heartbeat_interval_desc">Com que frequência executar verificações de heartbeat: %d minutos</string>
+    <string name="heartbeat_active_hours">Horários ativos</string>
+    <string name="heartbeat_active_hours_desc">Janela de horário para heartbeats: %1$d:00 – %2$d:00</string>
+    <string name="heartbeat_model">Modelo</string>
+    <string name="heartbeat_model_desc">Modelo usado para o heartbeat. Substitui o modelo da conversa; deixe em Padrão para herdá-lo.</string>
+    <string name="heartbeat_custom_prompt">Prompt personalizado</string>
+    <string name="heartbeat_custom_prompt_desc">Instruções adicionais para a verificação de heartbeat (%d caracteres)</string>
+    <string name="heartbeat_conversation">Conversa</string>
+    <string name="heartbeat_conversation_desc">Conversa a ser usada para o heartbeat. Seu modelo, ferramentas e prompt do sistema são herdados.</string>
+    <string name="heartbeat_conversation_none">Automático (dedicada)</string>
+    <string name="heartbeat_conversation_pick_title">Selecionar conversa do heartbeat</string>
+    <string name="automation_sms">SMS</string>
+    <string name="sms_read_enabled">Ler SMS recebidos</string>
+    <string name="sms_read_enabled_desc">Permitir que o Agora leia mensagens SMS recebidas (requer permissão READ_SMS)</string>
+    <string name="sms_send_enabled">Enviar SMS em seu nome</string>
+    <string name="sms_send_enabled_desc">Permitir que o Agora crie mensagens SMS para você revisar e enviar (requer permissão SEND_SMS)</string>
+    <string name="sms_poll_interval">Intervalo de verificação</string>
+    <string name="sms_poll_interval_desc">Com que frequência verificar novos SMS: %d minutos</string>
+    <string name="automation_notifications">Notificações</string>
+    <string name="notifications_read_enabled">Ler notificações</string>
+    <string name="notifications_read_enabled_desc">Permitir que o Agora leia notificações de outros apps (requer acesso ao leitor de notificações)</string>
+    <string name="notifications_listener_status">Status do leitor</string>
+    <string name="notifications_listener_active">Leitor ativo</string>
+    <string name="notifications_listener_inactive">Leitor inativo – verificar acesso a notificações</string>
+    <string name="notifications_manage_apps">Gerenciar apps</string>
+    <string name="notifications_manage_apps_desc">Escolher de quais apps o Agora pode ler notificações</string>
+    <string name="notifications_queued_count">Na fila</string>
+    <string name="notifications_queued_count_desc">%d notificações aguardando o próximo heartbeat</string>
+    <string name="notifications_clear_queue">Limpar fila</string>
+
+    <!-- Settings - Automation Page - SMS Status -->
+    <string name="sms_status">Status do SMS</string>
+    <string name="sms_status_queued">%1$d mensagem(s) na fila para o próximo heartbeat</string>
+    <string name="sms_status_none">Nenhuma mensagem na fila</string>
+    <string name="sms_refresh_now">Atualizar agora</string>
+    <string name="sms_status_never_polled">Nunca consultado</string>
+    <string name="sms_status_last_failed">Última consulta falhou: %1$s</string>
+    <string name="sms_status_just_now">Última consulta bem-sucedida agora mesmo</string>
+    <string name="sms_status_minutes_ago">Última consulta bem-sucedida há %1$d min</string>
+    <string name="sms_status_hours_ago">Última consulta bem-sucedida há %1$d h</string>
+
+    <!-- Settings - Automation Page - Heartbeat Run Status -->
+    <string name="heartbeat_run_now">Executar heartbeat agora</string>
+    <string name="heartbeat_run_now_desc">Executa um heartbeat imediatamente, ignorando o agendamento.</string>
+    <string name="heartbeat_recent_runs">Execuções recentes</string>
+    <string name="heartbeat_no_runs">Nenhuma execução de heartbeat registrada ainda.</string>
+    <string name="heartbeat_log_ok">OK</string>
+    <string name="heartbeat_log_failed">Falhou</string>
 </resources>

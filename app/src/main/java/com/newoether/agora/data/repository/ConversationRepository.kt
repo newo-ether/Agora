@@ -190,6 +190,14 @@ class ConversationRepository(
         return id
     }
 
+    /** Newest conversation spawned for [origin] (e.g. "heartbeat"), or null. */
+    suspend fun getConversationByOrigin(origin: String): ChatEntity? =
+        chatDao.getConversationByOrigin(origin)
+
+    /** Newest conversation with the exact [title], or null. */
+    suspend fun getConversationByTitle(title: String): ChatEntity? =
+        chatDao.getConversationByTitle(title)
+
     suspend fun upsertConversation(entity: ChatEntity) = withSemanticTransaction(
         conversationId = entity.id,
     ) {

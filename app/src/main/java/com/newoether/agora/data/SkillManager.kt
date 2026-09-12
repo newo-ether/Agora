@@ -14,6 +14,7 @@ class SkillManager(context: Context) {
     private val metadata = DescriptionMetadataStore(metaFile, json)
     private val _catalogRevision = MutableStateFlow(0L)
     val catalogRevision = _catalogRevision.asStateFlow()
+    private val registry = SkillRegistry(json)
 
     data class SkillFileInfo(
         val name: String,
@@ -246,5 +247,50 @@ class SkillManager(context: Context) {
         val canonicalFile = file.canonicalFile
         require(canonicalFile.parentFile == canonicalDirectory) { "Invalid file name: $name" }
         return canonicalFile
+    }
+
+    suspend fun browseMarketplaces(): Result<List<RegistrySkillEntry>> = registry.browseMarketplaces(curatedSkillMarketplaces)
+
+    suspend fun browseMarketplace(marketplace: SkillMarketplace): Result<List<RegistrySkillEntry>> = registry.browseMarketplace(marketplace)
+
+    suspend fun installFromGitHub(owner: String, repo: String, ref: String, path: String): Result<SkillFileInfo> =
+        registry.fetchSkillFiles(SkillSource.GitHub(owner, repo, ref, path)).mapCatching { install(it) }
+
+    suspend fun installFromRegistryEntry(entry: RegistrySkillEntry): Result<SkillFileInfo> =
+        installFromGitHub(entry.owner, entry.repo, entry.ref, entry.skillPath)
+
+    internal fun install(downloaded: DownloadedSkill): SkillFileInfo {
+        val file = resolveFile(downloaded.id)
+        val values = metadata.read()
+        file.writeText(downloaded.rawSkillMd)
+        values[file.name] = downloaded.description
+        metadata.write(values)
+        
+        // For bundled files, if Agora doesn't enforce a sandbox dir, we could just ignore them
+        // or write them. Agora's skills.md contract says "SkillManager owns app-private skill_db Markdown files".
+        // So we will just write the main SKILL.md.
+
+        _catalogRevision.value += 1
+        return SkillFileInfo(file.name, downloaded.description)
+    }
+}
+
+fun parseGitHubSkillUrl(input: String): SkillSource.GitHub? {
+    val trimmed = input.trim().removePrefix("https://").removePrefix("http://").removePrefix("github.com/")
+    if (trimmed.isEmpty()) return null
+    val parts = trimmed.trim('/').split('/').filter { it.isNotEmpty() }
+    if (parts.size < 2) return null
+    val owner = parts[0]
+    val repo = parts[1]
+    if (parts.size == 2) {
+        return SkillSource.GitHub(owner = owner, repo = repo, ref = "main", path = "")
+    }
+    return if (parts[2] == "tree" && parts.size >= 5) {
+        val ref = parts[3]
+        val path = parts.drop(4).joinToString("/")
+        SkillSource.GitHub(owner = owner, repo = repo, ref = ref, path = path)
+    } else {
+        val path = parts.drop(2).joinToString("/")
+        SkillSource.GitHub(owner = owner, repo = repo, ref = "main", path = path)
     }
 }
