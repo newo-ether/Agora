@@ -73,6 +73,7 @@ class PrivacySafeLoggingSourceContractTest {
             "com/newoether/agora/api/LlamaChatEngine.kt",
             "com/newoether/agora/api/LlamaEngine.kt",
             "com/newoether/agora/api/anthropic/AnthropicProvider.kt",
+            "com/newoether/agora/api/anthropic/AnthropicMessagesTransport.kt",
             "com/newoether/agora/api/gemini/GeminiProvider.kt",
             "com/newoether/agora/api/local/LocalProvider.kt",
             "com/newoether/agora/api/ollama/OllamaProvider.kt",

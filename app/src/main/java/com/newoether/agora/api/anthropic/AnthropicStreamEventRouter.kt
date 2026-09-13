@@ -12,6 +12,15 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
+/**
+ * Routes Anthropic SSE deltas by protocol content-block identity. A block is exclusively text,
+ * thinking, or tool-use, so a field carried by a tool block can never enter the answer channel.
+ *
+ * The router also owns terminal-state proof for the stream: whether a semantic end marker arrived,
+ * what `stop_reason` the provider reported, whether a tool block was still open, and whether the
+ * provider reported an in-band error. The transport layer cannot answer any of those from socket
+ * state alone.
+ */
 internal class AnthropicStreamEventRouter {
     private data class ToolBlock(
         val streamKey: String,
