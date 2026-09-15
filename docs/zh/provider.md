@@ -4,7 +4,7 @@
 
 ## 内置提供商
 
-Agora 包含 OpenAI、Anthropic、Google Gemini、DeepSeek、DashScope/通义千问、OpenRouter、Groq、Ollama 和本地模型。提供商的模型目录和端点行为可能独立变化。
+Agora 包含 OpenAI、Anthropic、Google Gemini、DeepSeek、DashScope/通义千问、OpenRouter、OpenCode Go、Groq、Ollama 和本地模型。提供商的模型目录和端点行为可能独立变化。
 
 对于远程提供商，未保存覆盖值时，Base URL 输入框会显示当前生效的内置默认值。没有内置端点的提供商可能只显示占位提示；留空时会在存在默认值的情况下回到提供商默认地址。Base URL 编辑会在停止输入 500 ms 后自动保存，没有单独的保存操作。
 

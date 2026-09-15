@@ -126,6 +126,8 @@ data class ProviderConfig(
     val presencePenalty: Float? = null,
     /** Stable cache partition key. Set only for the official OpenAI provider. */
     val promptCacheKey: String? = null,
+    /** Stable per-conversation session id. Sent as the `x-opencode-session` header. */
+    val sessionId: String? = null,
     /** Resolves ordinary-generation prompt variables and rollout immediately before dispatch. */
     val requestResolver: ProviderRequestResolver? = null,
 )

@@ -13,6 +13,7 @@ import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.Participant
+import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
@@ -151,6 +152,7 @@ class ConversationTitleGenerator(
             maxContextWindow = com.newoether.agora.model.ContextBudget.MIN_TOKENS,
             thinkingEnabled = false,
             baseUrl = providers.getEffectiveBaseUrl(providerName),
+            sessionId = conversationId.takeIf { providerName == Constants.PROVIDER_OPENCODE_GO },
         )
 
         val requestId = UUID.randomUUID().toString()

@@ -52,6 +52,13 @@ class AppContainer(
 ) {
     private val application = appContext.applicationContext as Application
 
+    private fun currentAppVersion(): String =
+        try {
+            appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName ?: "?"
+        } catch (_: Exception) {
+            "?"
+        }
+
     init {
         LocalModelRuntime.initialize(application.applicationInfo.nativeLibraryDir)
     }
@@ -142,7 +149,13 @@ class AppContainer(
     val localProvider: LocalProvider by lazy { LocalProvider(appContext, settingsRepository) }
 
     val providerRegistry: ProviderRegistry by lazy {
-        ProviderRegistry(settingsRepository, conversationRepository, localProvider, appScope)
+        ProviderRegistry(
+            settingsRepository,
+            conversationRepository,
+            localProvider,
+            appScope,
+            currentAppVersion(),
+        )
     }
 
     /** Serializes every foreground/background generation touching the same conversation. */
