@@ -476,7 +476,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">Network</string>
     <string name="settings_proxy">Proxy</string>
-    <string name="settings_proxy_desc">Route network traffic through an HTTP or SOCKS proxy</string>
+    <string name="settings_proxy_desc">Route network traffic through an HTTP, HTTPS or SOCKS proxy</string>
     <string name="proxy_enable">Enable Proxy</string>
     <string name="proxy_enable_desc">Route all app network traffic through the proxy</string>
     <string name="proxy_type">Type</string>

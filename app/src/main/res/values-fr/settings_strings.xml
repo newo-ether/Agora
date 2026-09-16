@@ -460,7 +460,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">Réseau</string>
     <string name="settings_proxy">Proxy</string>
-    <string name="settings_proxy_desc">Acheminer le trafic réseau via un proxy HTTP ou SOCKS</string>
+    <string name="settings_proxy_desc">Acheminer le trafic réseau via un proxy HTTP, HTTPS ou SOCKS</string>
     <string name="proxy_enable">Activer le proxy</string>
     <string name="proxy_enable_desc">Acheminer tout le trafic réseau via le proxy</string>
     <string name="proxy_type">Type</string>

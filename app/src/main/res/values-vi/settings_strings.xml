@@ -460,7 +460,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">Mạng</string>
     <string name="settings_proxy">Proxy</string>
-    <string name="settings_proxy_desc">Định tuyến lưu lượng truy cập mạng thông qua một proxy HTTP hoặc SOCKS</string>
+    <string name="settings_proxy_desc">Định tuyến lưu lượng truy cập mạng thông qua một proxy HTTP, HTTPS hoặc SOCKS</string>
     <string name="proxy_enable">Bật proxy</string>
     <string name="proxy_enable_desc">Định tuyến tất cả lưu lượng mạng của ứng dụng qua proxy</string>
     <string name="proxy_type">Loại</string>

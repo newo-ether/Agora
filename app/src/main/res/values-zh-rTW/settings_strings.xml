@@ -465,7 +465,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">網路</string>
     <string name="settings_proxy">代理</string>
-    <string name="settings_proxy_desc">透過 HTTP 或 SOCKS 代理轉送網路流量</string>
+    <string name="settings_proxy_desc">透過 HTTP、HTTPS 或 SOCKS 代理轉送網路流量</string>
     <string name="proxy_enable">啟用代理</string>
     <string name="proxy_enable_desc">將應用程式的所有網路流量透過代理轉送</string>
     <string name="proxy_type">類型</string>
