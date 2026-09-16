@@ -213,6 +213,12 @@ internal fun persistenceAwareJsonSource(text: String): String =
 
 @Composable
 internal fun JsonOrPlainView(text: String) {
+    // Oversized payloads: skip JSON tree expansion (thousands of composables from a
+    // 100k tool result) and show the plain preview instead.
+    if (isLargeForMarkdown(text)) {
+        LargeMessageView(text = text)
+        return
+    }
     val jsonSource = persistenceAwareJsonSource(text)
     val persistenceTruncated = jsonSource.length != text.length
     var parsed by remember { mutableStateOf<JsonRenderSnapshot?>(null) }

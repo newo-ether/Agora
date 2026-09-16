@@ -33,6 +33,26 @@ object Constants {
     /** Max UTF-16 code units persisted in either messages.text or messages.thoughts. At worst this
      *  is about 300 KB of UTF-8, leaving room for both columns, segments, and row metadata. */
     const val MAX_PERSISTED_TEXT_CHARS = 100_000
+    // ── Large-message rendering guards ─────────────────────────
+    // Persisted rows are capped going forward, but legacy/imported rows can still hold
+    // multi-MB texts (e.g. a 7M-token chat ≈ 28M chars). Such input must never reach the
+    // markdown AST parser (which allocates multiples of its input) or a single giant Text
+    // layout (which blows the Compose measure pass and kills the process). Above
+    // [LARGE_TEXT_MARKDOWN_LIMIT] renderers show a cheap plain-text preview with an
+    // explicit expand affordance instead of rich markdown.
+    /** Above this length, skip markdown/LaTeX parsing and show a plain preview. */
+    const val LARGE_TEXT_MARKDOWN_LIMIT = 50_000
+    /** Preview size for oversized messages (plain text, cheap to layout). */
+    const val LARGE_TEXT_PREVIEW_LIMIT = 20_000
+    /** Hard cap for the user-expanded view of an oversized message. */
+    const val LARGE_TEXT_EXPANDED_LIMIT = 500_000
+    /** Above this length, skip JSON detection/parsing fast-paths. */
+    const val LARGE_JSON_PARSE_LIMIT = 200_000
+    /** Upper bound on total text chars sent to an LLM in one request (sliding window).
+     *  The token-budget window keeps oversized single inputs whole by design; serializing
+     *  tens of MB of request JSON is still a process-death risk, so this truncates the
+     *  oldest non-protocol text instead. */
+    const val MAX_API_PAYLOAD_CHARS = 800_000
     /** Timeout for fetching available models from a single provider (ms) */
     const val MODEL_FETCH_TIMEOUT_MS = 10_000L
     /** Connection establishment and request writes should fail fast; long-running response work is

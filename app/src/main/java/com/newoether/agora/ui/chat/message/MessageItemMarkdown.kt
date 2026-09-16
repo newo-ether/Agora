@@ -247,6 +247,11 @@ internal fun MarkdownTextContent(
     includeFirstSpacer: Boolean = true,
     onReady: () -> Unit = {}
 ) {
+    if (isLargeForMarkdown(text)) {
+        LargeMessageView(text = text)
+        LaunchedEffect(text) { onReady() }
+        return
+    }
     val markdownText = remember(text, renderContext.parseInlineDollarMath) {
         text.toRenderableMarkdownText(renderContext.parseInlineDollarMath)
     }
@@ -274,6 +279,11 @@ internal fun LazyMarkdownTextContent(
     includeFirstSpacer: Boolean = true,
     onReady: () -> Unit = {},
 ) {
+    if (isLargeForMarkdown(text)) {
+        LargeMessageView(text = text, modifier = modifier)
+        LaunchedEffect(text) { onReady() }
+        return
+    }
     val markdownText = remember(text, renderContext.parseInlineDollarMath) {
         text.toRenderableMarkdownText(renderContext.parseInlineDollarMath)
     }
@@ -404,6 +414,11 @@ private fun LazyMarkdownSuccessWithSpacing(
 }
 
 internal fun String.toRenderableMarkdownText(parseInlineDollarMath: Boolean = false): String {
+    // Huge inputs: skip the LaTeX span scan (O(n) allocation-heavy pass over MBs).
+    // Callers render these as a plain preview; this is only a safety net.
+    if (length > com.newoether.agora.util.Constants.LARGE_TEXT_MARKDOWN_LIMIT) {
+        return escapeForMarkdown()
+    }
     val spans = parseLatexSpans(this, parseInlineDollarMath)
     val markdown = if (spans.all { !it.isLatex }) {
         this

@@ -39,6 +39,13 @@ internal fun StreamingMarkdownMessage(
     emptyStreamingTextStyle: TextStyle = renderContext.plainTextStyle,
 ) {
     val hasContent = content.isNotBlank()
+    // Oversized legacy/imported rows must never enter the incremental AST pipeline:
+    // parsing multi-MB text allocates multiples of the input and the resulting giant
+    // layout kills the process. Plain preview with an expand affordance instead.
+    if (isLargeForMarkdown(content)) {
+        LargeMessageView(text = content, modifier = modifier)
+        return
+    }
     val showEmptyState = isStreaming && !hasContent && emptyStreamingText != null
     val resolvedEmptyColor = emptyStreamingTextColor.takeUnless { it == Color.Unspecified }
         ?: MaterialTheme.colorScheme.primary

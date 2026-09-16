@@ -4,6 +4,7 @@ import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.isContextCompact
 import com.newoether.agora.model.isSuccessfulContextCompact
+import com.newoether.agora.util.Constants
 
 private const val CONTEXT_SUMMARY_ID_PREFIX = "context_summary_"
 private const val API_INITIAL_USER_ID_PREFIX = "api_initial_user_"
@@ -99,16 +100,60 @@ fun prepareMessages(messages: List<ChatMessage>, contextTokenBudget: Int): List<
     val appendContinuationForApi = shouldAppendCompactContinuation(messages)
     return stripEmptyTurns(
         mergeConsecutiveSameRole(
-            limitContext(
-                canonicalContextMessages(
-                    messages = history,
-                    markSummaryForApi = true,
-                    appendContinuationForApi = appendContinuationForApi,
-                ),
-                contextTokenBudget,
+            enforcePayloadBudget(
+                limitContext(
+                    canonicalContextMessages(
+                        messages = history,
+                        markSummaryForApi = true,
+                        appendContinuationForApi = appendContinuationForApi,
+                    ),
+                    contextTokenBudget,
+                )
             )
         )
     ) + listOfNotNull(prompt)
+}
+
+/**
+ * Hard sliding-window cap on total text chars sent to an LLM.
+ *
+ * [limitContext] deliberately keeps an oversized newest unit whole, so a single huge
+ * pasted input (e.g. millions of tokens) still reaches serialization. Streaming request
+ * bodies bound transient memory, but a tens-of-MB request is still a process-death and
+ * cost risk, so truncate the oldest non-protocol text instead. Tool/thought segments are
+ * never touched: pairing and thought signatures stay valid.
+ */
+fun enforcePayloadBudget(
+    messages: List<ChatMessage>,
+    maxChars: Int = Constants.MAX_API_PAYLOAD_CHARS,
+): List<ChatMessage> {
+    if (messages.isEmpty()) return messages
+    var total = 0L
+    for (message in messages) {
+        if (!message.isToolProtocolMessage()) total += message.text.length
+        if (total > maxChars) break
+    }
+    if (total <= maxChars) return messages
+
+    var over = total - maxChars
+    return messages.map { message ->
+        if (over <= 0L || message.isToolProtocolMessage() || message.text.isEmpty()) {
+            message
+        } else {
+            val cut = over.coerceAtMost(message.text.length.toLong()).toInt()
+            over -= cut
+            if (cut >= message.text.length) {
+                message.copy(text = "[…truncated for context size…]")
+            } else {
+                val keep = (message.text.length - cut)
+                    .coerceAtMost(maxChars.coerceAtMost(message.text.length))
+                message.copy(
+                    text = "[…truncated $cut chars for context size…]\n" +
+                        message.text.takeLast(keep.coerceAtLeast(0)),
+                )
+            }
+        }
+    }
 }
 
 private fun shouldAppendCompactContinuation(messages: List<ChatMessage>): Boolean {
