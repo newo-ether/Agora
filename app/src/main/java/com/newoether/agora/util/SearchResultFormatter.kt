@@ -12,7 +12,10 @@ object SearchResultFormatter {
 
     fun isRawSearchResult(text: String): Boolean {
         // Nearly every persisted user/assistant row is Markdown. Reject it before constructing a
-        // JSON parser (and, previously, an exception) on every Room emission.
+        // JSON parser (and, previously, an exception) on every Room emission. Huge pasted
+        // payloads (e.g. a multi-MB JSON log) must never enter the parser at all: it would
+        // allocate a full parse tree just to throw. Tool payloads are small.
+        if (text.length > Constants.LARGE_JSON_PARSE_LIMIT) return false
         val firstContent = text.indexOfFirst { character -> !character.isWhitespace() }
         if (firstContent < 0 || text[firstContent] != '{') return false
         return try {
@@ -32,6 +35,7 @@ object SearchResultFormatter {
     }
 
     fun format(text: String, context: Context): String {
+        if (text.length > Constants.LARGE_JSON_PARSE_LIMIT) return text
         if (!isRawSearchResult(text)) return text
         return try {
             val json = Json.parseToJsonElement(text).jsonObject

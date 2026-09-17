@@ -781,4 +781,8 @@
     <string name="thought_for_a_while">Đã suy nghĩ một lúc</string>
     <string name="thought_for_a_while_called_tools">Đã suy nghĩ một lúc, đã gọi %1$d công cụ</string>
     <string name="remote_device">Thiết bị</string>
+    <string name="message_too_large">Large message (%1$s chars) — showing plain preview for performance</string>
+    <string name="message_truncated">Showing first %1$s of %2$s chars</string>
+    <string name="show_less">Show less</string>
+    <string name="show_full_message">Show full (%1$s chars)</string>
 </resources>

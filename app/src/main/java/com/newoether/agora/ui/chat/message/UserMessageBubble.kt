@@ -266,12 +266,16 @@ internal fun UserMessageBubble(
                         }
                     }
                     if (message.text.isNotEmpty()) {
-                        SearchHighlightedPlainText(
-                            text = message.text,
-                            style = ChatType.userBody,
-                            color = textColor,
-                            spec = searchHighlight,
-                        )
+                        if (isLargeForMarkdown(message.text)) {
+                            LargeMessageView(text = message.text, textColor = textColor)
+                        } else {
+                            SearchHighlightedPlainText(
+                                text = message.text,
+                                style = ChatType.userBody,
+                                color = textColor,
+                                spec = searchHighlight,
+                            )
+                        }
                     }
                 }
             }
