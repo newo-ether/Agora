@@ -27,6 +27,7 @@ object ProviderDefaults {
         "openai" -> OPENAI_BASE_URL
         "mistral" -> "https://api.mistral.ai/v1"
         "open router", "openrouter" -> "https://openrouter.ai/api/v1"
+        "requesty" -> "https://router.requesty.ai/v1"
         "voyage ai", "voyage" -> "https://api.voyageai.com/v1"
         "siliconflow" -> "https://api.siliconflow.cn/v1"
         "ollama" -> "http://localhost:11434/v1"

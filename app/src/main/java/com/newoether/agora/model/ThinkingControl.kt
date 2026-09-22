@@ -48,6 +48,12 @@ object ThinkingLevels {
         else -> "medium"
     }
 
+    fun requestyEffort(effort: String): String = when (normalizeEffort(effort)) {
+        "none", "low", "medium", "high", "xhigh", "max" -> normalizeEffort(effort)
+        "minimal" -> "min"
+        else -> "medium"
+    }
+
     fun anthropicEffort(effort: String): String = when (normalizeEffort(effort)) {
         "none", "minimal" -> "low"
         "low", "medium", "high", "xhigh", "max" -> normalizeEffort(effort)

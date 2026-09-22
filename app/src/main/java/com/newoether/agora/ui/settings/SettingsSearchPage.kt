@@ -130,6 +130,7 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         EmbeddingProviderPreset("Voyage AI", ProviderDefaults.embeddingBaseUrl("Voyage AI"), listOf("voyage-3-large", "voyage-3-lite", "voyage-code-3")),
         EmbeddingProviderPreset("SiliconFlow", ProviderDefaults.embeddingBaseUrl("SiliconFlow"), listOf("BAAI/bge-m3", "BAAI/bge-large-en-v1.5")),
         EmbeddingProviderPreset(Constants.PROVIDER_OPEN_ROUTER, ProviderDefaults.embeddingBaseUrl(Constants.PROVIDER_OPEN_ROUTER), listOf("openai/text-embedding-3-small", "openai/text-embedding-3-large")),
+        EmbeddingProviderPreset(Constants.PROVIDER_REQUESTY, ProviderDefaults.embeddingBaseUrl(Constants.PROVIDER_REQUESTY), listOf("openai/text-embedding-3-small", "openai/text-embedding-3-large")),
         EmbeddingProviderPreset(Constants.PROVIDER_OLLAMA, ProviderDefaults.embeddingBaseUrl(Constants.PROVIDER_OLLAMA), emptyList()),
         EmbeddingProviderPreset("Custom", "", emptyList())
     )
