@@ -73,7 +73,7 @@ private val RemoteModelProviders = listOf(
     Constants.PROVIDER_GROQ,
     Constants.PROVIDER_OLLAMA,
     Constants.PROVIDER_OPEN_ROUTER,
-    Constants.PROVIDER_OPENCODE_GO,
+    Constants.PROVIDER_OPENCODE_GO, Constants.PROVIDER_REQUESTY,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

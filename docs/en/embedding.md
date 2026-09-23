@@ -11,6 +11,7 @@ Available presets currently include:
 - Voyage AI: `voyage-3-large`, `voyage-3-lite`, `voyage-code-3`
 - SiliconFlow: `BAAI/bge-m3`, `BAAI/bge-large-en-v1.5`
 - OpenRouter: OpenAI embedding model routes
+- Requesty: OpenAI embedding model routes
 - Ollama, a local embedding model, or a custom endpoint
 
 Remote embeddings use the credentials and base URL configured for the selected provider. Text sent for embedding therefore leaves the device for that provider. Local embeddings remain on-device.
