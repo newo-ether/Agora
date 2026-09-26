@@ -483,4 +483,12 @@
     <string name="openai_service_tier_priority">Prioritaire</string>
     <string name="openai_service_tier_fast">Rapide</string>
     <string name="openai_service_tier_ultrafast">Ultra-rapide</string>
+    <string name="thinking_capability_title">Capacité du modèle</string>
+    <string name="thinking_capability_desc">Corrigez ce que ce modèle accepte pour la réflexion</string>
+    <string name="thinking_capability_overridden">Corrigé pour ce modèle</string>
+    <string name="thinking_capability_efforts">Niveaux d’effort acceptés</string>
+    <string name="thinking_capability_can_disable">La réflexion peut être désactivée</string>
+    <string name="thinking_capability_budget">Accepte un budget de réflexion</string>
+    <string name="thinking_capability_sampling">Accepte temperature et top_p</string>
+    <string name="thinking_capability_reset">Utiliser la valeur par défaut documentée</string>
 </resources>

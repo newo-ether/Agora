@@ -385,7 +385,7 @@ fun thinkingControlShortLabel(
 }
 
 @Composable
-private fun effortLabel(effort: String): String = when (effort) {
+internal fun effortLabel(effort: String): String = when (effort) {
     "minimal" -> stringResource(R.string.gen_thinking_level_minimal)
     "low" -> stringResource(R.string.gen_thinking_level_low)
     "medium" -> stringResource(R.string.gen_thinking_level_medium)

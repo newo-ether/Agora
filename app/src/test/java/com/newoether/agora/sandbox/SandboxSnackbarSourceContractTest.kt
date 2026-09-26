@@ -85,9 +85,13 @@ class SandboxSnackbarSourceContractTest {
 
         assertTrue(activityCollector.contains("snackbarHostState.showSnackbar("))
         assertFalse(activityCollector.contains("msg != null"))
-        assertFalse(activityCollector.contains("snackbarJob"))
-        assertFalse(activityCollector.contains("launch {"))
         assertFalse(activityCollector.contains("snackbarMessage.value"))
+        // Interrupting display: the collector never awaits the visible Snackbar, it cancels it.
+        assertTrue(activityCollector.contains("sandboxSnackbarJob?.cancel()"))
+        assertTrue(activityCollector.contains("sandboxSnackbarJob = launch {"))
+        assertTrue(
+            activity.contains("var sandboxSnackbarJob: Job? = null"),
+        )
 
         listOf(
             "process-local buffered one-shot events",
@@ -100,6 +104,8 @@ class SandboxSnackbarSourceContractTest {
             "reset must replace that scope before continuing",
             "not persisted",
             "Play flavor exposes an empty outcome stream",
+            "Display is interrupting",
+            "newest outcome is always the visible one",
         ).forEach { wording ->
             assertTrue(wording, normalizedUiContract.contains(wording))
         }

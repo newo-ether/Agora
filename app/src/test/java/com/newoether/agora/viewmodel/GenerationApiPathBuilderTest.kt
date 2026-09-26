@@ -231,7 +231,7 @@ class GenerationApiPathBuilderTest {
         assertEquals(listOf(oldUser.id, stoppedModel.id, queuedUser.id), path.messages.map { it.id })
         assertEquals(Participant.MODEL, path.messages[1].participant)
         assertTrue(path.messages[1].text.startsWith("partial answer"))
-        assertTrue(path.messages[1].text.contains("[Generation status: STOPPED]"))
+        assertTrue(path.messages[1].text.contains("<generation_interrupted reason=\"stopped\" />"))
         val projected = projectGenerationInputMessages(
             messages = path.messages,
             includeImages = true,
@@ -248,7 +248,10 @@ class GenerationApiPathBuilderTest {
         assertEquals(1, Regex(Regex.escape("partial answer")).findAll(wireText).count())
         assertEquals(1, Regex(Regex.escape("first guidance")).findAll(wireText).count())
         assertEquals(1, Regex(Regex.escape("second guidance")).findAll(wireText).count())
-        assertEquals(1, Regex(Regex.escape("[Generation status: STOPPED]")).findAll(wireText).count())
+        assertEquals(
+            1,
+            Regex(Regex.escape("<generation_interrupted reason=\"stopped\" />")).findAll(wireText).count(),
+        )
     }
 
     @Test

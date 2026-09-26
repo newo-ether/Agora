@@ -67,6 +67,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 @Composable
 internal fun ChatMarkdownCodeBlock(
     code: String,
+    autoWrap: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val assets = rememberChatMarkdownAssets(MaterialTheme.colorScheme.onSurface)
@@ -86,13 +87,14 @@ internal fun ChatMarkdownCodeBlock(
         ) {
             Column {
                 ChatCodeBlockHeader(language = null, code = code)
+                val codeStyle = assets.renderContext.typography.code.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 MarkdownBasicText(
                     text = AnnotatedString(code),
-                    style = assets.renderContext.typography.code.copy(
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
+                    style = if (autoWrap) codeStyle.copy(lineBreak = LineBreak.Simple) else codeStyle,
                     modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
+                        .then(if (autoWrap) Modifier else Modifier.horizontalScroll(rememberScrollState()))
                         .padding(assets.renderContext.padding.codeBlock),
                 )
             }

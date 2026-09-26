@@ -327,6 +327,24 @@ class GenerationRequestBuilderProviderDisplayTest {
     }
 
     @Test
+    fun `disabled active memory access keeps the memory in the prompt and drops only the tool`() = runTest {
+        val fixture = RequestBuilderFixture(
+            providerName = Constants.PROVIDER_OPENAI,
+            lowContextModeEnabled = false,
+            accessActiveMemory = false,
+        )
+
+        val snapshot = fixture.builder.captureContextProjectionSnapshot(
+            conversationId = "conversation",
+            modelId = fixture.modelId,
+        )
+
+        assertEquals(RequestBuilderFixture.RESOLVED_SYSTEM_PROMPT, snapshot.config.effectiveSystemPrompt)
+        assertFalse(snapshot.context.accessActiveMemory)
+        verify { fixture.memoryManager.getActiveMemory() }
+    }
+
+    @Test
     fun `remote and ollama ignore a true low context conversation override`() = runTest {
         listOf(Constants.PROVIDER_OPENAI, Constants.PROVIDER_OLLAMA).forEach { providerName ->
             val fixture = RequestBuilderFixture(
@@ -443,6 +461,7 @@ private class RequestBuilderFixture(
     providerName: String,
     lowContextModeEnabled: Boolean,
     compactPreserveSystemPrompt: Boolean = false,
+    accessActiveMemory: Boolean = true,
 ) {
     companion object {
         const val COMPACT_PROMPT = "compact prompt"
@@ -536,7 +555,7 @@ private class RequestBuilderFixture(
         every { settings.accessSkills } returns MutableStateFlow(true)
         every { settings.accessSkillsModify } returns MutableStateFlow(true)
         every { settings.accessSavedMemories } returns MutableStateFlow(true)
-        every { settings.accessActiveMemory } returns MutableStateFlow(true)
+        every { settings.accessActiveMemory } returns MutableStateFlow(accessActiveMemory)
         every { settings.accessPastConversations } returns MutableStateFlow(true)
         every { settings.modelSearchMethod } returns MutableStateFlow("keyword")
         every { settings.ragThreshold } returns MutableStateFlow(0.5f)

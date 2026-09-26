@@ -409,7 +409,9 @@ supporting copy keeps those layers distinct.
 Local Sandbox install, remove, upgrade, and reset outcomes are process-local buffered one-shot events.
 An outcome produced while no UI collector exists remains queued for the next collector. Pending
 outcomes retain production order, and each outcome is consumed by one collector exactly once. An
-Activity recreation must not replay an outcome that the previous collector already consumed.
+Activity recreation must not replay an outcome that the previous collector already consumed. Display
+is interrupting: consuming an outcome dismisses and replaces the Snackbar still on screen instead of
+waiting for it, so the newest outcome is always the visible one.
 
 The Sandbox manager and its transient queue share the process lifetime owned by `AppContainer`'s
 flavor factory. Foreground ViewModels, generation tools, and headless Task/Loop execution borrow the

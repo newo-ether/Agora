@@ -325,7 +325,7 @@ class DurableSelectedContextLoaderTest {
                 Regex(Regex.escape(displayedErrorDetail)).findAll(projectedFailure.text).count(),
             )
             assertFalse(projectedFailure.text.contains(rawErrorDetail))
-            assertTrue(projectedFailure.text.contains("[Generation status: ERROR]"))
+            assertTrue(projectedFailure.text.contains("<generation_interrupted reason=\"error\">"))
             val retainedSegments = Json.decodeFromString<List<MessageSegment>>(
                 requireNotNull(loaded.entities.single { it.id == failed.id }.toolCallJson),
             )

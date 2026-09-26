@@ -132,19 +132,16 @@ private fun ChatMessage.asTerminalAssistantMessage(
 private fun generationStatusEventText(
     isError: Boolean,
     errorDetail: String?,
-): String = if (isError) {
-    buildString {
-        append("[Generation status: ERROR]\n")
-        append("The previous assistant generation failed before completing.")
-        errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
-            append("\nDetails:\n")
-            append(detail)
-        }
-    }
-} else {
-    buildString {
-        append("[Generation status: STOPPED]\n")
-        append("The previous assistant generation was stopped before completing.")
+): String {
+    // Deliberately machine-shaped rather than a sentence. The annotation sits at the end of an
+    // assistant turn, so prose here reads as something the assistant wrote and gets imitated at the
+    // end of later answers. A tag cannot be mistaken for the assistant's own wording.
+    val reason = if (isError) "error" else "stopped"
+    val detail = errorDetail?.takeIf(String::isNotBlank)
+    return if (detail == null) {
+        "<generation_interrupted reason=\"$reason\" />"
+    } else {
+        "<generation_interrupted reason=\"$reason\">\n$detail\n</generation_interrupted>"
     }
 }
 

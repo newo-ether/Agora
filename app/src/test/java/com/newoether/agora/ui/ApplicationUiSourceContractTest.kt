@@ -690,7 +690,11 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
             .substringAfter("internal fun ChatMarkdownCodeBlock(")
             .substringBefore("internal fun TrackStreamingHorizontalScroll(")
 
-        assertTrue(main.contains("ChatMarkdownCodeBlock(code = pending.summary)"))
+        assertTrue(
+            main.contains("ChatMarkdownCodeBlock(code = pending.summary, autoWrap = autoWrapCodeBlocks)"),
+        )
+        assertTrue(main.contains("val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks"))
+        assertTrue(codeBlock.contains("if (autoWrap) codeStyle.copy(lineBreak = LineBreak.Simple)"))
         assertTrue(codeBlock.contains("CompositionLocalProvider("))
         assertTrue(codeBlock.contains("LocalMarkdownColors provides assets.renderContext.colors"))
         assertTrue(codeBlock.contains("LocalMarkdownDimens provides markdownDimens()"))

@@ -53,9 +53,7 @@ class GenerationStatusMessagesTest {
         assertEquals(MessageStatus.SUCCESS, projected.status)
         assertEquals(
             "partial answer\n\n" +
-                "[Generation status: ERROR]\n" +
-                "The previous assistant generation failed before completing.\n" +
-                "Details:\n$displayedError",
+                "<generation_interrupted reason=\"error\">\n$displayedError\n</generation_interrupted>",
             projected.text,
         )
         assertFalse(projected.text.contains(rawError))
@@ -88,9 +86,7 @@ class GenerationStatusMessagesTest {
         }.single()
 
         assertEquals(
-            "[Generation status: ERROR]\n" +
-                "The previous assistant generation failed before completing.\n" +
-                "Details:\n$visibleError",
+            "<generation_interrupted reason=\"error\">\n$visibleError\n</generation_interrupted>",
             projected.text,
         )
         assertEquals(1, Regex(Regex.escape(visibleError)).findAll(projected.text).count())
@@ -114,7 +110,7 @@ class GenerationStatusMessagesTest {
             normalizePersistedGenerationErrorText(context, raw)
         }.single()
 
-        assertTrue(projected.text.endsWith("Details:\n$localized"))
+        assertTrue(projected.text.endsWith("$localized\n</generation_interrupted>"))
         assertFalse(projected.text.contains(rawError))
     }
 
@@ -142,7 +138,7 @@ class GenerationStatusMessagesTest {
                 normalizePersistedGenerationErrorText(context, detail)
             }.single()
 
-            assertTrue(projected.text.endsWith("Details:\n$displayed"))
+            assertTrue(projected.text.endsWith("$displayed\n</generation_interrupted>"))
         }
     }
 
@@ -168,8 +164,7 @@ class GenerationStatusMessagesTest {
         assertEquals(MessageStatus.SUCCESS, projected[0].status)
         assertEquals(
             "partial answer\n\n" +
-                "[Generation status: STOPPED]\n" +
-                "The previous assistant generation was stopped before completing.",
+                "<generation_interrupted reason=\"stopped\" />",
             projected[0].text,
         )
         assertSame(followUp, projected[1])
@@ -188,8 +183,7 @@ class GenerationStatusMessagesTest {
 
         assertEquals(Participant.MODEL, projected.participant)
         assertEquals(
-            "[Generation status: STOPPED]\n" +
-                "The previous assistant generation was stopped before completing.",
+            "<generation_interrupted reason=\"stopped\" />",
             projected.text,
         )
     }
@@ -210,9 +204,7 @@ class GenerationStatusMessagesTest {
         assertEquals(Participant.MODEL, projected.participant)
         assertEquals(MessageStatus.SUCCESS, projected.status)
         assertEquals(
-            "[Generation status: ERROR]\n" +
-                "The previous assistant generation failed before completing.\n" +
-                "Details:\nlegacy failure",
+            "<generation_interrupted reason=\"error\">\nlegacy failure\n</generation_interrupted>",
             projected.text,
         )
     }
@@ -243,7 +235,7 @@ class GenerationStatusMessagesTest {
         assertFalse(twice.single().text.contains(rawError))
         assertEquals(
             1,
-            Regex(Regex.escape("[Generation status: ERROR]"))
+            Regex(Regex.escape("<generation_interrupted reason=\"error\">"))
                 .findAll(twice.single().text)
                 .count(),
         )
@@ -261,7 +253,7 @@ class GenerationStatusMessagesTest {
         val projected = projectGenerationStatusesForApi(listOf(tool)) { it }
 
         assertSame(tool, projected.single())
-        assertFalse(projected.single().text.contains("[Generation status:"))
+        assertFalse(projected.single().text.contains("<generation_interrupted"))
     }
 
     @Test

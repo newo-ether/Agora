@@ -131,6 +131,7 @@ internal fun MainApplicationDialogs(
             properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
             icon = { Icon(Icons.Default.Terminal, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary) },
             title = { Text(stringResource(R.string.shell_confirm_title, pending.server), fontWeight = FontWeight.Bold) },
+    val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
             text = {
                 Column {
                     Box(
@@ -139,7 +140,7 @@ internal fun MainApplicationDialogs(
                             .heightIn(max = 240.dp)
                             .verticalScroll(rememberScrollState()),
                     ) {
-                        ChatMarkdownCodeBlock(code = pending.summary)
+                        ChatMarkdownCodeBlock(code = pending.summary, autoWrap = autoWrapCodeBlocks)
                     }
                     Spacer(Modifier.height(4.dp))
                     Row(

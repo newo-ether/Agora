@@ -483,4 +483,12 @@
     <string name="openai_service_tier_priority">Ưu tiên</string>
     <string name="openai_service_tier_fast">Nhanh</string>
     <string name="openai_service_tier_ultrafast">Siêu nhanh</string>
+    <string name="thinking_capability_title">Khả năng của mô hình</string>
+    <string name="thinking_capability_desc">Sửa những gì mô hình này chấp nhận khi suy luận</string>
+    <string name="thinking_capability_overridden">Đã sửa cho mô hình này</string>
+    <string name="thinking_capability_efforts">Các mức nỗ lực được chấp nhận</string>
+    <string name="thinking_capability_can_disable">Có thể tắt suy luận</string>
+    <string name="thinking_capability_budget">Chấp nhận ngân sách suy luận</string>
+    <string name="thinking_capability_sampling">Chấp nhận temperature và top_p</string>
+    <string name="thinking_capability_reset">Dùng giá trị mặc định theo tài liệu</string>
 </resources>

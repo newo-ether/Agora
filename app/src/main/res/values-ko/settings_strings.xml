@@ -483,4 +483,12 @@
     <string name="openai_service_tier_priority">우선</string>
     <string name="openai_service_tier_fast">빠름</string>
     <string name="openai_service_tier_ultrafast">초고속</string>
+    <string name="thinking_capability_title">모델 기능</string>
+    <string name="thinking_capability_desc">이 모델이 허용하는 사고 설정을 수정합니다</string>
+    <string name="thinking_capability_overridden">이 모델은 수정됨</string>
+    <string name="thinking_capability_efforts">사용 가능한 사고 강도</string>
+    <string name="thinking_capability_can_disable">사고를 끌 수 있음</string>
+    <string name="thinking_capability_budget">사고 예산 허용</string>
+    <string name="thinking_capability_sampling">temperature 및 top_p 허용</string>
+    <string name="thinking_capability_reset">문서 기본값 사용</string>
 </resources>

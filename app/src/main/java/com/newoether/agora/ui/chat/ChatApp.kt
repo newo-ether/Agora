@@ -46,6 +46,7 @@ import com.newoether.agora.ui.components.AnimatedBlobBackground
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
+import com.newoether.agora.ui.common.rememberThinkingCapabilityOverrideBinding
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.model.StableMessageList
 import com.newoether.agora.model.StableModelAliases
@@ -708,10 +709,9 @@ fun ChatApp(
                         customProviders = customProviders,
                         codeExecutionEnabled = conversationControls.codeExecutionEnabled,
                         googleSearchEnabled = conversationControls.googleSearchEnabled,
-                        thinkingEnabled = conversationControls.thinkingEnabled,
-                        thinkingLevel = conversationControls.thinkingLevel,
-                        thinkingBudgetEnabled = conversationControls.thinkingBudgetEnabled,
-                        thinkingBudgetTokens = conversationControls.thinkingBudgetTokens,
+                        thinkingEnabled = conversationControls.thinkingEnabled, thinkingLevel = conversationControls.thinkingLevel,
+                        thinkingBudgetEnabled = conversationControls.thinkingBudgetEnabled, thinkingBudgetTokens = conversationControls.thinkingBudgetTokens,
+                        capabilityOverride = rememberThinkingCapabilityOverrideBinding(viewModel.settings, selectedModel),
                         openAiWebSearchAvailable = conversationControls.openAiWebSearchAvailable,
                         openAiWebSearchEnabled = conversationControls.openAiWebSearchEnabled,
                         onOpenAiWebSearchToggle = { enabled -> updateOpenAiNativeSearch(viewModel, conversationControls.settingsOwnerId, haptics, enabled) },

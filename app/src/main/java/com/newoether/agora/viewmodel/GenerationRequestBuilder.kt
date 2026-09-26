@@ -691,11 +691,10 @@ class GenerationRequestBuilder(
         activeModel: String,
     ): ResolvedPrompt = withContext(Dispatchers.Default) {
         coroutineScope {
-            val includeActiveMemory = settings.accessActiveMemory.value
+            // The active-memory access switch only governs the update tool. The prompt always
+            // carries the stored active memory so turning the tool off cannot erase context.
             val includeSkillCatalog = settings.accessSkills.value
-            val activeMemoryDeferred = async(Dispatchers.IO) {
-                if (includeActiveMemory) memoryManager.getActiveMemory() else ""
-            }
+            val activeMemoryDeferred = async(Dispatchers.IO) { memoryManager.getActiveMemory() }
             val skillCatalogDeferred = async {
                 if (includeSkillCatalog) skillManager.catalog() else ""
             }
@@ -705,9 +704,7 @@ class GenerationRequestBuilder(
             val runtimeValues = buildPromptRuntimeValues(
                 now = java.util.Date(),
                 modelId = modelId,
-                activeMemory = activeMemoryDeferred.await()
-                    .takeIf { includeActiveMemory }
-                    .orEmpty(),
+                activeMemory = activeMemoryDeferred.await(),
                 skillCatalog = skillCatalogDeferred.await()
                     .takeIf { includeSkillCatalog }
                     .orEmpty(),
