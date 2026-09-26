@@ -14,6 +14,44 @@ object DebugLog {
 
     private val active: Boolean get() = forceEnabled || enabled
 
+    // Release diagnostics accept only generated run IDs, fixed stage labels and timings.
+    internal fun sendStage(
+        runId: String,
+        component: String,
+        stage: String,
+        elapsedMs: Long,
+        previous: String? = null,
+        previousMs: Long? = null,
+    ) {
+        runCatching {
+            val timing = if (previous != null && previousMs != null) {
+                "previous=$previous previousMs=$previousMs "
+            } else {
+                ""
+            }
+            android.util.Log.i(
+                "SendDiagnostics",
+                "run=$runId component=$component stage=$stage ${timing}elapsedMs=$elapsedMs",
+            )
+        }
+    }
+
+    // Recovery diagnostics accept only the generated conversation ID, fixed stage labels and timings.
+    internal fun recoveryStage(
+        conversationId: String,
+        stage: String,
+        elapsedMs: Long,
+        rows: Int? = null,
+    ) {
+        runCatching {
+            val count = if (rows != null) "rows=$rows " else ""
+            android.util.Log.i(
+                "RecoveryDiagnostics",
+                "conversation=$conversationId stage=$stage ${count}elapsedMs=$elapsedMs",
+            )
+        }
+    }
+
     fun d(tag: String, msg: String) { if (active) android.util.Log.d(tag, msg) }
     fun d(tag: String, msg: String, tr: Throwable) {
         if (active) android.util.Log.d(tag, "$msg ${safeThrowableSummary(tr)}")

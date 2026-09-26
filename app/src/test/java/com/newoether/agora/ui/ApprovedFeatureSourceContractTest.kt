@@ -546,7 +546,16 @@ internal class ApprovedFeatureSourceContractTest : UiSourceContractFixture() {
         )
         assertTrue(builder.contains("internal suspend fun awaitProviderKey(modelId: String)"))
         assertTrue(builder.contains("providerRegistry.awaitInitialSync()\n        return resolveProviderKey(modelId)"))
-        assertEquals(3, Regex("requestBuilder\\.awaitProviderKey\\(").findAll(generation).count())
+        assertEquals(2, Regex("requestBuilder\\.awaitProviderKey\\(").findAll(generation).count())
+        val foregroundAdmission = builder
+            .substringAfter("internal suspend fun prepareForegroundSend(")
+            .substringBefore("internal suspend fun awaitProviderKey(")
+        assertTrue(generation.contains("requestBuilder.prepareForegroundSend(target, composer, application)"))
+        assertTrue(
+            foregroundAdmission.indexOf("awaitProviderKey(target.modelId)") in
+                0 until foregroundAdmission.indexOf("captureAdmissionSnapshot("),
+        )
+        assertFalse(foregroundAdmission.contains("resolveProviderKey("))
         assertFalse(generation.contains("requestBuilder.resolveProviderKey("))
         val queuedLaunch = queuedDrain.substringAfter("fun launchClaim(")
         assertFalse(
@@ -650,9 +659,13 @@ internal class ApprovedFeatureSourceContractTest : UiSourceContractFixture() {
         assertTrue(foregroundTargetCapture.contains("val wasNewChat ="))
         assertTrue(foregroundTargetCapture.contains("modelId = currentActiveModel.value"))
 
-        val foregroundAdmission = generation
+        val foregroundDelegation = generation
             .substringAfter("internal suspend fun prepareForegroundSend(")
             .substringBefore("internal suspend fun sendMessage(")
+        assertTrue(foregroundDelegation.contains("requestBuilder.prepareForegroundSend(target, composer, application)"))
+        val foregroundAdmission = source(root, "com/newoether/agora/viewmodel/GenerationRequestBuilder.kt")
+            .substringAfter("internal suspend fun prepareForegroundSend(")
+            .substringBefore("internal suspend fun awaitProviderKey(")
         assertTrue(foregroundTargetCapture.contains("captureNewChatWorkspace()"))
         assertTrue(foregroundAdmission.contains("target.newChatWorkspace?.awaitCaptured()"))
         assertTrue(workspace.contains("fun captureNewChatSnapshot()"))

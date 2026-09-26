@@ -1,5 +1,6 @@
 package com.newoether.agora.data.local
 
+import java.io.File
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunEndReason
@@ -163,6 +164,19 @@ class ChatDaoRunRecoveryTest {
             segments[1].jsonObject["toolState"]?.jsonPrimitive?.content,
         )
         assertEquals("true", segments[1].jsonObject["futureFlag"]?.toString())
+    }
+
+    @Test
+    fun `runtime recovery keeps its transaction boundary on the DAO method`() {
+        // Room binds the transaction wrapper from this source declaration at compile time.
+        val source = generateSequence(File(requireNotNull(System.getProperty("user.dir"))).absoluteFile) { it.parentFile }
+            .map { File(it, "src/main/java/com/newoether/agora/data/local/ChatDao.kt") }
+            .firstOrNull(File::exists)
+        assertTrue("ChatDao.kt source not located", source != null)
+        assertTrue(
+            Regex("@Transaction\\s+suspend fun recoverConversationRuntime")
+                .containsMatchIn(requireNotNull(source).readText()),
+        )
     }
 
     private fun stubExactOwner(dao: ChatDao, run: RunEntity?) {

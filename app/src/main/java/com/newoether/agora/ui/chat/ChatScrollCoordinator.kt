@@ -26,7 +26,6 @@ import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.ui.common.AgoraHaptics
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
 import com.newoether.agora.util.DebugLog
-import com.newoether.agora.util.MainThreadProbe
 import com.newoether.agora.viewmodel.AnimatedScrollDestination
 import com.newoether.agora.viewmodel.AnimatedScrollRequest
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -287,10 +286,6 @@ internal class ChatScrollCoordinator internal constructor(
                 }
 
                 if (request.kind == SwitchingRequestKind.CONVERSATION) {
-                    // Cold starts on multi-hundred-K-token conversations can hold this wait for
-                    // seconds while Room materializes the selected path; the cover phase names the
-                    // exact stage so a screenshot attributes the stall to loaded vs projection.
-                    MainThreadProbe.markPhase("ui await loaded")
                     snapshotFlow {
                         Triple(
                             latestCurrentConversationId,
@@ -308,7 +303,6 @@ internal class ChatScrollCoordinator internal constructor(
                     return@LaunchedEffect
                 }
 
-                MainThreadProbe.markPhase("ui await projection")
                 snapshotFlow {
                     val conversation = latestCurrentConversation
                     val projection = latestContextProjection
@@ -319,7 +313,6 @@ internal class ChatScrollCoordinator internal constructor(
                         !projection.loading
                 }.first { settled -> settled }
 
-                MainThreadProbe.markPhase("ui settle layout")
                 if (
                     settleCoveredTransition(
                         messages = messages,

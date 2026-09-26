@@ -1,5 +1,6 @@
 package com.newoether.agora.viewmodel
 
+import android.util.Log
 import com.newoether.agora.data.local.ChatEntity
 import com.newoether.agora.data.local.NewChatPersistEntity
 import com.newoether.agora.model.AttachmentImportState
@@ -13,7 +14,10 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -31,8 +35,15 @@ import org.junit.Test
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ConversationComposerSubmissionControllerTest {
+    private val diagnosticLines = CopyOnWriteArrayList<String>()
+
     @Before
     fun mockDebugLog() {
+        mockkStatic(Log::class)
+        every { Log.i("SendDiagnostics", any()) } answers {
+            diagnosticLines += secondArg<String>()
+            0
+        }
         mockkObject(DebugLog)
         every { DebugLog.w(any(), any(), any()) } just Runs
     }
@@ -40,6 +51,22 @@ class ConversationComposerSubmissionControllerTest {
     @After
     fun restoreDebugLog() {
         unmockkObject(DebugLog)
+        unmockkStatic(Log::class)
+    }
+
+    @Test
+    fun diagnosticFailureDoesNotPreventAcceptanceOrDraftRelease() = runTest {
+        every { Log.i("SendDiagnostics", any()) } throws IllegalStateException("logger unavailable")
+        val fixture = Fixture(
+            this,
+            acceptance = SendAcceptance.Direct("message", "conversation"),
+        )
+        assertTrue(fixture.controller.submit("conversation", "text", emptyList()))
+        runCurrent()
+        assertEquals(1, fixture.sendCount)
+        assertEquals(1L, fixture.controller.state("conversation").value.directAcceptedVersion)
+        assertEquals(ComposerSubmissionPhase.IDLE, fixture.controller.state("conversation").value.phase)
+        assertFalse(fixture.controller.isFrozen("conversation"))
     }
 
     @Test
@@ -51,6 +78,7 @@ class ConversationComposerSubmissionControllerTest {
 
         assertFalse(fixture.controller.isFrozen("owner"))
         assertTrue(fixture.events.isEmpty())
+        assertTrue(diagnosticLines.isEmpty())
         assertEquals(0, fixture.sendCount)
     }
 
@@ -110,6 +138,15 @@ class ConversationComposerSubmissionControllerTest {
         )
         coVerify(exactly = 0) { fixture.composers.clearAccepted(any(), any(), any(), any(), any(), any(), any()) }
         assertFalse(fixture.controller.cancelWaiting("owner-a"))
+        assertEquals(
+            listOf(
+                "load-composer", "freeze-draft", "prepare-admission", "await-attachments",
+                "cancelled", "release-submission", "finished",
+            ),
+            diagnosticLines.map { it.substringAfter("stage=").substringBefore(' ') },
+        )
+        assertTrue(diagnosticLines.all { it.startsWith("run=run:owner-a component=composer ") })
+        assertTrue(diagnosticLines.none { "frozen" in it || "b, a" in it })
     }
 
     @Test
@@ -201,6 +238,12 @@ class ConversationComposerSubmissionControllerTest {
         )
         assertEquals(1L, fixture.controller.state("draft-owner").value.acceptedVersion)
         assertEquals(1L, fixture.controller.state("draft-owner").value.directAcceptedVersion)
+        val stages = diagnosticLines.map { it.substringAfter("stage=").substringBefore(' ') }
+        val ordered = listOf("send", "accepted-direct", "draft-cleared", "finished")
+        assertEquals(ordered, stages.filter { it in ordered })
+        assertEquals("finished", stages.last())
+        assertTrue(diagnosticLines.all { "previousMs=" in it && "elapsedMs=" in it })
+        assertTrue(diagnosticLines.none { "app-private" in it || "text" in it })
         coVerify(exactly = 0) { fixture.drafts.reclaimAttachments(any()) }
         coVerify(exactly = 0) {
             fixture.composers.clearAccepted(

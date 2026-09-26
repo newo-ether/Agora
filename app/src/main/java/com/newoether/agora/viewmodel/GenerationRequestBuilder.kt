@@ -16,6 +16,7 @@ import com.newoether.agora.data.isResponsesApiEnabledForProvider
 import com.newoether.agora.data.isAnthropicCacheEnabledForProvider
 import com.newoether.agora.data.anthropicCacheTtlForProvider
 import com.newoether.agora.data.local.ChatEntity
+import com.newoether.agora.data.local.NewChatPersistEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ModelId
@@ -28,6 +29,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 internal fun buildPromptRuntimeValues(
     now: java.util.Date,
@@ -92,6 +95,85 @@ class GenerationRequestBuilder(
             return null
         }
         return ProviderKey(providerName, activeKey)
+    }
+
+    internal suspend fun prepareForegroundSend(
+        target: ForegroundSendTarget,
+        composer: ConversationComposerSnapshot,
+        validationContext: Context,
+    ): ForegroundSendAdmission? {
+        val startedNs = System.nanoTime()
+        fun markStage(name: String) {
+            com.newoether.agora.util.DebugLog.sendStage(
+                runId = target.runId,
+                component = "prepare",
+                stage = name,
+                elapsedMs = (System.nanoTime() - startedNs) / 1_000_000L,
+            )
+        }
+        markStage("await-settings")
+        settings.awaitInitialLoad()
+        if (target.modelId.isBlank()) {
+            onSnackbar(validationContext.getString(R.string.no_model_selected))
+            return null
+        }
+        markStage("await-provider")
+        val selectedProvider = awaitProviderKey(target.modelId) ?: return null
+        markStage("validate-provider")
+        if (selectedProvider.providerName == Constants.PROVIDER_LOCAL) {
+            val localModelId = target.modelId.substringAfter("${Constants.PROVIDER_LOCAL}:")
+            val localConfig = settings.localChatModels.value.find { it.modelId == localModelId }
+            if (localConfig == null || !java.io.File(localConfig.localFilePath).exists()) {
+                onSnackbar(validationContext.getString(R.string.local_model_not_found))
+                return null
+            }
+        }
+        markStage("await-workspace")
+        val workspace = target.newChatWorkspace?.awaitCaptured()
+        markStage(if (target.wasNewChat) "new-conversation-snapshot" else "read-conversation")
+        val conversationSnapshot = if (target.wasNewChat) {
+            ChatEntity(
+                id = target.conversationId,
+                title = initialConversationTitle(
+                    prompt = composer.text,
+                    fallback = appContext.getString(R.string.new_chat),
+                ),
+                modelId = target.modelId,
+                systemPromptId = workspace?.systemPromptId,
+            )
+        } else {
+            convRepo.getConversation(target.conversationId) ?: return null
+        }
+        val settingsOverride = if (target.wasNewChat) {
+            workspace?.conversationSettings
+        } else {
+            settings.conversationSettings.value[target.ownerId]
+        }
+        markStage("capture-generation-snapshot")
+        val generationSnapshot = captureAdmissionSnapshot(
+            conversationId = target.conversationId,
+            runId = target.runId,
+            modelId = target.modelId,
+            conversationOverride = conversationSnapshot,
+            conversationSettingsOverride = settingsOverride,
+        )
+        markStage("serialize-admission")
+        return ForegroundSendAdmission(
+            target = target,
+            generationSnapshot = generationSnapshot,
+            newConversation = conversationSnapshot.takeIf { target.wasNewChat },
+            newConversationSettings = workspace?.conversationSettings,
+            newChatPersistSnapshot = if (target.wasNewChat) {
+                (workspace?.persisted ?: NewChatPersistEntity()).copy(
+                    draftText = composer.text,
+                    draftAttachments = composer.attachments
+                        .takeIf(List<*>::isNotEmpty)
+                        ?.let(Json::encodeToString),
+                )
+            } else {
+                null
+            },
+        )
     }
 
     internal suspend fun awaitProviderKey(modelId: String): ProviderKey? {

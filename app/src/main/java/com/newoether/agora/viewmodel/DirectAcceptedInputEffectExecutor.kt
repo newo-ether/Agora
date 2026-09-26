@@ -120,6 +120,22 @@ internal class DirectAcceptedInputEffectExecutor(
         state: ConversationGenerationState,
         durableAcceptance: CompletableDeferred<SendAcceptance?>,
     ) {
+        val startedNs = System.nanoTime()
+        var stageNs = startedNs
+        var previousStage = "begin"
+        fun markStage(name: String) {
+            val now = System.nanoTime()
+            DebugLog.sendStage(
+                runId = request.runId,
+                component = "input",
+                stage = name,
+                elapsedMs = (now - startedNs) / 1_000_000L,
+                previous = previousStage,
+                previousMs = (now - stageNs) / 1_000_000L,
+            )
+            previousStage = name
+            stageNs = now
+        }
         val persistId = state.nextPersistId()
         var runBound = false
         var bindingOutcome: ConversationGenerationState.RunBindingOutcome =
@@ -191,7 +207,9 @@ internal class DirectAcceptedInputEffectExecutor(
         }
 
         try {
+            markStage(if (request.alreadyHoldsLock) "lock-already-owned" else "await-conversation-lock")
             withOptionalLock(request.conversationId, request.alreadyHoldsLock) generationLock@ {
+                markStage("resolve-generation-snapshot")
                 val generationSnapshot = request.generationSnapshot
                     ?: requestBuilder.captureAdmissionSnapshot(
                         conversationId = request.conversationId,
@@ -200,6 +218,7 @@ internal class DirectAcceptedInputEffectExecutor(
                         conversationOverride = request.newConversation,
                         conversationSettingsOverride = request.newConversationSettings,
                     )
+                markStage("commit-message-graph")
                 val graphCommit = graphWriter.commit(
                     request = AcceptedInputGraphWriter.Request(
                         inputEffect = request.inputEffect,
@@ -225,20 +244,26 @@ internal class DirectAcceptedInputEffectExecutor(
                 val userEntity = graphCommit.userMessage
                 val modelEntity = graphCommit.modelMessage
                 inputGraphCommitted = true
+                markStage("graph-committed")
 
                 // Room already committed. A caller cancellation cannot undo this acknowledgement.
                 withContext(NonCancellable) {
+                    markStage("apply-new-chat-state")
                     applyCommittedNewConversationStateIfNeeded()
+                    markStage("bind-run")
                     bindingOutcome = state.finishInputPersistence(request.inputEffect.identity)
                     runBound = bindingOutcome is ConversationGenerationState.RunBindingOutcome.Active
+                    markStage("persist-acceptance-bookkeeping")
                     notifyPersistedUser(userMessageId, request.userText)
                     val accepted = SendAcceptance.Direct(userMessageId, request.conversationId)
+                    markStage("notify-acceptance")
                     acceptanceNotifier.notify(
                         accepted,
                         request.onAccepted,
                         publishEvent = !request.wasNewChat,
                     )
                     durableAcceptance.complete(accepted)
+                    markStage("acceptance-delivered")
                     runCatching { request.onModelMessageCreated?.invoke(modelMessageId) }
                         .onFailure { error ->
                             DebugLog.w(
@@ -248,6 +273,7 @@ internal class DirectAcceptedInputEffectExecutor(
                             )
                         }
 
+                    markStage("publish-new-chat")
                     if (
                         request.wasNewChat &&
                         publishNewChatIfNeeded(accepted)
@@ -255,6 +281,7 @@ internal class DirectAcceptedInputEffectExecutor(
                         request.requestScroll(request.conversationId, userMessageId)
                     }
 
+                    markStage("publish-message-projection")
                     val placeholder = toUiMessage(modelEntity)
                     if (runBound) {
                         state.loadingChange(request.uiToken, true)
@@ -281,6 +308,7 @@ internal class DirectAcceptedInputEffectExecutor(
                 }
 
                 if (!runBound) {
+                    markStage("settle-unbound-run")
                     val stopping = bindingOutcome as?
                         ConversationGenerationState.RunBindingOutcome.Stopping
                     if (stopping != null) {
@@ -292,6 +320,7 @@ internal class DirectAcceptedInputEffectExecutor(
                     }
                     return@generationLock
                 }
+                markStage("execute-generation")
                 boundRunGenerationLauncher.launch(
                     BoundRunGenerationRequest(
                         conversationId = request.conversationId,
@@ -306,6 +335,7 @@ internal class DirectAcceptedInputEffectExecutor(
                     ),
                     state,
                 )
+                markStage("generation-returned")
                 val lastMessage = conversations.getMessage(modelMessageId)
                 if (
                     request.wasNewChat &&
@@ -317,6 +347,7 @@ internal class DirectAcceptedInputEffectExecutor(
                 }
             }
         } catch (error: CancellationException) {
+            markStage("cancelled")
             if (
                 !runBound &&
                 bindingOutcome is ConversationGenerationState.RunBindingOutcome.Rejected
@@ -335,6 +366,7 @@ internal class DirectAcceptedInputEffectExecutor(
             }
             throw error
         } catch (error: Exception) {
+            markStage("failed")
             val durable = reconcileCommittedInput()
             if (!durable) {
                 withContext(NonCancellable) {
@@ -358,8 +390,10 @@ internal class DirectAcceptedInputEffectExecutor(
                 error = error,
             )
         } finally {
+            markStage("release-input")
             roomProjectionFence?.let(renderStore::releaseRoomMessageProjectionFence)
             if (!durableAcceptance.isCompleted) durableAcceptance.complete(null)
+            markStage("finished")
         }
     }
 

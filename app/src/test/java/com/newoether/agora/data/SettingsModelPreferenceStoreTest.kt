@@ -182,7 +182,9 @@ class SettingsModelPreferenceStoreTest {
         val dataStore = InMemoryPreferencesDataStore()
         val store = SettingsModelPreferenceStore(dataStore, testJson)
         val id = "custom-provider-00000000-0000-4000-8000-000000000001"
-        store.saveCustomProviders(listOf(CustomProviderConfig("Relay", id = id)))
+        store.saveCustomProviders(
+            listOf(CustomProviderConfig("Relay", id = id, legacyNames = setOf("Relay"))),
+        )
         store.saveModelProviderNames(mapOf("Relay:a" to false, "Relay:b" to false, "$id:b" to true))
         store.normalizeCustomProviderIdentities()
         assertEquals(mapOf("$id:a" to false, "$id:b" to true), store.modelProviderNames.first())
@@ -346,6 +348,7 @@ class SettingsModelPreferenceStoreTest {
 
         store.clearLegacyCustomProviderNames(migrations)
         assertTrue(store.customProviders.first().single().legacyNames.isEmpty())
+        assertEquals(emptyList<CustomProviderIdentityMigration>(), store.normalizeCustomProviderIdentities())
     }
 
     @Test
@@ -392,7 +395,7 @@ class SettingsModelPreferenceStoreTest {
     }
 
     @Test
-    fun stableProviderRecoversNameQualifiedAliasesAfterLegacyMarkerWasCleared() = runTest {
+    fun stableProviderWithoutLegacyNamesHasNoPendingMigration() = runTest {
         val dataStore = InMemoryPreferencesDataStore()
         val store = SettingsModelPreferenceStore(dataStore, testJson)
         val providerId = "custom-provider-00000000-0000-4000-8000-000000000002"
@@ -408,11 +411,8 @@ class SettingsModelPreferenceStoreTest {
 
         val migrations = store.normalizeCustomProviderIdentities()
 
-        assertEquals(mapOf("$providerId:model" to "My Alias"), store.modelAliases.first())
-        assertEquals(
-            listOf(CustomProviderIdentityMigration("Relay X", providerId)),
-            migrations,
-        )
+        assertEquals(mapOf("Relay X:model" to "My Alias"), store.modelAliases.first())
+        assertEquals(emptyList<CustomProviderIdentityMigration>(), migrations)
     }
 
     @Test

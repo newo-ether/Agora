@@ -488,14 +488,7 @@ internal class SettingsModelPreferenceStore(
                 decoded,
                 newId = { provider -> CustomProviderIdentityPolicy.legacyId(provider.name) },
             )
-            // The current display name remains a safe compatibility input even when an
-            // intermediate build cleared legacyNames too early. Custom names are unique and may
-            // not shadow built-ins, so this idempotently recovers name-keyed aliases/references.
-            migrations = (
-                normalization.migrations + normalization.providers.map { provider ->
-                    CustomProviderIdentityMigration(provider.name, provider.id)
-                }
-            ).distinct()
+            migrations = normalization.migrations
             val migrationMap = migrations.associate {
                 it.legacyReference to it.providerId
             }

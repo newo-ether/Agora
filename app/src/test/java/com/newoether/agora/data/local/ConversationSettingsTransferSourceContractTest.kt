@@ -37,8 +37,13 @@ class ConversationSettingsTransferSourceContractTest {
         ).replace("\r\n", "\n")
         val capture = generation.substringAfter("internal fun captureForegroundSendTarget")
             .substringBefore("internal suspend fun prepareForegroundSend")
-        val prepare = generation.substringAfter("internal suspend fun prepareForegroundSend")
+        val delegation = generation.substringAfter("internal suspend fun prepareForegroundSend")
             .substringBefore("internal suspend fun sendMessage")
+        assertTrue(delegation.contains("requestBuilder.prepareForegroundSend(target, composer, application)"))
+        val prepare = sourceFile(
+            "app/src/main/java/com/newoether/agora/viewmodel/GenerationRequestBuilder.kt",
+        ).substringAfter("internal suspend fun prepareForegroundSend")
+            .substringBefore("internal suspend fun awaitProviderKey")
 
         assertTrue(capture.contains("captureNewChatWorkspace()"))
         assertTrue(prepare.contains("target.newChatWorkspace?.awaitCaptured()"))

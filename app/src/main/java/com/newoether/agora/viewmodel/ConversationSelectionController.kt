@@ -6,7 +6,6 @@ import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
-import com.newoether.agora.util.MainThreadProbe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -263,9 +262,7 @@ internal class ConversationSelectionController(
         switchingJob = scope.launch {
             var completed = false
             try {
-                MainThreadProbe.markPhase("fade")
                 fadeDelay()
-                MainThreadProbe.markPhase("publish new chat")
                 if (!switching.isCurrent(request.id)) return@launch
                 publishSelectedConversation(null)
                 _activeModelOverride.value = null
@@ -340,12 +337,9 @@ internal class ConversationSelectionController(
         scrollRequests.clear()
         switchingJob = scope.launch {
             try {
-                MainThreadProbe.markPhase("fade")
                 fadeDelay()
-                MainThreadProbe.markPhase("load conversation")
                 if (!switching.isCurrent(request.id)) return@launch
                 val conversation = conversations.getConversation(conversationId)
-                MainThreadProbe.markPhase("publish")
                 if (!switching.isCurrent(request.id)) return@launch
                 if (conversation == null) {
                     failSwitchingScroll(request.id, "conversation disappeared")
@@ -355,7 +349,6 @@ internal class ConversationSelectionController(
                 publishSelectedConversation(conversationId)
                 _activeModelOverride.value = conversation.modelId
                 switching.markConversationReady(request.id)
-                MainThreadProbe.markPhase("await ui settle")
             } catch (error: CancellationException) {
                 if (switching.isCurrent(request.id)) {
                     failSwitchingScroll(request.id, "conversation switch cancelled")

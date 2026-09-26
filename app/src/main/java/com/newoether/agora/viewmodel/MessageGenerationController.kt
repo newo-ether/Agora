@@ -383,64 +383,7 @@ internal class MessageGenerationController(
     internal suspend fun prepareForegroundSend(
         target: ForegroundSendTarget,
         composer: ConversationComposerSnapshot,
-    ): ForegroundSendAdmission? {
-        settings.awaitInitialLoad()
-        if (target.modelId.isBlank()) {
-            onSnackbar(application.getString(R.string.no_model_selected))
-            return null
-        }
-        val selectedProvider = requestBuilder.awaitProviderKey(target.modelId) ?: return null
-        if (selectedProvider.providerName == Constants.PROVIDER_LOCAL) {
-            val localModelId = target.modelId.substringAfter("${Constants.PROVIDER_LOCAL}:")
-            val localConfig = settings.localChatModels.value.find { it.modelId == localModelId }
-            if (localConfig == null || !java.io.File(localConfig.localFilePath).exists()) {
-                onSnackbar(application.getString(R.string.local_model_not_found))
-                return null
-            }
-        }
-        val workspace = target.newChatWorkspace?.awaitCaptured()
-        val conversationSnapshot = if (target.wasNewChat) {
-            ChatEntity(
-                id = target.conversationId,
-                title = initialConversationTitle(
-                    prompt = composer.text,
-                    fallback = appContext.getString(R.string.new_chat),
-                ),
-                modelId = target.modelId,
-                systemPromptId = workspace?.systemPromptId,
-            )
-        } else {
-            convRepo.getConversation(target.conversationId) ?: return null
-        }
-        val settingsOverride = if (target.wasNewChat) {
-            workspace?.conversationSettings
-        } else {
-            settings.conversationSettings.value[target.ownerId]
-        }
-        val generationSnapshot = requestBuilder.captureAdmissionSnapshot(
-            conversationId = target.conversationId,
-            runId = target.runId,
-            modelId = target.modelId,
-            conversationOverride = conversationSnapshot,
-            conversationSettingsOverride = settingsOverride,
-        )
-        return ForegroundSendAdmission(
-            target = target,
-            generationSnapshot = generationSnapshot,
-            newConversation = conversationSnapshot.takeIf { target.wasNewChat },
-            newConversationSettings = workspace?.conversationSettings,
-            newChatPersistSnapshot = if (target.wasNewChat) {
-                (workspace?.persisted ?: NewChatPersistEntity()).copy(
-                    draftText = composer.text,
-                    draftAttachments = composer.attachments
-                        .takeIf(List<*>::isNotEmpty)
-                        ?.let(Json::encodeToString),
-                )
-            } else {
-                null
-            },
-        )
-    }
+    ): ForegroundSendAdmission? = requestBuilder.prepareForegroundSend(target, composer, application)
 
     internal suspend fun sendMessage(
         admission: ForegroundSendAdmission,
@@ -449,14 +392,26 @@ internal class MessageGenerationController(
         onAccepted: suspend (SendAcceptance) -> Unit,
     ): SendAcceptance? = withContext(Dispatchers.Default) {
         val target = admission.target
+        val startedNs = System.nanoTime()
+        fun markStage(name: String) {
+            com.newoether.agora.util.DebugLog.sendStage(
+                runId = target.runId,
+                component = "send",
+                stage = name,
+                elapsedMs = (System.nanoTime() - startedNs) / 1_000_000L,
+            )
+        }
+        markStage("start")
         if (!target.wasNewChat) {
             val state = registry.getOrCreate(target.conversationId)
             if (!state.generating.value) {
                 val snapshot = admission.generationSnapshot
+                markStage("fixed-context-cost")
                 val fixedTokenCost = generationManagerProvider().resolvedFixedContextTokenCost(
                     snapshot.config,
                     snapshot.context,
                 )
+                markStage("automatic-compact")
                 when (
                     val compact = compactController.startAutomaticBeforeSend(
                         conversationId = target.conversationId,
@@ -479,6 +434,7 @@ internal class MessageGenerationController(
                 }
             }
         }
+        markStage("placement")
         sendInto(
             genId = target.conversationId,
             wasNewChat = target.wasNewChat,
@@ -532,6 +488,16 @@ internal class MessageGenerationController(
         onModelMessageCreated: ((String) -> Unit)? = null,
         onGenerationJob: ((kotlinx.coroutines.Job?) -> Unit)? = null,
     ): SendAcceptance? {
+        val startedNs = System.nanoTime()
+        fun markStage(name: String) {
+            com.newoether.agora.util.DebugLog.sendStage(
+                runId = proposedRunId,
+                component = "placement",
+                stage = name,
+                elapsedMs = (System.nanoTime() - startedNs) / 1_000_000L,
+            )
+        }
+        markStage("runtime-state")
         val state = registry.getOrCreate(genId)
         if (admissionSnapshot == null) {
             val providerName = requestBuilder.awaitProviderKey(modelId)?.providerName ?: return null
@@ -583,8 +549,10 @@ internal class MessageGenerationController(
         var placement: SendPlacement? = null
         val sendEffectId = "send-$proposedRunId"
         while (placement == null) {
+                markStage("await-queue-lock")
                 val decision = state.queueMutationMutex.withLock {
                     val pendingQueue = state.queuedSends.value
+                    markStage("await-mailbox")
                     val transition = state.commands.requestSend(
                         proposedRunId = proposedRunId,
                         effectId = sendEffectId,
@@ -637,6 +605,7 @@ internal class MessageGenerationController(
                     }
                 }
                 if (decision == SendPlacement.RetryAfterRelease) {
+                    markStage("await-run-release")
                     state.awaitSendAvailable()
                 } else {
                     placement = decision
@@ -644,16 +613,20 @@ internal class MessageGenerationController(
             }
 
         if (placement is SendPlacement.Rejected) {
+            markStage("rejected")
             return null
         }
         if (placement is SendPlacement.Queued) {
+            markStage("queued")
             return SendAcceptance.Queued(placement.messageId, genId)
         }
         if (placement is SendPlacement.QueuedAndDrain) {
+            markStage("queued-drain")
             queuedGuidanceDrainExecutor.launchClaim(state, placement.claim)
             return SendAcceptance.Queued(placement.messageId, genId)
         }
         val direct = placement as SendPlacement.Direct
+        markStage("launch-input-job")
         val execution = directAcceptedInputExecutor.launch(
             DirectAcceptedInputRequest(
                 inputEffect = direct.inputEffect,
@@ -676,6 +649,7 @@ internal class MessageGenerationController(
             state,
         )
         onGenerationJob?.invoke(execution.job)
+        markStage("await-durable-acceptance")
         return execution.awaitAcceptance()
     }
 

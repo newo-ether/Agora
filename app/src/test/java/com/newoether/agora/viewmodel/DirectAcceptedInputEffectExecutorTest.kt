@@ -1,5 +1,6 @@
 package com.newoether.agora.viewmodel
 
+import android.util.Log
 import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.local.ChatEntity
@@ -19,15 +20,53 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class DirectAcceptedInputEffectExecutorTest {
+    private val diagnosticLines = CopyOnWriteArrayList<String>()
+
+    @Before
+    fun captureDiagnostics() {
+        mockkStatic(Log::class)
+        every { Log.i("SendDiagnostics", any()) } answers {
+            diagnosticLines += secondArg<String>()
+            0
+        }
+        every { Log.w(any(), any<String>()) } returns 0
+    }
+
+    @After
+    fun restoreLogging() {
+        unmockkStatic(Log::class)
+    }
+
+    @Test
+    fun diagnosticFailureDoesNotPreventDurableAcceptanceOrGeneration() = runBlocking {
+        every { Log.i("SendDiagnostics", any()) } throws IllegalStateException("logger unavailable")
+        val fixture = Fixture()
+        val state = ConversationGenerationState(CONVERSATION_ID)
+        val effect = claimDirectEffect(state)
+        coEvery { fixture.graphWriter.commit(any(), any()) } returns fixture.commit
+        coEvery { fixture.boundLauncher.launch(any(), state) } just Runs
+        val execution = fixture.executor.launch(fixture.request(effect), state)
+        assertEquals(SendAcceptance.Direct(USER_ID, CONVERSATION_ID), execution.awaitAcceptance())
+        execution.job?.join()
+        coVerify(exactly = 1) { fixture.boundLauncher.launch(any(), state) }
+        state.dispose()
+        Unit
+    }
+
     @Test
     fun durableCommitPrecedesAcceptanceProjectionAndBoundLaunch() = runBlocking {
         val fixture = Fixture()
@@ -62,6 +101,15 @@ class DirectAcceptedInputEffectExecutorTest {
             fixture.events,
         )
         assertEquals(MODEL_ID, state.streamingMessage.value?.id)
+        val stages = diagnosticLines.map { it.substringAfter("stage=").substringBefore(' ') }
+        val ordered = listOf(
+            "commit-message-graph", "graph-committed", "notify-acceptance",
+            "acceptance-delivered", "execute-generation", "generation-returned", "finished",
+        )
+        assertEquals(ordered, stages.filter { it in ordered })
+        assertEquals("finished", stages.last())
+        assertTrue(diagnosticLines.all { it.startsWith("run=$RUN_ID component=input ") })
+        assertTrue(diagnosticLines.none { "hello" in it || "provider:model" in it })
         coVerify(exactly = 1) {
             fixture.boundLauncher.launch(
                 match {
@@ -105,6 +153,8 @@ class DirectAcceptedInputEffectExecutorTest {
         execution.job?.join()
 
         assertTrue(fixture.events.none { it.startsWith("accept") })
+        assertTrue(diagnosticLines.any { "stage=failed previous=commit-message-graph " in it })
+        assertTrue(diagnosticLines.last().contains("stage=finished "))
         coVerify(exactly = 0) { fixture.boundLauncher.launch(any(), any()) }
         state.dispose()
         Unit
@@ -143,6 +193,8 @@ class DirectAcceptedInputEffectExecutorTest {
         )
         assertTrue(commitIndex >= 0)
         assertTrue(transferIndex > commitIndex)
+        assertTrue(diagnosticLines.any { "stage=cancelled previous=commit-message-graph " in it })
+        assertTrue(diagnosticLines.last().contains("stage=finished "))
         coVerify(exactly = 1) {
             fixture.terminalSettlement.settleCancelledDurableRun(
                 state,

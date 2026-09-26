@@ -219,10 +219,28 @@ internal class ConversationComposerSubmissionController(
     }
 
     private suspend fun runSubmission(owner: OwnerSubmission, request: FrozenRequest) {
+        val startedNs = System.nanoTime()
+        var stageNs = startedNs
+        var previousStage = "begin"
+        fun markStage(name: String) {
+            val now = System.nanoTime()
+            com.newoether.agora.util.DebugLog.sendStage(
+                runId = request.target.runId,
+                component = "composer",
+                stage = name,
+                elapsedMs = (now - startedNs) / 1_000_000L,
+                previous = previousStage,
+                previousMs = (now - stageNs) / 1_000_000L,
+            )
+            previousStage = name
+            stageNs = now
+        }
         var retained = false
         try {
+            markStage("load-composer")
             composers.load(request.ownerId)
             retained = true
+            markStage("freeze-draft")
             val frozen = composers.freezeSubmission(
                 request.ownerId,
                 request.id,
@@ -230,8 +248,11 @@ internal class ConversationComposerSubmissionController(
                 request.attachmentIds,
             ) ?: return
             request.frozenRevision = frozen.revision
+            markStage("prepare-admission")
             val admission = prepare(request.target, frozen) ?: return
+            markStage("await-attachments")
             composers.awaitProcessing(request.ownerId, request.attachmentIds.toSet())
+            markStage("resolve-ready-attachments")
             val settledComposer = composers.state(request.ownerId).value
             val acceptedAdmission = admission.withSettledComposerDraft(
                 acceptedText = request.text,
@@ -256,20 +277,28 @@ internal class ConversationComposerSubmissionController(
             // It must never re-enter abandoned-draft reclamation after that ownership transfer.
             request.durableAttachmentIds = readyAttachments
                 .mapTo(hashSetOf(), SelectedAttachment::localId)
+            markStage("send")
             send(acceptedAdmission, request.text, readyAttachments) { acceptance ->
                 if (!request.acceptanceStarted.compareAndSet(false, true)) return@send
+                markStage(if (acceptance is SendAcceptance.Direct) "accepted-direct" else "accepted-queued")
+                markStage("clear-accepted-draft")
                 request.accepted = acceptance
                 clearAccepted(owner, request)
+                markStage(if (request.acceptedAndCleared.get()) "draft-cleared" else "draft-clear-pending")
             }
+            markStage("send-returned")
         } catch (cancelled: CancellationException) {
+            markStage("cancelled")
             throw cancelled
         } catch (failure: Exception) {
+            markStage("failed")
             com.newoether.agora.util.DebugLog.w(
                 "ChatViewModel",
                 "Composer submission failed for ${request.ownerId}",
                 failure,
             )
         } finally {
+            markStage("release-submission")
             if (retained) {
                 withContext(NonCancellable) {
                     try {
@@ -279,6 +308,7 @@ internal class ConversationComposerSubmissionController(
                     }
                 }
             }
+            markStage("finished")
         }
     }
 

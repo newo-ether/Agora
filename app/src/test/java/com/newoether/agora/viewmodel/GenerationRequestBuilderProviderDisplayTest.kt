@@ -11,6 +11,8 @@ import com.newoether.agora.data.PromptItemType
 import com.newoether.agora.data.PromptTemplateItem
 import com.newoether.agora.data.SkillManager
 import com.newoether.agora.data.SystemPromptEntry
+import com.newoether.agora.data.local.ChatEntity
+import com.newoether.agora.data.local.NewChatPersistEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.util.Constants
@@ -22,9 +24,12 @@ import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -33,6 +38,99 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GenerationRequestBuilderProviderDisplayTest {
+    @Test
+    fun foregroundExistingAdmissionWaitsForSettingsThenUsesCapturedConversation() = runTest {
+        val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
+        val gate = CompletableDeferred<Unit>()
+        coEvery { fixture.settings.awaitInitialLoad() } coAnswers { gate.await() }
+        coEvery { fixture.conversations.getConversation("conversation") } returns
+            ChatEntity("conversation", "Existing")
+        val target = ForegroundSendTarget(
+            "conversation", "conversation", "run", false, null, fixture.modelId,
+        )
+        val pending = async {
+            fixture.builder.prepareForegroundSend(target, ConversationComposerSnapshot(), fixture.appContext)
+        }
+        runCurrent()
+        assertFalse(pending.isCompleted)
+        coVerify(exactly = 0) { fixture.providerRegistry.awaitInitialSync() }
+        coVerify(exactly = 0) { fixture.conversations.getConversation(any()) }
+        gate.complete(Unit)
+        val admission = requireNotNull(pending.await())
+        assertEquals(target, admission.target)
+        assertEquals("run", admission.generationSnapshot.runId)
+        assertEquals("conversation", admission.generationSnapshot.conversationId)
+        assertNull(admission.newConversation)
+        assertNull(admission.newChatPersistSnapshot)
+        coVerify(exactly = 1) { fixture.conversations.getConversation("conversation") }
+    }
+
+    @Test
+    fun foregroundNewAdmissionWaitsForCapturedWorkspaceAndKeepsFrozenDraft() = runTest {
+        val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
+        val gate = CompletableDeferred<NewChatPersistEntity?>()
+        val capturedSettings = ConversationSettings(codeExecutionEnabled = false)
+        val persisted = NewChatPersistEntity(
+            modelId = "older:model",
+            draftText = "older draft",
+            conversationSettingsJson = Json.encodeToString(capturedSettings),
+        )
+        val target = ForegroundSendTarget(
+            NEW_CHAT_WORKSPACE_ID, "new-conversation", "new-run", true, 7L, fixture.modelId,
+            NewChatWorkspaceSnapshot.pending(null, gate),
+        )
+        val pending = async {
+            fixture.builder.prepareForegroundSend(
+                target, ConversationComposerSnapshot(text = "frozen draft"), fixture.appContext,
+            )
+        }
+        runCurrent()
+        assertFalse(pending.isCompleted)
+        coVerify(exactly = 0) { fixture.settings.awaitActiveKey(any()) }
+        gate.complete(persisted)
+        val admission = requireNotNull(pending.await())
+        assertEquals(target, admission.target)
+        assertEquals(fixture.modelId, admission.newConversation?.modelId)
+        assertEquals("frozen draft", admission.newConversation?.title)
+        assertEquals(capturedSettings, admission.newConversationSettings)
+        assertEquals("frozen draft", admission.newChatPersistSnapshot?.draftText)
+        assertEquals("older:model", admission.newChatPersistSnapshot?.modelId)
+        assertFalse(admission.generationSnapshot.config.codeExecutionEnabled)
+        coVerify(exactly = 0) { fixture.conversations.getConversation(any()) }
+    }
+
+    @Test
+    fun foregroundAdmissionCancellationDuringProviderWaitDoesNotReadConversation() = runTest {
+        val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
+        val gate = CompletableDeferred<Unit>()
+        coEvery { fixture.providerRegistry.awaitInitialSync() } coAnswers { gate.await() }
+        val target = ForegroundSendTarget(
+            "conversation", "conversation", "run", false, null, fixture.modelId,
+        )
+        val pending = async {
+            fixture.builder.prepareForegroundSend(target, ConversationComposerSnapshot(), fixture.appContext)
+        }
+        runCurrent()
+        assertFalse(pending.isCompleted)
+        pending.cancelAndJoin()
+        gate.complete(Unit)
+        runCurrent()
+        assertTrue(pending.isCancelled)
+        coVerify(exactly = 0) { fixture.conversations.getConversation(any()) }
+        coVerify(exactly = 0) { fixture.settings.awaitActiveKey(any()) }
+    }
+
+    @Test
+    fun foregroundBlankModelUsesOriginalValidationContextAndRejectsBeforeProvider() = runTest {
+        val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
+        val validationContext = mockk<Context>()
+        every { validationContext.getString(R.string.no_model_selected) } returns "Select a model"
+        val target = ForegroundSendTarget("conversation", "conversation", "run", false, null, "")
+        assertNull(fixture.builder.prepareForegroundSend(target, ConversationComposerSnapshot(), validationContext))
+        assertEquals(listOf("Select a model"), fixture.snackbars)
+        coVerify(exactly = 0) { fixture.providerRegistry.awaitInitialSync() }
+    }
+
     @Test
     fun selectedCompactAndTranscriptionProvidersHaveIndependentFrozenCacheFields() = runTest {
         val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
@@ -353,6 +451,8 @@ private class RequestBuilderFixture(
     }
 
     val modelId = "$providerName:model"
+    val appContext = mockk<Context>()
+    val snackbars = mutableListOf<String>()
     val settings = mockk<SettingsRepository>()
     val conversations = mockk<ConversationRepository>()
     val memoryManager = mockk<MemoryManager>()
@@ -457,6 +557,8 @@ private class RequestBuilderFixture(
         every { settings.activeSystemPromptId } returns MutableStateFlow(PROMPT_ID)
         every { settings.systemPrompts } returns MutableStateFlow(listOf(prompt))
         coEvery { settings.awaitActiveKey(any()) } returns "key"
+        coEvery { settings.awaitInitialLoad() } returns Unit
+        every { appContext.getString(R.string.new_chat) } returns "New chat"
         every { settings.resolveActiveKey(any()) } returns "key"
 
         coEvery { providerRegistry.awaitInitialSync() } returns Unit
@@ -479,9 +581,9 @@ private class RequestBuilderFixture(
             skillManager = skillManager,
             providerRegistry = providerRegistry,
             ragManager = ragManager,
-            appContext = mockk(),
+            appContext = appContext,
             pendingConversationSettings = MutableStateFlow(null),
-            onSnackbar = {},
+            onSnackbar = snackbars::add,
         )
     }
 }
