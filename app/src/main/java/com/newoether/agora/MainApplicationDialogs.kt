@@ -123,6 +123,7 @@ internal fun MainApplicationDialogs(
     // request is a security boundary, so neither an outside tap nor Back may imply an answer, and
     // the same prompt is re-surfaced as a notification while the app is backgrounded.
     val pendingShellCommand by viewModel.shellConfirmation.pendingShellCommand.collectAsState()
+    val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
     pendingShellCommand?.let { pending ->
         var alwaysAllow by remember(pending) { mutableStateOf(false) }
         AlertDialog(
@@ -131,7 +132,6 @@ internal fun MainApplicationDialogs(
             properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
             icon = { Icon(Icons.Default.Terminal, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary) },
             title = { Text(stringResource(R.string.shell_confirm_title, pending.server), fontWeight = FontWeight.Bold) },
-    val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
             text = {
                 Column {
                     Box(
