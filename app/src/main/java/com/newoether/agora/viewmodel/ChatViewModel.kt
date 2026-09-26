@@ -780,6 +780,7 @@ class ChatViewModel(
     val isStopping: StateFlow<Boolean> get() = currentRuntimeFacade.isStopping
 
     fun removeQueuedSend(id: String) = currentRuntimeFacade.removeQueuedSend(id)
+    fun sendQueuedNow() = currentRuntimeFacade.requestQueueDrain()
 
     fun stopGeneration() = generationStopAdapter.stopVisibleConversation()
 

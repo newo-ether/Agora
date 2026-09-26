@@ -133,6 +133,7 @@ internal fun ChatBottomBar(
     onCompactClick: () -> Unit = {},
     queuedSends: List<QueuedSend> = emptyList(),
     onRemoveQueuedSend: (String) -> Unit = {},
+    onSendQueuedNow: () -> Unit = {},
     isStopping: Boolean = false,
 ) {
     val motionPolicy = LocalAgoraMotionPolicy.current
@@ -580,6 +581,8 @@ internal fun ChatBottomBar(
                 isSwitching = isSwitching,
                 isStopping = isStopping,
                 isModelValid = isModelValid,
+                hasQueuedSends = queuedSends.isNotEmpty(),
+                onSendQueued = onSendQueuedNow,
                 onStopGeneration = onStopGeneration,
                 onCollapse = onCollapse,
             )

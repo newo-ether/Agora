@@ -61,6 +61,24 @@ class RecentRegressionSourceContractTest {
     }
 
     @Test
+    fun idleQueueKeepsTheSendButtonActionableWithAnEmptyComposer() {
+        val submission = ConversationComposerSubmissionSnapshot(phase = ComposerSubmissionPhase.IDLE)
+        assertFalse(composerSendActionEnabled(
+            submission, isSwitching = false, isStopping = false, showStop = false, canSend = false,
+        ))
+        assertTrue(composerSendActionEnabled(
+            submission, isSwitching = false, isStopping = false, showStop = false,
+            canSend = false, canSendQueued = true,
+        ))
+        assertFalse(composerSendActionEnabled(
+            submission, isSwitching = true, isStopping = false, showStop = false,
+            canSend = false, canSendQueued = true,
+        ))
+        val button = source("ui/chat/bottombar/ComposerSendButton.kt")
+        assertTrue(button.contains("val canSendQueued = hasQueuedSends && !isLoading"))
+        assertTrue(button.contains("canSendQueued -> {"))
+    }
+    @Test
     fun attachmentPainterRemainsDrawnWhileLoading() {
         val source = source("ui/chat/bottombar/AttachmentPreviewRow.kt")
         val loading = source.substringAfter(

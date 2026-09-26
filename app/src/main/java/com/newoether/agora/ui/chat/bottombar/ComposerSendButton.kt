@@ -46,10 +46,11 @@ internal fun composerSendActionEnabled(
     isStopping: Boolean,
     showStop: Boolean,
     canSend: Boolean,
+    canSendQueued: Boolean = false,
 ): Boolean = when {
     isSwitching || isStopping || submission.isSubmitting || submission.isAcceptedPendingClear -> false
     submission.isWaiting -> true
-    else -> showStop || canSend
+    else -> showStop || canSend || canSendQueued
 }
 
 @Composable
@@ -63,6 +64,8 @@ internal fun ComposerSendButton(
     isSwitching: Boolean,
     isStopping: Boolean = false,
     isModelValid: Boolean,
+    hasQueuedSends: Boolean = false,
+    onSendQueued: () -> Unit = {},
     onStopGeneration: () -> Unit,
     onCollapse: () -> Unit,
 ) {
@@ -74,12 +77,17 @@ internal fun ComposerSendButton(
     val canSend = snapshot.loaded &&
         (textFieldState.text.isNotBlank() || snapshot.attachments.isNotEmpty()) &&
         isModelValid && !isSwitching && !isStopping && !submission.isFrozen
+    // Idle with a non-empty queue: the button sends the queue instead of staying dead, so a batch
+    // left behind by a failed drain can be delivered without typing a new message.
+    val canSendQueued = hasQueuedSends && !isLoading && !isSwitching && !isStopping &&
+        textIsEmpty && attachmentsIsEmpty && isModelValid && !submission.isFrozen
     val isActionable = composerSendActionEnabled(
         submission = submission,
         isSwitching = isSwitching,
         isStopping = isStopping,
         showStop = showStop,
         canSend = canSend,
+        canSendQueued = canSendQueued,
     )
     ComposerSendButton(
         isActionable = isActionable,
@@ -98,6 +106,10 @@ internal fun ComposerSendButton(
                     text = textFieldState.text.toString(),
                     attachmentIds = snapshot.attachments.map(SelectedAttachment::localId),
                 )
+                canSendQueued -> {
+                    haptics.selection()
+                    onSendQueued()
+                }
             }
         },
     )

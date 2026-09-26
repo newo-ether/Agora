@@ -31,6 +31,18 @@ internal class CurrentConversationRuntimeFacade(
         }
         .stateIn(scope, SharingStarted.Eagerly, false)
 
+    /**
+     * Manual queue send. The automatic drain runs when a generation settles; this is the user asking
+     * for that same drain while nothing is generating, so a batch left behind by a failed compact or
+     * a failed drain can still be delivered without typing a new message.
+     */
+    fun requestQueueDrain() {
+        val conversationId = currentConversationId.value ?: return
+        val state = registry.getOrCreate(conversationId)
+        if (state.generating.value || state.queuedSends.value.isEmpty()) return
+        state.onQueueDrainRequested?.invoke(state)
+    }
+
     fun removeQueuedSend(queuedSendId: String) {
         val conversationId = currentConversationId.value ?: return
         val state = registry.getOrCreate(conversationId)

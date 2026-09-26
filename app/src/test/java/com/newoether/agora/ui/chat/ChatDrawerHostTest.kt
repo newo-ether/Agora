@@ -72,6 +72,11 @@ class ChatDrawerHostTest {
         assertTrue(host.contains("internal val CHAT_APP_WIDTH_THRESHOLD = 600.dp"))
         assertTrue(host.contains("screenWidth > DRAWER_MAX_WIDTH + CHAT_APP_WIDTH_THRESHOLD"))
         assertTrue(host.contains("if (drawerEnabled && !sideBySide)"))
+        // A touch during the settle animation must catch the drawer instead of losing every frame
+        // to the animation that keeps writing the offset.
+        assertTrue(host.contains("startDragImmediately = state.isAnimationRunning"))
+        assertTrue(host.contains("onDragStarted = { state.takeOverAnimation() }"))
+        assertTrue(host.contains("anchoredState.anchoredDrag(MutatePriority.UserInput)"))
         assertTrue(host.contains("if (!sideBySide) animateTo(DrawerValue.Closed, motionPolicy)"))
         assertTrue(host.contains("durationMillis = DRAWER_TWEEN_DURATION_MILLIS"))
         assertTrue(host.contains("import androidx.compose.animation.core.LinearOutSlowInEasing"))

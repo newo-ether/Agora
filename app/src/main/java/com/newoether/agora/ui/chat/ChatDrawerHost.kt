@@ -4,6 +4,7 @@ package com.newoether.agora.ui.chat
 
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.AnchoredDraggableState
@@ -111,6 +112,19 @@ internal class ChatDrawerState internal constructor(
         if (drawerEnabled && !sideBySide) anchoredState.dispatchRawDelta(delta)
     }
 
+    /**
+     * Claim the drawer at user-input priority so a touch during a settle animation stops it.
+     *
+     * The running animation writes the offset from its own coroutine, so raw drag deltas alone are
+     * overwritten every frame and the drawer cannot be caught mid-flight. Claiming the drag cancels
+     * that animation and leaves the offset exactly where the finger arrived; the drag then steers
+     * from there and the usual release settles it.
+     */
+    suspend fun takeOverAnimation() {
+        if (!drawerEnabled || sideBySide) return
+        anchoredState.anchoredDrag(MutatePriority.UserInput) { }
+    }
+
     suspend fun settle(velocity: Float, motionPolicy: AgoraMotionPolicy) {
         if (!drawerEnabled || sideBySide || drawerWidthPx <= 0f) return
         animateTo(
@@ -206,6 +220,7 @@ internal fun ChatDrawerHost(
             orientation = Orientation.Horizontal,
             enabled = true,
             startDragImmediately = state.isAnimationRunning,
+            onDragStarted = { state.takeOverAnimation() },
             onDragStopped = { velocity -> state.settle(velocity, motionPolicy) },
         )
     } else {
