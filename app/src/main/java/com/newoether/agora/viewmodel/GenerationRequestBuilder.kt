@@ -20,6 +20,7 @@ import com.newoether.agora.data.local.NewChatPersistEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ModelId
+import com.newoether.agora.model.ModelThinkingCapabilities
 import com.newoether.agora.model.ContextBudget
 import com.newoether.agora.model.OpenAiServiceTiers
 import com.newoether.agora.model.apiModelName
@@ -508,6 +509,14 @@ class GenerationRequestBuilder(
             anthropicCacheTtl = anthropicCacheTtlForProvider(providerName, cacheTtl, cacheProviders),
             providerName = providerName,
             modelId = ModelId.parse(providerRegistry.canonicalModelId(modelId)).modelName,
+            // The user's correction for THIS model, so a relay that rejects a documented field can
+            // be fixed without changing the built-in capability table.
+            thinkingCapabilityOverride = settings.thinkingCapabilityOverrides.value[
+                ModelThinkingCapabilities.overrideKey(
+                    providerName,
+                    ModelId.parse(providerRegistry.canonicalModelId(modelId)).modelName,
+                ),
+            ],
             apiKey = activeKey,
             effectiveSystemPrompt = resolvedSystemPrompt,
             maxContextWindow = ContextBudget.normalize(

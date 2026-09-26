@@ -100,7 +100,7 @@ internal class AnthropicStreamEventRouter {
                     "thinking" -> {
                         val signature = block.signature?.takeIf(String::isNotBlank)
                         signature?.let { thinkingSignatures[index] = it }
-                        block.thinking?.takeIf(String::isNotBlank)?.let {
+                        block.thinking?.takeIf(String::isNotEmpty)?.let {
                             add(StreamEvent.ThoughtChunk(it, signature = signature))
                         }
                     }
@@ -144,7 +144,7 @@ internal class AnthropicStreamEventRouter {
                     }
 
                     "thinking_delta" -> {
-                        delta.thinking?.takeIf(String::isNotBlank)?.let {
+                        delta.thinking?.takeIf(String::isNotEmpty)?.let {
                             add(
                                 StreamEvent.ThoughtChunk(
                                     thought = it,

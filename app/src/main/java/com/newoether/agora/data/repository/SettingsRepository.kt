@@ -16,6 +16,7 @@ import com.newoether.agora.data.DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
 import com.newoether.agora.data.DEFAULT_SCHEME_STYLE
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.CustomEndpointProtocol
+import com.newoether.agora.model.ModelThinkingCapabilityOverride
 import com.newoether.agora.data.CustomEndpointResolution
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.CustomProviderIdentityMigration
@@ -58,8 +59,8 @@ import kotlinx.coroutines.withContext
  * so observable behavior is unchanged.
  */
 class SettingsRepository(
-    private val settingsManager: SettingsManager,
-    private val scope: CoroutineScope,
+    internal val settingsManager: SettingsManager,
+    internal val scope: CoroutineScope,
     private val touchConversationData: suspend (String) -> Unit = {},
 ) {
     /** One latch per eagerly-shared DataStore flow; populated completely during construction. */
@@ -142,10 +143,11 @@ class SettingsRepository(
     val thinkingLevel: StateFlow<String> = hot(settingsManager.thinkingLevel, "medium")
     val thinkingBudgetEnabled: StateFlow<Boolean> = hot(settingsManager.thinkingBudgetEnabled, false)
     val thinkingBudgetTokens: StateFlow<Int> = hot(settingsManager.thinkingBudgetTokens, 4096)
-    val openAiServiceTierEnabled: StateFlow<Boolean> =
-        hot(settingsManager.openAiServiceTierEnabled, false)
-    val openAiServiceTier: StateFlow<String> =
-        hot(settingsManager.openAiServiceTier, OpenAiServiceTiers.AUTO)
+    val openAiServiceTierEnabled: StateFlow<Boolean> = hot(settingsManager.openAiServiceTierEnabled, false)
+    /** Per-model corrections to the documented thinking capability, keyed by provider::model. */
+    val thinkingCapabilityOverrides: StateFlow<Map<String, ModelThinkingCapabilityOverride>> =
+        hot(settingsManager.modelPreferenceStore.thinkingCapabilityOverrides, emptyMap())
+    val openAiServiceTier: StateFlow<String> = hot(settingsManager.openAiServiceTier, OpenAiServiceTiers.AUTO)
     val openAiResponsesApiEnabled: StateFlow<Boolean> =
         hot(settingsManager.openAiResponsesApiEnabled, false)
     val providerBaseUrls: StateFlow<Map<String, String>> = hot(settingsManager.providerBaseUrls, emptyMap())
@@ -661,14 +663,12 @@ class SettingsRepository(
     fun setProxyPassword(pass: String) = scope.launch { settingsManager.saveProxyPassword(pass) }
     fun setProxyBypass(bypass: String) = scope.launch { settingsManager.saveProxyBypass(bypass) }
     fun setSandboxEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSandboxEnabled(enabled) }
-    fun setSandboxSharedStorageEnabled(enabled: Boolean) =
-        scope.launch { settingsManager.saveSandboxSharedStorageEnabled(enabled) }
+    fun setSandboxSharedStorageEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSandboxSharedStorageEnabled(enabled) }
     fun setThinkingEnabled(enabled: Boolean) = scope.launch { settingsManager.saveThinkingEnabled(enabled) }
     fun setThinkingLevel(level: String) = scope.launch { settingsManager.saveThinkingLevel(level) }
     fun setThinkingBudgetEnabled(enabled: Boolean) = scope.launch { settingsManager.saveThinkingBudgetEnabled(enabled) }
     fun setThinkingBudgetTokens(tokens: Int) = scope.launch { settingsManager.saveThinkingBudgetTokens(tokens) }
-    fun setOpenAiServiceTierEnabled(enabled: Boolean) =
-        scope.launch { settingsManager.saveOpenAiServiceTierEnabled(enabled) }
+    fun setOpenAiServiceTierEnabled(enabled: Boolean) = scope.launch { settingsManager.saveOpenAiServiceTierEnabled(enabled) }
     fun setOpenAiServiceTier(tier: String) =
         scope.launch { settingsManager.saveOpenAiServiceTier(tier) }
     fun setOpenAiResponsesApiEnabled(enabled: Boolean) =

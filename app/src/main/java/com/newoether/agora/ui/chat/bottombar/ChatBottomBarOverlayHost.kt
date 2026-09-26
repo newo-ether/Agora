@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -12,7 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.CustomProviderConfig
-import com.newoether.agora.data.providerDisplayName
+import com.newoether.agora.data.thinkingCapabilityForSelectedModel
 import com.newoether.agora.model.AttachmentStorage
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.ui.chat.PdfPageSelectDialog
@@ -111,6 +112,9 @@ internal fun ChatBottomBarOverlayHost(
         }
     }
 
+    val thinkingCapability = remember(selectedModel, customProviders) {
+        thinkingCapabilityForSelectedModel(selectedModel, customProviders)
+    }
     if (showThinkingSheet) {
         ModalBottomSheet(
             onDismissRequest = onDismissThinkingSheet,
@@ -132,10 +136,11 @@ internal fun ChatBottomBarOverlayHost(
                     onLevelChange = onThinkingLevelChange,
                     onBudgetEnabledChange = onThinkingBudgetEnabledChange,
                     onBudgetTokensChange = onThinkingBudgetTokensChange,
-                    providerName = providerDisplayName(
-                        com.newoether.agora.model.ModelId.parse(selectedModel).providerName,
-                        customProviders,
-                    ),
+                    // Exactly the options the selected model accepts: its effort levels, whether
+                    // thinking can be turned off, and whether it takes a token budget.
+                    availableEfforts = thinkingCapability.supportedEfforts,
+                    allowDisable = thinkingCapability.canDisableThinking,
+                    showBudgetControls = thinkingCapability.supportsThinkingBudget,
                     animateSections = true,
                 )
                 Spacer(modifier = Modifier.height(24.dp))

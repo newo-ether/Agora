@@ -101,7 +101,12 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
         val events = collect(provider, config)
 
         assertFalse(config.thinkingEnabled)
-        assertEquals("fallback", events.filterIsInstance<StreamEvent.ThoughtChunk>().single().thought)
+        // The whitespace detail is forwarded verbatim (it may be a real line break), and the
+        // fallback field still reaches the UI because a blank detail is not effective reasoning.
+        assertEquals(
+            listOf(" ", "fallback"),
+            events.filterIsInstance<StreamEvent.ThoughtChunk>().map { it.thought },
+        )
         assertTrue(events.none { it is StreamEvent.Error })
     }
 

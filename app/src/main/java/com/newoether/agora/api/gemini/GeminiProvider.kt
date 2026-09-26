@@ -5,8 +5,9 @@ import com.newoether.agora.api.*
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
-import com.newoether.agora.model.ThinkingLevels
+import com.newoether.agora.model.ThinkingProviderFamily
 import com.newoether.agora.api.util.Base64FileRegistry
+import com.newoether.agora.api.util.resolvedThinking
 import com.newoether.agora.api.util.adaptToolRoundsForProvider
 import com.newoether.agora.api.util.RequestFormatException
 import com.newoether.agora.api.util.requireValidSerializedRequest
@@ -397,23 +398,24 @@ class GeminiProvider(
             tools.add(ApiTool(functionDeclarations = functionDeclarations))
         }
 
-        val thinkingConfig = if (!config.thinkingEnabled) {
-            if (cleanModelName.contains("gemini-2.5-flash", ignoreCase = true)) {
-                ApiThinkingConfig(includeThoughts = false, thinkingBudget = 0)
-            } else null
-        } else when {
-            cleanModelName.contains("gemini-3", ignoreCase = true) || cleanModelName.contains("gemini-3.5", ignoreCase = true) -> {
-                ApiThinkingConfig(includeThoughts = true, thinkingLevel = ThinkingLevels.geminiLevel(config.thinkingLevel))
-            }
-            cleanModelName.contains("gemini-2.5", ignoreCase = true) -> {
-                ApiThinkingConfig(
-                    includeThoughts = true,
-                    thinkingBudget = config.thinkingBudgetTokens.takeIf { config.thinkingBudgetEnabled }
-                )
-            }
-            cleanModelName.contains("thinking-exp", ignoreCase = true) ->
-                ApiThinkingConfig(includeThoughts = true)
-            else -> null
+        // Thinking parameters come from the selected model's documented capability instead of a
+        // model-name guess. thinkingConfig.thinkingLevel accepts MINIMAL/LOW/MEDIUM/HIGH only,
+        // thinkingBudget is the token form, and thinkingBudget = 0 disables thinking.
+        val resolvedThinking = config.resolvedThinking(ThinkingProviderFamily.GEMINI)
+        val thinkingConfig = when {
+            resolvedThinking.disabled -> ApiThinkingConfig(
+                includeThoughts = false,
+                thinkingBudget = 0.takeIf { resolvedThinking.capability.supportsThinkingBudget },
+            )
+            resolvedThinking.budgetTokens != null -> ApiThinkingConfig(
+                includeThoughts = true,
+                thinkingBudget = resolvedThinking.budgetTokens,
+            )
+            resolvedThinking.effort != null -> ApiThinkingConfig(
+                includeThoughts = true,
+                thinkingLevel = resolvedThinking.effort.uppercase(),
+            )
+            else -> ApiThinkingConfig(includeThoughts = true)
         }
 
         val hasBuiltInTools = tools.any { it.codeExecution != null || it.googleSearch != null }
@@ -422,16 +424,15 @@ class GeminiProvider(
             ApiToolConfig(includeServerSideToolInvocations = true)
         } else null
 
-        val hasGenParams = config.temperature != null || config.maxTokens != null || config.topP != null
-                || config.frequencyPenalty != null || config.presencePenalty != null
-        val genConfig = if (thinkingConfig != null || hasGenParams) ApiGenerationConfig(
+        // thinkingConfig is always present now, so generationConfig is always sent.
+        val genConfig = ApiGenerationConfig(
             thinkingConfig = thinkingConfig,
             temperature = config.temperature,
             maxOutputTokens = config.maxTokens,
             topP = config.topP,
             frequencyPenalty = config.frequencyPenalty,
             presencePenalty = config.presencePenalty
-        ) else null
+        )
 
         fun buildRequestBody(
             resolvedRequest: ProviderRequestInput,
@@ -592,7 +593,7 @@ class GeminiProvider(
                                         if (thoughtElement is JsonPrimitive) {
                                             if (thoughtElement.isString) {
                                                 val content = thoughtElement.content
-                                                content.takeIf(String::isNotBlank)?.let {
+                                                content.takeIf(String::isNotEmpty)?.let {
                                                     emitTracked(
                                                         StreamEvent.ThoughtChunk(
                                                             it,
@@ -609,12 +610,12 @@ class GeminiProvider(
                                             }
                                         }
                                     }
-                                    part.reasoningContent?.takeIf(String::isNotBlank)?.let {
+                                    part.reasoningContent?.takeIf(String::isNotEmpty)?.let {
                                         emitTracked(StreamEvent.ThoughtChunk(it, extractThoughtTitle(it), currentThoughtSignature))
                                         isPartOfThought = true
                                         inThoughtBlock = true
                                     }
-                                    part.text?.takeIf(String::isNotBlank)?.let {
+                                    part.text?.takeIf(String::isNotEmpty)?.let {
                                         if (isPartOfThought || inThoughtBlock) {
                                             emitTracked(
                                                 StreamEvent.ThoughtChunk(

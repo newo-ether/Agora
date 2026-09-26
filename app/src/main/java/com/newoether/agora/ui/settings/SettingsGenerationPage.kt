@@ -89,7 +89,6 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 onBudgetTokensChange = { viewModel.settings.setThinkingBudgetTokens(it) },
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                                 showHeader = false,
-                                providerName = null,
                                 animateSections = true
                             )
                         }

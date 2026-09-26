@@ -71,13 +71,13 @@ class OllamaProviderRequestSerializationTest {
     }
 
     @Test
-    fun gptOssOffOrNoneFailsBeforeHttp() = withServer { server ->
-        val off = collect(server, config(server, "gpt-oss:20b").copy(thinkingEnabled = false))
-        val none = collect(server, config(server, "gpt-oss:120b").copy(thinkingLevel = "none"))
+    fun thinkingOffIsSentAsFalseInsteadOfFailing() = withServer { server ->
+        val off = server.capture(config(server, "gpt-oss:20b").copy(thinkingEnabled = false))
+        val none = server.capture(config(server, "gpt-oss:120b").copy(thinkingLevel = "none"))
 
-        assertRequestFormat(off)
-        assertRequestFormat(none)
-        assertTrue(server.bodies.isEmpty())
+        assertEquals(false, off["think"]!!.jsonPrimitive.boolean)
+        assertEquals("low", none["think"]!!.jsonPrimitive.content)
+        assertTrue(server.bodies.isNotEmpty())
     }
 
     @Test

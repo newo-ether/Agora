@@ -34,6 +34,10 @@ internal val GOOGLE_SEARCH_ENABLED = booleanPreferencesKey("google_search_enable
 internal val THINKING_ENABLED = booleanPreferencesKey("thinking_enabled")
 internal val THINKING_LEVEL = stringPreferencesKey("thinking_level")
 internal val THINKING_BUDGET_ENABLED = booleanPreferencesKey("thinking_budget_enabled")
+
+/** JSON map of `provider::model` to the user's thinking-capability correction for that model. */
+internal val THINKING_CAPABILITY_OVERRIDES_JSON =
+    stringPreferencesKey("thinking_capability_overrides_json")
 internal val THINKING_BUDGET_TOKENS = intPreferencesKey("thinking_budget_tokens")
 internal val OPENAI_SERVICE_TIER_ENABLED = booleanPreferencesKey("openai_service_tier_enabled")
 internal val OPENAI_SERVICE_TIER = stringPreferencesKey("openai_service_tier")
@@ -127,6 +131,7 @@ internal val CUSTOM_FONT_PATH = stringPreferencesKey("custom_font_path")
 internal val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
 internal val FIRST_LAUNCH_TIME = longPreferencesKey("first_launch_time")
 internal val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+internal val DISPLAYED_SUBMISSION_MESSAGES = stringSetPreferencesKey("displayed_submission_messages")
 internal val RATING_PROMPT_SUBMITTED = booleanPreferencesKey("rating_prompt_submitted")
 internal val RATING_PROMPT_DISMISSED = booleanPreferencesKey("rating_prompt_dismissed")
 internal val SHOW_DOCUMENTATION_FAB = booleanPreferencesKey("show_documentation_fab")

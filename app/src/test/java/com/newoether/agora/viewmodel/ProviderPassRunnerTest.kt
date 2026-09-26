@@ -121,7 +121,6 @@ class ProviderPassRunnerTest {
             listOf<StreamEvent>(valid.copy(name = "bad name")),
             listOf<StreamEvent>(valid.copy(id = "bad id")),
             listOf<StreamEvent>(valid.copy(streamKey = "")),
-            listOf<StreamEvent>(valid.copy(arguments = "{")),
             listOf<StreamEvent>(
                 valid,
                 valid.copy(id = "call_2"),
@@ -145,6 +144,17 @@ class ProviderPassRunnerTest {
             assertTrue((outcome as ProviderPassOutcome.Failed).error is GenerationError.SseParse)
             assertTrue(forwarded.last() is StreamEvent.Error)
         }
+    }
+
+    @Test
+    fun `unparsable arguments stay pairable and are reported by the tool executor`() = runTest {
+        val malformed = StreamEvent.ToolCallRequest("call_1", "file_read", "{", streamKey = "s1")
+        val forwarded = mutableListOf<StreamEvent>()
+
+        val outcome = runner(listOf(malformed)).run(IDENTITY, messages(), CONFIG, forwarded::add)
+
+        assertEquals(ProviderPassOutcome.CompletedToolCalls(IDENTITY, listOf(malformed)), outcome)
+        assertTrue(forwarded.none { it is StreamEvent.Error })
     }
 
     @Test

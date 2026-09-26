@@ -3,6 +3,7 @@ package com.newoether.agora.api
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.CitationRecord
 import com.newoether.agora.model.ContextBudget
+import com.newoether.agora.model.ModelThinkingCapabilityOverride
 import com.newoether.agora.model.TokenUsage
 import com.newoether.agora.api.util.prepareMessages
 import kotlinx.coroutines.flow.Flow
@@ -113,6 +114,8 @@ data class ProviderConfig(
     val thinkingLevel: String = "medium",
     val thinkingBudgetEnabled: Boolean = false,
     val thinkingBudgetTokens: Int = 4096,
+    /** User correction for the selected model's documented thinking capability. */
+    val thinkingCapabilityOverride: ModelThinkingCapabilityOverride? = null,
     val openAiServiceTier: String? = null,
     val responsesApiEnabled: Boolean = false,
     val anthropicCacheEnabled: Boolean = true,
@@ -177,6 +180,8 @@ data class OpenAiChatRequest(
     @SerialName("enable_thinking") val enableThinking: Boolean? = null,
     @SerialName("thinking_budget") val thinkingBudget: Int? = null,
     val reasoning: OpenAiReasoning? = null,
+    /** Groq: `false` returns no reasoning for a model that cannot turn reasoning off. */
+    @SerialName("include_reasoning") val includeReasoning: Boolean? = null,
     val plugins: List<OpenAiPlugin>? = null,
     @SerialName("service_tier") val serviceTier: String? = null,
     val temperature: Float? = null,

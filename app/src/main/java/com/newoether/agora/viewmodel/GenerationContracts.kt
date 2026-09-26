@@ -31,6 +31,8 @@ data class GenerationConfig(
     val thinkingLevel: String = "medium",
     val thinkingBudgetEnabled: Boolean = false,
     val thinkingBudgetTokens: Int = 4096,
+    /** User correction for the selected model's thinking capability; null keeps the documented one. */
+    val thinkingCapabilityOverride: com.newoether.agora.model.ModelThinkingCapabilityOverride? = null,
     val openAiServiceTier: String? = null,
     val responsesApiEnabled: Boolean = false,
     val anthropicCacheEnabled: Boolean = true,

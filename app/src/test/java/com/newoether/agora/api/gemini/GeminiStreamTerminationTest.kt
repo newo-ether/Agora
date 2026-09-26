@@ -262,9 +262,16 @@ class GeminiStreamTerminationTest {
                 }
             }
 
+            // Whitespace inside a thought part is real formatting and is forwarded verbatim, while
+            // the blank thoughtSignature and blank functionCall id stay rejected. Each part carries
+            // its own thought identity, so the unflagged "reason" part is answer text, not thinking.
             val thoughts = events.filterIsInstance<StreamEvent.ThoughtChunk>()
-            assertEquals(listOf("reason"), thoughts.map { it.thought })
-            assertEquals("sig-1", thoughts.single().signature)
+            assertEquals(listOf(" ", " "), thoughts.map { it.thought })
+            assertTrue(thoughts.all { it.signature == "sig-1" })
+            assertEquals(
+                listOf("reason"),
+                events.filterIsInstance<StreamEvent.TextChunk>().map { it.text },
+            )
             val update = events.filterIsInstance<StreamEvent.ToolCallUpdate>().single()
             val call = events.filterIsInstance<StreamEvent.ToolCallRequest>().single()
             assertTrue(update.id?.isNotBlank() == true)

@@ -11,7 +11,9 @@ import com.newoether.agora.api.ToolFunction
 import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
+import com.newoether.agora.model.ModelThinkingCapabilities
 import com.newoether.agora.model.Participant
+import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
 import com.sun.net.httpserver.HttpServer
 import io.mockk.every
@@ -107,14 +109,14 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
     }
 
     @Test
-    fun qwenThinkingOnlyOffFailsBeforeHttp() = withServer { server ->
-        val events = collect(
+    fun qwenThinkingOnlyModelKeepsThinkingOnInsteadOfFailing() = withServer { server ->
+        val body = server.capture(
             QwenProvider(),
             config(server, "qwen3-235b-a22b-thinking-2507").copy(thinkingEnabled = false),
         )
 
-        assertRequestFormat(events, "cannot disable thinking")
-        assertTrue(server.bodies.isEmpty())
+        assertTrue(body["enable_thinking"]!!.jsonPrimitive.boolean)
+        assertFalse(body.containsKey("thinking_budget"))
     }
 
     @Test
@@ -125,14 +127,14 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
     }
 
     @Test
-    fun groqGptOssOffFailsBeforeHttp() = withServer { server ->
-        val events = collect(
+    fun groqGptOssOffHidesReasoningAtLowestEffort() = withServer { server ->
+        val body = server.capture(
             GroqProvider(),
             config(server, "openai/gpt-oss-120b").copy(thinkingEnabled = false),
         )
 
-        assertRequestFormat(events, "cannot disable reasoning")
-        assertTrue(server.bodies.isEmpty())
+        assertEquals("low", body["reasoning_effort"]!!.jsonPrimitive.content)
+        assertFalse(body["include_reasoning"]!!.jsonPrimitive.boolean)
     }
 
     @Test
@@ -141,7 +143,8 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
             CustomOpenAiProvider("Relay", server.baseUrl),
             config(server, "qwen/qwen3.8-27b").copy(thinkingLevel = "max"),
         )
-        assertEquals("xhigh", body["reasoning_effort"]!!.jsonPrimitive.content)
+        // A relay has no documented effort set, so the user's value is forwarded unchanged.
+        assertEquals("max", body["reasoning_effort"]!!.jsonPrimitive.content)
         assertStandardParameters(body)
     }
 
@@ -167,14 +170,15 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
 
     @Test
     fun deepSeekEffortMappingMatchesOfficialTable() {
-        assertEquals("low", deepSeekReasoningEffort("minimal"))
-        assertEquals("low", deepSeekReasoningEffort("low"))
-        assertEquals("high", deepSeekReasoningEffort("medium"))
-        assertEquals("high", deepSeekReasoningEffort("high"))
-        assertEquals("high", deepSeekReasoningEffort("xhigh"))
-        assertEquals("max", deepSeekReasoningEffort("max"))
-        assertEquals("high", deepSeekReasoningEffort("balanced"))
-        assertNull(deepSeekReasoningEffort("none"))
+        val capability = ModelThinkingCapabilities.forProvider(
+            providerName = Constants.PROVIDER_DEEPSEEK,
+            modelId = "deepseek-v4",
+        )
+        assertEquals(listOf("low", "high", "max"), capability.supportedEfforts)
+        assertEquals("low", capability.nearestEffort("minimal"))
+        assertEquals("high", capability.nearestEffort("medium"))
+        assertEquals("max", capability.nearestEffort("xhigh"))
+        assertEquals("max", capability.nearestEffort("max"))
     }
 
     @Test
@@ -192,13 +196,14 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
     }
 
     @Test
-    fun customEndpointSendsThinkingFieldsForRelayedDeepSeekModels() = withServer { server ->
+    fun customEndpointForwardsUserThinkingSettingsWithoutModelNameRules() = withServer { server ->
         val enabled = server.capture(
             CustomOpenAiProvider("Relay", server.baseUrl),
             config(server, "DeepSeek/DeepSeek-V4").copy(thinkingLevel = "xhigh"),
         )
-        assertEquals("enabled", enabled["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
-        assertEquals("high", enabled["reasoning_effort"]!!.jsonPrimitive.content)
+        // A relay gets no DeepSeek-specific fields: the user's own effort is forwarded unchanged.
+        assertFalse(enabled.containsKey("thinking"))
+        assertEquals("xhigh", enabled["reasoning_effort"]!!.jsonPrimitive.content)
         assertStandardParameters(enabled)
 
         withServer { offServer ->
@@ -206,8 +211,8 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
                 CustomOpenAiProvider("Relay", offServer.baseUrl),
                 config(offServer, "deepseek-chat").copy(thinkingEnabled = false),
             )
-            assertEquals("disabled", disabled["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
-            assertFalse(disabled.containsKey("reasoning_effort"))
+            assertFalse(disabled.containsKey("thinking"))
+            assertEquals("none", disabled["reasoning_effort"]!!.jsonPrimitive.content)
         }
     }
 

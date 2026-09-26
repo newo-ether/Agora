@@ -80,6 +80,12 @@ internal class ConversationRuntimeResources {
 
     fun activate(identity: RuntimeRunIdentity, loading: Boolean) {
         uiGenToken = identity.ownerToken
+        // A drain suppression belongs to the run that armed it and is answered by that run's slot
+        // release. A newly activated run means that release either already happened or never will
+        // (its terminal effect failed), so a leftover suppression can no longer be satisfied.
+        // Keeping it armed would make THIS run's release silently skip its queue drain, leaving
+        // queued sends stranded with nothing left to trigger them.
+        suppressedQueueDrainCount = 0
         _isLoading.value = loading
         _generating.value = true
         _stopping.value = false

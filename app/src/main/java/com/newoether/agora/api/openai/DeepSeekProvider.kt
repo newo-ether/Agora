@@ -3,7 +3,9 @@ package com.newoether.agora.api.openai
 import com.newoether.agora.api.OpenAiChatRequest
 import com.newoether.agora.api.OpenAiThinking
 import com.newoether.agora.api.ProviderConfig
-import com.newoether.agora.model.ThinkingLevels
+import com.newoether.agora.api.util.resolvedThinking
+import com.newoether.agora.model.ResolvedThinking
+import com.newoether.agora.model.ThinkingProviderFamily
 import com.newoether.agora.util.Constants
 
 class DeepSeekProvider : BaseOpenAiProvider() {
@@ -18,7 +20,8 @@ class DeepSeekProvider : BaseOpenAiProvider() {
     override fun customizeRequest(
         request: OpenAiChatRequest,
         config: ProviderConfig,
-    ): OpenAiChatRequest = request.withDeepSeekThinking(config)
+    ): OpenAiChatRequest =
+        request.withDeepSeekThinking(config.resolvedThinking(ThinkingProviderFamily.DEEPSEEK))
 
     /** A thinking-mode DeepSeek request with tools fails with 400 unless earlier turns replay CoT. */
     override fun forwardsAssistantReasoningContent(config: ProviderConfig): Boolean =
@@ -27,35 +30,21 @@ class DeepSeekProvider : BaseOpenAiProvider() {
     // Reasoning/content parsing uses BaseOpenAiProvider's default (reasoning_content + content).
 }
 
-/**
- * DeepSeek accepts only three `reasoning_effort` values. Official mapping:
- * minimal/low -> low, medium/high/xhigh -> high, max -> max, none -> no thinking.
- */
-internal fun deepSeekReasoningEffort(thinkingLevel: String): String? =
-    when (ThinkingLevels.normalize(thinkingLevel)) {
-        "none" -> null
-        "minimal", "low" -> "low"
-        "medium", "high", "xhigh" -> "high"
-        "max" -> "max"
-        else -> "high"
-    }
-
 /** True when a model id names a DeepSeek model, including hub- and relay-style prefixes. */
 internal fun isDeepSeekModel(modelId: String): Boolean =
     modelId.contains("deepseek", ignoreCase = true)
 
 /**
- * Applies the DeepSeek thinking controls to any OpenAI-format request. Used by both the built-in
- * provider and custom endpoints, because a relayed DeepSeek model still requires the same fields.
+ * Applies the DeepSeek thinking controls to an OpenAI-format request. `thinking.type` toggles
+ * thinking and `reasoning_effort` carries the level the model accepts.
  */
-internal fun OpenAiChatRequest.withDeepSeekThinking(config: ProviderConfig): OpenAiChatRequest {
-    val effort = deepSeekReasoningEffort(config.thinkingLevel).takeIf { config.thinkingEnabled }
-    return if (effort == null) {
-        copy(thinking = OpenAiThinking(type = "disabled"))
-    } else {
-        copy(
-            thinking = OpenAiThinking(type = "enabled"),
-            reasoningEffort = effort,
-        )
-    }
+internal fun OpenAiChatRequest.withDeepSeekThinking(
+    resolved: ResolvedThinking,
+): OpenAiChatRequest = if (resolved.disabled) {
+    copy(thinking = OpenAiThinking(type = "disabled"))
+} else {
+    copy(
+        thinking = OpenAiThinking(type = "enabled"),
+        reasoningEffort = resolved.effort,
+    )
 }

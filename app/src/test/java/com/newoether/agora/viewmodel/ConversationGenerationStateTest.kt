@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -672,6 +673,15 @@ class ConversationGenerationStateTest {
 
         assertFalse(state.consumeQueueDrainPermission())
         assertFalse(state.consumeQueueDrainPermission())
+        assertTrue(state.consumeQueueDrainPermission())
+    }
+
+    @Test
+    fun staleDrainDeferralCannotSuppressTheNextRunsDrain() {
+        val state = ConversationGenerationState("conversation")
+        // A run armed a deferral but never released its slot, so nothing consumed it.
+        state.deferNextQueueDrain()
+        assertNotNull(state.acquireForSend())
         assertTrue(state.consumeQueueDrainPermission())
     }
 

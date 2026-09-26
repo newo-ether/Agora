@@ -60,7 +60,6 @@ fun ThinkingControlPanel(
     modifier: Modifier = Modifier,
     showHeader: Boolean = true,
     showEnabledToggle: Boolean = true,
-    providerName: String? = null,
     animateSections: Boolean = false,
     availableEfforts: List<String>? = null,
     controlsEnabled: Boolean = true,
@@ -69,8 +68,10 @@ fun ThinkingControlPanel(
     settingsRevision: Long = 0,
 ) {
     val normalizedEffort = if (availableEfforts == null) ThinkingLevels.normalize(level) else level
+    // A caller that knows the selected model passes that model's accepted efforts. Without one
+    // (the global default page) every documented level is offered; no provider-name range exists.
     val providerRange = availableEfforts?.indices?.takeUnless { it.isEmpty() }
-        ?: ThinkingLevels.effortRangeForProvider(providerName)
+        ?: ThinkingLevels.effortValues.indices
     val maxIndex = providerRange.last
     fun effortAt(index: Int) = availableEfforts?.getOrNull(index) ?: if (availableEfforts == null) {
         ThinkingLevels.effortForIndex(index)

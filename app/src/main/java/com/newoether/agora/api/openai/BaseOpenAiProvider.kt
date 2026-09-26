@@ -72,8 +72,8 @@ abstract class BaseOpenAiProvider : LlmProvider {
     ) {
         // reasoning_content is the vLLM/DeepSeek-compatible field; `reasoning` is the bare-string
         // form many relays emit instead. Take whichever the endpoint actually populated.
-        val reasoning = delta.reasoningContent?.takeIf(String::isNotBlank)
-            ?: delta.reasoning?.takeIf(String::isNotBlank)
+        val reasoning = delta.reasoningContent?.takeIf(String::isNotEmpty)
+            ?: delta.reasoning?.takeIf(String::isNotEmpty)
         reasoning?.let {
             emit(StreamEvent.ThoughtChunk(it))
         }

@@ -16,13 +16,13 @@ import kotlinx.serialization.json.Json
 import java.util.Locale
 import kotlinx.coroutines.flow.map
 
-private val Context.dataStore by preferencesDataStore(
+internal val Context.dataStore by preferencesDataStore(
     name = "settings", produceMigrations = { listOf(modelProviderNamesMigration) },
 )
 
 class SettingsManager(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val modelPreferenceStore = SettingsModelPreferenceStore(context.dataStore, json)
+    internal val modelPreferenceStore = SettingsModelPreferenceStore(context.dataStore, json)
 
     companion object {
         const val DEFAULT_PROXY_HOST = "127.0.0.1"

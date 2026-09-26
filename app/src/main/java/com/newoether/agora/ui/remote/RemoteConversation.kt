@@ -516,7 +516,7 @@ internal fun RemoteConversation(
                     budgetEnabled = false, budgetTokens = 4096,
                     onEnabledChange = {}, onLevelChange = vm::setThinkingLevel,
                     onBudgetEnabledChange = {}, onBudgetTokensChange = {},
-                    providerName = "OpenAI", animateSections = true,
+                    animateSections = true,
                     availableEfforts = effortChoices, controlsEnabled = settingsEnabled,
                     showHeader = false, showEnabledToggle = false, showBudgetControls = false,
                     settingsRevision = state.settingsRevision,

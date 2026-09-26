@@ -10,6 +10,7 @@ import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
+import com.newoether.agora.model.ModelThinkingCapabilityOverride
 import kotlinx.serialization.json.Json
 
 /** Preserve the old presentation once, before any settings read or edit is admitted. */
@@ -107,6 +108,34 @@ internal class SettingsModelPreferenceStore(
         val jsonStr = pref[LOCAL_CHAT_MODELS_JSON] ?: "[]"
         try { json.decodeFromString<List<LocalChatModelConfig>>(jsonStr) } catch (e: Exception) { emptyList() }
     }
+    /** User corrections to a model's documented thinking capability, keyed by provider::model. */
+    val thinkingCapabilityOverrides: Flow<Map<String, ModelThinkingCapabilityOverride>> =
+        dataStore.data.map { pref ->
+            decodeThinkingCapabilityOverrides(pref[THINKING_CAPABILITY_OVERRIDES_JSON])
+        }
+
+    /** Stores one model's correction, or clears it when [override] is null or carries no field. */
+    suspend fun saveThinkingCapabilityOverride(
+        key: String,
+        override: ModelThinkingCapabilityOverride?,
+    ) {
+        dataStore.edit { prefs ->
+            val current =
+                decodeThinkingCapabilityOverrides(prefs[THINKING_CAPABILITY_OVERRIDES_JSON])
+            val updated = if (override == null || override.isEmpty) {
+                current - key
+            } else {
+                current + (key to override)
+            }
+            if (updated.isEmpty()) {
+                prefs.remove(THINKING_CAPABILITY_OVERRIDES_JSON)
+            } else {
+                prefs[THINKING_CAPABILITY_OVERRIDES_JSON] =
+                    thinkingCapabilityJson.encodeToString(updated)
+            }
+        }
+    }
+
     val customProviders: Flow<List<CustomProviderConfig>> = dataStore.data.map { pref ->
         val jsonStr = pref[CUSTOM_PROVIDERS_JSON] ?: "[]"
         try {

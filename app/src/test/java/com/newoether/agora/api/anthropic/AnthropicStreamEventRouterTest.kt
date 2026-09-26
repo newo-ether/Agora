@@ -115,7 +115,7 @@ class AnthropicStreamEventRouterTest {
     }
 
     @Test
-    fun blankThinkingPlaceholdersDoNotEraseEffectiveSignatureOrEmitContent() {
+    fun whitespaceThinkingIsPreservedWhileBlankSignatureIsIgnored() {
         val router = AnthropicStreamEventRouter()
         val started = router.route(
             AnthropicStreamEvent(
@@ -150,9 +150,16 @@ class AnthropicStreamEventRouterTest {
             )
         ).single() as StreamEvent.ThoughtChunk
 
-        assertTrue(started.isEmpty())
+        // Whitespace-only thinking carries real formatting (newlines, indentation, fence
+        // boundaries), so it must reach the UI verbatim. Only the signature keeps the
+        // blank-rejecting contract, because a blank signature is never a valid credential.
+        val startedThought = started.single() as StreamEvent.ThoughtChunk
+        assertEquals(" ", startedThought.thought)
+        assertEquals("signature-1", startedThought.signature)
         assertTrue(blankSignature.isEmpty())
-        assertTrue(blankThought.isEmpty())
+        val blankThoughtChunk = blankThought.single() as StreamEvent.ThoughtChunk
+        assertEquals(" ", blankThoughtChunk.thought)
+        assertEquals("signature-1", blankThoughtChunk.signature)
         assertEquals("reasoning", thought.thought)
         assertEquals("signature-1", thought.signature)
     }

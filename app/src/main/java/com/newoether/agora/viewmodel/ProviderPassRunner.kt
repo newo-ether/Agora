@@ -12,7 +12,6 @@ import com.newoether.agora.model.RunEffectIdentity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 
 internal sealed interface ProviderPassOutcome {
     val identity: RunEffectIdentity
@@ -144,7 +143,6 @@ internal class ProviderPassRunner(
             completedCalls,
             openToolStreams,
             sawEmptyToolBatch,
-            config.tools.orEmpty().map { it.function.name }.toSet(),
         )?.let { error ->
             onEvent(StreamEvent.Error(error))
             return ProviderPassOutcome.Failed(identity, error)
@@ -161,7 +159,7 @@ internal class ProviderPassRunner(
         calls: List<StreamEvent.ToolCallRequest>,
         openToolStreams: Set<String>,
         sawEmptyToolBatch: Boolean,
-        offeredToolNames: Set<String>,
+
     ): GenerationError? {
         val invalidCause = when {
             sawEmptyToolBatch -> "Provider returned an empty tool call batch"
@@ -176,13 +174,10 @@ internal class ProviderPassRunner(
                 "Provider returned an invalid tool call id"
             calls.any { !it.name.matches(safeWireToolName) } ->
                 "Provider returned an invalid or incomplete tool name"
-            calls.any { it.name !in offeredToolNames } ->
-                "Provider returned a tool that was not offered in this request"
-            calls.any { call ->
-                runCatching {
-                    json.parseToJsonElement(call.arguments.ifBlank { "{}" }) is JsonObject
-                }.getOrDefault(false).not()
-            } -> "Provider returned incomplete tool arguments"
+            // A tool the request did not offer and arguments that are not a JSON object are model
+            // mistakes, not protocol damage: the tool executor already answers each of them with an
+            // error tool result, so the model sees the failure and can correct itself. Only
+            // conditions that make a tool result impossible to pair remain fatal here.
             else -> null
         } ?: return null
         return GenerationError.SseParse(rawLine = "tool_calls", cause = invalidCause)

@@ -50,20 +50,20 @@ class AnthropicProviderRequestSerializationTest {
     }
 
     @Test
-    fun alwaysThinkingAndOpusHighEffortOffFailBeforeHttp() = withServer { server ->
+    fun alwaysThinkingModelsDropToLowestEffortAndOpusOffIsSent() = withServer { server ->
         listOf("claude-fable-5", "claude-mythos-5", "claude-mythos-preview").forEach { model ->
-            val events = collect(server, config(server, model).copy(thinkingEnabled = false))
-            assertRequestFormat(events, "cannot disable thinking")
+            val body = server.capture(config(server, model).copy(thinkingEnabled = false))
+            assertEquals("adaptive", body["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+            assertEquals("low", body["output_config"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
         }
-        val opusEvents = collect(
-            server,
+        val opus = server.capture(
             config(server, "claude-opus-5").copy(
                 thinkingEnabled = false,
                 thinkingLevel = "xhigh",
             ),
         )
-        assertRequestFormat(opusEvents, "effort xhigh")
-        assertTrue(server.bodies.isEmpty())
+        assertEquals("disabled", opus["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals("xhigh", opus["output_config"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
     }
 
     @Test

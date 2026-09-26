@@ -6,10 +6,11 @@ import com.newoether.agora.util.DebugLog
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
-import com.newoether.agora.model.ThinkingLevels
+import com.newoether.agora.model.ThinkingProviderFamily
 import com.newoether.agora.api.util.Base64FileRegistry
 import com.newoether.agora.api.util.buildToolCallId
 import com.newoether.agora.api.util.adaptToolRoundsForProvider
+import com.newoether.agora.api.util.resolvedThinking
 import com.newoether.agora.api.util.RequestFormatException
 import com.newoether.agora.api.util.requireValidSerializedRequest
 import com.newoether.agora.api.util.StreamTermination
@@ -175,41 +176,6 @@ internal data class AnthropicUsage(
  * provider reported an in-band error. The transport layer cannot answer any of those from socket
  * state alone.
  */
-/** Request-shape generations of the Claude model line. Unknown future families stay conservative:
- * adaptive when enabled, omitted when disabled, and never receive legacy sampling parameters. */
-internal enum class ClaudeFamily {
-    NO_THINKING,
-    BUDGET_THINKING,
-    TRANSITIONAL_4_6,
-    CURRENT_ADAPTIVE,
-    CURRENT_DEFAULT_ON,
-    CURRENT_ALWAYS_THINKING,
-}
-
-internal fun classifyClaudeFamily(modelName: String): ClaudeFamily {
-    val m = modelName.lowercase()
-    if (!m.startsWith("claude")) return ClaudeFamily.CURRENT_ADAPTIVE
-    if (m in setOf("claude-fable-5", "claude-mythos-5", "claude-mythos-preview")) {
-        return ClaudeFamily.CURRENT_ALWAYS_THINKING
-    }
-    if (m in setOf("claude-opus-5", "claude-sonnet-5")) {
-        return ClaudeFamily.CURRENT_DEFAULT_ON
-    }
-    // 3.0 / 3.5 predate extended thinking entirely.
-    if (listOf("claude-3-opus", "claude-3-sonnet", "claude-3-haiku", "claude-3-5-")
-            .any { m.startsWith(it) }
-    ) return ClaudeFamily.NO_THINKING
-    // 4.6: adaptive preferred; deprecated `budget_tokens` still functional (transitional).
-    // Checked before the dated-4.x markers so a dated 4.6 id can't fall into the budget list.
-    if (m.contains("4-6") || m.contains("4.6")) return ClaudeFamily.TRANSITIONAL_4_6
-    // Closed list of budget_tokens generations: 3.7, 4.0 (incl. dated claude-*-4-2025xxxx),
-    // 4.1, and the 4.5 tier (opus/sonnet/haiku).
-    if (listOf("claude-3-7", "-4-0", "-4-1", "-4-5", "4.0", "4.1", "4.5", "-4-2025")
-            .any { m.contains(it) }
-    ) return ClaudeFamily.BUDGET_THINKING
-    return ClaudeFamily.CURRENT_ADAPTIVE
-}
-
 private fun MessageSegment.signatureIsCompatibleWithAnthropic(
     sourceModel: String?,
     targetModel: String,
@@ -252,48 +218,35 @@ class AnthropicProvider(
         val baseUrl = config.baseUrl?.trimEnd('/')?.ifBlank { null } ?: defaultBaseUrl
         val modelName = config.modelId
 
-        // ── Model-generation classification ─────────────────────────────────
-        // The legacy and current default-on/always-on sets are CLOSED lists. Every model not
-        // matched below is treated conservatively: adaptive when enabled and no sampling params.
-        // Rationale (API contract): `budget_tokens` and `temperature`/`top_p` are REMOVED
-        // from Opus 4.7 onward (sending either returns a hard 400), so an unknown new
-        // model must never fall back onto the legacy request shape.
-        val family = classifyClaudeFamily(modelName)
-        val effort = ThinkingLevels.anthropicEffort(config.thinkingLevel)
-        val thinkingViolation = when {
-            config.thinkingEnabled -> null
-            family == ClaudeFamily.CURRENT_ALWAYS_THINKING ->
-                "model $modelName cannot disable thinking"
-            modelName.equals("claude-opus-5", ignoreCase = true) && effort in setOf("xhigh", "max") ->
-                "model $modelName cannot disable thinking at effort $effort"
-            else -> null
-        }
-        val thinkingBudget = (
-            if (config.thinkingBudgetEnabled) config.thinkingBudgetTokens else ThinkingLevels.DefaultBudgetTokens
-        ).coerceIn(1024, 128000)
+        // Thinking parameters come from the selected model's documented capability, not from a
+        // model-name guess, and never block the request. Messages API accepts
+        // thinking=enabled{budget_tokens}/disabled/adaptive and output_config.effort in
+        // low/medium/high/xhigh/max.
+        val resolvedThinking = config.resolvedThinking(ThinkingProviderFamily.ANTHROPIC)
+        val capability = resolvedThinking.capability
+        val thinkingBudget = resolvedThinking.budgetTokens
+        val hasThinkingControls = capability.supportsEffort || capability.supportsThinkingBudget
         val thinking = when {
-            !config.thinkingEnabled && family == ClaudeFamily.CURRENT_DEFAULT_ON ->
-                AnthropicThinking(type = "disabled")
-            !config.thinkingEnabled -> null
-            family == ClaudeFamily.NO_THINKING -> null
-            family == ClaudeFamily.BUDGET_THINKING ->
+            // Generations that predate extended thinking take no thinking parameter at all.
+            !hasThinkingControls -> null
+            resolvedThinking.disabled -> AnthropicThinking(type = "disabled")
+            thinkingBudget != null ->
                 AnthropicThinking(type = "enabled", budgetTokens = thinkingBudget, display = "summarized")
-            // 4.6: adaptive preferred; the deprecated budget form is still functional there,
-            // so honor an explicit user-enabled budget as the documented transitional escape hatch.
-            family == ClaudeFamily.TRANSITIONAL_4_6 && config.thinkingBudgetEnabled ->
-                AnthropicThinking(type = "enabled", budgetTokens = thinkingBudget, display = "summarized")
-            else -> AnthropicThinking(type = "adaptive", display = "summarized")
+            // Only models with an effort selector accept the adaptive form; the budget generations
+            // require an explicit budget instead.
+            capability.supportsEffort -> AnthropicThinking(type = "adaptive", display = "summarized")
+            else -> AnthropicThinking(
+                type = "enabled",
+                budgetTokens = capability.clampBudget(config.thinkingBudgetTokens),
+                display = "summarized",
+            )
         }
-        val outputConfig = if (thinking?.type in setOf("adaptive", "disabled")) {
-            AnthropicOutputConfig(effort = effort)
-        } else null
-        // temperature/top_p are rejected with a 400 on Opus 4.7+ / Sonnet 5 / Fable — only the
-        // legacy and transitional families may carry user sampling overrides.
-        val allowsLegacySamplingParams = family in setOf(
-            ClaudeFamily.NO_THINKING,
-            ClaudeFamily.BUDGET_THINKING,
-            ClaudeFamily.TRANSITIONAL_4_6,
-        )
+        // effort is an output control rather than a thinking switch, so it is sent whenever the
+        // model accepts one, including with thinking off.
+        // A model that cannot stop thinking reports its lowest level here, so a forced-thinking-off
+        // caller does not inherit an unrelated high effort.
+        val outputConfig = (resolvedThinking.effort ?: capability.nearestEffort(config.thinkingLevel))
+            ?.let { AnthropicOutputConfig(effort = it) }
 
         // Convert ToolDefinition to Anthropic format
         val anthropicTools = config.tools?.map { td ->
@@ -405,17 +358,20 @@ class AnthropicProvider(
                 else -> 8192
             },
             tools = anthropicTools,
+            // temperature/top_k/top_p are deprecated and rejected by models released after
+            // Claude Opus 4.6, so the model's capability decides whether they are sent at all.
+            // Sampling is accepted only by generations that document it, and only when no thinking
+            // parameter is present at all; top_p additionally stays legal in 0.95..1 with thinking.
             temperature = config.temperature.takeIf {
-                allowsLegacySamplingParams && thinking == null
+                capability.supportsSamplingParams && thinking == null
             },
             topP = config.topP?.takeIf {
-                allowsLegacySamplingParams && (thinking == null || it in 0.95f..1f)
+                capability.supportsSamplingParams && (thinking == null || it in 0.95f..1f)
             }
             )
         }
 
         try {
-            thinkingViolation?.let { throw RequestFormatException(name, listOf(it)) }
             val url = "$baseUrl/messages"
             val headers = mutableMapOf("Content-Type" to "application/json")
             headers["x-api-key"] = config.apiKey
@@ -444,7 +400,7 @@ class AnthropicProvider(
                 DebugLog.d(
                     "AgoraAPI",
                     "[$name] request model=$modelName messages=${requestBody.messages.size} " +
-                        "thinking=${thinking?.type ?: "omitted"} tools=${anthropicTools?.size ?: 0}",
+                        "thinking=${thinking?.type} tools=${anthropicTools?.size ?: 0}",
                 )
                 // Opening the request can fail before any response headers exist (connect
                 // timeout, TLS failure, reset). Those escaped the retry loop entirely before, so a
