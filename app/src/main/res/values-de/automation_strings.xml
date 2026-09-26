@@ -9,6 +9,8 @@
     <string name="task_prompt_hint">Was soll diese Aufgabe bei jeder Ausführung tun?</string>
     <string name="task_model">Modell</string>
     <string name="task_model_default">App-Standard</string>
+    <string name="task_system_prompt">System-Prompt</string>
+    <string name="task_system_prompt_default">App-Standard</string>
     <string name="task_run_now">Jetzt ausführen</string>
     <string name="task_delete">Aufgabe löschen</string>
     <string name="task_delete_confirm">„%1$s“ und den gesamten Ausführungsverlauf löschen?</string>

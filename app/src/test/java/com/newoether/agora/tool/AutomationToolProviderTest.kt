@@ -2,6 +2,7 @@ package com.newoether.agora.tool
 
 import com.newoether.agora.automation.LoopManager
 import com.newoether.agora.automation.TaskManager
+import com.newoether.agora.data.SystemPromptEntry
 import com.newoether.agora.data.local.LoopEntity
 import com.newoether.agora.data.local.TaskEntity
 import com.newoether.agora.viewmodel.GenerationContext
@@ -243,6 +244,48 @@ class AutomationToolProviderTest {
 
         val result = provider.execute("stop_loop", "{}", enabledContext)
         assertTrue(result.startsWith("Error:"))
+    }
+
+    @Test
+    fun createTask_offersOptionalSystemPromptParameter() {
+        val createTask = provider.definitions(enabledContext)
+            .single { it.function.name == "create_task" }
+
+        assertTrue(createTask.function.parameters.properties.containsKey("system_prompt"))
+        assertFalse(createTask.function.parameters.required.contains("system_prompt"))
+    }
+
+    @Test
+    fun createTask_resolvesSavedSystemPromptByTitleAndFailsClosedWhenMissing() = runTest {
+        val prompts = listOf(
+            SystemPromptEntry(id = "prompt-1", title = "Research"),
+            SystemPromptEntry(id = "prompt-2", title = "Ops"),
+        )
+        val withPrompts = AutomationToolProvider(taskManager, loopManager, { prompts })
+        coEvery { taskManager.createTask(any(), any(), any(), any(), any()) } returns
+            task(id = "task-1", name = "Morning").copy(systemPromptId = "prompt-1")
+
+        val json = withPrompts.execute(
+            "create_task",
+            """{"name":"Morning","prompt":"Summarize","cron":"0 9 * * *","system_prompt":"research"}""",
+            enabledContext,
+        ).json()
+        assertEquals(
+            "prompt-1",
+            json["task"]?.jsonObject?.get("system_prompt_id")?.jsonPrimitive?.content,
+        )
+        coVerify(exactly = 1) {
+            taskManager.createTask("Morning", "Summarize", "0 9 * * *", null, "prompt-1")
+        }
+
+        val missing = withPrompts.execute(
+            "create_task",
+            """{"name":"Morning","prompt":"Summarize","cron":"0 9 * * *","system_prompt":"Unknown"}""",
+            enabledContext,
+        )
+        assertTrue(missing.startsWith("Error:"))
+        // The unresolved prompt must not reach the manager as a silent app-default fallback.
+        coVerify(exactly = 1) { taskManager.createTask(any(), any(), any(), any(), any()) }
     }
 
     private fun task(

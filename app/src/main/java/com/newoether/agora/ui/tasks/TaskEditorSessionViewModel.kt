@@ -26,6 +26,8 @@ internal class TaskEditorSessionViewModel : ViewModel() {
         private set
     var modelId by mutableStateOf<String?>(null)
         private set
+    var systemPromptId by mutableStateOf<String?>(null)
+        private set
     var cronExpr by mutableStateOf("")
         private set
     var runAt by mutableStateOf<Long?>(null)
@@ -54,6 +56,7 @@ internal class TaskEditorSessionViewModel : ViewModel() {
         name = task.name
         prompt = task.prompt
         modelId = task.modelId
+        systemPromptId = task.systemPromptId
         cronExpr = task.cronExpr
         runAt = task.runAt
         scheduleEditorMode = initialScheduleEditorMode(task.cronExpr, task.runAt)
@@ -74,6 +77,10 @@ internal class TaskEditorSessionViewModel : ViewModel() {
 
     fun updateModelId(value: String?) {
         modelId = value
+    }
+
+    fun updateSystemPromptId(value: String?) {
+        systemPromptId = value
     }
 
     fun updateSchedule(cronExpr: String, runAt: Long?) {
@@ -98,6 +105,7 @@ internal class TaskEditorSessionViewModel : ViewModel() {
             name = name.trim(),
             prompt = prompt,
             modelId = modelId,
+            systemPromptId = systemPromptId,
             cronExpr = cronExpr,
             runAt = runAt,
             enabled = enabled,

@@ -9,6 +9,8 @@
     <string name="task_prompt_hint">Tác vụ này cần làm gì trong mỗi lần chạy?</string>
     <string name="task_model">Mô hình</string>
     <string name="task_model_default">Mặc định của ứng dụng</string>
+    <string name="task_system_prompt">Gợi ý hệ thống</string>
+    <string name="task_system_prompt_default">Mặc định của ứng dụng</string>
     <string name="task_run_now">Chạy ngay</string>
     <string name="task_delete">Xóa tác vụ</string>
     <string name="task_delete_confirm">Xóa “%1$s” và toàn bộ lịch sử thực thi?</string>

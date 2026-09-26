@@ -107,6 +107,36 @@ class TaskEditorSourceContractTest {
         assertFalse(scheduleRow.contains("Icons.Default.Schedule"))
     }
 
+    @Test
+    fun promptFieldIsHeightCappedAndScrollsInsteadOfGrowing() {
+        val field = source("ui/tasks/TaskLabeledField.kt")
+
+        assertTrue(field.contains("maxLines: Int = if (singleLine) 1 else 8"))
+        assertTrue(field.contains("minLines = if (singleLine) 1 else 4,\n            maxLines = maxLines,"))
+    }
+
+    @Test
+    fun taskCarriesASavedSystemPromptByReferenceNotByCopiedText() {
+        val editor = source("ui/tasks/TaskEditorPage.kt")
+        val components = source("ui/tasks/TaskEditorSupportingComponents.kt")
+        val session = source("ui/tasks/TaskEditorSessionViewModel.kt")
+        val manager = source("automation/TaskManager.kt")
+
+        assertTrue(editor.contains("viewModel.settings.systemPrompts.collectAsState()"))
+        assertTrue(editor.contains("TaskSystemPromptRow(editorSession.systemPromptId, systemPrompts)"))
+        assertTrue(editor.contains("SystemPromptPickerDialog("))
+        assertTrue(components.contains("internal fun SystemPromptPickerDialog("))
+        assertTrue(session.contains("fun updateSystemPromptId(value: String?)"))
+        assertTrue(session.contains("systemPromptId = systemPromptId,"))
+        // The run must resolve the prompt through the conversation, so later prompt edits apply.
+        assertTrue(manager.contains("systemPromptId = task.systemPromptId,"))
+        assertTrue(
+            manager.contains(
+                "systemPromptOverride = if (task.systemPromptId != null) null else task.systemPrompt ?: \"\"",
+            ),
+        )
+    }
+
     private fun source(relativePath: String): String =
         File(mainSourceRoot(), "com/newoether/agora/$relativePath")
             .readText()

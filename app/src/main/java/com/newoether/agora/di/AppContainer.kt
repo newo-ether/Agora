@@ -282,7 +282,7 @@ class AppContainer(
 
     /** Foreground-only provider: headless automation cannot recursively create automation. */
     val automationToolProvider: AutomationToolProvider by lazy {
-        AutomationToolProvider(taskManager, loopManager) {
+        AutomationToolProvider(taskManager, loopManager, { settingsManager.systemPrompts.first() }) {
             settingsManager.automationToolsEnabled.first()
         }
     }

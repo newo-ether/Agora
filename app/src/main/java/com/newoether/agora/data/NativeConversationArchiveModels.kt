@@ -54,6 +54,7 @@ internal data class NativeExportTaskEntity(
     val name: String,
     val prompt: String,
     val systemPrompt: String? = null,
+    val systemPromptId: String? = null,
     val modelId: String? = null,
     val cronExpr: String,
     val runAt: Long? = null,

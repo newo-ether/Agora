@@ -174,6 +174,7 @@ class TaskManager(
         prompt: String,
         cronExpr: String,
         modelId: String?,
+        systemPromptId: String? = null,
     ): TaskEntity {
         require(name.isNotBlank()) { "Task name is required" }
         require(prompt.isNotBlank()) { "Task prompt is required" }
@@ -185,6 +186,7 @@ class TaskManager(
             name = name.trim(),
             prompt = prompt.trim(),
             modelId = modelId?.trim()?.takeIf { it.isNotEmpty() },
+            systemPromptId = systemPromptId?.trim()?.takeIf { it.isNotEmpty() },
             cronExpr = cronExpr.trim(),
             nextRunAt = 0L,
         )
@@ -425,6 +427,9 @@ class TaskManager(
                 id = conversationId,
                 title = task.name,
                 modelId = task.modelId,
+                // A saved prompt is resolved per run through the ordinary conversation path, so its
+                // placeholders expand with this run's values instead of a frozen copy.
+                systemPromptId = task.systemPromptId,
                 taskId = task.id,
                 origin = "task",
             )
@@ -434,7 +439,9 @@ class TaskManager(
             conversationId = conversationId,
             userText = task.prompt,
             modelId = task.modelId,
-            systemPromptOverride = task.systemPrompt ?: "",
+            // null hands prompt resolution back to the conversation, which carries the task's saved
+            // prompt id. Without a saved prompt the literal text (blank = no prompt) still wins.
+            systemPromptOverride = if (task.systemPromptId != null) null else task.systemPrompt ?: "",
             foregroundServiceManagedExternally = foregroundServiceManagedExternally,
             requestKind = "task",
         )

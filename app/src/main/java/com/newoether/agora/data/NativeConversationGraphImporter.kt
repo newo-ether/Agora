@@ -153,6 +153,7 @@ internal class NativeConversationGraphImporter(
                 name = task.name,
                 prompt = task.prompt,
                 systemPrompt = task.systemPrompt,
+                systemPromptId = resolveSystemPromptId(task.systemPromptId),
                 modelId = task.modelId,
                 cronExpr = task.cronExpr,
                 runAt = task.runAt,
@@ -710,6 +711,7 @@ internal class NativeConversationGraphImporter(
         val name: String,
         val prompt: String,
         val systemPrompt: String? = null,
+        val systemPromptId: String? = null,
         val modelId: String? = null,
         val cronExpr: String,
         /** One-shot fire instant; null for a recurring (cron) task. */

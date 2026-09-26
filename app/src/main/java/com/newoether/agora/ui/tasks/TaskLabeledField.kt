@@ -31,6 +31,8 @@ internal fun TaskLabeledField(
     isError: Boolean = false,
     supporting: String? = null,
     supportingIsError: Boolean = false,
+    /** Caps the field height for multi-line input; longer text scrolls inside the field. */
+    maxLines: Int = if (singleLine) 1 else 8,
 ) {
     val fieldContent: @Composable () -> Unit = {
         Text(
@@ -45,6 +47,7 @@ internal fun TaskLabeledField(
             placeholder = { Text(placeholder, style = MaterialTheme.typography.bodyMedium) },
             singleLine = singleLine,
             minLines = if (singleLine) 1 else 4,
+            maxLines = maxLines,
             isError = isError,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth(),

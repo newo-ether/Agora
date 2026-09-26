@@ -9,6 +9,8 @@
     <string name="task_prompt_hint">O que esta tarefa deve fazer em cada execução?</string>
     <string name="task_model">Modelo</string>
     <string name="task_model_default">Padrão do app</string>
+    <string name="task_system_prompt">Prompt do sistema</string>
+    <string name="task_system_prompt_default">Padrão do app</string>
     <string name="task_run_now">Executar agora</string>
     <string name="task_delete">Excluir tarefa</string>
     <string name="task_delete_confirm">Excluir “%1$s” e todo o histórico de execuções?</string>

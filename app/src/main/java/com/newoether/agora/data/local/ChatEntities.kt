@@ -136,6 +136,12 @@ data class TaskEntity(
     /** Replayed as the first user message of every execution. */
     val prompt: String,
     val systemPrompt: String? = null,
+    /**
+     * Saved system prompt this task runs with. It wins over [systemPrompt] and resolves per run, so
+     * placeholders expand and later edits to that prompt apply. null = keep the literal
+     * [systemPrompt] behavior.
+     */
+    val systemPromptId: String? = null,
     /** null = use the app default model. */
     val modelId: String? = null,
     /** 5-field cron expression driving a RECURRING schedule; blank for a one-shot. */

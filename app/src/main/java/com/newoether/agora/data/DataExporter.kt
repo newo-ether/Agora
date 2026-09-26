@@ -104,6 +104,7 @@ class DataExporter(
         val name: String,
         val prompt: String,
         val systemPrompt: String? = null,
+        val systemPromptId: String? = null,
         val modelId: String? = null,
         val cronExpr: String,
         /** One-shot fire instant; null for a recurring (cron) task. */
@@ -329,6 +330,7 @@ class DataExporter(
                                         name = task.name,
                                         prompt = task.prompt,
                                         systemPrompt = task.systemPrompt,
+                                        systemPromptId = task.systemPromptId,
                                         modelId = task.modelId,
                                         cronExpr = task.cronExpr,
                                         runAt = task.runAt,

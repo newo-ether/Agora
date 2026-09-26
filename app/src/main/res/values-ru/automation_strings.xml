@@ -9,6 +9,8 @@
     <string name="task_prompt_hint">Что должна делать эта задача при каждом запуске?</string>
     <string name="task_model">Модель</string>
     <string name="task_model_default">По умолчанию в приложении</string>
+    <string name="task_system_prompt">Системный промпт</string>
+    <string name="task_system_prompt_default">По умолчанию в приложении</string>
     <string name="task_run_now">Запустить сейчас</string>
     <string name="task_delete">Удалить задачу</string>
     <string name="task_delete_confirm">Удалить «%1$s» и всю историю её запусков?</string>

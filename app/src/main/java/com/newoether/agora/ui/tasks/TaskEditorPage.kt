@@ -165,6 +165,7 @@ internal fun TaskDetailPage(
     val modelAliases by viewModel.settings.modelAliases.collectAsState()
     val modelProviderNames by viewModel.settings.modelProviderNames.collectAsState()
     val customProviders by viewModel.settings.customProviders.collectAsState()
+    val systemPrompts by viewModel.settings.systemPrompts.collectAsState()
 
     val name = editorSession.name
     val prompt = editorSession.prompt
@@ -175,6 +176,7 @@ internal fun TaskDetailPage(
     val enabled = editorSession.enabled
     val isNew = editorSession.isNew
     var showModelPicker by remember { mutableStateOf(false) }
+    var showSystemPromptPicker by remember { mutableStateOf(false) }
     var executionToDelete by remember(task.id) { mutableStateOf<com.newoether.agora.automation.TaskManager.ExecutionSummary?>(null) }
     val executionDeleteId = executionToDelete?.conversation?.id
     var executionDeletePhase by remember(executionDeleteId) {
@@ -337,6 +339,11 @@ internal fun TaskDetailPage(
                             },
                         )
                     },
+                    {
+                        TaskSystemPromptRow(editorSession.systemPromptId, systemPrompts) {
+                            showSystemPromptPicker = true
+                        }
+                    },
                 ),
             )
             Spacer(Modifier.height(24.dp))
@@ -431,6 +438,17 @@ internal fun TaskDetailPage(
                 showModelPicker = false
             },
             onDismiss = { showModelPicker = false },
+        )
+    }
+    if (showSystemPromptPicker) {
+        SystemPromptPickerDialog(
+            prompts = systemPrompts,
+            selected = editorSession.systemPromptId,
+            onSelect = {
+                editorSession.updateSystemPromptId(it)
+                showSystemPromptPicker = false
+            },
+            onDismiss = { showSystemPromptPicker = false },
         )
     }
     executionToDelete?.let {
