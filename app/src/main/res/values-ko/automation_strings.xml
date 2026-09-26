@@ -9,8 +9,6 @@
     <string name="task_prompt_hint">이 작업이 실행될 때마다 무엇을 해야 하나요?</string>
     <string name="task_model">모델</string>
     <string name="task_model_default">앱 기본값</string>
-    <string name="task_system_prompt">시스템 프롬프트</string>
-    <string name="task_system_prompt_default">앱 기본값</string>
     <string name="task_run_now">지금 실행</string>
     <string name="task_delete">작업 삭제</string>
     <string name="task_delete_confirm">“%1$s” 및 모든 실행 기록을 삭제할까요?</string>

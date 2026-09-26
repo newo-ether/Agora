@@ -8,8 +8,6 @@
     <string name="task_prompt_hint">What should this task do each run?</string>
     <string name="task_model">Model</string>
     <string name="task_model_default">App Default</string>
-    <string name="task_system_prompt">System Prompt</string>
-    <string name="task_system_prompt_default">App Default</string>
     <string name="task_run_now">Run Now</string>
     <string name="task_delete">Delete Task</string>
     <string name="task_delete_confirm">Delete “%1$s” and all of its execution history?</string>

@@ -32,7 +32,7 @@ internal fun TaskLabeledField(
     supporting: String? = null,
     supportingIsError: Boolean = false,
     /** Caps the field height for multi-line input; longer text scrolls inside the field. */
-    maxLines: Int = if (singleLine) 1 else 8,
+    maxLines: Int = if (singleLine) 1 else 16,
 ) {
     val fieldContent: @Composable () -> Unit = {
         Text(

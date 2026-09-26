@@ -108,7 +108,6 @@ internal class GenerationApiPathBuilder(
                     thinkingLevel = config.thinkingLevel,
                     thinkingBudgetEnabled = config.thinkingBudgetEnabled,
                     thinkingBudgetTokens = config.thinkingBudgetTokens,
-                    thinkingCapabilityOverride = config.thinkingCapabilityOverride,
                     openAiServiceTier = config.openAiServiceTier,
                     responsesApiEnabled = config.responsesApiEnabled,
                     anthropicCacheEnabled = config.anthropicCacheEnabled,

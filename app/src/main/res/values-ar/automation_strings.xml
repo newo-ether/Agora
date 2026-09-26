@@ -9,8 +9,6 @@
     <string name="task_prompt_hint">ما الذي ينبغي لهذه المهمة فعله في كل تشغيل؟</string>
     <string name="task_model">النموذج</string>
     <string name="task_model_default">الإعداد الافتراضي للتطبيق</string>
-    <string name="task_system_prompt">موجّه النظام</string>
-    <string name="task_system_prompt_default">الإعداد الافتراضي للتطبيق</string>
     <string name="task_run_now">تشغيل الآن</string>
     <string name="task_delete">حذف المهمة</string>
     <string name="task_delete_confirm">حذف «%1$s» وكل سجل تنفيذها؟</string>

@@ -3,7 +3,6 @@ package com.newoether.agora.api
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.CitationRecord
 import com.newoether.agora.model.ContextBudget
-import com.newoether.agora.model.ModelThinkingCapabilityOverride
 import com.newoether.agora.model.TokenUsage
 import com.newoether.agora.api.util.prepareMessages
 import kotlinx.coroutines.flow.Flow
@@ -114,8 +113,6 @@ data class ProviderConfig(
     val thinkingLevel: String = "medium",
     val thinkingBudgetEnabled: Boolean = false,
     val thinkingBudgetTokens: Int = 4096,
-    /** User correction for the selected model's documented thinking capability. */
-    val thinkingCapabilityOverride: ModelThinkingCapabilityOverride? = null,
     val openAiServiceTier: String? = null,
     val responsesApiEnabled: Boolean = false,
     val anthropicCacheEnabled: Boolean = true,

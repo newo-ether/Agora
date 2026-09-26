@@ -16,7 +16,6 @@ import com.newoether.agora.data.DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
 import com.newoether.agora.data.DEFAULT_SCHEME_STYLE
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.CustomEndpointProtocol
-import com.newoether.agora.model.ModelThinkingCapabilityOverride
 import com.newoether.agora.data.CustomEndpointResolution
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.CustomProviderIdentityMigration
@@ -144,9 +143,6 @@ class SettingsRepository(
     val thinkingBudgetEnabled: StateFlow<Boolean> = hot(settingsManager.thinkingBudgetEnabled, false)
     val thinkingBudgetTokens: StateFlow<Int> = hot(settingsManager.thinkingBudgetTokens, 4096)
     val openAiServiceTierEnabled: StateFlow<Boolean> = hot(settingsManager.openAiServiceTierEnabled, false)
-    /** Per-model corrections to the documented thinking capability, keyed by provider::model. */
-    val thinkingCapabilityOverrides: StateFlow<Map<String, ModelThinkingCapabilityOverride>> =
-        hot(settingsManager.modelPreferenceStore.thinkingCapabilityOverrides, emptyMap())
     val openAiServiceTier: StateFlow<String> = hot(settingsManager.openAiServiceTier, OpenAiServiceTiers.AUTO)
     val openAiResponsesApiEnabled: StateFlow<Boolean> =
         hot(settingsManager.openAiResponsesApiEnabled, false)

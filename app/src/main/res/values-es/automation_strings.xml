@@ -9,8 +9,6 @@
     <string name="task_prompt_hint">¿Qué debe hacer esta tarea en cada ejecución?</string>
     <string name="task_model">Modelo</string>
     <string name="task_model_default">Predeterminado de la aplicación</string>
-    <string name="task_system_prompt">Instrucción del sistema</string>
-    <string name="task_system_prompt_default">Predeterminado de la aplicación</string>
     <string name="task_run_now">Ejecutar ahora</string>
     <string name="task_delete">Eliminar tarea</string>
     <string name="task_delete_confirm">¿Eliminar «%1$s» y todo su historial de ejecuciones?</string>

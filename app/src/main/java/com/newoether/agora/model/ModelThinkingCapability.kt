@@ -4,8 +4,8 @@ package com.newoether.agora.model
  * What a single model can actually do with thinking/reasoning parameters.
  *
  * This replaces model-name guesswork spread across providers. A capability never blocks a request:
- * unknown models fall back to the permissive superset in [ModelThinkingCapability.Permissive], and
- * the user can override any entry.
+ * models without documentation get the permissive superset in [ModelThinkingCapability.Permissive],
+ * so every option stays in front of the user.
  *
  * @param canDisableThinking whether the endpoint accepts a "thinking off" request for this model.
  * @param supportedEfforts ordered subset of [ThinkingLevels.effortValues]; empty means the model

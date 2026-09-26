@@ -5,6 +5,7 @@ import com.newoether.agora.viewmodel.EmbeddingCacheRowReducer
 import com.newoether.agora.viewmodel.EmbeddingCacheRowSnapshot
 import com.newoether.agora.viewmodel.EmbeddingCacheWorkSnapshot
 import com.newoether.agora.viewmodel.embeddingCacheWorkSnapshotOrNull
+import com.newoether.agora.viewmodel.rowPhase
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -46,6 +47,20 @@ class EmbeddingCacheActionStateTest {
         assertEquals(EmbeddingCacheRowPhase.CACHE, retained.phase)
         assertEquals(4, retained.cached)
         assertEquals(10, retained.indexableTotal)
+    }
+
+    @Test
+    fun anUnresolvedRowStillReadsAsLoadingAndOnlyAFailureHasNoPhase() {
+        assertEquals(
+            EmbeddingCacheRowPhase.LOADING,
+            (null as EmbeddingCacheRowSnapshot?).rowPhase(),
+        )
+        assertEquals(EmbeddingCacheRowPhase.LOADING, EmbeddingCacheRowSnapshot().rowPhase())
+        assertNull(EmbeddingCacheRowReducer.refreshFailed(null).rowPhase())
+        assertEquals(
+            EmbeddingCacheRowPhase.CACHE,
+            EmbeddingCacheRowReducer.refreshed(null, 4, 10).rowPhase(),
+        )
     }
 
     @Test

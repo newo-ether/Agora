@@ -56,6 +56,14 @@ internal data class EmbeddingCacheRowSnapshot(
             else -> null
         }
 }
+/**
+ * A model whose counts have not been resolved yet is still loading them, so an absent snapshot
+ * reads as [EmbeddingCacheRowPhase.LOADING] instead of leaving the row without any status. Only a
+ * failed refresh drops the phase, because the page reports that failure separately.
+ */
+internal fun EmbeddingCacheRowSnapshot?.rowPhase(): EmbeddingCacheRowPhase? =
+    this?.phase ?: EmbeddingCacheRowPhase.LOADING.takeUnless { this?.countFailed == true }
+
 internal object EmbeddingCacheRowReducer {
     fun refreshRequested(previous: EmbeddingCacheRowSnapshot?) =
         (previous ?: EmbeddingCacheRowSnapshot()).copy(countLoading = true, countFailed = false)

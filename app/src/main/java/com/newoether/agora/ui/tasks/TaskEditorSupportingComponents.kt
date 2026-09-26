@@ -20,7 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.SystemPromptEntry
+import com.newoether.agora.ui.components.globalDefaultTitle
 import com.newoether.agora.data.modelAliasDisplayName
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
@@ -636,60 +637,28 @@ private fun ChoiceRow(label: String, sub: String?, selected: Boolean, onClick: (
     )
 }
 
-/** Details-group row naming the saved system prompt a task runs with. */
+/** Details-group row naming the saved system prompt a task runs with, worded like Chat's picker. */
 @Composable
 internal fun TaskSystemPromptRow(
     selectedId: String?,
     prompts: List<SystemPromptEntry>,
+    activeSystemPromptId: String?,
     onClick: () -> Unit,
 ) {
     val selected = prompts.firstOrNull { it.id == selectedId }
     SettingsItem(
         modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text(stringResource(R.string.task_system_prompt)) },
+        headlineContent = { Text(stringResource(R.string.system_prompt)) },
         supportingContent = {
-            Text(selected?.title ?: stringResource(R.string.task_system_prompt_default))
+            Text(
+                selected?.title ?: stringResource(
+                    R.string.global_default_format,
+                    globalDefaultTitle(prompts, activeSystemPromptId),
+                )
+            )
         },
         leadingContent = {
-            Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.Psychology, null, tint = MaterialTheme.colorScheme.primary)
         },
-    )
-}
-
-/** Picker for the saved system prompt a task runs with. The default entry keeps whichever prompt
- *  the app is currently set to, resolved at run time like any other conversation. */
-@Composable
-internal fun SystemPromptPickerDialog(
-    prompts: List<SystemPromptEntry>,
-    selected: String?,
-    onSelect: (String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.task_system_prompt), fontWeight = FontWeight.Bold) },
-        text = {
-            androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                item {
-                    ChoiceRow(
-                        label = stringResource(R.string.task_system_prompt_default),
-                        sub = null,
-                        selected = selected == null,
-                        onClick = { onSelect(null) },
-                    )
-                }
-                items(prompts, key = { it.id }) { prompt ->
-                    ChoiceRow(
-                        label = prompt.title,
-                        sub = null,
-                        selected = selected == prompt.id,
-                        onClick = { onSelect(prompt.id) },
-                    )
-                }
-            }
-        },
-        // Close, not Cancel: a tap applies immediately, so there is nothing to cancel.
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.provider_close)) } },
     )
 }

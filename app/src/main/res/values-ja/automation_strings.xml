@@ -9,8 +9,6 @@
     <string name="task_prompt_hint">実行するたびに、このタスクで何を行いますか？</string>
     <string name="task_model">モデル</string>
     <string name="task_model_default">アプリのデフォルト</string>
-    <string name="task_system_prompt">システムプロンプト</string>
-    <string name="task_system_prompt_default">アプリのデフォルト</string>
     <string name="task_run_now">今すぐ実行</string>
     <string name="task_delete">タスクを削除</string>
     <string name="task_delete_confirm">「%1$s」とその実行履歴をすべて削除しますか？</string>

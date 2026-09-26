@@ -50,11 +50,11 @@ class AnthropicProviderRequestSerializationTest {
     }
 
     @Test
-    fun alwaysThinkingModelsDropToLowestEffortAndOpusOffIsSent() = withServer { server ->
+    fun undocumentedModelsKeepTheOffSwitchTheUserChose() = withServer { server ->
+        // No public reference documents these ids, so Agora must not force thinking on.
         listOf("claude-fable-5", "claude-mythos-5", "claude-mythos-preview").forEach { model ->
             val body = server.capture(config(server, model).copy(thinkingEnabled = false))
-            assertEquals("adaptive", body["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
-            assertEquals("low", body["output_config"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
+            assertEquals("disabled", body["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
         }
         val opus = server.capture(
             config(server, "claude-opus-5").copy(

@@ -2,6 +2,7 @@ package com.newoether.agora.ui.tasks
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +22,6 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Schedule
@@ -31,6 +31,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -43,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
@@ -58,6 +60,7 @@ import com.newoether.agora.data.modelDisplayName
 import java.util.Calendar
 import com.newoether.agora.ui.chat.ChatDeleteConfirmDialog
 import com.newoether.agora.ui.chat.ChatDeleteDialogPhase
+import com.newoether.agora.ui.components.SystemPromptPickerDialog
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.settings.AnimatedActionFab
 import com.newoether.agora.ui.settings.CollapsingSettingsLazyScaffold
@@ -65,7 +68,6 @@ import com.newoether.agora.ui.settings.SettingsGroup
 import com.newoether.agora.ui.settings.SettingsItem
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import java.util.Locale
 
 /**
@@ -94,12 +96,6 @@ internal fun isScheduleDraftValid(mode: ScheduleEditorMode, cronExpr: String): B
     } else {
         cronExpr.isBlank() || CronExpression.isValid(cronExpr)
     }
-
-internal fun shouldRestoreTaskDetailScroll(
-    executionsLoaded: Boolean,
-    totalItemsCount: Int,
-    savedIndex: Int,
-): Boolean = executionsLoaded && totalItemsCount > savedIndex.coerceAtLeast(0)
 
 internal fun taskExecutionHistoryForPresentation(
     previewPhase: TaskHistoryPreviewPhase,
@@ -166,6 +162,7 @@ internal fun TaskDetailPage(
     val modelProviderNames by viewModel.settings.modelProviderNames.collectAsState()
     val customProviders by viewModel.settings.customProviders.collectAsState()
     val systemPrompts by viewModel.settings.systemPrompts.collectAsState()
+    val activeSystemPromptId by viewModel.settings.activeSystemPromptId.collectAsState()
 
     val name = editorSession.name
     val prompt = editorSession.prompt
@@ -177,6 +174,7 @@ internal fun TaskDetailPage(
     val isNew = editorSession.isNew
     var showModelPicker by remember { mutableStateOf(false) }
     var showSystemPromptPicker by remember { mutableStateOf(false) }
+    var showPromptDialog by remember { mutableStateOf(false) }
     var executionToDelete by remember(task.id) { mutableStateOf<com.newoether.agora.automation.TaskManager.ExecutionSummary?>(null) }
     val executionDeleteId = executionToDelete?.conversation?.id
     var executionDeletePhase by remember(executionDeleteId) {
@@ -210,13 +208,15 @@ internal fun TaskDetailPage(
     )
     val executions = executionSnapshot.orEmpty()
     val executionsLoaded = executionSnapshot != null
+    // History arrives after the first frame, so a saved position the list cannot honour yet gets
+    // clamped and then corrected once the rows exist, which is the visible upward jump. A fresh
+    // entry therefore starts at the top; only a retained snapshot (returning from a preview, where
+    // the full list composes immediately) restores the saved position.
     val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = savedListIndex,
-        initialFirstVisibleItemScrollOffset = savedListOffset,
+        initialFirstVisibleItemIndex = if (retainedExecutionSnapshot != null) savedListIndex else 0,
+        initialFirstVisibleItemScrollOffset =
+            if (retainedExecutionSnapshot != null) savedListOffset else 0,
     )
-    var scrollRestored by remember(task.id) {
-        mutableStateOf(retainedExecutionSnapshot != null)
-    }
     val focusManager = LocalFocusManager.current
 
     val isRunning = task.id in running
@@ -235,29 +235,7 @@ internal fun TaskDetailPage(
         }
     }
 
-    LaunchedEffect(
-        task.id,
-        listState,
-        savedListIndex,
-        savedListOffset,
-        executionsLoaded,
-        scrollRestored,
-    ) {
-        if (scrollRestored || !executionsLoaded) return@LaunchedEffect
-        snapshotFlow { listState.layoutInfo.totalItemsCount }
-            .first { totalItemsCount ->
-                shouldRestoreTaskDetailScroll(
-                    executionsLoaded = true,
-                    totalItemsCount = totalItemsCount,
-                    savedIndex = savedListIndex,
-                )
-            }
-        listState.scrollToItem(savedListIndex, savedListOffset)
-        scrollRestored = true
-    }
-
-    LaunchedEffect(task.id, listState, scrollRestored) {
-        if (!scrollRestored) return@LaunchedEffect
+    LaunchedEffect(task.id, listState) {
         snapshotFlow {
             listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
         }
@@ -265,8 +243,13 @@ internal fun TaskDetailPage(
             .collect { (index, offset) -> editorSession.updateScroll(index, offset) }
     }
 
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) focusManager.clearFocus()
+    // Only a user drag dismisses the keyboard. The list also scrolls on its own to bring a newly
+    // focused field into view, and treating that scroll as a dismissal dropped focus (and the
+    // cursor) the moment the prompt field was tapped.
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start) focusManager.clearFocus()
+        }
     }
 
     CollapsingSettingsLazyScaffold(
@@ -315,14 +298,7 @@ internal fun TaskDetailPage(
                         )
                     },
                     {
-                        TaskLabeledField(
-                            label = stringResource(R.string.task_prompt),
-                            icon = Icons.Default.Psychology,
-                            value = prompt,
-                            onValueChange = editorSession::updatePrompt,
-                            placeholder = stringResource(R.string.task_prompt_hint),
-                            singleLine = false,
-                        )
+                        TaskPromptRow(prompt) { showPromptDialog = true }
                     },
                     {
                         SettingsItem(
@@ -340,7 +316,7 @@ internal fun TaskDetailPage(
                         )
                     },
                     {
-                        TaskSystemPromptRow(editorSession.systemPromptId, systemPrompts) {
+                        TaskSystemPromptRow(editorSession.systemPromptId, systemPrompts, activeSystemPromptId) {
                             showSystemPromptPicker = true
                         }
                     },
@@ -370,7 +346,27 @@ internal fun TaskDetailPage(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
         }
-        if (executionsLoaded && executions.isEmpty()) {
+        if (!executionsLoaded) {
+            // The history section owns the wait, so the rest of the page stays put while it loads.
+            item(key = "task_detail_history_loading") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 1.dp,
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 3.dp,
+                        )
+                    }
+                }
+            }
+        } else if (executions.isEmpty()) {
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -440,11 +436,23 @@ internal fun TaskDetailPage(
             onDismiss = { showModelPicker = false },
         )
     }
+    if (showPromptDialog) {
+        TaskPromptDialog(
+            initial = prompt,
+            onSave = {
+                editorSession.updatePrompt(it)
+                showPromptDialog = false
+            },
+            onDismiss = { showPromptDialog = false },
+        )
+    }
+
     if (showSystemPromptPicker) {
         SystemPromptPickerDialog(
-            prompts = systemPrompts,
-            selected = editorSession.systemPromptId,
-            onSelect = {
+            settings = viewModel.settings,
+            initialSelectedId = editorSession.systemPromptId,
+            selectionKey = editorSession.systemPromptId,
+            onSave = {
                 editorSession.updateSystemPromptId(it)
                 showSystemPromptPicker = false
             },

@@ -483,12 +483,4 @@
     <string name="openai_service_tier_priority">Приоритет</string>
     <string name="openai_service_tier_fast">Быстрый</string>
     <string name="openai_service_tier_ultrafast">Ультрабыстрый</string>
-    <string name="thinking_capability_title">Возможности модели</string>
-    <string name="thinking_capability_desc">Исправьте, что эта модель принимает для размышления</string>
-    <string name="thinking_capability_overridden">Исправлено для этой модели</string>
-    <string name="thinking_capability_efforts">Допустимые уровни усилий</string>
-    <string name="thinking_capability_can_disable">Размышление можно отключить</string>
-    <string name="thinking_capability_budget">Принимает бюджет размышления</string>
-    <string name="thinking_capability_sampling">Принимает temperature и top_p</string>
-    <string name="thinking_capability_reset">Использовать значение по умолчанию</string>
 </resources>

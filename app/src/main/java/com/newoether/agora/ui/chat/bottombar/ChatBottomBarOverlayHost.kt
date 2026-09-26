@@ -19,8 +19,6 @@ import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.ui.chat.PdfPageSelectDialog
 import com.newoether.agora.ui.chat.VideoSliceDialog
 import com.newoether.agora.ui.common.OpenAiServiceTierControlPanel
-import com.newoether.agora.ui.common.ThinkingCapabilityOverrideBinding
-import com.newoether.agora.ui.common.ThinkingCapabilityOverridePanel
 import com.newoether.agora.ui.common.ThinkingControlPanel
 import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
 import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet as ModalBottomSheet
@@ -49,7 +47,6 @@ internal fun ChatBottomBarOverlayHost(
     onThinkingBudgetTokensChange: (Int) -> Unit,
     selectedModel: String,
     customProviders: List<CustomProviderConfig>,
-    capabilityOverride: ThinkingCapabilityOverrideBinding,
     showOpenAiServiceTierSheet: Boolean,
     openAiServiceTierAvailable: Boolean,
     onDismissOpenAiServiceTierSheet: () -> Unit,
@@ -115,9 +112,8 @@ internal fun ChatBottomBarOverlayHost(
         }
     }
 
-    val override = capabilityOverride.override
-    val thinkingCapability = remember(selectedModel, customProviders, override) {
-        thinkingCapabilityForSelectedModel(selectedModel, customProviders, override)
+    val thinkingCapability = remember(selectedModel, customProviders) {
+        thinkingCapabilityForSelectedModel(selectedModel, customProviders)
     }
     if (showThinkingSheet) {
         ModalBottomSheet(
@@ -146,11 +142,6 @@ internal fun ChatBottomBarOverlayHost(
                     allowDisable = thinkingCapability.canDisableThinking,
                     showBudgetControls = thinkingCapability.supportsThinkingBudget,
                     animateSections = true,
-                )
-                ThinkingCapabilityOverridePanel(
-                    capability = thinkingCapability,
-                    hasOverride = override?.isEmpty == false,
-                    onOverrideChange = capabilityOverride.onChange,
                 )
                 Spacer(modifier = Modifier.height(24.dp))
             }

@@ -31,7 +31,6 @@ import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.ui.common.LocalAgoraHaptics
-import com.newoether.agora.ui.common.ThinkingCapabilityOverrideBinding
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.viewmodel.ConversationComposerController
 import com.newoether.agora.viewmodel.ConversationComposerSnapshot
@@ -74,7 +73,6 @@ internal fun ChatBottomBar(
     modelAliases: Map<String, String> = emptyMap(),
     modelProviderNames: Map<String, Boolean> = emptyMap(),
     customProviders: List<CustomProviderConfig> = emptyList(),
-    capabilityOverride: ThinkingCapabilityOverrideBinding = ThinkingCapabilityOverrideBinding(),
     codeExecutionEnabled: Boolean = false,
     googleSearchEnabled: Boolean = false,
     openAiWebSearchAvailable: Boolean = false,
@@ -601,7 +599,6 @@ internal fun ChatBottomBar(
         onThinkingBudgetTokensChange = onThinkingBudgetTokensChange,
         selectedModel = selectedModel,
         customProviders = customProviders,
-        capabilityOverride = capabilityOverride,
         showOpenAiServiceTierSheet = showOpenAiServiceTierSheet,
         openAiServiceTierAvailable = openAiServiceTierAvailable,
         onDismissOpenAiServiceTierSheet = { showOpenAiServiceTierSheet = false },

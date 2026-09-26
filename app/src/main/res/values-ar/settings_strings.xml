@@ -483,12 +483,4 @@
     <string name="openai_service_tier_priority">الأولوية</string>
     <string name="openai_service_tier_fast">سريع</string>
     <string name="openai_service_tier_ultrafast">فائق السرعة</string>
-    <string name="thinking_capability_title">قدرة النموذج</string>
-    <string name="thinking_capability_desc">صحّح ما يقبله هذا النموذج للتفكير</string>
-    <string name="thinking_capability_overridden">مُصحَّح لهذا النموذج</string>
-    <string name="thinking_capability_efforts">مستويات الجهد المقبولة</string>
-    <string name="thinking_capability_can_disable">يمكن إيقاف التفكير</string>
-    <string name="thinking_capability_budget">يقبل حدًا لرموز التفكير</string>
-    <string name="thinking_capability_sampling">يقبل temperature و top_p</string>
-    <string name="thinking_capability_reset">استخدام الإعداد الموثّق</string>
 </resources>

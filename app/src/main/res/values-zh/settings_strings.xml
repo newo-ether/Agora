@@ -499,12 +499,4 @@
     <string name="openai_service_tier_priority">优先</string>
     <string name="openai_service_tier_fast">快速</string>
     <string name="openai_service_tier_ultrafast">超高速</string>
-    <string name="thinking_capability_title">模型能力</string>
-    <string name="thinking_capability_desc">修正该模型接受的思考参数</string>
-    <string name="thinking_capability_overridden">已为该模型修正</string>
-    <string name="thinking_capability_efforts">可用思考档位</string>
-    <string name="thinking_capability_can_disable">可以关闭思考</string>
-    <string name="thinking_capability_budget">接受思考预算</string>
-    <string name="thinking_capability_sampling">接受 temperature 与 top_p</string>
-    <string name="thinking_capability_reset">使用文档默认值</string>
 </resources>

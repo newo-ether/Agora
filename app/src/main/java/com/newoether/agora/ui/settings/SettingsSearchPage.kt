@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.DpSize
 import com.newoether.agora.R
 import com.newoether.agora.api.ProviderDefaults
 import com.newoether.agora.viewmodel.EmbeddingCacheRowPhase
+import com.newoether.agora.viewmodel.rowPhase
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.util.Constants
@@ -323,7 +324,7 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             add {
                                 val isActive = model.id == activeEmbeddingModelId
                                 val cacheRow = cacheRows[model.id]
-                                val visualPhase = cacheRow?.phase
+                                val visualPhase = cacheRow.rowPhase()
                                 SettingsItem(
                                     headlineContent = { Text(model.name) },
                                     supportingContent = {

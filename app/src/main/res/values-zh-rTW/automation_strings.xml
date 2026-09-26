@@ -9,8 +9,6 @@
     <string name="task_prompt_hint">每次執行時要讓這項任務做什麼？</string>
     <string name="task_model">模型</string>
     <string name="task_model_default">應用程式預設</string>
-    <string name="task_system_prompt">系統指令</string>
-    <string name="task_system_prompt_default">應用程式預設</string>
     <string name="task_run_now">立即執行</string>
     <string name="task_delete">刪除任務</string>
     <string name="task_delete_confirm">刪除「%1$s」及其所有執行記錄？</string>

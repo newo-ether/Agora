@@ -21,8 +21,6 @@ class TaskEditorSourceContractTest {
         assertTrue(detail.contains("preservePersistedEnabled = false"))
         assertTrue(detail.contains("collectAsState(initial = null)"))
         assertTrue(detail.contains("taskExecutionHistoryForPresentation("))
-        assertTrue(detail.contains("if (scrollRestored || !executionsLoaded) return@LaunchedEffect"))
-        assertTrue(detail.contains("initialFirstVisibleItemIndex = savedListIndex"))
         assertTrue(detail.contains("editorSession.retainExecutionHistory(task.id, executions)"))
         assertFalse(detail.contains("collectAsState(initial = emptyList())"))
         assertFalse(detail.contains("rememberSaveable"))
@@ -108,11 +106,45 @@ class TaskEditorSourceContractTest {
     }
 
     @Test
-    fun promptFieldIsHeightCappedAndScrollsInsteadOfGrowing() {
-        val field = source("ui/tasks/TaskLabeledField.kt")
+    fun thePromptIsEditedInADialogOpenedFromAPreviewRow() {
+        val editor = source("ui/tasks/TaskEditorPage.kt")
+        val dialog = source("ui/tasks/TaskPromptDialog.kt")
 
-        assertTrue(field.contains("maxLines: Int = if (singleLine) 1 else 8"))
-        assertTrue(field.contains("minLines = if (singleLine) 1 else 4,\n            maxLines = maxLines,"))
+        assertTrue(editor.contains("TaskPromptRow(prompt) { showPromptDialog = true }"))
+        assertTrue(editor.contains("TaskPromptDialog("))
+        assertFalse(editor.contains("onValueChange = editorSession::updatePrompt"))
+        assertTrue(dialog.contains("Modifier.clickable(onClick = onClick)"))
+        assertTrue(dialog.contains("minLines = 4,\n                maxLines = 12,"))
+        assertTrue(dialog.contains("onClick = { onSave(draft) }"))
+    }
+
+    @Test
+    fun loadingHistoryShowsAProgressRowAndNeverCorrectsTheScrollAfterwards() {
+        val editor = source("ui/tasks/TaskEditorPage.kt")
+
+        assertTrue(editor.contains("if (!executionsLoaded) {"))
+        assertTrue(editor.contains("CircularProgressIndicator("))
+        assertTrue(
+            editor.contains(
+                "initialFirstVisibleItemIndex = " +
+                    "if (retainedExecutionSnapshot != null) savedListIndex else 0",
+            ),
+        )
+        assertFalse(editor.contains("shouldRestoreTaskDetailScroll"))
+        assertFalse(editor.contains("scrollRestored"))
+        assertFalse(editor.contains("scrollToItem("))
+    }
+
+    @Test
+    fun onlyAUserDragDismissesTheKeyboardSoATappedFieldKeepsItsCursor() {
+        val detail = source("ui/tasks/TaskEditorPage.kt")
+            .substringAfter("internal fun TaskDetailPage(")
+            .substringBefore("internal fun formatDateTime(")
+
+        // Focusing a field makes the list scroll itself into view; that must not clear focus.
+        assertFalse(detail.contains("LaunchedEffect(listState.isScrollInProgress)"))
+        assertTrue(detail.contains("listState.interactionSource.interactions.collect"))
+        assertTrue(detail.contains("if (interaction is DragInteraction.Start) focusManager.clearFocus()"))
     }
 
     @Test
@@ -123,9 +155,14 @@ class TaskEditorSourceContractTest {
         val manager = source("automation/TaskManager.kt")
 
         assertTrue(editor.contains("viewModel.settings.systemPrompts.collectAsState()"))
-        assertTrue(editor.contains("TaskSystemPromptRow(editorSession.systemPromptId, systemPrompts)"))
-        assertTrue(editor.contains("SystemPromptPickerDialog("))
-        assertTrue(components.contains("internal fun SystemPromptPickerDialog("))
+        assertTrue(
+            editor.contains("TaskSystemPromptRow(editorSession.systemPromptId, systemPrompts, activeSystemPromptId)"),
+        )
+        // The task picker is Chat's picker, not a lookalike.
+        assertTrue(editor.contains("import com.newoether.agora.ui.components.SystemPromptPickerDialog"))
+        assertTrue(editor.contains("settings = viewModel.settings,"))
+        assertFalse(components.contains("fun SystemPromptPickerDialog("))
+        assertTrue(components.contains("Icon(Icons.Default.Psychology, null"))
         assertTrue(session.contains("fun updateSystemPromptId(value: String?)"))
         assertTrue(session.contains("systemPromptId = systemPromptId,"))
         // The run must resolve the prompt through the conversation, so later prompt edits apply.

@@ -1,7 +1,4 @@
 package com.newoether.agora.ui.chat
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -10,19 +7,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.newoether.agora.data.CustomProviderConfig
-import com.newoether.agora.data.DefaultSystemPrompt
-import com.newoether.agora.data.SystemPromptEntry
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.ui.common.AgoraHaptics
-import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
-import com.newoether.agora.ui.settings.SystemPromptEditorPage
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 
@@ -146,16 +136,8 @@ internal fun ChatAppDialogHost(
     customProviders: List<CustomProviderConfig>,
     isCompacting: Boolean,
 ) {
-    var promptDraft by remember { mutableStateOf<SystemPromptEntry?>(null) }
-    var pendingCreatedPromptId by remember { mutableStateOf<String?>(null) }
-    var savingPromptDraft by remember { mutableStateOf(false) }
     val promptEditorScope = rememberCoroutineScope()
-    val systemPrompts by viewModel.settings.systemPrompts.collectAsState()
-    val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val currentConversationId by viewModel.currentConversationId.collectAsState()
-    val createdPromptId = pendingCreatedPromptId?.takeIf { id ->
-        systemPrompts.any { it.id == id }
-    }
 
     state.renameConversationId?.let { id ->
         ChatRenameDialog(
@@ -201,56 +183,7 @@ internal fun ChatAppDialogHost(
     }
 
     if (state.promptVisible) {
-        ChatSystemPromptDialog(
-            viewModel = viewModel,
-            createdPromptId = createdPromptId,
-            onCreatedPromptConsumed = { pendingCreatedPromptId = null },
-            onCreate = { promptDraft = DefaultSystemPrompt.create().copy(title = "") },
-            onDismiss = state::dismissPrompt,
-        )
-    }
-
-    promptDraft?.let { draft ->
-        Dialog(
-            onDismissRequest = { if (!savingPromptDraft) promptDraft = null },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false,
-            ),
-        ) {
-            DialogWindowEdgeToEdge()
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background,
-            ) {
-                SystemPromptEditorPage(
-                    entry = draft,
-                    isNew = true,
-                    saveEnabled = !savingPromptDraft,
-                    onSave = { title, systemItems, userItems, assistantItems ->
-                        if (!savingPromptDraft) {
-                            savingPromptDraft = true
-                            promptEditorScope.launch {
-                                try {
-                                    pendingCreatedPromptId = viewModel.settings.addSystemPromptAndAwait(
-                                        id = draft.id,
-                                        title = title,
-                                        systemItems = systemItems,
-                                        userItems = userItems,
-                                        assistantItems = assistantItems,
-                                    )
-                                    promptDraft = null
-                                } finally {
-                                    savingPromptDraft = false
-                                }
-                            }
-                        }
-                    },
-                    onBack = { if (!savingPromptDraft) promptDraft = null },
-                    showDocFab = showDocFab,
-                )
-            }
-        }
+        ChatSystemPromptDialog(viewModel = viewModel, onDismiss = state::dismissPrompt)
     }
 
     if (state.advancedVisible) {

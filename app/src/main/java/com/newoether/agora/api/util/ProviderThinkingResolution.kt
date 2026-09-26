@@ -18,7 +18,6 @@ internal fun ProviderConfig.resolvedThinking(family: ThinkingProviderFamily): Re
         capability = ModelThinkingCapabilities.forModel(
             family = family,
             modelId = modelId,
-            override = thinkingCapabilityOverride,
         ),
         requestedEnabled = thinkingEnabled,
         requestedEffort = thinkingLevel,

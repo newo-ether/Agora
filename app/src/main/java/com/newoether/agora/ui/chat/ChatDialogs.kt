@@ -34,6 +34,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.newoether.agora.R
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.data.ConversationSettings
+import com.newoether.agora.ui.components.SystemPromptPickerDialog
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.viewmodel.ChatViewModel
 
@@ -213,101 +214,33 @@ internal fun ChatForkConfirmDialog(
     )
 }
 
-/** Per-conversation system-prompt selector dialog. */
+/** Per-conversation system-prompt selector: the shared picker bound to this conversation. */
 @Composable
 internal fun ChatSystemPromptDialog(
     viewModel: ChatViewModel,
-    createdPromptId: String?,
-    onCreatedPromptConsumed: () -> Unit,
-    onCreate: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val conversations by viewModel.conversations.collectAsState()
     val currentConversationId by viewModel.currentConversationId.collectAsState()
     val isNewChatMode by viewModel.isNewChatMode.collectAsState()
-    val systemPrompts by viewModel.settings.systemPrompts.collectAsState()
-    val activeSystemPromptId by viewModel.settings.activeSystemPromptId.collectAsState()
-
     val currentConversation = conversations.orEmpty().find { it.id == currentConversationId }
     val pendingPrompt by viewModel.pendingSystemPromptId.collectAsState()
-    var selectedPromptId by remember(
-        isNewChatMode,
-        currentConversationId,
-        pendingPrompt,
-        currentConversation?.systemPromptId,
-    ) {
-        mutableStateOf(if (isNewChatMode) pendingPrompt else currentConversation?.systemPromptId)
-    }
 
-    LaunchedEffect(createdPromptId) {
-        createdPromptId?.let { id ->
-            selectedPromptId = id
-            onCreatedPromptConsumed()
-        }
-    }
-
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.system_prompt), fontWeight = FontWeight.Bold) },
-        text = {
-            LazyColumn {
-                item {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().clickable { selectedPromptId = null }.padding(8.dp)
-                    ) {
-                        RadioButton(
-                            selected = selectedPromptId == null,
-                            onClick = { selectedPromptId = null }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        val globalDefaultTitle = systemPrompts.find { it.id == activeSystemPromptId }?.title ?: stringResource(R.string.no_system_prompt)
-                        Text(stringResource(R.string.global_default_format, globalDefaultTitle))
-                    }
-                }
-                items(systemPrompts, key = { it.id }) { prompt ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().clickable { selectedPromptId = prompt.id }.padding(8.dp)
-                    ) {
-                        RadioButton(
-                            selected = selectedPromptId == prompt.id,
-                            onClick = { selectedPromptId = prompt.id }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(prompt.title)
-                    }
+    SystemPromptPickerDialog(
+        settings = viewModel.settings,
+        initialSelectedId = if (isNewChatMode) pendingPrompt else currentConversation?.systemPromptId,
+        selectionKey = listOf(isNewChatMode, currentConversationId, pendingPrompt, currentConversation?.systemPromptId),
+        onSave = { selectedPromptId ->
+            if (isNewChatMode) {
+                viewModel.setPendingSystemPrompt(selectedPromptId)
+            } else {
+                currentConversationId?.let { id ->
+                    viewModel.setConversationSystemPrompt(id, selectedPromptId)
                 }
             }
+            onDismiss()
         },
-        confirmButton = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onCreate) {
-                    Text(stringResource(R.string.memory_create))
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.cancel))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = {
-                    if (isNewChatMode) {
-                        viewModel.setPendingSystemPrompt(selectedPromptId)
-                    } else {
-                        currentConversationId?.let { id ->
-                            viewModel.setConversationSystemPrompt(id, selectedPromptId)
-                        }
-                    }
-                    onDismiss()
-                }) {
-                    Text(stringResource(R.string.save))
-                }
-            }
-        },
+        onDismiss = onDismiss,
     )
 }
 

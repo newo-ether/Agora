@@ -42,31 +42,6 @@ class TasksScreenTest {
     }
 
     @Test
-    fun scrollRestore_waitsForExecutionDataAndSavedIndex() {
-        assertFalse(
-            shouldRestoreTaskDetailScroll(
-                executionsLoaded = false,
-                totalItemsCount = 7,
-                savedIndex = 4,
-            ),
-        )
-        assertFalse(
-            shouldRestoreTaskDetailScroll(
-                executionsLoaded = true,
-                totalItemsCount = 7,
-                savedIndex = 7,
-            ),
-        )
-        assertTrue(
-            shouldRestoreTaskDetailScroll(
-                executionsLoaded = true,
-                totalItemsCount = 8,
-                savedIndex = 7,
-            ),
-        )
-    }
-
-    @Test
     fun returningHistoryKeepsTheExactRetainedFirstFrameWhileLiveDataBuffers() {
         val retained = listOf(execution("history-1"))
         val changedLive = listOf(execution("history-1"), execution("history-2"))

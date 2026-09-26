@@ -3,7 +3,6 @@ package com.newoether.agora.data
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.ModelThinkingCapabilities
 import com.newoether.agora.model.ModelThinkingCapability
-import com.newoether.agora.model.ModelThinkingCapabilityOverride
 
 /**
  * Thinking capability of one selected model, as the UI needs it to offer exactly the options the
@@ -15,7 +14,6 @@ import com.newoether.agora.model.ModelThinkingCapabilityOverride
 fun thinkingCapabilityForSelectedModel(
     selectedModel: String,
     customProviders: List<CustomProviderConfig>,
-    override: ModelThinkingCapabilityOverride? = null,
 ): ModelThinkingCapability {
     val parsed = ModelId.parse(selectedModel)
     val custom = customProviders.firstOrNull {
@@ -25,6 +23,5 @@ fun thinkingCapabilityForSelectedModel(
         providerName = parsed.providerName,
         modelId = parsed.modelName,
         customProtocolWireValue = custom?.protocol?.wireValue,
-        override = override,
     )
 }

@@ -483,12 +483,4 @@
     <string name="openai_service_tier_priority">優先</string>
     <string name="openai_service_tier_fast">高速</string>
     <string name="openai_service_tier_ultrafast">超高速</string>
-    <string name="thinking_capability_title">モデル能力</string>
-    <string name="thinking_capability_desc">このモデルが受け付ける思考設定を修正します</string>
-    <string name="thinking_capability_overridden">このモデルは修正済み</string>
-    <string name="thinking_capability_efforts">利用できる思考レベル</string>
-    <string name="thinking_capability_can_disable">思考をオフにできる</string>
-    <string name="thinking_capability_budget">思考バジェットを受け付ける</string>
-    <string name="thinking_capability_sampling">temperature と top_p を受け付ける</string>
-    <string name="thinking_capability_reset">ドキュメントの既定値を使う</string>
 </resources>

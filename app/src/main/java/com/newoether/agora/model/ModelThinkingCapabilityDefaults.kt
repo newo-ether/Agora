@@ -41,6 +41,10 @@ object ModelThinkingCapabilityDefaults {
         supportsSamplingParams = false,
     )
 
+    // An Anthropic-protocol id with no public documentation: every option stays open. Only the
+    // protocol-wide budget floor (budget_tokens >= 1024) is kept.
+    private val anthropicUndocumented = ModelThinkingCapability(minBudgetTokens = 1024)
+
     // OpenAI: ReasoningEffort = none/minimal/low/medium/high/xhigh/max. "none" is expressed by
     // turning thinking off. No token budget parameter exists.
     private val openAi = ModelThinkingCapability(
@@ -155,14 +159,10 @@ object ModelThinkingCapabilityDefaults {
      *  - 3.7 through 4.5 take `thinking.enabled` with `budget_tokens` and no effort selector;
      *  - 4.6 adds `output_config.effort` while still accepting the sampling parameters;
      *  - later models take effort and reject temperature/top_k/top_p.
-     * An id Agora does not recognise gets the current, most capable shape.
+     * An id Agora has no documentation for gets every option.
      */
     private fun anthropicCapability(model: String): ModelThinkingCapability = when {
-        !model.startsWith("claude") -> anthropic
-
-        // Always-thinking models: thinking cannot be turned off.
-        model in setOf("claude-fable-5", "claude-mythos-5", "claude-mythos-preview") ->
-            anthropic.copy(canDisableThinking = false)
+        !model.startsWith("claude") -> anthropicUndocumented
 
         listOf("claude-3-opus", "claude-3-sonnet", "claude-3-haiku", "claude-3-5-")
             .any { model.startsWith(it) } -> ModelThinkingCapability(
@@ -186,7 +186,9 @@ object ModelThinkingCapabilityDefaults {
             supportsSamplingParams = true,
         )
 
-        else -> anthropic
+        // No public reference documents this id (for example claude-opus-5 or claude-mythos-5), so
+        // every option stays available and the user decides what the endpoint accepts.
+        else -> anthropicUndocumented
     }
 
     private fun qwenCapability(model: String): ModelThinkingCapability = when {
@@ -213,7 +215,13 @@ object ModelThinkingCapabilityDefaults {
         model in qwenThinkingOnlyModels || model.startsWith("qwq-plus-") ->
             qwenHybrid.copy(canDisableThinking = false)
 
-        else -> qwenHybrid
+        // Qwen hybrid series (qwen-plus, qwen3.6-plus, ...): documented enable_thinking toggle
+        // plus thinking_budget.
+        model.startsWith("qwen") -> qwenHybrid
+
+        // A third-party id served through DashScope with no documentation: offer every option
+        // and let the user decide.
+        else -> ModelThinkingCapability.Permissive
     }
 
     private val qwenThinkingOnlyModels = setOf(
@@ -236,6 +244,11 @@ object ModelThinkingCapabilityDefaults {
         // reasoning off.
         model == "qwen/qwen3.6-27b" -> groq.copy(supportedEfforts = listOf("default"))
 
-        else -> groq
+        // Qwen 3.8 27B documents low/medium/high plus "none".
+        model == "qwen/qwen3.8-27b" -> groq
+
+        // Undocumented id: every effort level and the off switch stay available. Groq has no
+        // token-budget parameter at all, so a budget control would send nothing.
+        else -> ModelThinkingCapability.Permissive.copy(supportsThinkingBudget = false)
     }
 }
