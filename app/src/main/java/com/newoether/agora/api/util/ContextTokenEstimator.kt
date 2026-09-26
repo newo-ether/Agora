@@ -55,22 +55,76 @@ object ContextTokenEstimator {
         googleSearchEnabled: Boolean = false,
         openAiWebSearchEnabled: Boolean = false,
     ): Int {
-        var raw = MESSAGE_OVERHEAD.toLong() + estimateTextRaw(systemPrompt.orEmpty())
-        initialUserPrompt?.takeIf(String::isNotBlank)?.let { prompt ->
-            raw += MESSAGE_OVERHEAD + estimateTextRaw(prompt)
+        val parts = fixedRawParts(
+            systemPrompt = systemPrompt,
+            tools = tools,
+            initialUserPrompt = initialUserPrompt,
+            codeExecutionEnabled = codeExecutionEnabled,
+            googleSearchEnabled = googleSearchEnabled,
+            openAiWebSearchEnabled = openAiWebSearchEnabled,
+        )
+        return applySafetyMargin(
+            (parts.prompt + parts.tools).coerceAtMost(Int.MAX_VALUE.toLong()),
+        )
+    }
+
+    /**
+     * The same fixed cost as [estimateFixed], split by where it comes from so the UI can show what
+     * fills the context window. The safety margin is applied per part, so the two parts can differ
+     * from [estimateFixed] by a token of rounding.
+     */
+    fun estimateFixedComposition(
+        systemPrompt: String?,
+        tools: List<ToolDefinition>,
+        initialUserPrompt: String? = null,
+        codeExecutionEnabled: Boolean = false,
+        googleSearchEnabled: Boolean = false,
+        openAiWebSearchEnabled: Boolean = false,
+    ): FixedContextComposition {
+        val parts = fixedRawParts(
+            systemPrompt = systemPrompt,
+            tools = tools,
+            initialUserPrompt = initialUserPrompt,
+            codeExecutionEnabled = codeExecutionEnabled,
+            googleSearchEnabled = googleSearchEnabled,
+            openAiWebSearchEnabled = openAiWebSearchEnabled,
+        )
+        return FixedContextComposition(
+            systemPromptTokens = applySafetyMargin(parts.prompt),
+            toolTokens = applySafetyMargin(parts.tools),
+        )
+    }
+
+    /** Fixed cost grouped the way the context indicator presents it. */
+    data class FixedContextComposition(val systemPromptTokens: Int, val toolTokens: Int)
+
+    private data class FixedRawParts(val prompt: Long, val tools: Long)
+
+    private fun fixedRawParts(
+        systemPrompt: String?,
+        tools: List<ToolDefinition>,
+        initialUserPrompt: String?,
+        codeExecutionEnabled: Boolean,
+        googleSearchEnabled: Boolean,
+        openAiWebSearchEnabled: Boolean,
+    ): FixedRawParts {
+        var prompt = MESSAGE_OVERHEAD.toLong() + estimateTextRaw(systemPrompt.orEmpty())
+        initialUserPrompt?.takeIf(String::isNotBlank)?.let { text ->
+            prompt += MESSAGE_OVERHEAD + estimateTextRaw(text)
         }
+        var toolCost = 0L
         tools.forEach { tool ->
-            raw += TOOL_CALL_OVERHEAD
-            raw += estimateTextRaw(tool.type)
-            raw += estimateTextRaw(tool.function.name)
-            raw += estimateTextRaw(tool.function.description)
-            raw += estimateTextRaw(tool.function.parameters.type)
+            toolCost += TOOL_CALL_OVERHEAD
+            toolCost += estimateTextRaw(tool.type)
+            toolCost += estimateTextRaw(tool.function.name)
+            toolCost += estimateTextRaw(tool.function.description)
+            toolCost += estimateTextRaw(tool.function.parameters.type)
             tool.function.parameters.properties.toSortedMap().forEach { (name, property) ->
-                raw += estimateTextRaw(name)
-                raw += estimateToolPropertyRaw(property)
+                toolCost += estimateTextRaw(name)
+                toolCost += estimateToolPropertyRaw(property)
             }
             tool.function.parameters.required.sorted().forEach { required ->
-                raw += estimateTextRaw(required)
+                toolCost += estimateTextRaw(required)
             }
         }
         listOfNotNull(
@@ -78,9 +132,12 @@ object ContextTokenEstimator {
             "google_search".takeIf { googleSearchEnabled },
             "web_search".takeIf { openAiWebSearchEnabled },
         ).forEach { nativeTool ->
-            raw += TOOL_CALL_OVERHEAD + estimateTextRaw(nativeTool)
+            toolCost += TOOL_CALL_OVERHEAD + estimateTextRaw(nativeTool)
         }
-        return applySafetyMargin(raw.coerceAtMost(Int.MAX_VALUE.toLong()))
+        return FixedRawParts(
+            prompt = prompt.coerceAtMost(Int.MAX_VALUE.toLong()),
+            tools = toolCost.coerceAtMost(Int.MAX_VALUE.toLong()),
+        )
     }
 
     internal fun estimateText(text: String): Int = applySafetyMargin(estimateTextRaw(text))

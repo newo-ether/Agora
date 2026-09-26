@@ -682,7 +682,10 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
 
     @Test
     fun `shell confirmation code surface provides standalone Markdown locals`() {
-        val main = sourceFile("app/src/main/java/com/newoether/agora/MainApplicationDialogs.kt")
+        val bar = sourceFile(
+            "app/src/main/java/com/newoether/agora/ui/chat/interaction/UserInteractionBar.kt",
+        )
+        val chatApp = sourceFile("app/src/main/java/com/newoether/agora/ui/chat/ChatApp.kt")
         val assets = sourceFile(
             "app/src/main/java/com/newoether/agora/ui/chat/message/ChatMarkdownCode.kt",
         )
@@ -691,9 +694,9 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
             .substringBefore("internal fun TrackStreamingHorizontalScroll(")
 
         assertTrue(
-            main.contains("ChatMarkdownCodeBlock(code = pending.summary, autoWrap = autoWrapCodeBlocks)"),
+            bar.contains("ChatMarkdownCodeBlock(code = pending.summary, autoWrap = autoWrapCodeBlocks)"),
         )
-        assertTrue(main.contains("val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks"))
+        assertTrue(chatApp.contains("val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks"))
         assertTrue(codeBlock.contains("if (autoWrap) codeStyle.copy(lineBreak = LineBreak.Simple)"))
         assertTrue(codeBlock.contains("CompositionLocalProvider("))
         assertTrue(codeBlock.contains("LocalMarkdownColors provides assets.renderContext.colors"))

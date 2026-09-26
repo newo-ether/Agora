@@ -615,7 +615,12 @@
     <string name="shell_confirm_setting">确认远程 Shell 操作</string>
     <string name="shell_confirm_setting_desc">在助手于远程 SSH/Conch 服务器上运行命令或写入文件前询问</string>
     <string name="shell_confirm_notification_channel">命令审批</string>
-    <string name="shell_confirm_notification_desc">Agora 在后台时，请求你允许或拒绝远程命令</string>
+    <string name="shell_confirm_notification_desc">Agora 在后台时，请求你允许或拒绝远程命令</string>
+    <string name="ask_user_title">助手正在提问</string>
+    <string name="ask_user_send">发送</string>
+    <string name="ask_user_skip">跳过</string>
+    <string name="ask_user_notification_channel">Agora 的提问</string>
+    <string name="ask_user_notification_desc">在聊天界面未打开时请你回答助手的问题</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora 意外退出</string>
@@ -649,7 +654,12 @@
     <string name="thinking_segment_display_card">卡片</string>
     <string name="thinking_segment_display_bottom_sheet">底部面板</string>
     <string name="thinking_segments_title">思考片段</string>
-    <string name="context_usage_messages">约 %1$s / %2$s tokens</string>
+    <string name="context_usage_messages">约 %1$s / %2$s tokens</string>
+    <string name="context_part_system">系统提示</string>
+    <string name="context_part_tools">工具</string>
+    <string name="context_part_messages">消息</string>
+    <string name="context_part_free">空闲</string>
+    <string name="context_part_reserved">预留</string>
     <string name="context_compact_streaming">正在压缩上下文…</string>
     <string name="context_compact_error">压缩出错</string>
     <string name="context_compact_stopped">压缩已停止</string>
@@ -776,4 +786,10 @@
     <string name="thought_for_a_while">思考了一会儿</string>
     <string name="thought_for_a_while_called_tools">思考了一会儿，调用 %1$d 个工具</string>
     <string name="remote_device">设备</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcg55SxIG5ld28tZXRoZXIg5byA5Y+R</string>
+    <string name="rating_origin_project_b64">5Y6f6aG555uu77yaZ2l0aHViLmNvbS9uZXdvLWV0aGVyL0Fnb3Jh</string>
+    <string name="rating_origin_modified_title_b64">5b2T5YmN5Li65L+u5pS554mI5pys</string>
+    <string name="rating_origin_modified_body_b64">5q2k5bqU55So55qE5YyF5ZCN5LiO5Y6f6aG555uu5LiN5ZCM77yM6KGo5piO5a6D57uP6L+H6YeN5paw5omT5YyF5oiW5L+u5pS544CC5Y6f6aG555uu5Li6IEFnb3Jh77yM55SxIG5ld28tZXRoZXIg5byA5Y+R44CC5b2T5YmN54mI5pys55qE5pS55Yqo55Sx5YW25Y+R5biD6ICF6LSf6LSj77yM5LiN5Luj6KGo5Y6f5L2c6ICF44CC</string>
+    <string name="rating_origin_view_project_b64">5p+l55yL5Y6f6aG555uu</string>
 </resources>

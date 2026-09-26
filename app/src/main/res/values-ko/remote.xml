@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="remote_title">Remote</string>
+    <string name="remote_title">원격</string>
     <string name="remote_devices">기기</string>
     <string name="remote_connect">연결</string>
     <string name="remote_address">서비스 URL</string>

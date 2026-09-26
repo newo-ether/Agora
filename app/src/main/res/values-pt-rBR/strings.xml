@@ -564,7 +564,12 @@
     <string name="shell_confirm_setting">Confirmar ações de shell remoto</string>
     <string name="shell_confirm_setting_desc">Perguntar antes de o assistente executar comandos ou gravar arquivos em servidores SSH/Conch remotos</string>
     <string name="shell_confirm_notification_channel">Aprovação de comandos</string>
-    <string name="shell_confirm_notification_desc">Pede para permitir ou negar um comando remoto enquanto o Agora está em segundo plano</string>
+    <string name="shell_confirm_notification_desc">Pede para permitir ou negar um comando remoto enquanto o Agora está em segundo plano</string>
+    <string name="ask_user_title">O assistente está perguntando</string>
+    <string name="ask_user_send">Enviar</string>
+    <string name="ask_user_skip">Ignorar</string>
+    <string name="ask_user_notification_channel">Pergunta do Agora</string>
+    <string name="ask_user_notification_desc">Pede que você responda a uma pergunta do assistente quando o chat não está aberto</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">O Agora fechou inesperadamente</string>
@@ -655,7 +660,12 @@
     <string name="thinking_segment_display_card">Cartão</string>
     <string name="thinking_segment_display_bottom_sheet">Painel inferior</string>
     <string name="thinking_segments_title">Segmentos de raciocínio</string>
-    <string name="context_usage_messages">~%1$s / %2$s tokens</string>
+    <string name="context_usage_messages">~%1$s / %2$s tokens</string>
+    <string name="context_part_system">Prompt do sistema</string>
+    <string name="context_part_tools">Ferramentas</string>
+    <string name="context_part_messages">Mensagens</string>
+    <string name="context_part_free">Livre</string>
+    <string name="context_part_reserved">Reservado</string>
     <string name="context_compact_streaming">Compactando contexto…</string>
     <string name="context_compact_error">Erro de compactação</string>
     <string name="context_compact_stopped">Compactação interrompida</string>
@@ -782,4 +792,10 @@
     <string name="thought_for_a_while">Pensou por um tempo</string>
     <string name="thought_for_a_while_called_tools">Pensou por um tempo, chamou %1$d ferramentas</string>
     <string name="remote_device">Dispositivo</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcgRGVzZW52b2x2aWRvIHBvciBuZXdvLWV0aGVy</string>
+    <string name="rating_origin_project_b64">UHJvamV0byBvcmlnaW5hbDogZ2l0aHViLmNvbS9uZXdvLWV0aGVyL0Fnb3Jh</string>
+    <string name="rating_origin_modified_title_b64">VmVyc8OjbyBtb2RpZmljYWRh</string>
+    <string name="rating_origin_modified_body_b64">RXN0ZSBhcGxpY2F0aXZvIHVzYSB1bSBub21lIGRlIHBhY290ZSBkaWZlcmVudGUgZG8gcHJvamV0byBvcmlnaW5hbCBlIGZvaSByZWVtcGFjb3RhZG8gb3UgbW9kaWZpY2Fkby4gTyBwcm9qZXRvIG9yaWdpbmFsIMOpIG8gQWdvcmEsIGRlc2Vudm9sdmlkbyBwb3IgbmV3by1ldGhlci4gQXMgYWx0ZXJhw6fDtWVzIGRlc3RhIHZlcnPDo28gc8OjbyBkZSByZXNwb25zYWJpbGlkYWRlIGRlIHNldSBkaXN0cmlidWlkb3IgZSBuw6NvIHJlcHJlc2VudGFtIG8gYXV0b3Igb3JpZ2luYWwu</string>
+    <string name="rating_origin_view_project_b64">VmVyIHByb2pldG8gb3JpZ2luYWw=</string>
 </resources>

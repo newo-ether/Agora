@@ -127,6 +127,9 @@ internal fun ChatBottomBar(
     contextEstimatedTokens: Int = 0,
     contextTokenBudget: Int = ContextBudget.DEFAULT_TOKENS,
     contextCompactThresholdPercent: Int = 90,
+    contextCompactEnabled: Boolean = true,
+    contextSystemPromptTokens: Int = 0,
+    contextToolTokens: Int = 0,
     canCompact: Boolean = false,
     onCompactClick: () -> Unit = {},
     queuedSends: List<QueuedSend> = emptyList(),
@@ -485,6 +488,9 @@ internal fun ChatBottomBar(
                     estimatedTokens = contextEstimatedTokens,
                     tokenBudget = contextTokenBudget,
                     compactThresholdPercent = contextCompactThresholdPercent,
+                    compactEnabled = contextCompactEnabled,
+                    systemPromptTokens = contextSystemPromptTokens,
+                    toolTokens = contextToolTokens,
                     expanded = activeMenu == "context",
                     onClick = {
                         val now = System.currentTimeMillis()

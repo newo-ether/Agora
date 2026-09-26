@@ -611,7 +611,12 @@
     <string name="shell_confirm_setting">Confirm Remote Shell Actions</string>
     <string name="shell_confirm_setting_desc">Ask before the assistant runs commands or writes files on remote SSH/Conch servers</string>
     <string name="shell_confirm_notification_channel">Command approval</string>
-    <string name="shell_confirm_notification_desc">Asks you to allow or deny a remote command while Agora is in the background</string>
+    <string name="shell_confirm_notification_desc">Asks you to allow or deny a remote command while Agora is in the background</string>
+    <string name="ask_user_title">The assistant is asking</string>
+    <string name="ask_user_send">Send</string>
+    <string name="ask_user_skip">Skip</string>
+    <string name="ask_user_notification_channel">Question from Agora</string>
+    <string name="ask_user_notification_desc">Asks you to answer a question from the assistant while the chat screen is not open</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora quit unexpectedly</string>
@@ -641,7 +646,12 @@
     <string name="context_compact_select_available_model">Select an available model</string>
     <string name="context_compact_prompt_empty">Prompt cannot be empty</string>
     <string name="context_compact_retain_invalid">Enter a valid retained message count</string>
-    <string name="context_usage_messages">~%1$s / %2$s tokens</string>
+    <string name="context_usage_messages">~%1$s / %2$s tokens</string>
+    <string name="context_part_system">System prompt</string>
+    <string name="context_part_tools">Tools</string>
+    <string name="context_part_messages">Messages</string>
+    <string name="context_part_free">Free</string>
+    <string name="context_part_reserved">Reserved</string>
     <string name="context_compact_streaming">Context compacting…</string>
     <string name="context_compact_error">Compact error</string>
     <string name="context_compact_stopped">Compact stopped</string>
@@ -767,4 +777,10 @@
     <string name="thought_for_a_while">Thought for a while</string>
     <string name="thought_for_a_while_called_tools">Thought for a while, called %1$d tools</string>
     <string name="remote_device">Device</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcgRGV2ZWxvcGVkIGJ5IG5ld28tZXRoZXI=</string>
+    <string name="rating_origin_project_b64">T3JpZ2luYWwgcHJvamVjdDogZ2l0aHViLmNvbS9uZXdvLWV0aGVyL0Fnb3Jh</string>
+    <string name="rating_origin_modified_title_b64">TW9kaWZpZWQgVmVyc2lvbg==</string>
+    <string name="rating_origin_modified_body_b64">VGhpcyBhcHAgdXNlcyBhIGRpZmZlcmVudCBwYWNrYWdlIG5hbWUgZnJvbSB0aGUgb3JpZ2luYWwgcHJvamVjdCBhbmQgaGFzIGJlZW4gcmVwYWNrYWdlZCBvciBtb2RpZmllZC4gVGhlIG9yaWdpbmFsIHByb2plY3QgaXMgQWdvcmEsIGRldmVsb3BlZCBieSBuZXdvLWV0aGVyLiBDaGFuZ2VzIGluIHRoaXMgdmVyc2lvbiBhcmUgdGhlIHJlc3BvbnNpYmlsaXR5IG9mIGl0cyBkaXN0cmlidXRvciBhbmQgZG8gbm90IHJlcHJlc2VudCB0aGUgb3JpZ2luYWwgYXV0aG9yLg==</string>
+    <string name="rating_origin_view_project_b64">VmlldyBPcmlnaW5hbCBQcm9qZWN0</string>
 </resources>

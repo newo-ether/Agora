@@ -47,6 +47,7 @@ class ChatViewModelFactory(
     private val automationExecutionGate: AutomationExecutionGate,
     private val conversationStateRegistry: ConversationStateRegistry,
     private val shellConfirmationController: ShellConfirmationController,
+    private val askUserController: AskUserController,
     private val mcpRegistry: McpRegistry,
     private val mcpToolProvider: McpToolProvider,
     private val taskExecutionEngine: TaskExecutionEngine,
@@ -60,6 +61,7 @@ class ChatViewModelFactory(
                 conversationSettingsTransfers, startProcessServices, localProvider, providerRegistry,
                 taskManager, loopManager, automationToolProvider, conversationExecutionCoordinator,
                 automationExecutionGate, conversationStateRegistry, shellConfirmationController,
+                askUserController,
                 mcpRegistry, mcpToolProvider, taskExecutionEngine,
             ) as T
         }

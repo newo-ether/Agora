@@ -499,4 +499,8 @@
     <string name="openai_service_tier_priority">优先</string>
     <string name="openai_service_tier_fast">快速</string>
     <string name="openai_service_tier_ultrafast">超高速</string>
+    <string name="settings_interaction">交互</string>
+    <string name="settings_interaction_desc">助手向你提问的方式</string>
+    <string name="ask_user_enable">允许助手提问</string>
+    <string name="ask_user_enable_desc">让模型可以用工具向你提问，并等你做出选择</string>
 </resources>

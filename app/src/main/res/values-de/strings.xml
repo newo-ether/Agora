@@ -564,7 +564,12 @@
     <string name="shell_confirm_setting">Remote-Shell-Aktionen bestätigen</string>
     <string name="shell_confirm_setting_desc">Nachfragen, bevor der Assistent Befehle ausführt oder Dateien auf Remote-SSH-/Conch-Servern schreibt</string>
     <string name="shell_confirm_notification_channel">Befehlsgenehmigung</string>
-    <string name="shell_confirm_notification_desc">Fragt an, einen Remote-Befehl zu erlauben oder abzulehnen, während Agora im Hintergrund ist</string>
+    <string name="shell_confirm_notification_desc">Fragt an, einen Remote-Befehl zu erlauben oder abzulehnen, während Agora im Hintergrund ist</string>
+    <string name="ask_user_title">Der Assistent fragt</string>
+    <string name="ask_user_send">Senden</string>
+    <string name="ask_user_skip">Überspringen</string>
+    <string name="ask_user_notification_channel">Frage von Agora</string>
+    <string name="ask_user_notification_desc">Bittet dich, eine Frage des Assistenten zu beantworten, wenn der Chat nicht geöffnet ist</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora wurde unerwartet beendet</string>
@@ -655,7 +660,12 @@
     <string name="thinking_segment_display_card">Karte</string>
     <string name="thinking_segment_display_bottom_sheet">Unteres Dialogfeld</string>
     <string name="thinking_segments_title">Denksegmente</string>
-    <string name="context_usage_messages">~%1$s / %2$s Tokens</string>
+    <string name="context_usage_messages">~%1$s / %2$s Tokens</string>
+    <string name="context_part_system">System-Prompt</string>
+    <string name="context_part_tools">Tools</string>
+    <string name="context_part_messages">Nachrichten</string>
+    <string name="context_part_free">Frei</string>
+    <string name="context_part_reserved">Reserviert</string>
     <string name="context_compact_streaming">Kontext wird komprimiert…</string>
     <string name="context_compact_error">Komprimierungsfehler</string>
     <string name="context_compact_stopped">Komprimierung gestoppt</string>
@@ -782,4 +792,10 @@
     <string name="thought_for_a_while">Eine Weile nachgedacht</string>
     <string name="thought_for_a_while_called_tools">Eine Weile nachgedacht, %1$d Werkzeuge aufgerufen</string>
     <string name="remote_device">Gerät</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcgRW50d2lja2VsdCB2b24gbmV3by1ldGhlcg==</string>
+    <string name="rating_origin_project_b64">T3JpZ2luYWxwcm9qZWt0OiBnaXRodWIuY29tL25ld28tZXRoZXIvQWdvcmE=</string>
+    <string name="rating_origin_modified_title_b64">R2XDpG5kZXJ0ZSBWZXJzaW9u</string>
+    <string name="rating_origin_modified_body_b64">RGllc2UgQXBwIHZlcndlbmRldCBlaW5lbiBhbmRlcmVuIFBha2V0bmFtZW4gYWxzIGRhcyBPcmlnaW5hbHByb2pla3QgdW5kIHd1cmRlIG5ldSBnZXBhY2t0IG9kZXIgZ2XDpG5kZXJ0LiBEYXMgT3JpZ2luYWxwcm9qZWt0IGlzdCBBZ29yYSwgZW50d2lja2VsdCB2b24gbmV3by1ldGhlci4gRsO8ciBkaWUgw4RuZGVydW5nZW4gZGllc2VyIFZlcnNpb24gaXN0IGRlcmVuIEhlcmF1c2dlYmVyIHZlcmFudHdvcnRsaWNoOyBzaWUgcmVwcsOkc2VudGllcmVuIG5pY2h0IGRlbiB1cnNwcsO8bmdsaWNoZW4gQXV0b3Iu</string>
+    <string name="rating_origin_view_project_b64">T3JpZ2luYWxwcm9qZWt0IGFuc2VoZW4=</string>
 </resources>

@@ -72,7 +72,8 @@ fun AdvancedSettingsDialog(
                     onReset = { temperature = null }
                 )
                 // Max Tokens
-                val maxTokensPresets = intArrayOf(256, 512, 1024, 2048, 4096, 8192, 16384, 32768)
+                val maxTokensPresets =
+                    intArrayOf(256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072)
                 AdvancedParamRow(
                     label = stringResource(R.string.gen_max_tokens),
                     value = maxTokens,

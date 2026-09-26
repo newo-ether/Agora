@@ -40,10 +40,20 @@ object ShellConfirmationNotifier {
     fun start(scope: CoroutineScope, context: Context, controller: ShellConfirmationController) {
         val appContext = context.applicationContext
         scope.launch {
-            combine(controller.pendingShellCommand, AppForegroundTracker.foreground) { pending, foreground ->
-                pending to foreground
-            }.collect { (pending, foreground) ->
-                if (pending == null) cancel(appContext) else if (foreground) cancel(appContext) else showPrompt(appContext, pending, controller.notificationSessionId)
+            combine(
+                controller.pendingShellCommand,
+                AppForegroundTracker.foreground,
+                AppForegroundTracker.chatPresented,
+            ) { pending, foreground, chatPresented ->
+                // The interaction bar that answers a prompt lives in the chat screen, so being in
+                // the foreground on any other screen is as invisible as being backgrounded.
+                pending?.takeIf { !foreground || !chatPresented }
+            }.collect { pending ->
+                if (pending == null) {
+                    cancel(appContext)
+                } else {
+                    showPrompt(appContext, pending, controller.notificationSessionId)
+                }
             }
         }
     }

@@ -483,4 +483,8 @@
     <string name="openai_service_tier_priority">우선</string>
     <string name="openai_service_tier_fast">빠름</string>
     <string name="openai_service_tier_ultrafast">초고속</string>
+    <string name="settings_interaction">상호작용</string>
+    <string name="settings_interaction_desc">어시스턴트가 보내는 질문</string>
+    <string name="ask_user_enable">어시스턴트 질문 허용</string>
+    <string name="ask_user_enable_desc">모델이 질문을 보내고 선택을 기다릴 수 있게 합니다</string>
 </resources>

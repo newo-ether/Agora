@@ -42,6 +42,7 @@ import com.newoether.agora.util.gradientBlur
 import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
 import com.newoether.agora.ui.chat.bottombar.LoopStatusBackdrop
+import com.newoether.agora.ui.chat.interaction.ChatUserInteractionBar
 import com.newoether.agora.ui.components.AnimatedBlobBackground
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.common.LocalAgoraHaptics
@@ -98,6 +99,7 @@ fun ChatApp(
     val compactPrompt by viewModel.settings.contextCompactPrompt.collectAsState()
     val compactRetainCount by viewModel.settings.contextCompactRetainCount.collectAsState()
     val compactThresholdPercent by viewModel.settings.contextCompactThresholdPercent.collectAsState()
+    val compactEnabled by viewModel.settings.contextCompactEnabled.collectAsState()
     val manualCompactDialogVisible = rememberSaveable { mutableStateOf(false) }
     val dialogState = rememberChatAppDialogState(manualCompactDialogVisible)
     val queuedSends by viewModel.queuedSends.collectAsState()
@@ -203,6 +205,9 @@ fun ChatApp(
     }
     var bottomBarHeightPx by rememberSaveable { mutableFloatStateOf(0f) }
     val bottomBarHeight = with(density) { bottomBarHeightPx.toDp() }
+    // Measured by the interaction bar so the scroll-to-bottom button clears it as well.
+    var interactionBarHeightPx by remember { mutableFloatStateOf(0f) }
+    val interactionBarHeight = with(density) { interactionBarHeightPx.toDp() }
     var drawerProgress by remember { mutableFloatStateOf(0f) }
     // Bottom offset to clear the Settings button in the drawer.
     var settingsButtonTopDp by remember { mutableFloatStateOf(80f) }
@@ -626,41 +631,20 @@ fun ChatApp(
                     val regenerationScrollActive =
                         regenerationTransition?.conversationId == currentConversationId &&
                             regenerationTransition?.scrollFinished == false
-                    val showButton by remember(
-                        currentConversationId,
-                        loadedMessagesConversationId,
-                        isNewChatMode,
-                        isSwitching,
-                        shareSelectionActive,
-                        isNearAbsoluteBottom,
-                        absoluteBottomScrollPhase,
-                        listState,
-                        streamingTailController,
-                        regenerationScrollActive,
-                        imeBottomAnchorState.active,
-                    ) {
-                        derivedStateOf {
-                            val totalItemsCount = listState.layoutInfo.totalItemsCount
-                            shouldShowAbsoluteBottomButton(
-                                isNewChatMode = isNewChatMode,
-                                isSwitching = isSwitching,
-                                conversationContentReady =
-                                    currentConversationId != null &&
-                                        loadedMessagesConversationId == currentConversationId,
-                                shareSelectionActive = shareSelectionActive,
-                                hasItems = totalItemsCount > 1,
-                                canScrollForward = listState.canScrollForward,
-                                isNearBottom = isNearAbsoluteBottom,
-                                isStreamingAutoFollowing =
-                                    streamingTailController.isAutoFollowing,
-                                scrollPhase = absoluteBottomScrollPhase,
-                                competingProgrammaticScrollActive =
-                                    regenerationScrollActive ||
-                                        imeBottomAnchorState.active,
-                            )
-                        }
-                    }
-                    ChatBottomScrollButton(showButton, bottomBarHeight) {
+                    val showButton by rememberAbsoluteBottomButtonVisible(
+                        conversationId = currentConversationId,
+                        loadedMessagesConversationId = loadedMessagesConversationId,
+                        isNewChatMode = isNewChatMode,
+                        isSwitching = isSwitching,
+                        shareSelectionActive = shareSelectionActive,
+                        isNearAbsoluteBottom = isNearAbsoluteBottom,
+                        absoluteBottomScrollPhase = absoluteBottomScrollPhase,
+                        listState = listState,
+                        streamingTailController = streamingTailController,
+                        regenerationScrollActive = regenerationScrollActive,
+                        imeBottomAnchorActive = imeBottomAnchorState.active,
+                    )
+                    ChatBottomScrollButton(showButton, bottomBarHeight + interactionBarHeight) {
                         scrollCoordinator.requestAbsoluteBottomScroll()
                     }
 
@@ -674,6 +658,16 @@ fun ChatApp(
                     ChatSwitchingOverlay(isSwitching, isTransitioningToNewChat)
                 }
             }
+
+            // Pending questions and shell confirmations sit above the composer instead of in a
+            // dialog, so the conversation stays readable while they wait for an answer.
+            ChatUserInteractionBar(
+                viewModel = viewModel,
+                conversationId = currentConversationId,
+                autoWrapCodeBlocks = autoWrapCodeBlocks,
+                bottomBarHeight = bottomBarHeight,
+                onHeightChanged = { interactionBarHeightPx = it },
+            )
 
             com.newoether.agora.ui.chat.bottombar.ChatComposerSurface(
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -766,6 +760,9 @@ fun ChatApp(
                         contextEstimatedTokens = contextUsage.estimatedTokenCount,
                         contextTokenBudget = contextUsage.tokenBudget,
                         contextCompactThresholdPercent = compactThresholdPercent,
+                        contextCompactEnabled = compactEnabled,
+                        contextSystemPromptTokens = contextUsage.systemPromptTokens,
+                        contextToolTokens = contextUsage.toolTokens,
                         canCompact = currentConversationId != null && !isLoading && !isSwitching && !isStopping,
                         onCompactClick = {
                             dialogState.showManualCompact()

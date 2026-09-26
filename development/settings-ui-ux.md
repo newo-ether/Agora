@@ -144,7 +144,9 @@ layout, states, density, or interaction design has been approved.
   indeterminate indicator and exposes no action. Cache is shown only when counts are known, at least
   one eligible message still requires an embedding, and no cache worker is running; it exposes the
   exact numeric status and Cache action. Progress is shown whenever the cache worker is running; it
-  replaces every action with the progress indicator. Re-cache is shown only when counts are known,
+  replaces every action with the progress indicator, states `cached/total (percent)`, and draws that
+  same fraction determinately. With no count snapshot it shows an indeterminate indicator and no
+  numbers instead of inventing a fraction. Re-cache is shown only when counts are known,
   every eligible message has its required embedding, and no cache worker is running; it exposes the
   exact numeric status and Re-cache action. Cache-worker activity takes precedence over count loading.
   Missing data must never become synthetic zero or an available action. Failed, Retry, Queued,
@@ -234,3 +236,49 @@ layout, states, density, or interaction design has been approved.
   group transform when the upstream asset has no safety margin.
 - Run the resource contract tests after importing or replacing any complex
   provider or integration icon.
+
+## Rating upstream attribution
+
+- The shared RatingForm always identifies Agora and newo-ether and offers an explicit link to
+  https://github.com/newo-ether/Agora. Both About and the scheduled rating dialog use this owner.
+- Compare the actual runtime package against the independently Base64-encoded upstream package
+  com.newoether.agora. Do not derive the expected identity from BuildConfig or the current app ID.
+- A mismatch displays a neutral, bold Modified Version heading and localized explanation above
+  the rating controls: repackaged/modified app, original project and author, distributor ownership
+  of the changes. This is not an accusation of infringement or a claim of official certification.
+- Matching packages still show credit and the project link, with no authenticity claim.
+- The upstream package/link and new copy use UTF-8 Base64. All 12 locales retain localized copy.
+  This is transparent, lightweight attribution for bulk-renamed builds, not encryption or tamper
+  prevention. Legitimate forks are welcome and may change the implementation under the license.
+- Use existing Material typography, neutral surfaceContainerHigh and onSurfaceVariant for the
+  modified notice, and an explicit external-link action. No snackbar, extra modal or startup work.
+- The rating dialog scrolls within its available height so the notice and Submit remain reachable
+  on short screens, with the keyboard or at larger font scales.
+- Rating fields, endpoint and prompt trigger remain unchanged. Optional post-submission feedback follows the contract below.
+- Verify actual form rendering for matching and different packages, localized decoding in every
+  locale, explicit link destination and scroll reachability. Device visual acceptance stays owner-tested.
+
+## Submission response messages
+
+- Rating and opt-in crash submissions consume the same optional response message protocol:
+  id, title, body and optional buttonText. Rating retains the app package field and supplies
+  version metadata. Crash capture and submission include the actual runtime packageName;
+  submission adds it to older pending reports too.
+- HTTP success owns acceptance. Missing, empty, malformed, oversized or unreadable optional
+  response content cannot convert an accepted submission into a failed one. Failed HTTP requests
+  never display response messages. Crash reports are still sent only after explicit opt-in and
+  cleared only after success or explicit dismissal.
+- SubmissionMessageDialog owns the shared plain-text Material presentation with a scrollable
+  body and one dismiss button; Back and outside dismissal remain available. No HTML, automatic
+  links, actions, polling or background message fetch is introduced.
+- SubmissionMessageReceipts atomically records displayed IDs in the existing Settings DataStore as local, non-portable metadata, shared across
+  both submission channels. Repeated IDs are suppressed. No-message responses preserve existing
+  success feedback; a crash message replaces its success snackbar.
+- Scheduled RatingForm hands the optional message to its existing dialog host before removing
+  the form; About retains its own presentation. Rating completion is recorded immediately after
+  acceptance, without waiting for the response dialog to close.
+- Both Python receivers use exact package matching from optional external configuration, default
+  disabled. No configured message content is shipped in the client.
+- Verification covers successful responses with/without messages, invalid optional payloads,
+  rejection, duplicate IDs, runtime package metadata, plain-text dialog dismissal, and preservation
+  of existing submission cleanup. Real-device visual acceptance remains owner-tested.

@@ -73,6 +73,7 @@ data class GenerationContext(
     val webSearchNumResults: Int = 5,
     val webSearchBaseUrl: String = "",
     val imageGenEnabled: Boolean = false,
+    val askUserEnabled: Boolean = false,
     val imageGenApiKey: String = "",
     val imageGenBaseUrl: String = "",
     val imageGenModel: String = "gpt-image-1",

@@ -59,6 +59,13 @@ import com.newoether.agora.ui.settings.GuardedAnimatedContent
 import com.newoether.agora.ui.settings.SettingsGroup
 import com.newoether.agora.ui.settings.SettingsItem
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.viewmodel.deleteTask
+import com.newoether.agora.viewmodel.executionSummariesForTask
+import com.newoether.agora.viewmodel.getTask
+import com.newoether.agora.viewmodel.runTaskNow
+import com.newoether.agora.viewmodel.runningTaskIds
+import com.newoether.agora.viewmodel.saveTask
+import com.newoether.agora.viewmodel.tasks
 import kotlinx.coroutines.delay
 import java.util.Locale
 import java.util.UUID

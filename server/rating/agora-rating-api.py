@@ -2,12 +2,18 @@
 """Public submission-only rating receiver for Agora."""
 
 import json
+from contextlib import closing
 import os
+import sys
+from pathlib import Path
 import sqlite3
 import socketserver
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from submission_messages import message_for
 
 DB_PATH = os.environ.get("AGORA_RATING_DB", "/var/lib/agora-rating/ratings.db")
 LISTEN_ADDR = os.environ.get("AGORA_RATING_HOST", "127.0.0.1")
@@ -78,7 +84,7 @@ class RatingHandler(BaseHTTPRequestHandler):
         comment = self._text(body.get("comment"), MAX_COMMENT_LENGTH)
 
         try:
-            with connect_db() as conn:
+            with closing(connect_db()) as conn, conn:
                 conn.execute(
                     """INSERT INTO ratings
                        (rating, app, name, email, comment, created_at)
@@ -96,7 +102,11 @@ class RatingHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": "storage failure"})
             return
 
-        self._send_json(200, {"ok": True})
+        response = {"ok": True}
+        message = message_for(app)
+        if message is not None:
+            response["message"] = message
+        self._send_json(200, response)
 
     def do_GET(self):
         self._send_json(405, {"error": "method not allowed"})

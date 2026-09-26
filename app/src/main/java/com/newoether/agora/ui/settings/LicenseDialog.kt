@@ -16,10 +16,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.clearFocusOnTap
 
@@ -46,7 +44,7 @@ internal fun LicenseDialog(onDismiss: () -> Unit) {
         title = {
             Text(
                 text = stringResource(R.string.about_license_desc),
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
         },
         text = {
@@ -57,16 +55,10 @@ internal fun LicenseDialog(onDismiss: () -> Unit) {
             ) {
                 Text(
                     text = stringResource(R.string.about_license_history),
-                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-                Text(
-                    text = licenseText,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    lineHeight = 16.sp
-                )
+                Text(text = licenseText)
             }
         },
         confirmButton = {

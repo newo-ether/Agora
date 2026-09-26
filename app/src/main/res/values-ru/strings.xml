@@ -564,7 +564,12 @@
     <string name="shell_confirm_setting">Подтверждать действия удалённой оболочки</string>
     <string name="shell_confirm_setting_desc">Спрашивать перед тем, как ассистент выполнит команды или запишет файлы на удалённых серверах SSH/Conch</string>
     <string name="shell_confirm_notification_channel">Подтверждение команд</string>
-    <string name="shell_confirm_notification_desc">Запрашивает разрешение или запрет удалённой команды, пока Agora в фоновом режиме</string>
+    <string name="shell_confirm_notification_desc">Запрашивает разрешение или запрет удалённой команды, пока Agora в фоновом режиме</string>
+    <string name="ask_user_title">Ассистент спрашивает</string>
+    <string name="ask_user_send">Отправить</string>
+    <string name="ask_user_skip">Пропустить</string>
+    <string name="ask_user_notification_channel">Вопрос от Agora</string>
+    <string name="ask_user_notification_desc">Просит ответить на вопрос ассистента, когда экран чата закрыт</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora неожиданно завершилась</string>
@@ -655,7 +660,12 @@
     <string name="thinking_segment_display_card">Карточка</string>
     <string name="thinking_segment_display_bottom_sheet">Нижняя панель</string>
     <string name="thinking_segments_title">Сегменты рассуждений</string>
-    <string name="context_usage_messages">~%1$s / %2$s токенов</string>
+    <string name="context_usage_messages">~%1$s / %2$s токенов</string>
+    <string name="context_part_system">Системный промпт</string>
+    <string name="context_part_tools">Инструменты</string>
+    <string name="context_part_messages">Сообщения</string>
+    <string name="context_part_free">Свободно</string>
+    <string name="context_part_reserved">Резерв</string>
     <string name="context_compact_streaming">Сжатие контекста…</string>
     <string name="context_compact_error">Ошибка сжатия</string>
     <string name="context_compact_stopped">Сжатие остановлено</string>
@@ -782,4 +792,10 @@
     <string name="thought_for_a_while">Размышлял некоторое время</string>
     <string name="thought_for_a_while_called_tools">Размышлял некоторое время, вызвано инструментов: %1$d</string>
     <string name="remote_device">Устройство</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcg0KDQsNC30YDQsNCx0L7RgtGH0LjQujogbmV3by1ldGhlcg==</string>
+    <string name="rating_origin_project_b64">0JjRgdGF0L7QtNC90YvQuSDQv9GA0L7QtdC60YI6IGdpdGh1Yi5jb20vbmV3by1ldGhlci9BZ29yYQ==</string>
+    <string name="rating_origin_modified_title_b64">0JjQt9C80LXQvdGR0L3QvdCw0Y8g0LLQtdGA0YHQuNGP</string>
+    <string name="rating_origin_modified_body_b64">0JjQvNGPINC/0LDQutC10YLQsCDRjdGC0L7Qs9C+INC/0YDQuNC70L7QttC10L3QuNGPINC+0YLQu9C40YfQsNC10YLRgdGPINC+0YIg0LjRgdGF0L7QtNC90L7Qs9C+INC/0YDQvtC10LrRgtCwOiDQv9GA0LjQu9C+0LbQtdC90LjQtSDQsdGL0LvQviDQv9C10YDQtdC/0LDQutC+0LLQsNC90L4g0LjQu9C4INC40LfQvNC10L3QtdC90L4uINCY0YHRhdC+0LTQvdGL0Lkg0L/RgNC+0LXQutGCIOKAlCBBZ29yYSwg0YDQsNC30YDQsNCx0L7RgtCw0L3QvdGL0LkgbmV3by1ldGhlci4g0JfQsCDQuNC30LzQtdC90LXQvdC40Y8g0LIg0Y3RgtC+0Lkg0LLQtdGA0YHQuNC4INC+0YLQstC10YfQsNC10YIg0LXRkSDRgNCw0YHQv9GA0L7RgdGC0YDQsNC90LjRgtC10LvRjDsg0L7QvdC4INC90LUg0L/RgNC10LTRgdGC0LDQstC70Y/RjtGCINC/0LXRgNCy0L7QvdCw0YfQsNC70YzQvdC+0LPQviDQsNCy0YLQvtGA0LAu</string>
+    <string name="rating_origin_view_project_b64">0J7RgtC60YDRi9GC0Ywg0LjRgdGF0L7QtNC90YvQuSDQv9GA0L7QtdC60YI=</string>
 </resources>

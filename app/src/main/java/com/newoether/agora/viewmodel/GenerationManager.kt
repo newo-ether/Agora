@@ -116,6 +116,21 @@ class GenerationManager(
         googleSearchEnabled = config.googleSearchEnabled,
         openAiWebSearchEnabled = config.openAiWebSearchEnabled,
     )
+    /** The same cost as [fixedContextTokenCost], split for the context indicator. */
+    internal fun fixedContextComposition(
+        config: GenerationConfig,
+        context: GenerationContext,
+    ): ContextTokenEstimator.FixedContextComposition =
+        ContextTokenEstimator.estimateFixedComposition(
+            systemPrompt = config.effectiveSystemPrompt,
+            tools = if (config.lowContextModeEnabled) emptyList()
+            else toolExecutor.definitions(context),
+            initialUserPrompt = config.initialUserPrompt,
+            codeExecutionEnabled = config.codeExecutionEnabled,
+            googleSearchEnabled = config.googleSearchEnabled,
+            openAiWebSearchEnabled = config.openAiWebSearchEnabled,
+        )
+
     internal fun includesAssistantReasoning(
         config: GenerationConfig,
         context: GenerationContext,

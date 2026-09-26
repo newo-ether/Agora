@@ -55,6 +55,37 @@ internal data class EmbeddingCacheRowSnapshot(
             countLoading -> EmbeddingCacheRowPhase.LOADING
             else -> null
         }
+
+    /**
+     * Cached messages to show while the worker runs, or null when no count snapshot exists.
+     *
+     * The aggregate snapshot is taken when the run starts and is not re-queried while it runs, so
+     * an exact run's own processed count advances the displayed number. A reconciliation run only
+     * inspects and fingerprint-validates existing rows, so it must never move it.
+     */
+    val cachingCached: Int?
+        get() {
+            val known = cached ?: return null
+            val total = indexableTotal ?: return null
+            val embedded = progress?.takeIf { it.kind == EXACT_WORK_KIND }?.processed ?: 0
+            return (known + embedded).coerceAtMost(total)
+        }
+
+    /**
+     * Fraction the CACHING indicator draws. It shares [cachingCached] and [indexableTotal] with the
+     * numeric status, so the ring and the number can never describe different denominators.
+     */
+    val cachingFraction: Float?
+        get() {
+            val total = indexableTotal?.takeIf { it > 0 } ?: return null
+            val shown = cachingCached ?: return null
+            return (shown.toFloat() / total).coerceIn(0f, 1f)
+        }
+
+    private companion object {
+        /** Mirrors `EmbeddingCacheWorkKind.EXACT`, which the service layer owns. */
+        const val EXACT_WORK_KIND = "EXACT"
+    }
 }
 /**
  * A model whose counts have not been resolved yet is still loading them, so an absent snapshot

@@ -232,9 +232,9 @@ class ConversationSwitchSafetySourceContractTest {
     fun `scroll to bottom visibility remembers every captured plain value`() {
         val source = File(
             locateMainSourceRoot(),
-            "com/newoether/agora/ui/chat/ChatApp.kt",
+            "com/newoether/agora/ui/chat/ChatBottomScrollVisibility.kt",
         ).readText().replace("\r\n", "\n")
-        val rememberStart = source.indexOf("val showButton by remember(")
+        val rememberStart = source.indexOf("return remember(")
         val derivedStart = source.indexOf("derivedStateOf", startIndex = rememberStart)
         assertTrue("scroll button derived state must exist", rememberStart >= 0 && derivedStart > 0)
         val rememberKeys = source.substring(rememberStart, derivedStart)

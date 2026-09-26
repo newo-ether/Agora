@@ -483,4 +483,8 @@
     <string name="openai_service_tier_priority">الأولوية</string>
     <string name="openai_service_tier_fast">سريع</string>
     <string name="openai_service_tier_ultrafast">فائق السرعة</string>
+    <string name="settings_interaction">التفاعل</string>
+    <string name="settings_interaction_desc">الأسئلة التي يطرحها المساعد عليك</string>
+    <string name="ask_user_enable">السماح للمساعد بالسؤال</string>
+    <string name="ask_user_enable_desc">يمنح النموذج أداة لطرح سؤال عليك وانتظار اختيارك</string>
 </resources>

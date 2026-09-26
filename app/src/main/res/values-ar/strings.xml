@@ -564,7 +564,12 @@
     <string name="shell_confirm_setting">تأكيد إجراءات الصدفة البعيدة</string>
     <string name="shell_confirm_setting_desc">الطلب قبل أن يشغّل المساعد أوامر أو يكتب ملفات على خوادم SSH/Conch البعيدة</string>
     <string name="shell_confirm_notification_channel">الموافقة على الأوامر</string>
-    <string name="shell_confirm_notification_desc">يطلب السماح بأمر عن بُعد أو رفضه عندما يكون Agora في الخلفية</string>
+    <string name="shell_confirm_notification_desc">يطلب السماح بأمر عن بُعد أو رفضه عندما يكون Agora في الخلفية</string>
+    <string name="ask_user_title">المساعد يسأل</string>
+    <string name="ask_user_send">إرسال</string>
+    <string name="ask_user_skip">تخطي</string>
+    <string name="ask_user_notification_channel">سؤال من Agora</string>
+    <string name="ask_user_notification_desc">يطلب منك الإجابة على سؤال المساعد عندما لا تكون شاشة المحادثة مفتوحة</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">أُغلق Agora بشكل غير متوقع</string>
@@ -655,7 +660,12 @@
     <string name="thinking_segment_display_card">بطاقة</string>
     <string name="thinking_segment_display_bottom_sheet">لوحة سفلية</string>
     <string name="thinking_segments_title">مقاطع التفكير</string>
-    <string name="context_usage_messages">~%1$s / %2$s tokens</string>
+    <string name="context_usage_messages">~%1$s / %2$s tokens</string>
+    <string name="context_part_system">مطالبة النظام</string>
+    <string name="context_part_tools">الأدوات</string>
+    <string name="context_part_messages">الرسائل</string>
+    <string name="context_part_free">متاح</string>
+    <string name="context_part_reserved">محجوز</string>
     <string name="context_compact_streaming">جارٍ ضغط السياق…</string>
     <string name="context_compact_error">خطأ في ضغط السياق</string>
     <string name="context_compact_stopped">تم إيقاف ضغط السياق</string>
@@ -782,4 +792,10 @@
     <string name="thought_for_a_while">فكّر لبعض الوقت</string>
     <string name="thought_for_a_while_called_tools">فكّر لبعض الوقت، واستدعى %1$d أداة</string>
     <string name="remote_device">جهاز</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcg2YXZhiDYqti32YjZitixIG5ld28tZXRoZXI=</string>
+    <string name="rating_origin_project_b64">2KfZhNmF2LTYsdmI2Lkg2KfZhNij2LXZhNmKOiBnaXRodWIuY29tL25ld28tZXRoZXIvQWdvcmE=</string>
+    <string name="rating_origin_modified_title_b64">2YbYs9iu2Kkg2YXYudiv2ZHZhNip</string>
+    <string name="rating_origin_modified_body_b64">2YrYs9iq2K7Yr9mFINmH2LDYpyDYp9mE2KrYt9io2YrZgiDYp9iz2YUg2K3YstmF2Kkg2YXYrtiq2YTZgdmL2Kcg2LnZhiDYp9mE2YXYtNix2YjYuSDYp9mE2KPYtdmE2YrYjCDZiNmC2K8g2KPZj9i52YrYryDYqtit2LLZitmF2Ycg2KPZiCDYqti52K/ZitmE2YcuINin2YTZhdi02LHZiNi5INin2YTYo9i12YTZiiDZh9mIIEFnb3Jh2Iwg2YXZhiDYqti32YjZitixIG5ld28tZXRoZXIuINmK2KrYrdmF2YQg2YXZiNiy2ZHYuSDZh9iw2Ycg2KfZhNmG2LPYrtipINmF2LPYpNmI2YTZitipINin2YTYqti52K/ZitmE2KfYqtiMINmI2YfZiiDZhNinINiq2YXYq9mEINin2YTZhdik2YTZgSDYp9mE2KPYtdmE2You</string>
+    <string name="rating_origin_view_project_b64">2LnYsdi2INin2YTZhdi02LHZiNi5INin2YTYo9i12YTZig==</string>
 </resources>

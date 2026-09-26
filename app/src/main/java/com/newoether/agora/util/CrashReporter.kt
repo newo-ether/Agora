@@ -2,7 +2,6 @@ package com.newoether.agora.util
 
 import android.content.Context
 import android.os.Build
-import com.newoether.agora.api.HttpClient
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -19,7 +18,7 @@ import java.util.concurrent.ConcurrentLinkedDeque
  * [ENDPOINT]; nothing is ever sent without that explicit action.
  *
  * The report carries only a stack trace plus coarse, non-identifying environment data
- * (app version, Android API level, device model) — no user content, no device IDs.
+ * (package name, app version, Android API level, device model) — no user content, no device IDs.
  */
 object CrashReporter {
 
@@ -30,9 +29,9 @@ object CrashReporter {
     private const val MAX_TRACE_CHARS = 60_000
 
     /** Coarse, non-identifying app identity captured once at install time. */
-    private data class AppInfo(val versionName: String, val versionCode: Long)
+    private data class AppInfo(val versionName: String, val versionCode: Long, val packageName: String)
 
-    @Volatile private var appInfo: AppInfo = AppInfo("?", 0)
+    @Volatile private var appInfo: AppInfo = AppInfo("?", 0, "")
 
     /** Rolling diagnostic trail attached to crash reports. Helps pin down crashes we can't
      *  reproduce locally (e.g. the foreground-service start-in-time timeout) by recording
@@ -74,16 +73,21 @@ object CrashReporter {
     }
 
     /**
-     * POSTs the given report JSON to the crash endpoint. Returns true on success.
+     * POSTs the given report JSON and returns acceptance plus optional response content.
      * Must be called off the main thread (it performs blocking network I/O).
      */
-    fun submit(reportJson: String): Boolean =
-        runCatching { HttpClient.post(ENDPOINT, reportJson) != null }.getOrDefault(false)
+    fun submit(reportJson: String, packageName: String): SubmissionResponse {
+        val payload = runCatching {
+            JSONObject(reportJson).put("packageName", packageName).toString()
+        }.getOrElse { return SubmissionResponse(false) }
+        return submitFeedback(ENDPOINT, payload)
+    }
 
     private fun writeReport(context: Context, throwable: Throwable) {
         val trace = StringWriter().also { throwable.printStackTrace(PrintWriter(it)) }
             .toString().take(MAX_TRACE_CHARS)
         val json = JSONObject().apply {
+            put("packageName", appInfo.packageName)
             put("trace", trace)
             put("appVersion", appInfo.versionName)
             put("versionCode", appInfo.versionCode)
@@ -104,6 +108,6 @@ object CrashReporter {
         val pi = context.packageManager.getPackageInfo(context.packageName, 0)
         val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) pi.longVersionCode
         else pi.versionCode.toLong()
-        AppInfo(pi.versionName ?: "?", code)
-    }.getOrDefault(AppInfo("?", 0))
+        AppInfo(pi.versionName ?: "?", code, context.packageName)
+    }.getOrDefault(AppInfo("?", 0, context.packageName))
 }

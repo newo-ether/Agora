@@ -337,7 +337,16 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                         val cacheLabel = when (visualPhase) {
                                             EmbeddingCacheRowPhase.LOADING ->
                                                 stringResource(R.string.loading_label)
-                                            EmbeddingCacheRowPhase.CACHING -> countLabel
+                                            // Caching states its own progress as a percentage of
+                                            // the same pair the indicator draws.
+                                            EmbeddingCacheRowPhase.CACHING ->
+                                                cacheRow?.cachingCached?.let { shown ->
+                                                    val total =
+                                                        requireNotNull(cacheRow.indexableTotal)
+                                                    val percent = ((cacheRow.cachingFraction ?: 0f) *
+                                                        100).toInt()
+                                                    "$shown/$total ($percent%)"
+                                                }
                                             EmbeddingCacheRowPhase.CACHE -> {
                                                 val cached = requireNotNull(cacheRow?.cached)
                                                 val total = requireNotNull(cacheRow.indexableTotal)
@@ -381,15 +390,19 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                     ) {
                                                         when (phase) {
                                                             EmbeddingCacheRowPhase.CACHING -> {
-                                                                val progress = cacheRow?.progress
-                                                                if (progress == null) {
+                                                                // Determinate only when the row has
+                                                                // real counts to divide; otherwise
+                                                                // the fraction would be invented.
+                                                                val fraction =
+                                                                    cacheRow?.cachingFraction
+                                                                if (fraction == null) {
                                                                     CircularProgressIndicator(
                                                                         modifier = Modifier.size(24.dp),
                                                                         strokeWidth = 3.dp,
                                                                     )
                                                                 } else {
                                                                     CircularProgressIndicator(
-                                                                        progress = { progress.fraction },
+                                                                        progress = { fraction },
                                                                         modifier = Modifier.size(24.dp),
                                                                         strokeWidth = 3.dp,
                                                                     )

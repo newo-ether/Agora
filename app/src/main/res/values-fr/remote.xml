@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="remote_title">Remote</string>
+    <string name="remote_title">À distance</string>
     <string name="remote_devices">Appareils</string>
     <string name="remote_connect">Connecter</string>
     <string name="remote_address">URL du service</string>

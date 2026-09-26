@@ -105,6 +105,9 @@ internal class ConversationContextProjector(
             val includeAssistantReasoning = snapshot?.let {
                 generationManager().includesAssistantReasoning(it.config, it.context)
             } ?: false
+            val fixedComposition = snapshot?.let {
+                generationManager().fixedContextComposition(it.config, it.context)
+            }
             ConversationContextProjection(
                 conversationId = conversationId,
                 selectedBranchesJson = selectedBranchesJson,
@@ -113,6 +116,7 @@ internal class ConversationContextProjector(
                     tokenBudget = tokenBudget,
                     fixedTokenCost = fixedTokenCost,
                     includeAssistantReasoning = includeAssistantReasoning,
+                    fixedComposition = fixedComposition,
                 ),
                 retainedMessageIds = contextWindowRetainedMessageIds(
                     messages = contextMessages,

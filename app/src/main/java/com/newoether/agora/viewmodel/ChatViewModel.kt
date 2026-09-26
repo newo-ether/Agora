@@ -58,13 +58,14 @@ class ChatViewModel(
     private val localProvider: LocalProvider,
     private val providerRegistry: ProviderRegistry,
     // App-scoped automation orchestrator (task CRUD + run-now).
-    private val taskManager: com.newoether.agora.automation.TaskManager,
+    internal val taskManager: com.newoether.agora.automation.TaskManager,
     private val loopManager: com.newoether.agora.automation.LoopManager,
     private val automationToolProvider: com.newoether.agora.tool.AutomationToolProvider,
     private val conversationExecutionCoordinator: com.newoether.agora.automation.ConversationExecutionCoordinator,
     private val automationExecutionGate: com.newoether.agora.automation.AutomationExecutionGate,
     private val generationRegistry: ConversationStateRegistry,
     internal val shellConfirmation: ShellConfirmationController,
+    internal val askUser: AskUserController,
     private val mcpRegistry: com.newoether.agora.mcp.McpRegistry,
     private val mcpToolProvider: com.newoether.agora.tool.McpToolProvider,
     private val taskExecutionEngine: com.newoether.agora.automation.TaskExecutionEngine,
@@ -252,7 +253,11 @@ class ChatViewModel(
             skillManager = skillManager,
             context = appContext,
             sandboxFactory = sandboxFactory,
-            additionalToolProviders = listOf(automationToolProvider, mcpToolProvider),
+            additionalToolProviders = listOf(
+                automationToolProvider,
+                mcpToolProvider,
+                com.newoether.agora.tool.AskUserToolProvider(askUser),
+            ),
             customProviders = { settings.customProviders.value },
         ).also { gm ->
             // Gate lives in RagManager.indexMessageForRag (autoCacheEnabled + active model).
@@ -334,24 +339,6 @@ class ChatViewModel(
     val currentActiveModel: StateFlow<String> get() = selectionController.currentActiveModel
 
     fun getProviderForModel(modelId: String): String = providerRegistry.providerForModel(modelId)
-
-    // ── Tasks (automation) ────────────────────────────────────
-    /** Saved automation tasks; CRUD + run-now delegate to the app-scoped [taskManager]. */
-    val tasks: StateFlow<List<com.newoether.agora.data.local.TaskEntity>> get() = taskManager.tasks
-    val runningTaskIds: StateFlow<Set<String>> get() = taskManager.runningTaskIds
-
-    fun executionSummariesForTask(taskId: String) = taskManager.executionSummariesForTask(taskId)
-    suspend fun getTask(taskId: String) = taskManager.getTask(taskId)
-
-    fun saveTask(task: com.newoether.agora.data.local.TaskEntity) {
-        viewModelScope.launch { taskManager.saveTask(task) }
-    }
-
-    fun deleteTask(taskId: String) {
-        viewModelScope.launch { taskManager.deleteTask(taskId) }
-    }
-
-    fun runTaskNow(task: com.newoether.agora.data.local.TaskEntity, preservePersistedEnabled: Boolean = true) = taskManager.runNow(task, preservePersistedEnabled)
 
     // ── Auto Backup ───────────────────────────────────────────
 

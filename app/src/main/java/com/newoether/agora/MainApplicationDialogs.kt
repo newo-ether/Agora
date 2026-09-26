@@ -2,7 +2,6 @@ package com.newoether.agora
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,13 +11,10 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -29,11 +25,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import com.newoether.agora.data.claimSubmissionMessage
 import com.newoether.agora.data.SettingsManager
-import com.newoether.agora.ui.chat.message.ChatMarkdownCodeBlock
 import com.newoether.agora.ui.settings.RatingForm
 import com.newoether.agora.util.CrashReporter
+import com.newoether.agora.util.SubmissionMessage
+import com.newoether.agora.ui.components.SubmissionMessageDialog
+import java.io.IOException
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
@@ -48,6 +46,10 @@ internal fun MainApplicationDialogs(
 ) {
     var snackbarVersion by snackbarVersionState
     val ratingScope = rememberCoroutineScope()
+    var submissionMessage by remember { mutableStateOf<SubmissionMessage?>(null) }
+    submissionMessage?.let { message ->
+        SubmissionMessageDialog(message) { submissionMessage = null }
+    }
 
     // Update dialog
     val updateDialogData by viewModel.updateDialogData.collectAsState()
@@ -119,53 +121,9 @@ internal fun MainApplicationDialogs(
         )
     }
 
-    // Remote shell action confirmation gate. Allow / Deny are the only ways to answer it: the
-    // request is a security boundary, so neither an outside tap nor Back may imply an answer, and
-    // the same prompt is re-surfaced as a notification while the app is backgrounded.
-    val pendingShellCommand by viewModel.shellConfirmation.pendingShellCommand.collectAsState()
-    val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
-    pendingShellCommand?.let { pending ->
-        var alwaysAllow by remember(pending) { mutableStateOf(false) }
-        AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            onDismissRequest = {},
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            icon = { Icon(Icons.Default.Terminal, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary) },
-            title = { Text(stringResource(R.string.shell_confirm_title, pending.server), fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 240.dp)
-                            .verticalScroll(rememberScrollState()),
-                    ) {
-                        ChatMarkdownCodeBlock(code = pending.summary, autoWrap = autoWrapCodeBlocks)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                            .pointerInput(Unit) { detectTapGestures { alwaysAllow = !alwaysAllow } }
-                    ) {
-                        Checkbox(checked = alwaysAllow, onCheckedChange = { alwaysAllow = it })
-                        Text(stringResource(R.string.shell_confirm_always), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.shellConfirmation.resolve(pending.id, allow = true, alwaysAllowServer = alwaysAllow) }) {
-                    Text(stringResource(R.string.shell_confirm_allow))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { viewModel.shellConfirmation.resolve(pending.id, allow = false) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text(stringResource(R.string.shell_confirm_deny)) }
-            }
-        )
-    }
+    // Remote shell confirmations are answered in the chat screen's interaction bar, not here:
+    // a modal dialog hid the conversation the command belongs to. While the chat screen is not on
+    // screen the same prompt is re-surfaced as a notification.
 
     // Crash report — opt-in, shown once on the first launch after an unexpected exit
     val crashContext = LocalContext.current
@@ -275,12 +233,19 @@ internal fun MainApplicationDialogs(
                 TextButton(onClick = {
                     pendingCrash = null
                     ratingScope.launch {
-                        val ok = withContext(Dispatchers.IO) {
-                            CrashReporter.submit(report).also { submitted ->
-                                if (submitted) CrashReporter.clear(crashContext)
+                        val result = withContext(Dispatchers.IO) {
+                            CrashReporter.submit(report, crashContext.packageName).also {
+                                if (it.accepted) CrashReporter.clear(crashContext)
                             }
                         }
-                        if (ok) {
+                        val message = try {
+                            result.message?.takeIf { claimSubmissionMessage(crashContext, it.id) }
+                        } catch (_: IOException) {
+                            null
+                        }
+                        if (message != null) {
+                            submissionMessage = message
+                        } else if (result.accepted) {
                             try {
                                 snackbarHostState.showSnackbar(crashSubmittedMsg)
                             } finally {
@@ -334,9 +299,11 @@ internal fun MainApplicationDialogs(
             ) {
                 Box(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     RatingForm(
-                        onSubmitted = {
+                        onSubmitted = { message ->
+                            submissionMessage = message
                             showRatingPrompt = false
                             ratingScope.launch {
                                 settingsManager.saveRatingPromptSubmitted(true)

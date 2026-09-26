@@ -564,7 +564,12 @@
     <string name="shell_confirm_setting">Confirmar acciones de shell remoto</string>
     <string name="shell_confirm_setting_desc">Preguntar antes de que el asistente ejecute comandos o escriba archivos en servidores SSH/Conch remotos</string>
     <string name="shell_confirm_notification_channel">Aprobación de comandos</string>
-    <string name="shell_confirm_notification_desc">Pide permitir o denegar un comando remoto mientras Agora está en segundo plano</string>
+    <string name="shell_confirm_notification_desc">Pide permitir o denegar un comando remoto mientras Agora está en segundo plano</string>
+    <string name="ask_user_title">El asistente pregunta</string>
+    <string name="ask_user_send">Enviar</string>
+    <string name="ask_user_skip">Omitir</string>
+    <string name="ask_user_notification_channel">Pregunta de Agora</string>
+    <string name="ask_user_notification_desc">Te pide responder una pregunta del asistente cuando el chat no está abierto</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora se cerró inesperadamente</string>
@@ -655,7 +660,12 @@
     <string name="thinking_segment_display_card">Tarjeta</string>
     <string name="thinking_segment_display_bottom_sheet">Hoja inferior</string>
     <string name="thinking_segments_title">Segmentos de razonamiento</string>
-    <string name="context_usage_messages">~%1$s / %2$s tokens</string>
+    <string name="context_usage_messages">~%1$s / %2$s tokens</string>
+    <string name="context_part_system">Prompt del sistema</string>
+    <string name="context_part_tools">Herramientas</string>
+    <string name="context_part_messages">Mensajes</string>
+    <string name="context_part_free">Libre</string>
+    <string name="context_part_reserved">Reservado</string>
     <string name="context_compact_streaming">Compactando contexto…</string>
     <string name="context_compact_error">Error de compactación</string>
     <string name="context_compact_stopped">Compactación detenida</string>
@@ -782,4 +792,10 @@
     <string name="thought_for_a_while">Pensó durante un rato</string>
     <string name="thought_for_a_while_called_tools">Pensó durante un rato, llamó a %1$d herramientas</string>
     <string name="remote_device">Dispositivo</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcgRGVzYXJyb2xsYWRvIHBvciBuZXdvLWV0aGVy</string>
+    <string name="rating_origin_project_b64">UHJveWVjdG8gb3JpZ2luYWw6IGdpdGh1Yi5jb20vbmV3by1ldGhlci9BZ29yYQ==</string>
+    <string name="rating_origin_modified_title_b64">VmVyc2nDs24gbW9kaWZpY2FkYQ==</string>
+    <string name="rating_origin_modified_body_b64">RXN0YSBhcGxpY2FjacOzbiB1c2EgdW4gbm9tYnJlIGRlIHBhcXVldGUgZGlzdGludG8gYWwgZGVsIHByb3llY3RvIG9yaWdpbmFsIHkgaGEgc2lkbyByZWVtcGFxdWV0YWRhIG8gbW9kaWZpY2FkYS4gRWwgcHJveWVjdG8gb3JpZ2luYWwgZXMgQWdvcmEsIGRlc2Fycm9sbGFkbyBwb3IgbmV3by1ldGhlci4gTG9zIGNhbWJpb3MgZGUgZXN0YSB2ZXJzacOzbiBzb24gcmVzcG9uc2FiaWxpZGFkIGRlIHN1IGRpc3RyaWJ1aWRvciB5IG5vIHJlcHJlc2VudGFuIGFsIGF1dG9yIG9yaWdpbmFsLg==</string>
+    <string name="rating_origin_view_project_b64">VmVyIHByb3llY3RvIG9yaWdpbmFs</string>
 </resources>

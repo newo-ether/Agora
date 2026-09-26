@@ -483,4 +483,8 @@
     <string name="openai_service_tier_priority">Ưu tiên</string>
     <string name="openai_service_tier_fast">Nhanh</string>
     <string name="openai_service_tier_ultrafast">Siêu nhanh</string>
+    <string name="settings_interaction">Tương tác</string>
+    <string name="settings_interaction_desc">Những câu hỏi trợ lý gửi cho bạn</string>
+    <string name="ask_user_enable">Cho phép trợ lý hỏi</string>
+    <string name="ask_user_enable_desc">Cấp cho mô hình công cụ để hỏi bạn và chờ bạn chọn</string>
 </resources>

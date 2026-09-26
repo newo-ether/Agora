@@ -499,4 +499,8 @@
     <string name="openai_service_tier_priority">Priority</string>
     <string name="openai_service_tier_fast">Fast</string>
     <string name="openai_service_tier_ultrafast">Ultra Fast</string>
+    <string name="settings_interaction">Interaction</string>
+    <string name="settings_interaction_desc">Questions the assistant asks you</string>
+    <string name="ask_user_enable">Let the assistant ask me</string>
+    <string name="ask_user_enable_desc">Gives the model a tool to ask you a question and wait for your choice</string>
 </resources>

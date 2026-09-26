@@ -26,6 +26,7 @@ import com.newoether.agora.tool.McpToolProvider
 import com.newoether.agora.mcp.McpRegistry
 import com.newoether.agora.sandbox.SandboxManagerFactory
 import com.newoether.agora.service.MaintenanceDebtWorker
+import com.newoether.agora.service.AskUserNotifier
 import com.newoether.agora.service.ShellConfirmationNotifier
 import com.newoether.agora.service.TaskWorker
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -142,6 +143,15 @@ class AppContainer(
         ConversationSettingsTransferCoordinator(conversationRepository, settingsRepository)
     }
 
+    /** One process-wide ask_user queue, so a background run can reach the same interaction bar. */
+    val askUserController: com.newoether.agora.viewmodel.AskUserController by lazy {
+        com.newoether.agora.viewmodel.AskUserController().also {
+            // The interaction bar only exists inside the chat screen, so a question asked from
+            // anywhere else needs the notification to stay answerable.
+            AskUserNotifier.start(appScope, appContext, it)
+        }
+    }
+
     /** One process-wide confirmation queue shared by Chat, Task, and Loop generation. */
     val shellConfirmationController: ShellConfirmationController by lazy {
         ShellConfirmationController(settingsRepository).also {
@@ -241,6 +251,7 @@ class AppContainer(
             shellConfirmation = shellConfirmationController,
             automationExecutionGate = automationExecutionGate,
             mcpToolProvider = mcpToolProvider,
+            askUser = askUserController,
             generationRegistry = conversationStateRegistry,
             pauseConversationLoop = { conversationId -> loopManager.stopLoop(conversationId) },
         )
@@ -306,6 +317,7 @@ class AppContainer(
             ::startProcessServices, localProvider, providerRegistry,
             taskManager, loopManager, automationToolProvider, conversationExecutionCoordinator,
             automationExecutionGate, conversationStateRegistry, shellConfirmationController,
+            askUserController,
             mcpRegistry, mcpToolProvider, taskExecutionEngine,
         )
 }

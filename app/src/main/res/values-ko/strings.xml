@@ -564,7 +564,12 @@
     <string name="shell_confirm_setting">원격 셸 작업 확인</string>
     <string name="shell_confirm_setting_desc">어시스턴트가 원격 SSH/Conch 서버에서 명령을 실행하거나 파일을 쓰기 전에 확인</string>
     <string name="shell_confirm_notification_channel">명령 승인</string>
-    <string name="shell_confirm_notification_desc">Agora가 백그라운드에 있을 때 원격 명령을 허용하거나 거부하도록 묻습니다</string>
+    <string name="shell_confirm_notification_desc">Agora가 백그라운드에 있을 때 원격 명령을 허용하거나 거부하도록 묻습니다</string>
+    <string name="ask_user_title">어시스턴트의 질문</string>
+    <string name="ask_user_send">보내기</string>
+    <string name="ask_user_skip">건너뛰기</string>
+    <string name="ask_user_notification_channel">Agora의 질문</string>
+    <string name="ask_user_notification_desc">채팅 화면이 열려 있지 않을 때 어시스턴트의 질문에 답하도록 요청합니다</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora가 예기치 않게 종료되었습니다</string>
@@ -655,7 +660,12 @@
     <string name="thinking_segment_display_card">카드</string>
     <string name="thinking_segment_display_bottom_sheet">하단 시트</string>
     <string name="thinking_segments_title">사고 세그먼트</string>
-    <string name="context_usage_messages">약 %1$s / %2$s tokens</string>
+    <string name="context_usage_messages">약 %1$s / %2$s tokens</string>
+    <string name="context_part_system">시스템 프롬프트</string>
+    <string name="context_part_tools">도구</string>
+    <string name="context_part_messages">메시지</string>
+    <string name="context_part_free">여유</string>
+    <string name="context_part_reserved">예약됨</string>
     <string name="context_compact_streaming">컨텍스트 압축 중…</string>
     <string name="context_compact_error">압축 오류</string>
     <string name="context_compact_stopped">압축 중지됨</string>
@@ -782,4 +792,10 @@
     <string name="thought_for_a_while">잠시 생각했습니다</string>
     <string name="thought_for_a_while_called_tools">잠시 생각하고 도구 %1$d개를 호출했습니다</string>
     <string name="remote_device">기기</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcg6rCc67Cc7J6QOiBuZXdvLWV0aGVy</string>
+    <string name="rating_origin_project_b64">7JuQ67O4IO2UhOuhnOygne2KuDogZ2l0aHViLmNvbS9uZXdvLWV0aGVyL0Fnb3Jh</string>
+    <string name="rating_origin_modified_title_b64">7IiY7KCV65CcIOuyhOyghA==</string>
+    <string name="rating_origin_modified_body_b64">7J20IOyVseydgCDsm5Drs7gg7ZSE66Gc7KCd7Yq47JmAIOuLpOuluCDtjKjtgqTsp4Ag7J2066aE7J2EIOyCrOyaqe2VmOupsCDri6Tsi5wg7Yyo7YKk7KeV65CY7JeI6rGw64KYIOyImOygleuQmOyXiOyKteuLiOuLpC4g7JuQ67O4IO2UhOuhnOygne2KuOuKlCBuZXdvLWV0aGVy6rCAIOqwnOuwnO2VnCBBZ29yYeyeheuLiOuLpC4g7J20IOuyhOyghOydmCDrs4Dqsr0g7IKs7ZWt7J2AIOuwsO2PrOyekOydmCDssYXsnoTsnbTrqbAg7JuQ7J6R7J6Q66W8IOuMgO2RnO2VmOyngCDslYrsirXri4jri6Qu</string>
+    <string name="rating_origin_view_project_b64">7JuQ67O4IO2UhOuhnOygne2KuCDrs7TquLA=</string>
 </resources>

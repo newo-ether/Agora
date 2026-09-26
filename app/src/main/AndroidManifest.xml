@@ -91,6 +91,11 @@
             android:name=".service.ShellConfirmationReceiver"
             android:exported="false" />
 
+        <!-- Applies an ask_user answer given on a notification; internal only. -->
+        <receiver
+            android:name=".service.AskUserReceiver"
+            android:exported="false" />
+
         <!-- Re-arms task alarms after reboot / app update. -->
         <receiver
             android:name=".service.BootReceiver"

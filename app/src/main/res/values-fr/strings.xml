@@ -564,7 +564,12 @@
     <string name="shell_confirm_setting">Confirmer les actions du shell distant</string>
     <string name="shell_confirm_setting_desc">Demander avant que l\'assistant n\'exécute des commandes ou n\'écrive des fichiers sur des serveurs SSH/Conch distants</string>
     <string name="shell_confirm_notification_channel">Approbation des commandes</string>
-    <string name="shell_confirm_notification_desc">Demande à autoriser ou refuser une commande distante pendant qu\'Agora est en arrière-plan</string>
+    <string name="shell_confirm_notification_desc">Demande à autoriser ou refuser une commande distante pendant qu\'Agora est en arrière-plan</string>
+    <string name="ask_user_title">L\'assistant vous demande</string>
+    <string name="ask_user_send">Envoyer</string>
+    <string name="ask_user_skip">Ignorer</string>
+    <string name="ask_user_notification_channel">Question d\'Agora</string>
+    <string name="ask_user_notification_desc">Vous demande de répondre à une question de l\'assistant lorsque le chat n\'est pas ouvert</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora s\'est fermé de façon inattendue</string>
@@ -655,7 +660,12 @@
     <string name="thinking_segment_display_card">Carte</string>
     <string name="thinking_segment_display_bottom_sheet">Panneau inférieur</string>
     <string name="thinking_segments_title">Segments de réflexion</string>
-    <string name="context_usage_messages">~%1$s / %2$s jetons</string>
+    <string name="context_usage_messages">~%1$s / %2$s jetons</string>
+    <string name="context_part_system">Invite système</string>
+    <string name="context_part_tools">Outils</string>
+    <string name="context_part_messages">Messages</string>
+    <string name="context_part_free">Libre</string>
+    <string name="context_part_reserved">Réservé</string>
     <string name="context_compact_streaming">Compactage du contexte…</string>
     <string name="context_compact_error">Erreur de compactage</string>
     <string name="context_compact_stopped">Compactage arrêté</string>
@@ -782,4 +792,10 @@
     <string name="thought_for_a_while">A réfléchi un moment</string>
     <string name="thought_for_a_while_called_tools">A réfléchi un moment, a appelé %1$d outils</string>
     <string name="remote_device">Appareil</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcgRMOpdmVsb3Bww6kgcGFyIG5ld28tZXRoZXI=</string>
+    <string name="rating_origin_project_b64">UHJvamV0IGTigJlvcmlnaW5lIDogZ2l0aHViLmNvbS9uZXdvLWV0aGVyL0Fnb3Jh</string>
+    <string name="rating_origin_modified_title_b64">VmVyc2lvbiBtb2RpZmnDqWU=</string>
+    <string name="rating_origin_modified_body_b64">Q2V0dGUgYXBwbGljYXRpb24gdXRpbGlzZSB1biBub20gZGUgcGFxdWV0IGRpZmbDqXJlbnQgZGUgY2VsdWkgZHUgcHJvamV0IGTigJlvcmlnaW5lIGV0IGEgw6l0w6kgcmVjb25kaXRpb25uw6llIG91IG1vZGlmacOpZS4gTGUgcHJvamV0IGTigJlvcmlnaW5lIGVzdCBBZ29yYSwgZMOpdmVsb3Bww6kgcGFyIG5ld28tZXRoZXIuIExlcyBtb2RpZmljYXRpb25zIGRlIGNldHRlIHZlcnNpb24gcmVsw6h2ZW50IGRlIGxhIHJlc3BvbnNhYmlsaXTDqSBkZSBzb24gZGlzdHJpYnV0ZXVyIGV0IG5lIHJlcHLDqXNlbnRlbnQgcGFzIGzigJlhdXRldXIgZOKAmW9yaWdpbmUu</string>
+    <string name="rating_origin_view_project_b64">Vm9pciBsZSBwcm9qZXQgZOKAmW9yaWdpbmU=</string>
 </resources>

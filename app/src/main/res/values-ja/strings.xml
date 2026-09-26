@@ -564,7 +564,12 @@
     <string name="shell_confirm_setting">リモートシェル操作を確認</string>
     <string name="shell_confirm_setting_desc">アシスタントがリモートの SSH/Conch サーバーでコマンドを実行したりファイルを書き込んだりする前に確認する</string>
     <string name="shell_confirm_notification_channel">コマンドの承認</string>
-    <string name="shell_confirm_notification_desc">Agora がバックグラウンドにある間に、リモートコマンドを許可または拒否するよう尋ねます</string>
+    <string name="shell_confirm_notification_desc">Agora がバックグラウンドにある間に、リモートコマンドを許可または拒否するよう尋ねます</string>
+    <string name="ask_user_title">アシスタントからの質問</string>
+    <string name="ask_user_send">送信</string>
+    <string name="ask_user_skip">スキップ</string>
+    <string name="ask_user_notification_channel">Agora からの質問</string>
+    <string name="ask_user_notification_desc">チャット画面が開いていないときにアシスタントの質問への回答を求めます</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora が予期せず終了しました</string>
@@ -655,7 +660,12 @@
     <string name="thinking_segment_display_card">カード</string>
     <string name="thinking_segment_display_bottom_sheet">ボトムシート</string>
     <string name="thinking_segments_title">思考セグメント</string>
-    <string name="context_usage_messages">約 %1$s / %2$s tokens</string>
+    <string name="context_usage_messages">約 %1$s / %2$s tokens</string>
+    <string name="context_part_system">システムプロンプト</string>
+    <string name="context_part_tools">ツール</string>
+    <string name="context_part_messages">メッセージ</string>
+    <string name="context_part_free">空き</string>
+    <string name="context_part_reserved">予約済み</string>
     <string name="context_compact_streaming">コンテキストを圧縮中…</string>
     <string name="context_compact_error">圧縮エラー</string>
     <string name="context_compact_stopped">圧縮を停止しました</string>
@@ -782,4 +792,10 @@
     <string name="thought_for_a_while">しばらく思考しました</string>
     <string name="thought_for_a_while_called_tools">しばらく思考し、%1$d 個のツールを呼び出しました</string>
     <string name="remote_device">デバイス</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcg6ZaL55m66ICF77yabmV3by1ldGhlcg==</string>
+    <string name="rating_origin_project_b64">5YWD44Gu44OX44Ot44K444Kn44Kv44OI77yaZ2l0aHViLmNvbS9uZXdvLWV0aGVyL0Fnb3Jh</string>
+    <string name="rating_origin_modified_title_b64">5aSJ5pu044GV44KM44Gf44OQ44O844K444On44Oz</string>
+    <string name="rating_origin_modified_body_b64">44GT44Gu44Ki44OX44Oq44Gv5YWD44Gu44OX44Ot44K444Kn44Kv44OI44Go44Gv55Ww44Gq44KL44OR44OD44Kx44O844K45ZCN44KS5L2/55So44GX44Gm44GK44KK44CB5YaN44OR44OD44Kx44O844K45YyW44G+44Gf44Gv5aSJ5pu044GV44KM44Gm44GE44G+44GZ44CC5YWD44Gu44OX44Ot44K444Kn44Kv44OI44GvIG5ld28tZXRoZXIg44GM6ZaL55m644GX44GfIEFnb3JhIOOBp+OBmeOAguOBk+OBruODkOODvOOCuOODp+ODs+OBruWkieabtOOBr+mFjeW4g+iAheOBruiyrOS7u+OBp+OBguOCiuOAgeWFg+OBruS9nOiAheOCkuS7o+ihqOOBmeOCi+OCguOBruOBp+OBr+OBguOCiuOBvuOBm+OCk+OAgg==</string>
+    <string name="rating_origin_view_project_b64">5YWD44Gu44OX44Ot44K444Kn44Kv44OI44KS6KaL44KL</string>
 </resources>

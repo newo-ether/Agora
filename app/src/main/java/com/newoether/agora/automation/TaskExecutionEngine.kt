@@ -19,28 +19,24 @@ import com.newoether.agora.model.RunStatus
 import com.newoether.agora.sandbox.SandboxManagerFactory
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.viewmodel.AutomaticCompactContinuationRequest
-import com.newoether.agora.viewmodel.BoundRunGenerationLauncher
+import com.newoether.agora.viewmodel.AskUserController
 import com.newoether.agora.viewmodel.BoundRunGenerationRequest
 import com.newoether.agora.viewmodel.AcceptedInputGraphWriter
-import com.newoether.agora.viewmodel.ContextCompactor
-import com.newoether.agora.viewmodel.ConversationCompactController
 import com.newoether.agora.viewmodel.ConversationTitleGenerator
 import com.newoether.agora.viewmodel.GenerationManager
 import com.newoether.agora.viewmodel.GenerationFinalizer
-import com.newoether.agora.viewmodel.GenerationTerminalSettlementController
 import com.newoether.agora.viewmodel.ConversationStateRegistry
 import com.newoether.agora.viewmodel.ConversationGenerationState
 import com.newoether.agora.viewmodel.GenerationRequestBuilder
 import com.newoether.agora.viewmodel.ToolRoundBoundaryDecision
-import com.newoether.agora.viewmodel.StandardGenerationContinuationLauncher
 import com.newoether.agora.viewmodel.automaticCompactAllowsHandoff
-import com.newoether.agora.viewmodel.normalizePersistedGenerationErrorText
 import com.newoether.agora.viewmodel.ProviderRegistry
 import com.newoether.agora.viewmodel.RagManager
 import com.newoether.agora.viewmodel.RunFinalizationEffectCoordinator
 import com.newoether.agora.viewmodel.ShellConfirmationController
 import com.newoether.agora.viewmodel.fallbackConversationTitle
 import com.newoether.agora.viewmodel.toUiChatMessage
+import com.newoether.agora.tool.AskUserToolProvider
 import com.newoether.agora.tool.McpToolProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableJob
@@ -80,6 +76,7 @@ class TaskExecutionEngine(
     private val executionCoordinator: ConversationExecutionCoordinator,
     shellConfirmation: ShellConfirmationController,
     mcpToolProvider: McpToolProvider,
+    askUser: AskUserController,
     private val generationRegistry: ConversationStateRegistry,
     private val automationExecutionGate: AutomationExecutionGate = AutomationExecutionGate(),
     private val automationWakeLockOwner: AutomationWakeLockOwner =
@@ -155,44 +152,16 @@ class TaskExecutionEngine(
     private val stopFinalizer = GenerationFinalizer(convRepo, ragManager::indexMessageForRag)
     private val runFinalizationEffects = RunFinalizationEffectCoordinator()
     private val titleGenerator = ConversationTitleGenerator(convRepo, settings, providerRegistry)
-    private val contextCompactor = ContextCompactor(
-        conversations = convRepo,
-        generationErrorFormatter = { raw ->
-            normalizePersistedGenerationErrorText(appContext, raw)
-        },
-    )
     private val acceptedInputGraphWriter = AcceptedInputGraphWriter(convRepo)
-    private val terminalSettlement = GenerationTerminalSettlementController(
+    private val compactPipeline = HeadlessCompactPipeline(
         conversations = convRepo,
-        stopFinalizer = GenerationFinalizer(convRepo) { _, _ -> },
-        runFinalizationEffects = RunFinalizationEffectCoordinator(),
-        failureText = { "Generation failed" },
-        toUiMessage = { it.toUiChatMessage(appContext) },
-        onSnackbar = {},
-    )
-    private val compactBoundRunGenerationLauncher = BoundRunGenerationLauncher(
-        conversations = convRepo,
-        generationManagerProvider = { generationManager },
-        automaticCompactNeeded = contextCompactor::automaticNeeded,
-        terminalSettlement = terminalSettlement,
-        toUiMessage = { it.toUiChatMessage(appContext) },
-    )
-    private val compactContinuationLauncher = StandardGenerationContinuationLauncher(
-        conversations = convRepo,
+        appContext = appContext,
         executionCoordinator = executionCoordinator,
-        terminalSettlement = terminalSettlement,
-        boundRunGenerationLauncher = { compactBoundRunGenerationLauncher },
-        toUiMessage = { it.toUiChatMessage(appContext) },
-        isConversationOpen = { false },
-        projectGraph = { _, _, _, _ -> },
-    )
-    private val compactController = ConversationCompactController(
-        conversations = convRepo,
-        operation = contextCompactor,
-        requestBuilder = null,
         generationManagerProvider = { generationManager },
-        continuationLauncher = { compactContinuationLauncher },
     )
+    private val contextCompactor get() = compactPipeline.compactor
+    private val terminalSettlement get() = compactPipeline.terminalSettlement
+    private val compactController get() = compactPipeline.controller
 
     /**
      * Task-only post-processing. Loop runs share this engine but never call this method, so a
@@ -229,7 +198,9 @@ class TaskExecutionEngine(
         skillManager = skillManager,
         context = appContext,
         sandboxFactory = sandboxFactory,
-        additionalToolProviders = listOf(mcpToolProvider),
+        // A background run can ask the user too: the question surfaces in the chat screen's
+        // interaction bar, or as a notification while that screen is not showing.
+        additionalToolProviders = listOf(mcpToolProvider, AskUserToolProvider(askUser)),
         customProviders = { settings.customProviders.value },
     ).also {
         // Foreground Task/Loop executions share the exact same prompt and session trust state as

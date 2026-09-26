@@ -573,7 +573,12 @@
     <string name="shell_confirm_setting">Xác nhận các hành động shell từ xa</string>
     <string name="shell_confirm_setting_desc">Hỏi trước khi trợ lý chạy các lệnh hoặc ghi tệp trên các máy chủ SSH/Conch từ xa</string>
     <string name="shell_confirm_notification_channel">Phê duyệt lệnh</string>
-    <string name="shell_confirm_notification_desc">Yêu cầu cho phép hoặc từ chối lệnh từ xa khi Agora chạy ngầm</string>
+    <string name="shell_confirm_notification_desc">Yêu cầu cho phép hoặc từ chối lệnh từ xa khi Agora chạy ngầm</string>
+    <string name="ask_user_title">Trợ lý đang hỏi</string>
+    <string name="ask_user_send">Gửi</string>
+    <string name="ask_user_skip">Bỏ qua</string>
+    <string name="ask_user_notification_channel">Câu hỏi từ Agora</string>
+    <string name="ask_user_notification_desc">Yêu cầu bạn trả lời câu hỏi của trợ lý khi màn hình trò chuyện không mở</string>
 
     <!-- Crash reporting -->
     <string name="crash_title">Agora đã thoát đột ngột</string>
@@ -661,7 +666,12 @@
     <string name="thinking_segment_display_card">Thẻ</string>
     <string name="thinking_segment_display_bottom_sheet">Bảng dưới</string>
     <string name="thinking_segments_title">Phân đoạn suy luận</string>
-    <string name="context_usage_messages">~%1$s / %2$s token</string>
+    <string name="context_usage_messages">~%1$s / %2$s token</string>
+    <string name="context_part_system">Lời nhắc hệ thống</string>
+    <string name="context_part_tools">Công cụ</string>
+    <string name="context_part_messages">Tin nhắn</string>
+    <string name="context_part_free">Còn trống</string>
+    <string name="context_part_reserved">Dự trữ</string>
     <string name="context_compact_streaming">Đang thu gọn ngữ cảnh…</string>
     <string name="context_compact_error">Lỗi thu gọn</string>
     <string name="context_compact_stopped">Đã dừng thu gọn</string>
@@ -788,4 +798,10 @@
     <string name="thought_for_a_while">Đã suy nghĩ một lúc</string>
     <string name="thought_for_a_while_called_tools">Đã suy nghĩ một lúc, đã gọi %1$d công cụ</string>
     <string name="remote_device">Thiết bị</string>
+    <!-- Upstream attribution copy, UTF-8 Base64 for lightweight bulk-rename resistance. -->
+    <string name="rating_origin_credit_b64">QWdvcmEgwrcgxJDGsOG7o2MgcGjDoXQgdHJp4buDbiBi4bufaSBuZXdvLWV0aGVy</string>
+    <string name="rating_origin_project_b64">ROG7sSDDoW4gZ+G7kWM6IGdpdGh1Yi5jb20vbmV3by1ldGhlci9BZ29yYQ==</string>
+    <string name="rating_origin_modified_title_b64">UGhpw6puIGLhuqNuIMSRw6Mgc+G7rWEgxJHhu5Vp</string>
+    <string name="rating_origin_modified_body_b64">4buobmcgZOG7pW5nIG7DoHkgZMO5bmcgdMOqbiBnw7NpIGtow6FjIHbhu5tpIGThu7Egw6FuIGfhu5FjIHbDoCDEkcOjIMSRxrDhu6NjIMSRw7NuZyBnw7NpIGzhuqFpIGhv4bq3YyBz4butYSDEkeG7lWkuIEThu7Egw6FuIGfhu5FjIGzDoCBBZ29yYSwgZG8gbmV3by1ldGhlciBwaMOhdCB0cmnhu4NuLiBOaMOgIHBow6JuIHBo4buRaSBwaGnDqm4gYuG6o24gbsOgeSBjaOG7i3UgdHLDoWNoIG5oaeG7h20gduG7gSBjw6FjIHRoYXkgxJHhu5VpOyBjw6FjIHRoYXkgxJHhu5VpIMSRw7Mga2jDtG5nIMSR4bqhaSBkaeG7h24gY2hvIHTDoWMgZ2nhuqMgZ+G7kWMu</string>
+    <string name="rating_origin_view_project_b64">WGVtIGThu7Egw6FuIGfhu5Fj</string>
 </resources>

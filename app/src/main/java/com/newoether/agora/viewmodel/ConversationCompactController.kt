@@ -256,6 +256,7 @@ internal class ConversationCompactController(
             accessPastConversations = false,
             webSearchEnabled = false,
             imageGenEnabled = false,
+            askUserEnabled = false,
             automationToolsEnabled = false,
             shellEnabled = false,
             sandboxEnabled = false,

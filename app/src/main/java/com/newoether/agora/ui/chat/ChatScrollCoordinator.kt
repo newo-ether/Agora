@@ -126,7 +126,7 @@ internal class ChatScrollCoordinator internal constructor(
             )
             if (next != imeBottomAnchorState) imeBottomAnchorStateHolder.value = next
         }
-        val bottomButtonHideThresholdPx = with(density) { 64.dp.toPx() }
+        val bottomButtonHideThresholdPx = with(density) { 48.dp.toPx() }
         val bottomButtonShowThresholdPx = with(density) { 96.dp.toPx() }
         LaunchedEffect(
             listState,

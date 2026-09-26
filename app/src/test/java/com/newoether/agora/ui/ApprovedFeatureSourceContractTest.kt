@@ -78,7 +78,10 @@ internal class ApprovedFeatureSourceContractTest : UiSourceContractFixture() {
         assertTrue(controls.contains("motionPolicy.allowContinuousMotion"))
         assertTrue(controls.contains("tween(durationMillis = 400)"))
         assertTrue(controls.contains("snap()"))
-        assertTrue(controls.contains("progress = { if (available) contextProgress else 0f }") && controls.contains("progress = { contextProgress }"))
+        assertTrue(controls.contains("progress = { if (available) contextProgress else 0f }"))
+        // The opened menu shows the composition breakdown instead of a second progress ring.
+        assertFalse(controls.contains("progress = { contextProgress }"))
+        assertTrue(controls.contains("ContextCompositionBar("))
         assertFalse(sharedProgress.contains("animateFloatAsState"))
     }
 

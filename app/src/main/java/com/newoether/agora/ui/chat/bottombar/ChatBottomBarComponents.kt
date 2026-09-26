@@ -118,15 +118,22 @@ internal fun ComposerContextIndicator(
     estimatedTokens: Int?,
     tokenBudget: Int?,
     compactThresholdPercent: Int = 90,
+    compactEnabled: Boolean = true,
+    systemPromptTokens: Int = 0,
+    toolTokens: Int = 0,
     expanded: Boolean,
     onClick: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     val motionPolicy = LocalAgoraMotionPolicy.current
     val available = estimatedTokens != null && tokenBudget != null
-    val contextProgressColor = if (estimatedTokens != null && tokenBudget != null && contextUsageExceedsCompactThreshold(
-        estimatedTokens, tokenBudget, compactThresholdPercent,
-    )) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val overCompactThreshold = estimatedTokens != null && tokenBudget != null &&
+        contextUsageExceedsCompactThreshold(estimatedTokens, tokenBudget, compactThresholdPercent)
+    val contextProgressColor = if (overCompactThreshold) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
     val contextProgressTarget = if (estimatedTokens == null || tokenBudget == null || tokenBudget <= 0) 0f
         else (estimatedTokens.toFloat() / tokenBudget).coerceIn(0f, 1f)
     val contextProgress by animateFloatAsState(
@@ -163,15 +170,20 @@ internal fun ComposerContextIndicator(
             shape = CHAT_DROPDOWN_MENU_SHAPE,
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.width(CONTEXT_MENU_WIDTH).padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(text = title, style = MaterialTheme.typography.titleSmall)
-                CircularProgressIndicator(
-                    progress = { contextProgress },
-                    modifier = Modifier.size(36.dp).align(Alignment.CenterHorizontally),
-                    strokeWidth = 4.dp,
-                    color = contextProgressColor,
+                ContextCompositionBar(
+                    systemPromptTokens = systemPromptTokens,
+                    toolTokens = toolTokens,
+                    messageTokens = (
+                        (estimatedTokens ?: 0) - systemPromptTokens - toolTokens
+                        ).coerceAtLeast(0),
+                    tokenBudget = tokenBudget ?: 0,
+                    compactThresholdPercent = compactThresholdPercent,
+                    compactEnabled = compactEnabled,
+                    overCompactThreshold = overCompactThreshold,
                 )
                 Text(text = usage, style = MaterialTheme.typography.bodyMedium)
             }

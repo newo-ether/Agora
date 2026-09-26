@@ -11,8 +11,13 @@ the in-app promise that no other information is collected.
 """
 import json
 import os
+import sys
+from pathlib import Path
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from submission_messages import message_for
 
 HOST = "127.0.0.1"
 PORT = 8092
@@ -25,7 +30,7 @@ RATE_WINDOW = 60.0                # seconds
 DATA_DIR = "/var/lib/agora-crash"
 LOG_FILE = os.path.join(DATA_DIR, "crashes.jsonl")
 ALLOWED_FIELDS = (
-    "trace", "appVersion", "versionCode",
+    "trace", "packageName", "appVersion", "versionCode",
     "androidApi", "androidRelease", "device", "ts",
 )
 
@@ -70,10 +75,15 @@ def _sanitize(data):
 class Handler(BaseHTTPRequestHandler):
     server_version = "agora-crash/1.0"
 
-    def _send(self, code):
+    def _send(self, code, payload=None):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else b""
         self.send_response(code)
-        self.send_header("Content-Length", "0")
+        if payload is not None:
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
+        if body:
+            self.wfile.write(body)
 
     def do_GET(self):
         # Lightweight health check.
@@ -102,7 +112,11 @@ class Handler(BaseHTTPRequestHandler):
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
         except OSError:
             return self._send(500)
-        self._send(204)
+        message = message_for(data.get("packageName"))
+        if message is None:
+            self._send(204)
+        else:
+            self._send(200, {"ok": True, "message": message})
 
     def log_message(self, *args):
         pass  # stay quiet; systemd journal would otherwise fill with access lines

@@ -82,10 +82,19 @@ data class ContextWindowUsage(
     val tokenBudget: Int,
     val logicalMessageCount: Int,
     val hasCompactBoundary: Boolean,
+    val systemPromptTokens: Int = 0,
+    val toolTokens: Int = 0,
 ) {
     val progress: Float
         get() = if (tokenBudget <= 0) 0f else
             (estimatedTokenCount.toFloat() / tokenBudget).coerceIn(0f, 1f)
+
+    /**
+     * What the transcript itself costs: the estimate minus the fixed prompt and tool definitions.
+     * Derived instead of stored so the three parts always add up to [estimatedTokenCount].
+     */
+    val messageTokens: Int
+        get() = (estimatedTokenCount - systemPromptTokens - toolTokens).coerceAtLeast(0)
 }
 
 fun contextWindowUsage(
@@ -93,6 +102,7 @@ fun contextWindowUsage(
     tokenBudget: Int,
     fixedTokenCost: Int = 0,
     includeAssistantReasoning: Boolean = false,
+    fixedComposition: ContextTokenEstimator.FixedContextComposition? = null,
 ): ContextWindowUsage {
     val safeBudget = tokenBudget.coerceAtLeast(1)
     val canonical = canonicalContextMessages(messages)
@@ -108,6 +118,8 @@ fun contextWindowUsage(
         logicalMessageCount = splitLogicalContext(canonical, retainLogicalMessages = 0)
             .logicalMessageCount,
         hasCompactBoundary = messages.any(ChatMessage::isSuccessfulContextCompact),
+        systemPromptTokens = fixedComposition?.systemPromptTokens ?: 0,
+        toolTokens = fixedComposition?.toolTokens ?: 0,
     )
 }
 

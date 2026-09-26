@@ -265,6 +265,7 @@ internal val baseSettingsGroups = listOf(
             iconRes = R.drawable.ic_mcp,
         ),
         SettingsCategory("automation", R.string.settings_automation, R.string.settings_automation_desc, Icons.Default.Repeat),
+        SettingsCategory("interaction", R.string.settings_interaction, R.string.settings_interaction_desc, Icons.Default.QuestionAnswer),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_network, items = listOf(
         SettingsCategory("proxy", R.string.settings_proxy, R.string.settings_proxy_desc, Icons.Default.Lan),
