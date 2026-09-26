@@ -1,4 +1,4 @@
-﻿package com.newoether.agora.remote
+package com.newoether.agora.remote
 
 import okhttp3.Call
 import okhttp3.OkHttpClient
