@@ -27,10 +27,10 @@ private fun extractResponsesThoughtTitle(content: String): String? =
     RESPONSES_THOUGHT_TITLE_BOLD.find(content)?.groupValues?.get(1)
         ?: RESPONSES_THOUGHT_TITLE_HEADING.find(content)?.groupValues?.get(1)
 
-private fun JsonElement?.effectiveResponseMetadata(): JsonElement? = when (this) {
+private fun JsonElement?.effectiveResponseMetadata(preserveEmptyArray: Boolean = false): JsonElement? = when (this) {
     null, JsonNull -> null
     is JsonPrimitive -> takeUnless { isString && content.isBlank() }
-    is JsonArray -> takeUnless(JsonArray::isEmpty)
+    is JsonArray -> takeUnless { isEmpty() && !preserveEmptyArray }
     is JsonObject -> takeUnless(JsonObject::isEmpty)
 }
 
@@ -500,8 +500,8 @@ internal class OpenAiResponsesEventRouter(
         val retainedMetadata = buildMap<String, JsonElement> {
             effectiveItemId?.let { put("id", JsonPrimitive(it)) }
             effectiveItemType?.let { put("type", JsonPrimitive(it)) }
-            (item.summary.effectiveResponseMetadata()
-                ?: addedItem.summary.effectiveResponseMetadata())
+            (item.summary.effectiveResponseMetadata(preserveEmptyArray = effectiveItemType == "reasoning")
+                ?: addedItem.summary.effectiveResponseMetadata(preserveEmptyArray = effectiveItemType == "reasoning"))
                 ?.let { put("summary", it) }
             item.encryptedContent?.takeIf(String::isNotBlank)
                 ?.let { put("encrypted_content", JsonPrimitive(it)) }
