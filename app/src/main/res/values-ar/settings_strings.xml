@@ -462,7 +462,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">الشبكة</string>
     <string name="settings_proxy">الوكيل</string>
-    <string name="settings_proxy_desc">توجيه حركة الشبكة عبر وكيل HTTP أو SOCKS</string>
+    <string name="settings_proxy_desc">توجيه حركة الشبكة عبر وكيل HTTP أو HTTPS أو SOCKS</string>
     <string name="proxy_enable">تفعيل الوكيل</string>
     <string name="proxy_enable_desc">توجيه كل حركة شبكة التطبيق عبر الوكيل</string>
     <string name="proxy_type">النوع</string>
