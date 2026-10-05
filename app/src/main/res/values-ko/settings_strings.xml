@@ -462,7 +462,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">네트워크</string>
     <string name="settings_proxy">프록시</string>
-    <string name="settings_proxy_desc">HTTP 또는 SOCKS 프록시를 통해 트래픽 전송</string>
+    <string name="settings_proxy_desc">HTTP, HTTPS 또는 SOCKS 프록시를 통해 트래픽 전송</string>
     <string name="proxy_enable">프록시 사용</string>
     <string name="proxy_enable_desc">앱의 모든 네트워크 트래픽을 프록시로 전송</string>
     <string name="proxy_type">유형</string>
