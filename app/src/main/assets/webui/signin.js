@@ -1,6 +1,7 @@
 // Sign-in card, styled after the app's dialogs.
 import { useState } from "./vendor/preact-hooks.mjs";
 import { html } from "./html.js";
+import { Spinner } from "./material/progress.js";
 import { t } from "./i18n.js";
 import { icon, ICON_VISIBILITY, ICON_VISIBILITY_OFF, ICON_WEB } from "./icons.js";
 import { postJson } from "./api.js";
@@ -68,7 +69,7 @@ export function SignIn({ onSignedIn }) {
       <div class="actions">
         <button class="button filled" type="submit" disabled=${busy || !password}
           aria-label=${busy ? t.signingIn : null}>
-          ${busy ? html`<span class="spinner" aria-hidden="true"></span>` : t.signIn}
+          ${busy ? html`<${Spinner} size=${18} stroke=${2} color="inherit" />` : t.signIn}
         </button>
       </div>
     </form>`;

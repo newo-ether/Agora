@@ -13,6 +13,14 @@ const CLOSE_VIOLATED_POLICY = 1008;
 const listeners = new Set();
 let state = {
   conversations: [],
+  listLoading: true,
+  listHasMore: false,
+  listLimit: 0,
+  searchQuery: "",
+  searchResults: [],
+  searchLoading: false,
+  searchFailed: false,
+  conversationSearch: null,
   display: null,
   openId: null,
   /** "loading" | "ready" | "deleted" | "failed" while a conversation is open. */
@@ -23,8 +31,15 @@ let state = {
   bodies: new Map(),
   connected: false,
   composer: null,
+  /** This connection's own context window, priced on the phone; null until the first figure. */
+  context: null,
   text: "",
   pendingAction: 0,
+  pageAction: null,
+  pageResult: null,
+  shareText: null,
+  interactions: [],
+  interactionPending: 0,
   snackbar: null,
   scrollRequest: null,
   connectionId: null,
@@ -39,6 +54,8 @@ let retryTimer = 0;
 let openSeq = 0;
 let editRevision = 0;
 let nextAction = 0;
+let searchRevision = 0;
+let conversationSearchRevision = 0;
 let noticeId = 0;
 const uploads = new Set();
 
@@ -56,8 +73,12 @@ function send(command) {
 function select(conversationId, patch = {}) {
   watched = new Set();
   bodySizes.clear();
+  const composer = state.composer ? { ...state.composer, attachments: [], queue: [], text: "",
+    phase: "IDLE", generating: false, stopping: false } : null;
   update({ openId: conversationId, openStatus: conversationId ? "loading" : null,
-    path: [], generating: false, streaming: null, bodies: new Map(), scrollRequest: null, ...patch });
+    path: [], generating: false, streaming: null, bodies: new Map(), scrollRequest: null,
+    pageAction: null, pageResult: null, shareText: null, interactions: [], interactionPending: 0, conversationSearch: null,
+    composer, context: state.context, ...patch });
 }
 
 /** Drops rows that are off screen once there are too many or they are too large. */
@@ -79,6 +100,25 @@ function evict(bodies) {
 
 function receive(event, size) {
   switch (event.type) {
+    case "conversation_search": {
+      const search = state.conversationSearch;
+      if (!search || event.connectionId !== state.connectionId || event.conversationId !== state.openId ||
+          event.seq !== openSeq || event.revision !== search.revision || event.query !== search.query) return;
+      const matches = event.matches || [];
+      const key = search.matches[search.index]?.key;
+      update({ conversationSearch: { ...search, searching: event.searching, failed: !!event.failed,
+        ...(!event.searching ? { matches, index: matches.findIndex(match => match.key === key) } : {}) } });
+      break;
+    }
+    case "search":
+      if (event.connectionId !== state.connectionId || event.revision !== searchRevision || event.query !== state.searchQuery) return;
+      update({ searchLoading: event.searching, searchFailed: !!event.failed,
+        ...(!event.searching ? { searchResults: event.items || [] } : {}) });
+      break;
+    case "interactions":
+      if ((event.conversationId ?? null) !== state.openId || event.seq !== openSeq) return;
+      update({ interactions: event.items, interactionPending: event.actionId >= state.interactionPending ? 0 : state.interactionPending });
+      break;
     case "connection":
       update({ connectionId: event.connectionId });
       break;
@@ -86,7 +126,11 @@ function receive(event, size) {
       if (event.conversationId === state.openId && event.seq === openSeq) update({ scrollRequest: event });
       break;
     case "opened":
-      if (event.seq === openSeq) select(event.conversationId ?? null, { composer: null });
+      // ChatBottomBar keeps the model and controls it had while the next conversation loads, so the
+      // phone never shows an empty bar. The browser keeps the same things - model, controls and the
+      // context window - and drops only what belongs to the conversation being left behind.
+      if (event.seq === openSeq && (event.conversationId ?? null) !== state.openId)
+        select(event.conversationId ?? null);
       break;
     case "composer":
       if ((event.conversationId ?? null) !== state.openId || event.seq !== openSeq) return;
@@ -94,11 +138,22 @@ function receive(event, size) {
         text: event.editRevision >= editRevision ? event.text : state.text,
         pendingAction: event.actionId >= state.pendingAction ? 0 : state.pendingAction });
       break;
+    case "context":
+      // Only this connection's own target: two browsers, and the phone, price their own windows.
+      if ((event.conversationId ?? null) !== state.openId || event.seq !== openSeq) return;
+      update({ context: event });
+      break;
     case "snackbar":
       update({ snackbar: { id: ++noticeId, message: event.message } });
       break;
+    case "page_action":
+      if (event.seq !== openSeq || (event.conversationId ?? null) !== state.openId ||
+          event.actionId !== state.pageAction?.actionId || event.action !== state.pageAction.type) return;
+      update({ pageAction: null, pageResult: event, shareText: event.action === "share" && event.success ? event.text : null });
+      break;
     case "conversations":
-      update({ conversations: event.items });
+      update({ conversations: event.items, listLoading: false, listHasMore: !!event.hasMore,
+        listLimit: event.limit || event.items.length });
       break;
     case "display":
       update({ display: event });
@@ -155,7 +210,10 @@ function connect() {
   ws.onopen = () => {
     if (socket !== ws || !running) return;
     retryMs = 1_000;
-    update({ connected: true, composer: null, pendingAction: 0, connectionId: null });
+    update({ connected: true, composer: null, context: null, pendingAction: 0, pageAction: null, pageResult: null, shareText: null, connectionId: null,
+      listLoading: true, listLimit: 0, interactions: [], interactionPending: 0 });
+    update({ searchQuery: "", searchResults: [], searchLoading: false, searchFailed: false });
+    update({ conversationSearch: null });
     send({ type: "open", conversationId: state.openId, seq: openSeq });
     // Reconnection restores input only, never Send or Stop.
     editRevision = 0;
@@ -169,7 +227,10 @@ function connect() {
     if (socket !== ws) return;
     socket = null;
     uploads.forEach(controller => controller.abort());
-    update({ connected: false, composer: null, pendingAction: 0, connectionId: null,
+    update({ connected: false, composer: null, context: null, pendingAction: 0, pageAction: null, pageResult: null, shareText: null, connectionId: null,
+      interactions: [], interactionPending: 0,
+      conversationSearch: null,
+      searchQuery: "", searchResults: [], searchLoading: false, searchFailed: false,
       snackbar: state.pendingAction ? { id: ++noticeId, message: t.sendUnconfirmed } : state.snackbar });
     // A refused upgrade also arrives here, so the session decides between retrying and signing out.
     const signedIn = close.code !== CLOSE_VIOLATED_POLICY && (await sessionSignedIn().catch(() => true));
@@ -184,6 +245,70 @@ function connect() {
 }
 
 export const sync = {
+  conversationSearch(query) {
+    if (!state.connected || !state.connectionId || !state.openId ||
+        (state.conversationSearch && query === state.conversationSearch.query)) return;
+    const revision = ++conversationSearchRevision;
+    if (send({ type: "conversation_search", connectionId: state.connectionId, conversationId: state.openId,
+      seq: openSeq, revision, text: query })) {
+      update({ conversationSearch: { query, revision, searching: !!query.trim(), matches: [], index: -1, failed: false,
+        positionRevision: 0, positionAfter: performance.now() + 300 } });
+    }
+  },
+  dismissConversationSearch() {
+    if (state.conversationSearch) {
+      send({ type: "conversation_search", connectionId: state.connectionId, conversationId: state.openId,
+        seq: openSeq, revision: ++conversationSearchRevision, text: "" });
+      update({ conversationSearch: null });
+    }
+  },
+  selectSearchMatch(index, revision, initial = false) {
+    const search = state.conversationSearch;
+    if (!search || search.revision !== revision || index < 0 || index >= search.matches.length || search.index === index) return;
+    update({ conversationSearch: { ...search, index, positionRevision: search.positionRevision + 1,
+      positionAfter: initial ? search.positionAfter : performance.now() } });
+  },
+  search(query) {
+    if (!state.connected || !state.connectionId || query === state.searchQuery) return;
+    if (send({ type: "search", text: query, revision: ++searchRevision, connectionId: state.connectionId })) {
+      update({ searchQuery: query, searchLoading: !!query.trim(), searchFailed: false,
+        ...(!query.trim() ? { searchResults: [] } : {}) });
+    }
+  },
+  interactionTarget() {
+    return state.connected && state.connectionId ? { connectionId: state.connectionId, seq: openSeq, conversationId: state.openId } : null;
+  },
+  interactionCommand(type, values, target) {
+    if (!["question_submit", "question_skip", "shell_decision"].includes(type) || !state.connected || state.interactionPending || !target || target.connectionId !== state.connectionId ||
+        target.seq !== openSeq || target.conversationId !== state.openId) return false;
+    const command = { ...values, type, ...target, actionId: ++nextAction };
+    if (!send(command)) return false;
+    update({ interactionPending: command.actionId });
+    return true;
+  },
+  pageCommand(type, target, values = {}) {
+    if (!["fork", "share"].includes(type) || !target || !state.connected || !state.openId || state.pageAction ||
+        target.connectionId !== state.connectionId || target.seq !== openSeq || target.conversationId !== state.openId) return false;
+    const command = { ...values, type, conversationId: state.openId, seq: openSeq, actionId: ++nextAction };
+    if (!send(command)) return false;
+    update({ pageAction: command, pageResult: null, shareText: null });
+    return command;
+  },
+  dismissShare() { update({ shareText: null }); },
+  /**
+   * One row-level command. The browser only names the row; the phone's owners resolve the branch,
+   * the mutation and whether the row was the last one standing.
+   */
+  rowCommand(type, messageId, values = {}) {
+    if (!["edit", "regenerate", "delete"].includes(type) || !state.connected || !state.openId) return false;
+    return send({ type, conversationId: state.openId, messageId, seq: openSeq, ...values });
+  },
+  notify(message) { update({ snackbar: { id: ++noticeId, message } }); },
+  loadMore() {
+    if (!state.connected || state.listLoading || !state.listHasMore) return;
+    if (send({ type: "list_more", tokens: state.listLimit })) update({ listLoading: true });
+  },
+  pin(conversationId, enabled) { send({ type: "pin", conversationId, enabled }); },
   start(sessionEnded) {
     running = true;
     onSessionEnded = sessionEnded;
@@ -198,13 +323,14 @@ export const sync = {
     uploads.forEach(controller => controller.abort());
     editRevision = 0;
     openSeq = 0;
-    select(null, { connected: false, composer: null, text: "", pendingAction: 0, snackbar: null, connectionId: null });
+    select(null, { connected: false, composer: null, text: "", pendingAction: 0, snackbar: null, connectionId: null,
+      searchQuery: "", searchResults: [], searchLoading: false, searchFailed: false });
   },
   open(conversationId) {
     if (!state.connected || conversationId === state.openId) return;
     openSeq++;
     editRevision = 0;
-    select(conversationId, { composer: null, text: "", pendingAction: 0 });
+    select(conversationId, { text: "", pendingAction: 0 });
     send({ type: "open", conversationId, seq: openSeq });
   },
   edit(text) {
@@ -229,7 +355,8 @@ export const sync = {
     if (state.connected && state.composer) send({ type: "remove_queued", queuedId, seq: openSeq });
   },
   attachmentTarget() {
-    return state.connected && state.connectionId && state.composer ? { connectionId: state.connectionId, seq: openSeq } : null;
+    return state.connected && state.connectionId && state.composer?.seq === openSeq
+      ? { connectionId: state.connectionId, seq: openSeq } : null;
   },
   async uploadFiles(files, forcedType, target) {
     if (!target || target.connectionId !== state.connectionId || !state.connected) return;

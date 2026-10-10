@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>Agora</title>
+  <!-- The launcher icon, so the tab shows the app's own mark; it flips with the theme the way the adaptive icon does. -->
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="/assets/icon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="/assets/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="/assets/style.css">
+  <!-- Material 3 components (material/): loaded after style.css so a component keeps its own word. -->
+  <link rel="stylesheet" href="/assets/material/material.css">
   <!-- The app's current colors and font; loaded after style.css so it overrides its defaults. -->
   <link rel="stylesheet" href="/theme.css">
   <!-- KaTeX 0.18.9 (MIT) is a classic script; it defines window.katex for markdown.js. -->
