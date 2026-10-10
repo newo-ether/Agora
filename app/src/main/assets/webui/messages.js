@@ -2,15 +2,90 @@
 // Only rows near the screen are watched, so the phone sends just those bodies.
 import { useEffect, useLayoutEffect, useRef, useState } from "./vendor/preact-hooks.mjs";
 import { html } from "./html.js";
-import { Markdown } from "./markdown.js";
-import { icon, ICON_BUILD, ICON_CHEVRON_DOWN, ICON_CHEVRON_RIGHT, ICON_IMAGE, ICON_NEUROLOGY } from "./icons.js";
+import { CircularProgress, Spinner } from "./material/progress.js";
+import { Markdown, highlightSearch } from "./markdown.js";
+import {
+  icon, ICON_AGORA, ICON_BUILD, ICON_CALL_SPLIT, ICON_CHEVRON_DOWN, ICON_CHEVRON_RIGHT,
+  ICON_COMPRESS, ICON_CONTENT_COPY, ICON_DELETE, ICON_EDIT, ICON_ERROR, ICON_IMAGE, ICON_INFO,
+  ICON_MORE_VERT, ICON_NEUROLOGY, ICON_QUESTION_ANSWER, ICON_REFRESH, ICON_REPEAT,
+  ICON_SCHEDULE, ICON_SELECT_ALL, ICON_SHARE, ICON_STOP_CIRCLE,
+} from "./icons.js";
+import { MoreMenu } from "./menu.js";
+import { t } from "./i18n.js";
 import { sync } from "./sync.js";
+import { DetailSheet, CardIcon, InfoItem, useCardTitle, canOpenSheetItem } from "./detail-sheet.js";
+import { attachScrollbar } from "./material/scrollbar.js";
+import { AttachmentViewer } from "./composer.js";
 
 // Rows within one screen above or below stay watched, so scrolling rarely meets a blank row.
 const WATCH_MARGIN = "100% 0px";
 
-const SHEET_BACK_PATH = "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z";
-const SHEET_CLOSE_PATH = "M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.41 4.29 19.71 2.88 18.3 9.17 12 2.88 5.7 4.29 4.29 10.59 10.59 16.89 4.29z";
+/**
+ * Programmatic bottom motion. Constants mirror the phone's scroll owners so the browser decelerates
+ * into the tail instead of teleporting: RobustLazyListScroll.kt (FeedbackScrollSpec,
+ * smoothSeekToItem), ChatScrollCoordinator.kt (SendFeedbackScrollSpec, 2 dp minimum step),
+ * AbsoluteBottomScroll.kt (animateToAbsoluteBottom settling) and MessageListTailEffects.kt
+ * (the attached streaming tail controller).
+ */
+const BOTTOM_MOTION = {
+  seekTauMeasuredSeconds: 0.09,
+  seekTauUnmeasuredSeconds: 0.16,
+  seekMaxVelocityMeasuredViewports: 16,
+  seekMaxVelocityUnmeasuredViewports: 52,
+  maximumFrameStepViewportFraction: 0.82,
+  minimumStepPx: 2,
+  tolerancePx: 1.5,
+  stableFrames: 4,
+  blockedFrames: 12,
+  maximumDurationMs: 30_000,
+  sendStartupMs: 240,
+  settlingGenerationMs: 700,
+  settlingIdleMs: 192,
+  settlingTimeoutMs: 1_600,
+  settlingStableFrames: 6,
+  attachTauSeconds: 0.055,
+  attachMaxVelocityPxPerSecond: 2_800,
+  attachThresholdPx: 0.5,
+};
+
+/** Compose coalescedScrollStep: exponential error-proportional travel inside a velocity cap. */
+function coalescedScrollStep(errorPx, elapsedSeconds, timeConstantSeconds, maximumVelocity, minimumStepPx) {
+  if (errorPx === 0 || elapsedSeconds <= 0) return 0;
+  const fraction = 1 - Math.exp(-elapsedSeconds / Math.max(timeConstantSeconds, 0.001));
+  const maximumStep = Math.max(minimumStepPx, maximumVelocity * elapsedSeconds);
+  return Math.min(maximumStep, Math.max(-maximumStep, errorPx * fraction));
+}
+
+/** Numeric stand-in for a Compose Easing so a per-frame actor can reuse a CSS timing curve. */
+function cubicBezierEasing(x1, y1, x2, y2) {
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const curve = (a, b, c, t) => ((a * t + b) * t + c) * t;
+  return (progress) => {
+    if (progress <= 0) return 0;
+    if (progress >= 1) return 1;
+    let t = progress;
+    for (let step = 0; step < 8; step += 1) {
+      const error = curve(ax, bx, cx, t) - progress;
+      if (Math.abs(error) < 1e-6) break;
+      const slope = (3 * ax * t + 2 * bx) * t + cx;
+      if (Math.abs(slope) < 1e-6) break;
+      t -= error / slope;
+    }
+    return curve(ay, by, cy, Math.min(1, Math.max(0, t)));
+  };
+}
+
+// Compose FastOutSlowInEasing, the envelope the phone puts on a send scroll.
+const fastOutSlowIn = cubicBezierEasing(0.4, 0, 0.2, 1);
+
+// Compose LinearOutSlowInEasing, the curve the retry line reveals its graphemes with.
+const linearOutSlowIn = cubicBezierEasing(0, 0, 0.2, 1);
+
 
 function groupForMessage(message, groupKey) {
   const presentation = message?.presentation;
@@ -27,226 +102,342 @@ function sheetItemsForMessage(message, groupKey) {
     .map((block) => block.item) ?? [];
 }
 
-function canOpenSheetItem(item) {
-  return item?.type === "thought" || item?.type === "transcription" ||
-    (item?.type === "tool" && item.toolDetail != null);
+
+/** The text a row copies and edits: an ask_user row reads as its questions and answers, as on the phone. */
+function readableText(message) {
+  const source = message?.source;
+  if (source?.kind !== "ask_user") return message?.text?.markdown ?? "";
+  return source.askUser
+    .map((item) => `${item.question}\n${item.answer ?? t.sourceUnanswered}`)
+    .join("\n\n");
 }
 
-function ToolDocument({ document }) {
-  if (!document) return null;
-  return html`<div class="tool-document">
-    ${document.text != null ? html`<div class="tool-code tool-plain">${document.text}</div>`
-      : document.roots.map((node, index) => html`<${ToolJsonNode} key=${index} node=${node} />`)}
-    ${document.marker && html`<div class="tool-muted tool-marker">${document.marker}</div>`}
-  </div>`;
-}
-
-/** Draw only the shared parser's real prefix nodes; never complete or parse JSON in the browser. */
-function ToolJsonNode({ node, depth = 0 }) {
-  if (node.type === "scalar") return html`<span class=${`tool-scalar ${node.kind === "STRING" ? "" : "tool-code literal"}`}>
-    ${node.kind === "NULL" && node.complete ? "\u2014" : node.content}</span>`;
-  if (node.type === "array") return html`<div class="tool-json-array">
-    ${node.values.map((value, index) => html`<div class="tool-json-array-row" key=${index}>
-      <span class="tool-json-label">${index + 1}</span>
-      <div class="tool-json-value"><${ToolJsonNode} node=${value} depth=${depth} /></div>
-    </div>`)}
-  </div>`;
-  return html`<div class="tool-json-object">
-    ${node.entries.map((entry, index) => {
-      const value = entry.value;
-      const block = value?.type === "scalar" && value.kind === "STRING" &&
-        (value.content.length > 40 || value.content.includes("\n"));
-      const nested = value && value.type !== "scalar";
-      return html`<div class="tool-json-entry" key=${index}>
-        <div class="tool-json-row">
-          ${(entry.key || entry.keyComplete) && html`<span class="tool-json-label key">${entry.key}</span>`}
-          ${value && !block && (nested
-            ? html`<span class="tool-muted">${value.type === "object" ? "{\u2026}" : "[\u2026]"}</span>`
-            : html`<div class="tool-json-value"><${ToolJsonNode} node=${value} /></div>`)}
-        </div>
-        ${block && html`<div class="tool-json-block"><${ToolJsonNode} node=${value} /></div>`}
-        ${nested && html`<div class="tool-json-nested" style=${{ paddingLeft: `${(depth + 1) * 16}px` }}>
-          <${ToolJsonNode} node=${value} depth=${depth + 1} />
-        </div>`}
-      </div>`;
-    })}
-  </div>`;
-}
-
-function ToolPill({ text, emphasized = false }) {
-  return text == null ? null : html`<span class=${`tool-pill ${emphasized ? "emphasized" : ""}`} title=${text}>${text}</span>`;
-}
-
-function ToolOutput({ text }) {
-  return html`<div class="tool-output tool-code">${text}</div>`;
-}
-
-function ToolBody({ body }) {
-  switch (body.type) {
-    case "active":
-    case "failed":
-      return html`<div class=${body.type === "active" ? "tool-active" : "tool-terminal"}>${body.text}</div>
-        ${body.output && html`<div class="tool-gap"><${ToolOutput} text=${body.output} /></div>`}`;
-    case "stopped": return html`<div class="tool-terminal">${body.text}</div>`;
-    case "muted": return html`<div class="tool-muted">${body.text}</div>`;
-    case "documents": return body.values.map((document, index) => html`
-      <div class="tool-result-document" key=${index}><${ToolDocument} document=${document} /></div>`);
-    case "shell": return html`<div class="tool-meta-row">
-        <${ToolPill} text=${body.status} emphasized /><${ToolPill} text=${body.device} />
-      </div>
-      ${body.error && html`<div class="tool-terminal tool-gap">${body.error}</div>`}
-      <div class="tool-gap"><${ToolOutput} text=${body.output} /></div>`;
-    case "paths": return html`<div class="tool-paths">
-      ${body.values.map((path, index) => html`<div class="tool-indexed-line" key=${index}>
-        <span class="tool-index">${index + 1}</span><span class="tool-code">${path}</span>
-      </div>`)}
-    </div>`;
-    case "grep": return html`<div class="tool-grep">
-      ${body.groups.map((group, index) => html`<div key=${index}>
-        <div class="tool-grep-path tool-code">${group.path}</div>
-        <div class="tool-matches">${group.matches.map((match, i) => html`<div class="tool-match" key=${i}>
-          <span class="tool-line-number">${match.line ?? "\u2014"}</span><span class="tool-code">${match.content}</span>
-        </div>`)}</div>
-      </div>`)}
-    </div>`;
-    case "file": return html`
-      ${(body.path || body.lineCount) && html`<div class="tool-meta-row tool-file-meta">
-        <${ToolPill} text=${body.path} /><${ToolPill} text=${body.lineCount} />
-      </div>`}
-      ${body.content ? html`<${ToolOutput} text=${body.content} />` : html`<div class="tool-muted">${body.emptyText}</div>`}
-      ${body.truncationText && html`<div class="tool-muted tool-gap">${body.truncationText}</div>`}`;
-    case "search": return html`<div class="tool-search-results">
-      ${body.results.map((result, index) => {
-        const Tag = result.safeUrl ? "a" : "div";
-        return html`<${Tag} class="tool-search-result" key=${index} href=${result.safeUrl ?? null}
-          target=${result.safeUrl ? "_blank" : null} rel=${result.safeUrl ? "noopener noreferrer" : null}>
-          <div class="tool-search-title">${result.title}</div>
-          ${result.snippet && html`<div class="tool-search-snippet">${result.snippet}</div>`}
-          ${result.url && html`<div class="tool-search-url">${result.url}</div>`}
-        </${Tag}>`;
-      })}
-    </div>`;
-    default: return null;
+/** The phone answers a copy with a haptic; the nearest browser answer is the app's own notice. */
+async function copyRowText(message) {
+  try {
+    await navigator.clipboard.writeText(readableText(message));
+    sync.notify(t.copied);
+  } catch (_) {
+    sync.notify(t.copyFailed);
   }
 }
 
-function toolImageUrl(conversationId, messageId, detailIndex, image) {
-  return `/api/tool-images/${encodeURIComponent(conversationId)}/${encodeURIComponent(messageId)}/${detailIndex}/${image.index}?v=${encodeURIComponent(image.version)}`;
+/** Select Text stays inside the row: the browser's selection stands in for the phone's text mode. */
+function selectRowText(node) {
+  if (!node) return;
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }
 
-function ToolImage({ src, image, detail, full = false, onClick }) {
-  const [state, setState] = useState("loading");
-  const aspect = image.width > 0 && image.height > 0 ? Math.max(0.55, Math.min(2.2, image.width / image.height)) : 1;
-  const Tag = full ? "div" : "button";
-  return html`<${Tag} class=${`tool-image ${detail.squareCrop && !full ? "square" : ""} ${full ? "full" : ""}`}
-    type=${full ? null : "button"} disabled=${full ? null : state !== "loaded"} onClick=${onClick}
-    aria-label=${full ? null : detail.imageLabel} data-state=${state} style=${{ aspectRatio: String(aspect) }}>
-    <img src=${src} alt=${detail.imageLabel} loading=${full ? "eager" : "lazy"} decoding="async"
-      onLoad=${() => setState("loaded")} onError=${() => setState("failed")} />
-    <span class="tool-image-overlay loading" aria-hidden=${state !== "loading"}>
-      <span class="spinner" role="status" aria-label=${detail.imageLabel}></span>
-    </span>
-    <span class="tool-image-overlay failed" aria-hidden=${state !== "failed"}>
-      <span class="tool-image-failed" role="img" aria-label=${detail.imageFailedLabel}>${icon(ICON_IMAGE)}</span>
-    </span>
-  </${Tag}>`;
+/** MessageInfoDialog keeps the device calendar in a fixed yyyy-MM-dd HH:mm:ss pattern. */
+function formatRowTime(value) {
+  const date = new Date(value);
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
-function ToolMediaPreview({ detail, urls, initialIndex, onClose }) {
-  const dialog = useRef(null);
-  const [index, setIndex] = useState(initialIndex);
-  const [scale, setScale] = useState(1);
-  useEffect(() => {
-    dialog.current.showModal();
-    return () => dialog.current?.close();
-  }, []);
-  function navigate(next) { setIndex(next); setScale(1); }
-  return html`<dialog class="tool-media-viewer" ref=${dialog} aria-label=${detail.imageLabel}
-    onCancel=${(event) => { event.preventDefault(); onClose(); }}
-    onKeyDown=${(event) => {
-      event.stopPropagation();
-      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-        event.preventDefault();
-        if (event.key === "ArrowLeft" && index > 0) navigate(index - 1);
-        if (event.key === "ArrowRight" && index < urls.length - 1) navigate(index + 1);
-      }
-    }}>
-    <div class="tool-media-scroll" onDblClick=${() => setScale((value) => value === 1 ? 3 : 1)}>
-      <div class="tool-media-frame" style=${{ width: `${scale * 100}%`, height: `${scale * 100}%` }}>
-        <${ToolImage} key=${urls[index]} src=${urls[index]} image=${detail.images[index]} detail=${detail} full />
-      </div>
-    </div>
-    <div class="tool-media-controls">
-      ${urls.length > 1 && html`<span class="tool-media-count">${index + 1} / ${urls.length}</span>`}
-      <button class="detail-sheet-icon" type="button" aria-label="Close" onClick=${onClose}>${icon(SHEET_CLOSE_PATH)}</button>
-    </div>
-    ${urls.length > 1 && html`<button class="tool-media-previous detail-sheet-icon" type="button"
-      aria-label="Previous image" disabled=${index === 0} onClick=${() => navigate(index - 1)}>${icon(SHEET_BACK_PATH)}</button>
-      <button class="tool-media-next detail-sheet-icon" type="button" aria-label="Next image"
-        disabled=${index === urls.length - 1} onClick=${() => navigate(index + 1)}>${icon(ICON_CHEVRON_RIGHT)}</button>`}
-  </dialog>`;
-}
+const SOURCE_LABELS = {
+  task: [ICON_SCHEDULE, "sourceTask"],
+  loop: [ICON_REPEAT, "sourceLoop"],
+  ask_user: [ICON_QUESTION_ANSWER, "sourceAskUser"],
+};
 
-function ToolDetail({ item, conversationId, messageId }) {
-  const detail = item.toolDetail;
-  const [preview, setPreview] = useState(null);
-  const urls = detail.images.map((image) => toolImageUrl(conversationId, messageId, item.detailIndex, image));
-  const previewVersion = urls.join("\n");
-  useEffect(() => { setPreview(null); }, [previewVersion]);
-  return html`<div class=${`tool-detail ${detail.kind === "WEB_SEARCH" ? "search" : ""}`}>
-    ${detail.arguments && html`<div class="tool-arguments">
-      <div class="tool-section-label">${detail.argumentsLabel}</div><${ToolDocument} document=${detail.arguments} />
-    </div>`}
-    ${detail.kind === "MCP" && html`<div class="tool-mcp-meta tool-meta-row">
-      <${ToolPill} text="MCP" emphasized /><${ToolPill} text=${detail.mcpDevice} />
-    </div>`}
-    <div class="tool-section-label result">${detail.resultLabel}</div>
-    ${detail.images.length > 0 && html`<div class="tool-images">
-      ${detail.images.map((image, index) => html`<${ToolImage} key=${urls[index]} src=${urls[index]}
-        image=${image} detail=${detail} onClick=${() => setPreview(index)} />`)}
-    </div>`}
-    <${ToolBody} body=${detail.body} />
-    ${preview != null && html`<${ToolMediaPreview} detail=${detail} urls=${urls} initialIndex=${preview} onClose=${() => setPreview(null)} />`}
-  </div>`;
-}
-
-/** UserMessageBubble: plain text in a primaryContainer bubble, 54-300 dp wide. */
-function UserBubble({ message }) {
+/** MessageSourceLabel: a 14 dp icon and labelSmall sit 4 dp above an automatic user bubble. */
+function SourceLabel({ source }) {
+  const labelled = SOURCE_LABELS[source?.kind];
+  if (!labelled) return null;
   return html`
-    <div class="user-row">
-      <div class="user-bubble"><div class="user-text">${message.text.markdown}</div></div>
+    <div class="message-source">${icon(labelled[0])}<span>${t[labelled[1]]}</span></div>`;
+}
+
+/**
+ * AskUserAnswerBlocks: each question at 14/20 and 60 %, its answer at the user body, and one blank
+ * line between pairs. Nobody answering leaves the localized unanswered label at 60 %.
+ */
+function fillAskUserPairs(node, items) {
+  node.replaceChildren();
+  items.forEach((item, index) => {
+    if (index > 0) node.append(document.createTextNode("\n\n"));
+    const question = document.createElement("span");
+    question.className = "ask-user-question";
+    question.textContent = item.question;
+    const answer = document.createElement("span");
+    answer.className = item.answer == null ? "ask-user-answer unanswered" : "ask-user-answer";
+    answer.textContent = item.answer ?? t.sourceUnanswered;
+    node.append(question, document.createTextNode("\n"), answer);
+  });
+}
+
+/** One IconButton of a message row: 32 dp, tinted at 60 % of onSurfaceVariant and 30 % when off. */
+function RowAction({ path, size, enabled = true, label, onClick }) {
+  return html`
+    <button class="row-action" type="button" disabled=${!enabled} title=${label} aria-label=${label}
+      style=${{ "--row-icon": `${size}px` }} onClick=${onClick}>${icon(path)}</button>`;
+}
+
+/** One AgoraDropdownMenuItem; [destructive] paints it with the phone's error colour. */
+function RowMenuItem({ path, label, enabled = true, destructive = false, onClick }) {
+  return html`
+    <button class=${destructive ? "dropdown-item destructive" : "dropdown-item"} role="menuitem"
+      type="button" disabled=${!enabled} onClick=${onClick}>${icon(path)}<span>${label}</span></button>`;
+}
+
+/**
+ * The 32 dp overflow button of a row and the AgoraDropdownMenu it anchors. [items] draws the items
+ * with the close action; the menu hands focus back to the button when it was holding it.
+ */
+function RowMore({ reduceMotion, items }) {
+  const anchor = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [retained, setRetained] = useState(false);
+  const close = () => setOpen(false);
+  return html`
+    <button class="row-action" type="button" ref=${anchor} title=${t.options} aria-label=${t.options}
+      aria-haspopup="menu" aria-expanded=${open ? "true" : "false"}
+      onClick=${() => { setRetained(true); setOpen(!open); }}>${icon(ICON_MORE_VERT)}</button>
+    ${(open || retained) && html`<${MoreMenu} expanded=${open} reduceMotion=${reduceMotion} anchor=${anchor}
+      onClose=${close}
+      onExited=${(ownedFocus) => { setRetained(false); if (ownedFocus) anchor.current?.focus(); }}>
+      ${items(close)}
+    </${MoreMenu}>`}`;
+}
+
+/** MessageInfoDialog: the phone's own figures, and an em dash where its provider reported none. */
+function MessageInfoDialog({ message, onClose }) {
+  const dialog = useRef(null);
+  useLayoutEffect(() => {
+    const node = dialog.current;
+    node.showModal();
+    return () => node.close();
+  }, []);
+  const usage = message.usage;
+  const lines = [t.timeWithLabel(formatRowTime(message.timestamp))];
+  if (message.participant !== "USER") {
+    lines.push(t.modelWithLabel(message.modelName || t.unknown));
+    lines.push(t.inputWithLabel(usage?.input == null ? t.noFigure
+      : usage.cachedInput == null ? t.tokenCount(usage.input)
+        : t.tokenCountWithCached(usage.input, usage.cachedInput)));
+    lines.push(t.outputWithLabel(usage?.output == null ? t.noFigure : t.tokenCount(usage.output)));
+    if (usage?.tokensPerSecond != null) {
+      lines.push(t.speedWithLabel(`~${usage.tokensPerSecond.toFixed(1)} token/s`));
+    }
+  }
+  return html`
+    <dialog ref=${dialog} class="attachment-editor page-dialog" aria-label=${t.messageInfo}
+      onCancel=${(event) => { event.preventDefault(); onClose(); }}
+      onClick=${(event) => { if (event.target === dialog.current) onClose(); }}
+      onKeyDown=${(event) => event.stopPropagation()}>
+      <section><h2>${t.messageInfo}</h2>
+        <ul class="message-info-list">
+          ${lines.map((line, index) => html`<li key=${index}>${line}</li>`)}
+        </ul>
+        <footer><button type="button" onClick=${onClose}>${t.close}</button></footer>
+      </section></dialog>`;
+}
+
+/**
+ * The phone's inline editor for a user row: it resends the edited text through the phone's own edit
+ * owner, so only Save commits. Escape and the scrim dismiss without sending anything.
+ */
+function MessageEditDialog({ message, onClose }) {
+  const dialog = useRef(null);
+  const field = useRef(null);
+  const [value, setValue] = useState(readableText(message));
+  useLayoutEffect(() => {
+    const node = dialog.current;
+    node.showModal();
+    field.current?.focus();
+    return () => node.close();
+  }, []);
+  function save() {
+    if (!value.trim()) return;
+    if (sync.rowCommand("edit", message.id, { text: value })) onClose();
+  }
+  return html`
+    <dialog ref=${dialog} class="attachment-editor page-dialog" aria-label=${t.edit}
+      onCancel=${(event) => { event.preventDefault(); onClose(); }}
+      onClick=${(event) => { if (event.target === dialog.current) onClose(); }}>
+      <section><h2>${t.edit}</h2>
+        <textarea ref=${field} class="message-edit" rows="6" value=${value} aria-label=${t.edit}
+          onInput=${(event) => setValue(event.currentTarget.value)}
+          onKeyDown=${(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              save();
+              return;
+            }
+            event.stopPropagation();
+          }} />
+        <footer><button type="button" onClick=${onClose}>${t.cancel}</button>
+          <button type="button" disabled=${!value.trim()} onClick=${save}>${t.save}</button></footer>
+      </section></dialog>`;
+}
+
+/**
+ * The phone's own question for a destructive row action. The conversation variant belongs to the
+ * phone's conversation owner, so the browser asks it whenever its own branch says the cascade would
+ * take every visible row with it, which never under-warns.
+ */
+function MessageDeleteDialog({ deletesConversation, onClose, onConfirm }) {
+  const dialog = useRef(null);
+  useLayoutEffect(() => {
+    const node = dialog.current;
+    node.showModal();
+    return () => node.close();
+  }, []);
+  return html`
+    <dialog ref=${dialog} class="attachment-editor page-dialog"
+      aria-label=${deletesConversation ? t.deleteConversationTitle : t.deleteMessageTitle}
+      onCancel=${(event) => { event.preventDefault(); onClose(); }}
+      onClick=${(event) => { if (event.target === dialog.current) onClose(); }}
+      onKeyDown=${(event) => event.stopPropagation()}>
+      <section><h2>${deletesConversation ? t.deleteConversationTitle : t.deleteMessageTitle}</h2>
+        <p>${deletesConversation ? t.deleteConversationFromMessageConfirm : t.deleteMessageConfirm}</p>
+        <footer><button type="button" onClick=${onClose}>${t.cancel}</button>
+          <button class="destructive" type="button" onClick=${onConfirm}>${t.delete}</button></footer>
+      </section></dialog>`;
+}
+
+/** UserMessageBubble: text in a primaryContainer bubble, long press (or right click) for its menu. */
+function UserBubble({ message, search, matches, reduceMotion, generating, deletesConversation, conversationId }) {
+  const text = useRef(null);
+  const menuButton = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [retainedMenu, setRetainedMenu] = useState(false);
+  const [info, setInfo] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [failedImages, setFailedImages] = useState(new Set());
+  const attachments = message.attachments ?? [];
+  const media = attachments.filter(item => !item.unavailable && item.type !== "file").map(item => ({
+    ...item, name: item.fileName, kind: "source",
+    url: `/api/message-attachments/${encodeURIComponent(conversationId)}/${encodeURIComponent(message.id)}/${item.index}`,
+  }));
+  const askUser = message.source?.kind === "ask_user" ? message.source.askUser : null;
+  const visible = readableText(message);
+  useLayoutEffect(() => {
+    if (askUser) fillAskUserPairs(text.current, askUser);
+    else text.current.textContent = visible;
+    highlightSearch(text.current, search, matches);
+  }, [visible, askUser, search, matches]);
+  return html`
+    <div class="user-row" onContextMenu=${(event) => {
+      event.preventDefault();
+      setRetainedMenu(true);
+      setMenuOpen(true);
+    }}>
+      <${SourceLabel} source=${message.source} />
+      <div class="user-message-content">
+        <div class="user-hover-actions">
+          <${RowAction} path=${ICON_EDIT} size=${18} label=${t.edit} enabled=${!generating}
+            onClick=${() => setEditing(true)} />
+          <button class="row-action" type="button" ref=${menuButton} title=${t.options} aria-label=${t.options}
+            aria-haspopup="menu" aria-expanded=${menuOpen} onClick=${() => { setRetainedMenu(true); setMenuOpen(!menuOpen); }}>
+            ${icon(ICON_MORE_VERT)}</button>
+        </div>
+        <div class="user-bubble">
+          ${attachments.length > 0 && html`<div class="user-attachments">
+            ${attachments.map(item => {
+              const index = media.findIndex(current => current.index === item.index);
+              const failed = item.unavailable || failedImages.has(item.index);
+              return html`<button key=${item.index} class="user-attachment" type="button" title=${item.fileName}
+                aria-label=${item.fileName || t.attachments} disabled=${failed || index < 0}
+                onClick=${() => setPreview(index)}>
+                ${!failed && index >= 0 ? html`<img src=${media[index].url} alt=${item.fileName || t.attachments}
+                  onError=${() => setFailedImages(current => new Set([...current, item.index]))} />`
+                  : html`<span class="attachment-missing">${icon(ICON_IMAGE)}</span>`}
+                <span class="user-attachment-name">${item.fileName}</span>
+              </button>`;
+            })}
+          </div>`}
+          <div class="user-text" ref=${text}></div>
+        </div>
+      </div>
+      ${(menuOpen || retainedMenu) && html`<${MoreMenu} expanded=${menuOpen} reduceMotion=${reduceMotion}
+        anchor=${menuButton} onClose=${() => setMenuOpen(false)}
+        onExited=${(ownedFocus) => {
+          setRetainedMenu(false);
+          if (ownedFocus) text.current.closest(".user-row").querySelector(".user-bubble")?.focus?.();
+        }}>
+        <${RowMenuItem} path=${ICON_CONTENT_COPY} label=${t.copy} enabled=${visible.trim().length > 0}
+          onClick=${() => { setMenuOpen(false); copyRowText(message); }} />
+        <${RowMenuItem} path=${ICON_EDIT} label=${t.edit} enabled=${!generating}
+          onClick=${() => { setMenuOpen(false); setEditing(true); }} />
+        <${RowMenuItem} path=${ICON_SELECT_ALL} label=${t.selectText} enabled=${visible.trim().length > 0}
+          onClick=${() => { setMenuOpen(false); selectRowText(text.current); }} />
+        <${RowMenuItem} path=${ICON_INFO} label=${t.info}
+          onClick=${() => { setMenuOpen(false); setInfo(true); }} />
+        <${RowMenuItem} path=${ICON_DELETE} label=${t.delete} destructive enabled=${!generating}
+          onClick=${() => { setMenuOpen(false); setConfirming(true); }} />
+      </${MoreMenu}>`}
+      ${info && html`<${MessageInfoDialog} message=${message} onClose=${() => setInfo(false)} />`}
+      ${preview != null && html`<${AttachmentViewer} viewer=${{ items: media, index: preview }}
+        onNavigate=${setPreview} onClose=${() => setPreview(null)} />`}
+      ${editing && html`<${MessageEditDialog} message=${message} onClose=${() => setEditing(false)} />`}
+      ${confirming && html`<${MessageDeleteDialog} deletesConversation=${deletesConversation}
+        onClose=${() => setConfirming(false)}
+        onConfirm=${() => { setConfirming(false); sync.rowCommand("delete", message.id); }} />`}
     </div>`;
 }
 
-function CardIcon({ kind }) {
-  if (kind === "LOADING") return html`<span class="card-spinner" aria-hidden="true"></span>`;
-  const path = kind === "TOOL" ? ICON_BUILD : kind === "IMAGE" ? ICON_IMAGE : ICON_NEUROLOGY;
-  return icon(path, kind === "THINKING" ? "0 0 960 960" : "0 0 24 24");
+
+/**
+ * The context-compact row. MessageItem draws a pill instead of the summary text: a 32 dp slot with
+ * the state mark (18 dp), then labelLarge, on secondaryContainer, 42 dp tall and fully rounded.
+ */
+function CompactPill({ message, reduceMotion, generating, onInfo, onDelete }) {
+  const running = !["SUCCESS", "ERROR", "STOPPED"].includes(message.status);
+  const presentation = running ? "running" : message.status.toLowerCase();
+  const label = running ? t.compactRunning : message.status === "SUCCESS" ? t.compactDone
+    : message.status === "ERROR" ? t.compactError : t.compactStopped;
+  return html`
+    <div class="compact-row">
+      <div class=${`compact-pill ${presentation}`} role="status">
+        <span class="compact-mark">
+          ${running && html`<${CircularProgress} size=${18} stroke=${2} />`}
+          ${message.status === "ERROR" && icon(ICON_ERROR)}
+          ${message.status === "STOPPED" && icon(ICON_STOP_CIRCLE, "0 0 24 24", "evenodd")}
+          ${message.status === "SUCCESS" && icon(ICON_COMPRESS)}
+        </span>
+        <span class="compact-label">${label}</span>
+      <${RowMore} reduceMotion=${reduceMotion} items=${(close) => html`
+        <${RowMenuItem} path=${ICON_INFO} label=${t.info} onClick=${() => { close(); onInfo(); }} />
+        <${RowMenuItem} path=${ICON_DELETE} label=${t.delete} destructive enabled=${!generating}
+          onClick=${() => { close(); onDelete(); }} />`} />
+      </div>
+    </div>`;
 }
 
-function liveTitle(group, strings, elapsed) {
-  if (group.liveBaseMs == null || !strings) return group.title;
-  const seconds = Math.floor((group.liveBaseMs + elapsed) / 1000);
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remaining = seconds % 60;
-  const template = hours ? strings.hours : seconds >= 60 ? strings.minutes : strings.seconds;
-  const args = hours ? [hours, minutes, remaining] : seconds >= 60 ? [minutes, remaining] : [seconds];
-  let index = 0;
-  return template.replace(/%(?:(\d+)\$)?d/g, (_, position) => args[position ? Number(position) - 1 : index++] ?? "");
+/**
+ * AssistantMessageContent's action line: a 44 dp Box under the answer with 12 dp of top padding.
+ * Copy and MoreVert are the information group, Regenerate, Fork and Share the terminal group, and
+ * both ride one alpha: 320 ms in, 220 ms out, linear.
+ */
+function AssistantActions({ message, generating, reduceMotion, onFork, onShare, onInfo, onDelete }) {
+  const terminalEnabled = !generating;
+  const copyTextValue = readableText(message);
+  return html`
+    <div class="message-actions">
+      ${copyTextValue.trim().length > 0 && html`<${RowAction} path=${ICON_CONTENT_COPY} size=${16}
+        label=${t.copy} onClick=${() => copyRowText(message)} />`}
+      <${RowAction} path=${ICON_REFRESH} size=${19} enabled=${terminalEnabled} label=${t.regenerate}
+        onClick=${() => sync.rowCommand("regenerate", message.id)} />
+      <${RowAction} path=${ICON_CALL_SPLIT} size=${18} enabled=${terminalEnabled} label=${t.forkFromHere}
+        onClick=${onFork} />
+      <${RowAction} path=${ICON_SHARE} size=${16} enabled=${terminalEnabled} label=${t.share}
+        onClick=${onShare} />
+      <${RowMore} reduceMotion=${reduceMotion} items=${(close) => html`
+        <${RowMenuItem} path=${ICON_INFO} label=${t.info} onClick=${() => { close(); onInfo(); }} />
+        <${RowMenuItem} path=${ICON_DELETE} label=${t.delete} destructive enabled=${terminalEnabled}
+          onClick=${() => { close(); onDelete(); }} />`} />
+    </div>`;
 }
 
-function useCardTitle(group, strings) {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    setElapsed(0);
-    if (group.liveBaseMs == null) return undefined;
-    const started = Date.now();
-    const timer = setInterval(() => setElapsed(Date.now() - started), 1000);
-    return () => clearInterval(timer);
-  }, [group.liveBaseMs]);
-  return liveTitle(group, strings, elapsed);
-}
 
 function createGroupExpansionController() {
   const states = new Map();
@@ -293,27 +484,6 @@ function createGroupExpansionController() {
   };
 }
 
-/** Activate only segments whose detail projection is available. */
-function InfoItem({ item, compact = false, onClick }) {
-  const text = item.type === "thought" ? item.content?.markdown?.replace(/\n/g, " ")
-    : item.type === "transcription" ? item.content?.markdown?.replace(/\n/g, " ") || "Image transcription is empty."
-      : item.summary;
-  const interactive = typeof onClick === "function";
-  const Tag = interactive ? "button" : "div";
-  return html`
-    <${Tag} class=${`${compact ? "info-item compact-item" : "info-item timeline-item"} ${interactive ? "sheet-item" : ""}`}
-      type=${interactive ? "button" : null}
-      onClick=${onClick}>
-      ${!compact && html`<span class="info-item-icon">
-        <${CardIcon} kind=${item.type === "tool" ? "TOOL" : item.type === "transcription" ? "IMAGE" : "THINKING"} />
-      </span>`}
-      <div class="info-item-text">
-        <span class="info-item-title">${item.title}</span>
-        ${text && html`<span class="info-item-summary">${text}</span>`}
-      </div>
-      ${!compact && interactive && html`<span class="info-item-arrow">${icon(ICON_CHEVRON_RIGHT)}</span>`}
-    </${Tag}>`;
-}
 
 /** Browser-local expansion memory survives payload eviction and off-screen row hydration. */
 function InfoGroup({ group, messageId, display, expansion, expansionController, opensSheet, onOpenSheet, onOpenDetail, appearances, streaming }) {
@@ -411,124 +581,110 @@ function InfoCard({ block, messageId, appearances, streaming, onOpenDetail }) {
     </div>`;
 }
 
-export function DetailSheet({ group, items, page, detailIndex, selectedItem, conversationId, messageId, display, wrap, onSelectItem, onBack, onClose, title: suppliedTitle, children, focusReturn }) {
-  const [expanded, setExpanded] = useState(false);
-  const closeButton = useRef(null);
-  const restoreFocus = useRef(null);
-  const sheet = useRef(null);
-  const dragStart = useRef(null);
-  const suppressHandleClick = useRef(false);
-  const backAction = useRef(onBack ?? onClose);
-  backAction.current = onBack ?? onClose;
-  const groupTitle = useCardTitle(group ?? { title: "", liveBaseMs: null }, display?.liveThinking);
-  const title = suppliedTitle ?? (page === "detail" ? selectedItem?.title : groupTitle);
+
+/**
+ * AssistantInlineActivity: the one 24 px line a generating turn owns. GenerationActivityDot is an
+ * 11 dp circle in onBackground that breathes 0.55-1.30 every second (FastOutSlowIn, reversed),
+ * RetryActivityIndicator reveals its label one grapheme at a time at 27 ms per grapheme clamped to
+ * 225-600 ms while the dot rides the reveal caret 8 dp behind it, and the terminal line is
+ * GenerationTerminalText: ChatType.body at 55% of onSurfaceVariant.
+ */
+const RETRY_DOT_GAP = 8;
+const RETRY_MS_PER_GRAPHEME = 27;
+const RETRY_REVEAL_MIN_MS = 225;
+const RETRY_REVEAL_MAX_MS = 600;
+
+function RetryActivity({ label, reduceMotion }) {
+  const textRef = useRef(null);
+  const dotRef = useRef(null);
+  const graphemes = typeof Intl !== "undefined" && Intl.Segmenter
+    ? Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(label), (part) => part.segment)
+    : Array.from(label);
   useEffect(() => {
-    restoreFocus.current = focusReturn?.current ?? document.activeElement;
-    closeButton.current?.focus();
-    const onKey = (event) => {
-      if (event.target.closest?.(".tool-media-viewer")) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        backAction.current();
-      } else if (event.key === "Tab") {
-        const controls = [...sheet.current?.querySelectorAll("button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])") ?? []]
-          .filter(node => getComputedStyle(node).visibility !== "hidden" && node.getClientRects().length);
-        if (!controls.length) return;
-        const target = event.shiftKey ? controls.at(-1) : controls[0];
-        const atEdge = event.shiftKey ? document.activeElement === controls[0]
-          : document.activeElement === controls.at(-1);
-        if (atEdge || !sheet.current?.contains(document.activeElement)) {
-          event.preventDefault();
-          target.focus();
-        }
+    const text = textRef.current;
+    const dot = dotRef.current;
+    if (!text || !dot) return undefined;
+    const spans = Array.from(text.querySelectorAll("[data-grapheme]"));
+    const count = spans.length;
+    if (count === 0) return undefined;
+    // Compose measures one caret position per grapheme boundary and interpolates across them.
+    const origin = text.getBoundingClientRect();
+    const edges = [0].concat(spans.map((span) => span.getBoundingClientRect().right - origin.left));
+    const paint = (progress) => {
+      for (let index = 0; index < count; index += 1) {
+        const alpha = Math.min(1, Math.max(0, progress - index));
+        spans[index].style.opacity = alpha >= 1 ? "" : String(alpha);
       }
+      const low = Math.min(count - 1, Math.floor(progress));
+      const high = Math.min(count, low + 1);
+      dot.style.left = `${edges[low] + (edges[high] - edges[low]) * (progress - low) + RETRY_DOT_GAP}px`;
     };
-    document.addEventListener("keydown", onKey, true);
-    return () => {
-      document.removeEventListener("keydown", onKey, true);
-      if (restoreFocus.current?.isConnected) restoreFocus.current.focus();
-    };
-  }, []);
-  useEffect(() => {
-    sheet.current?.querySelector(".detail-sheet-content")?.scrollTo(0, 0);
-  }, [page, detailIndex]);
-  function beginDrag(event) {
-    dragStart.current = event.clientY;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }
-  function endDrag(event) {
-    if (dragStart.current == null) return;
-    const delta = event.clientY - dragStart.current;
-    dragStart.current = null;
-    if (Math.abs(delta) > 24) {
-      suppressHandleClick.current = true;
-      if (delta < 0) setExpanded(true);
-      else setExpanded(false);
+    if (reduceMotion) {
+      paint(count);
+      return undefined;
     }
-  }
-  function onWheel(event) {
-    const content = sheet.current?.querySelector(".detail-sheet-content");
-    if (event.deltaY < 0 && content?.scrollTop === 0 && expanded) setExpanded(false);
-    else if (event.deltaY > 0 && !expanded) setExpanded(true);
-  }
+    const duration = Math.min(RETRY_REVEAL_MAX_MS,
+      Math.max(RETRY_REVEAL_MIN_MS, count * RETRY_MS_PER_GRAPHEME));
+    const started = performance.now();
+    let frame = 0;
+    const tick = () => {
+      const ratio = Math.min(1, (performance.now() - started) / duration);
+      paint(count * linearOutSlowIn(ratio));
+      if (ratio < 1) frame = requestAnimationFrame(tick);
+      else paint(count);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [label, reduceMotion]);
   return html`
-    <div class="detail-sheet-layer">
-      <button class="detail-sheet-backdrop" type="button" aria-label="Close" onClick=${onClose}></button>
-      <section class=${`detail-sheet ${expanded ? "expanded" : ""}`} role="dialog" aria-modal="true"
-        aria-label=${title || "Message details"} ref=${sheet}>
-        <button class="detail-sheet-handle" type="button"
-          aria-label=${expanded ? "Collapse details" : "Expand details"}
-          onPointerDown=${beginDrag} onPointerUp=${endDrag} onPointerCancel=${() => { dragStart.current = null; }}
-          onClick=${() => {
-            if (suppressHandleClick.current) suppressHandleClick.current = false;
-            else setExpanded((value) => !value);
-          }}>
-          <span></span>
-        </button>
-        <header class="detail-sheet-header">
-          ${page === "detail" && group && html`<button class="detail-sheet-icon detail-sheet-back" type="button" aria-label="Back" onClick=${onBack}>
-            ${icon(SHEET_BACK_PATH)}
-          </button>`}
-          <h2>${title || "Message details"}</h2>
-          <button class="detail-sheet-icon" type="button" aria-label="Close" ref=${closeButton} onClick=${onClose}>
-            ${icon(SHEET_CLOSE_PATH)}
-          </button>
-        </header>
-        <div class="detail-sheet-content" onWheel=${onWheel}>
-          ${children ?? html`<div class=${`detail-sheet-page ${page === "list" ? "list-page" : "detail-page"}`} key=${page}>
-            ${page === "list" ? html`
-              <div class="detail-sheet-list">
-                ${items.map((item, index) => html`
-                  <div class=${`detail-sheet-list-row ${index === 0 ? "first" : index === items.length - 1 ? "last" : "middle"}`} key=${item.detailIndex}>
-                    <${InfoItem} item=${item}
-                      onClick=${canOpenSheetItem(item) ? () => onSelectItem(item.detailIndex) : undefined} />
-                  </div>`)}
-              </div>` : selectedItem?.type === "tool" ? html`
-                <${ToolDetail} key=${detailIndex} item=${selectedItem} conversationId=${conversationId} messageId=${messageId} />`
-              : selectedItem && html`
-              <div class=${`detail-sheet-markdown ${selectedItem.streaming ? "streaming" : ""}`}>
-                ${selectedItem.type === "transcription" && !selectedItem.content?.markdown
-                  ? html`<p class="detail-sheet-empty">Image transcription is empty.</p>`
-                  : html`<${Markdown} text=${selectedItem.content} variant="thought" wrap=${wrap} />`}
-              </div>`}
-          </div>`}
-        </div>
-      </section>
+    <div class="generation-activity">
+      <span class="generation-retry">
+        <span class="generation-retry-text" ref=${textRef}>${graphemes.map((grapheme, index) => html`<span key=${index} data-grapheme=${index} style=${reduceMotion ? null : { opacity: 0 }}>${grapheme}</span>`)}</span>
+        <span class="generation-dot generation-retry-dot" ref=${dotRef}></span>
+      </span>
     </div>`;
 }
 
+/** The phone hands this line from activity to terminal text; Stop hides it and keeps the slot. */
+function GenerationActivity({ activity, terminal, error, stopping, reduceMotion }) {
+  const terminalText = error != null ? error : terminal;
+  const active = stopping ? null : activity;
+  if (!active && terminalText == null) return null;
+  if (active && active.kind === "retry") {
+    return html`<${RetryActivity} label=${`${active.retryText || ""}...`} reduceMotion=${reduceMotion} />`;
+  }
+  return html`<div class=${`generation-activity ${terminalText != null ? "generation-terminal" : ""}`}>${terminalText != null
+    ? terminalText
+    : html`<span class="generation-dot" role="status" aria-label="Generating"></span>`}</div>`;
+}
+
 /** AssistantMessageContent reads the same presentation decisions as the phone. */
-function ModelMessage({ message, wrap, display, expansion, expansionController, appearances, streaming, onOpenSheet, onOpenDetail }) {
+function ModelMessage({ message, wrap, display, expansion, expansionController, appearances, streaming, stopping,
+  generating, reduceMotion, deletesConversation, onOpenSheet, onOpenDetail, search, matches, onFork, onShare, births }) {
   const presentation = message.presentation;
   const error = message.participant === "ERROR";
+  const [info, setInfo] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const dialogs = html`
+    ${info && html`<${MessageInfoDialog} message=${message} onClose=${() => setInfo(false)} />`}
+    ${confirming && html`<${MessageDeleteDialog} deletesConversation=${deletesConversation}
+      onClose=${() => setConfirming(false)}
+      onConfirm=${() => { setConfirming(false); sync.rowCommand("delete", message.id); }} />`}`;
+  // The compact summary never reads as prose: MessageItem owns a pill for it instead.
+  if (message.compact) {
+    return html`<div class="model-message">
+      <${CompactPill} message=${message} reduceMotion=${reduceMotion} generating=${generating}
+        onInfo=${() => setInfo(true)} onDelete=${() => setConfirming(true)} />${dialogs}</div>`;
+  }
   let body = null;
   if (presentation?.useTimeline) {
     body = presentation.blocks.map((block) => {
       switch (block.type) {
         case "answer":
           return html`<div class="answer-block" key=${`a${block.index}`}>
-            <${Markdown} text=${block.text} wrap=${wrap} />
+            <${Markdown} text=${block.text} wrap=${wrap} search=${search} sourceStart=${block.sourceStart}
+              streaming=${streaming && block.streaming} reduceMotion=${reduceMotion} births=${births}
+              matches=${matches.filter(match => match.start >= block.sourceStart && match.endExclusive <= block.sourceStart + block.sourceLength)} />
           </div>`;
         case "group":
           return html`<${InfoGroup} key=${block.group.key} group=${block.group}
@@ -550,29 +706,96 @@ function ModelMessage({ message, wrap, display, expansion, expansionController, 
         display=${display} expansion=${expansion} expansionController=${expansionController}
         onOpenSheet=${onOpenSheet} onOpenDetail=${onOpenDetail}
         appearances=${appearances} streaming=${streaming} opensSheet=${presentation.useThinkingSheet} />`}
-      ${presentation?.answer && html`<${Markdown} text=${presentation.answer} wrap=${wrap} />`}`;
+      ${presentation?.answer && html`<${Markdown} text=${presentation.answer} wrap=${wrap} search=${search} matches=${matches}
+        streaming=${streaming} reduceMotion=${reduceMotion} births=${births} />`}`;
   }
-  return html`<div class=${error ? "model-message error" : "model-message"}>${body}</div>`;
+  // assistantActionsVisible: the action line leaves while the answer still streams and returns
+  // 320 ms after it settles, never as a disabled ghost.
+  const actionsVisible = !error && !streaming && !stopping;
+  return html`<div class=${error ? "model-message error" : "model-message"}>${body}<${GenerationActivity}
+    activity=${presentation?.inlineActivity} terminal=${presentation?.inlineTerminalText}
+    error=${presentation?.errorBarText} stopping=${stopping}
+    reduceMotion=${!!display?.reduceMotion} />
+    ${presentation?.answerTailVisible && !stopping &&
+      html`<div class="message-actions answer-tail"><span class="generation-dot" role="status" aria-label="Generating"></span></div>`}
+    ${actionsVisible && html`<${AssistantActions} message=${message} generating=${generating}
+      reduceMotion=${reduceMotion} onInfo=${() => setInfo(true)}
+      onDelete=${() => setConfirming(true)} onFork=${onFork} onShare=${onShare} />`}
+    ${dialogs}</div>`;
 }
 
-function Row({ entry, body, wrap, display, expansion, expansionController, appearances, streaming, onOpenSheet, onOpenDetail }) {
+/**
+ * One path row. `first` and `rows` carry the phone's deletion scope: MessageItem computes
+ * deletionRemovesEntireConversation over the visible list, so the first row of a branch deletes the
+ * conversation and a compact summary only does so when it is the whole conversation.
+ */
+function Row({ entry, body, wrap, display, expansion, expansionController, appearances, streaming, stopping,
+  generating, reduceMotion, first, rows, onOpenSheet, onOpenDetail, search, onPageAction, glyphBirths, conversationId }) {
   const message = body ?? null;
+  let births = glyphBirths.get(entry.id);
+  if (!births) { births = new Map(); glyphBirths.set(entry.id, births); }
+  const matches = search?.matches.filter(match => match.messageId === entry.id) || [];
+  const deletesConversation = !!message && (message.compact ? rows === 1 : first);
   let content = html`<div class="row-placeholder"></div>`;
   if (message) {
-    content = message.participant === "USER"
-      ? html`<${UserBubble} message=${message} />`
+    content = message.participant === "USER" && !message.compact
+      ? html`<${UserBubble} message=${message} search=${search} matches=${matches}
+          conversationId=${conversationId}
+          reduceMotion=${reduceMotion} generating=${generating}
+          deletesConversation=${deletesConversation} />`
       : html`<${ModelMessage} message=${message} wrap=${wrap} display=${display}
+          births=${births}
           expansion=${expansion} expansionController=${expansionController}
-          appearances=${appearances} streaming=${streaming}
+          appearances=${appearances} streaming=${streaming} stopping=${stopping}
+          generating=${generating} reduceMotion=${reduceMotion}
+          deletesConversation=${deletesConversation}
+          search=${search} matches=${matches}
+          onFork=${() => onPageAction?.("fork", entry.id)}
+          onShare=${() => onPageAction?.("share", entry.id)}
           onOpenSheet=${onOpenSheet} onOpenDetail=${onOpenDetail} />`;
   }
   return html`<div class="message-row" data-id=${entry.id}>${content}</div>`;
 }
 
-export function MessageList({ state, label }) {
+/**
+ * ChatWelcomeContent: the launcher mark above the product name, typed one glyph at a time.
+ *
+ * TypewriterText.kt TypewriterMode.TEXT_GRADIENT reveals code point i at (i + 1) * 100 ms at 16 %
+ * alpha and reaches full alpha 420 ms later, while the complete string owns the layout throughout.
+ * Every glyph is a real span here, so one CSS animation per glyph carries the same curve and the
+ * line never re-wraps mid-typing.
+ */
+const WELCOME_GLYPH_STEP_MS = 100;
+// newChatMotionPolicy: newChatEntryId == 1L, so the phone types the welcome once per session and
+// shows it static on every later visit.
+let welcomeTyped = false;
+
+function ChatWelcome({ reduceMotion }) {
+  const animate = !reduceMotion && !welcomeTyped;
+  welcomeTyped = true;
+  // role="img" keeps the glyph-split spans out of the accessibility tree as one name.
+  return html`
+    <div class=${`chat-welcome ${animate ? "welcome-animates" : ""}`} role="img" aria-label=${t.welcome}>
+      <span class="welcome-mark">${icon(ICON_AGORA, "0 0 240 240")}</span>
+      <span class="welcome-text">${[...t.welcome].map((glyph, index) => html`<span
+        class="welcome-glyph" style=${animate
+          ? { animationDelay: `${(index + 1) * WELCOME_GLYPH_STEP_MS}ms` }
+          : null}>${glyph}</span>`)}</span>
+    </div>`;
+}
+
+export function MessageList({ state, label, onPageAction }) {
   const scroller = useRef(null);
+  const bar = useRef(null);
   const visible = useRef(new Set());
   const pinned = useRef(false);
+  const bottomMotion = useRef(null);
+  const generationActive = useRef(false);
+  const search = state.conversationSearch;
+  const searchPosition = useRef(null);
+  const searchTarget = useRef(null);
+  searchTarget.current = search?.matches[search.index]?.messageId ?? null;
+  generationActive.current = !!state.generating;
   const cover = useRef(null);
   const [settledOpenId, setSettledOpenId] = useState(null);
   const [retainedCover, setRetainedCover] = useState(false);
@@ -582,6 +805,7 @@ export function MessageList({ state, label }) {
   const expansion = useRef(new Map());
   const expansionController = useRef(createGroupExpansionController());
   const appearances = useRef(new Set());
+  const glyphBirths = useRef(new Map());
   const previousOpenId = useRef(state.openId);
   const [sheet, setSheet] = useState(null);
   const sheetWatchedId = sheet?.conversationId === state.openId ? sheet.messageId : null;
@@ -589,6 +813,8 @@ export function MessageList({ state, label }) {
   watchedSheet.current = sheetWatchedId;
   const ids = state.path.map((entry) => entry.id).join(",");
   const wrap = state.display?.autoWrapCodeBlocks ?? true;
+  // An empty new chat replaces the whole body with ChatWelcomeContent, as on the phone.
+  const showWelcome = !state.openId && state.path.length === 0;
   const selectedOnPath = sheet && state.openId === sheet.conversationId &&
     state.path.some((entry) => entry.id === sheet.messageId);
   const sheetMessage = selectedOnPath
@@ -622,7 +848,12 @@ export function MessageList({ state, label }) {
     expansion.current.clear();
     expansionController.current.reset();
     appearances.current.clear();
+    glyphBirths.current.clear();
   }, [state.openId]);
+
+  // Chrome runs no CSS transition on its own scrollbar, so the animated bar is drawn beside it; the
+  // native bar stays in place and keeps every hit target.
+  useEffect(() => attachScrollbar(scroller.current, bar.current), []);
 
   useEffect(() => {
     const root = scroller.current;
@@ -636,7 +867,7 @@ export function MessageList({ state, label }) {
       }
       const watched = new Set(visible.current);
       if (watchedSheet.current) watched.add(watchedSheet.current);
-      sync.watch([...watched]);
+      sync.watch([...new Set([searchTarget.current, ...watched].filter(Boolean))]);
     }, { root, rootMargin: WATCH_MARGIN });
     root.querySelectorAll(".message-row").forEach((row) => observer.observe(row));
     return () => observer.disconnect();
@@ -645,8 +876,8 @@ export function MessageList({ state, label }) {
   useEffect(() => {
     const watched = new Set(visible.current);
     if (sheetWatchedId) watched.add(sheetWatchedId);
-    sync.watch([...watched]);
-  }, [sheetWatchedId]);
+    sync.watch([...new Set([searchTarget.current, ...watched].filter(Boolean))]);
+  }, [sheetWatchedId, searchTarget.current]);
 
   // The app opens a conversation at its newest message. Row bodies arrive after the path, so
   // this same owner releases the cover after visible bodies and bottom layout have settled.
@@ -699,9 +930,11 @@ export function MessageList({ state, label }) {
     return () => {
       follow.disconnect();
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(motionFrame);
+      cancelAnimationFrame(seekFrame);
       inputs.forEach((type) => root.removeEventListener(type, release));
     };
-  }, [state.openId, state.openStatus, ids, state.bodies, state.streaming, settledOpenId, state.scrollRequest]);
+  }, [state.openId, state.openStatus, ids, state.bodies, state.streaming, settledOpenId, state.scrollRequest, search, covered, state.display?.reduceMotion]);
 
   useLayoutEffect(() => {
     const node = cover.current;
@@ -724,21 +957,27 @@ export function MessageList({ state, label }) {
 
   return html`
     <section class="messages" ref=${scroller} aria-label=${label} aria-busy=${covered} inert=${covered}>
-      <div class="message-column">
-        ${state.path.map((entry) => html`
+      ${showWelcome ? html`<${ChatWelcome} reduceMotion=${!!state.display?.reduceMotion} />`
+        : html`<div class="message-column">
+        ${state.path.map((entry, index) => html`
           <${Row} key=${entry.id} entry=${entry} wrap=${wrap} display=${state.display}
+            search=${search} first=${index === 0} rows=${state.path.length}
+            generating=${!!state.generating} reduceMotion=${!!state.display?.reduceMotion}
+            onPageAction=${onPageAction}
             expansion=${expansion.current} expansionController=${expansionController.current}
-            appearances=${appearances.current}
+            appearances=${appearances.current} glyphBirths=${glyphBirths.current} conversationId=${state.openId}
             onOpenSheet=${openSheet} onOpenDetail=${openDetail}
             streaming=${state.streaming?.id === entry.id}
+            stopping=${!!state.composer?.stopping}
             body=${state.streaming?.id === entry.id ? state.streaming : state.bodies.get(entry.id)} />`)}
-      </div>
+      </div>`}
     </section>
+    <div class="scrollbar-overlay" ref=${bar} aria-hidden="true"><span></span></div>
     ${covered && html`<div class="conversation-loading-cover" ref=${cover}
       onPointerDown=${(event) => { event.preventDefault(); event.stopPropagation(); }}
       onWheel=${(event) => event.preventDefault()} onContextMenu=${(event) => event.preventDefault()}>
       <div class="conversation-loading-range">
-        <span class="spinner" role="progressbar" aria-label=${label}></span>
+        <${Spinner} size=${48} stroke=${5} label=${label} />
       </div>
     </div>`}
     ${sheet && validSheet && html`<${DetailSheet} key=${`${sheet.conversationId}:${sheet.messageId}:${sheet.groupKey ?? "direct"}`}
@@ -746,7 +985,7 @@ export function MessageList({ state, label }) {
       selectedItem=${selectedItem} display=${state.display} wrap=${wrap}
       conversationId=${sheet.conversationId} messageId=${sheet.messageId}
       onSelectItem=${(detailIndex) => setSheet({ ...sheet, page: "detail", detailIndex })}
-      onBack=${() => sheet.page === "detail" && sheetGroup
-        ? setSheet({ ...sheet, page: "list", detailIndex: null }) : setSheet(null)}
+      onBack=${sheet.page === "detail" && sheetGroup
+        ? () => setSheet({ ...sheet, page: "list", detailIndex: null }) : null}
       onClose=${() => setSheet(null)} />`}`;
 }
