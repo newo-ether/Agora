@@ -2,12 +2,15 @@ package com.newoether.agora.webui
 
 import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.data.CustomProviderConfig
+import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.forDisplay
+import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
+import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.model.ChatConversation
 import com.newoether.agora.model.ChatMessage
-import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
+import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.OpenAiServiceTiers
 import com.newoether.agora.model.ThinkingLevels
@@ -16,6 +19,7 @@ import com.newoether.agora.data.thinkingCapabilityForSelectedModel
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.util.Constants
 import com.newoether.agora.ui.components.parseLatexSpans
+import com.newoether.agora.ui.chat.scanConversationSearchMatches
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.viewmodel.ConversationMessagePayloadHydration
 import com.newoether.agora.viewmodel.ConversationStateRegistry
@@ -42,13 +46,17 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonArray
@@ -76,6 +84,12 @@ internal class WebUiSync(
     private val display: Flow<WebDisplayContext>,
     /** Builds the [WebUiChatSession] of one connection inside that connection's scope. */
     private val openChatSession: (CoroutineScope) -> WebUiChatSession,
+    private val forkShare: com.newoether.agora.viewmodel.ConversationForkShareController,
+    private val askUser: com.newoether.agora.viewmodel.AskUserController,
+    private val shellConfirmation: com.newoether.agora.viewmodel.ShellConfirmationController,
+    /** Builds this connection's own context accounting; see [WebUiContextAccounting]. */
+    private val contextAccounting: WebUiContextAccounting,
+    private val search: suspend (String) -> List<Pair<MessageEntity, Float>>,
     private val projectionDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     private val connections = java.util.concurrent.ConcurrentHashMap<String, Pair<String, WebUiChatSession>>()
@@ -106,37 +120,101 @@ internal class WebUiSync(
             // slows the producers instead of growing a queue.
             val outbound = Channel<WebSyncEvent>()
             launch { for (event in outbound) send(json.encodeToString(WebSyncEvent.serializer(), event)) }
+            val listLimit = MutableStateFlow(DRAWER_PAGE_SIZE)
             val list = combine(
-                conversations.getAllConversations(),
+                listLimit.flatMapLatest { limit ->
+                    conversations.observeDrawerConversations(limit + 1).map { limit to it }
+                },
                 registry.activeConversationIds,
-            ) { items, active -> items to active }
-                .shareIn(this, SharingStarted.Eagerly, replay = 1)
+            ) { (limit, items), active ->
+                WebSyncEvent.Conversations(items.take(limit).map { it.toWeb(it.id in active) }, items.size > limit, limit)
+            }
             val displayContext = display.distinctUntilChanged()
                 .shareIn(this, SharingStarted.Eagerly, replay = 1)
             launch { displayContext.collect { outbound.send(it.toEvent()) } }
             launch {
-                list.map { (items, active) ->
-                    WebSyncEvent.Conversations(
-                        items.map { it.toWeb(generating = it.id in active) },
-                    )
-                }
-                    .distinctUntilChanged()
-                    .collect { outbound.send(it) }
+                list.distinctUntilChanged().collect { outbound.send(it) }
             }
             val watched = MutableStateFlow<Set<String>>(emptySet())
             val session = openChatSession(this)
+            val contextNewChatPrompt = MutableStateFlow<String?>(null)
+            val contextNewChatSettings = MutableStateFlow<ConversationSettings?>(null)
+            val contextProjector = contextAccounting.open({ contextNewChatPrompt.value }, { contextNewChatSettings.value })
+            val contextRequest = MutableStateFlow<WebContextAccountingRequest?>(null)
+            val contextRevision = MutableStateFlow(0L)
+            var contextSettled: String? = null
             val connectionId = java.util.UUID.randomUUID().toString()
             val connectionJob = coroutineContext[Job]!!
+            val pendingPageAction = java.util.concurrent.atomic.AtomicReference<WebSyncCommand?>(null)
+            var lastPageActionId = 0L
+            val interactionActionId = MutableStateFlow(0L)
+            val searchRevision = MutableStateFlow(0L)
+            var searchJob: Job? = null
+            val conversationQuery = MutableStateFlow<WebSyncCommand?>(null)
+            // Row commands resolve inside the rows this connection is showing, not the phone's own view.
+            val visiblePath = MutableStateFlow<List<ChatMessage>>(emptyList())
             try {
                 session.start()
                 connections[connectionId] = login to session
                 outbound.send(WebSyncEvent.Connection(connectionId))
+                // Each connection projects on its own, so a browser prices the conversation it shows
+                // and never the phone's figure or another browser's. A request is raised by the
+                // composer (model, window, New Chat workspace) and by this connection's own path.
+                launch {
+                    combine(contextRequest, contextRevision) { request, revision -> request to revision }
+                        .filter { it.first != null }.distinctUntilChanged()
+                        .collect { (request, _) ->
+                            request?.let {
+                                contextProjector.request(this, it.conversationId, null, it.selectedModelId, it.tokenBudget)
+                            }
+                        }
+                }
+                launch {
+                    combine(
+                        contextRequest, contextProjector.projection,
+                        contextAccounting.compactThresholdPercent, contextAccounting.compactEnabled,
+                    ) { request, projection, threshold, enabled ->
+                        request?.let {
+                            val event = contextAccountingEvent(it, projection, contextSettled, threshold, enabled)
+                            if (projection.completed && projection.conversationId == it.conversationId) {
+                                contextSettled = if (projection.failed) null else it.conversationId
+                            }
+                            event
+                        }
+                    }.filterNotNull().distinctUntilChanged().collect { outbound.send(it) }
+                }
+                launch {
+                    combine(session.openTarget, askUser.requests, shellConfirmation.pendingShellCommand, interactionActionId) {
+                        target, questions, shell, actionId ->
+                        val visible = com.newoether.agora.ui.chat.interaction.userInteractions(target.conversationId, questions, shell)
+                        WebSyncEvent.Interactions(target.conversationId, target.browserSeq, actionId,
+                            visible.flatMap { request -> when (request) {
+                                is com.newoether.agora.ui.chat.interaction.UserInteraction.Question -> request.requests.map { question ->
+                                    buildJsonObject {
+                                        put("kind", "question")
+                                        put("id", question.id.toString())
+                                        put("question", question.question)
+                                        put("options", JsonArray(question.options.map(::JsonPrimitive)))
+                                        put("allowMultiple", question.allowMultiple)
+                                        put("blocking", question.blocking)
+                                    }
+                                }
+                                is com.newoether.agora.ui.chat.interaction.UserInteraction.ShellCommand -> listOf(buildJsonObject {
+                                    put("kind", "shell")
+                                    put("id", request.pending.id.toString())
+                                    put("server", request.pending.server)
+                                    put("summary", request.pending.summary)
+                                })
+                            } })
+                    }.distinctUntilChanged().collect { outbound.send(it) }
+                }
                 launch { session.snackbars.collect { outbound.send(WebSyncEvent.Snackbar(it)) } }
                 launch { session.scrollRequests.collect { outbound.send(it) } }
                 // The session decides what is open; a runtime move (New Chat send, deletion) is
                 // announced before any event of the new target so the browser can follow it.
                 launch {
                     session.openTarget.collectLatest { target ->
+                        conversationQuery.value = null
                         if (target.movedByServer) {
                             outbound.send(WebSyncEvent.Opened(target.conversationId, target.browserSeq))
                         }
@@ -145,6 +223,20 @@ internal class WebUiSync(
                                 session.composerState
                                     .combine(customProviders) { state, _ -> state }
                                     .filter { it.conversationId == target.conversationId && it.seq == target.browserSeq }
+                                    // The composer frame this connection just showed is also what its projector
+                                    // has to follow: the model and window set the request, and the New Chat
+                                    // workspace it carries belongs to this connection alone.
+                                    .onEach { state ->
+                                        contextNewChatPrompt.value = state.systemPromptId
+                                        contextNewChatSettings.value = state.generationParameters
+                                            .takeUnless { settings -> settings.isAllNull() }
+                                        state.controls?.let { controls ->
+                                            contextRequest.value = WebContextAccountingRequest(
+                                                state.conversationId, state.seq, state.modelId, controls.contextWindow,
+                                                state.systemPromptId,
+                                            )
+                                        }
+                                    }
                                     .map {
                                         WebSyncEvent.Composer(
                                             it.conversationId, it.snapshot.phase.name, it.snapshot.acceptedVersion,
@@ -240,11 +332,19 @@ internal class WebUiSync(
                                                 put("retainCount", request.retainLogicalMessages)
                                                 put("compacting", it.compacting)
                                             } },
+                                            buildJsonObject {
+                                                put("selectedId", it.systemPromptId)
+                                                put("activeId", it.activeSystemPromptId)
+                                                put("items", JsonArray(it.systemPrompts.map { prompt -> buildJsonObject {
+                                                    put("id", prompt.id)
+                                                    put("title", prompt.title)
+                                                } }))
+                                            },
                                         )
                                     }.distinctUntilChanged().collect { outbound.send(it) }
                             }
                             target.conversationId?.let { id ->
-                                openConversation(id, list.map { it.first }, watched, displayContext, outbound)
+                                openConversation(id, session, watched, contextRevision, displayContext, outbound, connectionId, target.browserSeq, conversationQuery, visiblePath)
                             }
                         }
                     }
@@ -254,6 +354,100 @@ internal class WebUiSync(
                         json.decodeFromString(WebSyncCommand.serializer(), text)
                     }.getOrNull() ?: continue
                     when (command.type) {
+                        "conversation_search" -> {
+                            val target = session.openTarget.value
+                            if (command.connectionId != connectionId || command.conversationId == null ||
+                                command.conversationId != target.conversationId || command.seq != target.browserSeq ||
+                                command.revision <= (conversationQuery.value?.revision ?: 0L)) continue
+                            conversationQuery.value = command
+                        }
+                        "search" -> {
+                            if (command.connectionId != connectionId || command.revision <= searchRevision.value) continue
+                            searchRevision.value = command.revision
+                            searchJob?.cancel()
+                            val query = command.text.orEmpty()
+                            searchJob = launch(projectionDispatcher) {
+                                if (query.isBlank()) {
+                                    outbound.send(WebSyncEvent.Search(connectionId, command.revision, query, false))
+                                    return@launch
+                                }
+                                outbound.send(WebSyncEvent.Search(connectionId, command.revision, query, true))
+                                try {
+                                    delay(200)
+                                    val matches = search(query).take(20)
+                                    currentCoroutineContext().ensureActive()
+                                    val titles = conversations.getDrawerConversations(matches.map { it.first.conversationId }.distinct())
+                                        .associate { it.id to it.title }
+                                    val providers = customProviders.value
+                                    val items = matches.groupBy { it.first.conversationId }.mapNotNull { (id, entries) ->
+                                        val title = titles[id] ?: return@mapNotNull null
+                                        buildJsonObject {
+                                            put("id", id)
+                                            put("title", replaceCustomProviderIdsForDisplay(title, providers))
+                                            put("score", entries.maxOf { it.second })
+                                            put("snippets", JsonArray(entries.take(2).map { (message, _) ->
+                                                val text = replaceCustomProviderIdsForDisplay(message.text, providers)
+                                                val index = text.indexOf(query, ignoreCase = true)
+                                                val start = if (index < 0) 0 else (index - 20).coerceAtLeast(0)
+                                                val end = if (index < 0) text.length else (index + query.length + 20).coerceAtMost(text.length)
+                                                buildJsonObject {
+                                                    put("role", message.participant.name)
+                                                    put("text", (if (start > 0) "…" else "") + text.substring(start, end) +
+                                                        (if (end < text.length) "…" else ""))
+                                                }
+                                            }))
+                                        }
+                                    }
+                                    if (searchRevision.value == command.revision) {
+                                        outbound.send(WebSyncEvent.Search(connectionId, command.revision, query, false, items))
+                                    }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    if (searchRevision.value == command.revision) {
+                                        outbound.send(WebSyncEvent.Search(connectionId, command.revision, query, false, failed = true))
+                                    }
+                                }
+                            }
+                        }
+                        "question_submit", "question_skip", "shell_decision" -> {
+                            val target = session.openTarget.value
+                            if (command.connectionId != connectionId || command.seq != target.browserSeq ||
+                                command.conversationId != target.conversationId || command.actionId <= interactionActionId.value) continue
+                            // Consume identified actions even if the request disappeared on another client.
+                            interactionActionId.value = command.actionId
+                            val visibleQuestions = askUser.requests.value.filter { it.conversationId == null || it.conversationId == target.conversationId }
+                            when (command.type) {
+                                "question_submit" -> {
+                                    val answers = command.answers ?: continue
+                                    if (answers.isEmpty()) continue
+                                    val waiting = visibleQuestions.associateBy { it.id.toString() }
+                                    if (answers.any { (id, answer) ->
+                                        val request = waiting[id]
+                                        request == null || answer.choices.distinct().size != answer.choices.size ||
+                                            answer.choices.any { it !in request.options } || (!request.allowMultiple && answer.choices.size > 1)
+                                    }) continue
+                                    askUser.submitAll(answers.map { (id, answer) -> id.toLong() to
+                                        com.newoether.agora.viewmodel.AskUserController.Answer(answer.choices, answer.text, answer.answered) })
+                                }
+                                "question_skip" -> {
+                                    val request = visibleQuestions.firstOrNull { it.id.toString() == command.requestId } ?: continue
+                                    askUser.dismiss(request.id)
+                                }
+                                "shell_decision" -> {
+                                    val pending = shellConfirmation.pendingShellCommand.value ?: continue
+                                    if (pending.id.toString() != command.requestId ||
+                                        (pending.conversationId != null && pending.conversationId != target.conversationId)) continue
+                                    shellConfirmation.resolve(pending.id, command.enabled ?: continue, command.alwaysAllow == true)
+                                }
+                            }
+                        }
+                        "list_more" -> if (command.tokens == listLimit.value) listLimit.value += DRAWER_PAGE_SIZE
+                        "pin" -> {
+                            val id = command.conversationId ?: continue
+                            val pinned = command.enabled ?: continue
+                            conversations.setConversationPinned(id, pinned)
+                        }
                         COMMAND_OPEN -> {
                             watched.value = emptySet()
                             session.open(command.conversationId, command.seq)
@@ -266,10 +460,38 @@ internal class WebUiSync(
                         COMMAND_MODEL -> session.selectModel(command.modelId.orEmpty(), command.seq, command.actionId)
                         COMMAND_REMOVE_QUEUED -> session.removeQueued(command.queuedId.orEmpty(), command.seq)
                         COMMAND_SEND_QUEUED -> session.sendQueued(command.seq, command.actionId)
+                        "edit", "regenerate", "delete" -> session.rowCommand(command, visiblePath.value)
                         "attachment_remove", "attachment_retry", "attachment_pdf", "attachment_video" ->
                             session.attachmentCommand(command)
                         "setting" -> session.settingCommand(command)
-                        "advanced", "compact" -> session.editorCommand(command)
+                        "advanced", "compact", "system_prompt" -> session.editorCommand(command)
+                        "fork", "share" -> {
+                            val target = session.openTarget.value
+                            if (target.conversationId == null || target.conversationId != command.conversationId ||
+                                target.browserSeq != command.seq || command.actionId <= lastPageActionId) continue
+                            val pending = pendingPageAction.get()
+                            if (pending != null && pending.seq == target.browserSeq && pending.conversationId == target.conversationId) continue
+                            lastPageActionId = command.actionId
+                            pendingPageAction.set(command)
+                            val isCurrent = { connectionJob.isActive && session.openTarget.value == target }
+                            val complete: (Boolean, String?) -> Unit = { success, shared ->
+                                if (pendingPageAction.compareAndSet(command, null) && connectionJob.isActive) launch {
+                                    outbound.send(WebSyncEvent.PageAction(command.conversationId!!, command.seq,
+                                        command.actionId, command.type, success, shared))
+                                }
+                            }
+                            // A row's Fork and Share name their own message; the top bar sends neither,
+                            // so it keeps forking and sharing the whole conversation.
+                            val started = when {
+                                command.type == "fork" -> forkShare.fork(session, command.messageId,
+                                    isCurrent = isCurrent, openFork = { session.openForkIfCurrent(it, target) },
+                                    onResult = { complete(it, null) })
+                                command.messageId != null -> forkShare.shareGeneration(session,
+                                    command.messageId, isCurrent) { complete(it != null, it) }
+                                else -> forkShare.shareConversation(session, isCurrent) { complete(it != null, it) }
+                            }
+                            if (!started) complete(false, null)
+                        }
                     }
                 }
             } finally {
@@ -287,19 +509,25 @@ internal class WebUiSync(
 
     private suspend fun openConversation(
         id: String,
-        list: Flow<List<ChatConversation>>,
+        session: WebUiChatSession,
         watched: StateFlow<Set<String>>,
+        contextRevision: MutableStateFlow<Long>,
         display: Flow<WebDisplayContext>,
         outbound: SendChannel<WebSyncEvent>,
+        connectionId: String,
+        seq: Long,
+        query: StateFlow<WebSyncCommand?>,
+        visiblePath: MutableStateFlow<List<ChatMessage>>,
     ) {
-        // The web can only open what its list showed; a row that is gone was deleted.
-        if (list.first().none { it.id == id }) {
+        val selected = conversations.observeConversation(id)
+        val row = selected.first()
+        if (row == null || row.taskId != null) {
             outbound.send(WebSyncEvent.Deleted(id))
             return
         }
         // A failure in any collector ends this conversation only, never the connection.
         try {
-            coroutineScope { observeConversation(id, list, watched, display, outbound) }
+            coroutineScope { observeConversation(session, id, selected, visiblePath, watched, contextRevision, display, outbound, connectionId, seq, query) }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -309,33 +537,57 @@ internal class WebUiSync(
     }
 
     private suspend fun CoroutineScope.observeConversation(
+        session: WebUiChatSession,
         id: String,
-        list: Flow<List<ChatConversation>>,
+        selected: Flow<ChatConversation?>,
+        visiblePath: MutableStateFlow<List<ChatMessage>>,
         watched: StateFlow<Set<String>>,
+        contextRevision: MutableStateFlow<Long>,
         display: Flow<WebDisplayContext>,
         outbound: SendChannel<WebSyncEvent>,
+        connectionId: String,
+        seq: Long,
+        query: StateFlow<WebSyncCommand?>,
     ) {
         executionCoordinator.tryWithConversationLock(id) {
             conversations.recoverConversationRuntime(id)
         }
         val state = registry.getOrCreate(id)
-        val selectedChildren = list.map { items ->
-            val row = items.firstOrNull { it.id == id }
+        val selectedChildren = selected.map { row ->
             if (row == null) {
                 outbound.send(WebSyncEvent.Deleted(id))
                 this@observeConversation.cancel()
             }
             decodeSelectedChildren(row?.selectedBranchesJson)
         }.distinctUntilChanged()
+        val payloadRevision = MutableStateFlow(0L)
         val stubs = conversations.observeMessageTopology(id)
-            .distinctUntilChanged()
-            .map { topology -> topology.map { it.toUiChatMessageStub() } }
+            .map { topology ->
+                payloadRevision.value += 1
+                topology.map { it.toUiChatMessageStub().copy(tokenCount = 0) }
+            }.distinctUntilChanged()
+        // Text and timing are not branch inputs. Deduplicate before walking the graph.
+        val pathSnapshots = state.generationSnapshot.map { snapshot ->
+            snapshot.copy(streamingMessage = snapshot.streamingMessage?.let { message ->
+                ChatMessage(id = message.id, parentId = message.parentId, text = "",
+                    participant = message.participant, status = message.status, timestamp = message.timestamp,
+                    modelName = message.modelName, runId = message.runId, runSequence = message.runSequence,
+                    consumedAtPass = message.consumedAtPass)
+            })
+        }.distinctUntilChanged()
+        val liveMessageId = state.generationSnapshot.map { snapshot ->
+            snapshot.streamingMessage?.takeUnless { it.status in
+                setOf(MessageStatus.SUCCESS, MessageStatus.STOPPED, MessageStatus.ERROR) }?.id
+        }.distinctUntilChanged()
         val pathIds = MutableStateFlow<Set<String>>(emptySet())
+        val searchIds = MutableStateFlow<List<String>>(emptyList())
         launch {
-            combine(stubs, selectedChildren, state.generationSnapshot) { all, selected, snapshot ->
+            combine(stubs, selectedChildren, pathSnapshots) { all, selected, snapshot ->
                 val path = withContext(projectionDispatcher) {
                     ConversationUiState.resolvePath(all, snapshot.streamingMessage, selected)
                 }
+                // Row commands resolve the phone's generation boundary inside the path this browser shows.
+                visiblePath.value = path
                 WebSyncEvent.Path(
                     conversationId = id,
                     messages = path.map { it.toWebPathEntry() },
@@ -344,7 +596,15 @@ internal class WebUiSync(
             }
                 .distinctUntilChanged()
                 .collect { event ->
+                    // The row set and the generating flag are what move the priced context, so this
+                    // connection re-prices here instead of on every streamed character.
+                    contextRevision.value += 1
                     pathIds.value = event.messages.mapTo(mutableSetOf()) { it.id }
+                    searchIds.value = event.messages.filter {
+                        (it.participant == "USER" || it.participant == "MODEL") &&
+                            !it.id.startsWith(Constants.TOOL_MSG_PREFIX) && !it.id.startsWith(Constants.RESULT_MSG_PREFIX) &&
+                            !it.id.startsWith(Constants.COMPACT_MSG_PREFIX)
+                    }.map { it.id }
                     outbound.send(event)
                 }
         }
@@ -358,7 +618,41 @@ internal class WebUiSync(
                 }
                 .collect { outbound.send(WebSyncEvent.Streaming(id, it)) }
         }
-        launch { servePayloads(id, watched, pathIds, display, outbound) }
+        launch { servePayloads(id, watched, pathIds, liveMessageId, display, outbound) }
+        launch(projectionDispatcher) {
+            combine(searchIds, query, customProviders, payloadRevision, state.generationSnapshot) { ids, command, providers, _, snapshot ->
+                Triple(ids, command, providers) to snapshot.streamingMessage
+            }.collectLatest { (input, streaming) ->
+                    val (ids, command, providers) = input
+                    if (command == null || command.conversationId != id || command.seq != seq) return@collectLatest
+                    val text = command.text.orEmpty()
+                    suspend fun publish(searching: Boolean, matches: List<JsonObject> = emptyList(), failed: Boolean = false) {
+                        outbound.send(WebSyncEvent.ConversationSearch(connectionId, id, seq, command.revision, text, searching, matches, failed))
+                    }
+                    if (text.isBlank()) { publish(false); return@collectLatest }
+                    publish(true)
+                    try {
+                        val matches = scanConversationSearchMatches(ids, text) { page ->
+                            val rows = hydration.loadMessages(id, page) { it.forDisplay(providers) }
+                            if (streaming == null || streaming.id !in page) rows
+                            else rows.filterNot { it.id == streaming.id } + streaming.forDisplay(providers)
+                        }.map { match -> buildJsonObject {
+                            put("messageId", match.messageId)
+                            put("start", match.start)
+                            put("endExclusive", match.endExclusive)
+                            put("occurrence", match.occurrenceInMessage)
+                            put("key", match.key)
+                        } }
+                        currentCoroutineContext().ensureActive()
+                        publish(false, matches)
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        DebugLog.e(TAG, "WebUI conversation search failed", error)
+                        publish(false, failed = true)
+                    }
+                }
+        }
     }
 
     /** One payload subscription per watched row; only rows on the current path are served. */
@@ -366,11 +660,12 @@ internal class WebUiSync(
         conversationId: String,
         watched: StateFlow<Set<String>>,
         pathIds: StateFlow<Set<String>>,
+        liveMessageId: Flow<String?>,
         display: Flow<WebDisplayContext>,
         outbound: SendChannel<WebSyncEvent>,
     ) = coroutineScope {
         val jobs = mutableMapOf<String, Job>()
-        combine(watched, pathIds) { ids, path -> ids intersect path }
+        combine(watched, pathIds, liveMessageId) { ids, path, live -> (ids intersect path) - setOfNotNull(live) }
             .distinctUntilChanged()
             .collect { ids ->
                 (jobs.keys - ids).forEach { jobs.remove(it)?.cancel() }

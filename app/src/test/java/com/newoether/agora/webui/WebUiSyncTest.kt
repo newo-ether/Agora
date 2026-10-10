@@ -4,6 +4,7 @@ import com.newoether.agora.data.CustomEndpointProtocol
 
 import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.data.local.MessageContextTopology
+import com.newoether.agora.data.local.DrawerConversationRow
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.ChatConversation
 import com.newoether.agora.model.ChatMessage
@@ -33,10 +34,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -76,7 +79,12 @@ class WebUiSyncTest {
         "m2" to message("m2", "root", Participant.MODEL, "other"),
     )
     private val conversations = mockk<ConversationRepository> {
-        every { getAllConversations() } returns list
+        every { observeDrawerConversations(any()) } answers {
+            val limit = firstArg<Int>()
+            list.map { rows -> rows.take(limit).map { DrawerConversationRow(it.id, it.title, it.hasUnreadGeneration, it.isPinned) } }
+        }
+        every { observeConversation(any()) } answers { val id = firstArg<String>(); list.map { rows -> rows.find { it.id == id } } }
+        coEvery { setConversationPinned(any(), any()) } returns true
         every { observeMessageTopology("a") } returns topology
         coEvery { recoverConversationRuntime(any(), any()) } returns 0
     }
@@ -106,11 +114,17 @@ class WebUiSyncTest {
     private val scrollRequests = MutableSharedFlow<WebSyncEvent.ScrollToBottom>(extraBufferCapacity = 4)
     private val composerState = MutableSharedFlow<WebUiChatSession.ComposerState>(extraBufferCapacity = 4)
     private val customProviders = MutableStateFlow<List<CustomProviderConfig>>(emptyList())
+    private var search: suspend (String) -> List<Pair<com.newoether.agora.data.local.MessageEntity, Float>> = { emptyList() }
+    private val forkShare = mockk<com.newoether.agora.viewmodel.ConversationForkShareController>()
+    private val askUser = com.newoether.agora.viewmodel.AskUserController()
+    private val shell = com.newoether.agora.viewmodel.ShellConfirmationController(MutableStateFlow(true), {})
+    private val contextAccounting = WebUiContextAccounting(conversations, mockk(), { mockk() }, { it }, MutableStateFlow(90), MutableStateFlow(true))
     private val session = mockk<WebUiChatSession> {
         every { openTarget } returns this@WebUiSyncTest.openTarget
         every { snackbars } returns this@WebUiSyncTest.snackbars
         every { scrollRequests } returns this@WebUiSyncTest.scrollRequests
         every { composerState } returns this@WebUiSyncTest.composerState
+        every { openConversationId } answers { this@WebUiSyncTest.openTarget.value.conversationId }
         coEvery { start() } just Runs
         coEvery { close() } just Runs
         coEvery { endUploads() } just Runs
@@ -128,6 +142,97 @@ class WebUiSyncTest {
             this@WebUiSyncTest.openTarget.value =
                 WebUiChatSession.OpenTarget(firstArg(), secondArg(), movedByServer = false)
         }
+    }
+
+    @Test
+    fun drawerPagesAreBoundedAndDuplicateLoadRequestsDoNotAdvanceTwice() = sync { send, received ->
+        received()
+        list.value = (0 until 200).map { ChatConversation(id = "c$it", title = "Conversation $it", isPinned = it == 0) }
+        val first = received().single { it.type == "conversations" }
+        assertEquals(80, first["items"]!!.jsonArray.size)
+        assertEquals("true", first.string("hasMore"))
+        assertEquals("true", first["items"]!!.jsonArray.first().jsonObject.string("isPinned"))
+        send("""{"type":"list_more","tokens":80}""")
+        assertEquals(160, received().single { it.type == "conversations" }["items"]!!.jsonArray.size)
+        send("""{"type":"list_more","tokens":80}""")
+        assertTrue(received().none { it.type == "conversations" })
+        send("""{"type":"list_more","tokens":160}""")
+        val last = received().single { it.type == "conversations" }
+        assertEquals(200, last["items"]!!.jsonArray.size)
+        assertFalse(last["hasMore"]?.jsonPrimitive?.content?.toBoolean() == true)
+        verify(exactly = 0) { conversations.getAllConversations() }
+        coVerify(exactly = 0) { conversations.recoverConversationRuntime(any(), any()) }
+    }
+
+    @Test fun removedPromptEditorCommandsDoNothingAndExistingSelectionStillRoutes() = sync { send, received ->
+        received()
+        for (type in listOf("prompt_new", "prompt_preview", "prompt_create")) {
+            send("""{"type":"$type","actionId":1,"promptDraft":{"id":"removed","title":"Removed"}}""")
+        }
+        assertTrue(received().none { it.type == "page_action" })
+        coVerify(exactly = 0) { session.editorCommand(any()) }
+        send("""{"type":"system_prompt","value":"existing","actionId":2}""")
+        coVerify(exactly = 1) { session.editorCommand(WebSyncCommand("system_prompt", value = "existing", actionId = 2)) }
+    }
+
+    @Test
+    fun pinUsesTheNarrowCanonicalWriteAndOpeningDoesNotDependOnLoadedPages() = sync { send, received ->
+        received()
+        list.value = (0 until 100).map { ChatConversation(id = "c$it", title = "Conversation $it") } + list.value
+        received()
+        send("""{"type":"pin","conversationId":"b","enabled":true}""")
+        coVerify(exactly = 1) { conversations.setConversationPinned("b", true) }
+        send("""{"type":"open","conversationId":"a"}""")
+        assertEquals(listOf("root", "m1"), received().single { it.type == "path" }.ids())
+    }
+
+    @Test
+    fun interactionsFilterOwnersAndValidateChoicesBeforeCanonicalAtomicSubmission() = sync { send, received ->
+        val connection = received().single { it.type == "connection" }.string("connectionId")
+        val set = askUser.newSetId()
+        val first = askUser.open("a", "First", listOf("A", "B"), false, true, set)
+        val second = askUser.open("a", "Second", emptyList(), true, true, set)
+        val hidden = askUser.open("b", "Hidden", emptyList(), false, true)
+        val global = askUser.open(null, "Global", emptyList(), false, true)
+        send("""{"type":"open","conversationId":"a","seq":3}""")
+        val visible = received().last { it.type == "interactions" }["items"]!!.jsonArray
+        assertEquals(listOf(first.id, second.id, global.id).map(Long::toString), visible.map { it.jsonObject.string("id") })
+        val answers = """{"${first.id}":{"choices":["A"],"answered":true},"${second.id}":{}}"""
+        val valid = """{"type":"question_submit","connectionId":"$connection","conversationId":"a","seq":3,"actionId":7,"answers":$answers}"""
+        send(valid.replace(connection, "stale"))
+        send(valid.replace("\"seq\":3", "\"seq\":2"))
+        send(valid.replace("[\"A\"]", "[\"C\"]"))
+        assertEquals(4, askUser.requests.value.size)
+        assertEquals("7", received().last { it.type == "interactions" }.string("actionId"))
+        send(valid.replace("\"actionId\":7", "\"actionId\":8"))
+        assertEquals(listOf(hidden.id, global.id), askUser.requests.value.map { it.id })
+        assertEquals(listOf("A"), askUser.awaitAnswer(first).choices)
+        assertFalse(askUser.awaitAnswer(second).answered)
+        send(valid.replace("\"actionId\":7", "\"actionId\":8"))
+        assertEquals(2, askUser.requests.value.size)
+        send("""{"type":"question_skip","connectionId":"$connection","conversationId":"a","seq":3,"actionId":9,"requestId":"${hidden.id}"}""")
+        assertTrue(askUser.requests.value.any { it.id == hidden.id })
+        send("""{"type":"question_skip","connectionId":"$connection","conversationId":"a","seq":3,"actionId":10,"requestId":"${global.id}"}""")
+        assertFalse(askUser.awaitAnswer(global).answered)
+    }
+
+    @Test
+    fun shellDecisionsUseExactPendingRequestAndSessionTrustOwner() = sync { send, received ->
+        val connection = received().single { it.type == "connection" }.string("connectionId")
+        val result = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        backgroundScope.launch { result.complete(shell.confirm("fixture", "echo fixture", "a")) }
+        runCurrent()
+        assertTrue(received().none { it.type == "interactions" })
+        send("""{"type":"open","conversationId":"a","seq":4}""")
+        val request = received().last { it.type == "interactions" }["items"]!!.jsonArray.first().jsonObject
+        assertEquals("shell", request.string("kind"))
+        val command = """{"type":"shell_decision","connectionId":"$connection","conversationId":"a","seq":4,"actionId":1,"requestId":"${request.string("id")}","enabled":true,"alwaysAllow":true}"""
+        send(command.replace("\"requestId\":\"${request.string("id")}\"", "\"requestId\":\"999\""))
+        assertFalse(result.isCompleted)
+        send(command.replace("\"actionId\":1", "\"actionId\":2"))
+        assertTrue(result.await())
+        assertTrue(shell.confirm("fixture", "another", "a"))
+        assertEquals(null, shell.pendingShellCommand.value)
     }
 
     @Test
@@ -448,6 +553,180 @@ class WebUiSyncTest {
         verify(exactly = 0) { hydration.observeMessage("m2", any()) }
     }
 
+    @Test
+    fun pageActionsRejectWrongSelectionAndDeduplicatePendingRequests() = sync { send, received ->
+        var complete: ((Boolean) -> Unit)? = null
+        every { forkShare.fork(session, any(), any(), any(), any()) } answers {
+            complete = arg(4)
+            true
+        }
+        received()
+        send("""{"type":"open","conversationId":"a","seq":3}""")
+        received()
+        send("""{"type":"fork","conversationId":"b","seq":3,"actionId":1}""")
+        send("""{"type":"fork","conversationId":"a","seq":2,"actionId":2}""")
+        verify(exactly = 0) { forkShare.fork(any(), any(), any(), any(), any()) }
+        send("""{"type":"fork","conversationId":"a","seq":3,"actionId":3}""")
+        send("""{"type":"fork","conversationId":"a","seq":3,"actionId":4}""")
+        verify(exactly = 1) { forkShare.fork(session, any(), any(), any(), any()) }
+        complete!!(false)
+        val result = received().single { it.type == "page_action" }
+        assertEquals("3", result.string("seq"))
+        assertEquals("3", result.string("actionId"))
+        send("""{"type":"fork","conversationId":"a","seq":3,"actionId":3}""")
+        verify(exactly = 1) { forkShare.fork(session, any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun searchDebouncesGroupsAndNeverLoadsConversationOwners() = sync { send, received ->
+        val connection = received().single { it.type == "connection" }.string("connectionId")
+        val queries = mutableListOf<String>()
+        search = { query ->
+            queries += query
+            (0 until 25).map { index ->
+                com.newoether.agora.data.local.MessageEntity(
+                    id = "search-$index", conversationId = if (index < 3) "a" else "b",
+                    text = "x".repeat(50) + "Needle" + "y".repeat(50), participant = Participant.USER,
+                    timestamp = index.toLong(), runId = "run-search",
+                ) to (0.9f - index * 0.01f)
+            }
+        }
+        coEvery { conversations.getDrawerConversations(any()) } returns listOf(
+            DrawerConversationRow("a", "Alpha", false, false), DrawerConversationRow("b", "Beta", false, false),
+        )
+        send("""{"type":"search","connectionId":"wrong","revision":1,"text":"ignored"}""")
+        assertTrue(received().none { it.type == "search" })
+        send("""{"type":"search","connectionId":"$connection","revision":1,"text":"old"}""")
+        assertEquals("true", received().single { it.type == "search" }.string("searching"))
+        advanceTimeBy(100)
+        send("""{"type":"search","connectionId":"$connection","revision":2,"text":"needle"}""")
+        received()
+        advanceTimeBy(199)
+        runCurrent()
+        assertTrue(queries.isEmpty())
+        advanceTimeBy(1)
+        val result = received().single { it.type == "search" }
+        assertEquals(listOf("needle"), queries)
+        val items = result["items"]!!.jsonArray
+        assertEquals(2, items.size)
+        assertEquals("Alpha", items[0].jsonObject.string("title"))
+        assertEquals(2, items[0].jsonObject["snippets"]!!.jsonArray.size)
+        assertEquals("…" + "x".repeat(20) + "Needle" + "y".repeat(20) + "…",
+            items[0].jsonObject["snippets"]!!.jsonArray[0].jsonObject.string("text"))
+        coVerify(exactly = 1) { conversations.getDrawerConversations(listOf("a", "b")) }
+        coVerify(exactly = 0) { conversations.recoverConversationRuntime(any(), any()) }
+        verify(exactly = 0) { conversations.observeConversation(any()) }
+        send("""{"type":"search","connectionId":"$connection","revision":1,"text":"old"}""")
+        assertTrue(received().none { it.type == "search" })
+    }
+    @Test
+    fun searchClearCancelsPendingAndFailureEndsLoading() = sync { send, received ->
+        val connection = received().single { it.type == "connection" }.string("connectionId")
+        val queries = mutableListOf<String>()
+        search = { query -> queries += query; error("synthetic failure") }
+        send("""{"type":"search","connectionId":"$connection","revision":1,"text":"cancel"}""")
+        received()
+        send("""{"type":"search","connectionId":"$connection","revision":2,"text":""}""")
+        assertEquals("", received().single { it.type == "search" }.string("query"))
+        advanceTimeBy(250)
+        runCurrent()
+        assertTrue(queries.isEmpty())
+        send("""{"type":"search","connectionId":"$connection","revision":3,"text":"fail"}""")
+        received()
+        advanceTimeBy(200)
+        val failure = received().single { it.type == "search" }
+        assertEquals("true", failure.string("failed"))
+        assertFalse(failure["searching"]?.jsonPrimitive?.content?.toBoolean() == true)
+        assertEquals(listOf("fail"), queries)
+    }
+    @Test
+    fun disconnectedSearchCannotCompleteOrReadTitles() = runTest {
+        val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var cancelled = false
+        search = {
+            started.complete(Unit)
+            try { kotlinx.coroutines.awaitCancellation() } finally { cancelled = true }
+        }
+        val incoming = Channel<String>(Channel.UNLIMITED)
+        val events = mutableListOf<JsonObject>()
+        val job = backgroundScope.launch {
+            webUiSync(StandardTestDispatcher(testScheduler)).serve("login", incoming) {
+                events += Json.parseToJsonElement(it).jsonObject
+            }
+        }
+        runCurrent()
+        val connection = events.single { it.type == "connection" }.string("connectionId")
+        incoming.send("""{"type":"search","connectionId":"$connection","revision":1,"text":"pending"}""")
+        runCurrent()
+        advanceTimeBy(200)
+        runCurrent()
+        assertTrue(started.isCompleted)
+        incoming.close()
+        job.join()
+        assertTrue(cancelled)
+        coVerify(exactly = 0) { conversations.getDrawerConversations(any()) }
+        assertEquals(1, events.count { it.type == "search" })
+    }
+    @Test
+    fun conversationSearchUsesBoundedSelectedPathPagesAndCanonicalBodyMatches() = sync { send, received ->
+        val connection = received().single { it.type == "connection" }.string("connectionId")
+        val chain = (0 until 130).map { topology("s$it", if (it == 0) null else "s${it - 1}", Participant.USER, it.toLong()) }
+        topology.value = chain
+        list.value = list.value.map { if (it.id == "a") it.copy(selectedBranchesJson = null) else it }
+        val pages = mutableListOf<List<String>>()
+        coEvery { hydration.loadMessages("a", any(), any()) } answers {
+            val ids = secondArg<List<String>>()
+            pages += ids
+            ids.reversed().map { message(it, null, Participant.USER, "needle needle") }
+        }
+        send("""{"type":"open","conversationId":"a","seq":7}""")
+        received()
+        send("""{"type":"conversation_search","connectionId":"$connection","conversationId":"a","seq":6,"revision":1,"text":"needle"}""")
+        assertTrue(received().none { it.type == "conversation_search" })
+        assertTrue(pages.isEmpty())
+        send("""{"type":"conversation_search","connectionId":"$connection","conversationId":"a","seq":7,"revision":2,"text":"needle"}""")
+        val result = received().last { it.type == "conversation_search" }
+        assertEquals(listOf(64, 64, 2), pages.map { it.size })
+        val matches = result["matches"]!!.jsonArray
+        assertEquals(260, matches.size)
+        assertEquals("s0", matches.first().jsonObject.string("messageId"))
+        assertEquals("s129", matches.last().jsonObject.string("messageId"))
+        assertEquals("7", result.string("seq"))
+        assertEquals("2", result.string("revision"))
+        send("""{"type":"conversation_search","connectionId":"$connection","conversationId":"a","seq":7,"revision":1,"text":"old"}""")
+        assertTrue(received().none { it.type == "conversation_search" })
+        send("""{"type":"conversation_search","connectionId":"$connection","conversationId":"a","seq":7,"revision":3,"text":""}""")
+        assertTrue(received().last { it.type == "conversation_search" }["matches"] == null)
+        assertEquals(3, pages.size)
+        verify(exactly = 0) { hydration.observeMessage(any(), any()) }
+    }
+    @Test
+    fun conversationSearchCancelsReplacedQueryAndSelectionAndEndsFailure() = sync { send, received ->
+        val connection = received().single { it.type == "connection" }.string("connectionId")
+        coEvery { hydration.loadMessages("a", any(), any()) } coAnswers {
+            kotlinx.coroutines.delay(1000)
+            secondArg<List<String>>().map { message(it, null, Participant.USER, "needle") }
+        }
+        send("""{"type":"open","conversationId":"a","seq":1}""")
+        received()
+        send("""{"type":"conversation_search","connectionId":"$connection","conversationId":"a","seq":1,"revision":1,"text":"needle"}""")
+        assertEquals("true", received().single { it.type == "conversation_search" }.string("searching"))
+        send("""{"type":"conversation_search","connectionId":"$connection","conversationId":"a","seq":1,"revision":2,"text":""}""")
+        received()
+        advanceTimeBy(1001)
+        assertTrue(received().none { it.type == "conversation_search" })
+        coEvery { hydration.loadMessages("a", any(), any()) } throws IllegalStateException("fixture")
+        mockkObject(DebugLog)
+        every { DebugLog.e(any(), any(), any()) } just Runs
+        try {
+            send("""{"type":"conversation_search","connectionId":"$connection","conversationId":"a","seq":1,"revision":3,"text":"needle"}""")
+            assertEquals("true", received().last { it.type == "conversation_search" }.string("failed"))
+            send("""{"type":"open","seq":2}""")
+            received()
+            send("""{"type":"conversation_search","connectionId":"$connection","conversationId":"a","seq":1,"revision":4,"text":"needle"}""")
+            assertTrue(received().none { it.type == "conversation_search" })
+        } finally { unmockkObject(DebugLog) }
+    }
     private fun sync(
         block: suspend TestScope.(send: suspend (String) -> Unit, received: () -> List<JsonObject>) -> Unit,
     ) = runTest {
@@ -475,6 +754,11 @@ class WebUiSyncTest {
         customProviders = customProviders,
         display = display,
         openChatSession = { session },
+        forkShare = forkShare,
+        askUser = askUser,
+        shellConfirmation = shell,
+        contextAccounting = contextAccounting,
+        search = { search(it) },
         projectionDispatcher = dispatcher,
     )
 
