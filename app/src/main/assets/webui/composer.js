@@ -1,21 +1,54 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "./vendor/preact-hooks.mjs";
 import { html } from "./html.js";
+import { CircularProgress, Spinner } from "./material/progress.js";
+import { sliderStyle } from "./material/slider.js";
 import { t } from "./i18n.js";
-import { icon, ICON_ADD, ICON_ARROW_UPWARD, ICON_EXPAND_ALL, ICON_MORE_VERT, ICON_STOP, ICON_CHECK, ICON_CLOSE, ICON_ATTACH_FILE } from "./icons.js";
+import { icon, ICON_ADD, ICON_ARROW_UPWARD, ICON_EXPAND_ALL, ICON_COLLAPSE_ALL, ICON_MORE_VERT, ICON_STOP, ICON_CHECK, ICON_CLOSE, ICON_ATTACH_FILE } from "./icons.js";
 import { sync } from "./sync.js";
 import { Markdown } from "./markdown.js";
-import { DetailSheet } from "./messages.js";
+import { InteractionBar } from "./interaction.js";
+import { DetailSheet } from "./detail-sheet.js";
 import { ICON_NEUROLOGY, ICON_MEMORY, ICON_SPEED, ICON_TERMINAL, ICON_LANGUAGE, ICON_COMPRESS, ICON_TUNE, ICON_CHEVRON_DOWN, ICON_GOOGLE, ICON_OPENAI } from "./icons.js";
 import { ICON_IMAGE, ICON_CHEVRON_RIGHT, ICON_CAMERA, ICON_VIDEO, ICON_ERROR, ICON_BROKEN_IMAGE } from "./icons.js";
 
+/** The phone's `contextUsagePercent`: whole percent of the window already used, reserve excluded. */
+function contextUsagePercent(estimatedTokens, tokenBudget) {
+  return tokenBudget <= 0 ? 0 : Math.round(estimatedTokens * 100 / tokenBudget);
+}
+/** One part's share of the bar; the bar itself keeps a part that holds tokens visible. */
+function contextShare(tokens, tokenBudget) {
+  return tokenBudget <= 0 ? 0 : Math.min(100, tokens * 100 / tokenBudget);
+}
+/**
+ * What a paste into the field contributes. Exactly one kind of clipboard item is consumed, an image:
+ * text and anything unsupported go back to the platform, as on the phone, so caret, selection, undo,
+ * IME and accessibility stay native and a mixed payload types its text at the caret while its images
+ * become attachments beside it. A payload that carries no text at all is stopped, because otherwise a
+ * browser may leave a bare file name where the image should have gone.
+ */
+export function splitPaste(data) {
+  const files = data?.files ? [...data.files] : [];
+  const images = files.filter((file) => file.type?.startsWith("image/"));
+  return { images, toPlatform: images.length === 0 || Boolean(data.getData("text/plain")) };
+}
+const CONTEXT_PART_LABEL = {
+  system: t.contextPartSystem, tools: t.contextPartTools, messages: t.contextPartMessages,
+  free: t.contextPartFree, reserved: t.contextPartReserved,
+};
 /** ChatBottomBar: surface card with the text field, the expand button and the controls row. */
-export function Composer({ state, MoreMenu }) {
+export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }) {
   const field = useRef(null);
+  const host = useRef(null);
+  const sizeMotion = useRef({ height: null, animation: null });
+  const composing = useRef(false);
   const modelButton = useRef(null);
   const addButton = useRef(null);
   const picker = useRef(null);
   const pickerTarget = useRef(null);
   const toolsButton = useRef(null);
+  const contextButton = useRef(null);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [retainedContext, setRetainedContext] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [retainedTools, setRetainedTools] = useState(false);
   const [toolPanel, setToolPanel] = useState(null);
@@ -23,11 +56,18 @@ export function Composer({ state, MoreMenu }) {
   const [slider, setSlider] = useState(null);
   const [editor, setEditor] = useState(null);
   const controls = state.composer?.controls;
-  const settingsEditable = state.connected && !!controls && !state.pendingAction;
+  // One connection's own context window, priced on the phone by ConversationContextProjector.
+  const context = state.context;
+  const contextReady = !!context && context.estimatedLabel != null && context.tokenBudget > 0;
+  const contextFraction = contextReady ? Math.min(1, Math.max(0, context.estimatedTokens / context.tokenBudget)) : 0;
+  const contextUsage = contextReady ? t.contextUsage(context.estimatedLabel, context.budgetLabel) : null;
+  const contextPercent = contextReady ? `${contextUsagePercent(context.estimatedTokens, context.tokenBudget)}%` : null;
+  const composerReady = state.connected && !!sync.attachmentTarget();
+  const settingsEditable = composerReady && !!controls && !state.pendingAction;
   const capabilityEnabled = settingsEditable && !controls?.lowContextModeEnabled;
   const validPanel = toolPanel && toolPanel.connectionId === state.connectionId && toolPanel.seq === state.composer?.seq &&
     !!controls && (toolPanel.kind === "thinking" || (controls.openAiServiceTierAvailable && state.composer.modelValid));
-  useEffect(() => { setToolsOpen(false); setToolPanel(null); setSlider(null); setEditor(null); }, [state.openId, state.connectionId]);
+  useEffect(() => { setToolsOpen(false); setToolPanel(null); setSlider(null); setEditor(null); setContextOpen(false); }, [state.openId, state.connectionId]);
   useEffect(() => { if (!state.pendingAction) setSlider(null); }, [state.pendingAction]);
   useEffect(() => { setSlider(null); }, [state.composer?.modelId]);
   useEffect(() => { if (controls?.displayedThinkingBudgetEnabled) setAdvancedThinking(true); }, [controls?.displayedThinkingBudgetEnabled]);
@@ -37,8 +77,10 @@ export function Composer({ state, MoreMenu }) {
     setToolsOpen(false);
   }
   const validEditor = editor && state.connected && editor.connectionId === state.connectionId && editor.seq === state.composer?.seq && editor.conversationId === state.openId;
+  // ComposerToolsMenuContent: enabled = canCompact && !isCompacting, where canCompact is
+  // "a conversation, not loading, not switching, not stopping".
   const compactAvailable = settingsEditable && !!state.openId && state.openStatus === "ready" &&
-    !state.composer.stopping && !!state.composer.compact && !state.composer.compact.compacting;
+    !state.generating && !state.composer.stopping && !!state.composer.compact && !state.composer.compact.compacting;
   function openEditor(kind) {
     setEditor({ ...sync.attachmentTarget(), conversationId: state.openId, kind, initial: kind === "advanced" ? state.composer.advanced : state.composer.compact });
     setToolsOpen(false);
@@ -47,6 +89,95 @@ export function Composer({ state, MoreMenu }) {
   const [retainedAdd, setRetainedAdd] = useState(false);
   const [viewer, setViewer] = useState(null);
   const attachments = state.composer?.attachments ?? [];
+  const queue = state.composer?.queue ?? [];
+  const queueKey = JSON.stringify(queue.map(item => item.id));
+  const queueOwner = JSON.stringify([state.connectionId, state.openId, state.composer?.seq]);
+  const queueHost = useRef(null);
+  const queueMotion = useRef({ owner: null, key: null, nextId: 0, targetId: null, layers: [], height: 0, animation: null });
+  const [queueLayers, setQueueLayers] = useState([]);
+  useLayoutEffect(() => {
+    const host = queueHost.current;
+    const motion = queueMotion.current;
+    if (motion.owner !== queueOwner) {
+      motion.animation?.cancel();
+      motion.animation = null;
+      motion.layers.forEach(layer => layer.animation?.cancel());
+      motion.owner = queueOwner;
+      motion.key = queueKey;
+      motion.height = queue.length * 44;
+      motion.targetId = queue.length ? ++motion.nextId : null;
+      motion.layers = queue.length ? [{ id: motion.targetId, items: queue, alpha: 1, settled: true }] : [];
+      host.style.height = `${motion.height}px`;
+      setQueueLayers(motion.layers);
+      return;
+    }
+    if (motion.key !== queueKey) {
+      // Freeze only the active snapshot; older exits finish on their original deadlines.
+      const height = host.getBoundingClientRect().height;
+      motion.animation?.cancel();
+      motion.animation = null;
+      host.style.height = `${height}px`;
+      const active = motion.layers.find(layer => layer.id === motion.targetId);
+      if (active) {
+        const element = host.querySelector(`[data-queue-frame="${active.id}"]`);
+        active.alpha = Number(getComputedStyle(element).opacity);
+        active.items = active.latestItems;
+        active.animation?.cancel();
+        active.animation = null;
+        active.exiting = true;
+        active.settled = false;
+        element.style.opacity = String(active.alpha);
+      }
+      motion.key = queueKey;
+      motion.height = queue.length * 44;
+      motion.targetId = queue.length ? ++motion.nextId : null;
+      motion.layers = motion.layers.filter(layer => layer.alpha > 0);
+      if (queue.length) motion.layers.push({ id: motion.targetId, items: queue, alpha: 0 });
+      setQueueLayers([...motion.layers]);
+      return;
+    }
+    if (state.display?.reduceMotion) {
+      motion.animation?.cancel();
+      motion.animation = null;
+      host.style.height = `${motion.height}px`;
+    } else if (!motion.animation && parseFloat(host.style.height) !== motion.height) {
+      const animation = host.animate(
+        [{ height: host.style.height }, { height: `${motion.height}px` }],
+        { duration: 220, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "both" },
+      );
+      motion.animation = animation;
+      animation.onfinish = () => {
+        if (motion.animation !== animation) return;
+        host.style.height = `${motion.height}px`;
+        motion.animation = null;
+        animation.cancel();
+      };
+    }
+    motion.layers.forEach(layer => {
+      if (layer.animation || layer.settled) return;
+      const element = host.querySelector(`[data-queue-frame="${layer.id}"]`);
+      const target = layer.exiting ? 0 : 1;
+      const animation = element.animate([{ opacity: layer.alpha }, { opacity: target }],
+        { duration: layer.exiting ? 140 : 180, easing: "linear", fill: "both" });
+      layer.animation = animation;
+      animation.onfinish = () => {
+        if (layer.animation !== animation) return;
+        element.style.opacity = String(target);
+        animation.cancel();
+        layer.animation = null;
+        layer.alpha = target;
+        layer.settled = true;
+        if (layer.exiting) {
+          motion.layers = motion.layers.filter(item => item !== layer);
+          setQueueLayers([...motion.layers]);
+        }
+      };
+    });
+  });
+  useLayoutEffect(() => () => {
+    queueMotion.current.animation?.cancel();
+    queueMotion.current.layers.forEach(layer => layer.animation?.cancel());
+  }, []);
   const [modelOpen, setModelOpen] = useState(false);
   const [retainedModelMenu, setRetainedModelMenu] = useState(false);
   const modelChoices = Object.entries(state.composer?.models ?? {});
@@ -59,7 +190,7 @@ export function Composer({ state, MoreMenu }) {
   const busy = state.pendingAction || phase !== "IDLE" || state.composer?.stopping;
   const stop = state.generating && !state.text.trim() && !attachments.length;
   const canDrain = !state.generating && !state.text.trim() && !attachments.length && state.composer?.queue?.length;
-  const editable = state.connected && !!state.composer && !state.pendingAction && phase === "IDLE";
+  const editable = composerReady && !state.pendingAction && phase === "IDLE";
   useEffect(() => { if (!editable) setAddOpen(false); }, [editable]);
   useEffect(() => { setAddOpen(false); }, [state.openId, state.connectionId]);
   const viewedId = viewer?.file?.id ?? viewer?.items?.[viewer.index]?.id;
@@ -84,11 +215,39 @@ export function Composer({ state, MoreMenu }) {
         .map(item => ({ ...item, kind: "source", index: 0 }));
     setViewer({ ...sync.attachmentTarget(), ...(a.type === "file" ? { file: a } : { items: media, index: Math.max(0, media.findIndex(item => item.id === a.id)) }) });
   }
-  const actionable = state.connected && state.composer && !state.pendingAction && !state.composer.stopping &&
+  const actionable = composerReady && !state.pendingAction && !state.composer.stopping &&
     !["loading", "failed", "deleted"].includes(state.openStatus) &&
     (waiting || (phase === "IDLE" && (stop || ((state.text.trim() || attachments.length || canDrain) && state.composer.modelValid))));
+  function submit() {
+    if (actionable) { if (stop && !busy) sync.stopGeneration(); else sync.submit(); }
+  }
+  useLayoutEffect(() => {
+    const node = host.current;
+    const motion = sizeMotion.current;
+    const from = motion.animation ? node.getBoundingClientRect().height : motion.height;
+    motion.animation?.cancel();
+    motion.animation = null;
+    const target = node.offsetHeight;
+    if (from != null && Math.abs(from - target) > 1 && !state.display?.reduceMotion) {
+      const animation = node.animate([{ height: `${from}px` }, { height: `${target}px` }],
+        { duration: 400, easing: expanded ? "cubic-bezier(0.15, 0.5, 0.25, 1)" : "cubic-bezier(0.4, 0, 0.2, 1)", fill: "both" });
+      motion.animation = animation;
+      animation.onfinish = () => {
+        if (motion.animation !== animation) return;
+        motion.animation = null;
+        animation.cancel();
+        motion.height = node.offsetHeight;
+      };
+    }
+    motion.height = target;
+    const geometry = new ResizeObserver(() => { if (!motion.animation) motion.height = node.offsetHeight; });
+    geometry.observe(node);
+    return () => geometry.disconnect();
+  }, [expanded, state.display?.reduceMotion]);
+  useLayoutEffect(() => () => sizeMotion.current.animation?.cancel(), []);
   useLayoutEffect(() => {
     const node = field.current;
+    if (expanded) { node.style.height = ""; return; }
     const resize = () => {
       node.style.height = "auto";
       node.style.height = Math.min(node.scrollHeight, 6 * 23 + 24) + "px";
@@ -97,7 +256,7 @@ export function Composer({ state, MoreMenu }) {
     geometry.observe(node);
     resize();
     return () => geometry.disconnect();
-  }, [state.text]);
+  }, [state.text, expanded]);
   useEffect(() => {
     if (!state.snackbar) return;
     const id = state.snackbar.id;
@@ -105,19 +264,34 @@ export function Composer({ state, MoreMenu }) {
     return () => clearTimeout(timer);
   }, [state.snackbar?.id]);
   return html`
-    <div class="composer-host">
+    <div class=${`composer-host ${expanded ? "composer-expanded" : ""}`} ref=${host}>
+      <${InteractionBar} state=${state} />
       <form class="composer" onSubmit=${(event) => {
         event.preventDefault();
-        if (actionable) { if (stop && !busy) sync.stopGeneration(); else sync.submit(); }
+        submit();
       }}>
-        ${(state.composer?.queue ?? []).map(queued => html`
-          <div class="queued-message" key=${queued.id}>
+        <div class="queue-status" ref=${queueHost}>
+          ${queueLayers.map(layer => {
+            const current = layer.id === queueMotion.current.targetId && queueMotion.current.owner === queueOwner &&
+              queueMotion.current.key === queueKey;
+            const items = current ? queue : layer.latestItems ?? layer.items;
+            if (current) layer.latestItems = items;
+            return html`<div class="queue-status-frame" key=${layer.id} data-queue-frame=${layer.id}
+              inert=${!current} aria-hidden=${current ? null : "true"}
+              style=${{ opacity: layer.alpha }}>
+            ${items.map(queued => html`<div class="queued-message" key=${queued.id}>
             <span class="queued-text">${queued.text}</span>
             ${queued.attachmentCount > 0 && html`<span class="queued-attachments" aria-label=${t.attachments}>
               ${icon(ICON_ATTACH_FILE)}${queued.attachmentCount}</span>`}
-            <button type="button" aria-label=${t.remove} disabled=${!state.connected}
-              onClick=${() => sync.removeQueued(queued.id)}>${icon(ICON_CLOSE)}</button>
+            <button type="button" aria-label=${t.remove} disabled=${!current || !state.connected}
+              onClick=${() => {
+                if (current && queueMotion.current.targetId === layer.id && queueMotion.current.owner === queueOwner)
+                  sync.removeQueued(queued.id);
+              }}>${icon(ICON_CLOSE)}</button>
           </div>`)}
+          </div>`;
+          })}
+        </div>
         ${attachments.length > 0 && html`<div class="attachment-row" aria-label=${t.attachments}>
           ${attachments.map(a => html`<${AttachmentTile} key=${`${state.connectionId}:${state.composer.seq}:${a.id}`} attachment=${a} editable=${editable} onPreview=${() => preview(a)} />`)}
         </div>`}
@@ -128,9 +302,26 @@ export function Composer({ state, MoreMenu }) {
         }} />
         <div class="composer-field">
           <textarea ref=${field} rows="1" placeholder=${t.askAgora} aria-label=${t.askAgora}
-            value=${state.text} onInput=${(event) => sync.edit(event.currentTarget.value)}></textarea>
-          <button class="expand-button" type="button" aria-label=${t.expand} disabled>
-            ${icon(ICON_EXPAND_ALL, "0 0 960 960")}
+            value=${state.text} onInput=${(event) => sync.edit(event.currentTarget.value)}
+            onPaste=${(event) => {
+              const { images, toPlatform } = splitPaste(event.clipboardData);
+              if (!images.length) return;
+              if (!toPlatform) event.preventDefault();
+              sync.uploadFiles(images, "image", sync.attachmentTarget());
+            }}
+            oncompositionstart=${() => { composing.current = true; }} oncompositionend=${() => { composing.current = false; }}
+            onKeyDown=${event => {
+              if (event.key === "Escape" && expanded) { event.preventDefault(); onExpandedChange(false); return; }
+              if (event.key !== "Enter" || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey ||
+                  event.isComposing || composing.current || event.keyCode === 229 ||
+                  !matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+              event.preventDefault();
+              if (!event.repeat && !stop && !busy) submit();
+            }}></textarea>
+          <button class="expand-button" type="button" aria-label=${expanded ? t.collapse : t.expand}
+            aria-expanded=${expanded} onPointerDown=${event => event.preventDefault()}
+            onClick=${() => { onExpandedChange(!expanded); field.current?.focus(); }}>
+            ${icon(expanded ? ICON_COLLAPSE_ALL : ICON_EXPAND_ALL, "0 0 960 960")}
           </button>
         </div>
         <div class="composer-controls">
@@ -141,8 +332,15 @@ export function Composer({ state, MoreMenu }) {
             </button>
             <button ref=${modelButton} class="model-selector" type="button" aria-label=${t.selectModel}
               aria-haspopup="menu" aria-expanded=${modelOpen} data-valid=${!!state.composer?.modelValid}
-              disabled=${!state.connected || !state.composer || !!state.pendingAction}
+              disabled=${!composerReady || !!state.pendingAction}
               onClick=${() => { setRetainedModelMenu(true); setModelOpen(!modelOpen); }}>${modelLabel}</button>
+            <button ref=${contextButton} class="control-icon context-ring" type="button"
+              aria-label=${contextReady ? `${t.context}: ${contextUsage}` : t.context}
+              aria-haspopup="menu" aria-expanded=${contextOpen} disabled=${!contextReady}
+              data-over=${context?.overCompactThreshold ? "true" : null}
+              onClick=${() => { if (contextReady) { setRetainedContext(true); setContextOpen(!contextOpen); } }}>
+              <${CircularProgress} size=${20} stroke=${2.5} value=${contextFraction} />
+            </button>
             <button ref=${toolsButton} class="control-icon" type="button" aria-label=${t.tools} disabled=${!settingsEditable}
               aria-haspopup="menu" aria-expanded=${toolsOpen} onClick=${() => { setRetainedTools(true); setToolsOpen(!toolsOpen); }}>
               ${icon(ICON_MORE_VERT)}
@@ -151,11 +349,36 @@ export function Composer({ state, MoreMenu }) {
           <button class="send-button" type="submit" aria-label=${waiting ? t.cancel : stop ? t.stop : t.send}
             onPointerDown=${(event) => event.preventDefault()}
             disabled=${!actionable} aria-busy=${busy ? "true" : null}>
-            ${busy ? html`<span class="spinner" aria-hidden="true"></span>` : icon(stop ? ICON_STOP : ICON_ARROW_UPWARD)}
+            ${busy ? html`<${Spinner} size=${24} stroke=${3} color="inherit" />` : icon(stop ? ICON_STOP : ICON_ARROW_UPWARD)}
           </button>
         </div>
       </form>
     </div>
+      ${retainedContext && context && html`<${MoreMenu} expanded=${contextOpen} reduceMotion=${state.display.reduceMotion}
+        anchor=${contextButton} above onClose=${() => setContextOpen(false)}
+        onExited=${restore => { setRetainedContext(false); if (restore) contextButton.current?.focus(); }}>
+        <div class="context-menu">
+          <div class="context-menu-head"><span>${contextUsage}</span><span>${contextPercent}</span></div>
+          <div class="context-bar">
+            ${context.parts.filter(part => part.key === "reserved").map(part => html`<span class="context-reserved"
+              data-empty=${part.tokens === 0 ? "true" : null} style=${{ width: `${contextShare(part.tokens, context.tokenBudget)}%` }}></span>`)}
+            <span class="context-segments">
+              ${context.parts.filter(part => part.key === "system" || part.key === "tools" || part.key === "messages")
+                .map(part => html`<i key=${part.key} class=${`context-part context-part-${part.key}${
+                  part.key === "messages" && context.overCompactThreshold ? " context-over" : ""}`}
+                  data-empty=${part.tokens === 0 ? "true" : null}
+                  style=${{ width: `${contextShare(part.tokens, context.tokenBudget)}%` }}></i>`)}
+            </span>
+          </div>
+          <div class="context-legend">
+            ${context.parts.map(part => html`<div key=${part.key} class="context-legend-row">
+              <span class=${`context-dot context-dot-${part.key}${
+                part.key === "messages" && context.overCompactThreshold ? " context-over" : ""}`}></span>
+              <span>${CONTEXT_PART_LABEL[part.key] || part.key}</span><span>${part.label}</span>
+            </div>`)}
+          </div>
+        </div>
+      </${MoreMenu}>`}
       ${retainedModelMenu && html`<${MoreMenu} expanded=${modelOpen} reduceMotion=${state.display.reduceMotion}
         anchor=${modelButton} above=${true} onClose=${() => setModelOpen(false)}
         onExited=${(restoreFocus) => { setRetainedModelMenu(false); if (restoreFocus) modelButton.current?.focus(); }}>
@@ -218,6 +441,7 @@ export function Composer({ state, MoreMenu }) {
               <div class="tool-setting-title"><strong>${t.thinkingEffort}</strong><span>${t.efforts[controls.thinkingEfforts[slider?.key === "effort" ? slider.index : Math.max(0, controls.thinkingEfforts.indexOf(controls.displayedThinkingLevel))]] ?? controls.displayedThinkingLevel}</span></div>
               <p>${t.effortDescription}</p>
               <input type="range" aria-label=${t.thinkingEffort} min="0" max=${Math.max(1, controls.thinkingEfforts.length - 1)} step="1"
+                style=${sliderStyle(0, Math.max(1, controls.thinkingEfforts.length - 1), slider?.key === "effort" ? slider.index : Math.max(0, controls.thinkingEfforts.indexOf(controls.displayedThinkingLevel)))}
                 value=${slider?.key === "effort" ? slider.index : Math.max(0, controls.thinkingEfforts.indexOf(controls.displayedThinkingLevel))}
                 disabled=${!settingsEditable || !controls.displayedThinkingEnabled || controls.displayedThinkingBudgetEnabled || controls.thinkingEfforts.length < 2}
                 onInput=${e => setSlider({ key: "effort", index: Number(e.currentTarget.value) })}
@@ -235,6 +459,7 @@ export function Composer({ state, MoreMenu }) {
                   ${icon(ICON_NEUROLOGY, "0 0 960 960")}
                   <div class="tool-setting-title"><strong>${t.budget}</strong><span>${t.tokens(slider?.key === "budget" ? controls.thinkingBudgetPresets[slider.index] : controls.displayedThinkingBudgetTokens)}</span></div>
                   <input type="range" aria-label=${t.budget} min="0" max=${controls.thinkingBudgetPresets.length - 1} step="1"
+                    style=${sliderStyle(0, controls.thinkingBudgetPresets.length - 1, slider?.key === "budget" ? slider.index : controls.thinkingBudgetPresets.reduce((best, value, i, values) => Math.abs(value - controls.displayedThinkingBudgetTokens) < Math.abs(values[best] - controls.displayedThinkingBudgetTokens) ? i : best, 0))}
                     value=${slider?.key === "budget" ? slider.index : controls.thinkingBudgetPresets.reduce((best, value, i, values) => Math.abs(value - controls.displayedThinkingBudgetTokens) < Math.abs(values[best] - controls.displayedThinkingBudgetTokens) ? i : best, 0)}
                     disabled=${!settingsEditable || !controls.displayedThinkingEnabled} onInput=${e => setSlider({ key: "budget", index: Number(e.currentTarget.value) })}
                     onChange=${e => { if (!sync.setting("thinkingBudgetTokens", controls.thinkingBudgetPresets[Number(e.currentTarget.value)], toolPanel)) setSlider(null); }} />
@@ -244,10 +469,10 @@ export function Composer({ state, MoreMenu }) {
             ${icon(ICON_SPEED)}
             <div class="tool-setting-title"><strong>${t.serviceTier}</strong><span>${t.tiers[controls.serviceTiers[slider?.key === "tier" ? slider.index : Math.max(0, controls.serviceTiers.indexOf(controls.displayedServiceTier))]]}</span></div>
             <p>${t.tierDescription}</p><input type="range" aria-label=${t.serviceTier} min="0" max=${Math.max(1, controls.serviceTiers.length - 1)} step="1"
+              style=${sliderStyle(0, Math.max(1, controls.serviceTiers.length - 1), slider?.key === "tier" ? slider.index : Math.max(0, controls.serviceTiers.indexOf(controls.displayedServiceTier)))}
               value=${slider?.key === "tier" ? slider.index : Math.max(0, controls.serviceTiers.indexOf(controls.displayedServiceTier))}
               disabled=${!capabilityEnabled || !controls.openAiServiceTierEnabled || controls.serviceTiers.length < 2} onInput=${e => setSlider({ key: "tier", index: Number(e.currentTarget.value) })}
               onChange=${e => { const value = controls.serviceTiers[Number(e.currentTarget.value)]; if (value === controls.displayedServiceTier || !sync.setting("openAiServiceTier", value, toolPanel)) setSlider(null); }} />
-            ${controls.serviceTiers.includes("ultrafast") && html`<p class="tool-tier-note">${t.tierAccessNote}</p>`}
           </div>`}
         </div>
       </${DetailSheet}>`}
@@ -310,6 +535,7 @@ function ConversationEditor({ editor, state, focusReturn, onClose }) {
             ${draft[key] != null && html`<button type="button" disabled=${busy} aria-label=${`${t.reset} ${t.parameters[key]}`}
               onClick=${() => setDraft({ ...draft, [key]: null })}>${t.reset}</button>`}</div>
           <input id=${`param-${key}`} type="range" aria-label=${t.parameters[key]} disabled=${busy}
+            style=${sliderStyle(presets ? 0 : bounds[0], presets ? presets.length - 1 : bounds[1], presets ? index : effective, presets ? 1 : "any")}
             min=${presets ? 0 : bounds[0]} max=${presets ? presets.length - 1 : bounds[1]} step=${presets ? 1 : "any"} value=${presets ? index : effective}
             onInput=${event => setDraft({ ...draft, [key]: presets ? presets[Math.round(Number(event.currentTarget.value))] : Number(event.currentTarget.value) })} />
         </div>`;
@@ -352,7 +578,7 @@ function AttachmentTile({ attachment: a, editable, onPreview }) {
       <span class=${`attachment-status ${fileStyle ? a.type === "pdf" ? "pdf-placeholder" : "file-placeholder" : ""}`} style=${{ opacity: initial || decoded ? 0 : 1 }}>
         ${fileStyle ? html`<small>${label}</small>` : icon(a.type === "video" ? ICON_VIDEO : ICON_IMAGE)}
       </span>
-      <span class="attachment-status attachment-progress" style=${{ opacity: !initial && busy && loading ? 1 : 0 }}><span class="spinner"></span></span>
+      <span class="attachment-status attachment-progress" style=${{ opacity: !initial && busy && loading ? 1 : 0 }}><${Spinner} size=${24} stroke=${3} /></span>
       <span class="attachment-status attachment-error" style=${{ opacity: !initial && retry ? 1 : 0 }}>${icon(a.type === "image" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</span>
     </button>
     <button class="attachment-remove" type="button" title=${t.remove} aria-label=${t.remove} disabled=${!editable}
@@ -379,7 +605,7 @@ function AttachmentEditor({ attachment: a, editable, onPreview }) {
     <section><h2>${pdf ? t.pdfTitle : t.videoTitle}</h2>
     ${pdf ? html`<p>${t.pdfSubtitle(a.pageCount)}</p><div class="attachment-editor-row"><span>${t.pagesSelected(pages.length)}</span>
       <button type="button" disabled=${loading || !editable} onClick=${() => setPages(pages.length === a.pageCount ? [] : Array.from({ length: a.pageCount }, (_, i) => i))}>${pages.length === a.pageCount ? t.deselectAll : t.selectAll}</button></div>
-      ${loading ? html`<div class="pdf-loading"><span class="spinner"></span><p>${t.renderingPages(a.previewDone || 0, a.previewTotal || a.pageCount)}</p></div>` : html`
+      ${loading ? html`<div class="pdf-loading"><${Spinner} size=${18} stroke=${3} /><p>${t.renderingPages(a.previewDone || 0, a.previewTotal || a.pageCount)}</p></div>` : html`
       <div class="pdf-grid">${Array.from({ length: a.pageCount }, (_, i) => html`<div class="pdf-page" data-selected=${pages.includes(i)} key=${i}>
         <button type="button" aria-label=${t.page(i + 1)} onClick=${() => onPreview(i)}><img src=${sync.attachmentUrl(a.id, "page", i)} alt=${t.page(i + 1)} /><span>${i + 1}</span></button>
         <input type="checkbox" aria-label=${t.page(i + 1)} checked=${pages.includes(i)} disabled=${!editable}
@@ -388,20 +614,20 @@ function AttachmentEditor({ attachment: a, editable, onPreview }) {
       <video class="video-edit-preview" src=${sync.attachmentUrl(a.id, "source")} preload="metadata" muted></video>
       <div class="video-modes">${[true, false].map(mode => html`<button type="button" aria-pressed=${countMode === mode} onClick=${() => setCountMode(mode)}>${mode ? t.byFrameCount : t.byInterval}</button>`)}</div>
       ${countMode ? html`<label>${t.frames(frames || 2)}<input type="number" min="2" max="2147483647" value=${count} aria-invalid=${!valid} onInput=${event => setCount(event.currentTarget.value)} /></label><p>${t.betweenFrames(sliceMs < 1000 ? `${sliceMs}ms` : `${Math.round(sliceMs / 1000)}s`)}</p>`
-        : html`<label>${t.interval(interval)}<input type="range" min="1" max=${Math.max(1, Math.min(seconds, 30))} value=${interval} onInput=${event => setInterval(Number(event.currentTarget.value))} /></label><p>${t.frames(frames)}</p>`}`}
+        : html`<label>${t.interval(interval)}<input type="range" min="1" max=${Math.max(1, Math.min(seconds, 30))} style=${sliderStyle(1, Math.max(1, Math.min(seconds, 30)), interval)} value=${interval} onInput=${event => setInterval(Number(event.currentTarget.value))} /></label><p>${t.frames(frames)}</p>`}`}
     <footer><button type="button" disabled=${!editable} onClick=${cancel}>${t.cancel}</button>
       <button class="filled" type="button" disabled=${!editable || !valid} onClick=${() => sync.attachmentCommand(pdf ? "attachment_pdf" : "attachment_video", a.id,
         pdf ? { pages } : { frameCount: frames, intervalMs: sliceMs })}>${pdf ? t.sendPages(pages.length) : t.extractFrames(frames)}</button></footer>
     </section></dialog>`;
 }
 
-function AttachmentViewer({ viewer, onNavigate, onClose }) {
+export function AttachmentViewer({ viewer, onNavigate, onClose }) {
   const dialog = useRef(null);
   const index = viewer.index || 0;
   const [scale, setScale] = useState(1);
   const file = viewer.file;
   const item = viewer.items?.[index];
-  const source = item && sync.attachmentUrl(item.id, item.kind, item.index);
+  const source = item && (item.url ?? sync.attachmentUrl(item.id, item.kind, item.index));
   const [loadedSource, setLoadedSource] = useState(null);
   const [failedSource, setFailedSource] = useState(null);
   const loaded = !!source && loadedSource === source;
@@ -411,6 +637,7 @@ function AttachmentViewer({ viewer, onNavigate, onClose }) {
   return html`<dialog ref=${dialog} class=${`tool-media-viewer attachment-viewer ${file ? "text-file-viewer" : ""}`} aria-label=${file?.name || item?.name || t.attachments}
     onCancel=${event => { event.preventDefault(); onClose(); }} onKeyDown=${event => {
       event.stopPropagation();
+      if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
       if (event.key === "ArrowLeft" && index > 0) navigate(index - 1);
       if (event.key === "ArrowRight" && index < (viewer.items?.length || 0) - 1) navigate(index + 1);
     }}>
@@ -420,7 +647,7 @@ function AttachmentViewer({ viewer, onNavigate, onClose }) {
       : html`<div class="tool-media-scroll" onDblClick=${() => { if (loaded) setScale(scale === 1 ? 3 : 1); }}><img key=${source} class="attachment-full-image" src=${source}
         alt=${item.name || t.attachments} onLoad=${() => setLoadedSource(source)} onError=${() => setFailedSource(source)}
         style=${{ width: `${scale * 100}%`, height: `${scale * 100}%`, opacity: loaded ? 1 : 0 }} /></div>`}
-    ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !loaded && !failed ? 1 : 0 }}><span class="spinner" role="status" aria-label=${t.attachments}></span></div>
+    ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !loaded && !failed ? 1 : 0 }}><${Spinner} size=${18} stroke=${3} label=${t.attachments} color="inherit" /></div>
       <div class="attachment-viewport-status" style=${{ opacity: failed ? 1 : 0 }} role=${failed ? "alert" : null}>${icon(item.type === "image" || item.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>`}
     <div class="tool-media-controls"><span class="tool-media-count">${file?.name || `${index + 1} / ${viewer.items.length}`}</span>
       <button class="detail-sheet-icon" type="button" title=${t.close} aria-label=${t.close} onClick=${onClose}>${icon(ICON_CLOSE)}</button></div>
