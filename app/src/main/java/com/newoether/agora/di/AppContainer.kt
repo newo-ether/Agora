@@ -371,6 +371,7 @@ class AppContainer(
             },
             toolImages = com.newoether.agora.webui.WebUiToolImages(
                 directory = java.io.File(appContext.filesDir, "tool-media"),
+                attachmentDirectory = appContext.filesDir,
                 loadMessage = { conversationId, messageId ->
                     com.newoether.agora.viewmodel.ConversationMessagePayloadHydration(
                         conversations = conversationRepository,

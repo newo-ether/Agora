@@ -325,6 +325,41 @@ class WebUiServerTest {
             assertEquals(beforeLogout, loads)
         }
     }
+    @Test
+    fun persistedMessageAttachmentRequiresAuthAndOwnedPath() {
+        val root = temporary.newFolder("attachment-root")
+        val imageRoot = File(root, "images").apply { mkdir() }
+        val image = File(imageRoot, "photo.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        val outside = temporary.newFile("outside.jpg").apply { writeBytes(byteArrayOf(4)) }
+        val normalized = File(root, "img_00000000-0000-0000-0000-000000000001.jpg")
+            .apply { writeBytes(byteArrayOf(5)) }
+        var loads = 0
+        val images = WebUiToolImages(root, root) { conversation, id ->
+            loads++
+            if (conversation != "c") null else ChatMessage(id = id, text = "", participant = Participant.USER,
+                images = listOf(when (id) { "outside" -> outside.path; "normalized" -> normalized.path; else -> image.path }))
+        }
+        webUi(toolImages = images) { auth ->
+            val path = "/api/message-attachments/c/m/0"
+            assertEquals(HttpStatusCode.Forbidden, client.get(path).status)
+            assertEquals(0, loads)
+            val token = sessionToken()
+            suspend fun request(target: String, origin: String? = null) = client.get(target) {
+                header(HttpHeaders.Cookie, "${WebUiServer.SESSION_COOKIE}=$token")
+                origin?.let { header(HttpHeaders.Origin, it) }
+            }
+            assertEquals(HttpStatusCode.Forbidden, request(path, "https://other.example").status)
+            val response = request(path)
+            assertEquals(HttpStatusCode.OK, response.status)
+            org.junit.Assert.assertArrayEquals(byteArrayOf(1, 2, 3), response.body<ByteArray>())
+            assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+            assertEquals(HttpStatusCode.OK, request("/api/message-attachments/c/normalized/0").status)
+            assertEquals(HttpStatusCode.NotFound, request("/api/message-attachments/c/outside/0").status)
+            assertEquals(HttpStatusCode.NotFound, request("/api/message-attachments/c/m/4").status)
+            auth.logout(token)
+            assertEquals(HttpStatusCode.Forbidden, request(path).status)
+        }
+    }
 
     @Test
     fun imageSessionRevokedDuringMessageReadNeverReceivesBytes() {

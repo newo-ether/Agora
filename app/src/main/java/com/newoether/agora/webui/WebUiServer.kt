@@ -228,6 +228,42 @@ internal class WebUiServer(
                     }
                 }
             }
+            route("/api/message-attachments/{conversationId}/{messageId}/{index}") {
+                install(syncGate)
+                get {
+                    call.response.header(HttpHeaders.CacheControl, "no-store")
+                    val token = call.request.cookies[SESSION_COOKIE] ?: return@get
+                    val index = call.parameters["index"]?.toIntOrNull() ?: return@get call.respond(HttpStatusCode.NotFound)
+                    val found = toolImages?.consumeAttachment(call.parameters["conversationId"].orEmpty(),
+                        call.parameters["messageId"].orEmpty(), index) { file, mime ->
+                        if (!auth.isValidSession(token)) throw kotlinx.coroutines.CancellationException("Session revoked")
+                        val size = file.length()
+                        val finished = kotlinx.coroutines.CompletableDeferred<Unit>()
+                        call.respondOutputStream(ContentType.parse(mime), contentLength = size) {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    java.io.FileInputStream(file).use { input ->
+                                        check(input.channel.size() == size)
+                                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                                        var remaining = size
+                                        while (remaining > 0) {
+                                            if (!auth.isValidSession(token)) throw kotlinx.coroutines.CancellationException("Session revoked")
+                                            currentCoroutineContext().ensureActive()
+                                            val count = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                                            if (count < 0) throw java.io.EOFException("Attachment ended early")
+                                            write(buffer, 0, count)
+                                            remaining -= count
+                                        }
+                                    }
+                                }
+                                finished.complete(Unit)
+                            } catch (error: Throwable) { finished.completeExceptionally(error); throw error }
+                        }
+                        finished.await()
+                    } ?: false
+                    if (!found) call.respond(HttpStatusCode.NotFound)
+                }
+            }
             route("$TOOL_IMAGE_PATH/{conversationId}/{messageId}/{detailIndex}/{imageIndex}") {
                 install(syncGate)
                 get {
