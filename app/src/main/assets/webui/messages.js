@@ -890,13 +890,159 @@ export function MessageList({ state, label, onPageAction }) {
     const column = root?.firstElementChild;
     if (!root || !column) return undefined;
     let frame = 0;
+    let seekFrame = 0;
     let previousLayout = null;
     const pending = state.openStatus === "ready" && settledOpenId !== state.openId;
     const request = state.scrollRequest;
+    let seekRequested = false;
     if (request && state.openStatus === "ready" && state.path.some((entry) => entry.id === request.messageId)) {
       pinned.current = true;
       sync.consumeScroll(request);
+      seekRequested = true;
     }
+
+    // One owner drives every programmatic bottom move the way the phone does: a send travels with
+    // the feedback controller, growth during a generation uses the short tail correction, and the
+    // actor settles on the end sentinel before releasing ownership.
+    let motionFrame = 0;
+    const bottomError = () => Math.max(0, root.scrollHeight - root.clientHeight - root.scrollTop);
+    const scrollBy = (step) => {
+      const before = root.scrollTop;
+      root.scrollTop += step;
+      return Math.abs(root.scrollTop - before);
+    };
+    // An unhydrated tail row is a 54 px estimate, which is the web stand-in for a target the phone
+    // has not composed yet: the seek then travels with the wider unmeasured gains.
+    const tailIsMeasured = () => {
+      const last = state.path[state.path.length - 1];
+      if (!last) return true;
+      if (state.streaming?.id === last.id) return true;
+      return state.bodies.has(last.id);
+    };
+    const pump = () => {
+      motionFrame = 0;
+      const motion = bottomMotion.current;
+      if (!pinned.current) {
+        bottomMotion.current = null;
+        return;
+      }
+      // Opening stays a hard placement under the switching cover, exactly like scrollToItem.
+      if (pending) {
+        bottomMotion.current = null;
+        root.scrollTop = root.scrollHeight;
+        return;
+      }
+      if (covered) {
+        bottomMotion.current = null;
+        return;
+      }
+      const now = performance.now();
+      const generating = generationActive.current;
+      if (!motion) {
+        // Idle growth is not a scroll gesture: the phone detaches too, leaving the tail in place.
+        if (!generating || bottomError() <= BOTTOM_MOTION.attachThresholdPx) return;
+        bottomMotion.current = { mode: "attach", previous: now };
+      }
+      const active = bottomMotion.current;
+      const elapsed = Math.max(0.001, Math.min(0.05, (now - active.previous) / 1000));
+      active.previous = now;
+      const height = Math.max(1, root.clientHeight);
+      const error = bottomError();
+      if (active.mode === "seek") {
+        if (now - active.started > BOTTOM_MOTION.maximumDurationMs) {
+          bottomMotion.current = null;
+          return;
+        }
+        const measured = tailIsMeasured();
+        if (measured && error <= BOTTOM_MOTION.tolerancePx) {
+          active.stable += 1;
+          if (active.stable >= BOTTOM_MOTION.stableFrames) {
+            active.mode = "settle";
+            active.settlingStarted = now;
+            active.settlingStable = 0;
+          } else {
+            wake();
+            return;
+          }
+        } else {
+          active.stable = 0;
+          let step = coalescedScrollStep(
+            measured ? error : Math.max(error, height * 0.75),
+            elapsed,
+            measured ? BOTTOM_MOTION.seekTauMeasuredSeconds : BOTTOM_MOTION.seekTauUnmeasuredSeconds,
+            height * (measured
+              ? BOTTOM_MOTION.seekMaxVelocityMeasuredViewports
+              : BOTTOM_MOTION.seekMaxVelocityUnmeasuredViewports),
+            BOTTOM_MOTION.minimumStepPx,
+          );
+          if (active.startupMs) step *= fastOutSlowIn((now - active.started) / active.startupMs);
+          const cap = height * BOTTOM_MOTION.maximumFrameStepViewportFraction;
+          step = Math.min(cap, Math.max(-cap, step));
+          if (Math.abs(step) > 0.05) {
+            active.blocked = scrollBy(step) <= 0.05 ? active.blocked + 1 : 0;
+            if (active.blocked >= BOTTOM_MOTION.blockedFrames) {
+              bottomMotion.current = null;
+              return;
+            }
+          }
+          wake();
+          return;
+        }
+      }
+      if (active.mode === "settle") {
+        // Late growth or an active generation hands ownership back to the seek, as the phone does.
+        if (generating || error > BOTTOM_MOTION.tolerancePx) {
+          active.mode = "seek";
+          active.started = now;
+          active.stable = 0;
+          active.blocked = 0;
+          wake();
+          return;
+        }
+        active.settlingStable += 1;
+        const settlingElapsed = now - active.settlingStarted;
+        const minimum = active.generationWasActive
+          ? BOTTOM_MOTION.settlingGenerationMs
+          : BOTTOM_MOTION.settlingIdleMs;
+        if ((settlingElapsed >= minimum && active.settlingStable >= BOTTOM_MOTION.settlingStableFrames) ||
+          settlingElapsed >= BOTTOM_MOTION.settlingTimeoutMs) {
+          bottomMotion.current = null;
+          return;
+        }
+        wake();
+        return;
+      }
+      if (error > BOTTOM_MOTION.attachThresholdPx) {
+        const step = coalescedScrollStep(error, elapsed, BOTTOM_MOTION.attachTauSeconds,
+          BOTTOM_MOTION.attachMaxVelocityPxPerSecond, BOTTOM_MOTION.minimumStepPx);
+        if (Math.abs(step) > 0.05) scrollBy(step);
+      }
+      if (bottomError() > BOTTOM_MOTION.attachThresholdPx) wake();
+    };
+    function wake() {
+      if (!motionFrame) motionFrame = requestAnimationFrame(pump);
+    }
+    const startSeek = () => {
+      // A reduced-motion or covered list takes the same instant placement the phone uses.
+      if (pending || covered || state.display?.reduceMotion) {
+        bottomMotion.current = null;
+        root.scrollTop = root.scrollHeight;
+        return;
+      }
+      const now = performance.now();
+      bottomMotion.current = {
+        mode: "seek",
+        startupMs: BOTTOM_MOTION.sendStartupMs,
+        started: now,
+        previous: now,
+        stable: 0,
+        blocked: 0,
+        generationWasActive: generationActive.current,
+      };
+      wake();
+    };
+    if (seekRequested) startSeek();
+
     const settle = () => {
       frame = 0;
       const viewport = root.getBoundingClientRect();
@@ -916,11 +1062,105 @@ export function MessageList({ state, label, onPageAction }) {
         frame = requestAnimationFrame(settle);
       }
     };
-    const followBottom = () => {
-      if (pinned.current) root.scrollTop = root.scrollHeight;
+    const followBottom = (fromFrame = false) => {
+      if (search?.query.trim()) pinned.current = false;
+      else searchPosition.current = null;
+      if (search && !search.searching && search.matches.length && !covered) {
+        const bar = root.closest(".chat").querySelector(".conversation-search-bar");
+        if (!bar) return;
+        const viewport = root.getBoundingClientRect();
+        const top = Math.max(viewport.top, bar.getBoundingClientRect().bottom);
+        const bottom = Math.min(viewport.bottom, root.closest(".chat").querySelector(".composer-host").getBoundingClientRect().top);
+        const center = (top + bottom) / 2;
+        const geometry = new Map();
+        root.querySelectorAll("mark[data-search-key]").forEach(mark => {
+          for (const rect of mark.getClientRects()) {
+            const old = geometry.get(mark.dataset.searchKey);
+            geometry.set(mark.dataset.searchKey, {
+              top: Math.min(old?.top ?? rect.top, rect.top),
+              bottom: Math.max(old?.bottom ?? rect.bottom, rect.bottom),
+            });
+          }
+        });
+        const midpoint = bounds => (bounds.top + bounds.bottom) / 2;
+        if (search.index < 0) {
+          let nearest = -1, distance = Infinity;
+          search.matches.forEach((match, index) => {
+            const bounds = geometry.get(match.key);
+            if (bounds && bounds.bottom > top && bounds.top < bottom) {
+              const candidate = Math.abs(midpoint(bounds) - center);
+              if (candidate < distance) { nearest = index; distance = candidate; }
+            }
+          });
+          if (nearest < 0) {
+            const rows = [...column.querySelectorAll(".message-row")];
+            const anchor = rows.reduce((best, row, index) =>
+              Math.abs(midpoint(row.getBoundingClientRect()) - center) < best.distance
+                ? { index, distance: Math.abs(midpoint(row.getBoundingClientRect()) - center) } : best,
+            { index: 0, distance: Infinity }).index;
+            const turnIndexes = new Map(state.path.map((entry, index) => [entry.id, index]));
+            search.matches.forEach((match, index) => {
+              const candidate = Math.abs((turnIndexes.get(match.messageId) ?? Infinity) - anchor);
+              if (candidate < distance) { nearest = index; distance = candidate; }
+            });
+          }
+          if (nearest >= 0) sync.selectSearchMatch(nearest, search.revision, true);
+        } else {
+          const match = search.matches[search.index];
+          const bounds = geometry.get(match.key);
+          const epoch = `${state.openId}:${search.revision}:${search.positionRevision}`;
+          const now = performance.now();
+          if (searchPosition.current?.epoch !== epoch) {
+            searchPosition.current = { epoch, started: now, previous: now, stable: 0, blocked: 0, done: false };
+          }
+          const motion = searchPosition.current;
+          if (!motion.done && now - motion.started < 30_000) {
+            if (fromFrame) {
+              const row = [...column.querySelectorAll(".message-row")].find(r => r.dataset.id === match.messageId);
+              // Rows whose occurrence is hidden source (math, markers, code) keep the row-rect
+              // estimate as their final target, matching Compose centering the turn itself.
+              const target = bounds || row?.getBoundingClientRect() || null;
+              if (target && now >= search.positionAfter) {
+                const error = midpoint(target) - center;
+                const dt = Math.max(0.001, Math.min(0.05, (now - motion.previous) / 1000));
+                motion.previous = now;
+                if (Math.abs(error) <= 1.5) {
+                  // Unhydrated rows never finalize: marks may still appear when the body arrives.
+                  if (++motion.stable >= 4 && (bounds || state.bodies.has(match.messageId))) motion.done = true;
+                } else {
+                  motion.stable = 0;
+                  const reduced = !!state.display?.reduceMotion;
+                  const height = Math.max(1, viewport.height);
+                  const maximum = Math.max(1, height * (bounds ? 16 : 52) * dt);
+                  const step = reduced ? error : Math.sign(error) * Math.min(
+                    Math.abs(error) * (1 - Math.exp(-dt / (bounds ? 0.09 : 0.16))),
+                    maximum, height * 0.82,
+                  );
+                  const before = root.scrollTop;
+                  root.scrollTop += step;
+                  motion.blocked = Math.abs(root.scrollTop - before) <= 0.05 ? motion.blocked + 1 : 0;
+                  if (motion.blocked >= 12) motion.done = true;
+                }
+              }
+            }
+            // Seek steps run at most once per frame; ResizeObserver wakeups defer to rAF so
+            // coalesced multi-callback frames never exceed the bounded per-frame velocity.
+            if (!motion.done && !seekFrame) seekFrame = requestAnimationFrame(() => { seekFrame = 0; followBottom(true); });
+          }
+        }
+      }
+      if (pinned.current) wake();
       if (pending && !frame) frame = requestAnimationFrame(settle);
     };
-    const release = () => { pinned.current = false; };
+    const release = () => {
+      pinned.current = false;
+      bottomMotion.current = null;
+      cancelAnimationFrame(motionFrame);
+      motionFrame = 0;
+      if (searchPosition.current) searchPosition.current.done = true;
+      cancelAnimationFrame(seekFrame);
+      seekFrame = 0;
+    };
     const follow = new ResizeObserver(followBottom);
     follow.observe(column);
     follow.observe(root);
