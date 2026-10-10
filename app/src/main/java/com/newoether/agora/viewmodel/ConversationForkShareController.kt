@@ -21,6 +21,8 @@ internal class ConversationForkShareController(
     fun fork(
         origin: ChatClient,
         messageId: String? = null,
+        isCurrent: () -> Boolean = { true },
+        openFork: suspend (String) -> Boolean = { origin.openConversation(it); true },
         onResult: (Boolean) -> Unit = {},
     ): Boolean {
         val conversationId = origin.openConversationId ?: return false
@@ -29,11 +31,10 @@ internal class ConversationForkShareController(
             try {
                 when (val result = service.fork(conversationId, messageId)) {
                     is ConversationForkShareService.ForkResult.Success -> {
-                        origin.openConversation(result.conversationId)
-                        forked = true
+                        if (isCurrent()) forked = openFork(result.conversationId)
                     }
                     is ConversationForkShareService.ForkResult.Failure ->
-                        origin.showSnackbar(forkFailureText(result.reason))
+                        if (isCurrent()) origin.showSnackbar(forkFailureText(result.reason))
                 }
             } finally {
                 onResult(forked)
@@ -42,12 +43,23 @@ internal class ConversationForkShareController(
         return true
     }
 
-    fun shareConversation(origin: ChatClient) {
-        share(origin) { conversationId -> service.shareAll(conversationId) }
-    }
+    fun shareConversation(
+        origin: ChatClient,
+        isCurrent: () -> Boolean = { true },
+        onResult: (String?) -> Unit = { text -> text?.let(origin::showShareText) },
+    ): Boolean = share(origin, isCurrent, onResult) { service.shareAll(it) }
 
-    fun shareGeneration(origin: ChatClient, assistantMessageId: String) {
-        share(origin) { conversationId -> service.shareRun(conversationId, assistantMessageId) }
+    /**
+     * Shares one generation. [onResult] receives the share text, or null when nothing was shared,
+     * so an origin that shows its own confirmation can hold it until the phone answers.
+     */
+    fun shareGeneration(
+        origin: ChatClient,
+        assistantMessageId: String,
+        isCurrent: () -> Boolean = { true },
+        onResult: (String?) -> Unit = { text -> text?.let(origin::showShareText) },
+    ): Boolean = share(origin, isCurrent, onResult) { conversationId ->
+        service.shareRun(conversationId, assistantMessageId)
     }
 
     fun shareMessages(origin: ChatClient, messageIds: Set<String>) {
@@ -57,16 +69,24 @@ internal class ConversationForkShareController(
 
     private fun share(
         origin: ChatClient,
+        isCurrent: () -> Boolean = { true },
+        onResult: (String?) -> Unit = { text -> text?.let(origin::showShareText) },
         load: suspend (conversationId: String) -> ConversationForkShareService.ShareResult,
-    ) {
-        val conversationId = origin.openConversationId ?: return
+    ): Boolean {
+        val conversationId = origin.openConversationId ?: return false
         scope.launch {
-            when (val result = load(conversationId)) {
-                is ConversationForkShareService.ShareResult.Success ->
-                    origin.showShareText(result.text)
-                is ConversationForkShareService.ShareResult.Failure ->
-                    origin.showSnackbar(shareFailureText(result.reason))
+            var text: String? = null
+            try {
+                when (val result = load(conversationId)) {
+                    is ConversationForkShareService.ShareResult.Success ->
+                        if (isCurrent()) text = result.text
+                    is ConversationForkShareService.ShareResult.Failure ->
+                        if (isCurrent()) origin.showSnackbar(shareFailureText(result.reason))
+                }
+            } finally {
+                onResult(text)
             }
         }
+        return true
     }
 }

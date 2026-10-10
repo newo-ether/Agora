@@ -18,6 +18,8 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 
 class UiMessageProjectionTest {
     @Test
@@ -209,6 +211,28 @@ class UiMessageProjectionTest {
         }
     }
 
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun unchangedDurableRowsSkipHydrationBeforeTransform() = kotlinx.coroutines.test.runTest {
+        val rows = kotlinx.coroutines.flow.MutableSharedFlow<MessageEntity?>(extraBufferCapacity = 4)
+        val repository = io.mockk.mockk<com.newoether.agora.data.repository.ConversationRepository>()
+        io.mockk.every { repository.observeMessage("assistant") } returns rows
+        val owner = ConversationMessagePayloadHydration(repository, io.mockk.mockk(relaxed = true),
+            kotlinx.coroutines.test.StandardTestDispatcher(testScheduler))
+        val emitted = mutableListOf<String>()
+        var transformed = 0
+        backgroundScope.launch {
+            owner.observeMessage("assistant") { transformed++; it }.collect { emitted += it?.text.orEmpty() }
+        }
+        runCurrent()
+        val row = messageEntity("assistant", "answer", null)
+        for (value in listOf(row, row.copy(), row.copy(text = "changed"), null, null)) {
+            rows.emit(value)
+            runCurrent()
+        }
+        assertEquals(2, transformed)
+        assertEquals(listOf("answer", "changed", ""), emitted)
+    }
     @Test
     fun persistedImplicitThinkingCloseIsRecoveredForUi() {
         val segments = listOf(

@@ -483,7 +483,6 @@
     <string name="openai_service_tier_priority">Prioridad</string>
     <string name="openai_service_tier_fast">Rápido</string>
     <string name="openai_service_tier_ultrafast">Ultrarrápido</string>
-    <string name="openai_service_tier_ultrafast_access_note">Ultrarrápido puede requerir acceso habilitado en tu cuenta.</string>
     <string name="settings_interaction">Interacción</string>
     <string name="settings_interaction_desc">Preguntas que te hace el asistente</string>
     <string name="ask_user_enable">Permitir que el asistente pregunte</string>

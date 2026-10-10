@@ -483,7 +483,6 @@
     <string name="openai_service_tier_priority">優先</string>
     <string name="openai_service_tier_fast">高速</string>
     <string name="openai_service_tier_ultrafast">超高速</string>
-    <string name="openai_service_tier_ultrafast_access_note">超高速の利用にはアカウントの権限が必要な場合があります。</string>
     <string name="settings_interaction">インタラクション</string>
     <string name="settings_interaction_desc">アシスタントがあなたに尋ねる質問</string>
     <string name="ask_user_enable">アシスタントの質問を許可</string>

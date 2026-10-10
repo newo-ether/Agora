@@ -144,9 +144,9 @@ class ConversationWorkspaceStoreTest {
             conversation = conversation.copy(modelId = "provider:model")
             1
         }
-        coEvery { fixture.conversations.getConversation("conversation") } answers { conversation }
-        coEvery { fixture.conversations.upsertConversation(any()) } coAnswers {
-            conversation = firstArg()
+        coEvery { fixture.conversations.updateConversationSystemPrompt("conversation", "prompt") } coAnswers {
+            conversation = conversation.copy(systemPromptId = "prompt")
+            true
         }
         runCurrent()
 
@@ -157,7 +157,8 @@ class ConversationWorkspaceStoreTest {
         assertEquals("provider:model", conversation.modelId)
         assertEquals("prompt", conversation.systemPromptId)
         coVerify(exactly = 1) { dao.updateConversationModel("conversation", "provider:model", any()) }
-        coVerify(exactly = 1) { fixture.conversations.upsertConversation(any()) }
+        coVerify(exactly = 1) { fixture.conversations.updateConversationSystemPrompt("conversation", "prompt") }
+        coVerify(exactly = 0) { fixture.conversations.upsertConversation(any()) }
     }
 
     @Test

@@ -374,18 +374,17 @@ class SettingsRepository(
             userItems = PredefinedVariables.normalizeMessageTemplate(userItems),
             assistantItems = PredefinedVariables.normalizeMessageTemplate(assistantItems),
         )
-        val newList = systemPrompts.value + entry
-        settingsManager.saveSystemPrompts(newList)
+        settingsManager.systemPromptStore.update { current ->
+            require(current.none { it.id == entry.id }) { "System prompt already exists" }
+            current + entry
+        }
         systemPrompts.first { prompts -> prompts.any { it.id == entry.id } }
-        if (activeSystemPromptId.value == null) settingsManager.setActiveSystemPromptId(entry.id)
         return entry.id
     }
 
     fun deleteSystemPrompt(id: String) {
         scope.launch {
-            val newList = systemPrompts.value.filter { it.id != id }
-            settingsManager.saveSystemPrompts(newList)
-            if (activeSystemPromptId.value == id) settingsManager.setActiveSystemPromptId(newList.firstOrNull()?.id)
+            settingsManager.systemPromptStore.update { current -> current.filter { it.id != id } }
         }
     }
 
@@ -397,7 +396,8 @@ class SettingsRepository(
         assistantItems: List<PromptTemplateItem>,
     ) {
         scope.launch {
-            settingsManager.saveSystemPrompts(systemPrompts.value.map { entry ->
+            settingsManager.systemPromptStore.update { current ->
+                current.map { entry ->
                 if (entry.id == id) {
                     entry.copy(
                         title = title,
@@ -411,7 +411,8 @@ class SettingsRepository(
                 } else {
                     entry
                 }
-            })
+                }
+            }
         }
     }
 

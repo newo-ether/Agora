@@ -163,6 +163,41 @@ class RagToolProviderIsolationTest {
         )
     }
 
+    @Test
+    fun searchAndRead_excludeCompactContextWithoutBreakingBranchTraversal() = runTest {
+        val first = MessageEntity(
+            id = "user-1", conversationId = "conv", text = "hello target",
+            status = MessageStatus.SUCCESS, participant = Participant.USER,
+            timestamp = 1L, runId = "run", runSequence = 0,
+        )
+        val compact = first.copy(id = "compact_summary", parentId = first.id,
+            text = "hidden summary", participant = Participant.MODEL, timestamp = 2L)
+        val answer = first.copy(id = "answer-1", parentId = compact.id,
+            text = "target answer", participant = Participant.MODEL, timestamp = 3L)
+        coEvery { conversations.getSearchableConversation("conv") } returns
+            ChatEntity(id = "conv", title = "Conv", lastUpdated = 123L)
+        coEvery { conversations.searchMessages("target", any()) } returns listOf(answer)
+        coEvery { conversations.getMessageTopologySnapshot("conv") } returns
+            listOf(first, compact, answer).map(::topology)
+        coEvery { conversations.getMessagesByIds(any()) } answers {
+            val ids = firstArg<List<String>>()
+            assertTrue(compact.id !in ids)
+            listOf(first, compact, answer).filter { it.id in ids }
+        }
+        val search = Json.parseToJsonElement(provider.execute(
+            "search_conversations", """{"query":"target","window_size":10}""", context,
+        )).jsonObject
+        assertTrue(!search.toString().contains("hidden summary"))
+        assertTrue(search.toString().contains("target answer"))
+        val read = Json.parseToJsonElement(provider.execute(
+            "read_conversation", """{"conversation_id":"conv"}""", context,
+        )).jsonObject
+        assertEquals(2, read.getValue("total_messages").jsonPrimitive.content.toInt())
+        assertEquals(listOf(first.text, answer.text), read.getValue("messages").jsonArray.map {
+            it.jsonObject.getValue("text").jsonPrimitive.content
+        })
+    }
+
     private fun topology(message: MessageEntity) = MessageContextTopology(
         id = message.id,
         conversationId = message.conversationId,

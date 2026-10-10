@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.newoether.agora.data.local.ChatDao
 import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.data.local.ChatEntity
+import com.newoether.agora.data.local.DrawerConversationRow
 import com.newoether.agora.data.local.ConversationSettingsImportTransferEntity
 import com.newoether.agora.data.local.ConversationSettingsTransferEntity
 import com.newoether.agora.data.local.EmbeddingEntity
@@ -58,6 +59,10 @@ class ConversationRepository(
     // ── Conversations ─────────────────────────────────────────
 
     fun getAllConversations(): Flow<List<ChatConversation>> = chatDao.getAllConversations()
+    fun observeDrawerConversations(limit: Int): Flow<List<DrawerConversationRow>> =
+        chatDao.observeDrawerConversations(limit)
+    suspend fun getDrawerConversations(ids: List<String>): List<DrawerConversationRow> =
+        if (ids.isEmpty()) emptyList() else chatDao.getDrawerConversations(ids)
 
     fun observeConversation(id: String): Flow<ChatConversation?> =
         chatDao.observeConversation(id).map { it?.toConversation() }
@@ -155,6 +160,8 @@ class ConversationRepository(
 
     suspend fun setConversationPinned(id: String, pinned: Boolean): Boolean =
         chatDao.setConversationPinned(id, pinned, System.currentTimeMillis()) == 1
+    suspend fun updateConversationSystemPrompt(id: String, promptId: String?): Boolean =
+        chatDao.updateConversationSystemPrompt(id, promptId, System.currentTimeMillis()) == 1
 
     suspend fun setConversationUnreadGeneration(
         id: String,

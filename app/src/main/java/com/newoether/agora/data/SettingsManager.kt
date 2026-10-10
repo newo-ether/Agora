@@ -24,6 +24,7 @@ class SettingsManager(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
     internal val modelPreferenceStore = SettingsModelPreferenceStore(context.dataStore, json)
     internal val backupPreferenceStore = SettingsBackupPreferenceStore(context.dataStore)
+    internal val systemPromptStore = SettingsSystemPromptStore(context.dataStore, json)
 
     companion object {
         const val DEFAULT_PROXY_HOST = "127.0.0.1"
@@ -50,12 +51,8 @@ class SettingsManager(private val context: Context) {
     val apiKeys: Flow<List<ApiKeyEntry>> = modelPreferenceStore.apiKeys
     val activeApiKeyIds: Flow<Map<String, String>> = modelPreferenceStore.activeApiKeyIds
 
-    val systemPrompts: Flow<List<SystemPromptEntry>> = context.dataStore.data.map { pref ->
-        val jsonStr = pref[SYSTEM_PROMPTS_JSON] ?: "[]"
-        try { json.decodeFromString<List<SystemPromptEntry>>(jsonStr) } catch (e: Exception) { emptyList() }
-    }
-    
-    val activeSystemPromptId: Flow<String?> = context.dataStore.data.map { it[ACTIVE_SYSTEM_PROMPT_ID] }
+    val systemPrompts: Flow<List<SystemPromptEntry>> = systemPromptStore.systemPrompts
+    val activeSystemPromptId: Flow<String?> = systemPromptStore.activeSystemPromptId
 
     val maxContextWindow: Flow<Int> = context.dataStore.data.map { preferences ->
         ContextBudget.normalize(
@@ -319,45 +316,13 @@ class SettingsManager(private val context: Context) {
     suspend fun renameApiKeyProvider(oldProvider: String, newProvider: String) =
         modelPreferenceStore.renameApiKeyProvider(oldProvider, newProvider)
 
-    suspend fun saveSystemPrompts(prompts: List<SystemPromptEntry>) {
-        context.dataStore.edit { it[SYSTEM_PROMPTS_JSON] = json.encodeToString(prompts) }
-    }
+    suspend fun saveSystemPrompts(prompts: List<SystemPromptEntry>) = systemPromptStore.save(prompts)
     suspend fun initializeFirstInstallDefaults(
         locale: Locale = Locale.getDefault(),
         now: Long = System.currentTimeMillis()
-    ) {
-        context.dataStore.edit { prefs ->
-            val firstLaunchMissing = prefs[FIRST_LAUNCH_TIME] == null
-            val looksLikeFreshInstall = firstLaunchMissing && prefs[ONBOARDING_COMPLETED] != true
-            if (firstLaunchMissing) {
-                prefs[FIRST_LAUNCH_TIME] = now
-            }
-            val currentPrompts = try {
-                json.decodeFromString<List<SystemPromptEntry>>(prefs[SYSTEM_PROMPTS_JSON] ?: "[]")
-            } catch (_: Exception) {
-                emptyList()
-            }
-            val messageTemplatesMigrated = migrateSystemPromptsOnStartup(currentPrompts, locale)
-            if (messageTemplatesMigrated != currentPrompts) {
-                prefs[SYSTEM_PROMPTS_JSON] = json.encodeToString(messageTemplatesMigrated)
-            }
-            if (looksLikeFreshInstall) {
-                if (messageTemplatesMigrated.isEmpty()) {
-                    val defaultPrompt = DefaultSystemPrompt.create(locale)
-                    prefs[SYSTEM_PROMPTS_JSON] = json.encodeToString(listOf(defaultPrompt))
-                    if (prefs[ACTIVE_SYSTEM_PROMPT_ID] == null) {
-                        prefs[ACTIVE_SYSTEM_PROMPT_ID] = defaultPrompt.id
-                    }
-                }
-            }
-        }
-    }
+    ) = systemPromptStore.initialize(locale, now)
 
-    suspend fun setActiveSystemPromptId(id: String?) {
-        context.dataStore.edit { 
-            if (id == null) it.remove(ACTIVE_SYSTEM_PROMPT_ID) else it[ACTIVE_SYSTEM_PROMPT_ID] = id 
-        }
-    }
+    suspend fun setActiveSystemPromptId(id: String?) = systemPromptStore.setActive(id)
     suspend fun saveMaxContextWindow(window: Int) {
         context.dataStore.edit {
             it[CONTEXT_TOKEN_BUDGET] = ContextBudget.normalize(window).toString()

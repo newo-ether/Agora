@@ -169,14 +169,6 @@ internal fun ChatBottomBarOverlayHost(
                         OpenAiServiceTiers.ULTRAFAST to stringResource(R.string.openai_service_tier_ultrafast),
                     ),
                 )
-                if (OpenAiServiceTiers.ULTRAFAST in availableServiceTiers) {
-                    Text(
-                        text = stringResource(R.string.openai_service_tier_ultrafast_access_note),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 12.dp),
-                    )
-                }
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }

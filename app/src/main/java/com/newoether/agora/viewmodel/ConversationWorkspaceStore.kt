@@ -181,7 +181,9 @@ internal class ConversationWorkspaceStore(
         if (ownerId == NEW_CHAT_WORKSPACE_ID) {
             enqueueNewChatUpdate { it.copy(systemPromptId = promptId) }
         } else {
-            updateConversation(ownerId) { it.copy(systemPromptId = promptId) }
+            scope.launch(ioDispatcher) {
+                conversationMutationMutex.withLock { conversations.updateConversationSystemPrompt(ownerId, promptId) }
+            }
         }
     }
 
@@ -307,18 +309,6 @@ internal class ConversationWorkspaceStore(
         )
     }
 
-    private fun updateConversation(
-        conversationId: String,
-        transform: (com.newoether.agora.data.local.ChatEntity) -> com.newoether.agora.data.local.ChatEntity,
-    ) {
-        scope.launch(ioDispatcher) {
-            conversationMutationMutex.withLock {
-                conversations.getConversation(conversationId)?.let { current ->
-                    conversations.upsertConversation(transform(current))
-                }
-            }
-        }
-    }
 
     private fun enqueueNewChatUpdate(
         transform: (NewChatPersistEntity) -> NewChatPersistEntity,

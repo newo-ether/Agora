@@ -22,6 +22,14 @@ private fun decodeSelectionMap(raw: String?): MutableMap<String?, String> =
 internal fun encodeSelectionMap(selections: Map<String?, String>): String =
     Json.encodeToString(selections.mapKeys { it.key ?: "null" })
 
+/** Only the columns needed to paint navigation; no conversation-owned payloads. */
+data class DrawerConversationRow(
+    val id: String,
+    val title: String,
+    val hasUnreadGeneration: Boolean,
+    val isPinned: Boolean,
+)
+
 @Dao
 interface ChatDao :
     ChatAutomationDao,
@@ -33,6 +41,10 @@ interface ChatDao :
     // Task executions always remain in their owning Task's History.
     @Query("SELECT id, title, systemPromptId, modelId, taskId, origin, graduated, hasUnreadGeneration, isPinned, selectedBranchesJson FROM conversations WHERE taskId IS NULL ORDER BY lastUpdated DESC")
     fun getAllConversations(): Flow<List<ChatConversation>>
+    @Query("SELECT id, title, hasUnreadGeneration, isPinned FROM conversations WHERE taskId IS NULL ORDER BY isPinned DESC, lastUpdated DESC, id LIMIT :limit")
+    fun observeDrawerConversations(limit: Int): Flow<List<DrawerConversationRow>>
+    @Query("SELECT id, title, hasUnreadGeneration, isPinned FROM conversations WHERE taskId IS NULL AND id IN (:ids)")
+    suspend fun getDrawerConversations(ids: List<String>): List<DrawerConversationRow>
 
     @Query("SELECT * FROM conversations WHERE taskId = :taskId ORDER BY lastUpdated DESC")
     fun getExecutionsForTask(taskId: String): Flow<List<ChatEntity>>
@@ -87,6 +99,8 @@ interface ChatDao :
     suspend fun upsertConversation(conversation: ChatEntity)
     @Query("UPDATE conversations SET modelId = :modelId, dataChangedAt = MAX(dataChangedAt + 1, :at) WHERE id = :conversationId")
     suspend fun updateConversationModel(conversationId: String, modelId: String?, at: Long): Int
+    @Query("UPDATE conversations SET systemPromptId = :promptId, dataChangedAt = MAX(dataChangedAt + 1, :at) WHERE id = :conversationId")
+    suspend fun updateConversationSystemPrompt(conversationId: String, promptId: String?, at: Long): Int
 
     /**
      * Marks exported conversation data as changed. The value always moves forward, so an

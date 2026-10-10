@@ -4,6 +4,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -99,6 +100,37 @@ class ConversationForkShareControllerTest {
 
         assertEquals(listOf("share: unfinished"), fixture.failures)
         assertTrue(fixture.shareTexts.isEmpty())
+    }
+
+    @Test
+    fun staleForkFinishesOnceWithoutNavigationOrFailureOutput() = runTest {
+        val fixture = Fixture(scope = this)
+        val result = CompletableDeferred<ConversationForkShareService.ForkResult>()
+        coEvery { fixture.service.fork("conversation", null) } coAnswers { result.await() }
+        var current = true
+        fixture.controller.fork(fixture.origin, isCurrent = { current }) { fixture.results += it }
+        runCurrent()
+        current = false
+        result.complete(ConversationForkShareService.ForkResult.Success("fork"))
+        runCurrent()
+        fixture.assertNoOutputs()
+        assertEquals(listOf(false), fixture.results)
+    }
+
+    @Test
+    fun staleShareCompletesWithoutExportingItsText() = runTest {
+        val fixture = Fixture(scope = this)
+        val result = CompletableDeferred<ConversationForkShareService.ShareResult>()
+        coEvery { fixture.service.shareAll("conversation") } coAnswers { result.await() }
+        var current = true
+        val outputs = mutableListOf<String?>()
+        fixture.controller.shareConversation(fixture.origin, { current }) { outputs += it }
+        runCurrent()
+        current = false
+        result.complete(ConversationForkShareService.ShareResult.Success("export"))
+        runCurrent()
+        fixture.assertNoOutputs()
+        assertEquals(listOf<String?>(null), outputs)
     }
 
     private class Fixture(

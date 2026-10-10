@@ -46,7 +46,7 @@ class ChatBottomBarControlOrderTest {
         assertTrue(bar.contains("openAiServiceTier = displayedServiceTier"))
         assertTrue(overlay.contains("availableEfforts = thinkingCapability.supportedEfforts"))
         assertTrue(overlay.contains("availableTiers = availableServiceTiers"))
-        assertTrue(overlay.contains("OpenAiServiceTiers.ULTRAFAST in availableServiceTiers"))
+        assertFalse(overlay.contains("openai_service_tier_ultrafast_access_note"))
         assertTrue(thinking.contains("if (effort != normalizedEffort) onLevelChange(effort)"))
         assertTrue(tier.contains("if (selectedTier != normalizedTier) onTierChange(selectedTier)"))
     }

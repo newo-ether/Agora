@@ -406,7 +406,8 @@ class RagToolProvider(
 
     private fun isSyntheticMessageId(messageId: String): Boolean =
         messageId.startsWith(Constants.TOOL_MSG_PREFIX) ||
-            messageId.startsWith(Constants.RESULT_MSG_PREFIX)
+            messageId.startsWith(Constants.RESULT_MSG_PREFIX) ||
+            messageId.startsWith(Constants.COMPACT_MSG_PREFIX)
 
     suspend fun semanticSearch(query: String, limit: Int, ctx: GenerationContext): List<Pair<MessageEntity, Float>> = withContext(Dispatchers.IO) {
         val config = ctx.activeEmbeddingConfig

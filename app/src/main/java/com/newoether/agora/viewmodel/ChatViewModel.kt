@@ -582,7 +582,7 @@ class ChatViewModel(
         selectionController.restoreConversationDestination(id, onFailure)
 
     fun forkConversationFrom(messageId: String? = null, onResult: (Boolean) -> Unit = {}): Boolean =
-        chatRuntime.conversationForkShare.fork(phoneClient, messageId, onResult)
+        chatRuntime.conversationForkShare.fork(phoneClient, messageId, onResult = onResult)
 
     fun shareGeneration(assistantMessageId: String) =
         chatRuntime.conversationForkShare.shareGeneration(phoneClient, assistantMessageId)

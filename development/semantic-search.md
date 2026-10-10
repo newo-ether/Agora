@@ -12,6 +12,11 @@ page plus the requested top candidates; corpus growth must not translate into An
   remain owned by the existing RAG/provider path.
 - Searchable sources exclude Task conversations, non-USER/non-MODEL rows, blank or short source
   text, and synthetic tool/result/Compact rows.
+- Literal search, expanded search context and read_conversation also exclude synthetic Compact
+  summaries. Branch traversal may cross these rows but must not return their bodies as messages.
+- Compact summaries are also ineligible for cache admission, reconciliation, embedding generation
+  and transactional embedding commit. Existing Compact cache rows are excluded from counts/ranking
+  and reclaimed by the canonical bounded maintenance path, never by a search or startup scan.
 - Similarity is cosine similarity. Candidates must be strictly above the configured RAG threshold,
   ordered by descending score, and limited to the requested count.
 - Stable embedding row id is the deterministic tie-breaker for equal scores.

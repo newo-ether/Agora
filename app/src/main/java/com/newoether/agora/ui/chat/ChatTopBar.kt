@@ -51,6 +51,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.model.ChatConversation
@@ -117,6 +118,10 @@ internal fun ChatTopBar(
         modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 180.dp)
+            // An expanded composer fills the screen and paints a background gradient across it, and
+            // the Scaffold draws the bottom bar after the top one, so that fill would otherwise lie
+            // over this bar's title and action capsules. The composer's own layer sits at 1f.
+            .zIndex(1.5f)
             .background(
                 Brush.verticalGradient(
                     0.0f to MaterialTheme.colorScheme.background.copy(alpha = 0.98f),
