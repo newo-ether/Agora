@@ -2,6 +2,7 @@ package com.newoether.agora.webui
 
 import android.content.res.Resources
 import com.newoether.agora.R
+import com.newoether.agora.model.ChatConversation
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
@@ -270,4 +271,44 @@ internal data class WebInfoItem(
     val streaming: Boolean,
     val toolState: String?,
     val toolDetail: WebToolDetail? = null,
+)
+
+internal fun ChatConversation.toWeb(generating: Boolean) = WebConversation(
+    id = id,
+    title = title,
+    generating = generating,
+    unread = hasUnreadGeneration,
+)
+
+internal fun ChatMessage.toWebPathEntry() = WebPathEntry(
+    id = id,
+    parentId = parentId,
+    participant = participant.name,
+    status = status.name,
+)
+
+internal fun ChatMessage.toWeb(inlineDollarMath: Boolean, presentation: WebPresentation?) = WebMessage(
+    id = id,
+    parentId = parentId,
+    participant = participant.name,
+    status = status.name,
+    timestamp = timestamp,
+    modelName = modelName,
+    // The user bubble shows plain text, so its math is not split out.
+    text = if (participant == Participant.USER) WebText(text) else text.toWebText(inlineDollarMath),
+    thoughts = thoughts?.toWebText(inlineDollarMath),
+    thoughtTitle = thoughtTitle,
+    thoughtTimeMs = thoughtTimeMs,
+    segments = segments.orEmpty().map { it.toWeb(inlineDollarMath) },
+    presentation = presentation,
+)
+
+internal fun MessageSegment.toWeb(inlineDollarMath: Boolean) = WebSegment(
+    type = type,
+    content = content.toWebText(inlineDollarMath),
+    durationMs = durationMs,
+    toolName = toolName,
+    toolDisplayName = toolDisplayName,
+    toolState = toolState,
+    errorCode = errorCode,
 )
