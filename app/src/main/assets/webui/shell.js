@@ -1,10 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "./vendor/preact-hooks.mjs";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "./vendor/preact-hooks.mjs";
 import { html } from "./html.js";
+import { CircularProgress } from "./material/progress.js";
 import { t } from "./i18n.js";
 import {
-  icon, ICON_ADD, ICON_CALL_SPLIT, ICON_LOGOUT,
-  ICON_MENU, ICON_MORE_VERT, ICON_PSYCHOLOGY, ICON_REPEAT, ICON_SEARCH, ICON_SHARE,
+  icon, ICON_ADD,
+  ICON_MENU, ICON_MORE_VERT, ICON_REPEAT, ICON_SEARCH, ICON_PIN,
+  ICON_ARROW_BACK, ICON_CHEVRON_DOWN,
 } from "./icons.js";
+import { MoreMenu } from "./menu.js";
 import { postJson } from "./api.js";
 import { sync, useSync } from "./sync.js";
 import { MessageList } from "./messages.js";
@@ -39,202 +42,145 @@ function DrawerButton({ className, iconPath, label, onClick, disabled = true }) 
  * A drawer row: 44 dp with 2 dp above and below, a capsule highlight on secondaryContainer when
  * selected, the title in bodyLarge, and an 18 dp slot for the generating spinner or unread dot.
  */
-function ConversationRow({ conversation, selected, onSelect }) {
+function ConversationRow({ conversation, selected, onSelect, onMenu }) {
   // resolveDrawerConversationIndicator: generating first; unread only when not selected.
   const indicator = conversation.generating ? "generating"
     : conversation.unread && !selected ? "unread" : null;
   return html`
+    <div class="conversation-slot" role="listitem" data-conversation-id=${conversation.id}>
     <button class=${selected ? "conversation-row selected" : "conversation-row"} type="button"
-      role="listitem" aria-current=${selected ? "true" : null} onClick=${() => onSelect(conversation.id)}>
+      aria-current=${selected ? "true" : null} onClick=${() => onSelect(conversation.id)}
+      onContextMenu=${event => { event.preventDefault(); onMenu(conversation, event.currentTarget); }}>
       <span class="conversation-title">${conversation.title}</span>
       <span class="conversation-indicator">
-        ${indicator === "generating" && html`<span class="spinner" aria-hidden="true"></span>`}
+        ${indicator === "generating" && html`<${CircularProgress} size=${18} stroke=${2} />`}
         ${indicator === "unread" && html`<span class="unread-dot" role="img" aria-label=${t.unreadGeneration}></span>`}
       </span>
-    </button>`;
+    </button>
+    <button class="conversation-more" type="button" title=${t.options} aria-label=${t.options}
+      onClick=${event => onMenu(conversation, event.currentTarget)}>${icon(ICON_MORE_VERT)}</button>
+    </div>`;
 }
 
 /** ChatDrawerContent: title, search, Tasks, New Chat, then the conversation list. */
-function DrawerContent({ conversations, openId, onSelect, connected }) {
+function DrawerContent({ conversations, openId, onSelect, connected, loading, hasMore, reduceMotion,
+  searchQuery, searchResults, searchLoading, searchFailed }) {
+  const searching = !!searchQuery.trim();
+  const list = useRef(null), focusIndex = useRef(null);
+  const [viewport, setViewport] = useState({ top: 0, height: 500 });
+  const [menu, setMenu] = useState(null), [menuOpen, setMenuOpen] = useState(false);
+  const rows = useMemo(() => {
+    const pinned = conversations.filter(item => item.isPinned);
+    const ordinary = conversations.filter(item => !item.isPinned);
+    const result = [];
+    let top = 0;
+    const heading = (key, title) => { result.push({ key, title, top, height: 36 }); top += 36; };
+    const append = item => { result.push({ key: item.id, conversation: item, top, height: 44 }); top += 44; };
+    if (pinned.length) { heading("pinned-heading", t.pinned); pinned.forEach(append); }
+    if (pinned.length && ordinary.length) heading("conversations-heading", t.conversations);
+    ordinary.forEach(append);
+    return { items: result, height: top };
+  }, [conversations]);
+  const visible = rows.items.filter(item => item.top + item.height >= viewport.top - 264 &&
+    item.top <= viewport.top + viewport.height + 264);
+  useLayoutEffect(() => {
+    const node = list.current;
+    const resize = () => setViewport({ top: node.scrollTop, height: node.clientHeight });
+    const observer = new ResizeObserver(resize);
+    observer.observe(node);
+    resize();
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    if (!searching && connected && hasMore && !loading && viewport.top + viewport.height >= rows.height - 88) sync.loadMore();
+    if (focusIndex.current != null) {
+      const target = rows.items[focusIndex.current]?.conversation;
+      if (target) list.current.querySelector(`[data-conversation-id="${CSS.escape(target.id)}"] .conversation-row`)?.focus({ preventScroll: true });
+      focusIndex.current = null;
+    }
+    if (menu && !menu.anchor.isConnected) setMenuOpen(false);
+  }, [viewport, rows, hasMore, loading, connected, searching]);
+  useLayoutEffect(() => { list.current.scrollTop = 0; }, [searching]);
+  function highlight(text) {
+    if (!searchQuery.trim()) return text;
+    const parts = [], lower = text.toLowerCase(), query = searchQuery.toLowerCase();
+    let from = 0, index;
+    while ((index = lower.indexOf(query, from)) >= 0) {
+      parts.push(text.slice(from, index), html`<mark>${text.slice(index, index + query.length)}</mark>`);
+      from = index + query.length;
+    }
+    parts.push(text.slice(from));
+    return parts;
+  }
+  function keyboard(event) {
+    if (searching) return;
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const current = event.target.closest("[data-conversation-id]")?.dataset.conversationId;
+    let index = rows.items.findIndex(item => item.key === current);
+    const direction = event.key === "ArrowUp" || event.key === "End" ? -1 : 1;
+    index = event.key === "Home" ? 0 : event.key === "End" ? rows.items.length - 1 : index + direction;
+    while (index >= 0 && index < rows.items.length && !rows.items[index].conversation) index += direction;
+    if (!rows.items[index]) return;
+    event.preventDefault();
+    focusIndex.current = index;
+    list.current.scrollTop = Math.max(0, rows.items[index].top - viewport.height / 2 + 22);
+    setViewport({ top: list.current.scrollTop, height: list.current.clientHeight });
+  }
   return html`
     <h2 class="drawer-title">${t.conversations}</h2>
     <div class="drawer-search">
       ${icon(ICON_SEARCH)}
-      <input type="search" placeholder=${t.searchHint} aria-label=${t.searchHint} disabled />
+      <input type="search" placeholder=${t.searchHint} aria-label=${t.searchHint} disabled=${!connected}
+        value=${searchQuery} onInput=${event => sync.search(event.currentTarget.value)} />
+      <span class="drawer-search-progress" data-active=${searchLoading} aria-hidden=${!searchLoading}>
+        <${CircularProgress} size=${18} stroke=${2} label=${t.loading} />
+      </span>
     </div>
+    ${!searching && html`
     <${DrawerButton} className="tonal tasks" iconPath=${ICON_REPEAT} label=${t.tasks} />
     <${DrawerButton} className="filled new-chat" iconPath=${ICON_ADD} label=${t.newChat}
       disabled=${!connected} onClick=${() => onSelect(null)} />
-    <div class="drawer-list" role="list" aria-label=${t.conversations}>
-      ${conversations.map((conversation) => html`
-        <${ConversationRow} key=${conversation.id} conversation=${conversation}
-          selected=${conversation.id === openId} onSelect=${onSelect} />`)}
-    </div>`;
-}
-
-/** AgoraDropdownMenu: 24 dp corners, 48 dp items with an inset capsule highlight. */
-function MoreMenu({ expanded, reduceMotion, anchor, onSignOut, onClose, onExited, children, above = false }) {
-  const menu = useRef(null);
-  const motion = useRef({ scale: 0.8, alpha: 0, scaleVelocity: 0, alphaVelocity: 0 });
-  useLayoutEffect(() => {
-    const node = menu.current;
-    const measure = () => {
-      const bounds = anchor.current.getBoundingClientRect();
-      const left = Math.max(8, Math.min(innerWidth - node.offsetWidth - 8,
-        above ? bounds.left : bounds.right - node.offsetWidth));
-      const top = above ? Math.max(8, bounds.top - node.offsetHeight - 4) : bounds.bottom + 4;
-      node.style.left = `${left}px`;
-      node.style.top = `${top}px`;
-      const pivotX = bounds.left >= left + node.offsetWidth ? 1 : bounds.right <= left ? 0
-        : ((Math.max(bounds.left, left) + Math.min(bounds.right, left + node.offsetWidth)) / 2 - left) / node.offsetWidth;
-      const pivotY = top >= bounds.bottom ? 0 : top + node.offsetHeight <= bounds.top ? 1
-        : ((Math.max(bounds.top, top) + Math.min(bounds.bottom, top + node.offsetHeight)) / 2 - top) / node.offsetHeight;
-      node.style.transformOrigin = `${pivotX * 100}% ${pivotY * 100}%`;
-    };
-    const geometry = new ResizeObserver(measure);
-    [node, anchor.current].forEach((element) => geometry.observe(element, { box: "border-box" }));
-    window.addEventListener("resize", measure);
-    measure();
-    node.querySelector("[role^=menuitem]:not([disabled])")?.focus();
-    return () => { geometry.disconnect(); window.removeEventListener("resize", measure); };
-  }, []);
-  useLayoutEffect(() => {
-    const node = menu.current;
-    const values = motion.current;
-    let frame = 0;
-    const started = performance.now();
-    const samples = ["scale", "alpha"].map((key) => {
-      const target = key === "scale" ? expanded ? 1 : 0.8 : expanded ? 1 : 0;
-      const omega = Math.sqrt(key === "scale" ? 1400 : 3800);
-      const damping = key === "scale" ? Math.fround(0.9) : 1;
-      const displacement = values[key] - target;
-      const velocity = values[`${key}Velocity`];
-      // Compose estimates the final visibility-threshold crossing, not instantaneous speed.
-      const position = Math.abs(Math.fround(displacement / 0.01));
-      const speed = Math.fround(velocity / 0.01) * (displacement < 0 ? -1 : 1);
-      const root = -damping * omega;
-      const frequency = omega * Math.sqrt(1 - damping * damping);
-      let duration = 0;
-      if (position !== 0 || speed !== 0) {
-        if (damping < 1) {
-          const coefficient = (speed - root * position) / frequency;
-          duration = Math.log(1 / Math.hypot(position, coefficient)) / root;
-        } else {
-          const coefficient = speed - root * position;
-          const first = Math.log(Math.abs(1 / position)) / root;
-          const guess = Math.log(Math.abs(1 / coefficient));
-          let second = guess;
-          for (let i = 0; i < 6; i++) second = guess - Math.log(Math.abs(second / root));
-          second /= root;
-          duration = !Number.isFinite(first) ? second : !Number.isFinite(second) ? first : Math.max(first, second);
-          const inflection = -(root * position + coefficient) / (root * coefficient);
-          const extremum = (position + coefficient * inflection) * Math.exp(root * inflection);
-          let delta = -1;
-          if (inflection > 0 && -extremum >= 1) {
-            duration = -2 / root - position / coefficient;
-            delta = 1;
-          } else if (inflection > 0 && coefficient < 0 && position > 0) duration = 0;
-          for (let i = 0; i < 100; i++) {
-            const before = duration;
-            const decay = Math.exp(root * duration);
-            duration -= ((position + coefficient * duration) * decay + delta) /
-              ((coefficient * (root * duration + 1) + position * root) * decay);
-            if (Math.abs(before - duration) <= 0.001) break;
-          }
-        }
-      }
-      return { key, target, omega, damping, displacement, velocity,
-        duration: Math.max(0, Math.trunc(duration * 1000)) };
-    });
-    const advance = (time) => {
-      const elapsedMs = Math.max(0, Math.trunc(time - started));
-      const elapsed = elapsedMs / 1000;
-      // Material3 1.4.0 Standard FastSpatial / FastEffects, sampled with retained velocity.
-      for (const { key, target, omega, damping, displacement, velocity, duration } of samples) {
-        const speedKey = `${key}Velocity`;
-        if ((key === "scale" && reduceMotion) || elapsedMs >= duration) {
-          values[key] = target;
-          values[speedKey] = 0;
-          continue;
-        }
-        const decay = Math.exp(-damping * omega * elapsed);
-        if (damping === 1) {
-          const coefficient = velocity + omega * displacement;
-          values[key] = target + decay * (displacement + coefficient * elapsed);
-          values[speedKey] = decay * (coefficient - omega * (displacement + coefficient * elapsed));
-        } else {
-          const frequency = omega * Math.sqrt(1 - damping * damping);
-          const coefficient = (velocity + damping * omega * displacement) / frequency;
-          const cosine = Math.cos(frequency * elapsed);
-          const sine = Math.sin(frequency * elapsed);
-          const position = displacement * cosine + coefficient * sine;
-          values[key] = target + decay * position;
-          values[speedKey] = decay * (-damping * omega * position + frequency * (coefficient * cosine - displacement * sine));
-        }
-      }
-      node.style.transform = `scale(${values.scale})`;
-      node.style.opacity = String(values.alpha);
-    };
-    const tick = (time) => {
-      advance(time);
-      if (values.scaleVelocity !== 0 || values.alphaVelocity !== 0 ||
-          values.scale !== (expanded ? 1 : 0.8) || values.alpha !== (expanded ? 1 : 0)) {
-        frame = requestAnimationFrame(tick);
-      } else if (!expanded) onExited(node.contains(document.activeElement));
-    };
-    tick(started);
-    return () => { cancelAnimationFrame(frame); advance(performance.now()); };
-  }, [expanded, reduceMotion]);
-  useLayoutEffect(() => {
-    const onKey = (event) => {
-      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
-      if (["Tab", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
-        event.preventDefault();
-        const controls = [...menu.current.querySelectorAll("[role^=menuitem]:not([disabled])")];
-        const current = controls.indexOf(document.activeElement);
-        const next = event.key === "Home" ? 0 : event.key === "End" ? controls.length - 1
-          : (current + (event.shiftKey || event.key === "ArrowUp" ? -1 : 1) + controls.length) % controls.length;
-        controls[next]?.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
-  return html`
-    <div class="menu-popup-layer" onPointerDown=${(event) => {
-      if (!menu.current.contains(event.target)) { event.preventDefault(); onClose(); }
-      event.stopPropagation();
-    }} onWheel=${(event) => { if (!menu.current.contains(event.target)) event.preventDefault(); }}
-      onContextMenu=${(event) => event.preventDefault()}>
-    <div class=${`dropdown ${above ? "composer-menu" : ""}`} role="menu" ref=${menu}>
-      ${children || html`
-      <button class="dropdown-item" role="menuitem" type="button" disabled>
-        ${icon(ICON_SEARCH)}<span>${t.conversationSearch}</span>
-      </button>
-      <button class="dropdown-item" role="menuitem" type="button" disabled>
-        ${icon(ICON_PSYCHOLOGY)}<span>${t.systemPrompt}</span>
-      </button>
-      <button class="dropdown-item" role="menuitem" type="button" disabled>
-        ${icon(ICON_CALL_SPLIT)}<span>${t.forkConversation}</span>
-      </button>
-      <button class="dropdown-item" role="menuitem" type="button" disabled>
-        ${icon(ICON_SHARE)}<span>${t.share}</span>
-      </button>
-      <button class="dropdown-item" role="menuitem" type="button" onClick=${onSignOut}>
-        ${icon(ICON_LOGOUT)}<span>${t.signOut}</span>
-      </button>`}
+    `}
+    <div class="drawer-list" ref=${list} role="list" aria-label=${t.conversations} aria-busy=${searching ? searchLoading : loading}
+      onKeyDown=${keyboard} onScroll=${event => setViewport({ top: event.currentTarget.scrollTop, height: event.currentTarget.clientHeight })}>
+      ${searching ? html`
+        ${searchResults.map(result => html`<div key=${result.id} role="listitem"><button class="drawer-search-result" type="button"
+          disabled=${!connected} onClick=${() => { sync.search(""); onSelect(result.id); }}>
+          <span class="drawer-search-result-heading"><span>${highlight(result.title)}</span>
+            ${result.score > 0 && html`<span class="drawer-search-score">${Math.trunc(result.score * 100)}%</span>`}</span>
+          ${result.snippets.map(snippet => html`<span class="drawer-search-snippet">${snippet.role === "USER" ? t.searchRoleUser : t.searchRoleModel}: ${highlight(snippet.text)}</span>`)}
+        </button></div>`)}
+        ${!searchLoading && !searchResults.length && html`<p class="drawer-search-empty" role="status">${searchFailed ? t.searchFailed : t.searchNoResults}</p>`}
+      ` : html`<div class="drawer-list-window" style=${{ height: `${rows.height}px` }}>
+        ${visible.map(item => html`<div key=${item.key} class="drawer-list-position" style=${{ top: `${item.top}px`, height: `${item.height}px` }}>
+          ${item.conversation ? html`<${ConversationRow} conversation=${item.conversation}
+            selected=${item.key === openId} onSelect=${onSelect}
+            onMenu=${(conversation, anchor) => { setMenu({ conversation, anchor }); setMenuOpen(true); }} />`
+            : html`<h3 class="drawer-section">${item.title}</h3>`}
+        </div>`)}
+      </div>
+      ${loading && html`<div class="drawer-list-progress"><${CircularProgress} size=${32} stroke=${3} label=${t.loading} /></div>`}
+      `}
     </div>
-    </div>`;
+    ${menu && html`<${MoreMenu} expanded=${menuOpen} reduceMotion=${reduceMotion} anchor=${{ current: menu.anchor }}
+      onClose=${() => setMenuOpen(false)} onExited=${() => setMenu(null)}>
+      <button class="dropdown-item" role="menuitem" type="button" disabled=${!connected}
+        onClick=${() => { sync.pin(menu.conversation.id, !menu.conversation.isPinned); setMenuOpen(false); }}>
+        ${icon(ICON_PIN)}<span>${menu.conversation.isPinned ? t.unpin : t.pin}</span>
+      </button>
+    </${MoreMenu}>`}`;
 }
 
 /**
  * ChatTopBar: title capsule (menu + brand, or the conversation title at conversationTitleSolo)
  * and actions capsule (new chat + more).
  */
-function TopBar({ title, conversationId, drawerOpen, onToggleDrawer, menuButton, reduceMotion, onSignedOut, connected }) {
+function TopBar({ title, conversationId, drawerOpen, onToggleDrawer, menuButton, reduceMotion, onSignedOut, connected, onFork, onShare, pageBusy, onSystemPrompt, promptEnabled, search, generating }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [retainedMenu, setRetainedMenu] = useState(false);
   const moreButton = useRef(null);
+  const searchField = useRef(null);
+  useLayoutEffect(() => { if (search) searchField.current?.focus(); }, [!!search]);
   const titleIdentity = title ? JSON.stringify([conversationId, title]) : "brand";
   const [titleFrames, setTitleFrames] = useState([{ identity: titleIdentity, title, initialAlpha: 1 }]);
   const presentations = titleFrames.some((frame) => frame.identity === titleIdentity) ? titleFrames
@@ -245,8 +191,12 @@ function TopBar({ title, conversationId, drawerOpen, onToggleDrawer, menuButton,
   useLayoutEffect(() => {
     const canvas = titleCanvas.current;
     const clip = titleClip.current;
+    // The search bar replaces the whole title capsule, so the canvas is absent while
+    // search owns the bar; geometry resumes when the capsule remounts.
+    if (!canvas) return undefined;
     const measure = () => {
       const label = [...canvas.querySelectorAll("h1")].find((node) => node.dataset.titleIdentity === titleIdentity);
+      if (!label) return;
       const target = Math.min(canvas.clientWidth, 74 + Math.min(label.scrollWidth, 180));
       const initial = clip.identity === null;
       const changed = clip.identity !== titleIdentity;
@@ -282,10 +232,13 @@ function TopBar({ title, conversationId, drawerOpen, onToggleDrawer, menuButton,
     [canvas, ...canvas.querySelectorAll("h1")].forEach((node) => geometry.observe(node, { box: "border-box" }));
     document.fonts.addEventListener("loadingdone", measure);
     return () => { geometry.disconnect(); document.fonts.removeEventListener("loadingdone", measure); };
-  }, [titleIdentity, reduceMotion, titleFrames]);
+  }, [titleIdentity, reduceMotion, titleFrames, !!search]);
   useLayoutEffect(() => {
     const fade = titleFade.current;
     if (fade.identity === titleIdentity) return;
+    // The search bar owns the top bar while search is open; the pending identity is not
+    // consumed until the capsule remounts and this effect re-runs.
+    if (!titleCanvas.current) return;
     const labels = [...titleCanvas.current.querySelectorAll("h1")];
     for (const label of labels) {
       const alpha = getComputedStyle(label).opacity;
@@ -309,7 +262,7 @@ function TopBar({ title, conversationId, drawerOpen, onToggleDrawer, menuButton,
         setTitleFrames([{ identity, title, initialAlpha: 1 }]);
       };
     }
-  }, [titleIdentity]);
+  }, [titleIdentity, !!search]);
   useLayoutEffect(() => () => {
     titleClip.current.animation?.cancel();
     titleFade.current.animations.forEach((animation) => animation.cancel());
@@ -324,6 +277,17 @@ function TopBar({ title, conversationId, drawerOpen, onToggleDrawer, menuButton,
   }
   return html`
     <header class="top-bar">
+      ${search ? html`<div class="capsule conversation-search-bar" aria-busy=${search.searching}>
+        <button class="bar-button" type="button" aria-label=${t.close} onClick=${() => sync.dismissConversationSearch()}>${icon(ICON_ARROW_BACK)}</button>
+        <input ref=${searchField} type="search" value=${search.query} placeholder=${t.conversationSearch}
+          aria-label=${t.conversationSearch} disabled=${!connected} onInput=${event => sync.conversationSearch(event.currentTarget.value)}
+          onKeyDown=${event => { if (event.key === "Escape") { event.preventDefault(); sync.dismissConversationSearch(); } }} />
+        <span class="conversation-search-count" role="status">${search.failed ? t.searchFailed : `${search.index < 0 ? 0 : search.index + 1}/${search.matches.length}`}</span>
+        <button class="bar-button search-previous" type="button" aria-label=${t.searchPrevious} disabled=${search.searching || search.index <= 0}
+          onClick=${() => sync.selectSearchMatch(search.index - 1, search.revision)}>${icon(ICON_CHEVRON_DOWN)}</button>
+        <button class="bar-button" type="button" aria-label=${t.searchNext} disabled=${search.searching || search.index < 0 || search.index >= search.matches.length - 1}
+          onClick=${() => sync.selectSearchMatch(search.index + 1, search.revision)}>${icon(ICON_CHEVRON_DOWN)}</button>
+      </div>` : html`
       <div class="capsule title-capsule">
         <div class="title-canvas" ref=${titleCanvas}>
           <div class="title-content">
@@ -352,10 +316,14 @@ function TopBar({ title, conversationId, drawerOpen, onToggleDrawer, menuButton,
             ${icon(ICON_MORE_VERT)}
           </button>
         </div>
-      </div>
+      </div>`}
     </header>
     ${(menuOpen || retainedMenu) && html`<${MoreMenu} expanded=${menuOpen} reduceMotion=${reduceMotion}
       anchor=${moreButton} onSignOut=${signOut} onClose=${closeMenu}
+      pageActionsEnabled=${connected && !!conversationId && !pageBusy && !generating}
+      promptEnabled=${promptEnabled} onSystemPrompt=${() => { closeMenu(); onSystemPrompt(); }}
+      onSearch=${() => { closeMenu(); sync.conversationSearch(""); }}
+      onFork=${() => { closeMenu(); onFork(); }} onShare=${() => { closeMenu(); onShare(); }}
       onExited=${(ownedFocus) => { setRetainedMenu(false); if (ownedFocus) moreButton.current?.focus(); }} />`}`;
 }
 
@@ -364,6 +332,66 @@ function TopBar({ title, conversationId, drawerOpen, onToggleDrawer, menuButton,
  * The drawer overlays the chat with a scrim up to 960 px; wider, it sits beside the chat and the
  * chat narrows, as the app's side-by-side drawer. Both start closed and open from the menu button.
  */
+function ConversationDialog({ state, request, onClose }) {
+  const dialog = useRef(null);
+  const returnFocus = useRef(document.querySelector('.actions-capsule [aria-haspopup="menu"]'));
+  const sent = useRef(false);
+  const busy = !!state.pageAction;
+  const sharing = request.type === "share";
+  const picking = request.type === "system_prompt";
+  const prompt = state.composer?.systemPrompt;
+  const [selectedPromptId, setSelectedPromptId] = useState(prompt?.selectedId ?? null);
+  useEffect(() => { setSelectedPromptId(prompt?.selectedId ?? null); }, [prompt?.selectedId]);
+  const activeTitle = prompt?.items.find(item => item.id === prompt.activeId)?.title || t.noSystemPrompt;
+  const heading = picking ? t.systemPrompt : sharing ? t.share
+    : request.messageId == null ? t.forkConversation : t.forkFromHere;
+  const text = state.shareText;
+  function close() { if (!busy && !sent.current) { sync.dismissShare(); onClose(); } }
+  useLayoutEffect(() => {
+    const node = dialog.current;
+    node.showModal();
+    return () => { node.close(); if (returnFocus.current?.isConnected) returnFocus.current.focus(); };
+  }, []);
+  useEffect(() => {
+    if (sent.current && state.pageResult?.actionId === sent.current.actionId) onClose();
+  }, [state.pageResult]);
+  async function copy() {
+    try { await navigator.clipboard.writeText(text); sync.notify(t.copied); }
+    catch (_) { sync.notify(t.copyFailed); }
+  }
+  function download() {
+    const url = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "conversation.md";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  return html`<dialog ref=${dialog} class="attachment-editor page-dialog" aria-label=${heading}
+    onCancel=${event => { event.preventDefault(); close(); }}
+    onClick=${event => { if (event.target === dialog.current) close(); }} onKeyDown=${event => event.stopPropagation()}>
+    <section><h2>${heading}</h2>
+      ${picking ? html`<div class="prompt-options" role="radiogroup" aria-label=${t.systemPrompt}>
+        ${[{ id: null, title: t.globalDefault(activeTitle) }, ...(prompt?.items || [])].map(item => html`
+          <label class="prompt-option"><input type="radio" name="system-prompt" checked=${selectedPromptId === item.id}
+            onChange=${() => setSelectedPromptId(item.id)} /><span>${item.title}</span></label>`)}
+      </div>` : sharing ? (text ? html`<textarea class="share-output" readonly aria-label=${t.share}>${text}</textarea>`
+        : html`<${CircularProgress} size=${24} label=${t.loading} />`)
+        : html`<p>${t.forkConfirm}</p>`}
+      <footer><button type="button" disabled=${busy} onClick=${close}>${sharing ? t.close : t.cancel}</button>
+        ${picking ? html`<button type="button" disabled=${state.pendingAction || state.composer?.controls?.lowContextModeEnabled ||
+          (selectedPromptId !== null && !prompt?.items.some(item => item.id === selectedPromptId))} onClick=${() => {
+            if (sync.editorCommand("system_prompt", { value: selectedPromptId }, request)) onClose();
+          }}>${t.save}</button>` : sharing ? text && html`<button type="button" onClick=${copy}>${t.copy}</button><button type="button" onClick=${download}>${t.download}</button>`
+          : html`<button type="button" disabled=${busy} onClick=${() => {
+            if (sent.current) return;
+            sent.current = sync.pageCommand("fork", request);
+            if (!sent.current) onClose();
+          }}>${busy ? html`<${CircularProgress} size=${20} label=${t.loading} />` : t.fork}</button>`}
+      </footer>
+    </section></dialog>`;
+}
+
 export function Shell({ onSignedOut }) {
   const state = useSync();
   useEffect(() => {
@@ -372,24 +400,48 @@ export function Shell({ onSignedOut }) {
   }, []);
   const sideBySide = useMediaQuery(SIDE_BY_SIDE_QUERY);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [composerExpanded, setComposerExpanded] = useState(false);
+  const [pageDialog, setPageDialog] = useState(null);
+  useEffect(() => { setPageDialog(null); }, [state.connectionId, state.openId]);
+  useEffect(() => { if (pageDialog?.type === "share" && !state.pageAction && !state.shareText) setPageDialog(null); }, [state.pageAction, state.shareText]);
+  // A row names the message it forks or shares; the top bar names none and so acts on the whole
+  // conversation, which is what the phone's owners do with a null message id.
+  function openPageAction(type, messageId = null) {
+    const target = { ...sync.attachmentTarget(), conversationId: state.openId, type, messageId };
+    const values = messageId == null ? {} : { messageId };
+    if (type !== "share" || sync.pageCommand(type, target, values)) setPageDialog(target);
+  }
   const shell = useRef(null);
   const drawerTarget = useRef(0);
   const drawerAnimation = useRef(null);
   const drawerDrag = useRef(null);
   const dragClick = useRef(null);
+  const drawerDismissedComposer = useRef(false);
+  const drawerFrame = useRef(0);
   const drawer = useRef(null);
   const menuButton = useRef(null);
   const wasOpen = useRef(false);
   const wasModalOpen = useRef(false);
   const modalOpen = drawerOpen && !sideBySide;
   const reduceMotion = !!state.display?.reduceMotion;
+  function observeDrawerProgress(progress) {
+    const crossed = progress > 0.5;
+    if (crossed && !drawerDismissedComposer.current) {
+      shell.current.querySelector(".composer textarea")?.blur();
+      setComposerExpanded(false);
+    }
+    drawerDismissedComposer.current = crossed;
+  }
   useLayoutEffect(() => {
     const chat = shell.current.querySelector(".chat");
     const composer = chat.querySelector(".composer-host");
     const capsules = [...chat.querySelectorAll(".top-bar > .capsule")];
     const measure = () => {
       const bounds = chat.getBoundingClientRect();
-      const top = Math.max(...capsules.map((node) => node.getBoundingClientRect().bottom)) - bounds.top + 8;
+      const bottoms = capsules.map((node) => node.getBoundingClientRect().bottom);
+      // An empty capsule row would measure to -Infinity, which is not a length and would leave every
+      // inset unset, so it falls back to a small positive inset instead of poisoning the pair.
+      const top = Math.max(...bottoms, bounds.top + 8) - bounds.top + 8;
       const bottom = bounds.bottom - composer.getBoundingClientRect().top;
       chat.style.setProperty("--chat-top-inset", `${top}px`);
       chat.style.setProperty("--chat-bottom-inset", `${bottom}px`);
@@ -405,6 +457,8 @@ export function Shell({ onSignedOut }) {
     shell.current.style.setProperty("--drawer-progress", String(progress));
     drawerAnimation.current?.cancel();
     drawerAnimation.current = null;
+    cancelAnimationFrame(drawerFrame.current);
+    observeDrawerProgress(progress);
     return progress;
   }
   function settleDrawer(open) {
@@ -414,6 +468,7 @@ export function Shell({ onSignedOut }) {
     setDrawerOpen(from > 0 || to > 0);
     if (reduceMotion || from === to) {
       shell.current.style.setProperty("--drawer-progress", String(to));
+      observeDrawerProgress(to);
       setDrawerOpen(to > 0);
       return;
     }
@@ -422,11 +477,19 @@ export function Shell({ onSignedOut }) {
       { duration: 300, easing: "cubic-bezier(0, 0, 0.2, 1)", fill: "forwards" },
     );
     drawerAnimation.current = animation;
+    const observe = () => {
+      if (drawerAnimation.current !== animation) return;
+      observeDrawerProgress(Number(getComputedStyle(shell.current).getPropertyValue("--drawer-progress")));
+      drawerFrame.current = requestAnimationFrame(observe);
+    };
+    drawerFrame.current = requestAnimationFrame(observe);
     animation.onfinish = () => {
       if (drawerAnimation.current !== animation) return;
       shell.current.style.setProperty("--drawer-progress", String(to));
       animation.cancel();
       drawerAnimation.current = null;
+      cancelAnimationFrame(drawerFrame.current);
+      observeDrawerProgress(to);
       setDrawerOpen(to > 0);
     };
   }
@@ -474,6 +537,7 @@ export function Shell({ onSignedOut }) {
     drag.time = event.timeStamp;
     const progress = Math.max(0, Math.min(1, drag.progress + dx / drawer.current.clientWidth));
     shell.current.style.setProperty("--drawer-progress", String(progress));
+    observeDrawerProgress(progress);
     setDrawerOpen(progress > 0);
     event.preventDefault();
   }
@@ -488,7 +552,7 @@ export function Shell({ onSignedOut }) {
       window.removeEventListener("resize", onResize);
     };
   }, [sideBySide, reduceMotion]);
-  useEffect(() => () => drawerAnimation.current?.cancel(), []);
+  useEffect(() => () => { drawerAnimation.current?.cancel(); cancelAnimationFrame(drawerFrame.current); }, []);
   useLayoutEffect(() => {
     endDrawerDrag(null, true);
     settleDrawer(drawerTarget.current > 0);
@@ -541,17 +605,24 @@ export function Shell({ onSignedOut }) {
         role=${sideBySide ? null : "dialog"} aria-modal=${modalOpen ? "true" : null}
         inert=${!drawerOpen}>
         <${DrawerContent} conversations=${state.conversations} openId=${state.openId}
-          connected=${state.connected}
+          connected=${state.connected} loading=${state.listLoading} hasMore=${state.listHasMore} reduceMotion=${reduceMotion}
+          searchQuery=${state.searchQuery} searchResults=${state.searchResults} searchLoading=${state.searchLoading} searchFailed=${state.searchFailed}
           onSelect=${(id) => { sync.open(id); if (!sideBySide) settleDrawer(false); }} />
       </aside>
       <div class="scrim" aria-hidden="true" onClick=${() => settleDrawer(false)}></div>
-      <main class="chat" inert=${modalOpen}>
+      <main class=${`chat ${composerExpanded ? "chat-composer-expanded" : ""}`} inert=${modalOpen}>
         <${TopBar} title=${openTitle} conversationId=${state.openId} drawerOpen=${drawerOpen} menuButton=${menuButton} reduceMotion=${reduceMotion} onSignedOut=${onSignedOut} connected=${state.connected}
+          generating=${!!state.generating}
+          search=${state.conversationSearch}
+          onSystemPrompt=${() => openPageAction("system_prompt")}
+          promptEnabled=${state.connected && !!state.composer?.systemPrompt && !state.composer?.controls?.lowContextModeEnabled && !state.pendingAction}
+          onFork=${() => openPageAction("fork")} onShare=${() => openPageAction("share")} pageBusy=${!!state.pageAction}
           onToggleDrawer=${() => settleDrawer(drawerTarget.current === 0)} />
-        <${MessageList} state=${state} label=${openTitle || t.newChat} />
+        <${MessageList} state=${state} label=${openTitle || t.newChat} onPageAction=${openPageAction} />
         <div class="chat-top-blur" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-        <${Composer} state=${state} MoreMenu=${MoreMenu} />
+        <${Composer} state=${state} MoreMenu=${MoreMenu} expanded=${composerExpanded} onExpandedChange=${setComposerExpanded} />
         ${state.snackbar && html`<div class="chat-snackbar" role="status">${state.snackbar.message}</div>`}
+        ${pageDialog && html`<${ConversationDialog} state=${state} request=${pageDialog} onClose=${() => setPageDialog(null)} />`}
       </main>
     </div>`;
 }

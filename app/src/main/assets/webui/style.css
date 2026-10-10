@@ -189,8 +189,6 @@ p {
 }
 
 .icon-button svg { width: 24px; height: 24px; fill: currentColor; }
-.icon-button:hover { background: color-mix(in srgb, var(--md-on-surface-variant) 8%, transparent); }
-.icon-button:active { background: color-mix(in srgb, var(--md-on-surface-variant) 12%, transparent); }
 
 /* bodySmall supporting text below a field. */
 .supporting {
@@ -224,18 +222,6 @@ p {
   overflow: hidden;
 }
 
-.button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: currentColor;
-  opacity: 0;
-  transition: opacity 150ms;
-}
-
-.button:hover::after { opacity: 0.08; }
-.button:active::after { opacity: 0.12; }
-
 .button.filled { background: var(--md-primary); color: var(--md-on-primary); }
 .button.text { padding: 0 12px; background: transparent; color: var(--md-primary); }
 
@@ -248,20 +234,7 @@ p {
 .button.text:disabled { background: transparent; }
 .button:disabled::after { opacity: 0; }
 
-/* Circular progress in the button while busy, as the app's inline 3 dp indicator. */
-.spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 800ms linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
 @media (prefers-reduced-motion: reduce) {
-  .sign-in-page .spinner { animation-duration: 2400ms; }
   .sign-in-page .field, .sign-in-page .field label, .sign-in-page .button::after { transition: none; }
 }
 
@@ -344,21 +317,26 @@ p {
 }
 /* Side-by-side drawer (wider than 960 px): the chat narrows beside the open drawer. */
 .side-by-side .chat { left: calc(var(--drawer-width) * var(--drawer-progress)); }
-/* Approved static top-edge approximation; it never intercepts the message viewport's input. */
-.chat-top-blur { position: absolute; inset: 0 0 auto; height: 150px; z-index: 0; pointer-events: none; }
+/* The top backdrop covers messages, never composer controls or the top-bar capsules. */
+.chat-top-blur {
+  position: absolute; inset: 0 0 auto; height: 180px; z-index: 0; pointer-events: none;
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--md-background) 98%, transparent) 0%,
+    color-mix(in srgb, var(--md-background) 80%, transparent) 60%, transparent 100%);
+}
 .chat-top-blur span { position: absolute; inset: 0 0 auto; pointer-events: none; mask-image: linear-gradient(#000 0%, #000 50%, transparent 100%); }
 .chat-top-blur span:nth-child(1) { height: 150px; backdrop-filter: blur(1px); }
 .chat-top-blur span:nth-child(2) { height: 112px; backdrop-filter: blur(2px); }
 .chat-top-blur span:nth-child(3) { height: 75px; backdrop-filter: blur(3px); }
 .chat-top-blur span:nth-child(4) { height: 38px; backdrop-filter: blur(5px); }
-.shell:not([data-blur-effects="true"]) .chat-top-blur { display: none; }
+.shell:not([data-blur-effects="true"]) .chat-top-blur span { display: none; }
 /* ModalDrawerSheet: surface at 1 dp tonal elevation, 24 dp end corners, 16 x 20 dp padding. */
 .drawer {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  z-index: 3;
+  z-index: 4;
   display: flex;
   flex-direction: column;
   width: var(--drawer-width);
@@ -375,7 +353,7 @@ p {
 .scrim {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 3;
   background: rgb(0 0 0 / 0.32);
   opacity: var(--drawer-progress);
   pointer-events: none;
@@ -448,6 +426,26 @@ p {
 }
 /* A flex column, so the rows' 2 dp margins add up instead of collapsing. */
 .drawer-list { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.drawer-list-window { position: relative; flex: none; overflow-anchor: none; }
+.drawer-list-position { position: absolute; width: 100%; }
+.drawer-section { margin: 0; padding: 8px 16px 4px; font-size: 14px; line-height: 24px; font-weight: 500; color: var(--md-on-surface-variant); }
+.drawer-list-progress { display: grid; place-items: center; min-height: 56px; flex: none; }
+.drawer-search-progress { display: grid; place-items: center; flex: none; opacity: 0; transition: opacity 180ms linear; }
+.drawer-search-progress[data-active="true"] { opacity: 1; }
+.drawer-search-result { flex: none; width: 100%; border: 0; border-radius: 12px; margin: 2px 0; padding: 8px 12px; background: transparent; color: var(--md-on-surface); text-align: left; font: inherit; cursor: pointer; }
+.drawer-search-result-heading { display: flex; align-items: center; gap: 8px; font-size: 16px; line-height: 24px; font-weight: 500; }
+.drawer-search-result-heading > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-search-score { flex: none; color: var(--md-primary); font-size: 11px; line-height: 16px; }
+.drawer-search-snippet { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 12px; line-height: 16px; color: var(--md-on-surface-variant); }
+.drawer-search-result mark { background: color-mix(in srgb, var(--md-primary) 20%, transparent); color: inherit; font-weight: bold; }
+.drawer-search-empty { text-align: center; margin: 24px 0; font-size: 14px; color: var(--md-on-surface-variant); }
+.conversation-slot { position: relative; height: 44px; }
+/* The row's detail action: no plate, vertically centred in the 44 dp slot, fading in over short2. */
+.conversation-more { position: absolute; right: 8px; top: 50%; translate: 0 -50%; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; opacity: 0; --md-component-transition: opacity 200ms linear; }
+.conversation-more svg { width: 20px; height: 20px; fill: currentColor; }
+.conversation-slot:hover .conversation-more, .conversation-slot:focus-within .conversation-more { opacity: 1; }
+.conversation-slot:hover .conversation-row, .conversation-slot:focus-within .conversation-row { padding-right: 48px; }
+.conversation-indicator .circular-progress { color: inherit; }
 /*
  * Drawer conversation row: a 40 dp capsule in a 44 dp slot, 16 dp sides, the title in bodyLarge,
  * then 8 dp and an 18 dp slot for the generating spinner or the unread dot. Selection fades to
@@ -472,9 +470,8 @@ p {
   letter-spacing: 0.5px;
   text-align: start;
   cursor: pointer;
-  transition: background-color 250ms, color 250ms;
+  --md-component-transition: background-color 250ms, color 250ms;
 }
-.conversation-row:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
 .conversation-row.selected {
   background: var(--md-secondary-container);
   color: var(--md-on-secondary-container);
@@ -499,26 +496,56 @@ p {
 .conversation-row.selected .conversation-indicator { color: var(--md-on-secondary-container); }
 .unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--md-primary); }
 /* ChatTopBar: 52 dp row, 12 dp sides, 8 dp above and below, over a fading background. */
+/* The bar sits above the composer's layer: an expanded composer fills the screen and paints a
+ * background gradient over the whole chat (ChatComposerSurface's fill on the phone,
+ * .composer-expanded below), and the Scaffold draws that fill after the bar. Everything the drawer
+ * and the popups stack by moves up one step with it, so their order against each other is unchanged. */
 .top-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   min-height: 180px;
   padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--md-background) 98%, transparent) 0%,
-    color-mix(in srgb, var(--md-background) 80%, transparent) 60%,
-    transparent 100%
-  );
   pointer-events: none;
 }
+.conversation-search-bar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 52px;
+  gap: 0;
+  padding: 0 5px;
+}
+.conversation-search-bar input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--md-on-surface);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+.conversation-search-count {
+  flex: none;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--md-on-surface-variant);
+}
+.conversation-search-bar .bar-button {
+  flex: none;
+  width: 38px;
+  height: 44px;
+}
+.search-previous svg { transform: rotate(180deg); }
+mark[data-search-key] { background: #ffd54f; color: #241a00; }
+mark[data-search-key].active { background: #ffa000; }
 /* ChatTopBarCapsule: full capsule at 4 dp tonal elevation with a 4 dp shadow. */
 .capsule {
   display: flex;
@@ -593,8 +620,6 @@ p {
 }
 .bar-button svg { width: 26px; height: 26px; fill: currentColor; }
 .bar-button.add svg { width: 30px; height: 30px; }
-.bar-button:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
-.bar-button:active { background: color-mix(in srgb, var(--md-on-surface) 12%, transparent); }
 .bar-button:disabled {
   cursor: default;
   background: transparent;
@@ -624,7 +649,7 @@ p {
 .menu-popup-layer {
   position: fixed;
   inset: 0;
-  z-index: 4;
+  z-index: 5;
   touch-action: none;
   overscroll-behavior: none;
 }
@@ -662,7 +687,6 @@ p {
 }
 .dropdown-item svg { flex: none; width: 24px; height: 24px; fill: var(--md-on-surface-variant); }
 .dropdown-item:hover, .dropdown-item:focus-visible {
-  background: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
   outline: none;
 }
 .dropdown-item:disabled {
@@ -671,6 +695,12 @@ p {
   color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
 }
 .dropdown-item:disabled svg { fill: currentColor; }
+/* The two insets the chat measures on .chat (composer top edge, capsule bottom edge). Registered
+   with a zero initial value so a calc() that uses them is always valid: unregistered, the first
+   paint and any failed measurement drop the whole declaration, which takes the message column's
+   bottom padding, the mask and the loading cover with it. */
+@property --chat-bottom-inset { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --chat-top-inset { syntax: "<length>"; inherits: true; initial-value: 0px; }
 /* One foreground viewport fades into the measured composer host; the background stays untouched. */
 .messages {
   position: relative;
@@ -701,12 +731,6 @@ p {
   justify-content: center;
   pointer-events: none;
 }
-.conversation-loading-range .spinner {
-  width: 48px;
-  height: 48px;
-  border-width: 5px;
-  color: var(--md-primary);
-}
 /* MessageList: at most 840 dp wide, 8 dp sides, 140 dp above (under the top bar), 8 dp below. */
 .message-column {
   max-width: 840px;
@@ -715,12 +739,47 @@ p {
 }
 /* MessageItem: 8 dp above and below each message. */
 .message-row { padding: 8px 0; }
+/* ChatWelcomeContent: mark above product name, centred in the visible range. The phone puts the
+   centre at (window + topBar / 2 - bottomBar) / 2, which is this box shrunk from the bottom by the
+   composer and lifted from the top by half the top bar. */
+.chat-welcome {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  box-sizing: border-box;
+  gap: 16px;
+  padding-bottom: calc(var(--chat-bottom-inset) - var(--chat-top-inset) / 2);
+  color: var(--md-on-background);
+}
+.welcome-mark { flex: none; width: 72px; height: 72px; }
+.welcome-mark svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+/* headlineMedium (28 sp / 36 sp) at FontWeight.Bold. */
+.welcome-text { font-size: 28px; line-height: 36px; font-weight: 700; white-space: pre-wrap; }
+/* chatMainContentTransition: fadeIn(500) together with scaleIn(0.6, 700, 0.2 / 0.8 / 0.2 / 1). */
+.welcome-animates {
+  transform-origin: 50% 50%;
+  animation: welcome-fade 500ms linear both, welcome-scale 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes welcome-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes welcome-scale { from { transform: scale(0.6); } to { transform: scale(1); } }
+/* typingGlyphAlpha: nothing before a glyph's reveal, 0.16 at the reveal, solid 420 ms later. */
+.welcome-animates .welcome-glyph { animation: welcome-glyph 420ms linear both; }
+@keyframes welcome-glyph { 0% { opacity: 0; } 0.02% { opacity: 0.16; } 100% { opacity: 1; } }
+.shell[data-reduce-motion="true"] :is(.welcome-animates, .welcome-glyph) { animation: none; }
 /* Layout only: an unloaded row keeps a one-line height so only rows near the screen are watched. */
 .row-placeholder { min-height: 54px; }
 /* UserMessageBubble: at the end, UserBubbleShape (27 dp corners, a 6 dp bottom-end tail). */
 .user-row { display: flex; flex-direction: column; align-items: flex-end; }
+.user-message-content { position: relative; max-width: 100%; }
+.user-hover-actions { position: absolute; right: 100%; top: 0; display: flex; opacity: 0; pointer-events: none; transition: opacity 150ms linear; }
+.user-message-content:is(:hover, :focus-within) .user-hover-actions { opacity: 1; pointer-events: auto; }
+@media (hover: none) { .user-hover-actions { position: static; justify-content: flex-end; opacity: 1; pointer-events: auto; } }
 .user-bubble {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   min-width: 54px;
   max-width: 300px;
@@ -738,8 +797,40 @@ p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.user-attachments { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; margin-bottom: 8px; }
+.user-attachment { flex: none; width: 120px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: start; }
+.user-attachment img, .attachment-missing { display: block; width: 120px; height: 90px; border-radius: 15px; object-fit: cover; background: var(--md-secondary-container); }
+.attachment-missing { display: grid; place-items: center; }
+.attachment-missing svg { width: 24px; height: 24px; fill: currentColor; }
+.user-attachment-name { display: block; max-width: 120px; font-size: 11px; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-attachment:disabled { cursor: default; }
 /* Assistant content: 8 dp in from the list edges, onSurface on the background. */
 .model-message { padding: 0 8px; color: var(--md-on-surface); }
+/* AssistantInlineActivity owns one 24 px slot under the turn so nothing jumps when the phone
+ * switches between the breathing dot, the retry line and the terminal text. The dot is
+ * GenerationActivityDot: 11 dp of onBackground breathing 0.55-1.30 every second and back. */
+.generation-activity {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  font-size: 16px;
+  line-height: 24px;
+  color: color-mix(in srgb, var(--md-on-surface-variant) 55%, transparent);
+}
+.generation-activity.generation-terminal { padding: 8px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.generation-dot {
+  flex: none;
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--md-on-background);
+  animation: generation-dot-breathe 1000ms cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+@keyframes generation-dot-breathe { from { transform: scale(0.55); } to { transform: scale(1.3); } }
+.generation-retry { position: relative; display: inline-block; }
+.generation-retry-dot { position: absolute; top: 6.5px; left: 8px; }
+.shell[data-reduce-motion="true"] .generation-dot { animation: none; }
 /* Cards extend past the assistant's 8 px inset and the list's 8 px inset to a 4 px edge. */
 .info-group, .info-card { width: calc(100% + 24px); margin-left: -12px; }
 .info-group { padding: 8px 0 10px; }
@@ -778,14 +869,6 @@ p {
 .info-group-header:disabled { cursor: default; }
 .info-header-icon { flex: none; display: grid; place-items: center; width: 18px; height: 18px; }
 .info-header-icon svg { width: 18px; height: 18px; fill: currentColor; }
-.card-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 800ms linear infinite;
-}
 .info-header-title {
   flex: 1;
   min-width: 0;
@@ -812,8 +895,21 @@ p {
 .info-group.sheet-mode .info-disclosure svg { transform: rotate(-90deg); }
 .info-group-reveal { display: grid; width: var(--card-expanded-width, 100%); grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 400ms, opacity 400ms; }
 .info-group.expanded .info-group-reveal { grid-template-rows: 1fr; opacity: 1; }
-.info-group-items { min-height: 0; overflow: hidden; }
+.info-group-items { min-height: 0; overflow: hidden; padding: 0 10px; }
 .info-group.expanded .info-group-items { padding: 2px 10px 12px; }
+/* CompactSegmentBlock clips each full-width option to 18 dp before its 10 / 8 dp padding. */
+.info-group :is(.timeline-item, .compact-item) {
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
 .info-item { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .info-item-text { flex: 1; min-width: 0; }
 .info-item-title {
@@ -865,7 +961,8 @@ p {
   inset: 0;
   width: 100%;
   border: 0;
-  background: rgb(0 0 0 / 0.32);
+  /* SmoothBottomSheet dims with 0.32 * fraction: 0.14 at the 0.45 partial anchor, 0.30 at 0.94. */
+  background: rgb(0 0 0 / 0.14);
   backdrop-filter: blur(4px);
   cursor: default;
 }
@@ -888,9 +985,7 @@ p {
   color: var(--md-on-surface);
   box-shadow: var(--shadow-8);
   transform: translateX(-50%);
-  transition: height 350ms cubic-bezier(0.2, 0, 0, 1);
 }
-.detail-sheet.expanded { height: 94vh; height: 94dvh; }
 .detail-sheet-handle {
   display: grid;
   place-items: center;
@@ -949,7 +1044,6 @@ p {
   background: color-mix(in srgb, var(--md-surface-variant) 25%, transparent);
 }
 .detail-sheet-icon svg { width: 24px; height: 24px; fill: currentColor; }
-.detail-sheet-icon:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
 .detail-sheet-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .detail-sheet-page { min-height: 100%; animation: sheet-detail-enter 240ms ease-out both; }
 .detail-sheet-page.list-page { animation-name: sheet-list-enter; }
@@ -970,7 +1064,6 @@ p {
   text-align: start;
   cursor: pointer;
 }
-.info-item.sheet-item:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
 .detail-sheet-list-row .info-item-icon { color: var(--md-primary); }
 .detail-sheet-list-row .info-item-title, .detail-sheet-list-row .info-item-summary { color: var(--md-on-surface-variant); }
 .detail-sheet-list-row .info-item-arrow { color: color-mix(in srgb, var(--md-on-surface-variant) 50%, transparent); }
@@ -1013,7 +1106,6 @@ p {
 .tool-line-number { flex: none; padding: 2px 6px; border-radius: 5px; background: var(--md-surface-container-highest); color: var(--md-on-surface-variant); font-size: 12px; line-height: 17px; }
 .tool-search-result { display: block; padding: 12px 8px; border-radius: 12px; color: var(--md-on-surface); text-decoration: none; overflow-wrap: anywhere; }
 .tool-search-result + .tool-search-result { border-top: 1px solid color-mix(in srgb, var(--md-outline-variant) 35%, transparent); }
-a.tool-search-result:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
 .tool-search-title { font-size: 16px; line-height: 24px; font-weight: 600; }
 .tool-search-snippet { margin-top: 4px; color: var(--md-on-surface-variant); font-size: 13px; line-height: 19px; }
 .tool-search-url { margin-top: 6px; color: var(--md-primary); font-size: 11px; line-height: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1026,8 +1118,7 @@ a.tool-search-result:hover { background: color-mix(in srgb, var(--md-on-surface)
 .tool-image[data-state="loaded"] img { opacity: 1; }
 .tool-image-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: var(--md-surface-container-highest); opacity: 0; pointer-events: none; transition: opacity 200ms linear; }
 .tool-image[data-state="loading"] .tool-image-overlay.loading, .tool-image[data-state="failed"] .tool-image-overlay.failed { opacity: 1; }
-.tool-image .spinner { width: 28px; height: 28px; border-width: 2px; }
-.tool-image:not([data-state="loading"]) .spinner { animation: none; }
+.tool-image:not([data-state="loading"]) .circular-progress :is(svg, g, circle) { animation: none; }
 .tool-image-failed { color: var(--md-error); }
 .tool-image-failed svg { width: 32px; height: 32px; fill: currentColor; }
 .tool-media-viewer { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: black; color: white; }
@@ -1042,10 +1133,10 @@ a.tool-search-result:hover { background: color-mix(in srgb, var(--md-on-surface)
 .tool-media-previous, .tool-media-next { position: absolute; top: 50%; transform: translateY(-50%); }
 .tool-media-previous { left: 20px; }
 .tool-media-next { right: 20px; }
-.shell[data-reduce-motion="true"] :is(.spinner, .card-spinner, .detail-sheet, .detail-sheet-page) {
+.shell[data-reduce-motion="true"] :is(.detail-sheet, .detail-sheet-page) {
   animation: none !important;
 }
-.shell[data-reduce-motion="true"] .detail-sheet { transition: none !important; }
+.shell[data-reduce-motion="true"] .detail-sheet { transition: none !important; animation: none !important; }
 /* An error message: centered, errorContainer, 12 dp corners. */
 .model-message.error {
   width: fit-content;
@@ -1158,10 +1249,53 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
   cursor: pointer;
 }
 .code-copy svg { width: 14px; height: 14px; fill: currentColor; }
-.code-copy:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
 .code-block pre { margin: 0; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .nowrap .code-block pre { white-space: pre; overflow-wrap: normal; overflow-x: auto; }
 /* ChatComposerSurface: 12 dp above, 8 dp around, content at most 840 dp. */
+/* ChatUserInteractionBar: the card floats in the bottom-bar layer, aligned to the composer's top
+   edge, and never takes part in the chat body's layout. 840 dp box with the phone's 12 dp inset. */
+.interaction-host {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% - 12px);
+  width: min(100%, 816px);
+  margin: 0 auto;
+  pointer-events: none;
+}
+.interaction-card { position: absolute; bottom: 0; width: 100%; box-sizing: border-box; border-radius: 24px; overflow: hidden; background: var(--md-surface-container-high); color: var(--md-on-surface); transform-origin: 50% 100%; box-shadow: 0 2px 8px #0003; pointer-events: auto; }
+.interaction-full { padding: 14px 16px; box-sizing: border-box; }
+.interaction-capsule { position: absolute; top: 0; left: 0; height: 48px; width: max-content; display: flex; align-items: center; gap: 8px; padding: 0 16px; border: 0; border-radius: 24px; background: transparent; color: var(--md-primary); opacity: 0; }
+.interaction-card:not(.folded) .interaction-capsule { pointer-events: none; }
+.interaction-header { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 14px; }
+.interaction-header > svg, .interaction-capsule > svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
+.interaction-header > svg { color: var(--md-primary); }
+.interaction-server { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.interaction-position { margin-left: auto; white-space: nowrap; color: var(--md-on-surface-variant); }
+.interaction-header .icon-button { width: 32px; height: 32px; flex: none; }
+.interaction-pages { position: relative; overflow: hidden; margin-top: 8px; }
+.interaction-body { width: 100%; box-sizing: border-box; }
+.interaction-outgoing { position: absolute; top: 0; left: 0; pointer-events: none; }
+.interaction-question { font-size: 14px; line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 10px; }
+.interaction-body:has(.interaction-question) { max-height: 200px; overflow-y: auto; }
+.interaction-options { display: flex; flex-direction: column; gap: 4px; }
+.interaction-answer { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 180ms cubic-bezier(.4,0,.2,1), opacity 180ms cubic-bezier(.4,0,.2,1); }
+.interaction-answer.open { grid-template-rows: 1fr; opacity: 1; }
+.interaction-answer > div { min-height: 0; overflow: hidden; }
+.shell[data-reduce-motion="true"] .interaction-answer { transition: none; }
+.interaction-option { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 12px; box-sizing: border-box; border-radius: 24px; overflow: hidden; cursor: pointer; font-size: 14px; }
+.interaction-option.selected { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+.interaction-option span { overflow-wrap: anywhere; min-width: 0; }
+.interaction-body textarea { width: 100%; box-sizing: border-box; margin-top: 8px; border: 1px solid var(--md-outline); border-radius: 16px; padding: 10px 12px; color: inherit; background: transparent; font: inherit; resize: vertical; max-height: 200px; }
+.interaction-body pre { max-height: 200px; overflow: auto; padding: 12px; margin: 0; border-radius: 8px; background: var(--md-surface-container-high); font-size: 13px; }
+.interaction-body pre.wrapped { white-space: pre-wrap; overflow-wrap: anywhere; }
+.interaction-trust { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 8px; font-size: 14px; }
+.interaction-card input { accent-color: var(--md-primary); flex: none; width: 18px; height: 18px; }
+.interaction-actions { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+.interaction-actions button { min-height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--md-primary); border-radius: 20px; font: inherit; font-size: 14px; cursor: pointer; }
+.interaction-actions .filled-button { background: var(--md-primary); color: var(--md-on-primary); }
+.interaction-actions .deny { color: var(--md-error); }
+.interaction-action-space { flex: 1; }
 .composer-host {
   position: relative;
   z-index: 1;
@@ -1221,6 +1355,18 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 }
 .expand-button svg { width: 20px; height: 20px; fill: currentColor; }
 .expand-button:disabled { color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.composer-expanded {
+  position: absolute;
+  inset: auto 0 0;
+  height: calc(100% - var(--chat-top-inset));
+  padding-top: 8px;
+  background: linear-gradient(transparent 20px, var(--md-background) 60px);
+}
+.composer-expanded .composer { display: flex; flex-direction: column; height: 100%; position: relative; padding-top: 52px; }
+.composer-expanded .composer-field { flex: 1; min-height: 0; position: static; }
+.composer-expanded .composer-field textarea { height: 100%; max-height: none; }
+.composer-expanded .expand-button { top: 12px; right: 8px; }
+.chat-composer-expanded .messages { mask-image: none; }
 /* Controls row: 6 dp above, 10 dp from the card sides. */
 .composer-controls {
   display: flex;
@@ -1283,9 +1429,9 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
   color: var(--md-on-surface-variant);
 }
 .send-button svg { width: 24px; height: 24px; fill: currentColor; }
-.send-button { flex: none; transition: background-color 400ms, color 400ms; }
+/* transition is one property, so the state layer rides along with the send phase colors. */
+.send-button { flex: none; --md-component-transition: background-color 400ms, color 400ms; }
 .send-button:not(:disabled) { background: var(--md-primary); color: var(--md-on-primary); }
-.send-button .spinner { width: 24px; height: 24px; border-width: 3px; }
 .chat-snackbar {
   position: absolute;
   z-index: 1;
@@ -1307,6 +1453,40 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .composer-menu { max-width: calc(100vw - 16px); max-height: min(480px, 50dvh); overflow-y: auto; }
 .composer-menu .dropdown-item { height: auto; min-height: 48px; white-space: normal; overflow-wrap: anywhere; }
 .composer-menu .dropdown-item > span:last-child { min-width: 0; }
+/*
+ * Composer context indicator (the phone's ComposerContextIndicator): a 20 dp ring with a 2.5 dp
+ * stroke, then a 240 dp popup holding the same 12 dp segmented bar and legend as ContextCompositionBar
+ * — 2 dp gaps, a 4 dp minimum so a part that holds tokens stays visible, the reserve flush right.
+ * Segment colors are fixed for the same reason the phone fixes them: a seeded scheme makes the muted
+ * roles nearly identical, and this is categorical data.
+ */
+.context-ring .circular-progress circle { transition: stroke-dasharray 400ms cubic-bezier(.4, 0, .2, 1), stroke-dashoffset 400ms cubic-bezier(.4, 0, .2, 1); }
+.context-ring[data-over="true"] .circular-progress { color: var(--md-error); }
+.context-menu { width: 240px; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; }
+.context-menu-head { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500;
+  line-height: 20px; color: var(--md-on-surface); }
+.context-menu-head > span:last-child { margin-left: auto; }
+.context-bar { position: relative; height: 12px; border-radius: 6px; overflow: hidden; background: var(--md-surface-variant); }
+.context-reserved { position: absolute; top: 0; right: 0; bottom: 0; min-width: 4px; background: var(--md-outline);
+  transition: width 400ms cubic-bezier(.4, 0, .2, 1); }
+.context-reserved[data-empty="true"] { min-width: 0; }
+.context-segments { position: absolute; inset: 0; display: flex; gap: 2px; }
+.context-part { display: block; min-width: 4px; transition: width 400ms cubic-bezier(.4, 0, .2, 1); }
+.context-part[data-empty="true"] { min-width: 0; }
+.context-part-system, .context-dot-system { background: #3dd6a0; }
+.context-part-tools, .context-dot-tools { background: #5b9dff; }
+.context-part-messages, .context-dot-messages { background: #f2c14e; }
+.context-part-messages.context-over, .context-dot-messages.context-over { background: var(--md-error); }
+.context-legend { display: flex; flex-direction: column; gap: 6px; }
+.context-legend-row { display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 20px;
+  color: var(--md-on-surface); }
+.context-legend-row > span:last-child { margin-left: auto; padding-left: 12px; color: var(--md-on-surface-variant); }
+.context-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.context-dot-free { background: var(--md-surface-variant); }
+.context-dot-reserved { background: var(--md-outline); }
+.shell[data-reduce-motion="true"] :is(.context-ring .circular-progress circle, .context-reserved, .context-part) {
+  transition: none;
+}
 .attachment-input { display: none; }
 .attachment-row { display: flex; gap: 8px; padding: 4px 8px 8px; overflow-x: auto; }
 .attachment-tile { position: relative; flex: 0 0 64px; width: 64px; height: 64px; }
@@ -1319,12 +1499,17 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .attachment-status.pdf-placeholder { background: rgb(229 57 53 / 15%); color: #e53935; }
 .attachment-progress { background: rgb(0 0 0 / 40%); }
 .attachment-error { background: rgb(0 0 0 / 25%); color: #b0b0b0; }
-.attachment-status .spinner { width: 24px; height: 24px; border-width: 3px; color: var(--md-primary); }
 .attachment-tile[data-state="failed"] .attachment-status { color: var(--md-error); }
 .attachment-remove { position: absolute; top: -4px; right: -4px; display: grid; place-items: center; width: 20px; height: 20px; padding: 2px; border: 0; border-radius: 50%; background: var(--md-surface-container); color: var(--md-on-surface); }
 .attachment-remove svg { width: 16px; height: 16px; fill: currentColor; }
 .attachment-editor { width: min(420px, calc(100vw - 48px)); max-height: calc(100dvh - 48px); padding: 0; border: 0; border-radius: 16px; background: var(--md-surface-container); color: var(--md-on-surface); overflow: auto; }
 .attachment-editor::backdrop { background: rgb(0 0 0 / 32%); }
+.page-dialog { border-radius: 28px; }
+.prompt-options { max-height: 50dvh; overflow: auto; margin-top: 12px; }
+.prompt-options .prompt-option { display: flex; align-items: center; gap: 16px; min-height: 48px; padding: 8px; border-radius: 24px; color: var(--md-on-surface); cursor: pointer; }
+.prompt-option input { flex: none; accent-color: var(--md-primary); }
+.prompt-option span { min-width: 0; overflow-wrap: anywhere; }
+.page-dialog .share-output { width: 100%; min-height: 240px; max-height: 50dvh; margin-top: 12px; resize: none; border: 0; background: transparent; color: var(--md-on-surface); font: inherit; font-size: 13px; line-height: 20px; }
 .attachment-editor section { padding: 20px; }
 .attachment-editor h2 { margin: 0 0 4px; font-size: 23px; line-height: 29px; }
 .attachment-editor p { color: var(--md-on-surface-variant); font-size: 13px; line-height: 19px; margin: 4px 0 12px; }
@@ -1334,7 +1519,7 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .attachment-editor footer { justify-content: flex-end; margin-top: 16px; }
 .attachment-editor label { display: grid; gap: 8px; color: var(--md-primary); font-size: 13px; }
 .attachment-editor input[type="number"] { width: 100%; padding: 12px; background: transparent; color: var(--md-on-surface); border: 1px solid var(--md-outline); border-radius: 4px; font: inherit; }
-.attachment-editor input[type="range"] { width: 100%; accent-color: var(--md-primary); }
+.attachment-editor input[type="range"] { width: 100%; }
 .video-modes { display: flex; gap: 8px; margin: 12px 0; }
 .video-modes button { flex: 1; background: var(--md-surface-variant); }
 .video-modes button[aria-pressed="true"] { background: var(--md-primary-container); color: var(--md-on-primary-container); }
@@ -1352,16 +1537,20 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .attachment-full-image, .attachment-viewer > video { transition: opacity 200ms linear; }
 .attachment-viewport-status { position: absolute; inset: 0; display: grid; place-items: center; background: black; pointer-events: none; transition: opacity 200ms linear; }
 .attachment-viewport-status svg { width: 32px; height: 32px; fill: currentColor; }
-.attachment-viewport-status .spinner, .pdf-loading .spinner { border-width: 3px; color: var(--md-primary); }
 .attachment-viewer .tool-media-count { max-width: calc(100% - 60px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-viewer .tool-media-previous svg { transform: rotate(180deg); }
 .text-file-viewer { background: var(--md-background); color: var(--md-on-background); }
 .text-file-content { padding: 92px 24px 32px; height: 100%; overflow: auto; }
 .text-file-content pre { font: inherit; font-size: 13px; line-height: 20px; margin: 0; }
 .model-check { width: 24px; flex: none; }
+/* QUEUED_MESSAGE_HORIZONTAL_INSET: 4 dp on top of the card's own 4 dp, so the 20 dp capsule sits
+   8 dp inside the 28 dp composer card and stays concentric with it. */
+.queue-status { position: relative; margin: 0 4px; height: 0; }
+.queue-status-frame { position: absolute; bottom: 0; left: 0; right: 0; }
+.queue-status-frame[inert] { pointer-events: none; }
 .queued-message {
   display: flex; align-items: center; gap: 4px; height: 40px;
-  margin: 0 8px 4px; padding: 0 4px 0 16px; border-radius: 20px;
+  margin: 0 0 4px; padding: 0 4px 0 16px; border-radius: 20px;
   background: var(--md-secondary-container); color: var(--md-on-secondary-container);
   font-size: 14px; font-weight: 500;
 }
@@ -1395,7 +1584,7 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .tool-setting-header .tool-switch[data-checked="true"]::after { top: 2px; left: 22px; width: 24px; height: 24px; }
 .tool-settings strong { font-size: 16px; line-height: 24px; font-weight: 500; }
 .tool-settings [data-disabled="true"] { opacity: 0.38; }
-.tool-settings input[type="range"] { width: 100%; margin: 8px 0 0; height: 44px; accent-color: var(--md-primary); }
+.tool-settings input[type="range"] { width: 100%; margin: 8px 0 0; }
 .conversation-editor { border-radius: 28px; }
 .conversation-editor section { padding: 24px; }
 .conversation-editor h2 { margin-bottom: 16px; }
@@ -1427,3 +1616,131 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .shell[data-reduce-motion="true"] .tool-switch::after { transition-property: background; }
 .shell[data-reduce-motion="true"] .tool-advanced svg { transition: none; }
 .shell[data-reduce-motion="true"] .tool-budget-section { transition: opacity 400ms, visibility 400ms; }
+
+
+
+/* ---- Selection controls: the phone's Checkbox and RadioButton, drawn here ------------------- */
+/* Material 3 draws both controls itself: an 18-20 dp box with a 2 dp border, the fill and the mark
+   in primary, everything at 38 % when off, and a state layer only while the pointer is over it. The
+   browser box cannot be tinted past accent-color, so appearance: none hands the drawing over while
+   the input keeps focus, keyboard interaction and the form value. */
+.interaction-option input, .prompt-option input, .interaction-trust input {
+  appearance: none; -webkit-appearance: none; flex: none; display: grid; place-content: center;
+  width: 20px; height: 20px; margin: 0; padding: 0; box-sizing: border-box; cursor: pointer;
+  border: 2px solid color-mix(in srgb, var(--md-on-surface) 55%, transparent); background: transparent;
+  transition: border-color 120ms linear, background-color 120ms linear, box-shadow 120ms linear;
+}
+.interaction-option input[type="checkbox"], .interaction-trust input[type="checkbox"] { border-radius: 2px; }
+.interaction-option input[type="radio"], .prompt-option input[type="radio"] { border-radius: 50%; }
+:is(.interaction-option, .prompt-option, .interaction-trust) input:is(:hover, :focus-visible):not(:disabled) {
+  box-shadow: 0 0 0 9px color-mix(in srgb, var(--md-on-surface) 8%, transparent);
+}
+:is(.interaction-option, .prompt-option, .interaction-trust) input:checked:not(:disabled) {
+  border-color: var(--md-primary); background: var(--md-primary);
+}
+/* The check is the phone's 10 x 5 glyph; the radio keeps a 10 dp dot inside its ring. */
+:is(.interaction-option, .interaction-trust) input[type="checkbox"]:checked:not(:disabled)::after {
+  content: ""; width: 10px; height: 5px; border: 2px solid var(--md-on-primary);
+  border-top: 0; border-right: 0; transform: rotate(-45deg) translate(0, -1px);
+}
+.prompt-option input[type="radio"]:checked:not(:disabled)::after,
+.interaction-option input[type="radio"]:checked:not(:disabled)::after {
+  content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--md-primary);
+}
+:is(.interaction-option, .prompt-option, .interaction-trust) input:disabled { cursor: default; opacity: 0.38; }
+.shell[data-reduce-motion="true"] :is(.interaction-option, .prompt-option, .interaction-trust) input { transition: none; }
+/* An option row is the whole touch target on the phone, so the pointer highlight sits on the row. */
+.interaction-option, .prompt-option { --md-component-transition: background-color 120ms linear, color 120ms linear; }
+.shell[data-reduce-motion="true"] :is(.interaction-option, .prompt-option) { transition: none; }
+
+/* ---- The animated scrollbar ----------------------------------------------------------------- */
+/* Chrome paints ::-webkit-scrollbar-thumb on the compositor and runs no CSS transition on it (4 dp
+   to 12 dp in a single frame), so the visible bar lives in the DOM. material/scrollbar.js keeps the
+   native bar for hit-testing, paints this pill over its gutter and pins its top edge to scrollTop;
+   only width, colour and opacity animate, so the bar never lags behind the content. */
+.scrollbar-overlay {
+  --scrollbar-size: 4px;
+  position: absolute; right: 0; top: 0; height: 0; width: 12px; z-index: 3;
+  pointer-events: none; opacity: 0; transition: opacity 200ms linear;
+}
+.scrollbar-overlay.scrollable { opacity: 1; }
+.scrollbar-overlay > span {
+  position: absolute; left: calc(6px - var(--scrollbar-size) / 2); width: var(--scrollbar-size);
+  border-radius: 999px; background: color-mix(in srgb, var(--md-outline) 42%, transparent);
+  transition: width 150ms cubic-bezier(.2, 0, 0, 1), left 150ms cubic-bezier(.2, 0, 0, 1), background-color 150ms linear;
+}
+:is(.scrollbar-overlay.hover, .scrollbar-overlay.scrolling, .scrollbar-overlay.dragging) { --scrollbar-size: 7px; }
+.scrollbar-overlay:is(.hover, .scrolling) > span {
+  background: color-mix(in srgb, var(--md-outline) 68%, transparent);
+}
+.scrollbar-overlay.dragging > span { background: color-mix(in srgb, var(--md-outline) 92%, transparent); }
+.shell[data-reduce-motion="true"] .scrollbar-overlay > span { transition: none; }
+/* The DOM bar replaces the native one over the chat only; every other surface keeps the CSS bar. */
+@supports selector(::-webkit-scrollbar) {
+  @media (pointer: fine) {
+    .messages::-webkit-scrollbar-thumb,
+    .messages::-webkit-scrollbar-thumb:hover,
+    .messages::-webkit-scrollbar-thumb:active { background: transparent; }
+  }
+}
+@supports not selector(::-webkit-scrollbar) { .scrollbar-overlay { display: none; } }
+
+/* ---- Row furniture: source label, action line, compact pill --------------------------------- */
+/* MessageSourceLabel: a 14 dp icon and labelSmall 4 dp above an automatic user bubble. */
+.message-source {
+  display: flex; align-items: center; gap: 4px; padding: 0 4px 4px 0;
+  color: var(--md-on-surface-variant); font-size: 11px; line-height: 16px; letter-spacing: 0.5px;
+}
+.message-source svg { flex: none; width: 14px; height: 14px; fill: currentColor; }
+/* AskUserAnswerBlocks: questions read one size below the 15 sp body at 60 %, answers at the body. */
+.ask-user-question { font-size: 14px; line-height: 20px; color: color-mix(in srgb, currentColor 60%, transparent); }
+.ask-user-answer.unanswered { color: color-mix(in srgb, currentColor 60%, transparent); }
+/* AssistantMessageContent's action Box: 44 dp with 12 dp of top padding and 2 dp between icons. */
+.message-actions {
+  display: flex; align-items: center; gap: 2px; height: 44px; padding-top: 12px; box-sizing: border-box;
+  animation: message-actions-in 320ms linear backwards;
+}
+.message-actions.answer-tail { animation: none; }
+@keyframes message-actions-in { from { opacity: 0; } }
+.shell[data-reduce-motion="true"] .message-actions { animation: none; }
+.row-action {
+  position: relative; flex: none; width: 32px; height: 32px; display: grid; place-content: center;
+  border: 0; padding: 0; border-radius: 50%; background: transparent; cursor: pointer;
+  color: color-mix(in srgb, var(--md-on-surface-variant) 60%, transparent);
+  --md-component-transition: color 120ms linear;
+}
+.row-action svg { width: var(--row-icon, 18px); height: var(--row-icon, 18px); fill: currentColor; }
+.row-action:disabled { cursor: default; color: color-mix(in srgb, var(--md-on-surface-variant) 30%, transparent); }
+.shell[data-reduce-motion="true"] .row-action { transition: none; }
+.dropdown-item.destructive, .dropdown-item.destructive svg { color: var(--md-error); fill: var(--md-error); }
+.page-dialog footer button.destructive { color: var(--md-error); }
+/* ContextCompactPill: 42 dp tall, fully rounded, a 32 dp mark slot and one labelLarge line. */
+.compact-row { display: flex; align-items: center; gap: 7px; min-height: 42px; }
+.compact-pill {
+  display: flex; align-items: center; gap: 7px; min-height: 42px; padding: 0 7px; border-radius: 100px;
+  background: var(--md-secondary-container); color: var(--md-on-secondary-container);
+  transition: background-color 240ms linear, color 240ms linear;
+}
+.compact-pill.error {
+  background: color-mix(in srgb, var(--md-surface-variant) 40%, transparent);
+  color: color-mix(in srgb, var(--md-on-surface-variant) 80%, transparent);
+}
+.compact-mark { flex: none; width: 32px; height: 32px; display: grid; place-content: center; }
+.compact-mark svg { width: 18px; height: 18px; fill: currentColor; }
+.compact-label {
+  font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.shell[data-reduce-motion="true"] .compact-pill { transition: none; }
+/* MessageInfoDialog and the inline editor read as the phone's dialog body. */
+.message-info-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.message-info-list li { font-size: 14px; line-height: 20px; color: var(--md-on-surface-variant); overflow-wrap: anywhere; }
+.message-edit {
+  width: 100%; box-sizing: border-box; min-height: 120px; max-height: 40dvh; margin-top: 12px;
+  padding: 16px; border: 1px solid var(--md-outline); border-radius: 16px; background: transparent;
+  color: var(--md-on-surface); font: inherit; resize: vertical;
+
+}
+
+button.info-item:focus-visible { outline: none; }
+.info-card .timeline-item, .detail-sheet-list-row .timeline-item { border-radius: 8px; overflow: hidden; }
