@@ -367,7 +367,7 @@ class WebUiSyncTest {
         send("""{"type":"watch","messageIds":["m1","m2"]}""")
         val payloads = received().filter { it.type == "payload" }.map { it["message"]!!.jsonObject }
         assertEquals(listOf("m1"), payloads.map { it.string("id") })
-        val text = payloads.single()["text"]!!.jsonObject
+        val text = payloads.single()["presentation"]!!.jsonObject["answer"]!!.jsonObject
         // parseLatexSpans moves the spaces around inline math into the formula's source.
         assertEquals("x${MATH_OPEN}0${MATH_CLOSE}y", text.string("markdown"))
         val math = text["math"]!!.jsonArray.single().jsonObject

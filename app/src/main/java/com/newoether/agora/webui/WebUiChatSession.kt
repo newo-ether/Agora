@@ -16,6 +16,7 @@ import com.newoether.agora.viewmodel.CompactRequest
 import com.newoether.agora.viewmodel.CompactResult
 import com.newoether.agora.viewmodel.CompactFailureReason
 import com.newoether.agora.model.isContextCompact
+import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.OpenAiServiceTiers
@@ -29,21 +30,18 @@ import com.newoether.agora.viewmodel.BranchReplacementTransitionCoordinator
 import com.newoether.agora.viewmodel.ChatClient
 import com.newoether.agora.viewmodel.ChatClients
 import com.newoether.agora.viewmodel.ComposerDraftController
-import com.newoether.agora.viewmodel.ComposerDraftPersistence
 import com.newoether.agora.viewmodel.ConversationComposerController
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionController
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionSnapshot
 import com.newoether.agora.viewmodel.ConversationRenderStore
 import com.newoether.agora.viewmodel.ConversationStateRegistry
 import com.newoether.agora.viewmodel.ConversationUiStateAssembler
-import com.newoether.agora.viewmodel.ConversationWorkspaceDraft
 import com.newoether.agora.viewmodel.GenerationStopAdapter
 import com.newoether.agora.viewmodel.MessageGenerationController
 import com.newoether.agora.viewmodel.NEW_CHAT_WORKSPACE_ID
 import com.newoether.agora.viewmodel.NewChatWorkspaceSnapshot
 import com.newoether.agora.viewmodel.resolveValidModel
 import com.newoether.agora.viewmodel.validChatModels
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import java.io.File
 import com.newoether.agora.model.SelectedAttachment
@@ -58,8 +56,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
-import com.newoether.agora.data.repository.decodeSelectedAttachments
-import com.newoether.agora.data.repository.removedReclaimablePaths
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -142,6 +138,9 @@ internal class WebUiChatSession(
         val generationDefaults: ConversationSettings = ConversationSettings(),
         val compactDefaults: CompactRequest? = null,
         val compacting: Boolean = false,
+        val systemPromptId: String? = null,
+        val systemPrompts: List<com.newoether.agora.data.SystemPromptEntry> = emptyList(),
+        val activeSystemPromptId: String? = null,
     )
 
     private val target = MutableStateFlow(OpenTarget(null, browserSeq = 0L, movedByServer = false))
@@ -179,6 +178,11 @@ internal class WebUiChatSession(
     /** Model chosen on this browser's New Chat page; null follows the default model. */
     private val newChatModelId = MutableStateFlow<String?>(null)
     private val newChatSettings = MutableStateFlow<ConversationSettings?>(null)
+    private val newChatSystemPromptId = MutableStateFlow<String?>(null)
+    private val selectedSystemPrompt = openId.flatMapLatest { id ->
+        (if (id == null) newChatSystemPromptId else conversations.observeConversation(id).map { it?.systemPromptId })
+            .map { id to it }
+    }.stateIn(scope, SharingStarted.Eagerly, null)
     private val validModels = settings.validChatModels(scope)
     private val runtimeFacade = CurrentConversationRuntimeFacade(openId, registry, scope)
     private val modelLabels = combine(
@@ -207,6 +211,7 @@ internal class WebUiChatSession(
         settings.defaultTemperature, settings.defaultMaxTokens, settings.defaultTopP,
         settings.defaultFrequencyPenalty, settings.defaultPresencePenalty,
         settings.contextCompactModel, settings.contextCompactPrompt, settings.contextCompactRetainCount,
+        selectedSystemPrompt, settings.systemPrompts, settings.activeSystemPromptId,
     )) { Unit }
     private fun selectedProvider(id: String?): String {
         val model = activeModel.value?.takeIf { it.first == id }?.second.orEmpty()
@@ -243,7 +248,7 @@ internal class WebUiChatSession(
                     NewChatWorkspaceSnapshot(
                         persisted = null,
                         modelId = newChatModelId.value,
-                        systemPromptId = null,
+                        systemPromptId = newChatSystemPromptId.value,
                         conversationSettings = newChatSettings.value,
                         sessionLocal = true,
                     )
@@ -257,6 +262,7 @@ internal class WebUiChatSession(
             generation.sendMessage(admission, text, attachments, { accepted ->
                 if (admission.target.wasNewChat) ownerMutex.withLock {
                     if (newChatSettings.value == admission.newConversationSettings) newChatSettings.value = null
+                    if (newChatSystemPromptId.value == admission.target.newChatWorkspace?.systemPromptId) newChatSystemPromptId.value = null
                 }
                 onAccepted(accepted)
             }, this@WebUiChatSession)
@@ -310,6 +316,8 @@ internal class WebUiChatSession(
                             CompactRequest(settings.contextCompactModel.value ?: activeModel.value?.second.orEmpty(),
                                 settings.contextCompactPrompt.value, settings.contextCompactRetainCount.value),
                             compacting,
+                            selectedSystemPrompt.value?.takeIf { it.first == selected.conversationId }?.second,
+                            settings.systemPrompts.value, settings.activeSystemPromptId.value,
                         )
                     }
                 }
@@ -328,12 +336,37 @@ internal class WebUiChatSession(
     suspend fun open(conversationId: String?, seq: Long) = ownerMutex.withLock {
         if (conversationId == null) {
             newChatEntryId.incrementAndGet()
+        } else {
+            // UnreadGenerationAcknowledger: seeing a conversation is what clears its unread dot.
+            // The phone clears it while the conversation is visible; the browser clears it on open.
+            conversations.setConversationUnreadGeneration(conversationId, unread = false)
         }
         editRevision.value = 0L
         actionId.value = 0L
         target.value = OpenTarget(conversationId, seq, movedByServer = false)
         openId.value = conversationId
         retainOwnerLocked(conversationId ?: NEW_CHAT_WORKSPACE_ID)
+    }
+
+    /**
+     * One row-level command: the browser names a row, and the phone's own owners decide the branch.
+     * [path] is the branch this connection is showing, because the phone resolves its generation
+     * boundary inside the rows the browser can actually see.
+     */
+    suspend fun rowCommand(command: WebSyncCommand, path: List<ChatMessage>) {
+        val opened = openTarget.value
+        if (opened.browserSeq != command.seq) return
+        val conversationId = opened.conversationId ?: return
+        val messageId = command.messageId ?: return
+        val modelId = activeModel.value?.takeIf { it.first == conversationId }?.second.orEmpty()
+        val text = command.text.orEmpty()
+        when (command.type) {
+            "edit" -> if (modelId.isNotBlank() && text.isNotBlank()) generation.editMessage(this, conversationId,
+                messageId, text, modelId, path)
+            "regenerate" -> if (modelId.isNotBlank()) generation.regenerate(this, conversationId, messageId,
+                modelId, path)
+            "delete" -> generation.deleteMessage(this, conversationId, messageId, path)
+        }
     }
 
     /** Applies one ordered browser edit to the canonical composer owner. */
@@ -393,6 +426,17 @@ internal class WebUiChatSession(
     suspend fun editorCommand(command: WebSyncCommand) {
         val captured = ownerMutex.withLock {
             if (closed || retainedOwner == null || command.seq != target.value.browserSeq || command.conversationId != openId.value) return@withLock null
+            if (command.type == "system_prompt") {
+                try {
+                    if (effectiveControls(openId.value).lowContextModeEnabled ||
+                        (command.value != null && settings.systemPrompts.value.none { it.id == command.value })) return@withLock null
+                    val id = openId.value
+                    if (id == null) newChatSystemPromptId.value = command.value
+                    else if (!conversations.updateConversationSystemPrompt(id, command.value)) return@withLock null
+                    selectedSystemPrompt.first { it?.first == id && it?.second == command.value }
+                } finally { actionId.value = command.actionId }
+                return@withLock null
+            }
             if (command.type == "advanced") {
                 try {
                     val draft = command.parameters ?: return@withLock null
@@ -719,7 +763,13 @@ internal class WebUiChatSession(
         scope.launch { ownerMutex.withLock { moveByServer(conversationId) } }
     }
 
-    // The browser offers no share action.
+    suspend fun openForkIfCurrent(conversationId: String, expected: OpenTarget): Boolean = ownerMutex.withLock {
+        if (closed || target.value != expected) return@withLock false
+        moveByServer(conversationId)
+        true
+    }
+
+    // WebUiSync delivers identified share results directly to the browser.
     override fun showShareText(text: String) = Unit
 
     override fun settleDeletedConversation(conversationId: String) {

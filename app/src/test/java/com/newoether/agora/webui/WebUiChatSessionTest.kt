@@ -98,6 +98,8 @@ class WebUiChatSessionTest {
         every { debugModelEnabled } returns MutableStateFlow(false)
         every { modelAliases } returns MutableStateFlow(emptyMap())
         every { modelProviderNames } returns MutableStateFlow(emptyMap())
+        every { systemPrompts } returns MutableStateFlow(emptyList())
+        every { activeSystemPromptId } returns MutableStateFlow(null)
         every { customProviders } returns MutableStateFlow(emptyList())
         every { conversationSettings } returns MutableStateFlow(emptyMap())
         every { codeExecutionEnabled } returns MutableStateFlow(false)
@@ -196,6 +198,20 @@ class WebUiChatSessionTest {
     @After
     fun tearDown() {
         scope.cancel()
+    }
+    @Test
+    fun forkNavigationRequiresTheExactCurrentOpenTarget() = runBlocking {
+        session.start()
+        session.open("a", 1)
+        val origin = session.openTarget.value
+        session.open(null, 2)
+        assertFalse(session.openForkIfCurrent("forked", origin))
+        assertNull(session.openTarget.value.conversationId)
+        session.open("a", 3)
+        assertFalse(session.openForkIfCurrent("forked", origin))
+        assertTrue(session.openForkIfCurrent("forked", session.openTarget.value))
+        assertEquals(WebUiChatSession.OpenTarget("forked", 3L, true), session.openTarget.value)
+        assertFalse(session.openForkIfCurrent("duplicate", origin))
     }
     @Test
     fun uploadUsesTheCanonicalFileImporterAndSendFreezesItsMembership() = runBlocking {
@@ -624,10 +640,14 @@ class WebUiChatSessionTest {
         every { settings.enabledModels } returns MutableStateFlow(setOf(model))
         val lowContext = MutableStateFlow(false)
         every { settings.localLowContextModeEnabled } returns lowContext
+        every { settings.systemPrompts } returns MutableStateFlow(listOf(com.newoether.agora.data.SystemPromptEntry(id = "prompt", title = "Prompt")))
         session.start()
         withTimeout(TIMEOUT_MS) { session.composerState.first { it.modelValid && it.controls?.showLowContextMode == true } }
+        session.editorCommand(WebSyncCommand("system_prompt", value = "prompt"))
         lowContext.value = true
         withTimeout(TIMEOUT_MS) { session.composerState.first { it.controls?.lowContextModeEnabled == true } }
+        session.editorCommand(WebSyncCommand("system_prompt", value = null))
+        assertEquals("prompt", session.composerState.first().systemPromptId)
         session.settingCommand(WebSyncCommand("setting", setting = "webSearchEnabled", enabled = false, actionId = 1))
         assertTrue(session.composerState.first().controls!!.webSearchEnabled)
         session.settingCommand(WebSyncCommand("setting", setting = "lowContextModeEnabled", enabled = false, actionId = 2))
@@ -638,9 +658,10 @@ class WebUiChatSessionTest {
         verify(exactly = 0) { settings.updateConversationSettings(any(), any()) }
     }
     @Test
-    fun newChatAcceptanceConsumesOnlyMatchingSettingsAndPreservesPostTapEdits() = runBlocking {
+    fun newChatAcceptanceConsumesOnlyMatchingSettingsAndPromptAndPreservesPostTapEdits() = runBlocking {
         val entered = CompletableDeferred<Unit>()
         val accept = CompletableDeferred<Unit>()
+        every { settings.systemPrompts } returns MutableStateFlow(listOf("before", "after").map { com.newoether.agora.data.SystemPromptEntry(id = it, title = it) })
         coEvery { generation.prepareForegroundSend(any(), any(), any()) } answers {
             val target = firstArg<ForegroundSendTarget>()
             ForegroundSendAdmission(target, testGenerationAdmissionSnapshot(target.conversationId, target.runId),
@@ -654,16 +675,22 @@ class WebUiChatSessionTest {
         session.start()
         withTimeout(TIMEOUT_MS) { session.composerState.first { it.modelValid && it.controls != null } }
         session.settingCommand(WebSyncCommand("setting", setting = "webSearchEnabled", enabled = false))
+        session.editorCommand(WebSyncCommand("system_prompt", value = "before"))
         session.send("first")
         withTimeout(TIMEOUT_MS) { entered.await() }
         session.settingCommand(WebSyncCommand("setting", setting = "shellEnabled", enabled = false, actionId = 2))
+        session.editorCommand(WebSyncCommand("system_prompt", value = "after", actionId = 3))
         accept.complete(Unit)
         val settled = withTimeout(TIMEOUT_MS) { session.composerState.first { it.snapshot.acceptedVersion == 1L } }
+        assertEquals("before", captures.single().workspace!!.systemPromptId)
+        assertEquals("after", settled.systemPromptId)
         assertFalse(settled.controls!!.shellEnabled)
         assertFalse(settled.controls.webSearchEnabled)
         assertNull(captures.single().workspace!!.conversationSettings!!.shellEnabled)
         session.send("second")
         withTimeout(TIMEOUT_MS) { session.composerState.first { it.snapshot.acceptedVersion == 2L } }
+        assertEquals("after", captures.last().workspace!!.systemPromptId)
+        assertNull(session.composerState.first().systemPromptId)
         assertTrue(session.composerState.first().controls!!.webSearchEnabled)
         assertTrue(session.composerState.first().controls!!.shellEnabled)
     }

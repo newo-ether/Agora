@@ -2,21 +2,31 @@ package com.newoether.agora.webui
 
 import android.content.res.Resources
 import com.newoether.agora.R
-import com.newoether.agora.model.ChatConversation
+import com.newoether.agora.data.local.DrawerConversationRow
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
+import com.newoether.agora.model.isContextCompact
 import com.newoether.agora.ui.chat.message.AssistantContentPresentation
+import com.newoether.agora.ui.chat.message.AssistantInlineActivityMode
 import com.newoether.agora.ui.chat.message.TimelineBlock
 import com.newoether.agora.ui.chat.message.assistantContentPresentation
+import com.newoether.agora.ui.chat.message.assistantInlineActivityPresentation
 import com.newoether.agora.ui.chat.message.compactSegmentIcon
 import com.newoether.agora.ui.chat.message.compactSegmentTitleState
 import com.newoether.agora.ui.chat.message.compactSegmentUsesLiveStatus
+import com.newoether.agora.ui.chat.message.isInfoSegment
 import com.newoether.agora.ui.chat.message.segmentDetailTitle
 import com.newoether.agora.ui.chat.message.timelineBlocks
+import com.newoether.agora.ui.chat.message.tokenUsagePresentation
 import com.newoether.agora.ui.chat.message.toolSummary
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import com.newoether.agora.ui.chat.findMetaForIndex
+import com.newoether.agora.ui.chat.resolveAttachmentType
+import com.newoether.agora.ui.chat.shouldShowStreamingTailIndicator
 
 /**
  * What shapes a message on the web besides its data: the phone's appearance settings and its
@@ -94,7 +104,30 @@ internal fun webPresentation(
         terminalFollowsCard = presentation.terminalImmediatelyFollowsCard(answerBody),
         errorBarText = presentation.errorContent?.errorText?.takeIf { presentation.showsErrorBar },
         stoppedBar = presentation.showsStoppedBar(message, isStreaming),
+        inlineActivity = presentation.inlineActivity(message),
+        answerTailVisible = shouldShowStreamingTailIndicator(isStreaming, false, message),
     )
+}
+
+/**
+ * The line the phone draws under a generating turn: the breathing dot while nothing has arrived,
+ * the retry label while a provider retries, and nothing once the answer or a card owns the turn.
+ * The browser paints this decision, and owns only the Stop handoff, which it drives from the
+ * composer state it already receives.
+ */
+private fun AssistantContentPresentation.inlineActivity(message: ChatMessage): WebInlineActivity? {
+    val mode = assistantInlineActivityPresentation(
+        generationActive = generationActive,
+        isStopping = false,
+        hasAnswer = hasAnswerContent,
+        hasVisibleInfoSegment = mergedSegments.any { it.isInfoSegment() },
+        retryText = message.retryText,
+    ).mode
+    return when (mode) {
+        AssistantInlineActivityMode.RETRY -> WebInlineActivity(kind = "retry", retryText = message.retryText)
+        AssistantInlineActivityMode.EMPTY -> WebInlineActivity(kind = "dot", retryText = null)
+        AssistantInlineActivityMode.NONE -> null
+    }
 }
 
 private class WebPresentationProjector(
@@ -110,6 +143,8 @@ private class WebPresentationProjector(
             index = block.index,
             text = block.segment.content.toWebText(display.parseInlineDollarMath),
             streaming = block.isStreaming,
+            sourceStart = block.answerOffset,
+            sourceLength = block.segment.content.length,
         )
         is TimelineBlock.InfoGroup -> WebTimelineBlock.Group(
             group(
@@ -226,12 +261,19 @@ internal data class WebPresentation(
     val terminalFollowsCard: Boolean,
     val errorBarText: String?,
     val stoppedBar: Boolean,
+    /** The phone's inline activity line for this turn; null when the turn draws none. */
+    val inlineActivity: WebInlineActivity?,
+    val answerTailVisible: Boolean = false,
 )
+
+/** Which line the phone draws under a generating turn, plus its label in retry mode. */
+@Serializable
+internal data class WebInlineActivity(val kind: String, val retryText: String?)
 
 @Serializable
 internal sealed interface WebTimelineBlock {
     @Serializable @SerialName("answer")
-    data class Answer(val index: Int, val text: WebText, val streaming: Boolean) : WebTimelineBlock
+    data class Answer(val index: Int, val text: WebText, val streaming: Boolean, val sourceStart: Int = 0, val sourceLength: Int = 0) : WebTimelineBlock
 
     @Serializable @SerialName("group")
     data class Group(val group: WebInfoGroup) : WebTimelineBlock
@@ -273,11 +315,16 @@ internal data class WebInfoItem(
     val toolDetail: WebToolDetail? = null,
 )
 
-internal fun ChatConversation.toWeb(generating: Boolean) = WebConversation(
+/**
+ * The row shapes the browser draws. They live with the other presentation decisions rather than in
+ * the connection, which only decides which rows to send and when.
+ */
+internal fun DrawerConversationRow.toWeb(generating: Boolean) = WebConversation(
     id = id,
     title = title,
     generating = generating,
     unread = hasUnreadGeneration,
+    isPinned = isPinned,
 )
 
 internal fun ChatMessage.toWebPathEntry() = WebPathEntry(
@@ -287,28 +334,32 @@ internal fun ChatMessage.toWebPathEntry() = WebPathEntry(
     status = status.name,
 )
 
-internal fun ChatMessage.toWeb(inlineDollarMath: Boolean, presentation: WebPresentation?) = WebMessage(
+internal fun ChatMessage.toWeb(presentation: WebPresentation?) = WebMessage(
     id = id,
     parentId = parentId,
     participant = participant.name,
     status = status.name,
     timestamp = timestamp,
     modelName = modelName,
-    // The user bubble shows plain text, so its math is not split out.
-    text = if (participant == Participant.USER) WebText(text) else text.toWebText(inlineDollarMath),
-    thoughts = thoughts?.toWebText(inlineDollarMath),
-    thoughtTitle = thoughtTitle,
-    thoughtTimeMs = thoughtTimeMs,
-    segments = segments.orEmpty().map { it.toWeb(inlineDollarMath) },
+    // Copy and edit consume the original source; rendered bodies live only in presentation.
+    text = WebText(text),
     presentation = presentation,
-)
-
-internal fun MessageSegment.toWeb(inlineDollarMath: Boolean) = WebSegment(
-    type = type,
-    content = content.toWebText(inlineDollarMath),
-    durationMs = durationMs,
-    toolName = toolName,
-    toolDisplayName = toolDisplayName,
-    toolState = toolState,
-    errorCode = errorCode,
+    compact = isContextCompact(),
+    // The kind name is already the wire spelling: task, loop, ask_user.
+    source = source?.let {
+        WebMessageSource(it.kind.name.lowercase(), it.askUser.map { item -> WebAskUserItem(item.question, item.answer) })
+    },
+    usage = tokenUsage?.let {
+        val view = tokenUsagePresentation(it)
+        WebTokenUsage(view.input, view.cachedInput, view.output, view.generationTokensPerSecond)
+    },
+    attachments = images.mapIndexed { index, path ->
+        val meta = findMetaForIndex(attachmentMeta, index)
+        buildJsonObject {
+            put("index", index)
+            put("type", resolveAttachmentType(path, meta))
+            put("fileName", meta?.fileName ?: path.substringAfterLast('/'))
+            put("unavailable", meta?.unavailable == true || meta?.storage?.canPreview == false)
+        }
+    },
 )

@@ -400,7 +400,7 @@ internal class WebUiSync(
         display: WebDisplayContext,
     ): WebMessage = withContext(projectionDispatcher) {
         val shown = message.forDisplay(customProviders.value)
-        shown.toWeb(display.parseInlineDollarMath, webPresentation(shown, isStreaming, display))
+        shown.toWeb(webPresentation(shown, isStreaming, display))
     }
 
     companion object {
@@ -414,6 +414,7 @@ internal class WebUiSync(
         const val COMMAND_MODEL = "model"
         const val COMMAND_REMOVE_QUEUED = "remove_queued"
         const val COMMAND_SEND_QUEUED = "send_queued"
+        const val DRAWER_PAGE_SIZE = 80
 
         /** Upper bound on rows one browser may subscribe to at a time. */
         const val MAX_WATCHED = 48
@@ -447,15 +448,37 @@ internal const val MATH_CLOSE = '\uE001'
 internal fun String.toWebText(parseInlineDollarMath: Boolean): WebText {
     val spans = parseLatexSpans(this, parseInlineDollarMath)
     val math = mutableListOf<WebMath>()
+    val sourceMap = mutableListOf<List<Int>>()
+    var sourceCursor = 0
+    var lastDelta = 0
     val markdown = buildString {
+        fun mapped(character: Char, original: Int) {
+            val delta = original - length
+            if (delta != lastDelta) {
+                sourceMap += listOf(length, original)
+                lastDelta = delta
+            }
+            append(character)
+        }
         spans.forEach { span ->
             if (span.isLatex) {
-                append(MATH_OPEN).append(math.size).append(MATH_CLOSE)
+                val start = this@toWebText.indexOf(span.source, sourceCursor)
+                check(start >= sourceCursor)
+                val slot = "$MATH_OPEN${math.size}$MATH_CLOSE"
+                slot.forEach { mapped(it, start) }
+                sourceCursor = start + span.source.length
                 math += WebMath(span.content, span.display)
             } else {
-                append(span.content.replace(MATH_OPEN, '\uFFFD').replace(MATH_CLOSE, '\uFFFD'))
+                span.content.forEachIndexed { index, character ->
+                    // Plain-span dollar escaping can insert a protective slash, but no source glyph.
+                    val inserted = character == '\\' && span.content.getOrNull(index + 1) == '$' &&
+                        this@toWebText.getOrNull(sourceCursor) == '$'
+                    mapped(if (character == MATH_OPEN || character == MATH_CLOSE) '\uFFFD' else character, sourceCursor)
+                    if (!inserted) sourceCursor += 1
+                }
             }
         }
+        if (sourceCursor - length != lastDelta) sourceMap += listOf(length, sourceCursor)
     }
-    return WebText(markdown, math)
+    return WebText(markdown, math, sourceMap)
 }

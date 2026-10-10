@@ -25,6 +25,8 @@ class WebUiChatSessionEditorsTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val shared = MutableStateFlow(mapOf("a" to ConversationSettings(thinkingEnabled = false, temperature = 0.7f)))
     private val preserve = MutableStateFlow(true)
+    private val prompts = MutableStateFlow(listOf(com.newoether.agora.data.SystemPromptEntry(id = "prompt", title = "Prompt")))
+    private val conversation = MutableStateFlow(ChatConversation("a", "Test", modelId = "OpenAI:test"))
     private val streaming = MutableStateFlow<com.newoether.agora.model.ChatMessage?>(null)
     private val stopping = MutableStateFlow(false)
     private val state = mockk<ConversationGenerationState> {
@@ -41,6 +43,8 @@ class WebUiChatSessionEditorsTest {
         every { debugModelEnabled } returns MutableStateFlow(false)
         every { modelAliases } returns MutableStateFlow(emptyMap())
         every { modelProviderNames } returns MutableStateFlow(emptyMap())
+        every { systemPrompts } returns prompts
+        every { activeSystemPromptId } returns MutableStateFlow("prompt")
         every { customProviders } returns MutableStateFlow(emptyList())
         every { conversationSettings } returns shared
         every { codeExecutionEnabled } returns MutableStateFlow(false)
@@ -72,7 +76,13 @@ class WebUiChatSessionEditorsTest {
         }
     }
     private val conversations = mockk<ConversationRepository>(relaxed = true) {
-        every { observeConversation(any()) } answers { flowOf(ChatConversation(firstArg(), "Test", modelId = "OpenAI:test")) }
+        every { observeConversation(any()) } answers {
+            if (firstArg<String>() == "a") conversation else flowOf(ChatConversation(firstArg(), "Test", modelId = "OpenAI:test"))
+        }
+        coEvery { updateConversationSystemPrompt("a", any()) } coAnswers {
+            conversation.value = conversation.value.copy(systemPromptId = secondArg())
+            true
+        }
         every { observeMessageTopology(any()) } returns flowOf(emptyList())
         coEvery { getConversation(any()) } returns null
         coEvery { recoverConversationRuntime(any(), any()) } returns 0
@@ -111,6 +121,28 @@ class WebUiChatSessionEditorsTest {
         assertEquals(draft.withGenerationParameters(draft).copy(thinkingEnabled = false, shellEnabled = false), shared.value.getValue("a"))
         session.editorCommand(WebSyncCommand("advanced", conversationId = "a", seq = 1, parameters = ConversationSettings()))
         assertEquals(ConversationSettings(thinkingEnabled = false, shellEnabled = false), shared.value.getValue("a"))
+    }
+    @Test fun promptSelectionStaysLocalAndSharedWritesRejectStaleMissingAndClosedRequests() = runBlocking {
+        session.start()
+        ready()
+        session.editorCommand(WebSyncCommand("system_prompt", value = "prompt", actionId = 1))
+        assertEquals("prompt", session.composerState.first().systemPromptId)
+        coVerify(exactly = 0) { conversations.upsertNewChatPersist(any()) }
+        ready("a", 2)
+        val command = WebSyncCommand("system_prompt", conversationId = "a", seq = 2, value = "prompt", actionId = 2)
+        listOf(command.copy(seq = 1), command.copy(conversationId = "b"), command.copy(value = "missing")).forEach { session.editorCommand(it) }
+        assertNull(conversation.value.systemPromptId)
+        session.editorCommand(command)
+        assertEquals("prompt", session.composerState.first().systemPromptId)
+        session.editorCommand(command.copy(value = null, actionId = 3))
+        assertNull(session.composerState.first().systemPromptId)
+        ready(null, 3)
+        assertEquals("prompt", session.composerState.first().systemPromptId)
+        session.endUploads()
+        session.editorCommand(command.copy(conversationId = null, seq = 3, value = null))
+        assertEquals("prompt", session.composerState.first().systemPromptId)
+        coVerify(exactly = 2) { conversations.updateConversationSystemPrompt("a", any()) }
+        coVerify(exactly = 0) { conversations.upsertConversation(any()) }
     }
     @Test fun advancedRefusesInvalidStaleAndClosedRequestsWithoutMutation() = runBlocking {
         session.start()
