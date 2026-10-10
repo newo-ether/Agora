@@ -33,7 +33,7 @@ class WebUiThemeTest {
 
     @Test
     fun serverServesThemeCssUncachedAndTheFontOnlyWhenPresent() = testApplication {
-        val auth = WebUiAuth(passwordHash = { null }, hasher = WebUiPasswordHasher(iterations = 1_000))
+        val auth = WebUiAuth(store = io.mockk.mockk(relaxed = true), hasher = WebUiPasswordHasher(iterations = 1_000))
         var font: ByteArray? = "OTTOxxxx".toByteArray()
         application {
             WebUiServer(
@@ -58,7 +58,7 @@ class WebUiThemeTest {
     }
     @Test
     fun serverServesTheCodeFontByStyleName() = testApplication {
-        val auth = WebUiAuth(passwordHash = { null }, hasher = WebUiPasswordHasher(iterations = 1_000))
+        val auth = WebUiAuth(store = io.mockk.mockk(relaxed = true), hasher = WebUiPasswordHasher(iterations = 1_000))
         application {
             WebUiServer(
                 auth = auth,

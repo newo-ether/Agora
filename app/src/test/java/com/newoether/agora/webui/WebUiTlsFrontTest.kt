@@ -1,7 +1,7 @@
 package com.newoether.agora.webui
 
 import java.io.File
-import java.io.IOException
+import java.net.Socket
 import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URL
@@ -11,6 +11,13 @@ import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
+import androidx.datastore.core.okio.OkioStorage
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.PreferencesSerializer
+import okio.FileSystem
+import okio.Path.Companion.toPath
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,15 +34,22 @@ class WebUiTlsFrontTest {
         addresses = { listOf(InetAddress.getByName("127.0.0.1")) },
     ).loadOrCreate()
     @Volatile private var tlsPort = -1
+    @Volatile private var publicPort = -1
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val store = WebUiSettingsStore(PreferenceDataStoreFactory.create(scope = scope,
+        storage = OkioStorage(FileSystem.SYSTEM, PreferencesSerializer) {
+            dir.resolve("auth.preferences_pb").absolutePath.toPath()
+        })).also { runBlocking { it.savePasswordHash(WebUiPasswordHasher(iterations = 1_000).hash("correct horse")) } }
     private val routes = WebUiServer(
         auth = WebUiAuth(
-            passwordHash = { WebUiPasswordHasher(iterations = 1_000).hash("correct horse") },
+            store = store,
             hasher = WebUiPasswordHasher(iterations = 1_000),
         ),
         readAsset = { path -> if (path == WebUiServer.INDEX) "<title>Agora</title>".toByteArray() else null },
         syncSession = { _, _, _ -> },
         // As in WebUiController: only requests on the TLS backend connector get a Secure cookie.
         secureCookies = { call -> call.request.local.localPort == tlsPort },
+        httpsRedirectPort = { publicPort },
     )
     private val backend = startWebUiEngine(port = 0, routes = routes, host = WebUiTlsFront.LOOPBACK, extraConnectors = 1)
     private val backendPorts = runBlocking { backend.engine.resolvedConnectors().map { it.port } }
@@ -45,20 +59,20 @@ class WebUiTlsFrontTest {
         tlsPort = backendPorts[0]
     }
 
-    private fun front(allowsPlainFrom: (InetAddress) -> Boolean = InetAddress::isLoopbackAddress) =
+    private fun front() =
         WebUiTlsFront(
             identity,
             publicPort = 0,
             tlsBackendPort = backendPorts[0],
             plainBackendPort = backendPorts[1],
             bindHost = WebUiTlsFront.LOOPBACK,
-            allowsPlainFrom = allowsPlainFrom,
-        ).also(fronts::add)
+        ).also { fronts.add(it); publicPort = it.localPort }
 
     @After
     fun tearDown() {
         fronts.forEach(WebUiTlsFront::close)
         backend.stop(100, 500)
+        runBlocking { scope.cancel(); scope.coroutineContext[Job]!!.join() }
         dir.deleteRecursively()
     }
 
@@ -77,7 +91,8 @@ class WebUiTlsFrontTest {
     }
 
     private fun openPlain(front: WebUiTlsFront, path: String) =
-        URL("http://127.0.0.1:${front.localPort}$path").openConnection() as HttpURLConnection
+        (URL("http://127.0.0.1:${front.localPort}$path").openConnection() as HttpURLConnection)
+            .apply { instanceFollowRedirects = false }
 
     private fun HttpURLConnection.login(): HttpURLConnection = apply {
         requestMethod = "POST"
@@ -104,28 +119,37 @@ class WebUiTlsFrontTest {
     }
 
     @Test
-    fun plainHttpFromLoopbackIsServedOnTheSamePortWithoutSecure() {
+    fun plainHttpRedirectsOnTheSamePortWithoutServingOrAuthenticating() {
         val front = front()
-        val page = openPlain(front, "/")
-        assertEquals(200, page.responseCode)
-        assertTrue(page.inputStream.bufferedReader().readText().contains("Agora"))
-        // A Secure cookie would be dropped by the browser on plain HTTP and sign-in would fail.
+        val page = openPlain(front, "/assets/file%20name.js?q=a%2Fb&x=1")
+        assertEquals(307, page.responseCode)
+        assertEquals("https://127.0.0.1:${front.localPort}/assets/file%20name.js?q=a%2Fb&x=1", page.getHeaderField("Location"))
+        assertEquals("", page.inputStream.bufferedReader().readText())
         val login = openPlain(front, "/api/login").login()
-        assertEquals(200, login.responseCode)
-        val cookie = login.getHeaderField("Set-Cookie")
-        assertTrue(cookie, cookie.contains("HttpOnly"))
-        assertFalse(cookie, cookie.contains("Secure"))
+        assertEquals(307, login.responseCode)
+        assertEquals("https://127.0.0.1:${front.localPort}/api/login", login.getHeaderField("Location"))
+        assertEquals(null, login.getHeaderField("Set-Cookie"))
+        runBlocking { assertTrue(store.sessionDigests.first().isEmpty()) }
     }
 
     @Test
-    fun plainHttpFromAnotherAddressGetsNoResponse() {
-        val connection = openPlain(front(allowsPlainFrom = { false }), "/")
-        connection.readTimeout = 15_000
-        try {
-            connection.responseCode
-            fail("plain HTTP must not be answered")
-        } catch (_: IOException) {
-            // The front drops a plain connection that is not from this device.
+    fun redirectsBrowserHostNamesAndIpv6AndRejectsUnsafeTargets() {
+        val front = front()
+        fun request(host: String, target: String): String = Socket("127.0.0.1", front.localPort).use { socket ->
+            socket.soTimeout = 5000
+            socket.getOutputStream().write("GET $target HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n\r\n".toByteArray())
+            socket.getInputStream().bufferedReader().readText()
+        }
+        for (host in listOf("localhost", "192.168.1.5", "[::1]")) {
+            val response = request("$host:${front.localPort}", "/?q=a%2Fb")
+            assertTrue(response, response.contains("307"))
+            assertTrue(response, response.contains("https://$host:${front.localPort}/?q=a%2Fb"))
+        }
+        for ((host, target) in listOf("user@evil.example" to "/", "localhost:99999" to "/",
+            "localhost" to "//evil.example/", "localhost" to "http://evil.example/")) {
+            val response = request(host, target)
+            assertTrue(response, response.contains("400"))
+            assertFalse(response.contains("Location:", ignoreCase = true))
         }
     }
 }

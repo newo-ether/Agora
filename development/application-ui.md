@@ -819,9 +819,13 @@ because every browser must accept the new certificate again. While the certifica
 dialog stays open, its Regenerate label is replaced by a `20 dp` spinner (as in the delete
 confirmations) and Cancel is disabled; the dialog closes once the new certificate is in place. The
 access addresses and the notification use `https://` or `http://` to match the mode. Under HTTPS
-the session cookie carries `Secure` on TLS connections. With HTTPS on, the same port still answers
-plain HTTP from the device's own loopback address (`http://127.0.0.1:<port>`), without `Secure`;
-plain HTTP from any other address is dropped unanswered. The self-signed certificate (EC P-256, 10 years, SANs for
+the session cookie carries `Secure` on TLS connections. With HTTPS on, every plain HTTP request,
+including loopback, receives a temporary `307` redirect to HTTPS on the same configured public port.
+The encoded path and query are preserved, and the redirect does not change the request method.
+The plaintext pre-routing gate serves no application content, issues no cookies, and performs no
+authentication, sync, upload or other business action. Invalid Host authorities or request targets
+are rejected rather than used in a redirect. With HTTPS off, ordinary HTTP serving is unchanged.
+The self-signed certificate (EC P-256, 10 years, SANs for
 `localhost` and the current IPv4 addresses) is kept in `noBackupFilesDir/webui` with its keystore
 password sealed by `SecretCrypto`, and is reused until regenerated. The switch is
 never grayed out. Without a password its supporting text says one is needed, and tapping it leaves it
@@ -829,7 +833,13 @@ off and shows the same message in a snackbar (`webui_password_required`). With a
 supporting text shows the live status (Off, Starting, Running on a port, or the start error); it
 reaches Running as soon as the server listens. The access group lists addresses only while the server
 runs and otherwise says they appear then. A password has at least `8` characters; its field uses the
-section 33 secret-field owner. Changing the password signs out every browser. A port edit is saved
+section 33 secret-field owner. Sign-in survives browser close and Agora/WebUI restart until logout
+or password change. The existing device-local Settings DataStore stores only session-token digests;
+password replacement atomically clears them and rejects a login verified against an older hash.
+Logout revokes only its token and ends its open sync/attachment work. No routine server expiry is
+added. The persistent HttpOnly/SameSite=Strict cookie is renewed on authenticated checks within the
+browser retention ceiling; browser-cleared/expired cookies require sign-in again. Service stop or
+port/HTTPS changes do not revoke sessions. Changing the password signs out every browser. A port edit is saved
 only after typing pauses for `800 ms` (`PORT_COMMIT_DELAY_MILLIS`); an out-of-range value is not saved.
 The browser pages follow the app's look. Inside `AgoraTheme`, `PublishWebUiTheme` hands the resolved
 Material color scheme (preset or wallpaper colors, light or dark, AMOLED) and the Appearance font to

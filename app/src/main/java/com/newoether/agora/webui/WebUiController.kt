@@ -81,12 +81,12 @@ internal class WebUiController(
     private val hasher: WebUiPasswordHasher = WebUiPasswordHasher(),
     toolImages: WebUiToolImages? = null,
 ) {
-    @Volatile private var passwordHash: String? = null
-    private val auth = WebUiAuth(passwordHash = { passwordHash }, hasher = hasher)
+    private val auth = WebUiAuth(store = store, hasher = hasher)
     @Volatile private var theme: WebUiTheme? = null
     @Volatile private var servingHttps = false
     /** CIO port that receives decrypted TLS traffic; a request on any other port is plain HTTP. */
     @Volatile private var tlsBackendPort = NO_PORT
+    @Volatile private var publicPort = NO_PORT
     private val routes = WebUiServer(
         auth = auth,
         readAsset = ::readAsset,
@@ -97,6 +97,7 @@ internal class WebUiController(
         readAppFont = ::readAppFont,
         readMonoFont = ::readMonoFont,
         secureCookies = { call -> call.request.local.localPort == tlsBackendPort },
+        httpsRedirectPort = { publicPort.takeIf { servingHttps && it > 0 } },
         toolImages = toolImages,
     )
     private val serverLock = Mutex()
@@ -114,17 +115,11 @@ internal class WebUiController(
     /** SHA-256 fingerprint of the HTTPS certificate, once [loadCertificate] or a start ran. */
     val certificateFingerprint: StateFlow<String?> = _fingerprint.asStateFlow()
 
-    init {
-        scope.launch { store.passwordHash.collect { passwordHash = it } }
-    }
-
     /** Stores the new password's hash and signs every browser out. */
     suspend fun setPassword(password: String) {
         require(password.length >= MIN_PASSWORD_LENGTH) { "Password is too short" }
         val hash = withContext(Dispatchers.Default) { hasher.hash(password) }
         store.savePasswordHash(hash)
-        passwordHash = hash
-        auth.revokeAllSessions()
     }
 
     /** Returns false when enabling is refused because no password is set. */
@@ -173,13 +168,13 @@ internal class WebUiController(
         if (engine != null) return@withLock
         val port = store.port.first()
         val https = store.https.first()
-        passwordHash = store.passwordHash.first()
         _status.value = WebUiStatus.Starting
         _status.value = withContext(Dispatchers.IO) {
             try {
                 // startHttps records the TLS backend port before the public port opens, so the
                 // session cookie of the very first login over TLS is already Secure.
                 servingHttps = https
+                publicPort = port
                 if (https) startHttps(port) else engine = startWebUiEngine(port, routes)
                 WebUiStatus.Running(port, https)
             } catch (error: Exception) {
@@ -193,7 +188,6 @@ internal class WebUiController(
     suspend fun stopServer() = serverLock.withLock {
         if (engine == null) return@withLock
         withContext(Dispatchers.IO) { closeServer() }
-        auth.revokeAllSessions()
         _status.value = WebUiStatus.Stopped
     }
 
@@ -206,7 +200,7 @@ internal class WebUiController(
 
     /**
      * CIO on two free loopback ports, with the TLS front on the public port relaying to them:
-     * decrypted TLS to the first, plain HTTP from this device's loopback address to the second.
+     * decrypted TLS to the first, plaintext HTTPS redirects to the second.
      */
     private suspend fun startHttps(port: Int) {
         val identity = certificates.loadOrCreate()
@@ -229,6 +223,7 @@ internal class WebUiController(
         engine = null
         servingHttps = false
         tlsBackendPort = NO_PORT
+        publicPort = NO_PORT
     }
 
     /** `http(s)://<address>:<port>` for every non-loopback IPv4 address that is up. */

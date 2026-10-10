@@ -75,11 +75,35 @@ internal class WebUiServer(
     private val readMonoFont: (String) -> ByteArray? = { null },
     /** True when this request arrived over HTTPS: its session cookie is then marked Secure. */
     private val secureCookies: (ApplicationCall) -> Boolean = { false },
+    /** Configured public HTTPS port, or null while ordinary HTTP serving is enabled. */
+    private val httpsRedirectPort: () -> Int? = { null },
     private val clock: () -> Long = System::currentTimeMillis,
     private val toolImages: WebUiToolImages? = null,
 ) {
     fun install(application: Application) = with(application) {
         install(SecurityHeaders)
+        val httpsGate = createApplicationPlugin("WebUiHttpsGate") {
+            onCall { call ->
+                val port = httpsRedirectPort() ?: return@onCall
+                if (secureCookies(call)) return@onCall
+                val authority = call.request.headers.getAll(HttpHeaders.Host)?.singleOrNull()
+                val target = call.request.local.uri
+                val host = authority?.let { runCatching { java.net.URI("https://$it") }.getOrNull() }
+                val path = runCatching { java.net.URI(target) }.getOrNull()
+                if (host?.host == null || host.rawUserInfo != null || host.rawPath.isNotEmpty() ||
+                    host.rawQuery != null || host.rawFragment != null || host.port !in setOf(-1, port) ||
+                    !target.startsWith('/') || path == null || path.isAbsolute || path.rawAuthority != null ||
+                    path.rawFragment != null) {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@onCall
+                }
+                val origin = java.net.URI("https", null, host.host, port, null, null, null).toASCIIString()
+                call.response.header(HttpHeaders.Location, origin + target)
+                call.response.header(HttpHeaders.CacheControl, "no-store")
+                call.respondText("", status = HttpStatusCode.TemporaryRedirect)
+            }
+        }
+        install(httpsGate)
         install(WebSockets) {
             pingPeriod = SYNC_PING_PERIOD
             timeout = SYNC_TIMEOUT
@@ -90,6 +114,8 @@ internal class WebUiServer(
             onCall { call ->
                 if (!call.isSameOrigin() || !auth.isValidSession(call.request.cookies[SESSION_COOKIE])) {
                     call.respond(HttpStatusCode.Forbidden)
+                } else {
+                    call.response.cookies.append(call.sessionCookie(call.request.cookies[SESSION_COOKIE]!!, COOKIE_MAX_AGE))
                 }
             }
         }
@@ -270,6 +296,7 @@ internal class WebUiServer(
             }
             get("/api/session") {
                 val signedIn = auth.isValidSession(call.request.cookies[SESSION_COOKIE])
+                if (signedIn) call.response.cookies.append(call.sessionCookie(call.request.cookies[SESSION_COOKIE]!!, COOKIE_MAX_AGE))
                 call.respondJson(HttpStatusCode.OK, SessionResponse(signedIn))
             }
         }
@@ -308,7 +335,7 @@ internal class WebUiServer(
         }
         when (val result = auth.login(password)) {
             is WebUiLoginResult.Success -> {
-                response.cookies.append(sessionCookie(result.sessionToken, maxAge = null))
+                response.cookies.append(sessionCookie(result.sessionToken, maxAge = COOKIE_MAX_AGE))
                 respondJson(HttpStatusCode.OK, SessionResponse(signedIn = true))
             }
             is WebUiLoginResult.WrongPassword -> respondJson(
@@ -398,6 +425,8 @@ internal class WebUiServer(
     )
 
     companion object {
+        // Browser retention ceiling, renewed on authenticated checks; the server has no expiry.
+        const val COOKIE_MAX_AGE = 400 * 24 * 60 * 60
         const val SESSION_COOKIE = "agora_session"
         const val INDEX = "index.html"
         const val MONO_FONT_PATH = "/fonts/mono"

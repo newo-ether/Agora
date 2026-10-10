@@ -20,9 +20,8 @@ import kotlin.concurrent.thread
  * upgrades pass through unchanged.
  *
  * The first byte of every connection tells TLS (a handshake record, `0x16`) from plain HTTP.
- * Plain HTTP is answered only from this device's own loopback address, relayed to
- * [plainBackendPort]; from any other address it is dropped, so a password or cookie never
- * crosses the network unencrypted.
+ * Plain HTTP is relayed to [plainBackendPort], whose pre-routing gate redirects to HTTPS
+ * without executing authentication or serving application content.
  *
  * Throws from the constructor when the port cannot be bound.
  */
@@ -32,8 +31,6 @@ internal class WebUiTlsFront(
     private val tlsBackendPort: Int,
     private val plainBackendPort: Int,
     bindHost: String = WebUiController.ANY_HOST,
-    /** Which client addresses may use plain HTTP; tests narrow it to exercise the drop path. */
-    private val allowsPlainFrom: (InetAddress) -> Boolean = InetAddress::isLoopbackAddress,
 ) : Closeable {
     private val serverSocket = ServerSocket()
     private val tlsContext: SSLContext
@@ -87,7 +84,6 @@ internal class WebUiTlsFront(
                     backend = backend,
                 )
             } else {
-                if (!allowsPlainFrom(client.inetAddress)) return
                 client.soTimeout = 0
                 backend.connect(InetSocketAddress(LOOPBACK, plainBackendPort), CONNECT_TIMEOUT_MILLIS)
                 backend.getOutputStream().write(first)

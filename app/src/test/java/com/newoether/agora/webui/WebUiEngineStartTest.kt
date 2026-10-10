@@ -16,7 +16,7 @@ class WebUiEngineStartTest {
     @Test
     fun startReturnsInsideCoroutineContext(): Unit = runBlocking {
         val routes = WebUiServer(
-            auth = WebUiAuth(passwordHash = { null }, hasher = WebUiPasswordHasher()),
+            auth = WebUiAuth(store = io.mockk.mockk(relaxed = true), hasher = WebUiPasswordHasher()),
             readAsset = { null },
             syncSession = { _, _, _ -> },
         )
