@@ -1,7 +1,5 @@
 package com.newoether.agora.ui.chat
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -27,11 +25,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +55,13 @@ import com.newoether.agora.ui.motion.rememberIdentityClipWidth
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.motion.AnimatedContent
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
+import androidx.compose.ui.layout.onSizeChanged
 
 private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
 
@@ -72,6 +73,8 @@ private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
 @Composable
 internal fun ChatTopBar(
     isNewChatMode: Boolean,
+    onHeightChanged: (Int) -> Unit = {},
+    reading: Boolean = false,
     conversations: List<ChatConversation>,
     currentConversationId: String?,
     currentConversationTitle: String? = null,
@@ -89,6 +92,7 @@ internal fun ChatTopBar(
     onNavigateBack: (() -> Unit)? = null,
     onOpenDrawer: () -> Unit,
     onSearchQueryChange: (String) -> Unit = {},
+    onSearchSubmit: () -> Unit = {},
     onSearchPrevious: () -> Unit = {},
     onSearchNext: () -> Unit = {},
     onSearchDismiss: () -> Unit = {},
@@ -115,20 +119,21 @@ internal fun ChatTopBar(
         }
     }
     Column(
-        modifier = Modifier
+        modifier = Modifier.readingChrome(reading)
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 180.dp)
+            .onSizeChanged { onHeightChanged(it.height) }
+            .defaultMinSize(minHeight = if (LocalAgoraMotionPolicy.current.eInkMode) 0.dp else 180.dp)
             // An expanded composer fills the screen and paints a background gradient across it, and
             // the Scaffold draws the bottom bar after the top one, so that fill would otherwise lie
             // over this bar's title and action capsules. The composer's own layer sits at 1f.
             .zIndex(1.5f)
-            .background(
+            .then(if (LocalAgoraMotionPolicy.current.eInkMode) Modifier.background(MaterialTheme.colorScheme.background) else Modifier.background(
                 Brush.verticalGradient(
                     0.0f to MaterialTheme.colorScheme.background.copy(alpha = 0.98f),
                     0.6f to MaterialTheme.colorScheme.background.copy(alpha = 0.80f),
                     1.0f to Color.Transparent
                 )
-            )
+            ))
     ) {
         AnimatedContent(
             targetState = searchActive,
@@ -201,10 +206,16 @@ internal fun ChatTopBar(
                                     modifier = Modifier.size(24.dp),
                                 )
                             }
+                            if (LocalAgoraMotionPolicy.current.eInkMode) {
+                                IconButton(onClick = onSearchSubmit) {
+                                    Icon(Icons.Default.Search, stringResource(R.string.search_hint))
+                                }
+                            }
                             BasicTextField(
                                 value = searchQuery,
                                 onValueChange = onSearchQueryChange,
                                 singleLine = true,
+                                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSearchSubmit() }),
                                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                 ),
@@ -339,6 +350,7 @@ internal fun ChatTopBar(
                     )
                 }
 
+                val eInk = LocalAgoraMotionPolicy.current.eInkMode
                 // Reserve the trailing capsule first; the title may only use the remaining width.
                 Box(
                     modifier = Modifier
@@ -349,11 +361,11 @@ internal fun ChatTopBar(
                     ChatTopBarCapsule(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .width(TITLE_CAPSULE_MAX_WIDTH_DP.dp)
+                            .then(if (eInk) Modifier.fillMaxWidth() else Modifier.width(TITLE_CAPSULE_MAX_WIDTH_DP.dp))
                             .graphicsLayer {
                                 shape = titleCapsuleClipShape
-                                clip = true
-                                shadowElevation = 4.dp.toPx()
+                                clip = !eInk
+                                shadowElevation = if (eInk) 0f else 4.dp.toPx()
                             },
                         shadowElevation = 0.dp,
                     ) {
@@ -386,6 +398,7 @@ internal fun ChatTopBar(
                                     easing = FastOutSlowInEasing,
                                 ),
                                 label = "chatTopBarTitle",
+                                modifier = if (eInk) Modifier.weight(1f) else Modifier,
                             ) { presentation ->
                                 if (presentation.first) {
                                     Text(
@@ -393,11 +406,13 @@ internal fun ChatTopBar(
                                         style = ChatType.brandTitle,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.padding(end = 20.dp).widthIn(max = 180.dp)
+                                        modifier = Modifier.padding(end = 20.dp)
+                                            .then(if (eInk) Modifier.fillMaxWidth() else Modifier.widthIn(max = 180.dp))
                                     )
                                 } else {
                                     Column(
-                                        modifier = Modifier.padding(end = 20.dp).widthIn(max = 180.dp)
+                                        modifier = Modifier.padding(end = 20.dp)
+                                            .then(if (eInk) Modifier.fillMaxWidth() else Modifier.widthIn(max = 180.dp))
                                     ) {
                                         Text(
                                             text = presentation.third.orEmpty(),

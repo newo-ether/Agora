@@ -1,7 +1,5 @@
 package com.newoether.agora.ui.settings
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,10 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -43,6 +38,11 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.components.CircularBackButton
 import com.newoether.agora.ui.settings.datacontrol.SettingsDataControlPage
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.motion.animateColorAsState
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
 
 internal val SettingsTwoPaneMinWidth = 840.dp
 private val SettingsNavigationPaneWidth = 400.dp

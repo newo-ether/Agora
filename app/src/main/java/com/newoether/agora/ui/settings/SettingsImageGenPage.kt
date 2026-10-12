@@ -33,6 +33,11 @@ import com.newoether.agora.util.noOpBringIntoView
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.delay
 import com.newoether.agora.ui.components.optionClickable
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.TextButton
 
 /**
  * Substrings that identify text-to-image models across the major families/vendors. Aims for ~90%

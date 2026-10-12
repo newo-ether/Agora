@@ -1,9 +1,6 @@
 package com.newoether.agora.ui.settings
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -15,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -26,6 +21,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.newoether.agora.ui.motion.animateColorAsState
+import com.newoether.agora.ui.motion.animateDpAsState
+import com.newoether.agora.ui.motion.animateFloatAsState
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
 
 private val PillTabCornerVisibilityThreshold = 0.01.dp
 private const val PillTabWeightVisibilityThreshold = 0.001f

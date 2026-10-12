@@ -1,7 +1,6 @@
 package com.newoether.agora.ui.chat
 
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -36,6 +35,7 @@ import com.newoether.agora.ui.components.TypewriterMode
 import com.newoether.agora.ui.components.TypewriterText
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
+import com.newoether.agora.ui.motion.AnimatedVisibility
 
 internal fun AnimatedContentTransitionScope<Pair<Boolean, Boolean>>.chatMainContentTransition(
     motionPolicy: AgoraMotionPolicy,

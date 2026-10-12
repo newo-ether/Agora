@@ -138,7 +138,7 @@ The following JSON field names are the complete current portable allowlist.
 | Image transcription | `imageTranscriptionEnabled`, `imageTranscriptionEnabledModels`, `imageTranscriptionModel`, `imageTranscriptionBatchSize`, `imageTranscriptionPrompt` |
 | Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, secret-free `mcpServers` |
 | Proxy | `proxyEnabled`, `proxyType`, `proxyHost`, `proxyPort`, `proxyUsername`, `proxyBypass` |
-| Appearance | `showDocumentationFab`, `themeMode`, `amoledEnabled`, `colorScheme`, `dynamicColor`, `blurEffectsEnabled`, `reduceMotion`, `stickToBottom`, `parseInlineDollarMath`, `hapticsEnabled`, `detailedTokenUsage`, `toolCallDisplayMode`, `thinkingSegmentDisplayMode`, `autoExpandActiveGroup`, `schemeStyle` |
+| Appearance | `showDocumentationFab`, `themeMode`, `amoledEnabled`, `eInkMode`, `colorScheme`, `dynamicColor`, `blurEffectsEnabled`, `reduceMotion`, `stickToBottom`, `parseInlineDollarMath`, `hapticsEnabled`, `detailedTokenUsage`, `toolCallDisplayMode`, `thinkingSegmentDisplayMode`, `autoExpandActiveGroup`, `schemeStyle` |
 | Custom font | `fontPreference`; `customFontName` only when `custom_font/font` is included. The device file path is never portable. |
 | Generation defaults | Nullable `defaultTemperature`, `defaultMaxTokens`, `defaultTopP`, `defaultFrequencyPenalty`, `defaultPresencePenalty` |
 | Prompt selection | Nullable `activeSystemPromptId` |
@@ -297,3 +297,7 @@ Focused tests for any archive or setting change must prove:
 
 The project full build remains required after implementation changes. Build success alone does not
 prove SAF access, large-archive streaming, device storage, or user-visible conflict handling.
+
+Interactive answers use existing structured segment JSON; native archives and forks retain that
+content without a new archive category. The global opt-in setting is portable and resets to false.
+See [interactive-answers.md](interactive-answers.md) for the bounded-payload contract.

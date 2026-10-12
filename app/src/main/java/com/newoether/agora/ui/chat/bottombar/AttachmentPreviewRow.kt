@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.bottombar
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -26,9 +25,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +52,9 @@ import com.newoether.agora.ui.chat.MediaLoadPresentation
 import com.newoether.agora.ui.chat.rememberMediaLoadingVisible
 import com.newoether.agora.ui.chat.toMediaLoadPresentation
 import com.newoether.agora.ui.common.LocalAgoraHaptics
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
 
 private const val ATTACHMENT_STATUS_CROSSFADE_MS = 200
 

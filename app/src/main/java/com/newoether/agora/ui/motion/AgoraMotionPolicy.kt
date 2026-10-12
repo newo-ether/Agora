@@ -26,15 +26,16 @@ import androidx.compose.ui.platform.LocalContext
 @Immutable
 data class AgoraMotionPolicy(
     val reduceMotion: Boolean,
+    val eInkMode: Boolean = false,
 ) {
     val allowContinuousMotion: Boolean
-        get() = !reduceMotion
+        get() = !reduceMotion && !eInkMode
 
     val allowSpatialTransitions: Boolean
-        get() = !reduceMotion
+        get() = !reduceMotion && !eInkMode
 
     val allowProgrammaticScrollMotion: Boolean
-        get() = !reduceMotion
+        get() = !reduceMotion && !eInkMode
 
     companion object {
         val Default = AgoraMotionPolicy(reduceMotion = false)
@@ -46,20 +47,24 @@ val LocalAgoraMotionPolicy = staticCompositionLocalOf { AgoraMotionPolicy.Defaul
 internal fun resolveAgoraMotionPolicy(
     appReduceMotion: Boolean,
     systemAnimationsDisabled: Boolean,
+    eInkMode: Boolean = false,
 ): AgoraMotionPolicy = AgoraMotionPolicy(
-    reduceMotion = appReduceMotion || systemAnimationsDisabled,
+    reduceMotion = appReduceMotion || systemAnimationsDisabled || eInkMode,
+    eInkMode = eInkMode,
 )
 
 @Composable
 fun ProvideAgoraMotionPolicy(
     appReduceMotion: Boolean,
+    eInkMode: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val systemAnimationsDisabled = rememberSystemAnimationsDisabled()
-    val policy = remember(appReduceMotion, systemAnimationsDisabled) {
+    val policy = remember(appReduceMotion, systemAnimationsDisabled, eInkMode) {
         resolveAgoraMotionPolicy(
             appReduceMotion = appReduceMotion,
             systemAnimationsDisabled = systemAnimationsDisabled,
+            eInkMode = eInkMode,
         )
     }
     CompositionLocalProvider(LocalAgoraMotionPolicy provides policy, content = content)

@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Transition
 import androidx.compose.animation.core.tween
@@ -16,6 +15,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.chat.GenerationActivityDot
 import com.newoether.agora.ui.chat.StreamingTailAnchorHeight
+import com.newoether.agora.ui.motion.Crossfade
 
 private val AssistantInlineActivityHeight = StreamingTailAnchorHeight
 

@@ -3,7 +3,6 @@ package com.newoether.agora.ui.settings
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -31,6 +30,11 @@ import com.newoether.agora.util.UpdateInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.motion.Crossfade
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

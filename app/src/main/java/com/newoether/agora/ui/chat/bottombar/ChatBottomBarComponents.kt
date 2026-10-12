@@ -1,7 +1,8 @@
 package com.newoether.agora.ui.chat.bottombar
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.ScrollState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -25,12 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +42,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.draw.clip
@@ -57,6 +53,14 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.motion.animateFloatAsState
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.motion.Crossfade
 
 internal const val CHAT_DROPDOWN_MENU_ICON_SIZE_DP = 24
 
@@ -230,12 +234,31 @@ internal fun ComposerContextIndicator(
                 .semantics { contentDescription = title; stateDescription = usage }
                 .menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = available),
         ) {
-            CircularProgressIndicator(
-                progress = { if (available) contextProgress else 0f },
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.5.dp,
-                color = contextProgressColor,
-            )
+            if (motionPolicy.eInkMode) {
+                Canvas(Modifier.size(20.dp)) {
+                    // White capacity remains visible between the two black donut boundaries.
+                    val edge = 0.5.dp.toPx()
+                    val band = 4.5.dp.toPx()
+                    val radius = size.minDimension / 2 - edge - band / 2
+                    val inset = size.minDimension / 2 - radius
+                    drawCircle(Color.White, radius = radius, style = Stroke(band))
+                    drawArc(
+                        Color.Black,
+                        startAngle = -90f, sweepAngle = 360f * if (available) contextProgress else 0f,
+                        useCenter = false, topLeft = Offset(inset, inset),
+                        size = Size(2 * radius, 2 * radius), style = Stroke(band),
+                    )
+                    drawCircle(Color.Black, radius = radius + band / 2, style = Stroke(1.dp.toPx()))
+                    drawCircle(Color.Black, radius = radius - band / 2, style = Stroke(1.dp.toPx()))
+                }
+            } else {
+                CircularProgressIndicator(
+                    progress = { if (available) contextProgress else 0f },
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.5.dp,
+                    color = contextProgressColor,
+                )
+            }
         }
         AgoraExposedDropdownMenu(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,

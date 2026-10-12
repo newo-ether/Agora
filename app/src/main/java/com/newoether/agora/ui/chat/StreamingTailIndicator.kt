@@ -2,7 +2,6 @@ package com.newoether.agora.ui.chat
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
@@ -30,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.chat.message.AssistantMessageHorizontalInset
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.motion.animateFloat
 
 internal val StreamingTailAnchorHeight = 24.dp
 internal val StreamingTailVisualLift = 56.dp

@@ -14,6 +14,21 @@ import org.junit.Test
 
 class ConversationForkShareServiceTest {
     @Test
+    fun `interactive answers share only the readable fallback without executable content`() {
+        val answer = com.newoether.agora.model.InteractiveAnswer("Chart", "A chart", "A is twice B",
+            html = "<script>secretExecutableCode()</script>")
+        val output = formatShareText("Chat", listOf(message(
+            id = "model", text = "", participant = Participant.MODEL, sequence = 1,
+            segments = listOf(MessageSegment(type = "tool", toolName = "render_interactive_answer",
+                toolState = com.newoether.agora.model.ToolExecutionStates.SUCCEEDED,
+                toolStructuredResult = answer.encode())),
+        )))
+        assertTrue(output.contains("A is twice B"))
+        assertFalse(output.contains("secretExecutableCode"))
+        assertFalse(output.contains("render_interactive_answer"))
+    }
+
+    @Test
     fun `share text excludes thinking and tool payloads while keeping public content`() {
         val messages = listOf(
             message(

@@ -17,10 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatterySaver
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -38,6 +35,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.newoether.agora.R
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
 
 @Composable
 fun SettingsAutomationPage(viewModel: ChatViewModel, onBack: () -> Unit) {

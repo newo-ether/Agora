@@ -462,9 +462,13 @@ class ConversationContextProjectorTest {
         )
         val firstLoad = CompletableDeferred<DurableSelectedContext>()
         val secondLoad = CompletableDeferred<DurableSelectedContext>()
+        val firstLoadStarted = CompletableDeferred<Unit>()
         var loadIndex = 0
         coEvery { contextLoader.load(any()) } coAnswers {
-            if (loadIndex++ == 0) firstLoad.await() else secondLoad.await()
+            if (loadIndex++ == 0) {
+                firstLoadStarted.complete(Unit)
+                firstLoad.await()
+            } else secondLoad.await()
         }
         val admission = testGenerationAdmissionSnapshot(conversationId = "conversation")
         val snapshot = GenerationContextProjectionSnapshot(admission.config, admission.context)
@@ -488,6 +492,9 @@ class ConversationContextProjectorTest {
             projector.project("conversation", firstSelection, "provider:model", 4_096)
         }
         runCurrent()
+        // project runs the loader on Dispatchers.Default; runCurrent does not advance that pool.
+        // Observe actual first-load admission before issuing the superseding branch request.
+        firstLoadStarted.await()
         val secondJob = launch {
             projector.project("conversation", secondSelection, "provider:model", 4_096)
         }

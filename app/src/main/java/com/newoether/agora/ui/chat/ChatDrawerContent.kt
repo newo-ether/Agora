@@ -1,9 +1,6 @@
 package com.newoether.agora.ui.chat
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -37,17 +34,11 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -98,6 +89,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.motion.animateColorAsState
+import com.newoether.agora.ui.motion.animateFloatAsState
+import com.newoether.agora.ui.components.Button
+import com.newoether.agora.ui.components.FilledTonalButton
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
 
 internal enum class DrawerConversationIndicator {
     NONE,
@@ -295,6 +295,7 @@ internal fun ChatDrawerContent(
                 query = search.query,
                 onQueryChange = { search.query = it },
                 searching = search.isSearching,
+                onSubmit = search::submit,
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -377,7 +378,7 @@ internal fun ChatDrawerContent(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Box(modifier = Modifier.weight(1f)) {
-                            androidx.compose.animation.AnimatedVisibility(
+                            com.newoether.agora.ui.motion.AnimatedVisibility(
                                 visible = !isConversationListLoading,
                                 modifier = Modifier.fillMaxSize(),
                                 enter = fadeIn(tween(180)),
@@ -551,12 +552,13 @@ internal fun ChatDrawerContent(
                                                         color = selectionContentColor,
                                                     )
                                                 }
+                                                com.newoether.agora.ui.components.EinkMoreAction({ showMenu = true }, Modifier.size(40.dp))
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Box(
                                                     modifier = Modifier.size(18.dp),
                                                     contentAlignment = Alignment.Center,
                                                 ) {
-                                                    androidx.compose.animation.AnimatedVisibility(
+                                                    com.newoether.agora.ui.motion.AnimatedVisibility(
                                                         visible =
                                                             indicator ==
                                                                 DrawerConversationIndicator.GENERATING,
@@ -569,7 +571,7 @@ internal fun ChatDrawerContent(
                                                             color = selectionIndicatorColor,
                                                         )
                                                     }
-                                                    androidx.compose.animation.AnimatedVisibility(
+                                                    com.newoether.agora.ui.motion.AnimatedVisibility(
                                                         visible =
                                                             indicator ==
                                                                 DrawerConversationIndicator.UNREAD,
@@ -696,7 +698,7 @@ internal fun ChatDrawerContent(
                             }
                             }
 
-                            androidx.compose.animation.AnimatedVisibility(
+                            com.newoether.agora.ui.motion.AnimatedVisibility(
                                 visible = isConversationListLoading,
                                 modifier = Modifier.fillMaxSize(),
                                 enter = fadeIn(tween(180)),
@@ -770,6 +772,7 @@ internal fun ChatDrawerContent(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
+            com.newoether.agora.ui.components.EinkListNavigation(activeListState)
             FilledTonalButton(
                 onClick = {
                     focusManager.clearFocus()

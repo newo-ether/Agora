@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,6 +29,7 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
 import java.text.BreakIterator
 import kotlin.math.floor
+import com.newoether.agora.ui.components.Text
 
 private const val RETRY_REVEAL_MS_PER_GRAPHEME = 27
 private const val RETRY_REVEAL_MIN_MS = 225

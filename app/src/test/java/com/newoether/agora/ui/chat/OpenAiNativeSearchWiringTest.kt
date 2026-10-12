@@ -214,12 +214,12 @@ class OpenAiNativeSearchWiringTest {
                 "targetWidth = targetTitleCapsuleWidth," in normalBar,
         )
         assertTrue(
-            "the full title capsule must share one rounded drawing clip",
-            ".width(TITLE_CAPSULE_MAX_WIDTH_DP.dp)" in normalBar &&
+            "normal title keeps its fixed canvas and clip; e-ink fills available width without shadow",
+            ".then(if (eInk) Modifier.fillMaxWidth() else Modifier.width(TITLE_CAPSULE_MAX_WIDTH_DP.dp))" in normalBar &&
                 ".graphicsLayer {" in normalBar &&
                 "shape = titleCapsuleClipShape" in normalBar &&
-                "clip = true" in normalBar &&
-                "shadowElevation = 4.dp.toPx()" in normalBar &&
+                "clip = !eInk" in normalBar &&
+                "shadowElevation = if (eInk) 0f else 4.dp.toPx()" in normalBar &&
                 "shadowElevation = 0.dp" in normalBar &&
                 "RoundRect(" in normalBar &&
                 "right = right" in normalBar,

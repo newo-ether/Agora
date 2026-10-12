@@ -1,11 +1,8 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.tween
@@ -52,6 +49,12 @@ import com.newoether.agora.ui.chat.shouldShowStreamingTailIndicator
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.motion.animateFloat
+import com.newoether.agora.ui.motion.animateFloatAsState
 
 internal val AssistantMessageHorizontalInset = 8.dp
 private val FormerAssistantStatusSpacerHeight = 6.dp
@@ -250,6 +253,7 @@ internal fun AssistantMessageContent(
     ) {
         Column {
             if (includeOuterSpacing) Spacer(modifier = Modifier.height(FormerAssistantStatusSpacerHeight))
+            InteractiveAnswerCards(message)
 
             // GenerationManager already publishes a bounded stream cadence. A second UI debounce
             // delayed every chunk, retained a stale text job through Stop, and then replaced the

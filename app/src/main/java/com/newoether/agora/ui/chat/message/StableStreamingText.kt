@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -8,6 +7,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
+import com.newoether.agora.ui.components.Text
 
 /**
  * Plain-text companion to streaming Markdown. The text/layout input is always the final,

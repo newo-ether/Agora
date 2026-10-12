@@ -18,6 +18,10 @@ import com.newoether.agora.ui.settings.PillTabSwitcher
 import com.newoether.agora.data.DataExporter
 import com.newoether.agora.data.DataImporter
 import com.newoether.agora.data.NativeBackupFormat
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.TextButton
 
 @Composable
 internal fun ExportDataDialog(

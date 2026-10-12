@@ -126,12 +126,18 @@ internal fun rememberScrollIsolatedMessages(
     upstream: State<List<ChatMessage>>,
     listState: LazyListState,
     bypassScrollIsolation: Boolean,
+    eInkMode: Boolean = false,
+    presentationIdentity: Any? = null,
 ): State<List<ChatMessage>> {
-    val rendered = remember(conversationId, upstream) {
+    val rendered = remember(conversationId, upstream, eInkMode, presentationIdentity) {
         mutableStateOf(upstream.value)
     }
     val latestBypassScrollIsolation by rememberUpdatedState(bypassScrollIsolation)
-    LaunchedEffect(conversationId, upstream, listState) {
+    LaunchedEffect(conversationId, upstream, listState, eInkMode, presentationIdentity) {
+        if (eInkMode) {
+            snapshotFlow { upstream.value }.coalesceEinkMessages().collect { rendered.value = it }
+            return@LaunchedEffect
+        }
         coroutineScope {
             var latest = upstream.value
             var deferred = listState.isScrollInProgress

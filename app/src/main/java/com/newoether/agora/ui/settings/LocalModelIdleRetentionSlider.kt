@@ -15,6 +15,8 @@ import com.newoether.agora.data.LOCAL_MODEL_IDLE_RETENTION_PRESETS
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
 
 @Composable
 internal fun LocalModelIdleRetentionSlider(

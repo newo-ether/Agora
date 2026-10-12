@@ -3,7 +3,6 @@ package com.newoether.agora.ui.settings
 import android.annotation.SuppressLint
 import android.view.Surface
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
@@ -16,7 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -56,6 +54,11 @@ import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet as ModalBottomS
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.sheetOptionClickable
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.motion.AnimatedContent
 
 private fun variableDisplayName(key: String): String = when (key) {
     PredefinedVariables.TIME -> "Current Time"

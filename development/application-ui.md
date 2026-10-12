@@ -1278,3 +1278,56 @@ the `style.css` -> `material.css` -> `theme.css` order, the determinate track co
 indeterminate turn/step/arc durations, one stop dot per integer step with the handle band skipped and no
 trailing dot at the maximum, the window entrance duration and easing, and the
 `1 / 2 / 3 / 4 / 5 / 10` layer order with the top bar above the composer gradient on both Compose and WebUI.
+
+
+## 38. Optional E-ink Mode
+
+E-ink Mode is an opt-in portable Appearance setting, default off. It changes Android presentation
+only and preserves all ordinary appearance preferences, execution, Room truth, and provider
+behaviour. Android Remote shares this presentation; the remote browser WebUI is unchanged.
+
+The owner-approved references are Mudita Mindful Design's E Ink Guidelines and Intent's
+How to Design for E-Ink Devices. White surfaces, black text and rules, visible gesture alternatives,
+flat overlays, immediate press feedback, stationary navigation, and viewport page controls govern
+this mode. Images retain their original content. No grey disabled labels, shadows, decorative
+animations, ripple waves, opacity transitions, or continuous programmatic reply following.
+
+Visible streaming payloads are coalesced at a one-second cadence in the existing presentation
+owner. Terminal states, approval requests, user actions, and identity changes are immediate. Pending
+updates are cancelled on conversation, branch, run, or mode change. Execution and persistence must
+never consume the coalesced presentation. Page steps use unobscured viewport height minus three text
+lines (capped at half the viewport to preserve progress) and preserve touch scrolling as a shortcut. Search requires explicit submission.
+
+Portable mode ships without manufacturer APIs. First physical acceptance is on Bigme and belongs
+to the user; a build, emulator, or screenshot cannot establish panel acceptance. Handwriting and
+firmware-specific refresh integration are subsequent contributions.
+
+### E-ink reading chrome
+
+E-ink viewport arrows point up/down. Ordinary and Remote chat keep Jump to Latest and offer
+a leftmost Reading Mode / Return to Chat toggle. Chat controls appear in this order:
+reader toggle, Jump to Latest, Previous Page (up), Next Page (down). Reading hides system bars, header and composer
+without replacing the message list, draft owner or generation. Back exits reading; conversation
+or mode changes reset it. Keep paging and exit controls available, preserve the scroll anchor,
+and continue showing pending interactions through their existing immediate owner.
+The e-ink title capsule and its text fill the available width up to the trailing actions, with no clipping layer or shadow; normal
+mode retains its existing fixed-width identity clip.
+
+### E-ink-aware interactive artifacts
+
+Interactive HTML uses the existing shared native renderer and its opaque-origin frame. Only newly
+admitted e-ink authoring receives the design contract and artifact marker; old HTML is unchanged.
+Live presentation requires both current eInkMode and eInkAware. Mode changes keep browser/control
+identity and scroll position. The scoped profile and authoring instructions, not a second renderer
+or JS scheduler patch, own styling and task-appropriate output cadence. Existing native page controls apply
+three-line overlapped frame paging. See interactive-answers.md for the private protocol and limits.
+
+E-ink context usage uses a donut with black inner/outer boundaries, white free capacity and a
+black usage arc. The expanded composition bar outlines the full budget, including free capacity.
+Token categories retain bright saturated colours with labels; white/free legend markers have black
+outlines. Ordinary context colours and geometry remain unchanged.
+
+In e-ink mode the modal drawer keeps the chat visible outside its own bounds. Its existing
+tap-to-close input layer is transparent, with no white cover or translucent dimming. A 1 dp black
+rule along the drawer’s right edge separates it from visible chat. Drawer
+width, gesture/navigation ownership and ordinary-mode scrim behaviour remain unchanged.

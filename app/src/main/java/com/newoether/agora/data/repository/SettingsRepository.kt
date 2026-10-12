@@ -2,7 +2,6 @@ package com.newoether.agora.data.repository
 
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
 import com.newoether.agora.model.ContextBudget
-
 import com.newoether.agora.data.ApiKeyEntry
 import com.newoether.agora.data.BuiltInPrompts
 import com.newoether.agora.data.DEFAULT_COLOR_SCHEME
@@ -218,6 +217,8 @@ class SettingsRepository(
     val colorScheme: StateFlow<String> = hot(settingsManager.colorScheme, DEFAULT_COLOR_SCHEME)
     val dynamicColor: StateFlow<Boolean> = hot(settingsManager.dynamicColor, DEFAULT_DYNAMIC_COLOR)
     val blurEffectsEnabled: StateFlow<Boolean> = hot(settingsManager.blurEffectsEnabled, true)
+    val eInkMode: StateFlow<Boolean> = hot(settingsManager.eInkMode, false)
+    val interactiveAnswersEnabled: StateFlow<Boolean> = hot(settingsManager.interactiveAnswersEnabled, false)
     val reduceMotion: StateFlow<Boolean> = hot(settingsManager.reduceMotion, false)
     val stickToBottom: StateFlow<Boolean> = hot(settingsManager.stickToBottom, true)
     val parseInlineDollarMath: StateFlow<Boolean> = hot(settingsManager.parseInlineDollarMath, false)
@@ -681,6 +682,8 @@ class SettingsRepository(
     fun setColorScheme(scheme: String) = scope.launch { settingsManager.saveColorScheme(scheme) }
     fun setDynamicColor(enabled: Boolean) = scope.launch { settingsManager.saveDynamicColor(enabled) }
     fun setBlurEffectsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveBlurEffectsEnabled(enabled) }
+    fun setEInkMode(enabled: Boolean) = scope.launch { settingsManager.saveEInkMode(enabled) }
+    fun setInteractiveAnswersEnabled(enabled: Boolean) = scope.launch { settingsManager.saveInteractiveAnswersEnabled(enabled) }
     fun setReduceMotion(enabled: Boolean) = scope.launch { settingsManager.saveReduceMotion(enabled) }
     fun setStickToBottom(enabled: Boolean) = scope.launch { settingsManager.saveStickToBottom(enabled) }
     fun setParseInlineDollarMath(enabled: Boolean) =
@@ -790,10 +793,6 @@ class SettingsRepository(
     suspend fun saveAutoDeleteEnabled(enabled: Boolean) = settingsManager.saveAutoDeleteEnabled(enabled)
     suspend fun saveAutoDeletePeriodHours(hours: Int) = settingsManager.saveAutoDeletePeriodHours(hours)
 
-    fun stableProviderReference(reference: String): String {
-        val normalized = reference.trim()
-        return customProviders.value.firstOrNull { provider ->
-            provider.name == normalized || provider.ownsIdentity(normalized)
-        }?.providerId ?: normalized
-    }
+    fun stableProviderReference(reference: String): String =
+        resolveStableProviderReference(reference, customProviders.value)
 }

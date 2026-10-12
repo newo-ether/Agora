@@ -20,7 +20,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.background
@@ -39,6 +38,9 @@ import androidx.annotation.StringRes
 import com.newoether.agora.R
 import com.newoether.agora.ui.settings.datacontrol.SettingsDataControlPage
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Surface
 
 /** When true, [SettingsGroup] inside a [SettingsGroupColumn] suppresses its own bottom padding
  *  (spacing is handled by the column's [Arrangement.spacedBy] instead). */

@@ -9,11 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -26,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.OpenAiServiceTiers
 import kotlin.math.roundToInt
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
 
 @Composable
 fun OpenAiServiceTierControlPanel(

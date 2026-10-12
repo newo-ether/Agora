@@ -29,6 +29,10 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.util.noOpBringIntoView
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.motion.AnimatedVisibility
 
 /** Shared composer drawing; callers own drafts, attachment work and submission. */
 @Composable
@@ -52,7 +56,7 @@ internal fun ChatComposerLayout(
     val composerOcclusionShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
     Box(modifier = modifier.fillMaxWidth().then(if (isExpanded) Modifier.fillMaxHeight() else Modifier).padding(start = COMPOSER_HOST_SIDE_PADDING, end = COMPOSER_HOST_SIDE_PADDING, top = COMPOSER_HOST_TOP_PADDING, bottom = COMPOSER_CONTROLS_INSET)) {
         Column(modifier = Modifier.fillMaxWidth().then(if (isExpanded) Modifier.fillMaxHeight() else Modifier)) {
-            AnimatedVisibility(
+            com.newoether.agora.ui.motion.AnimatedVisibility(
                 visible = isExpanded,
                 enter = EnterTransition.None,
                 exit = if (allowSpatialTransitions) {
@@ -130,7 +134,7 @@ internal fun ChatComposerLayout(
                 ),
                 textStyle = ChatType.input.copy(color = MaterialTheme.colorScheme.onSurface)
             )
-            androidx.compose.animation.AnimatedVisibility(
+            com.newoether.agora.ui.motion.AnimatedVisibility(
                 visible = !isExpanded,
                 enter = fadeIn(tween(250)),
                 exit = ExitTransition.None,
@@ -146,7 +150,7 @@ internal fun ChatComposerLayout(
             controls()
         }
         }
-        AnimatedVisibility(
+        com.newoether.agora.ui.motion.AnimatedVisibility(
             visible = isExpanded,
             enter = fadeIn(tween(250)),
             exit = fadeOut(tween(250)),

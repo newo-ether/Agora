@@ -39,6 +39,25 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class GenerationRequestBuilderProviderDisplayTest {
     @Test
+    fun `interactive answer preference is frozen in the admitted generation`() = runTest {
+        val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
+        val enabled = MutableStateFlow(true)
+        every { fixture.settings.interactiveAnswersEnabled } returns enabled
+        val eink = MutableStateFlow(true)
+        every { fixture.settings.eInkMode } returns eink
+        val snapshot = fixture.builder.captureAdmissionSnapshot(
+            conversationId = "conversation", runId = "run", modelId = fixture.modelId,
+            conversationOverride = ChatEntity("conversation", "Chat"),
+        )
+        enabled.value = false
+        eink.value = false
+        assertTrue(snapshot.context.eInkMode)
+        assertTrue(snapshot.context.interactiveAnswersEnabled)
+        assertEquals("render_interactive_answer", com.newoether.agora.tool.InteractiveAnswerToolProvider()
+            .definitions(snapshot.context).single().function.name)
+    }
+
+    @Test
     fun foregroundExistingAdmissionWaitsForSettingsThenUsesCapturedConversation() = runTest {
         val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
         val gate = CompletableDeferred<Unit>()
@@ -261,6 +280,8 @@ class GenerationRequestBuilderProviderDisplayTest {
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
         every { settings.shellEnabled } returns MutableStateFlow(true)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
+        every { settings.interactiveAnswersEnabled } returns MutableStateFlow(false)
+        every { settings.eInkMode } returns MutableStateFlow(false)
         every { settings.localLowContextModeEnabled } returns MutableStateFlow(true)
         val builder = GenerationRequestBuilder(
             settings = settings,
@@ -584,6 +605,8 @@ private class RequestBuilderFixture(
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
         every { settings.shellEnabled } returns MutableStateFlow(true)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
+        every { settings.interactiveAnswersEnabled } returns MutableStateFlow(false)
+        every { settings.eInkMode } returns MutableStateFlow(false)
         every { settings.localLowContextModeEnabled } returns MutableStateFlow(false)
         every { settings.contextCompactModel } returns MutableStateFlow(null)
         every { settings.contextCompactPrompt } returns MutableStateFlow(COMPACT_PROMPT)

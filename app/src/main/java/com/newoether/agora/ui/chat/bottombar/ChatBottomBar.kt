@@ -14,7 +14,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.*
-import androidx.compose.material3.Icon
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.rememberScrollState
@@ -51,6 +50,9 @@ import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.data.modelDisplayName
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.Icon
 internal val CHAT_BOTTOM_BAR_OUTER_RADIUS = 28.dp
 internal val CHAT_BOTTOM_BAR_OUTER_SHAPE = RoundedCornerShape(CHAT_BOTTOM_BAR_OUTER_RADIUS)
 // Non-expanded bar geometry, measured from the bar's outer edge.

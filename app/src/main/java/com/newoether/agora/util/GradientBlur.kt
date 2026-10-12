@@ -40,6 +40,7 @@ fun Modifier.gradientBlur(
     fadeHeightDp: Float = 0f,
     bottomOverlayHeight: Dp = 0.dp,
 ): Modifier = composed {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) return@composed Modifier
     val density = LocalDensity.current.density
     val maxBlurPx = maxOf(blurAtTopDp, blurAtBottomDp)
         .coerceAtMost(MAX_GRADIENT_BLUR_DP) * density
@@ -76,6 +77,7 @@ fun Modifier.gradientBlur(
  * Blur ramps from 0 at the edge to [maxBlurDp] over [edgeFadeDp] distance.
  */
 fun Modifier.gradientBlurEdges(maxBlurDp: Float, edgeFadeDp: Float = 20f, topWeight: Float = 1f, bottomWeight: Float = 1f): Modifier = composed {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) return@composed Modifier
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return@composed this
     if (topWeight <= 0f && bottomWeight <= 0f) return@composed this
 
@@ -145,6 +147,7 @@ fun Modifier.verticalBottomOverlayFade(
     bottomOverlayHeight: Dp,
     renderEffect: ComposeRenderEffect? = null,
 ): Modifier = composed {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) return@composed Modifier
     val density = LocalDensity.current.density
     val fadeHeightPx = fadeHeightDp.coerceAtLeast(0f) * density
     val bottomOverlayHeightPx = bottomOverlayHeight.value.coerceAtLeast(0f) * density
@@ -185,6 +188,7 @@ fun Modifier.verticalBottomOverlayFade(
  * than optically blur the pixels. It avoids the per-pixel sampling cost of blur.
  */
 fun Modifier.verticalEdgeFade(edgeFadeDp: Float = 20f, topWeight: Float = 1f, bottomWeight: Float = 1f): Modifier = composed {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) return@composed Modifier
     val density = LocalDensity.current.density
     val fadePx = edgeFadeDp.coerceAtLeast(0f) * density
     val topAlpha = topWeight.coerceIn(0f, 1f)

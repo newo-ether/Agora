@@ -528,6 +528,30 @@ class ChatViewModel(
         )
     }
 
+    /** Viewer input enters the ordinary send path without touching the Composer draft. */
+    internal suspend fun sendInteractiveFollowup(
+        conversationId: String,
+        messageId: String,
+        callId: String,
+        answer: com.newoether.agora.model.InteractiveAnswer,
+        text: String,
+    ): Boolean {
+        if (text.isBlank() || text.length > 4000 || !verifyInteractiveAnswer(conversationId, messageId, callId, answer)) return false
+        val target = generationController.captureForegroundSendTarget(
+            ownerId = conversationId,
+            currentId = conversationId,
+            isNewChatMode = false,
+            newChatEntryId = newChatEntryId.value,
+            modelId = currentActiveModel.value,
+            captureNewChatWorkspace = conversationWorkspaces::captureNewChatSnapshot,
+        ) ?: return false
+        val admission = generationController.prepareForegroundSend(
+            target, ConversationComposerSnapshot(text = text, loaded = true), phoneClient,
+        ) ?: return false
+        if (!verifyInteractiveAnswer(conversationId, messageId, callId, answer)) return false
+        return generationController.sendMessage(admission, text, emptyList(), {}, phoneClient) != null
+    }
+
     fun updateConversationSetting(
         convId: String?,
         update: (ConversationSettings) -> ConversationSettings,

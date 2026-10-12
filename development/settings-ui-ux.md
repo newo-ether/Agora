@@ -289,3 +289,11 @@ and WebUI share this contract.
 - Verification covers successful responses with/without messages, invalid optional payloads,
   rejection, duplicate IDs, runtime package metadata, plain-text dialog dismissal, and preservation
   of existing submission cleanup. Real-device visual acceptance remains owner-tested.
+
+
+## Optional E-ink Mode
+
+E-ink Mode appears first in Appearance Theme & Color. Its portable boolean defaults off.
+The mode-specific drawing and motion amendment in application-ui.md section 38 overrides the
+normal colour, crossfade and collapsing-header rules while enabled. Disabling restores normal
+preferences without rewriting them. Android Remote shares the same mode; WebUI does not inherit it.

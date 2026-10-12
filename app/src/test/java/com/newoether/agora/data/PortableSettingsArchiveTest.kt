@@ -27,6 +27,43 @@ import org.junit.Test
 
 class PortableSettingsArchiveTest {
     @Test
+    fun interactiveAnswersDefaultOffAndRoundTripThroughPortableSettings() = runTest {
+        val directory = java.nio.file.Files.createTempDirectory("interactive-settings").toFile()
+        val context = mockk<android.content.Context>()
+        every { context.applicationContext } returns context
+        every { context.filesDir } returns directory
+        val movesClass = "androidx.datastore.core.FileMoves_androidKt"
+        val atomicMove = Class.forName(movesClass).getDeclaredMethod("atomicMoveTo", File::class.java, File::class.java)
+        mockkStatic(movesClass)
+        every { atomicMove.invoke(null, any<File>(), any<File>()) } answers {
+            java.nio.file.Files.move(firstArg<File>().toPath(), secondArg<File>().toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            true
+        }
+        try {
+            mockkObject(SecretCrypto)
+            every { SecretCrypto.encrypt(any()) } answers { firstArg<String>() }
+            every { SecretCrypto.decrypt(any()) } answers { firstArg<String>() }
+            val manager = SettingsManager(context)
+            assertFalse(manager.interactiveAnswersEnabled.first())
+            manager.saveInteractiveAnswersEnabled(true)
+            val exported = PortableSettingsArchive.toJsonObject(manager, false)
+            assertEquals("true", exported.getValue("interactiveAnswersEnabled").jsonPrimitive.content)
+            manager.saveInteractiveAnswersEnabled(false)
+            PortableSettingsArchive.restoreFromJsonObject(
+                obj = JsonObject(mapOf("interactiveAnswersEnabled" to JsonPrimitive(true))), sm = manager,
+                replace = false, allowLegacySecrets = false, restoredCustomFont = null, resolveSystemPromptId = { it },
+            )
+            assertTrue(manager.interactiveAnswersEnabled.first())
+            val prefs = androidx.datastore.preferences.core.mutablePreferencesOf(INTERACTIVE_ANSWERS_ENABLED to true)
+            clearPortableSettings(prefs)
+            assertEquals(null, prefs[INTERACTIVE_ANSWERS_ENABLED])
+        } finally {
+            unmockkObject(SecretCrypto)
+            unmockkStatic(movesClass)
+        }
+    }
+
+    @Test
     fun legacyServiceTiersNormalizeThroughPortableImportAndExport() = runTest {
         val directory = java.nio.file.Files.createTempDirectory("agora-tier-settings").toFile()
         val context = mockk<android.content.Context>()

@@ -24,6 +24,9 @@ import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.ui.components.SecretVisibilityToggle
 import com.newoether.agora.ui.components.rememberSecretVisible
 import com.newoether.agora.ui.components.secretVisualTransformation
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

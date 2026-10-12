@@ -24,6 +24,9 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.common.openAiServiceTierShortLabel
 import com.newoether.agora.ui.common.thinkingControlShortLabel
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
 
 /** Ordinary chat's existing rows; visibility and sheet state remain owned by ChatBottomBar. */
 @Composable

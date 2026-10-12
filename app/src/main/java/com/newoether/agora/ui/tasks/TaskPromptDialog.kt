@@ -5,12 +5,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EditNote
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +19,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.settings.SettingsItem
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.TextButton
 
 /** Details-group row for the task prompt. The row previews the prompt and opens the editor, so a
  *  long prompt no longer competes with the rest of the page for height. */

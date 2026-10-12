@@ -3,12 +3,12 @@ package com.newoether.agora.ui.settings
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
 
 /**
  * Section title matching SettingsGroup's label style.

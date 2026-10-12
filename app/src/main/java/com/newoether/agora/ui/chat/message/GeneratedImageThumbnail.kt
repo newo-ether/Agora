@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +43,8 @@ import com.newoether.agora.ui.chat.MEDIA_STATE_CROSSFADE_MILLIS
 import com.newoether.agora.ui.chat.MediaLoadPresentation
 import com.newoether.agora.ui.chat.toMediaLoadPresentation
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.components.Icon
 
 @Composable
 internal fun GeneratedImageThumbnail(

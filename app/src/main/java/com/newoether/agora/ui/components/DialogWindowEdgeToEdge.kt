@@ -57,3 +57,27 @@ fun DialogWindowNoSystemAnimation() {
         window.setWindowAnimations(0)
     }
 }
+
+/** E-ink overrides belong to this dialog and are reversible without recreating its content. */
+@Composable
+fun DialogWindowEinkPresentation(enabled: Boolean) {
+    val window = (LocalView.current.parent as? DialogWindowProvider)?.window ?: return
+    androidx.compose.runtime.DisposableEffect(window, enabled) {
+        val dim = window.attributes.dimAmount
+        val hadDimFlag = window.attributes.flags and WindowManager.LayoutParams.FLAG_DIM_BEHIND != 0
+        val animation = window.attributes.windowAnimations
+        if (enabled) {
+            window.setDimAmount(0f)
+            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            window.setWindowAnimations(0)
+        }
+        onDispose {
+            if (enabled) {
+                window.setDimAmount(dim)
+                if (hadDimFlag) window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                window.setWindowAnimations(animation)
+            }
+        }
+    }
+}

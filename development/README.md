@@ -143,6 +143,7 @@ Never:
 
 | Scope | Required module contract |
 |---|---|
+| Interactive answer tools, saved artifacts and sandboxed Android viewer | [interactive-answers.md](interactive-answers.md) |
 | External agent devices, existing sessions, independent Remote transport and shared chat presentation | [remote-sessions.md](remote-sessions.md) |
 | Conch/Filo encrypted network requests and client read limits | [encrypted-agent-transport.md](encrypted-agent-transport.md) |
 | Message generation, Run lifecycle, queue, tools, Compact, Regenerate, message actions/status, or Provider context | [message-generation.md](message-generation.md) |

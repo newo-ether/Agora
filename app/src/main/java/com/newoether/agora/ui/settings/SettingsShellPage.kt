@@ -22,7 +22,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -38,6 +37,16 @@ import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
 import com.newoether.agora.ui.components.SecretVisibilityToggle
 import com.newoether.agora.ui.components.rememberSecretVisible
 import com.newoether.agora.ui.components.secretVisualTransformation
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.OutlinedButton
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.components.Button
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.motion.AnimatedVisibility
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

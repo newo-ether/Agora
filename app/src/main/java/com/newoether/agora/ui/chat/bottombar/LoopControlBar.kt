@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.bottombar
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,11 +26,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.StopCircle
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,6 +46,11 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.util.Locale
+import com.newoether.agora.ui.motion.AnimatedContent
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
 
 private const val LOOP_RISE_DURATION_MS = 300
 private const val LOOP_FADE_IN_DURATION_MS = 180

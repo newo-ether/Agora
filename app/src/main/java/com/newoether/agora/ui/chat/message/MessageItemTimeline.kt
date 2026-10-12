@@ -1,7 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.*
@@ -44,6 +42,13 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.util.noOpBringIntoView
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.motion.animateDp
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.motion.animateFloatAsState
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.motion.Crossfade
 
 // ── Timeline / segment rendering (extracted from MessageItem.kt) ──────────────
 // Pure code-motion. Entry points used by MessageItem.kt are `internal`; the rest

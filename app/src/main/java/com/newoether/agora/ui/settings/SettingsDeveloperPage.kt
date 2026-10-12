@@ -6,11 +6,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,6 +19,11 @@ import com.newoether.agora.R
 import com.newoether.agora.diagnostics.DeveloperDiagnostics
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.TextButton
 
 @Composable
 fun SettingsDeveloperPage(

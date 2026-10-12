@@ -1,8 +1,6 @@
 package com.newoether.agora.ui.chat.bottombar
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
@@ -13,9 +11,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +29,10 @@ import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as Cir
 import com.newoether.agora.viewmodel.ConversationComposerSnapshot
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionController
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionSnapshot
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.motion.animateColorAsState
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Surface
 
 private enum class ComposerActionIcon {
     BUSY,

@@ -84,7 +84,8 @@ class ChatDrawerHostTest {
         assertFalse(host.contains("CubicBezierEasing"))
         assertFalse(host.contains("FastOutSlowInEasing"))
         assertFalse(host.contains("DRAWER_EASING"))
-        assertTrue(host.contains(".background(scrimColor.copy(alpha = scrimColor.alpha * progress))"))
+        assertTrue(host.contains(".background(if (motionPolicy.eInkMode) androidx.compose.ui.graphics.Color.Transparent"))
+        assertTrue(host.contains("else scrimColor.copy(alpha = scrimColor.alpha * progress)"))
         assertFalse(host.contains(".alpha(progress)"))
         assertTrue(host.contains("val scrimInteractionSource = remember { MutableInteractionSource() }"))
         assertTrue(host.contains("interactionSource = scrimInteractionSource"))
@@ -102,7 +103,7 @@ class ChatDrawerHostTest {
             .substringAfter("// Reserve the trailing capsule first; the title may only use the remaining width.")
             .substringBefore("// Actions capsule")
         val internalTitlePadding =
-            Regex("""Modifier\.padding\(end = 20\.dp\)\.widthIn\(max = 180\.dp\)""")
+            Regex("""Modifier\.padding\(end = 20\.dp\)\s*\.then\(if \(eInk\) Modifier\.fillMaxWidth\(\) else Modifier\.widthIn\(max = 180\.dp\)\)""")
         assertEquals(2, internalTitlePadding.findAll(titleBlock).count())
         assertFalse(titleBlock.contains("Spacer(modifier = Modifier.width(20.dp))"))
     }

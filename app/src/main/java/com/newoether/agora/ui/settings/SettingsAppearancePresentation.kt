@@ -5,6 +5,11 @@ import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.ui.theme.ColorSchemePreset
 import com.newoether.agora.ui.theme.SchemeStyle
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.filled.Contrast
 
 /**
  * Display-name lookups for the theme color pickers on the Appearance page, kept out of
@@ -28,4 +33,18 @@ internal fun styleDisplayName(style: SchemeStyle): String = when (style) {
     SchemeStyle.EXPRESSIVE -> stringResource(R.string.scheme_style_expressive)
     SchemeStyle.VIBRANT -> stringResource(R.string.scheme_style_vibrant)
     SchemeStyle.NEUTRAL -> stringResource(R.string.scheme_style_neutral)
+}
+
+
+@Composable
+internal fun EinkModeSettingsItem(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    SettingsItem(
+        headlineContent = { Text(stringResource(R.string.e_ink_mode)) },
+        supportingContent = { Text(stringResource(R.string.e_ink_mode_desc)) },
+        leadingContent = { Icon(
+            androidx.compose.material.icons.Icons.Default.Contrast, null) },
+        trailingContent = { Switch(checked = enabled, onCheckedChange = null) },
+        modifier = androidx.compose.ui.Modifier.toggleable(
+            value = enabled, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange),
+    )
 }

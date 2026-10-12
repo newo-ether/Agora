@@ -3,9 +3,6 @@ package com.newoether.agora.ui.settings
 import android.content.Intent
 import android.net.Uri
 import java.util.Base64
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -40,6 +37,15 @@ import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.components.Button
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.motion.animateColorAsState
+import com.newoether.agora.ui.motion.animateFloatAsState
 
 // Keep upstream identity independent of the application ID used to build a derivative.
 // This is lightweight attribution encoding, not an authenticity or tamper-prevention check.

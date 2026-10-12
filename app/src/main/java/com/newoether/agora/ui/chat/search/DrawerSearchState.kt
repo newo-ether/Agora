@@ -22,6 +22,11 @@ internal class DrawerSearchState(
     private val viewModel: ChatViewModel
 ) {
     var query by mutableStateOf("")
+    var submittedQuery by mutableStateOf("")
+        private set
+    var submission by mutableStateOf(0)
+        private set
+    fun submit() { submittedQuery = query; submission++ }
     var results by mutableStateOf<List<Pair<MessageEntity, Float>>>(emptyList())
         private set
     var isActive by mutableStateOf(false)
@@ -32,7 +37,7 @@ internal class DrawerSearchState(
     // a cancelled run finishing late must not hide the indicator of the run that replaced it.
     private var searchGeneration = 0
 
-    suspend fun runSearch(method: String) {
+    suspend fun runSearch(method: String, query: String = this.query) {
         val generation = ++searchGeneration
         if (query.isBlank()) {
             results = emptyList()
@@ -61,8 +66,13 @@ internal class DrawerSearchState(
 internal fun rememberDrawerSearchState(viewModel: ChatViewModel): DrawerSearchState {
     val state = remember(viewModel) { DrawerSearchState(viewModel) }
     val manualSearchMethod by viewModel.settings.manualSearchMethod.collectAsState()
-    LaunchedEffect(state.query) {
-        state.runSearch(manualSearchMethod)
+    val eInk = com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode
+    val effectiveQuery = if (eInk) state.submittedQuery else state.query
+    LaunchedEffect(effectiveQuery, state.submission, eInk) {
+        state.runSearch(manualSearchMethod, effectiveQuery)
+    }
+    LaunchedEffect(state.query.isBlank()) {
+        if (state.query.isBlank()) state.submit()
     }
     return state
 }

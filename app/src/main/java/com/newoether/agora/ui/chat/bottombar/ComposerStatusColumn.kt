@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.bottombar
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.viewmodel.QueuedSend
+import com.newoether.agora.ui.motion.AnimatedContent
 
 internal val QUEUED_MESSAGE_HEIGHT: Dp = 40.dp
 internal val QUEUED_MESSAGE_RADIUS: Dp = 20.dp

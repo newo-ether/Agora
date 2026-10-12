@@ -3,18 +3,13 @@ package com.newoether.agora.ui.settings
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -57,6 +52,17 @@ import com.newoether.agora.sandbox.SandboxManager
 import com.newoether.agora.sandbox.SandboxSharedStorageAccess
 import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.launch
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.components.Button
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.motion.animateColorAsState
+import com.newoether.agora.ui.motion.animateFloatAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

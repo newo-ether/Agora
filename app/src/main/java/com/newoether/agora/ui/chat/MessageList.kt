@@ -255,7 +255,7 @@ internal fun MessageList(
         }
     }
 
-    LaunchedEffect(regenerationTransition?.id) {
+    LaunchedEffect(regenerationTransition?.id, motionPolicy.eInkMode) {
         val transition = regenerationTransition
         if (transition == null) {
             if (branchReplacementExitIds.any { exitId ->
@@ -265,7 +265,7 @@ internal fun MessageList(
                 branchReplacementExitAlpha.animateTo(
                     targetValue = 1f,
                     animationSpec = tween(
-                        durationMillis = REGENERATION_ABORT_RESTORE_DURATION_MS,
+                        durationMillis = if (motionPolicy.eInkMode) 0 else REGENERATION_ABORT_RESTORE_DURATION_MS,
                         easing = LinearEasing,
                     ),
                 )
@@ -300,7 +300,7 @@ internal fun MessageList(
         branchReplacementExitAlpha.animateTo(
             targetValue = 0f,
             animationSpec = tween(
-                durationMillis = REGENERATION_EXIT_DURATION_MS,
+                durationMillis = if (motionPolicy.eInkMode) 0 else REGENERATION_EXIT_DURATION_MS,
                 easing = LinearEasing,
             ),
         )

@@ -1,8 +1,6 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,7 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -57,6 +54,9 @@ import com.newoether.agora.util.NoAutoScrollSelectionContainer
 import com.newoether.agora.util.noOpBringIntoView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.motion.animateFloatAsState
+import com.newoether.agora.ui.components.Text
 
 internal enum class SegmentSheetBackAction { DISMISS, SHOW_LIST }
 

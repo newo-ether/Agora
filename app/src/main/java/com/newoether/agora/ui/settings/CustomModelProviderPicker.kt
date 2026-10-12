@@ -15,6 +15,8 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.components.providerIcon
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

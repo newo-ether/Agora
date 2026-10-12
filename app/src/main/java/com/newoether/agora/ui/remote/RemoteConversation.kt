@@ -1,7 +1,6 @@
 package com.newoether.agora.ui.remote
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -43,6 +42,11 @@ import com.newoether.agora.util.gradientBlur
 import kotlinx.coroutines.flow.filterNotNull
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.chat.ChatEinkNavigation
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.motion.AnimatedVisibility
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -168,6 +172,8 @@ internal fun RemoteConversation(
         focusManager.clearFocus()
     }
     val animatedScrollRequest by vm.animatedScrollRequest.collectAsState()
+    val readingMode = rememberEinkReadingMode(motion.eInkMode, owner, scroll.listState)
+    var topBarHeightPx by remember { mutableStateOf(0) }
     var barHeightPx by remember { mutableFloatStateOf(0f) }
     val barHeight = with(density) { barHeightPx.toDp() }
     val topBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
@@ -196,7 +202,8 @@ internal fun RemoteConversation(
     scroll.BindRequestEffects(owner, false, generationVisible, false, switching, interaction.searchActive, false, null, animatedScrollRequest,
         messageState, density, motion, barHeight, 0.dp, onAnimatedScrollFinished = vm::completeAnimatedScroll)
     val renderMessages = rememberScrollIsolatedMessages(owner, messageState, scroll.listState,
-        bypassScrollIsolation = scroll.absoluteBottomScrollPhase.isActive || scroll.streamingTailController.isAutoFollowing)
+        bypassScrollIsolation = scroll.absoluteBottomScrollPhase.isActive || scroll.streamingTailController.isAutoFollowing,
+        eInkMode = motion.eInkMode)
     var initialLeadingSpace by remember(owner) { mutableStateOf<Int?>(null) }
     val leadingSpace = initialLeadingSpace ?: messageListPageLeadingSpacing(renderMessages.value.firstOrNull())
     SideEffect { if (initialLeadingSpace == null && renderMessages.value.isNotEmpty()) initialLeadingSpace = leadingSpace }
@@ -246,7 +253,7 @@ internal fun RemoteConversation(
         @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
         Scaffold(containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0, 0, 0, 0), topBar = {
             ChatTopBar(
-                isNewChatMode = false, conversations = emptyList(),
+                reading = readingMode.active, onHeightChanged = { topBarHeightPx = it },                isNewChatMode = false, conversations = emptyList(),
                 currentConversationId = session.id, currentConversationTitle = session.displayTitle(stringResource(R.string.new_chat)),
                 totalTokens = state.runtime?.contextTokens ?: 0,
                 contextTokenBudget = state.runtime?.contextWindow ?: 0,
@@ -260,6 +267,7 @@ internal fun RemoteConversation(
                 searchActive = interaction.searchActive, searchQuery = interaction.searchQuery,
                 searchMatchIndex = interaction.searchMatchIndex, searchMatchCount = interaction.searchMatches.size,
                 onSearchQueryChange = interaction::updateSearchQuery,
+                onSearchSubmit = interaction::submitSearch,
                 onSearchPrevious = { if (interaction.previousSearchMatch()) haptics.selection() },
                 onSearchNext = { if (interaction.nextSearchMatch()) haptics.selection() },
                 onSearchDismiss = { interaction.dismissSearch(); focusManager.clearFocus() },
@@ -281,13 +289,14 @@ internal fun RemoteConversation(
                     authoritativeMessages = StableMessageList(messages), conversationId = owner,
                     state = scroll.listState, overscrollEffect = historyOverscroll, onMediaClick = onMediaClick, messageActionsEnabled = false, readOnlyActions = true, parseInlineDollarMath = inlineMath,
                     autoWrapCodeBlocks = autoWrapCodeBlocks,
-                    isLoading = generationVisible, isSwitching = switching, streamingMessage = streaming,
-                    searchQuery = if (interaction.searchActive) interaction.searchQuery else "",
+                    isLoading = generationVisible, isSwitching = switching,
+                    streamingMessage = if (motion.eInkMode) renderMessages.value.firstOrNull { it.id == streaming?.id } else streaming,
+                    searchQuery = if (interaction.searchActive) interaction.renderedSearchQuery else "",
                     activeSearchMatch = searchMatch,
                     searchScrollRequestKey = interaction.searchScrollRequestKey,
                     onSearchMatchDistance = interaction::recordSearchMatchDistance,
                     onSearchTurnsChanged = interaction::recordSearchTurns,
-                    streamingAutoFollowEnabled = follow.enabled && stickToBottom,
+                    streamingAutoFollowEnabled = !motion.eInkMode && follow.enabled && stickToBottom,
                     streamingAutoFollowPaused = follow.paused,
                     streamingTailWithinAttachThreshold = scroll.isWithinAbsoluteBottomAttachThreshold,
                     streamingTailController = scroll.streamingTailController,
@@ -295,7 +304,7 @@ internal fun RemoteConversation(
                     autoExpandActiveGroup = autoExpandActiveGroup,
                     modifier = Modifier.fillMaxSize().gradientBlur(blurAtTopDp = if (blur) 8f else 0f,
                         blurAtBottomDp = 0f, fadeHeightDp = 40f, bottomOverlayHeight = barHeight + with(density) { spacer.outerHeightPx.toDp() } + 12.dp),
-                    bottomBarHeight = barHeight, viewportHeight = scroll.viewportHeightPx,
+                    bottomBarHeight = if (readingMode.active) 0.dp else barHeight, viewportHeight = scroll.viewportHeightPx,
                     messageHeights = scroll.messageHeights, observeMessage = observe, initialMessage = initialMessage,
                     programmaticScrollActive = animatedScrollRequest?.conversationId == owner,
                     onMessageHydrated = scroll::recordMessageHydrated,
@@ -319,13 +328,19 @@ internal fun RemoteConversation(
                             }
                         }
                     },
-                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 140.dp + leadingSpace.dp, bottom = barHeight + 8.dp))
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = (if (readingMode.active) 0.dp else if (motion.eInkMode) with(density) { topBarHeightPx.toDp() } else 140.dp) + leadingSpace.dp, bottom = (if (readingMode.active) 0.dp else barHeight) + if (motion.eInkMode) 56.dp else 8.dp))
                 }
+                if (motion.eInkMode && !expanded) {
+                    ChatEinkNavigation(scroll.listState, scroll.viewportHeightPx, if (readingMode.active) 0 else topBarHeightPx, if (readingMode.active) 0.dp else barHeight,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        onLatest = { scroll.requestAbsoluteBottomScroll() }, readingMode = readingMode)
+                } else {
                 ChatBottomScrollButton(
                     showBottomButton,
                     barHeight,
                 ) {
                     scroll.requestAbsoluteBottomScroll()
+                }
                 }
 
                 ChatSwitchingOverlay(
@@ -336,7 +351,7 @@ internal fun RemoteConversation(
                 )
             }
         }
-        ChatComposerSurface(expanded, { barHeightPx = it }, Modifier.align(Alignment.BottomCenter), spacer.outerHeightPx) {
+        ChatComposerSurface(expanded, { barHeightPx = it }, Modifier.align(Alignment.BottomCenter).readingChrome(readingMode.active), spacer.outerHeightPx) {
             ChatComposerLayout(field, focus, scroll::setComposerInputFocused, expanded, spacer.isRunning,
                 onExpand = { expanded = true }, onCollapse = { expanded = false },
                 statusContent = {

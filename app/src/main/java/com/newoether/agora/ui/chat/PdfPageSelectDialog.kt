@@ -21,6 +21,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.newoether.agora.R
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.components.Button
+import com.newoether.agora.ui.components.Surface
 
 data class PdfPageSelection(
     val selectedPages: Set<Int>,

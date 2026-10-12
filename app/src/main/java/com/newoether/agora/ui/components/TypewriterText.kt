@@ -2,7 +2,6 @@ package com.newoether.agora.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +27,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import kotlin.math.max
+import com.newoether.agora.ui.components.Text
 
 enum class TypewriterMode {
     CURSOR,

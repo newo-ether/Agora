@@ -26,13 +26,8 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -73,6 +68,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.Locale
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
 
 /**
  * The schedule editor mode is explicit UI state. In particular, CUSTOM must not be inferred from

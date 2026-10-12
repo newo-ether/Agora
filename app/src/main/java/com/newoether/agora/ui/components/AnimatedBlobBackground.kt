@@ -2,7 +2,6 @@ package com.newoether.agora.ui.components
 
 import androidx.compose.animation.core.InfiniteTransition
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -30,6 +29,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+import com.newoether.agora.ui.motion.animateFloat
 
 private data class BlobSpec(
     val centerXFrac: Float,
@@ -61,6 +61,7 @@ fun AnimatedBlobBackground(
     // animation from competing with text layout and scrolling for every frame.
     motionEnabled: Boolean = true,
 ) {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) return
     val cs = MaterialTheme.colorScheme
     val blobColor = if (dark) Color(
         red = lerp(cs.primaryContainer.red, cs.primary.red, 0.3f) * 0.5f,

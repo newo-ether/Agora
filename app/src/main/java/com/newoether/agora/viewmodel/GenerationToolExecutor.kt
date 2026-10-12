@@ -102,6 +102,7 @@ internal class GenerationToolExecutor private constructor(
                     SkillToolProvider(skillManager),
                     WebSearchToolProvider(),
                     RagToolProvider(conversations),
+                    com.newoether.agora.tool.InteractiveAnswerToolProvider(),
                     imageGenProvider,
                     shellProvider,
                 ) + additionalProviders,

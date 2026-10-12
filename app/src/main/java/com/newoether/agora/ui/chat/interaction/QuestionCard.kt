@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.interaction
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -25,14 +24,11 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -63,6 +59,10 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.util.NoAutoScrollSelectionContainer
 import com.newoether.agora.viewmodel.AskUserController
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.components.Button
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.TextButton
 
 private const val FieldDurationMs = 180
 

@@ -10,6 +10,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
 
 @Composable
 internal fun SearchAdvancedSettings(

@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -54,6 +53,15 @@ import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.CircularBackButton
 import com.newoether.agora.ui.components.clearFocusOnTap
+import androidx.compose.foundation.layout.ime
+import com.newoether.agora.ui.components.Text
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import kotlinx.coroutines.launch
 
 // ── Shared geometry for the iOS-style collapsing large title, used by the
 //    Settings home page and every settings sub-page so the morph is identical. ──
@@ -195,8 +203,13 @@ fun CollapsingSettingsScaffold(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val titleAreaHeight = SettingsTitleAreaHeight
-    val titleTravel = settingsTitleTravel
+    val eInk = LocalAgoraMotionPolicy.current.eInkMode
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    var viewportHeight by remember { mutableIntStateOf(0) }
+    val titleAreaHeight = if (eInk) 0.dp else SettingsTitleAreaHeight
+    val titleTravel = if (eInk) SettingsBarHeight + titleAreaHeight -
+        SettingsTitleBottomInset - SettingsTitleDockTop else settingsTitleTravel
     val titleTravelPx = with(LocalDensity.current) { titleTravel.toPx() }
     val fraction by remember(titleTravelPx) {
         derivedStateOf { (scrollState.value / titleTravelPx).coerceIn(0f, 1f) }
@@ -205,6 +218,7 @@ fun CollapsingSettingsScaffold(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .onSizeChanged { viewportHeight = it.height }
     ) {
         Column(
             modifier = Modifier
@@ -220,12 +234,12 @@ fun CollapsingSettingsScaffold(
         ) {
             Spacer(modifier = Modifier.height(statusBarTop + SettingsBarHeight + titleAreaHeight))
             content()
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(if (eInk) 88.dp else 32.dp))
         }
         CollapsingSettingsTitleBar(
             title = title,
             backDescription = stringResource(R.string.back),
-            fraction = fraction,
+            fraction = if (eInk) 1f else fraction,
             statusBarTop = statusBarTop,
             titleAreaHeight = titleAreaHeight,
             titleTravel = titleTravel,
@@ -237,10 +251,24 @@ fun CollapsingSettingsScaffold(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(bottom = 16.dp),
+                .padding(bottom = if (eInk) 72.dp else 16.dp),
             contentAlignment = Alignment.Center
         ) {
             floatingActionButton()
+        }
+        if (eInk) {
+            val step = with(density) {
+                com.newoether.agora.ui.components.einkPageStep(viewportHeight,
+                    (statusBarTop + SettingsBarHeight).roundToPx(),
+                    (WindowInsets.ime.asPaddingValues().calculateBottomPadding() + 56.dp).roundToPx(),
+                    MaterialTheme.typography.bodyLarge.lineHeight.toPx().toInt())
+            }
+            com.newoether.agora.ui.components.EinkPageControls(
+                canPrevious = scrollState.canScrollBackward, canNext = scrollState.canScrollForward,
+                onPrevious = { scope.launch { scrollState.scrollBy(-step.toFloat()) } },
+                onNext = { scope.launch { scrollState.scrollBy(step.toFloat()) } },
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding(),
+            )
         }
     }
 }
@@ -263,8 +291,13 @@ fun CollapsingSettingsLazyScaffold(
     content: LazyListScope.() -> Unit
 ) {
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val titleAreaHeight = SettingsTitleAreaHeight
-    val titleTravel = settingsTitleTravel
+    val eInk = LocalAgoraMotionPolicy.current.eInkMode
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    var viewportHeight by remember { mutableIntStateOf(0) }
+    val titleAreaHeight = if (eInk) 0.dp else SettingsTitleAreaHeight
+    val titleTravel = if (eInk) SettingsBarHeight + titleAreaHeight -
+        SettingsTitleBottomInset - SettingsTitleDockTop else settingsTitleTravel
     val titleTravelPx = with(LocalDensity.current) { titleTravel.toPx() }
     val fraction by remember(titleTravelPx) {
         derivedStateOf {
@@ -276,6 +309,7 @@ fun CollapsingSettingsLazyScaffold(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .onSizeChanged { viewportHeight = it.height }
     ) {
         LazyColumn(
             state = listState,
@@ -292,12 +326,12 @@ fun CollapsingSettingsLazyScaffold(
         ) {
             item { Spacer(modifier = Modifier.height(titleAreaHeight)) }
             content()
-            item { Spacer(modifier = Modifier.height(contentBottomPadding)) }
+            item { Spacer(modifier = Modifier.height(contentBottomPadding + if (eInk) 56.dp else 0.dp)) }
         }
         CollapsingSettingsTitleBar(
             title = title,
             backDescription = stringResource(R.string.back),
-            fraction = fraction,
+            fraction = if (eInk) 1f else fraction,
             statusBarTop = statusBarTop,
             titleAreaHeight = titleAreaHeight,
             titleTravel = titleTravel,
@@ -309,10 +343,24 @@ fun CollapsingSettingsLazyScaffold(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(bottom = 16.dp),
+                .padding(bottom = if (eInk) 72.dp else 16.dp),
             contentAlignment = Alignment.Center
         ) {
             floatingActionButton()
+        }
+        if (eInk) {
+            val step = with(density) {
+                com.newoether.agora.ui.components.einkPageStep(viewportHeight,
+                    (statusBarTop + SettingsBarHeight).roundToPx(),
+                    (WindowInsets.ime.asPaddingValues().calculateBottomPadding() + 56.dp).roundToPx(),
+                    MaterialTheme.typography.bodyLarge.lineHeight.toPx().toInt())
+            }
+            com.newoether.agora.ui.components.EinkPageControls(
+                canPrevious = listState.canScrollBackward, canNext = listState.canScrollForward,
+                onPrevious = { scope.launch { listState.scrollBy(-step.toFloat()) } },
+                onNext = { scope.launch { listState.scrollBy(step.toFloat()) } },
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding(),
+            )
         }
     }
 }

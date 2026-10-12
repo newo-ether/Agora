@@ -16,9 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -63,6 +61,10 @@ import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.findChildOfType
 import kotlinx.coroutines.flow.distinctUntilChanged
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import androidx.compose.foundation.border
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 
 @Composable
 internal fun ChatMarkdownCodeBlock(
@@ -80,7 +82,8 @@ internal fun ChatMarkdownCodeBlock(
             shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
             modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 8.dp)
+                .then(if (LocalAgoraMotionPolicy.current.eInkMode) Modifier.border(1.dp, Color.Black, RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize)) else Modifier),
             showHeader = false,
             language = null,
             code = code,
@@ -261,7 +264,8 @@ private fun SearchHighlightedMarkdownCodeText(
         shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 8.dp)
+                .then(if (LocalAgoraMotionPolicy.current.eInkMode) Modifier.border(1.dp, Color.Black, RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize)) else Modifier),
         showHeader = false,
         language = language,
         code = code,
@@ -329,7 +333,7 @@ private fun ChatCodeBlockHeader(language: String?, code: String) {
         }
     }
     HorizontalDivider(
-        color = LocalMarkdownColors.current.dividerColor.copy(alpha = 0.3f),
+        color = if (LocalAgoraMotionPolicy.current.eInkMode) Color.Black else LocalMarkdownColors.current.dividerColor.copy(alpha = 0.3f),
         thickness = 0.5.dp,
     )
 }

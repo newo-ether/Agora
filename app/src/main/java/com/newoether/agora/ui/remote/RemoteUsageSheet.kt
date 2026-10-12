@@ -3,9 +3,7 @@ package com.newoether.agora.ui.remote
 import android.icu.text.MeasureFormat
 import android.icu.util.Measure
 import android.icu.util.MeasureUnit
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -29,6 +27,9 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 import java.util.Locale
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.motion.AnimatedContent
+import com.newoether.agora.ui.motion.animateFloatAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

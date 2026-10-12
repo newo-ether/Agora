@@ -132,6 +132,7 @@ class MainActivity : ComponentActivity() {
             val dynamicColor by settingsManager.dynamicColor.collectAsState(initial = com.newoether.agora.data.DEFAULT_DYNAMIC_COLOR)
             val fontPreference by settingsManager.fontPreference.collectAsState(initial = "app_default")
             val customFontPath by settingsManager.customFontPath.collectAsState(initial = "")
+            val eInkMode by settingsManager.eInkMode.collectAsState(initial = false)
             val appReduceMotion by settingsManager.reduceMotion.collectAsState(initial = false)
 
             val themeModeEnum = try { com.newoether.agora.ui.theme.ThemeMode.valueOf(themeMode) } catch (_: Exception) { com.newoether.agora.ui.theme.ThemeMode.FOLLOW_DEVICE }
@@ -148,20 +149,21 @@ class MainActivity : ComponentActivity() {
             SideEffect {
                 val window = this@MainActivity.window
                 val insetsController = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
-                insetsController.isAppearanceLightStatusBars = !isDark
-                insetsController.isAppearanceLightNavigationBars = !isDark
+                insetsController.isAppearanceLightStatusBars = eInkMode || !isDark
+                insetsController.isAppearanceLightNavigationBars = eInkMode || !isDark
             }
 
             AgoraTheme(
                 themeMode = themeModeEnum,
                 amoledEnabled = amoledEnabled,
+                eInkMode = eInkMode,
                 colorSchemePreset = colorSchemePreset,
                 schemeStyle = schemeStyle,
                 dynamicColor = dynamicColor,
                 fontPreference = fontPreference,
                 customFontPath = customFontPath
             ) {
-                ProvideAgoraMotionPolicy(appReduceMotion = appReduceMotion) {
+                ProvideAgoraMotionPolicy(appReduceMotion = appReduceMotion, eInkMode = eInkMode) {
                 val activity = LocalActivity.current
 
                 if (needsErrorDialog) {
@@ -205,7 +207,15 @@ class MainActivity : ComponentActivity() {
                     // so the same shared singletons back both the UI and background task execution.
                     val container = agoraApplication.requireContainer()
                     // The WebUI mirrors the app's resolved colors and font.
-                    com.newoether.agora.webui.PublishWebUiTheme(container.webUi, fontPreference, customFontPath)
+                    // Android-only e-ink mode must not recolour the remote browser WebUI.
+                    AgoraTheme(
+                        themeMode = themeModeEnum, colorSchemePreset = colorSchemePreset,
+                        schemeStyle = schemeStyle, dynamicColor = dynamicColor,
+                        amoledEnabled = amoledEnabled, fontPreference = fontPreference,
+                        customFontPath = customFontPath, eInkMode = false,
+                    ) {
+                        com.newoether.agora.webui.PublishWebUiTheme(container.webUi, fontPreference, customFontPath)
+                    }
                     val factory = remember { container.chatViewModelFactory() }
                     val viewModel: ChatViewModel = viewModel(factory = factory)
 
@@ -231,7 +241,7 @@ class MainActivity : ComponentActivity() {
                                 onNotificationConversationConsumed = { expectedId ->
                                     consumeNotificationTarget(notificationConversationId, expectedId)
                                 },
-                                screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
+                                screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION)?.removeSuffix(":eink"),
                             )
                         }
                     }
