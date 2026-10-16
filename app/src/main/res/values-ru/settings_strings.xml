@@ -462,7 +462,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">Сеть</string>
     <string name="settings_proxy">Прокси</string>
-    <string name="settings_proxy_desc">Направлять сетевой трафик через HTTP- или SOCKS-прокси</string>
+    <string name="settings_proxy_desc">Направлять сетевой трафик через HTTP-, HTTPS- или SOCKS-прокси</string>
     <string name="proxy_enable">Включить прокси</string>
     <string name="proxy_enable_desc">Направлять весь сетевой трафик приложения через прокси</string>
     <string name="proxy_type">Тип</string>

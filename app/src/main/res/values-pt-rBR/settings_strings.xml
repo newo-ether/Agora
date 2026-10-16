@@ -462,7 +462,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">Rede</string>
     <string name="settings_proxy">Proxy</string>
-    <string name="settings_proxy_desc">Encaminhar o tráfego de rede por um proxy HTTP ou SOCKS</string>
+    <string name="settings_proxy_desc">Encaminhar o tráfego de rede por um proxy HTTP, HTTPS ou SOCKS</string>
     <string name="proxy_enable">Ativar proxy</string>
     <string name="proxy_enable_desc">Encaminhar todo o tráfego de rede do app pelo proxy</string>
     <string name="proxy_type">Tipo</string>

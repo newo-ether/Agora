@@ -462,7 +462,7 @@
     <!-- Network and service tier -->
     <string name="settings_group_network">ネットワーク</string>
     <string name="settings_proxy">プロキシ</string>
-    <string name="settings_proxy_desc">HTTP または SOCKS プロキシ経由で通信します</string>
+    <string name="settings_proxy_desc">HTTP、HTTPS または SOCKS プロキシ経由で通信します</string>
     <string name="proxy_enable">プロキシを有効にする</string>
     <string name="proxy_enable_desc">アプリのすべての通信をプロキシ経由にします</string>
     <string name="proxy_type">種類</string>

@@ -138,7 +138,9 @@ object HttpClient {
     }
 
     // ── Network proxy ─────────────────────────────────────────────────────
-    enum class ProxyType { HTTP, SOCKS }
+    /** HTTP = plaintext CONNECT proxy; HTTPS = the same protocol carried over TLS to the
+     *  proxy itself (e.g. Caddy forward_proxy); SOCKS = SOCKS5. */
+    enum class ProxyType { HTTP, HTTPS, SOCKS }
 
     /** Active proxy config, or null = direct connection. Read live by the proxy
      *  selector, so changing it takes effect immediately without rebuilding the client. */
@@ -174,8 +176,18 @@ object HttpClient {
     private fun resolveProxy(host: String): java.net.Proxy {
         val cfg = proxyConfig ?: return java.net.Proxy.NO_PROXY
         if (isProxyBypassed(host, cfg.bypass)) return java.net.Proxy.NO_PROXY
+        // java.net.Proxy has no HTTPS type: an HTTPS proxy is an HTTP proxy whose socket is
+        // upgraded to TLS by [proxySocketFactory] before OkHttp speaks to it.
         val type = if (cfg.type == ProxyType.SOCKS) java.net.Proxy.Type.SOCKS else java.net.Proxy.Type.HTTP
         return java.net.Proxy(type, java.net.InetSocketAddress.createUnresolved(cfg.host, cfg.port))
+    }
+
+    /** Wraps the TCP connection to the proxy in TLS while [ProxyType.HTTPS] is active. Reads
+     *  [proxyConfig] live, like [proxySelector], so it needs no client rebuild. */
+    private val proxySocketFactory = ProxyTlsSocketFactory {
+        proxyConfig
+            ?.takeIf { it.type == ProxyType.HTTPS }
+            ?.let { ProxyTlsSocketFactory.Target(it.host, it.port) }
     }
 
     /** True if [host] matches a bypass entry: exact host, `*.suffix` wildcard, or IPv4 CIDR. */
@@ -221,7 +233,7 @@ object HttpClient {
     private val proxyAuthenticator = object : okhttp3.Authenticator {
         override fun authenticate(route: okhttp3.Route?, response: okhttp3.Response): Request? {
             val cfg = proxyConfig
-            if (cfg == null || cfg.username.isBlank() || cfg.type != ProxyType.HTTP) return null
+            if (cfg == null || cfg.username.isBlank() || cfg.type == ProxyType.SOCKS) return null
             if (response.request.header("Proxy-Authorization") != null) return null // already tried
             return response.request.newBuilder()
                 .header("Proxy-Authorization", okhttp3.Credentials.basic(cfg.username, cfg.password))
@@ -255,6 +267,7 @@ object HttpClient {
         .eventListenerFactory(traceEventListenerFactory)
         .readTimeout(5, TimeUnit.MINUTES)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .socketFactory(proxySocketFactory)
         .proxySelector(proxySelector)
         .proxyAuthenticator(proxyAuthenticator)
         .build()
