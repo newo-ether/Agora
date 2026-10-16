@@ -13,8 +13,6 @@ import com.newoether.agora.data.repository.ConversationSettingsTransferCoordinat
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.data.repository.TaskRepository
 import com.newoether.agora.data.AutoBackupManager
-import com.newoether.agora.api.LocalModelRuntime
-import com.newoether.agora.api.local.LocalProvider
 import com.newoether.agora.automation.AutomationScheduler
 import com.newoether.agora.automation.AutomationExecutionGate
 import com.newoether.agora.automation.ConversationExecutionCoordinator
@@ -68,7 +66,7 @@ class AppContainer(
         }
 
     init {
-        LocalModelRuntime.initialize(application.applicationInfo.nativeLibraryDir)
+        com.newoether.agora.data.OnnxEmbeddingProvider.init(appContext)
     }
 
     /** App-lifetime scope that backs the shared settings StateFlows.
@@ -88,6 +86,16 @@ class AppContainer(
     val memoryManager: MemoryManager by lazy { MemoryManager(appContext) }
     val skillManager: SkillManager by lazy { SkillManager(appContext) }
     val chatDao: ChatDao by lazy { database.chatDao() }
+
+    /** Bundled-manual semantic index powering the `introspect` self-knowledge tool. */
+    val manualIndexer: com.newoether.agora.data.ManualIndexer by lazy {
+        com.newoether.agora.data.ManualIndexer(appContext, database.documentEmbeddingDao())
+    }
+
+    /** User-imported document corpus (RAG over your own files), isolated from the manual. */
+    val userDocumentManager: com.newoether.agora.data.UserDocumentManager by lazy {
+        com.newoether.agora.data.UserDocumentManager(appContext, database.documentEmbeddingDao())
+    }
 
     // ── Repositories ──────────────────────────────────────────
 
@@ -141,9 +149,7 @@ class AppContainer(
             touchConversationData = { conversationId ->
                 conversationRepository.touchConversationData(conversationId)
             },
-        ).also {
-            LocalModelRuntime.bindIdleRetention(it.localModelIdleRetentionMinutes, appScope)
-        }
+        )
     }
     val conversationSettingsTransfers: ConversationSettingsTransferCoordinator by lazy {
         ConversationSettingsTransferCoordinator(conversationRepository, settingsRepository)
@@ -179,17 +185,20 @@ class AppContainer(
 
     // ── Generation singletons (process-scoped) ────────────────
     // Shared by both the foreground ChatViewModel and background task execution.
-    // [localProvider] must be unique per process; LocalModelRuntime owns the one embedded model
+    // On-device chat uses onnxruntime-genai (single resident model).
     // lifecycle. [providerRegistry] holds the live provider map the
     // generation pipeline reads and runs the long-lived credential/model sync jobs.
 
-    val localProvider: LocalProvider by lazy { LocalProvider(appContext, settingsRepository) }
+    /** On-device chat provider (onnxruntime-genai). Registered as PROVIDER_LOCAL. */
+    val onnxLlmProvider: com.newoether.agora.api.local.OnnxLlmProvider by lazy {
+        com.newoether.agora.api.local.OnnxLlmProvider(appContext)
+    }
 
     val providerRegistry: ProviderRegistry by lazy {
         ProviderRegistry(
             settingsRepository,
             conversationRepository,
-            localProvider,
+            onnxLlmProvider,
             appScope,
             currentAppVersion(),
         )
@@ -264,7 +273,7 @@ class AppContainer(
             memoryManager = memoryManager,
             skillManager = skillManager,
             providerRegistry = providerRegistry,
-            localProvider = localProvider,
+            localProvider = onnxLlmProvider,
             sandboxFactory = sandboxManagerFactory,
             appScope = appScope,
             executionCoordinator = conversationExecutionCoordinator,
@@ -341,10 +350,12 @@ class AppContainer(
             automationToolProvider = automationToolProvider,
             mcpToolProvider = mcpToolProvider,
             askUser = askUserController,
+            manualIndexer = manualIndexer,
+            userDocumentManager = userDocumentManager,
             shellConfirmation = shellConfirmationController,
             registry = conversationStateRegistry,
             providerRegistry = providerRegistry,
-            localProvider = localProvider,
+            localProvider = onnxLlmProvider,
             executionCoordinator = conversationExecutionCoordinator,
             loopManager = loopManager,
             taskExecutionEngine = taskExecutionEngine,

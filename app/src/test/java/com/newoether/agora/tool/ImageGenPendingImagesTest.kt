@@ -19,9 +19,11 @@ class ImageGenPendingImagesTest {
         assertTrue(provider.contains("imageStore.persistGeneratedBytes("))
         assertTrue(provider.contains("callTimeoutMillis = Constants.IMAGE_GENERATION_TIMEOUT_MS"))
         assertTrue(
+            // Every image-generation HTTP call (native DashScope, chat fallback,
+            // images/generations, and both download paths) must carry the long read timeout.
             Regex("readTimeoutMillis = Constants\\.IMAGE_GENERATION_TIMEOUT_MS")
                 .findAll(provider)
-                .count() == 2,
+                .count() >= 4,
         )
         assertTrue(httpClient.contains("readTimeoutMillis: Long? = null"))
         assertTrue(httpClient.contains("client.newBuilder()"))

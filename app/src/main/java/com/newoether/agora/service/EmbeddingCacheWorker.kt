@@ -11,11 +11,11 @@ import androidx.work.await
 import androidx.work.workDataOf
 import com.newoether.agora.AgoraApplication
 import com.newoether.agora.api.EmbeddingClient
-import com.newoether.agora.api.LlamaEngine
 import com.newoether.agora.api.ProviderDefaults
 import com.newoether.agora.data.EmbeddingIndexer
 import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.EmbeddingModelType
+import com.newoether.agora.data.OnnxEmbeddingProvider
 import com.newoether.agora.data.SettingsManager
 import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.data.local.EmbeddingEntity
@@ -312,16 +312,20 @@ class EmbeddingCacheWorker(
         val texts = candidates.map { candidate ->
             candidate.message.text.take(Constants.MAX_EMBEDDING_TEXT_LENGTH)
         }
-        val embeddings = if (model.type == EmbeddingModelType.LOCAL) {
-            LlamaEngine.computeEmbeddings(texts, model.localFilePath)
-        } else {
-            val (apiKey, baseUrl) = requireNotNull(remoteConfig)
-            EmbeddingClient.computeEmbeddings(
-                texts = texts,
-                apiKey = apiKey,
-                model = model.remoteModelName,
-                baseUrl = baseUrl,
-            )
+        val embeddings = when (model.type) {
+            EmbeddingModelType.LOCAL_ONNX -> {
+                val engine = OnnxEmbeddingProvider.engine(applicationContext)
+                if (engine == null) texts.map { null } else texts.map { engine.embed(it) }
+            }
+            EmbeddingModelType.REMOTE -> {
+                val (apiKey, baseUrl) = requireNotNull(remoteConfig)
+                EmbeddingClient.computeEmbeddings(
+                    texts = texts,
+                    apiKey = apiKey,
+                    model = model.remoteModelName,
+                    baseUrl = baseUrl,
+                )
+            }
         }
         if (embeddings.size != candidates.size) return false
         candidates.forEachIndexed { index, candidate ->
@@ -374,8 +378,8 @@ class EmbeddingCacheWorker(
         model: EmbeddingModelConfig,
         settingsManager: SettingsManager,
     ): Pair<String, String>? {
-        if (model.type == EmbeddingModelType.LOCAL) {
-            check(LlamaEngine.isModelReady(model.localFilePath)) { "Local model file not found" }
+        if (model.type == EmbeddingModelType.LOCAL_ONNX) {
+            check(OnnxEmbeddingProvider.isReady(applicationContext)) { "ONNX embedding model not installed" }
             return null
         }
         val apiKey = model.remoteApiKey.ifBlank { resolveApiKey(settingsManager) ?: "" }

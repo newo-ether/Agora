@@ -186,3 +186,60 @@ verification must still cover multiple pages, ranking across page boundaries, st
 exclusion, bounded retained candidates, deterministic equal-score ordering, empty results,
 dimension/byte-shape corruption, non-finite vectors, and a source/DAO contract preventing the
 unbounded full-list hot path from returning.
+
+## 8. Document corpus store (introspect / bundled manual)
+
+The `introspect` self-knowledge tool searches the bundled user manual. It uses a **separate**
+corpus-embedding store, isolated from the conversation message corpus, so the two never cross.
+
+- Storage is the `document_embeddings` table (owner: `DocumentEmbeddingDao`), namespaced by a
+  `corpus` column (`"manual"` for the bundled manual; see section 9 for `"user_docs"`). It is independent of the message `embeddings` table:
+  conversation search must never read `document_embeddings`, and `introspect` must never read the
+  message `embeddings` table. This isolation is a review blocker.
+- `DocumentRagEngine` reuses the shared primitives — `EmbeddingClient`/`LlamaEngine` for vector
+  generation, `EmbeddingIndexer` for BIG_ENDIAN byte encoding, and the same corpus-agnostic
+  `BoundedSemanticEmbeddingSelector` (fed a keyset page over `document_embeddings`). It must not
+  introduce a second ranking implementation or a full-corpus materialization; the bounded page +
+  top-K contract in sections 1–2 applies equally here.
+- Indexing is version/model-aware and lazy: `ManualIndexer.ensureIndexed` re-embeds only when the
+  corpus fingerprint (SHA-256 over all doc ids/titles/bodies) or the active embedding model changes,
+  clearing the corpus first so renamed/removed pages do not linger. Indexing runs on first
+  `introspect` use with the live `GenerationContext` config/key; it is never a startup requirement
+  and embeds nothing if the tool is never used.
+- Fallback: when no embedding model is configured (or before the first index completes),
+  `introspect` ranks pages with the pure `ManualKeywordScorer` (title/keywords/body term overlap).
+  The tool therefore always returns a page or an explicit "not covered by the manual" message, and
+  must never fabricate undocumented behavior.
+- The bundled manual is the `docs/en/*.md` pages, copied into `assets/manual` at build time by the
+  `copyManualAssets` Gradle task; `docs/en` remains the single source of truth. Any change to the
+  isolation guarantee, the shared-selector reuse, or the keyword fallback requires explicit user
+  confirmation and a contract update.
+
+## 9. User document corpus (`search_documents` / imported files)
+
+User-imported documents (Settings → Documents) are RAG over the user's own files. They reuse the
+same `document_embeddings` store as section 8 but under a **distinct `corpus = "user_docs"`** tag, so
+three corpora now coexist in one table and must never cross: the message `embeddings` table
+(conversation search), `corpus = "manual"` (`introspect`), and `corpus = "user_docs"`
+(`search_documents`). Any query that reads one corpus must filter by its tag; a leak across corpora
+is a review blocker.
+
+- `UserDocumentManager` (owner) wraps a `DocumentRagEngine(dao, corpus = "user_docs")`. Unlike the
+  manual's fixed set, the user corpus is **incrementally managed**: `addOrReplaceDocument` embeds and
+  stores one document's chunks and deletes only that `docId` first — it must **not** `clearCorpus`
+  (that would wipe other imported documents). `removeDocument` deletes a single `docId`; `listDocs`,
+  `docCount`, and `chunksForDoc` are all `corpus`-scoped projections used by the management UI and the
+  tool-gating path.
+- Text extraction (`DocumentTextExtractor`) is the only new ingestion path: text/markdown is read
+  directly; PDFs go through PDFBox-Android's `PDFTextStripper` after a one-time
+  `PDFBoxResourceLoader.init`. Image-only/scanned PDFs extract no text and must surface as an explicit
+  "no extractable text" import outcome, never a silent empty document. Extraction is byte-bounded.
+- `search_documents` ranks with the same bounded selector and threshold floor as the other corpora;
+  it carries no keyword fallback (semantic only) because the user corpus has no curated keyword
+  lines. The tool is offered only when an embedding model is configured **and** `docCount("user_docs")
+  > 0`, so it never advertises an empty or unusable index.
+- Embedding uses the user's active embedding model/key via the live `GenerationContext`
+  (`activeEmbeddingConfig` / `embeddingApiKey`); nothing is embedded until a document is imported.
+  Everything stays on-device. Any change to the three-corpus isolation guarantee, the incremental
+  (non-clearing) add/remove contract, or the extraction fallbacks requires explicit user confirmation
+  and a contract update.

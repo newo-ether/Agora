@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ragdocs_title">Tài liệu</string>
+    <string name="ragdocs_category_desc">Nhập tệp của bạn để tác nhân tìm kiếm</string>
+    <string name="ragdocs_desc">Nhập tệp văn bản, Markdown hoặc PDF. Chúng được chia thành các đoạn và nhúng vào một chỉ mục ngữ nghĩa riêng tư mà tác nhân có thể tìm kiếm bằng công cụ search_documents. Tệp được lưu trên thiết bị của bạn.</string>
+    <string name="ragdocs_add">Nhập tài liệu</string>
+    <string name="ragdocs_remove">Xóa</string>
+    <string name="ragdocs_empty">Chưa nhập tài liệu nào.</string>
+    <string name="ragdocs_chunks">%1$d đoạn</string>
+    <string name="ragdocs_no_model">Trước tiên hãy cấu hình mô hình nhúng trong Tìm kiếm ngữ nghĩa.</string>
+    <string name="ragdocs_status_unsupported">loại tệp không được hỗ trợ</string>
+    <string name="ragdocs_status_notext">không có văn bản trích xuất được (PDF quét?)</string>
+</resources>

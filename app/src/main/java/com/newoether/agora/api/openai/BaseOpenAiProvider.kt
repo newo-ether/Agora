@@ -104,6 +104,15 @@ abstract class BaseOpenAiProvider : LlmProvider {
         config: ProviderConfig
     ): Flow<StreamEvent> = flow {
         val baseUrl = config.baseUrl?.trimEnd('/')?.ifBlank { null } ?: defaultBaseUrl
+        // Image-only generation models cannot use chat completions on DashScope-family hosts:
+        // compatible-mode rewrites the request into its native image schema and rejects it with
+        // "Input should be 'user': input.messages.0.role" no matter what roles the client sends.
+        // Like AIOPE's MEDIA mode, bypass chat and call the native multimodal-generation
+        // endpoint directly, emitting the result as answer text.
+        if (isImageOnlyChatModel(config.modelId) && isNativeImageHost(baseUrl)) {
+            emitNativeImageResponse(json, defaultBaseUrl, messages, config, baseUrl)
+            return@flow
+        }
         val endpointUrls = openAiEndpointCandidates(
             baseUrl = baseUrl,
             path = if (config.responsesApiEnabled) "responses" else "chat/completions",
@@ -119,16 +128,23 @@ abstract class BaseOpenAiProvider : LlmProvider {
             fun buildRequestBody(
                 apiMessages: List<OpenAiMessage>,
                 base64Files: Base64FileRegistry,
+                tools: List<ToolDefinition>? = config.tools,
             ): Pair<String, StreamingJsonRequest?> {
+                // DashScope image models need their bare, lowercase model id on the wire.
+                val wireModelId = if (isImageOnlyChatModel(config.modelId)) {
+                    config.modelId.substringAfterLast('/').lowercase()
+                } else {
+                    config.modelId
+                }
                 val requestBodyJson = if (config.responsesApiEnabled) {
                     val request = OpenAiResponsesRequest(
-                        model = config.modelId,
+                        model = wireModelId,
                         input = apiMessages.toResponsesInput(
                             providerName = name,
                             targetModel = config.modelId,
                         ),
                         tools = buildList {
-                            addAll(config.tools.orEmpty().toResponsesTools())
+                            addAll(tools.orEmpty().toResponsesTools())
                             if (config.openAiWebSearchEnabled) {
                                 add(OpenAiResponseTool(type = "web_search"))
                             }
@@ -150,12 +166,12 @@ abstract class BaseOpenAiProvider : LlmProvider {
                     json.encodeToString(OpenAiResponsesRequest.serializer(), request)
                 } else {
                     var request = OpenAiChatRequest(
-                        model = config.modelId,
+                        model = wireModelId,
                         messages = apiMessages,
                         stream = true,
                         streamOptions = OpenAiStreamOptions(includeUsage = true),
                         serviceTier = config.openAiServiceTier,
-                        tools = config.tools,
+                        tools = tools,
                         temperature = config.temperature,
                         maxTokens = config.maxTokens,
                         topP = config.topP,
@@ -185,6 +201,9 @@ abstract class BaseOpenAiProvider : LlmProvider {
             val maxAttempts = ProviderRetryPolicy.MAX_ATTEMPTS
             var attempt = 0
             var finished = false
+            // Answer text already shown to the consumer across retry attempts (see the retry
+            // dedup wrapper inside the loop).
+            val emittedText = StringBuilder()
 
             while (attempt < maxAttempts && !finished) {
                 attempt++
@@ -194,17 +213,28 @@ abstract class BaseOpenAiProvider : LlmProvider {
                 while (endpointIndex < endpointUrls.size && !finished && !retryScheduled) {
                     val endpointUrl = endpointUrls[endpointIndex]
                     val resolvedRequest = config.resolveRequest(messages)
+                    val imageOnlyChat = isImageOnlyChatModel(config.modelId)
                     val base64Files = Base64FileRegistry()
                     val apiMessages = convertToOpenAiMessages(
-                        messages = resolvedRequest.messages,
-                        systemPrompt = transformSystemPrompt(resolvedRequest.systemPrompt),
+                        messages = if (imageOnlyChat) {
+                            collapseToSingleUserMessage(resolvedRequest.messages)
+                        } else {
+                            resolvedRequest.messages
+                        },
+                        systemPrompt = if (imageOnlyChat) {
+                            null
+                        } else {
+                            transformSystemPrompt(resolvedRequest.systemPrompt)
+                        },
                         includeImages = config.includeImages,
                         base64Files = base64Files,
-                        forwardAssistantReasoning = forwardsAssistantReasoningContent(config),
+                        forwardAssistantReasoning = !imageOnlyChat &&
+                            forwardsAssistantReasoningContent(config),
                     )
                     val (requestBodyJson, streamingRequest) = buildRequestBody(
                         apiMessages,
                         base64Files,
+                        tools = if (imageOnlyChat) null else config.tools,
                     )
                     DebugLog.d(
                         "AgoraAPI",
@@ -253,10 +283,12 @@ abstract class BaseOpenAiProvider : LlmProvider {
                             // completed is decided from semantic markers below, so a relay that
                             // cuts the stream at a content-block boundary can no longer pass as a
                             // finished answer.
+                            val attemptText = StringBuilder()
+                            val dedupEmit = retryDedupEmitter(attempt, emittedText, attemptText) { emit(it) }
                             val termination = if (config.responsesApiEnabled) {
-                                consumeResponsesStream(handle, config) { emit(it) }
+                                consumeResponsesStream(handle, config, dedupEmit)
                             } else {
-                                consumeSuccessfulStream(handle, config) { emit(it) }
+                                consumeSuccessfulStream(handle, config, dedupEmit)
                             }
                             DebugLog.d(
                                 "AgoraSSE",
@@ -264,7 +296,8 @@ abstract class BaseOpenAiProvider : LlmProvider {
                                     "attempt=$attempt/$maxAttempts",
                             )
                             if (termination.isRetryable && attempt < maxAttempts) {
-                                // Nothing was surfaced yet, so a replay cannot duplicate output.
+                                // Already-shown content is tracked by emittedText; the dedup
+                                // wrapper suppresses replayed prefixes on the next attempt.
                                 DebugLog.w(
                                     "AgoraAPI",
                                     "[$name] Incomplete stream on attempt $attempt/$maxAttempts, retrying",

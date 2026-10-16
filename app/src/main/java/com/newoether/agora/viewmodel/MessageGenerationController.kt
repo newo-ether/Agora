@@ -3,7 +3,7 @@ package com.newoether.agora.viewmodel
 import android.app.Application
 import android.content.Context
 import com.newoether.agora.R
-import com.newoether.agora.api.local.LocalProvider
+import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.local.ChatEntity
@@ -49,7 +49,7 @@ internal class MessageGenerationController(
     private val requestBuilder: GenerationRequestBuilder,
     private val payloadBuilder: MessagePayloadBuilder,
     private val providerRegistry: ProviderRegistry,
-    private val localProvider: LocalProvider,
+    private val localProvider: LlmProvider,
     private val executionCoordinator: ConversationExecutionCoordinator,
     /** Every attached client; conversation-scoped projections and visibility go through it. */
     private val clients: ChatClients,

@@ -48,3 +48,8 @@
 -keep class com.newoether.agora.screenshot.ScreenshotFixture { *; }# Ktor server: JVM-only debug detection (DevelopmentMode), absent on Android.
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
+
+# PDFBox-Android references an optional JPEG2000 decoder (gemalto jp2) only used to
+# extract JP2-encoded images from PDFs. We only extract text, so the dependency is
+# intentionally absent; silence the missing-class warning.
+-dontwarn com.gemalto.jp2.**

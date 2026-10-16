@@ -1,6 +1,5 @@
 package com.newoether.agora.api.util.tokens
 
-import com.newoether.agora.api.LocalModelRuntime
 import com.newoether.agora.api.util.tokens.bpe.O200kBase
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.util.Constants
@@ -78,7 +77,9 @@ object ContextCostModels {
      */
     private fun textCounter(family: ContextCostFamily): TextTokenCounter = when (family) {
         ContextCostFamily.LOCAL -> LocalModelTextCounter(
-            exactCount = { text -> LocalModelRuntime.exactTokenCountOrNull(text) },
+            // GGUF native token counting is gone; the ONNX local model has no synchronous
+            // on-device vocabulary for cost estimation, so use the offline heuristic.
+            exactCount = { null },
         )
         // Every remote family counts through the one vocabulary that ships with the app. It is the
         // OpenAI families' own tokenizer; for the others it is a much closer proxy than counting

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="embedding_type_onnx">على الجهاز (ONNX)</string>
+    <string name="onnx_embed_title">التضمين على الجهاز (ONNX)</string>
+    <string name="onnx_embed_desc">أنشئ التضمينات بالكامل على جهازك باستخدام نموذج ONNX خاص (Bekko، متعدد اللغات، 384 بُعدًا). بدون سحابة وبدون مفتاح API. يشغّل بحث المحادثات وRAG للمستندات.</string>
+    <string name="onnx_embed_download">تنزيل النموذج (~124 ميجابايت)</string>
+    <string name="onnx_embed_downloading">جارٍ التنزيل… %1$s</string>
+    <string name="onnx_embed_installed">تم تثبيت النموذج (%1$d ميجابايت)</string>
+    <string name="onnx_embed_add">استخدام للتضمين</string>
+    <string name="onnx_embed_remove">إزالة النموذج</string>
+    <string name="onnx_embed_added">تمت الإضافة كنموذج تضمين — اختره بالأعلى للتفعيل.</string>
+    <string name="onnx_embed_failed">فشل التنزيل. تحقق من اتصالك وحاول مرة أخرى.</string>
+    <string name="onnx_chat_title">محادثة على الجهاز (ONNX)</string>
+    <string name="onnx_chat_desc">شغّل نموذج LLM صغير بالكامل على جهازك (Qwen3 0.6B عبر ONNX Runtime). بدون سحابة أو مفتاح API.</string>
+    <string name="onnx_chat_download">تنزيل النموذج (~487 ميجابايت)</string>
+    <string name="onnx_chat_downloading">جارٍ التنزيل… %1$s</string>
+    <string name="onnx_chat_installed">تم تثبيت النموذج (%1$d ميجابايت)</string>
+    <string name="onnx_chat_add">إضافة كنموذج محلي</string>
+    <string name="onnx_chat_remove">إزالة النموذج</string>
+    <string name="onnx_chat_added">تمت الإضافة — اختر “Qwen3 0.6B (on-device)”.</string>
+    <string name="onnx_chat_failed">فشل التنزيل. تحقق من الاتصال.</string>
+</resources>

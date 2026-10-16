@@ -3,7 +3,7 @@ package com.newoether.agora.viewmodel
 import android.app.Application
 import android.content.Context
 import com.newoether.agora.R
-import com.newoether.agora.api.local.LocalProvider
+import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.automation.LoopManager
 import com.newoether.agora.automation.TaskExecutionEngine
@@ -47,10 +47,12 @@ class ChatRuntime(
     automationToolProvider: AutomationToolProvider,
     mcpToolProvider: McpToolProvider,
     askUser: AskUserController,
+    manualIndexer: com.newoether.agora.data.ManualIndexer,
+    val userDocumentManager: com.newoether.agora.data.UserDocumentManager,
     shellConfirmation: ShellConfirmationController,
     registry: ConversationStateRegistry,
     providerRegistry: ProviderRegistry,
-    localProvider: LocalProvider,
+    localProvider: LlmProvider,
     executionCoordinator: ConversationExecutionCoordinator,
     loopManager: LoopManager,
     taskExecutionEngine: TaskExecutionEngine,
@@ -90,6 +92,8 @@ class ChatRuntime(
                 automationToolProvider,
                 mcpToolProvider,
                 AskUserToolProvider(askUser),
+                com.newoether.agora.tool.IntrospectToolProvider(manualIndexer),
+                com.newoether.agora.tool.SearchDocumentsToolProvider(userDocumentManager),
             ),
             customProviders = { settings.customProviders.value },
         ).also { gm ->

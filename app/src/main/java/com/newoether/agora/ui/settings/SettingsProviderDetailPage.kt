@@ -440,6 +440,7 @@ fun SettingsProviderDetailPage(
                                 }
                             }
                         }
+                        add { SettingsOnnxChatCard(viewModel) }
                     }
                 )
                 SettingsGroup(

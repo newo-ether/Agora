@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ragdocs_title">文档</string>
+    <string name="ragdocs_category_desc">导入文件供智能体检索</string>
+    <string name="ragdocs_desc">导入文本、Markdown 或 PDF 文件。它们会被切分成片段并嵌入到一个私有的语义索引中，智能体可通过 search_documents 工具进行检索。文件保留在你的设备上。</string>
+    <string name="ragdocs_add">导入文档</string>
+    <string name="ragdocs_remove">移除</string>
+    <string name="ragdocs_empty">尚未导入任何文档。</string>
+    <string name="ragdocs_chunks">%1$d 个片段</string>
+    <string name="ragdocs_no_model">请先在“语义搜索”中配置嵌入模型。</string>
+    <string name="ragdocs_status_unsupported">不支持的文件类型</string>
+    <string name="ragdocs_status_notext">无法提取文本（扫描版 PDF？）</string>
+</resources>

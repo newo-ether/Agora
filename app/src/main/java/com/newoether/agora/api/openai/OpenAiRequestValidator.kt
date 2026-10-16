@@ -136,7 +136,7 @@ internal fun OpenAiChatRequest.requireValidWireFormat(provider: String) {
 internal fun List<OpenAiMessage>.toResponsesInput(
     providerName: String? = null,
     targetModel: String? = null,
-): List<JsonObject> = buildList {
+): List<JsonObject> = sanitizeResponsesInputOrdering(buildList {
     this@toResponsesInput.forEach { message ->
         if (message.role == "tool") {
             add(
@@ -201,6 +201,76 @@ internal fun List<OpenAiMessage>.toResponsesInput(
             }
         }
     }
+})
+
+/**
+ * Enforces two Responses-API input invariants strict gateways validate:
+ *  1. a `function_call` must be immediately followed by its matching `function_call_output`, with
+ *     no `message`/other item in the pending window ("input[N] interrupts pending tool results"),
+ *     and
+ *  2. the input must end in a `user` message or a `function_call_output`
+ *     ("input does not end in user/function output").
+ *
+ * Some models (e.g. MiniMax M3) interleave assistant answer/thought content with tool calls.
+ * Interleaved items are deferred past the pending-call window and re-emitted after the outputs —
+ * but a run of such items that would otherwise sit at the very end (replayed model output with no
+ * following user turn) is dropped, since the Responses API regenerates assistant output and the
+ * input must terminate on something the model should answer. Well-formed sequences pass through
+ * unchanged.
+ */
+internal fun sanitizeResponsesInputOrdering(items: List<JsonObject>): List<JsonObject> {
+    fun typeOf(o: JsonObject): String = (o["type"] as? JsonPrimitive)?.content.orEmpty()
+    fun callIdOf(o: JsonObject): String? = (o["call_id"] as? JsonPrimitive)?.content
+    fun roleOf(o: JsonObject): String? = (o["role"] as? JsonPrimitive)?.content
+
+    val output = mutableListOf<JsonObject>()
+    val pending = linkedSetOf<String>()
+    val deferred = mutableListOf<JsonObject>()
+
+    fun flushDeferred() {
+        if (deferred.isNotEmpty()) {
+            output.addAll(deferred)
+            deferred.clear()
+        }
+    }
+
+    for (item in items) {
+        when (typeOf(item)) {
+            "function_call" -> {
+                // A new call may legally follow completed outputs; flushing deferred context here
+                // is safe because the call (and its output) will follow, satisfying the end rule.
+                flushDeferred()
+                callIdOf(item)?.let { pending.add(it) }
+                output.add(item)
+            }
+            "function_call_output" -> {
+                callIdOf(item)?.let { pending.remove(it) }
+                output.add(item)
+            }
+            else -> {
+                // message / reasoning / anything else: safe only when no call is pending.
+                if (pending.isEmpty()) output.add(item) else deferred.add(item)
+            }
+        }
+    }
+    // Trailing deferred items are replayed assistant/reasoning output with no following user turn.
+    // Keep only a terminal `user` message (a legitimate end); drop the rest so the input ends on
+    // the last function_call_output and satisfies "ends in user/function output".
+    deferred.filter { typeOf(it) == "message" && roleOf(it) == "user" }
+        .forEach { output.add(it) }
+
+    // Final guard: strip only trailing *replayed content* items (assistant/reasoning messages with
+    // no following user turn) so the input ends on a function_call_output or user message. A
+    // trailing `function_call` is deliberately NOT stripped — that is a genuinely malformed
+    // "missing outputs" state the validator must still reject.
+    while (output.isNotEmpty()) {
+        val last = output.last()
+        val t = typeOf(last)
+        val strippable = (t == "message" && roleOf(last) != "user") || t == "reasoning"
+        if (!strippable) break
+        output.removeAt(output.lastIndex)
+    }
+    return output
 }
 
 private fun OpenAiResponseInputItem.toResponseInputJson(): JsonObject =

@@ -110,6 +110,9 @@ class ChatViewModel(
     /** Process-scoped embedding subsystem owned by [ChatRuntime]. */
     val ragManager: RagManager = chatRuntime.ragManager
 
+    /** User-imported document corpus (RAG over your own files). */
+    val userDocumentManager = chatRuntime.userDocumentManager
+
     /**
      * Data export/import orchestration (native backup + Claude + GPT formats).
      * [chatDao] and [settingsManager] are passed through to [DataExporter]/[DataImporter]

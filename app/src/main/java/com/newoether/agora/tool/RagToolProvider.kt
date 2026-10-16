@@ -1,7 +1,6 @@
 package com.newoether.agora.tool
 
 import com.newoether.agora.api.EmbeddingClient
-import com.newoether.agora.api.LlamaEngine
 import com.newoether.agora.api.ProviderDefaults
 import com.newoether.agora.api.ToolDefinition
 import com.newoether.agora.api.ToolFunction
@@ -415,24 +414,28 @@ class RagToolProvider(
             DebugLog.w("AgoraVM", "GM RAG: no active embedding config")
             return@withContext emptyList()
         }
-        val queryEmbedding = if (config.type == com.newoether.agora.data.EmbeddingModelType.LOCAL) {
-            if (!LlamaEngine.isModelReady(config.localFilePath)) {
-                DebugLog.w("AgoraVM", "GM RAG: local model not ready")
-                return@withContext emptyList()
+        val queryEmbedding = when (config.type) {
+            com.newoether.agora.data.EmbeddingModelType.LOCAL_ONNX -> {
+                val vec = com.newoether.agora.data.OnnxEmbeddingProvider.embed(query)
+                if (vec == null) {
+                    DebugLog.w("AgoraVM", "GM RAG: ONNX model not ready")
+                    return@withContext emptyList()
+                }
+                vec
             }
-            LlamaEngine.computeEmbedding(query, config.localFilePath)
-        } else {
-            val apiKey = resolveEmbeddingApiKey(ctx)
-            if (apiKey == null) {
-                DebugLog.w("AgoraVM", "GM RAG: no API key")
-                return@withContext emptyList()
+            com.newoether.agora.data.EmbeddingModelType.REMOTE -> {
+                val apiKey = resolveEmbeddingApiKey(ctx)
+                if (apiKey == null) {
+                    DebugLog.w("AgoraVM", "GM RAG: no API key")
+                    return@withContext emptyList()
+                }
+                EmbeddingClient.computeEmbedding(
+                    text = query,
+                    apiKey = apiKey,
+                    model = config.remoteModelName,
+                    baseUrl = config.remoteBaseUrl.ifBlank { ProviderDefaults.OPENAI_BASE_URL }
+                )
             }
-            EmbeddingClient.computeEmbedding(
-                text = query,
-                apiKey = apiKey,
-                model = config.remoteModelName,
-                baseUrl = config.remoteBaseUrl.ifBlank { ProviderDefaults.OPENAI_BASE_URL }
-            )
         }
         if (queryEmbedding == null) {
             DebugLog.w("AgoraVM", "GM RAG: failed to compute query embedding")
@@ -469,6 +472,9 @@ class RagToolProvider(
     }
 
     private fun resolveEmbeddingApiKey(ctx: GenerationContext): String? {
-        return ctx.embeddingApiKey.ifBlank { null }
+        // The key may be stored on the embedding model config itself or supplied via context;
+        // prefer the config's own key so a config-stored key is not sent blank (401).
+        val configKey = ctx.activeEmbeddingConfig?.remoteApiKey?.ifBlank { null }
+        return configKey ?: ctx.embeddingApiKey.ifBlank { null }
     }
 }

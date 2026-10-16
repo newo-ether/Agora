@@ -642,6 +642,10 @@ interface ChatDao :
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastMessageForConversation(conversationId: String): MessageEntity?
 
+    /** Newest message row that carries images, for image-to-image reference lookup. */
+    @Query("SELECT images FROM messages WHERE conversationId = :conversationId AND images IS NOT NULL AND images != '[]' ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestImagesJson(conversationId: String): String?
+
     /** Message invalidations for task execution summaries. Unlike getExecutionsForTask(),
      * this Flow observes the messages table, so terminal status/snippet changes are emitted.
      * Only the summary columns and a bounded text prefix are read: a full message row can

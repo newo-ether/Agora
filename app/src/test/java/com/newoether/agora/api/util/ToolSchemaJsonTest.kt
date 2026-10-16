@@ -100,4 +100,22 @@ class ToolSchemaJsonTest {
             questions["items"]!!.jsonObject["properties"]!!.jsonObject.isEmpty(),
         )
     }
+
+    @Test
+    fun `generate_image image_paths array declares an items schema (strict providers require it)`() {
+        // Regression: a provider that validates hard (e.g. Qwen Cloud) rejects an array parameter
+        // with no items schema -> "array image_paths has no items schema". image_paths must carry
+        // an items type so the generate_image tool is accepted.
+        val imagePaths = ToolProperty(
+            "array",
+            "Optional file paths of reference images.",
+            items = ToolProperty("string", "A reference image file path."),
+        )
+        val schema = ToolSchemaJson.of(imagePaths)
+        assertEquals("array", schema["type"]?.jsonPrimitive?.content)
+        assertEquals("string", schema["items"]?.jsonObject?.get("type")?.jsonPrimitive?.content)
+        // And the validator must accept a tool whose only array param carries items.
+        val params = ToolParameters(properties = mapOf("image_paths" to imagePaths))
+        assertTrue(ToolSchemaJson.of(params)["properties"] != null)
+    }
 }

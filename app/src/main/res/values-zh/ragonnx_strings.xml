@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="embedding_type_onnx">设备端 (ONNX)</string>
+    <string name="onnx_embed_title">设备端嵌入 (ONNX)</string>
+    <string name="onnx_embed_desc">使用私有 ONNX 模型（Bekko，多语言，384 维）完全在设备上生成嵌入。无需云端，无需 API 密钥。为对话搜索和文档 RAG 提供支持。</string>
+    <string name="onnx_embed_download">下载模型 (~124MB)</string>
+    <string name="onnx_embed_downloading">下载中… %1$s</string>
+    <string name="onnx_embed_installed">模型已安装 (%1$d MB)</string>
+    <string name="onnx_embed_add">用于嵌入</string>
+    <string name="onnx_embed_remove">移除模型</string>
+    <string name="onnx_embed_added">已添加为嵌入模型 — 在上方选择以激活。</string>
+    <string name="onnx_embed_failed">下载失败。请检查网络后重试。</string>
+    <string name="onnx_chat_title">设备端对话 (ONNX)</string>
+    <string name="onnx_chat_desc">在设备上完全本地运行小型 LLM（Qwen3 0.6B，通过 ONNX Runtime）。无需云端和 API 密钥。</string>
+    <string name="onnx_chat_download">下载模型 (~487MB)</string>
+    <string name="onnx_chat_downloading">下载中… %1$s</string>
+    <string name="onnx_chat_installed">模型已安装 (%1$d MB)</string>
+    <string name="onnx_chat_add">添加为本地模型</string>
+    <string name="onnx_chat_remove">移除模型</string>
+    <string name="onnx_chat_added">已添加 — 请选择“Qwen3 0.6B (on-device)”。</string>
+    <string name="onnx_chat_failed">下载失败。请检查网络后重试。</string>
+</resources>

@@ -3,7 +3,7 @@ package com.newoether.agora.data
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
-enum class EmbeddingModelType { REMOTE, LOCAL }
+enum class EmbeddingModelType { REMOTE, LOCAL_ONNX }
 
 @Serializable
 data class EmbeddingModelConfig(

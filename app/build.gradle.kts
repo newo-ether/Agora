@@ -43,7 +43,7 @@ android {
             cmake {
                 cppFlags += "-std=c++17"
                 arguments += listOf("-DANDROID_STL=c++_shared")
-                targets += listOf("agora_llama", "agora_proot")
+                targets += listOf("agora_proot")
             }
         }
     }
@@ -82,6 +82,18 @@ android {
                 "proguard-rules.pro"
             )
         }
+        create("diag") {
+            // Debuggable release build: same application id and signing key as release, so it
+            // installs over a production install without losing data, while DebugLog stays on.
+            matchingFallbacks += "release"
+            isDebuggable = true
+            signingConfig = releaseSigning
+            isMinifyEnabled = false
+            ndk {
+                abiFilters.clear()
+                abiFilters += "arm64-v8a"
+            }
+        }
     }
 
     flavorDimensions += "store"
@@ -118,10 +130,24 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            // We vendor a matched, self-built ONNX Runtime (libonnxruntime.so +
+            // libonnxruntime4j_jni.so, ORT 1.28.2, NDK r28c, arm64-v8a) under
+            // src/main/jniLibs. It is version-matched to sherpa-onnx's bundled core so a
+            // future STT dependency shares ONE libonnxruntime.so in-process. pickFirst keeps
+            // that single native lib if another dependency also ships it.
+            pickFirsts += "**/libonnxruntime.so"
         }
         resources {
             // bcprov, bcutil and bcpkix each ship the same BouncyCastle (MIT) license text.
             pickFirsts += "META-INF/LICENSE.md"
+            // The DJL 'tokenizers' jar bundles desktop native libs as resources
+            // (osx/win/linux); on Android the native libs come from tokenizer-native's
+            // jniLibs, so strip the desktop copies to avoid packaging junk.
+            excludes += "native/lib/osx-**"
+            excludes += "native/lib/win-**"
+            excludes += "native/lib/linux-**"
+            excludes += "**/*.dylib"
+            excludes += "native/lib/tokenizers.properties"
         }
     }
 
@@ -155,7 +181,19 @@ tasks.register<Copy>("copyPlayBundle") {
     include("*.aab")
 }
 
+// Bundle the user manual (docs/en/*.md) into app assets so the on-device `introspect` tool can
+// read and semantically search it at runtime. docs/en stays the single source of truth.
+tasks.register<Copy>("copyManualAssets") {
+    from("${rootProject.projectDir}/docs/en") {
+        include("*.md")
+    }
+    into("src/main/assets/manual")
+}
+
 afterEvaluate {
+    tasks.named("preBuild") {
+        dependsOn("copyManualAssets")
+    }
     tasks.named("assemblePlayRelease") {
         finalizedBy("copyPlayApk")
     }
@@ -201,6 +239,26 @@ dependencies {
     implementation(libs.work.runtime.ktx)
     implementation(libs.jsch)
     implementation(libs.commons.compress)
+    // PDFBox-Android bundles the bouncycastle jdk15to18 family (bcprov, bcutil),
+    // which collides with the app's jdk18on 1.86 (via bouncycastle.pkix). Drop the
+    // stale family; the newer provider covers PDFBox's crypto use (encrypted PDFs).
+    implementation(libs.pdfbox.android) {
+        exclude(group = "org.bouncycastle")
+    }
+    // On-device ONNX embeddings. ORT Java API from a vendored, self-built jar (1.28.2) whose
+    // matched native libs live in src/main/jniLibs (sherpa-onnx compatible for future STT) —
+    // replaces the Maven com.microsoft.onnxruntime:onnxruntime-android. DJL supplies the
+    // HuggingFace tokenizer (tokenizer.json); its Android native libs come from
+    // tokenizer-native (desktop copies are excluded in packaging).
+    implementation(files("libs/onnxruntime-1.28.2.jar"))
+    // onnxruntime-genai 0.17.0 (on-device LLM chat). The Java API jar; its native libs
+    // (libonnxruntime-genai*.so, libmat.so) are in jniLibs and dlopen the vendored ORT 1.28.2
+    // via OrtGetApiBase (stable C ABI) — no second libonnxruntime.so.
+    implementation(files("libs/onnxruntime-genai-0.17.0.jar"))
+    implementation(libs.djl.tokenizers) {
+        exclude(group = "ai.djl.huggingface", module = "tokenizers-native")
+    }
+    runtimeOnly(libs.djl.tokenizer.native.android)
     // WebUI server (stage 2): embedded HTTP with the pure-Kotlin CIO engine.
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)

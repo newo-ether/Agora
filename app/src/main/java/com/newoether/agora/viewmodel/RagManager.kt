@@ -396,9 +396,6 @@ class RagManager(
             var nextActiveModelId: String? = null
             val remainingModels = EmbeddingCacheLocks.forModel(id).withLock {
                 val model = settings.embeddingModels.value.find { it.id == id }
-                if (model?.type == EmbeddingModelType.LOCAL && model.localFilePath.isNotBlank()) {
-                    java.io.File(model.localFilePath).delete()
-                }
                 conversations.deleteSemanticModel(id)
                 val models = settings.embeddingModels.value.filter { it.id != id }
                 settings.saveEmbeddingModels(models)

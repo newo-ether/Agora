@@ -98,7 +98,6 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     }
     LaunchedEffect(embeddingModelIds) { viewModel.ragManager.loadCacheCounts() }
     var showRemoteDialog by remember { mutableStateOf(false) }
-    var showLocalDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
     var showRenameDialog by remember { mutableStateOf<String?>(null) }
     var showRecacheConfirm by remember { mutableStateOf<String?>(null) }
@@ -137,9 +136,6 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         EmbeddingProviderPreset("Custom", "", emptyList())
     )
     val remoteState = rememberRemoteEmbeddingDialogState(embeddingProviders.size)
-    var localName by remember { mutableStateOf("") }
-    var localFilePath by remember { mutableStateOf("") }
-    var localBatchSize by remember { mutableStateOf("8") }
     var isImporting by remember { mutableStateOf(false) }
     var showGgufError by remember { mutableStateOf(false) }
 
@@ -328,9 +324,12 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 SettingsItem(
                                     headlineContent = { Text(model.name) },
                                     supportingContent = {
-                                        val typeLabel = if (model.type == com.newoether.agora.data.EmbeddingModelType.REMOTE)
-                                            stringResource(R.string.embedding_type_remote)
-                                        else stringResource(R.string.embedding_type_local)
+                                        val typeLabel = when (model.type) {
+                                            com.newoether.agora.data.EmbeddingModelType.REMOTE ->
+                                                stringResource(R.string.embedding_type_remote)
+                                            com.newoether.agora.data.EmbeddingModelType.LOCAL_ONNX ->
+                                                stringResource(R.string.embedding_type_onnx)
+                                        }
                                         val countLabel = cacheRow?.cached?.let { cached ->
                                             "$cached/${cacheRow.indexableTotal}"
                                         }
@@ -495,13 +494,10 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 )
                                 showRemoteDialog = true
                             }) { Text(stringResource(R.string.add_remote_model)) }
-                            TextButton(onClick = {
-                                localName = ""
-                                localFilePath = ""
-                                localBatchSize = "8"
-                                showLocalDialog = true
-                            }) { Text(stringResource(R.string.add_local_model)) }
                         }
+                    }
+                    add {
+                        SettingsOnnxEmbeddingCard(viewModel)
                     }
                 }
             )
@@ -536,136 +532,6 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 title = { Text(stringResource(R.string.import_invalid_gguf_title), fontWeight = FontWeight.Bold) },
                 text = { Text(stringResource(R.string.import_invalid_gguf_desc)) },
                 confirmButton = { TextButton(onClick = { showGgufError = false }) { Text(stringResource(R.string.ok)) } }
-            )
-        }
-
-        if (showLocalDialog) {
-            val scope = rememberCoroutineScope()
-            val context = LocalContext.current
-            val filePickerLauncher = rememberLauncherForActivityResult(
-                contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
-            ) { uri ->
-                if (uri != null) {
-                    isImporting = true
-                    scope.launch {
-                        val importedPath = withContext(Dispatchers.IO) {
-                            try {
-                                val destFile = File(
-                                    context.filesDir,
-                                    "embedding_${java.util.UUID.randomUUID()}.gguf",
-                                )
-                                val copied = context.contentResolver
-                                    .openInputStream(uri)
-                                    ?.use { input ->
-                                        destFile.outputStream().use { output ->
-                                            input.copyTo(output)
-                                        }
-                                        true
-                                    } == true
-                                if (!copied) {
-                                    destFile.delete()
-                                    return@withContext null
-                                }
-                                val magic = ByteArray(4)
-                                destFile.inputStream().use { it.read(magic) }
-                                val valid = magic[0] == 'G'.code.toByte() &&
-                                    magic[1] == 'G'.code.toByte() &&
-                                    magic[2] == 'U'.code.toByte() &&
-                                    magic[3] == 'F'.code.toByte()
-                                if (valid) {
-                                    destFile.absolutePath
-                                } else {
-                                    destFile.delete()
-                                    null
-                                }
-                            } catch (_: Exception) {
-                                null
-                            }
-                        }
-                        if (importedPath == null) {
-                            showGgufError = true
-                        } else {
-                            localFilePath = importedPath
-                        }
-                        isImporting = false
-                    }
-                }
-            }
-            AlertDialog(
-                modifier = Modifier.clearFocusOnTap(),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                onDismissRequest = {
-                    val pathToDelete = localFilePath
-                    if (pathToDelete.isNotBlank()) {
-                        scope.launch(Dispatchers.IO) { File(pathToDelete).delete() }
-                    }
-                    showLocalDialog = false
-                },
-                title = { Text(stringResource(R.string.add_local_model), fontWeight = FontWeight.Bold) },
-                text = {
-                    Column {
-                        OutlinedTextField(
-                            value = localName,
-                            onValueChange = { localName = it },
-                            label = { Text(stringResource(R.string.model_name_label)) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = localBatchSize,
-                            onValueChange = { localBatchSize = it.filter { c -> c.isDigit() } },
-                            label = { Text(stringResource(R.string.embedding_batch_size)) },
-                            supportingText = { Text(stringResource(R.string.embedding_batch_size_desc)) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (localFilePath.isNotBlank()) {
-                            SettingsItem(
-                                headlineContent = { Text(stringResource(R.string.local_model_ready)) },
-                                leadingContent = {
-                                    Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                            )
-                        } else {
-                            TextButton(onClick = { filePickerLauncher.launch(arrayOf("*/*")) }) {
-                                Text(stringResource(R.string.import_model))
-                            }
-                        }
-                        if (isImporting) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(start = 16.dp), strokeWidth = 2.dp)
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        if (localName.isNotBlank() && localFilePath.isNotBlank()) {
-                            viewModel.ragManager.addEmbeddingModel(
-                                com.newoether.agora.data.EmbeddingModelConfig(
-                                    name = localName,
-                                    type = com.newoether.agora.data.EmbeddingModelType.LOCAL,
-                                    localFilePath = localFilePath,
-                                    batchSize = localBatchSize.toIntOrNull() ?: 8
-                                )
-                            )
-                            showLocalDialog = false
-                        }
-                    },
-                        enabled = localName.isNotBlank() && localFilePath.isNotBlank()
-                    ) { Text(stringResource(R.string.add)) }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        val pathToDelete = localFilePath
-                        if (pathToDelete.isNotBlank()) {
-                            scope.launch(Dispatchers.IO) { File(pathToDelete).delete() }
-                        }
-                        showLocalDialog = false
-                    }) { Text(stringResource(R.string.cancel)) }
-                }
             )
         }
 

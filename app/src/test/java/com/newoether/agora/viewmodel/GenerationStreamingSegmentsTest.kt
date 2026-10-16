@@ -1,8 +1,7 @@
 package com.newoether.agora.viewmodel
 
-import com.newoether.agora.api.LlamaGenerationEvent
+import com.newoether.agora.api.GenerationError
 import com.newoether.agora.api.LOCAL_CONTEXT_CAPACITY_ERROR_CODE
-import com.newoether.agora.api.local.localGenerationFailure
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.CitationAnchor
@@ -307,13 +306,9 @@ class GenerationStreamingSegmentsTest {
 
     @Test
     fun `native context callback persists help eligibility through final UI projection`() {
-        val failure = localGenerationFailure(
-            event = LlamaGenerationEvent.Failed(
-                message = "LOCAL_CONTEXT_EXCEEDED:24636:8192",
-                inputTokenCount = 24_636,
-                outputTokenCount = 0,
-            ),
-            displayMessage = "This conversation needs 24636 prompt tokens",
+        val failure = GenerationError.LocalModel(
+            message = "This conversation needs 24636 prompt tokens",
+            code = LOCAL_CONTEXT_CAPACITY_ERROR_CODE,
         )
         val snapshot = GenerationFinalSnapshot(
             messageId = "model",
