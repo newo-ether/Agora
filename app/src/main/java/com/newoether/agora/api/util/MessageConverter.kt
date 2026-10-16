@@ -171,7 +171,86 @@ internal fun convertToOpenAiMessages(
         entries
     })
 
-    return apiMessages
+    return sanitizeToolCallOrdering(apiMessages)
+}
+
+/**
+ * Enforces the OpenAI tool-calling invariant some gateways validate hard (failing with
+ * "Input[N] interrupts pending tool results"):
+ *  1. every `tool` message must immediately answer a `tool_call_id` still pending from the
+ *     most recent assistant `tool_calls` turn; and
+ *  2. every pending call must be answered before any other role follows.
+ *
+ * Orphan results are demoted to user text (their content is preserved); unanswered pending
+ * calls get a synthetic "[tool result not recorded]" answer so the transcript stays complete.
+ * Well-formed sequences pass through byte-identical.
+ */
+internal fun sanitizeToolCallOrdering(
+    messages: List<OpenAiMessage>,
+): List<OpenAiMessage> {
+    var pending = mutableSetOf<String>()
+    val output = mutableListOf<OpenAiMessage>()
+    for (message in messages) {
+        val insertSynthetic = pending.isNotEmpty() && !(
+            message.role == "tool" && message.toolCallId in pending
+            )
+        if (insertSynthetic) {
+            for (callId in pending) {
+                output.add(
+                    OpenAiMessage(
+                        role = "tool",
+                        content = listOf(
+                            OpenAiContentPart(type = "text", text = "[tool result not recorded]"),
+                        ),
+                        toolCallId = callId,
+                    ),
+                )
+            }
+            pending = mutableSetOf()
+        }
+        when {
+            message.role == "assistant" && !message.toolCalls.isNullOrEmpty() -> {
+                pending = message.toolCalls.mapNotNull { it.id?.takeIf(String::isNotBlank) }.toMutableSet()
+                output.add(message)
+            }
+            message.role == "tool" && message.toolCallId in pending -> {
+                pending.remove(message.toolCallId)
+                output.add(message)
+            }
+            message.role == "tool" -> {
+                // Orphan result: no pending call matches it. Demote to user text so the
+                // gateway never sees an unanswered tool_call_id.
+                val text = message.content?.filter { it.type == "text" }
+                    ?.joinToString("\n") { it.text.orEmpty() }.orEmpty()
+                output.add(
+                    OpenAiMessage(
+                        role = "user",
+                        content = listOf(
+                            OpenAiContentPart(
+                                type = "text",
+                                text = "[tool result for ${message.toolCallId.orEmpty()}] $text",
+                            ),
+                        ),
+                    ),
+                )
+            }
+            else -> output.add(message)
+        }
+    }
+    if (pending.isNotEmpty()) {
+        for (callId in pending) {
+            output.add(
+                OpenAiMessage(
+                    role = "tool",
+                    content = listOf(
+                        OpenAiContentPart(type = "text", text = "[tool result not recorded]"),
+                    ),
+                    toolCallId = callId,
+                ),
+            )
+        }
+    }
+    return output
 }
 
 fun limitContext(

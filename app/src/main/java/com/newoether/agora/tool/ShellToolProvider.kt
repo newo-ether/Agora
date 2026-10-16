@@ -92,6 +92,26 @@ class ShellToolProvider(
         return normalized == "/mnt/shared" || normalized.startsWith("/mnt/shared/")
     }
 
+    /**
+     * Explains an inaccessible local path in terms of Android's storage rules so the model can
+     * recover instead of retrying blindly. Only meaningful for the local sandbox backend
+     * (device == null); remote servers have their own permissions.
+     */
+    private fun storageHint(device: ShellDeviceConfig?, path: String): String {
+        if (device != null) return ""
+        val normalized = path.trim().replace('\\', '/').replace(Regex("/+"), "/")
+        return when {
+            targetsSharedStorage(normalized) ->
+                " — /mnt/shared maps the device's shared storage; if access fails, the sandbox" +
+                    " may not have shared storage mounted (enable it in Agora's sandbox settings)" +
+                    " or Android denies the app All-Files access."
+            normalized.startsWith("/sdcard") || normalized.startsWith("/storage/emulated") ->
+                " — Android scoped storage blocks direct /sdcard access on Android 10+;" +
+                    " use /mnt/shared instead."
+            else -> ""
+        }
+    }
+
     // ── Helpers ────────────────────────────────────────────
 
     private fun resolveShellDevice(serverName: String, ctx: GenerationContext): ShellDeviceConfig? {
@@ -585,14 +605,15 @@ class ShellToolProvider(
             } catch (e: Exception) {
                 return jsonError(
                     "file_read",
-                    e.message ?: "Read failed",
+                    (e.message ?: "Read failed") +
+                        storageHint(backend.device, path),
                     server = backend.device?.name ?: "Local Sandbox",
                 )
             }
             result.error?.let {
                 return jsonError(
                     "file_read",
-                    it,
+                    it + storageHint(backend.device, path),
                     server = backend.device?.name ?: "Local Sandbox",
                 )
             }
@@ -631,7 +652,11 @@ class ShellToolProvider(
                 return jsonError("file_write", "denied_by_user: the user declined to write this file", server = serverName)
             }
             val error = backend.fileWrite(path, content)
-            if (error != null) return error
+            if (error != null) return jsonError(
+                "file_write",
+                error + storageHint(backend.device, path),
+                server = backend.device?.name ?: "Local Sandbox",
+            )
             return buildJsonObject {
                 put("type", "file_write"); put("path", path); put("ok", true)
             }.toString()
@@ -670,14 +695,15 @@ class ShellToolProvider(
             } catch (e: Exception) {
                 return jsonError(
                     "file_edit",
-                    e.message ?: "Edit failed",
+                    (e.message ?: "Edit failed") +
+                        storageHint(backend.device, path),
                     server = backend.device?.name ?: "Local Sandbox",
                 )
             }
             result.error?.let {
                 return jsonError(
                     "file_edit",
-                    it,
+                    it + storageHint(backend.device, path),
                     server = backend.device?.name ?: "Local Sandbox",
                 )
             }

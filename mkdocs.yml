@@ -67,6 +67,9 @@ plugins:
             Context: 上下文
             MCP: MCP
             Automation: 自动化
+            Networking: 网络
+            File Server: 文件服务器
+            Network Scanner: 网络扫描器
             Parameters: 生成设置
             Title Generation: 标题生成
             Image Transcription: 图像转录
@@ -106,6 +109,9 @@ plugins:
             Context: 上下文
             MCP: MCP
             Automation: 自動化
+            Networking: 網路
+            File Server: 檔案伺服器
+            Network Scanner: 網路掃描器
             Parameters: 生成設定
             Title Generation: 標題生成
             Image Transcription: 圖像轉錄
@@ -467,7 +473,10 @@ nav:
   - Local Models: local-model.md
   - PDF Import: pdf-import.md
   - Data Portability: import-export.md
-  - Network Proxy: proxy.md
+  - Networking:
+      - Network Proxy: proxy.md
+      - File Server: fileserver.md
+      - Network Scanner: scanner.md
   - Appearance & Language:
       - Appearance: appearance.md
       - Language: language.md

@@ -82,6 +82,18 @@ android {
                 "proguard-rules.pro"
             )
         }
+        create("diag") {
+            // Debuggable release build: same application id and signing key as release, so it
+            // installs over a production install without losing data, while DebugLog stays on.
+            matchingFallbacks += "release"
+            isDebuggable = true
+            signingConfig = releaseSigning
+            isMinifyEnabled = false
+            ndk {
+                abiFilters.clear()
+                abiFilters += "arm64-v8a"
+            }
+        }
     }
 
     flavorDimensions += "store"

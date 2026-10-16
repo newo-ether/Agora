@@ -183,6 +183,10 @@ object DeveloperDiagnostics {
             attributes = mapOf("chars" to text.length.toString()),
             content = DiagnosticRedactor.captureContent(text),
         )
+        is StreamEvent.ImageChunk -> ParsedEventDetails(
+            eventType = "ImageChunk",
+            attributes = mapOf("bytes" to bytes.size.toString()),
+        )
         is StreamEvent.CitationUpdate -> ParsedEventDetails(
             eventType = "CitationUpdate",
             attributes = mapOf(

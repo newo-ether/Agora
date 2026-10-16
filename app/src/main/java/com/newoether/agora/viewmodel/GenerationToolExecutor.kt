@@ -12,6 +12,8 @@ import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.model.ToolCallData
 import com.newoether.agora.model.ToolExecutionStates
 import com.newoether.agora.sandbox.SandboxManagerFactory
+import com.newoether.agora.data.repository.getLatestImagePath
+import com.newoether.agora.tool.DeviceToolProvider
 import com.newoether.agora.tool.ImageGenToolProvider
 import com.newoether.agora.tool.MemoryToolProvider
 import com.newoether.agora.tool.SkillToolProvider
@@ -89,7 +91,9 @@ internal class GenerationToolExecutor private constructor(
             additionalProviders: List<ToolProvider>,
             confirmShellCommand: suspend (server: String, summary: String, conversationId: String?) -> Boolean,
         ): GenerationToolExecutor {
-            val imageGenProvider = ImageGenToolProvider(app)
+            val imageGenProvider = ImageGenToolProvider(app) { conversationId ->
+                conversations.getLatestImagePath(conversationId)
+            }
             val shellProvider = ShellToolProvider(
                 sandboxFactory = sandboxFactory,
                 imageStore = ToolImageStore(app),
@@ -102,6 +106,7 @@ internal class GenerationToolExecutor private constructor(
                     SkillToolProvider(skillManager),
                     WebSearchToolProvider(),
                     RagToolProvider(conversations),
+                    DeviceToolProvider(app),
                     imageGenProvider,
                     shellProvider,
                 ) + additionalProviders,

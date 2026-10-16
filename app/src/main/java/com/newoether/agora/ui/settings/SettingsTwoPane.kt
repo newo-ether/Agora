@@ -370,6 +370,8 @@ internal fun SettingsDestination(
         "automation" -> SettingsAutomationPage(viewModel, onBack)
         "proxy" -> SettingsProxyPage(viewModel, onBack)
         "webui" -> SettingsWebUiPage(viewModel, onBack)
+        "fileserver" -> SettingsFileServerPage(onBack)
+        "scanner" -> SettingsScannerPage(onBack)
         "language" -> SettingsLanguagePage(viewModel, onBack)
         "titlegen" -> SettingsTitleGenPage(viewModel, onBack)
         "transcription" -> SettingsTranscriptionPage(viewModel, onBack)

@@ -15,6 +15,13 @@ import kotlinx.serialization.json.JsonObject
 
 sealed class StreamEvent {
     data class TextChunk(val text: String) : StreamEvent()
+
+    /**
+     * One generated image delivered inline by the model (direct-chat image generation on
+     * DashScope-family hosts). Raw bytes, not a URL: the app persists them through the
+     * private image store so rendering follows the authenticated-files rule.
+     */
+    data class ImageChunk(val bytes: ByteArray, val mimeType: String) : StreamEvent()
     data class CitationUpdate(val citation: CitationRecord) : StreamEvent()
     data class ThoughtChunk(val thought: String, val title: String? = null, val signature: String? = null) : StreamEvent()
     data class UsageUpdate(val usage: TokenUsage) : StreamEvent() {

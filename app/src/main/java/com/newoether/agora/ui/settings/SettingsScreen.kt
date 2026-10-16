@@ -274,6 +274,8 @@ internal val baseSettingsGroups = listOf(
     SettingsGroupData(titleRes = R.string.settings_group_network, items = listOf(
         SettingsCategory("proxy", R.string.settings_proxy, R.string.settings_proxy_desc, Icons.Default.Lan),
         SettingsCategory("webui", R.string.settings_webui, R.string.settings_webui_desc, Icons.Default.Web),
+        SettingsCategory("fileserver", R.string.settings_fileserver, R.string.settings_fileserver_desc, Icons.Default.Folder),
+        SettingsCategory("scanner", R.string.settings_scanner, R.string.settings_scanner_desc, Icons.Default.Wifi),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_memory_data, items = listOf(
         SettingsCategory("memory", R.string.settings_memory, R.string.settings_memory_desc, Icons.Default.Description),
