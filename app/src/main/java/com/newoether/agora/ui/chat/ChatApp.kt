@@ -344,6 +344,7 @@ fun ChatApp(
         haptics = haptics,
     )
 
+    InteractiveAnswerHost(viewModel) {
     CompositionLocalProvider(LocalAgoraHaptics provides haptics) {
     ChatDrawerHost(
         state = drawerState,
@@ -778,6 +779,7 @@ fun ChatApp(
             }
         }
         }
+    }
 
     ChatAppDialogHost(
         state = dialogState,

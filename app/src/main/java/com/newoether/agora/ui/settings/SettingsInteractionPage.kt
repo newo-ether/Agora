@@ -23,6 +23,7 @@ import com.newoether.agora.viewmodel.ChatViewModel
 @Composable
 fun SettingsInteractionPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val askUserEnabled by viewModel.settings.askUserEnabled.collectAsState()
+    val interactiveAnswersEnabled by viewModel.settings.interactiveAnswersEnabled.collectAsState()
     val scrollState = rememberScrollState()
     CollapsingSettingsScaffold(
         title = stringResource(R.string.settings_interaction),
@@ -33,6 +34,19 @@ fun SettingsInteractionPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             SettingsGroup(
                 title = stringResource(R.string.settings_interaction),
                 items = buildList {
+                    add {
+                        SettingsItem(
+                            headlineContent = { Text(stringResource(R.string.interactive_answers)) },
+                            supportingContent = { Text(stringResource(R.string.interactive_answers_description)) },
+                            trailingContent = {
+                                Switch(checked = interactiveAnswersEnabled,
+                                    onCheckedChange = viewModel.settings::setInteractiveAnswersEnabled)
+                            },
+                            modifier = Modifier.clickable {
+                                viewModel.settings.setInteractiveAnswersEnabled(!interactiveAnswersEnabled)
+                            },
+                        )
+                    }
                     add {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.ask_user_enable)) },

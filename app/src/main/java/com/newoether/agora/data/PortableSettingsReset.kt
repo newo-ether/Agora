@@ -79,6 +79,7 @@ internal fun clearPortableSettings(prefs: MutablePreferences) {
     prefs.remove(COLOR_SCHEME)
     prefs.remove(DYNAMIC_COLOR)
     prefs.remove(BLUR_EFFECTS_ENABLED)
+    prefs.remove(INTERACTIVE_ANSWERS_ENABLED)
     prefs.remove(REDUCE_MOTION)
     prefs.remove(STICK_TO_BOTTOM)
     prefs.remove(PARSE_INLINE_DOLLAR_MATH)

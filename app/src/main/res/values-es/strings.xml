@@ -816,4 +816,17 @@
     <string name="message_source_loop">Bucle</string>
     <string name="message_source_ask_user">Pregunta</string>
     <string name="message_source_unanswered">Sin respuesta</string>
+    <string name="interactive_answers">Interactive answers</string>
+    <string name="interactive_answers_description">Let the assistant create interactive charts, diagrams and tools. External visual libraries require internet access.</string>
+    <string name="interactive_answer_creating">Creating interactive answer…</string>
+    <string name="interactive_answer_created">Created interactive answer</string>
+    <string name="interactive_answer_open">Expand interactive view</string>
+    <string name="interactive_answer_close">Close interactive view</string>
+    <string name="interactive_answer_error">The interactive view could not load. Check your connection or update Android System WebView. The readable answer is shown below.</string>
+    <string name="interactive_answer_loading">Loading interactive view…</string>
+    <string name="interactive_answer_followup">Send this follow-up?</string>
+    <string name="interactive_answer_send">Send</string>
+    <string name="interactive_answer_cancel">Cancel</string>
+    <string name="interactive_answer_unavailable">This saved interactive view is unavailable. Read the text result instead.</string>
+    <string name="interactive_answer_followup_failed">The follow-up could not be submitted. Please retry.</string>
 </resources>

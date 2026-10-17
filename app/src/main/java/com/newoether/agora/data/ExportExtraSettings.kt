@@ -90,6 +90,7 @@ object ExportExtraSettings {
         obj["colorScheme"]?.jsonPrimitive?.contentOrNull?.let { sm.saveColorScheme(it) }
         obj["dynamicColor"]?.jsonPrimitive?.boolean?.let { sm.saveDynamicColor(it) }
         obj["blurEffectsEnabled"]?.jsonPrimitive?.boolean?.let { sm.saveBlurEffectsEnabled(it) }
+        obj["interactiveAnswersEnabled"]?.jsonPrimitive?.boolean?.let { sm.saveInteractiveAnswersEnabled(it) }
         obj["reduceMotion"]?.jsonPrimitive?.boolean?.let { sm.saveReduceMotion(it) }
         obj["openAiServiceTierEnabled"]?.jsonPrimitive?.boolean?.let {
             sm.saveOpenAiServiceTierEnabled(it)

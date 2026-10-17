@@ -52,6 +52,33 @@ object DebugLog {
         }
     }
 
+    internal enum class InteractiveStage { BOOTSTRAP, READY, READY_TIMEOUT, SCRIPT_ERROR, CONSOLE }
+
+    /** Release renderer diagnostics contain only fixed stages and numeric metadata. */
+    internal fun interactiveStage(
+        stage: InteractiveStage,
+        inline: Boolean,
+        width: Int? = null,
+        height: Int? = null,
+        htmlBytes: Int? = null,
+        expressions: Int? = null,
+        consoleLevel: Int? = null,
+        line: Int? = null,
+    ) {
+        runCatching {
+            val metadata = buildString {
+                append("stage=${stage.name.lowercase()} inline=$inline")
+                width?.let { append(" width=$it") }
+                height?.let { append(" height=$it") }
+                htmlBytes?.let { append(" html_bytes=$it") }
+                expressions?.let { append(" expression_count=$it") }
+                consoleLevel?.let { append(" console_level=$it") }
+                line?.let { append(" line=$it") }
+            }
+            android.util.Log.i("AgoraInteractive", metadata)
+        }
+    }
+
     fun d(tag: String, msg: String) { if (active) android.util.Log.d(tag, msg) }
     fun d(tag: String, msg: String, tr: Throwable) {
         if (active) android.util.Log.d(tag, "$msg ${safeThrowableSummary(tr)}")

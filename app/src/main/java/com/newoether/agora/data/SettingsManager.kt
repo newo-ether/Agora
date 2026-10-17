@@ -222,6 +222,11 @@ class SettingsManager(private val context: Context) {
         it[DYNAMIC_COLOR] ?: DEFAULT_DYNAMIC_COLOR
     }
     val blurEffectsEnabled: Flow<Boolean> = context.dataStore.data.map { it[BLUR_EFFECTS_ENABLED] ?: true }
+    val interactiveAnswersEnabled: Flow<Boolean> = context.dataStore.data.map { it[INTERACTIVE_ANSWERS_ENABLED] ?: false }
+    suspend fun saveInteractiveAnswersEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[INTERACTIVE_ANSWERS_ENABLED] = enabled }
+    }
+
     val reduceMotion: Flow<Boolean> = context.dataStore.data.map { it[REDUCE_MOTION] ?: false }
     val stickToBottom: Flow<Boolean> = context.dataStore.data.map { it[STICK_TO_BOTTOM] ?: true }
     val parseInlineDollarMath: Flow<Boolean> = context.dataStore.data.map { it[PARSE_INLINE_DOLLAR_MATH] ?: false }

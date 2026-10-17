@@ -141,6 +141,7 @@ internal object PortableSettingsArchive {
         put("colorScheme", JsonPrimitive(sm.colorScheme.first()))
         put("dynamicColor", JsonPrimitive(sm.dynamicColor.first()))
         put("blurEffectsEnabled", JsonPrimitive(sm.blurEffectsEnabled.first()))
+        put("interactiveAnswersEnabled", JsonPrimitive(sm.interactiveAnswersEnabled.first()))
         put("reduceMotion", JsonPrimitive(sm.reduceMotion.first()))
         put("stickToBottom", JsonPrimitive(sm.stickToBottom.first()))
         put("parseInlineDollarMath", JsonPrimitive(sm.parseInlineDollarMath.first()))
@@ -472,6 +473,7 @@ internal object PortableSettingsArchive {
         obj.string("colorScheme")?.let { sm.saveColorScheme(it) }
         obj.boolean("dynamicColor")?.let { sm.saveDynamicColor(it) }
         obj.boolean("blurEffectsEnabled")?.let { sm.saveBlurEffectsEnabled(it) }
+        obj.boolean("interactiveAnswersEnabled")?.let { sm.saveInteractiveAnswersEnabled(it) }
         obj.boolean("reduceMotion")?.let { sm.saveReduceMotion(it) }
         obj.boolean("stickToBottom")?.let { sm.saveStickToBottom(it) }
         obj.boolean("parseInlineDollarMath")?.let { sm.saveParseInlineDollarMath(it) }

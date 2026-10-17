@@ -304,3 +304,7 @@ Focused tests for any archive or setting change must prove:
 
 The project full build remains required after implementation changes. Build success alone does not
 prove SAF access, large-archive streaming, device storage, or user-visible conflict handling.
+
+Interactive answers use existing structured segment JSON; native archives and forks retain that
+content without a new archive category. The global opt-in setting is portable and resets to false.
+See [interactive-answers.md](interactive-answers.md) for the bounded-payload contract.
