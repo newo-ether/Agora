@@ -1,0 +1,1542 @@
+{
+  "Medicine": {
+    "Cardiology": [
+      {
+        "title": "Cardiovascular Disease",
+        "url": "https://zerotofinals.com/medicine/cardiology/cvd/",
+        "file": "ztf-m-cardiology-cvd.md"
+      },
+      {
+        "title": "Stable Angina",
+        "url": "https://zerotofinals.com/medicine/cardiology/stableangina/",
+        "file": "ztf-m-cardiology-stableangina.md"
+      },
+      {
+        "title": "Acute Coronary Syndrome",
+        "url": "https://zerotofinals.com/medicine/cardiology/acs/",
+        "file": "ztf-m-cardiology-acs.md"
+      },
+      {
+        "title": "Pericarditis",
+        "url": "https://zerotofinals.com/medicine/cardiology/pericarditis/",
+        "file": "ztf-m-cardiology-pericarditis.md"
+      },
+      {
+        "title": "Acute Left Ventricular Failure",
+        "url": "https://zerotofinals.com/medicine/cardiology/acutelvf/",
+        "file": "ztf-m-cardiology-acutelvf.md"
+      },
+      {
+        "title": "Chronic Heart Failure",
+        "url": "https://zerotofinals.com/medicine/cardiology/heartfailure/",
+        "file": "ztf-m-cardiology-heartfailure.md"
+      },
+      {
+        "title": "Hypertension",
+        "url": "https://zerotofinals.com/medicine/cardiology/hypertension/",
+        "file": "ztf-m-cardiology-hypertension.md"
+      },
+      {
+        "title": "Valvular Heart Disease",
+        "url": "https://zerotofinals.com/medicine/cardiology/valvularheartdisease/",
+        "file": "ztf-m-cardiology-valvularheartdisease.md"
+      },
+      {
+        "title": "Prosthetic Valves",
+        "url": "https://zerotofinals.com/medicine/cardiology/prostheticvalves/",
+        "file": "ztf-m-cardiology-prostheticvalves.md"
+      },
+      {
+        "title": "Infective Endocarditis",
+        "url": "https://zerotofinals.com/medicine/cardiology/infectiveendocarditis/",
+        "file": "ztf-m-cardiology-infectiveendocarditis.md"
+      },
+      {
+        "title": "Hypertrophic Obstructive Cardiomyopathy",
+        "url": "https://zerotofinals.com/medicine/cardiology/hocm/",
+        "file": "ztf-m-cardiology-hocm.md"
+      },
+      {
+        "title": "Atrial Fibrillation",
+        "url": "https://zerotofinals.com/medicine/cardiology/af/",
+        "file": "ztf-m-cardiology-af.md"
+      },
+      {
+        "title": "Supraventricular Tachycardia",
+        "url": "https://zerotofinals.com/medicine/cardiology/svt/",
+        "file": "ztf-m-cardiology-svt.md"
+      },
+      {
+        "title": "Arrhythmias",
+        "url": "https://zerotofinals.com/medicine/cardiology/arrhythmias/",
+        "file": "ztf-m-cardiology-arrhythmias.md"
+      },
+      {
+        "title": "Pacemakers",
+        "url": "https://zerotofinals.com/medicine/cardiology/pacemakers/",
+        "file": "ztf-m-cardiology-pacemakers.md"
+      }
+    ],
+    "Endocrinology": [
+      {
+        "title": "Hormone Axis Physiology",
+        "url": "https://zerotofinals.com/medicine/endocrinology/hormoneaxisphysiology/",
+        "file": "ztf-m-endocrinology-hormoneaxisphysiology.md"
+      },
+      {
+        "title": "Thyroid Function Tests",
+        "url": "https://zerotofinals.com/medicine/endocrinology/thyroidfunctiontests/",
+        "file": "ztf-m-endocrinology-thyroidfunctiontests.md"
+      },
+      {
+        "title": "Hyperthyroidism",
+        "url": "https://zerotofinals.com/medicine/endocrinology/hyperthyroidism/",
+        "file": "ztf-m-endocrinology-hyperthyroidism.md"
+      },
+      {
+        "title": "Hypothyroidism",
+        "url": "https://zerotofinals.com/medicine/endocrinology/hypothyroidism/",
+        "file": "ztf-m-endocrinology-hypothyroidism.md"
+      },
+      {
+        "title": "Cushing's Syndrome",
+        "url": "https://zerotofinals.com/medicine/endocrinology/cushings/",
+        "file": "ztf-m-endocrinology-cushings.md"
+      },
+      {
+        "title": "Hyperaldosteronism",
+        "url": "https://zerotofinals.com/medicine/endocrinology/hyperaldosteronism/",
+        "file": "ztf-m-endocrinology-hyperaldosteronism.md"
+      },
+      {
+        "title": "Adrenal Insufficiency",
+        "url": "https://zerotofinals.com/medicine/endocrinology/adrenalinsufficiency/",
+        "file": "ztf-m-endocrinology-adrenalinsufficiency.md"
+      },
+      {
+        "title": "Type 1 Diabetes",
+        "url": "https://zerotofinals.com/medicine/endocrinology/type1diabetes/",
+        "file": "ztf-m-endocrinology-type1diabetes.md"
+      },
+      {
+        "title": "Type 2 Diabetes",
+        "url": "https://zerotofinals.com/medicine/endocrinology/type2diabetes/",
+        "file": "ztf-m-endocrinology-type2diabetes.md"
+      },
+      {
+        "title": "Acromegaly",
+        "url": "https://zerotofinals.com/medicine/endocrinology/acromegaly/",
+        "file": "ztf-m-endocrinology-acromegaly.md"
+      },
+      {
+        "title": "Hyperparathyroidism",
+        "url": "https://zerotofinals.com/medicine/endocrinology/hyperparathyroidism/",
+        "file": "ztf-m-endocrinology-hyperparathyroidism.md"
+      },
+      {
+        "title": "Syndrome of Inappropriate Anti-Diuretic Hormone",
+        "url": "https://zerotofinals.com/medicine/endocrinology/siadh/",
+        "file": "ztf-m-endocrinology-siadh.md"
+      },
+      {
+        "title": "Diabetes Insipidus",
+        "url": "https://zerotofinals.com/medicine/endocrinology/diabetesinsipidus/",
+        "file": "ztf-m-endocrinology-diabetesinsipidus.md"
+      },
+      {
+        "title": "Phaeochromocytoma",
+        "url": "https://zerotofinals.com/medicine/endocrinology/phaeochromocytoma/",
+        "file": "ztf-m-endocrinology-phaeochromocytoma.md"
+      }
+    ],
+    "Gastroenterology": [
+      {
+        "title": "Liver Cirrhosis",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/cirrhosis/",
+        "file": "ztf-m-gastroenterology-cirrhosis.md"
+      },
+      {
+        "title": "Alcohol-Related Liver Disease",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/ald/",
+        "file": "ztf-m-gastroenterology-ald.md"
+      },
+      {
+        "title": "Non-Alcoholic Fatty Liver Disease",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/nafld/",
+        "file": "ztf-m-gastroenterology-nafld.md"
+      },
+      {
+        "title": "Viral Hepatitis",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/viralhepatitis/",
+        "file": "ztf-m-gastroenterology-viralhepatitis.md"
+      },
+      {
+        "title": "Autoimmune Hepatitis",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/autoimmunehepatitis/",
+        "file": "ztf-m-gastroenterology-autoimmunehepatitis.md"
+      },
+      {
+        "title": "Haemochromatosis",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/haemochromatosis/",
+        "file": "ztf-m-gastroenterology-haemochromatosis.md"
+      },
+      {
+        "title": "Wilson's Disease",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/wilsons/",
+        "file": "ztf-m-gastroenterology-wilsons.md"
+      },
+      {
+        "title": "Alpha-1 Antitrypsin Deficiency",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/aatdeficiency/",
+        "file": "ztf-m-gastroenterology-aatdeficiency.md"
+      },
+      {
+        "title": "Primary Biliary Cholangitis",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/primarybiliarycholangitis/",
+        "file": "ztf-m-gastroenterology-primarybiliarycholangitis.md"
+      },
+      {
+        "title": "Primary Sclerosing Cholangitis",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/primarysclerosingcholangitis/",
+        "file": "ztf-m-gastroenterology-primarysclerosingcholangitis.md"
+      },
+      {
+        "title": "Liver Cancer",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/livercancer/",
+        "file": "ztf-m-gastroenterology-livercancer.md"
+      },
+      {
+        "title": "Liver Transplant",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/livertransplant/",
+        "file": "ztf-m-gastroenterology-livertransplant.md"
+      },
+      {
+        "title": "Gastro-Oesophageal Reflux Disease",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/gord/",
+        "file": "ztf-m-gastroenterology-gord.md"
+      },
+      {
+        "title": "Peptic Ulcers",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/pepticulcers/",
+        "file": "ztf-m-gastroenterology-pepticulcers.md"
+      },
+      {
+        "title": "Upper GI Bleed",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/uppergibleed/",
+        "file": "ztf-m-gastroenterology-uppergibleed.md"
+      },
+      {
+        "title": "Inflammatory Bowel Disease",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/ibd/",
+        "file": "ztf-m-gastroenterology-ibd.md"
+      },
+      {
+        "title": "Irritable Bowel Syndrome",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/ibs/",
+        "file": "ztf-m-gastroenterology-ibs.md"
+      },
+      {
+        "title": "Coeliac Disease",
+        "url": "https://zerotofinals.com/medicine/gastroenterology/coeliac/",
+        "file": "ztf-m-gastroenterology-coeliac.md"
+      }
+    ],
+    "Respiratory": [
+      {
+        "title": "Lung Cancer",
+        "url": "https://zerotofinals.com/medicine/respiratory/lungcancer/",
+        "file": "ztf-m-respiratory-lungcancer.md"
+      },
+      {
+        "title": "Pneumonia",
+        "url": "https://zerotofinals.com/medicine/respiratory/pneumonia/",
+        "file": "ztf-m-respiratory-pneumonia.md"
+      },
+      {
+        "title": "Arterial Blood Gases",
+        "url": "https://zerotofinals.com/medicine/respiratory/arterialbloodgases/",
+        "file": "ztf-m-respiratory-arterialbloodgases.md"
+      },
+      {
+        "title": "Respiratory Support",
+        "url": "https://zerotofinals.com/medicine/respiratory/respiratorysupport/",
+        "file": "ztf-m-respiratory-respiratorysupport.md"
+      },
+      {
+        "title": "Lung Function Tests",
+        "url": "https://zerotofinals.com/medicine/respiratory/lungfunctiontests/",
+        "file": "ztf-m-respiratory-lungfunctiontests.md"
+      },
+      {
+        "title": "Asthma",
+        "url": "https://zerotofinals.com/medicine/respiratory/asthma/",
+        "file": "ztf-m-respiratory-asthma.md"
+      },
+      {
+        "title": "Chronic Obstructive Pulmonary Disease",
+        "url": "https://zerotofinals.com/medicine/respiratory/copd/",
+        "file": "ztf-m-respiratory-copd.md"
+      },
+      {
+        "title": "Bronchiectasis",
+        "url": "https://zerotofinals.com/medicine/respiratory/bronchiectasis/",
+        "file": "ztf-m-respiratory-bronchiectasis.md"
+      },
+      {
+        "title": "Interstitial Lung Disease",
+        "url": "https://zerotofinals.com/medicine/respiratory/interstitiallungdisease/",
+        "file": "ztf-m-respiratory-interstitiallungdisease.md"
+      },
+      {
+        "title": "Pleural Effusion",
+        "url": "https://zerotofinals.com/medicine/respiratory/pleuraleffusion/",
+        "file": "ztf-m-respiratory-pleuraleffusion.md"
+      },
+      {
+        "title": "Pneumothorax",
+        "url": "https://zerotofinals.com/medicine/respiratory/pneumothorax/",
+        "file": "ztf-m-respiratory-pneumothorax.md"
+      },
+      {
+        "title": "Pulmonary Embolism",
+        "url": "https://zerotofinals.com/medicine/respiratory/pe/",
+        "file": "ztf-m-respiratory-pe.md"
+      },
+      {
+        "title": "Pulmonary Hypertension",
+        "url": "https://zerotofinals.com/medicine/respiratory/pulmonaryhypertension/",
+        "file": "ztf-m-respiratory-pulmonaryhypertension.md"
+      },
+      {
+        "title": "Sarcoidosis",
+        "url": "https://zerotofinals.com/medicine/respiratory/sarcoidosis/",
+        "file": "ztf-m-respiratory-sarcoidosis.md"
+      },
+      {
+        "title": "Obstructive Sleep Apnoea",
+        "url": "https://zerotofinals.com/medicine/respiratory/sleepapnoea/",
+        "file": "ztf-m-respiratory-sleepapnoea.md"
+      }
+    ],
+    "Infectious Diseases": [
+      {
+        "title": "Bacteria",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/bacteria/",
+        "file": "ztf-m-infectiousdisease-bacteria.md"
+      },
+      {
+        "title": "Antibiotics",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/antibiotics/",
+        "file": "ztf-m-infectiousdisease-antibiotics.md"
+      },
+      {
+        "title": "Sepsis",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/sepsis/",
+        "file": "ztf-m-infectiousdisease-sepsis.md"
+      },
+      {
+        "title": "Urinary Tract Infections",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/uti/",
+        "file": "ztf-m-infectiousdisease-uti.md"
+      },
+      {
+        "title": "Skin and Soft Tissue Infections",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/cellulitis/",
+        "file": "ztf-m-infectiousdisease-cellulitis.md"
+      },
+      {
+        "title": "Ear Nose and Throat Infections",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/entinfections/",
+        "file": "ztf-m-infectiousdisease-entinfections.md"
+      },
+      {
+        "title": "Intra-Abdominal Infections",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/intraabdominalinfections/",
+        "file": "ztf-m-infectiousdisease-intraabdominalinfections.md"
+      },
+      {
+        "title": "Septic Arthritis",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/septicarthritis/",
+        "file": "ztf-m-infectiousdisease-septicarthritis.md"
+      },
+      {
+        "title": "Influenza",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/influenza/",
+        "file": "ztf-m-infectiousdisease-influenza.md"
+      },
+      {
+        "title": "Gastroenteritis",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/gastroenteritis/",
+        "file": "ztf-m-infectiousdisease-gastroenteritis.md"
+      },
+      {
+        "title": "Clostridium Difficile",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/cdiff/",
+        "file": "ztf-m-infectiousdisease-cdiff.md"
+      },
+      {
+        "title": "Meningitis",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/meningitis/",
+        "file": "ztf-m-infectiousdisease-meningitis.md"
+      },
+      {
+        "title": "Tuberculosis",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/tb/",
+        "file": "ztf-m-infectiousdisease-tb.md"
+      },
+      {
+        "title": "HIV",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/hiv/",
+        "file": "ztf-m-infectiousdisease-hiv.md"
+      },
+      {
+        "title": "Malaria",
+        "url": "https://zerotofinals.com/medicine/infectiousdisease/malaria/",
+        "file": "ztf-m-infectiousdisease-malaria.md"
+      }
+    ],
+    "Haematology": [
+      {
+        "title": "Components of Blood",
+        "url": "https://zerotofinals.com/medicine/haematology/componentsofblood/",
+        "file": "ztf-m-haematology-componentsofblood.md"
+      },
+      {
+        "title": "Anaemia",
+        "url": "https://zerotofinals.com/medicine/haematology/anaemia/",
+        "file": "ztf-m-haematology-anaemia.md"
+      },
+      {
+        "title": "Iron Deficiency Anaemia",
+        "url": "https://zerotofinals.com/medicine/haematology/irondeficiencyanaemia/",
+        "file": "ztf-m-haematology-irondeficiencyanaemia.md"
+      },
+      {
+        "title": "Pernicious Anaemia",
+        "url": "https://zerotofinals.com/medicine/haematology/perniciousanaemia/",
+        "file": "ztf-m-haematology-perniciousanaemia.md"
+      },
+      {
+        "title": "Haemolytic Anaemia",
+        "url": "https://zerotofinals.com/medicine/haematology/haemolyticanaemia/",
+        "file": "ztf-m-haematology-haemolyticanaemia.md"
+      },
+      {
+        "title": "Thalassaemia",
+        "url": "https://zerotofinals.com/medicine/haematology/thalassaemia/",
+        "file": "ztf-m-haematology-thalassaemia.md"
+      },
+      {
+        "title": "Sickle Cell Anaemia",
+        "url": "https://zerotofinals.com/medicine/haematology/sicklecellanaemia/",
+        "file": "ztf-m-haematology-sicklecellanaemia.md"
+      },
+      {
+        "title": "Leukaemia",
+        "url": "https://zerotofinals.com/medicine/haematology/leukaemia/",
+        "file": "ztf-m-haematology-leukaemia.md"
+      },
+      {
+        "title": "Lymphoma",
+        "url": "https://zerotofinals.com/medicine/haematology/lymphoma/",
+        "file": "ztf-m-haematology-lymphoma.md"
+      },
+      {
+        "title": "Myeloma",
+        "url": "https://zerotofinals.com/medicine/haematology/myeloma/",
+        "file": "ztf-m-haematology-myeloma.md"
+      },
+      {
+        "title": "Myeloproliferative Disorders",
+        "url": "https://zerotofinals.com/medicine/haematology/myeloproliferativedisorders/",
+        "file": "ztf-m-haematology-myeloproliferativedisorders.md"
+      },
+      {
+        "title": "Myelodysplastic Syndrome",
+        "url": "https://zerotofinals.com/medicine/haematology/myelodysplasticsyndrome/",
+        "file": "ztf-m-haematology-myelodysplasticsyndrome.md"
+      },
+      {
+        "title": "Thrombocytopenia",
+        "url": "https://zerotofinals.com/medicine/haematology/thrombocytopenia/",
+        "file": "ztf-m-haematology-thrombocytopenia.md"
+      },
+      {
+        "title": "Von Willebrand Disease",
+        "url": "https://zerotofinals.com/medicine/haematology/vonwillebranddisease/",
+        "file": "ztf-m-haematology-vonwillebranddisease.md"
+      },
+      {
+        "title": "Haemophilia",
+        "url": "https://zerotofinals.com/medicine/haematology/haemophilia/",
+        "file": "ztf-m-haematology-haemophilia.md"
+      },
+      {
+        "title": "Deep Vein Thrombosis and Venous Thromboembolism",
+        "url": "https://zerotofinals.com/medicine/haematology/dvt/",
+        "file": "ztf-m-haematology-dvt.md"
+      }
+    ],
+    "Rheumatology": [
+      {
+        "title": "Osteoarthritis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/oa/",
+        "file": "ztf-m-rheumatology-oa.md"
+      },
+      {
+        "title": "Rheumatoid Arthritis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/ra/",
+        "file": "ztf-m-rheumatology-ra.md"
+      },
+      {
+        "title": "Psoriatic Arthritis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/psoriaticarthritis/",
+        "file": "ztf-m-rheumatology-psoriaticarthritis.md"
+      },
+      {
+        "title": "Reactive Arthritis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/reactivearthritis/",
+        "file": "ztf-m-rheumatology-reactivearthritis.md"
+      },
+      {
+        "title": "Ankylosing Spondylitis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/ankylosingspondylitis/",
+        "file": "ztf-m-rheumatology-ankylosingspondylitis.md"
+      },
+      {
+        "title": "Systemic Lupus Erythematosus",
+        "url": "https://zerotofinals.com/medicine/rheumatology/sle/",
+        "file": "ztf-m-rheumatology-sle.md"
+      },
+      {
+        "title": "Discoid Lupus Erythematosus",
+        "url": "https://zerotofinals.com/medicine/rheumatology/dle/",
+        "file": "ztf-m-rheumatology-dle.md"
+      },
+      {
+        "title": "Systemic Sclerosis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/systemicsclerosis/",
+        "file": "ztf-m-rheumatology-systemicsclerosis.md"
+      },
+      {
+        "title": "Polymyalgia Rheumatica",
+        "url": "https://zerotofinals.com/medicine/rheumatology/pmr/",
+        "file": "ztf-m-rheumatology-pmr.md"
+      },
+      {
+        "title": "Giant Cell Arteritis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/giantcellarteritis/",
+        "file": "ztf-m-rheumatology-giantcellarteritis.md"
+      },
+      {
+        "title": "Polymyositis and Dermatomyositis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/myositis/",
+        "file": "ztf-m-rheumatology-myositis.md"
+      },
+      {
+        "title": "Antiphospholipid Syndrome",
+        "url": "https://zerotofinals.com/medicine/rheumatology/antiphospholipidsyndrome/",
+        "file": "ztf-m-rheumatology-antiphospholipidsyndrome.md"
+      },
+      {
+        "title": "Sjogren’s Syndrome",
+        "url": "https://zerotofinals.com/medicine/rheumatology/sjogrens/",
+        "file": "ztf-m-rheumatology-sjogrens.md"
+      },
+      {
+        "title": "Vasculitis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/vasculitis/",
+        "file": "ztf-m-rheumatology-vasculitis.md"
+      },
+      {
+        "title": "Behçet's Disease",
+        "url": "https://zerotofinals.com/medicine/rheumatology/behcets/",
+        "file": "ztf-m-rheumatology-behcets.md"
+      },
+      {
+        "title": "Ehlers-Danlos Syndrome",
+        "url": "https://zerotofinals.com/medicine/rheumatology/ehlersdanlossyndrome/",
+        "file": "ztf-m-rheumatology-ehlersdanlossyndrome.md"
+      },
+      {
+        "title": "Gout",
+        "url": "https://zerotofinals.com/medicine/rheumatology/gout/",
+        "file": "ztf-m-rheumatology-gout.md"
+      },
+      {
+        "title": "Pseudogout",
+        "url": "https://zerotofinals.com/medicine/rheumatology/pseudogout/",
+        "file": "ztf-m-rheumatology-pseudogout.md"
+      },
+      {
+        "title": "Osteoporosis",
+        "url": "https://zerotofinals.com/medicine/rheumatology/osteoporosis/",
+        "file": "ztf-m-rheumatology-osteoporosis.md"
+      },
+      {
+        "title": "Osteomalacia",
+        "url": "https://zerotofinals.com/medicine/rheumatology/osteomalacia/",
+        "file": "ztf-m-rheumatology-osteomalacia.md"
+      },
+      {
+        "title": "Paget's Disease",
+        "url": "https://zerotofinals.com/medicine/rheumatology/pagetsdisease/",
+        "file": "ztf-m-rheumatology-pagetsdisease.md"
+      }
+    ],
+    "Renal Medicine": [
+      {
+        "title": "Acute Kidney Injury",
+        "url": "https://zerotofinals.com/medicine/renal/aki/",
+        "file": "ztf-m-renal-aki.md"
+      },
+      {
+        "title": "Chronic Kidney Disease",
+        "url": "https://zerotofinals.com/medicine/renal/ckd/",
+        "file": "ztf-m-renal-ckd.md"
+      },
+      {
+        "title": "Dialysis",
+        "url": "https://zerotofinals.com/medicine/renal/dialysis/",
+        "file": "ztf-m-renal-dialysis.md"
+      },
+      {
+        "title": "Renal Transplant",
+        "url": "https://zerotofinals.com/medicine/renal/transplant/",
+        "file": "ztf-m-renal-transplant.md"
+      },
+      {
+        "title": "Glomerulonephritis",
+        "url": "https://zerotofinals.com/medicine/renal/glomerulonephritis/",
+        "file": "ztf-m-renal-glomerulonephritis.md"
+      },
+      {
+        "title": "Renal Tubular Acidosis",
+        "url": "https://zerotofinals.com/medicine/renal/renaltubularacidosis/",
+        "file": "ztf-m-renal-renaltubularacidosis.md"
+      },
+      {
+        "title": "Haemolytic Uraemic Syndrome",
+        "url": "https://zerotofinals.com/medicine/renal/hus/",
+        "file": "ztf-m-renal-hus.md"
+      },
+      {
+        "title": "Rhabdomyolysis",
+        "url": "https://zerotofinals.com/medicine/renal/rhabdomyolysis/",
+        "file": "ztf-m-renal-rhabdomyolysis.md"
+      },
+      {
+        "title": "Hyperkalaemia",
+        "url": "https://zerotofinals.com/medicine/renal/hyperkalaemia/",
+        "file": "ztf-m-renal-hyperkalaemia.md"
+      },
+      {
+        "title": "Polycystic Kidney Disease",
+        "url": "https://zerotofinals.com/medicine/renal/pkd/",
+        "file": "ztf-m-renal-pkd.md"
+      }
+    ],
+    "Neurology": [
+      {
+        "title": "Stroke",
+        "url": "https://zerotofinals.com/medicine/neurology/stroke/",
+        "file": "ztf-m-neurology-stroke.md"
+      },
+      {
+        "title": "Intracranial Bleeds",
+        "url": "https://zerotofinals.com/medicine/neurology/intracranialbleeds/",
+        "file": "ztf-m-neurology-intracranialbleeds.md"
+      },
+      {
+        "title": "Subarachnoid Haemorrhage",
+        "url": "https://zerotofinals.com/medicine/neurology/subarachnoidhaemorrhage/",
+        "file": "ztf-m-neurology-subarachnoidhaemorrhage.md"
+      },
+      {
+        "title": "Multiple Sclerosis",
+        "url": "https://zerotofinals.com/medicine/neurology/ms/",
+        "file": "ztf-m-neurology-ms.md"
+      },
+      {
+        "title": "Motor Neurone Disease",
+        "url": "https://zerotofinals.com/medicine/neurology/mnd/",
+        "file": "ztf-m-neurology-mnd.md"
+      },
+      {
+        "title": "Parkinson's Disease",
+        "url": "https://zerotofinals.com/medicine/neurology/parkinsons/",
+        "file": "ztf-m-neurology-parkinsons.md"
+      },
+      {
+        "title": "Benign Essential Tremor",
+        "url": "https://zerotofinals.com/medicine/neurology/essentialtremor/",
+        "file": "ztf-m-neurology-essentialtremor.md"
+      },
+      {
+        "title": "Epilepsy",
+        "url": "https://zerotofinals.com/medicine/neurology/epilepsy/",
+        "file": "ztf-m-neurology-epilepsy.md"
+      },
+      {
+        "title": "Pain",
+        "url": "https://zerotofinals.com/medicine/neurology/pain/",
+        "file": "ztf-m-neurology-pain.md"
+      },
+      {
+        "title": "Facial Nerve Palsy",
+        "url": "https://zerotofinals.com/medicine/neurology/facialnervepalsy/",
+        "file": "ztf-m-neurology-facialnervepalsy.md"
+      },
+      {
+        "title": "Brain Tumours",
+        "url": "https://zerotofinals.com/medicine/neurology/braintumours/",
+        "file": "ztf-m-neurology-braintumours.md"
+      },
+      {
+        "title": "Huntington's Chorea",
+        "url": "https://zerotofinals.com/medicine/neurology/huntingtonschorea/",
+        "file": "ztf-m-neurology-huntingtonschorea.md"
+      },
+      {
+        "title": "Myasthenia Gravis",
+        "url": "https://zerotofinals.com/medicine/neurology/myastheniagravis/",
+        "file": "ztf-m-neurology-myastheniagravis.md"
+      },
+      {
+        "title": "Lambert Eaton Myasthenic Syndrome",
+        "url": "https://zerotofinals.com/medicine/neurology/lamberteaton/",
+        "file": "ztf-m-neurology-lamberteaton.md"
+      },
+      {
+        "title": "Charcot-Marie-Tooth Disease",
+        "url": "https://zerotofinals.com/medicine/neurology/charcotmarietooth/",
+        "file": "ztf-m-neurology-charcotmarietooth.md"
+      },
+      {
+        "title": "Guillain-Barré Syndrome",
+        "url": "https://zerotofinals.com/medicine/neurology/guillainbarre/",
+        "file": "ztf-m-neurology-guillainbarre.md"
+      },
+      {
+        "title": "Neurofibromatosis",
+        "url": "https://zerotofinals.com/medicine/neurology/neurofibromatosis/",
+        "file": "ztf-m-neurology-neurofibromatosis.md"
+      },
+      {
+        "title": "Tuberous Sclerosis",
+        "url": "https://zerotofinals.com/medicine/neurology/tuberoussclerosis/",
+        "file": "ztf-m-neurology-tuberoussclerosis.md"
+      },
+      {
+        "title": "Headaches",
+        "url": "https://zerotofinals.com/medicine/neurology/headaches/",
+        "file": "ztf-m-neurology-headaches.md"
+      },
+      {
+        "title": "Migraines",
+        "url": "https://zerotofinals.com/medicine/neurology/migraines/",
+        "file": "ztf-m-neurology-migraines.md"
+      },
+      {
+        "title": "Cluster Headaches",
+        "url": "https://zerotofinals.com/medicine/neurology/clusterheadaches/",
+        "file": "ztf-m-neurology-clusterheadaches.md"
+      }
+    ],
+    "Ophthalmology": [
+      {
+        "title": "Open-Angle Glaucoma",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/openangleglaucoma/",
+        "file": "ztf-m-ophthalmology-openangleglaucoma.md"
+      },
+      {
+        "title": "Acute Angle-Closure Glaucoma",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/acuteglaucoma/",
+        "file": "ztf-m-ophthalmology-acuteglaucoma.md"
+      },
+      {
+        "title": "Age-Related Macular Degeneration",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/amd/",
+        "file": "ztf-m-ophthalmology-amd.md"
+      },
+      {
+        "title": "Diabetic Retinopathy",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/diabeticretinopathy/",
+        "file": "ztf-m-ophthalmology-diabeticretinopathy.md"
+      },
+      {
+        "title": "Hypertensive Retinopathy",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/hypertensiveretinopathy/",
+        "file": "ztf-m-ophthalmology-hypertensiveretinopathy.md"
+      },
+      {
+        "title": "Cataracts",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/cataracts/",
+        "file": "ztf-m-ophthalmology-cataracts.md"
+      },
+      {
+        "title": "Pupil Disorders",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/pupildisorders/",
+        "file": "ztf-m-ophthalmology-pupildisorders.md"
+      },
+      {
+        "title": "Eyelid Disorders",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/eyeliddisorders/",
+        "file": "ztf-m-ophthalmology-eyeliddisorders.md"
+      },
+      {
+        "title": "Conjunctivitis",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/conjunctivitis/",
+        "file": "ztf-m-ophthalmology-conjunctivitis.md"
+      },
+      {
+        "title": "Anterior Uveitis",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/anterioruveitis/",
+        "file": "ztf-m-ophthalmology-anterioruveitis.md"
+      },
+      {
+        "title": "Episcleritis",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/episcleritis/",
+        "file": "ztf-m-ophthalmology-episcleritis.md"
+      },
+      {
+        "title": "Scleritis",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/scleritis/",
+        "file": "ztf-m-ophthalmology-scleritis.md"
+      },
+      {
+        "title": "Corneal Abrasions",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/cornealabrasions/",
+        "file": "ztf-m-ophthalmology-cornealabrasions.md"
+      },
+      {
+        "title": "Herpes Keratitis",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/herpeskeratitis/",
+        "file": "ztf-m-ophthalmology-herpeskeratitis.md"
+      },
+      {
+        "title": "Subconjunctival Haemorrhage",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/subconjunctivalhaemorrhage/",
+        "file": "ztf-m-ophthalmology-subconjunctivalhaemorrhage.md"
+      },
+      {
+        "title": "Posterior Vitreous Detachment",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/posteriorvitreousdetachment/",
+        "file": "ztf-m-ophthalmology-posteriorvitreousdetachment.md"
+      },
+      {
+        "title": "Retinal Detachment",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/retinaldetachment/",
+        "file": "ztf-m-ophthalmology-retinaldetachment.md"
+      },
+      {
+        "title": "Retinal Vein Occlusion",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/retinalveinocclusion/",
+        "file": "ztf-m-ophthalmology-retinalveinocclusion.md"
+      },
+      {
+        "title": "Central Retinal Artery Occlusion",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/centralretinalarteryocclusion/",
+        "file": "ztf-m-ophthalmology-centralretinalarteryocclusion.md"
+      },
+      {
+        "title": "Retinitis Pigmentosa",
+        "url": "https://zerotofinals.com/medicine/ophthalmology/retinitispigmentosa/",
+        "file": "ztf-m-ophthalmology-retinitispigmentosa.md"
+      }
+    ]
+  },
+  "Surgery": {
+    "General Surgery": [
+      {
+        "title": "Basics of Surgery",
+        "url": "https://zerotofinals.com/surgery/general/basics/",
+        "file": "ztf-s-general-basics.md"
+      },
+      {
+        "title": "Pre-Operative Care",
+        "url": "https://zerotofinals.com/surgery/general/pre-op/",
+        "file": "ztf-s-general-pre-op.md"
+      },
+      {
+        "title": "Consent and Capacity",
+        "url": "https://zerotofinals.com/surgery/general/consent/",
+        "file": "ztf-s-general-consent.md"
+      },
+      {
+        "title": "Post-Operative Care",
+        "url": "https://zerotofinals.com/surgery/general/post-op/",
+        "file": "ztf-s-general-post-op.md"
+      },
+      {
+        "title": "Intravenous Fluids",
+        "url": "https://zerotofinals.com/surgery/general/ivfluids/",
+        "file": "ztf-s-general-ivfluids.md"
+      },
+      {
+        "title": "Acute Abdomen",
+        "url": "https://zerotofinals.com/surgery/general/acuteabdomen/",
+        "file": "ztf-s-general-acuteabdomen.md"
+      },
+      {
+        "title": "Appendicitis",
+        "url": "https://zerotofinals.com/surgery/general/appendicitis/",
+        "file": "ztf-s-general-appendicitis.md"
+      },
+      {
+        "title": "Bowel Obstruction",
+        "url": "https://zerotofinals.com/surgery/general/obstruction/",
+        "file": "ztf-s-general-obstruction.md"
+      },
+      {
+        "title": "Ileus",
+        "url": "https://zerotofinals.com/surgery/general/ileus/",
+        "file": "ztf-s-general-ileus.md"
+      },
+      {
+        "title": "Volvulus",
+        "url": "https://zerotofinals.com/surgery/general/volvulus/",
+        "file": "ztf-s-general-volvulus.md"
+      },
+      {
+        "title": "Hernias",
+        "url": "https://zerotofinals.com/surgery/general/hernias/",
+        "file": "ztf-s-general-hernias.md"
+      },
+      {
+        "title": "Haemorrhoids",
+        "url": "https://zerotofinals.com/surgery/general/haemorrhoids/",
+        "file": "ztf-s-general-haemorrhoids.md"
+      },
+      {
+        "title": "Diverticular Disease",
+        "url": "https://zerotofinals.com/surgery/general/diverticulosis/",
+        "file": "ztf-s-general-diverticulosis.md"
+      },
+      {
+        "title": "Mesenteric Ischaemia",
+        "url": "https://zerotofinals.com/surgery/general/mesentericischaemia/",
+        "file": "ztf-s-general-mesentericischaemia.md"
+      },
+      {
+        "title": "Bowel Cancer",
+        "url": "https://zerotofinals.com/surgery/general/bowelcancer/",
+        "file": "ztf-s-general-bowelcancer.md"
+      },
+      {
+        "title": "Stomas",
+        "url": "https://zerotofinals.com/surgery/general/stomas/",
+        "file": "ztf-s-general-stomas.md"
+      },
+      {
+        "title": "Gallstones",
+        "url": "https://zerotofinals.com/surgery/general/gallstones/",
+        "file": "ztf-s-general-gallstones.md"
+      },
+      {
+        "title": "Acute Cholecystitis",
+        "url": "https://zerotofinals.com/surgery/general/acutecholecystitis/",
+        "file": "ztf-s-general-acutecholecystitis.md"
+      },
+      {
+        "title": "Acute Cholangitis",
+        "url": "https://zerotofinals.com/surgery/general/acutecholangitis/",
+        "file": "ztf-s-general-acutecholangitis.md"
+      },
+      {
+        "title": "Cholangiocarcinoma",
+        "url": "https://zerotofinals.com/surgery/general/cholangiocarcinoma/",
+        "file": "ztf-s-general-cholangiocarcinoma.md"
+      },
+      {
+        "title": "Pancreatic Cancer",
+        "url": "https://zerotofinals.com/surgery/general/pancreaticcancer/",
+        "file": "ztf-s-general-pancreaticcancer.md"
+      },
+      {
+        "title": "Pancreatitis",
+        "url": "https://zerotofinals.com/surgery/general/pancreatitis/",
+        "file": "ztf-s-general-pancreatitis.md"
+      },
+      {
+        "title": "Liver Transplant",
+        "url": "https://zerotofinals.com/surgery/general/livertransplant/",
+        "file": "ztf-s-general-livertransplant.md"
+      }
+    ],
+    "Urology": [
+      {
+        "title": "Obstructive Uropathy",
+        "url": "https://zerotofinals.com/surgery/urology/obstructiveuropathy/",
+        "file": "ztf-s-urology-obstructiveuropathy.md"
+      },
+      {
+        "title": "Urinary Catheters",
+        "url": "https://zerotofinals.com/surgery/urology/catheters/",
+        "file": "ztf-s-urology-catheters.md"
+      },
+      {
+        "title": "Benign Prostatic Hyperplasia",
+        "url": "https://zerotofinals.com/surgery/urology/bph/",
+        "file": "ztf-s-urology-bph.md"
+      },
+      {
+        "title": "Prostatitis",
+        "url": "https://zerotofinals.com/surgery/urology/prostatitis/",
+        "file": "ztf-s-urology-prostatitis.md"
+      },
+      {
+        "title": "Prostate Cancer",
+        "url": "https://zerotofinals.com/surgery/urology/prostatecancer/",
+        "file": "ztf-s-urology-prostatecancer.md"
+      },
+      {
+        "title": "Epididymo-orchitis",
+        "url": "https://zerotofinals.com/surgery/urology/epididymoorchitis/",
+        "file": "ztf-s-urology-epididymoorchitis.md"
+      },
+      {
+        "title": "Testicular Torsion",
+        "url": "https://zerotofinals.com/surgery/urology/testiculartorsion/",
+        "file": "ztf-s-urology-testiculartorsion.md"
+      },
+      {
+        "title": "Scrotal Lumps",
+        "url": "https://zerotofinals.com/surgery/urology/scrotallumps/",
+        "file": "ztf-s-urology-scrotallumps.md"
+      },
+      {
+        "title": "Testicular Cancer",
+        "url": "https://zerotofinals.com/surgery/urology/testicularcancer/",
+        "file": "ztf-s-urology-testicularcancer.md"
+      },
+      {
+        "title": "Lower Urinary Tract Infections",
+        "url": "https://zerotofinals.com/surgery/urology/loweruti/",
+        "file": "ztf-s-urology-loweruti.md"
+      },
+      {
+        "title": "Pyelonephritis",
+        "url": "https://zerotofinals.com/surgery/urology/pyelonephritis/",
+        "file": "ztf-s-urology-pyelonephritis.md"
+      },
+      {
+        "title": "Interstitial Cystitis",
+        "url": "https://zerotofinals.com/surgery/urology/interstitialcystitis/",
+        "file": "ztf-s-urology-interstitialcystitis.md"
+      },
+      {
+        "title": "Bladder Cancer",
+        "url": "https://zerotofinals.com/surgery/urology/bladdercancer/",
+        "file": "ztf-s-urology-bladdercancer.md"
+      },
+      {
+        "title": "Kidney Stones",
+        "url": "https://zerotofinals.com/surgery/urology/kidneystones/",
+        "file": "ztf-s-urology-kidneystones.md"
+      },
+      {
+        "title": "Renal Cell Carcinoma",
+        "url": "https://zerotofinals.com/surgery/urology/renalcellcarcinoma/",
+        "file": "ztf-s-urology-renalcellcarcinoma.md"
+      },
+      {
+        "title": "Renal Transplant",
+        "url": "https://zerotofinals.com/surgery/urology/renaltransplant/",
+        "file": "ztf-s-urology-renaltransplant.md"
+      }
+    ],
+    "Vascular Surgery": [
+      {
+        "title": "Peripheral Arterial Disease",
+        "url": "https://zerotofinals.com/surgery/vascular/pad/",
+        "file": "ztf-s-vascular-pad.md"
+      },
+      {
+        "title": "Deep Vein Thrombosis",
+        "url": "https://zerotofinals.com/surgery/vascular/dvt/",
+        "file": "ztf-s-vascular-dvt.md"
+      },
+      {
+        "title": "Varicose Veins",
+        "url": "https://zerotofinals.com/surgery/vascular/varicoseveins/",
+        "file": "ztf-s-vascular-varicoseveins.md"
+      },
+      {
+        "title": "Chronic Venous Insufficiency",
+        "url": "https://zerotofinals.com/surgery/vascular/chronicvenousinsufficiency/",
+        "file": "ztf-s-vascular-chronicvenousinsufficiency.md"
+      },
+      {
+        "title": "Leg Ulcers",
+        "url": "https://zerotofinals.com/surgery/vascular/legulcers/",
+        "file": "ztf-s-vascular-legulcers.md"
+      },
+      {
+        "title": "Lymphoedema",
+        "url": "https://zerotofinals.com/surgery/vascular/lymphoedema/",
+        "file": "ztf-s-vascular-lymphoedema.md"
+      },
+      {
+        "title": "Abdominal Aortic Aneurysm",
+        "url": "https://zerotofinals.com/surgery/vascular/aaa/",
+        "file": "ztf-s-vascular-aaa.md"
+      },
+      {
+        "title": "Aortic Dissection",
+        "url": "https://zerotofinals.com/surgery/vascular/aorticdissection/",
+        "file": "ztf-s-vascular-aorticdissection.md"
+      },
+      {
+        "title": "Carotid Artery Stenosis",
+        "url": "https://zerotofinals.com/surgery/vascular/carotidarterystenosis/",
+        "file": "ztf-s-vascular-carotidarterystenosis.md"
+      },
+      {
+        "title": "Buerger Disease",
+        "url": "https://zerotofinals.com/surgery/vascular/buergerdisease/",
+        "file": "ztf-s-vascular-buergerdisease.md"
+      }
+    ],
+    "Cardiothoracic Surgery": [
+      {
+        "title": "Coronary Artery Bypass Graft",
+        "url": "https://zerotofinals.com/surgery/cardiothoracic/cabg/",
+        "file": "ztf-s-cardiothoracic-cabg.md"
+      },
+      {
+        "title": "Prosthetic Valves",
+        "url": "https://zerotofinals.com/surgery/cardiothoracic/prostheticheartvalves/",
+        "file": "ztf-s-cardiothoracic-prostheticheartvalves.md"
+      },
+      {
+        "title": "Congenital Cardiac Conditions",
+        "url": "https://zerotofinals.com/surgery/cardiothoracic/congenitalcardiacconditions/",
+        "file": "ztf-s-cardiothoracic-congenitalcardiacconditions.md"
+      },
+      {
+        "title": "Pericardial Effusion",
+        "url": "https://zerotofinals.com/surgery/cardiothoracic/pericardialeffusion/",
+        "file": "ztf-s-cardiothoracic-pericardialeffusion.md"
+      },
+      {
+        "title": "Thoracic Aortic Aneurysms",
+        "url": "https://zerotofinals.com/surgery/cardiothoracic/taa/",
+        "file": "ztf-s-cardiothoracic-taa.md"
+      },
+      {
+        "title": "Lung Cancer",
+        "url": "https://zerotofinals.com/surgery/cardiothoracic/lungcancer/",
+        "file": "ztf-s-cardiothoracic-lungcancer.md"
+      },
+      {
+        "title": "Pneumothorax",
+        "url": "https://zerotofinals.com/surgery/cardiothoracic/pneumothorax/",
+        "file": "ztf-s-cardiothoracic-pneumothorax.md"
+      },
+      {
+        "title": "Heart and Lung Transplant",
+        "url": "https://zerotofinals.com/surgery/cardiothoracic/heartandlungtransplant/",
+        "file": "ztf-s-cardiothoracic-heartandlungtransplant.md"
+      }
+    ],
+    "Breast Surgery": [
+      {
+        "title": "Breast Examination",
+        "url": "https://zerotofinals.com/surgery/breast/examination/",
+        "file": "ztf-s-breast-examination.md"
+      },
+      {
+        "title": "Breast Lumps",
+        "url": "https://zerotofinals.com/surgery/breast/lumps/",
+        "file": "ztf-s-breast-lumps.md"
+      },
+      {
+        "title": "Breast Pain",
+        "url": "https://zerotofinals.com/surgery/breast/breastpain/",
+        "file": "ztf-s-breast-breastpain.md"
+      },
+      {
+        "title": "Gynaecomastia",
+        "url": "https://zerotofinals.com/surgery/breast/gynaecomastia/",
+        "file": "ztf-s-breast-gynaecomastia.md"
+      },
+      {
+        "title": "Galactorrhea",
+        "url": "https://zerotofinals.com/surgery/breast/galactorrhea/",
+        "file": "ztf-s-breast-galactorrhea.md"
+      },
+      {
+        "title": "Mammary Duct Ectasia",
+        "url": "https://zerotofinals.com/surgery/breast/mammaryductectasia/",
+        "file": "ztf-s-breast-mammaryductectasia.md"
+      },
+      {
+        "title": "Intraductal Papilloma",
+        "url": "https://zerotofinals.com/surgery/breast/intraductalpapilloma/",
+        "file": "ztf-s-breast-intraductalpapilloma.md"
+      },
+      {
+        "title": "Lactational Mastitis",
+        "url": "https://zerotofinals.com/surgery/breast/lactationalmastitis/",
+        "file": "ztf-s-breast-lactationalmastitis.md"
+      },
+      {
+        "title": "Breast Abscess",
+        "url": "https://zerotofinals.com/surgery/breast/breastabscess/",
+        "file": "ztf-s-breast-breastabscess.md"
+      },
+      {
+        "title": "Breast Cancer",
+        "url": "https://zerotofinals.com/surgery/breast/breastcancer/",
+        "file": "ztf-s-breast-breastcancer.md"
+      }
+    ],
+    "Ear, Nose and Throat": [
+      {
+        "title": "Hearing Loss",
+        "url": "https://zerotofinals.com/surgery/ent/hearingloss/",
+        "file": "ztf-s-ent-hearingloss.md"
+      },
+      {
+        "title": "Audiometry",
+        "url": "https://zerotofinals.com/surgery/ent/audiometry/",
+        "file": "ztf-s-ent-audiometry.md"
+      },
+      {
+        "title": "Presbycusis",
+        "url": "https://zerotofinals.com/surgery/ent/presbycusis/",
+        "file": "ztf-s-ent-presbycusis.md"
+      },
+      {
+        "title": "Sudden Sensorineural Hearing Loss",
+        "url": "https://zerotofinals.com/surgery/ent/ssnhl/",
+        "file": "ztf-s-ent-ssnhl.md"
+      },
+      {
+        "title": "Eustachian Tube Dysfunction",
+        "url": "https://zerotofinals.com/surgery/ent/eustachiantubedysfunction/",
+        "file": "ztf-s-ent-eustachiantubedysfunction.md"
+      },
+      {
+        "title": "Otosclerosis",
+        "url": "https://zerotofinals.com/surgery/ent/otosclerosis/",
+        "file": "ztf-s-ent-otosclerosis.md"
+      },
+      {
+        "title": "Otitis Media",
+        "url": "https://zerotofinals.com/surgery/ent/otitismedia/",
+        "file": "ztf-s-ent-otitismedia.md"
+      },
+      {
+        "title": "Otitis Externa",
+        "url": "https://zerotofinals.com/surgery/ent/otitisexterna/",
+        "file": "ztf-s-ent-otitisexterna.md"
+      },
+      {
+        "title": "Ear Wax",
+        "url": "https://zerotofinals.com/surgery/ent/earwax/",
+        "file": "ztf-s-ent-earwax.md"
+      },
+      {
+        "title": "Tinnitus",
+        "url": "https://zerotofinals.com/surgery/ent/tinnitus/",
+        "file": "ztf-s-ent-tinnitus.md"
+      },
+      {
+        "title": "Vertigo",
+        "url": "https://zerotofinals.com/surgery/ent/vertigo/",
+        "file": "ztf-s-ent-vertigo.md"
+      },
+      {
+        "title": "Benign Paroxysmal Positional Vertigo",
+        "url": "https://zerotofinals.com/surgery/ent/bppv/",
+        "file": "ztf-s-ent-bppv.md"
+      },
+      {
+        "title": "Vestibular Neuronitis",
+        "url": "https://zerotofinals.com/surgery/ent/vestibularneuronitis/",
+        "file": "ztf-s-ent-vestibularneuronitis.md"
+      },
+      {
+        "title": "Labyrinthitis",
+        "url": "https://zerotofinals.com/surgery/ent/labyrinthitis/",
+        "file": "ztf-s-ent-labyrinthitis.md"
+      },
+      {
+        "title": "Ménière's Disease",
+        "url": "https://zerotofinals.com/surgery/ent/menieresdisease/",
+        "file": "ztf-s-ent-menieresdisease.md"
+      },
+      {
+        "title": "Acoustic Neuroma",
+        "url": "https://zerotofinals.com/surgery/ent/acousticneuroma/",
+        "file": "ztf-s-ent-acousticneuroma.md"
+      },
+      {
+        "title": "Cholesteatoma",
+        "url": "https://zerotofinals.com/surgery/ent/cholesteatoma/",
+        "file": "ztf-s-ent-cholesteatoma.md"
+      },
+      {
+        "title": "Facial Nerve Palsy",
+        "url": "https://zerotofinals.com/surgery/ent/facialnervepalsy/",
+        "file": "ztf-s-ent-facialnervepalsy.md"
+      },
+      {
+        "title": "Nosebleeds",
+        "url": "https://zerotofinals.com/surgery/ent/nosebleeds/",
+        "file": "ztf-s-ent-nosebleeds.md"
+      },
+      {
+        "title": "Sinusitis",
+        "url": "https://zerotofinals.com/surgery/ent/sinusitis/",
+        "file": "ztf-s-ent-sinusitis.md"
+      },
+      {
+        "title": "Nasal Polyps",
+        "url": "https://zerotofinals.com/surgery/ent/nasalpolyps/",
+        "file": "ztf-s-ent-nasalpolyps.md"
+      },
+      {
+        "title": "Obstructive Sleep Apnoea",
+        "url": "https://zerotofinals.com/surgery/ent/obstructivesleepapnoea/",
+        "file": "ztf-s-ent-obstructivesleepapnoea.md"
+      },
+      {
+        "title": "Tonsillitis",
+        "url": "https://zerotofinals.com/surgery/ent/tonsillitis/",
+        "file": "ztf-s-ent-tonsillitis.md"
+      },
+      {
+        "title": "Quinsy",
+        "url": "https://zerotofinals.com/surgery/ent/quinsy/",
+        "file": "ztf-s-ent-quinsy.md"
+      },
+      {
+        "title": "Tonsillectomy",
+        "url": "https://zerotofinals.com/surgery/ent/tonsillectomy/",
+        "file": "ztf-s-ent-tonsillectomy.md"
+      },
+      {
+        "title": "Neck Lumps",
+        "url": "https://zerotofinals.com/surgery/ent/necklumps/",
+        "file": "ztf-s-ent-necklumps.md"
+      },
+      {
+        "title": "Head and Neck Cancer",
+        "url": "https://zerotofinals.com/surgery/ent/headandneckcancer/",
+        "file": "ztf-s-ent-headandneckcancer.md"
+      },
+      {
+        "title": "Tongue Conditions",
+        "url": "https://zerotofinals.com/surgery/ent/tongueconditions/",
+        "file": "ztf-s-ent-tongueconditions.md"
+      },
+      {
+        "title": "Mouth and Gum Conditions",
+        "url": "https://zerotofinals.com/surgery/ent/mouthandgumconditions/",
+        "file": "ztf-s-ent-mouthandgumconditions.md"
+      }
+    ],
+    "Orthopaedics": [
+      {
+        "title": "Osteoarthritis",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/osteoarthritis/",
+        "file": "ztf-s-orthopaedics-osteoarthritis.md"
+      },
+      {
+        "title": "Elective Joint Replacement",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/jointreplacement/",
+        "file": "ztf-s-orthopaedics-jointreplacement.md"
+      },
+      {
+        "title": "Fractures",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/fractures/",
+        "file": "ztf-s-orthopaedics-fractures.md"
+      },
+      {
+        "title": "Hip Fractures",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/hipfractures/",
+        "file": "ztf-s-orthopaedics-hipfractures.md"
+      },
+      {
+        "title": "Compartment Syndrome",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/compartmentsyndrome/",
+        "file": "ztf-s-orthopaedics-compartmentsyndrome.md"
+      },
+      {
+        "title": "Osteomyelitis",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/osteomyelitis/",
+        "file": "ztf-s-orthopaedics-osteomyelitis.md"
+      },
+      {
+        "title": "Sarcoma",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/sarcoma/",
+        "file": "ztf-s-orthopaedics-sarcoma.md"
+      },
+      {
+        "title": "Back Pain and Sciatica",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/backpain/",
+        "file": "ztf-s-orthopaedics-backpain.md"
+      },
+      {
+        "title": "Cauda Equina Syndrome",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/caudaequina/",
+        "file": "ztf-s-orthopaedics-caudaequina.md"
+      },
+      {
+        "title": "Spinal Stenosis",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/spinalstenosis/",
+        "file": "ztf-s-orthopaedics-spinalstenosis.md"
+      },
+      {
+        "title": "Meralgia Paresthetica",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/meralgiaparaesthetica/",
+        "file": "ztf-s-orthopaedics-meralgiaparaesthetica.md"
+      },
+      {
+        "title": "Trochanteric Bursitis",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/trochantericbursitis/",
+        "file": "ztf-s-orthopaedics-trochantericbursitis.md"
+      },
+      {
+        "title": "Meniscal Tears",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/meniscaltears/",
+        "file": "ztf-s-orthopaedics-meniscaltears.md"
+      },
+      {
+        "title": "Anterior Cruciate Ligament Injury",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/aclinjury/",
+        "file": "ztf-s-orthopaedics-aclinjury.md"
+      },
+      {
+        "title": "Osgood-Schlatter Disease",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/osgoodschlatter/",
+        "file": "ztf-s-orthopaedics-osgoodschlatter.md"
+      },
+      {
+        "title": "Bakers Cyst",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/bakerscyst/",
+        "file": "ztf-s-orthopaedics-bakerscyst.md"
+      },
+      {
+        "title": "Achilles Tendinopathy",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/achillestendinopathy/",
+        "file": "ztf-s-orthopaedics-achillestendinopathy.md"
+      },
+      {
+        "title": "Achilles Tendon Rupture",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/achillesrupture/",
+        "file": "ztf-s-orthopaedics-achillesrupture.md"
+      },
+      {
+        "title": "Common Foot Problems",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/footproblems/",
+        "file": "ztf-s-orthopaedics-footproblems.md"
+      },
+      {
+        "title": "Frozen Shoulder",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/frozenshoulder/",
+        "file": "ztf-s-orthopaedics-frozenshoulder.md"
+      },
+      {
+        "title": "Rotator Cuff Tears",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/rotatorcufftears/",
+        "file": "ztf-s-orthopaedics-rotatorcufftears.md"
+      },
+      {
+        "title": "Shoulder Dislocation",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/shoulderdislocation/",
+        "file": "ztf-s-orthopaedics-shoulderdislocation.md"
+      },
+      {
+        "title": "Olecranon Bursitis",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/olecranonbursitis/",
+        "file": "ztf-s-orthopaedics-olecranonbursitis.md"
+      },
+      {
+        "title": "Repetitive Strain Injury",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/repetitivestraininjury/",
+        "file": "ztf-s-orthopaedics-repetitivestraininjury.md"
+      },
+      {
+        "title": "Epicondylitis",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/epicondylitis/",
+        "file": "ztf-s-orthopaedics-epicondylitis.md"
+      },
+      {
+        "title": "De Quervain’s Tenosynovitis",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/dequervains/",
+        "file": "ztf-s-orthopaedics-dequervains.md"
+      },
+      {
+        "title": "Trigger Finger",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/triggerfinger/",
+        "file": "ztf-s-orthopaedics-triggerfinger.md"
+      },
+      {
+        "title": "Dupuytren’s Contracture",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/dupuytrens/",
+        "file": "ztf-s-orthopaedics-dupuytrens.md"
+      },
+      {
+        "title": "Carpal Tunnel Syndrome",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/carpaltunnel/",
+        "file": "ztf-s-orthopaedics-carpaltunnel.md"
+      },
+      {
+        "title": "Ganglion Cysts",
+        "url": "https://zerotofinals.com/surgery/orthopaedics/ganglioncysts/",
+        "file": "ztf-s-orthopaedics-ganglioncysts.md"
+      }
+    ],
+    "Anaesthetics": [
+      {
+        "title": "General Anaesthesia",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/generalanaesthesia/",
+        "file": "ztf-s-anaesthetics-generalanaesthesia.md"
+      },
+      {
+        "title": "Other Types of Anaesthesia",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/otheranaesthesia/",
+        "file": "ztf-s-anaesthetics-otheranaesthesia.md"
+      },
+      {
+        "title": "Common Procedures in Anaesthetics",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/procedures/",
+        "file": "ztf-s-anaesthetics-procedures.md"
+      },
+      {
+        "title": "Pain Management",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/painmanagement/",
+        "file": "ztf-s-anaesthetics-painmanagement.md"
+      },
+      {
+        "title": "Intensive Care Unit",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/icu/",
+        "file": "ztf-s-anaesthetics-icu.md"
+      },
+      {
+        "title": "Arterial Blood Gases",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/arterialbloodgases/",
+        "file": "ztf-s-anaesthetics-arterialbloodgases.md"
+      },
+      {
+        "title": "Respiratory Support",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/respiratorysupport/",
+        "file": "ztf-s-anaesthetics-respiratorysupport.md"
+      },
+      {
+        "title": "Cardiovascular Support",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/cardiovascularsupport/",
+        "file": "ztf-s-anaesthetics-cardiovascularsupport.md"
+      },
+      {
+        "title": "Renal Support",
+        "url": "https://zerotofinals.com/surgery/anaesthetics/renalsupport/",
+        "file": "ztf-s-anaesthetics-renalsupport.md"
+      }
+    ]
+  }
+}

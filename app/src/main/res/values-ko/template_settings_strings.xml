@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_templates_desc">Browse, preview and edit reusable interfaces</string>
+    <string name="template_preview_interface">Preview template</string>
+    <string name="template_preview_desc">Try the interface without adding it to a chat</string>
+    <string name="template_preview_hint">Preview only. Chat submissions and Skill workflows are disabled.</string>
+    <string name="template_code">Interface code (JSON)</string>
+    <string name="template_code_hint">Includes HTML, CSS and JavaScript. Copy into chat to request changes, paste the revised JSON here, then Save. Back discards unsaved edits.</string>
+    <string name="template_copy_code">Copy code</string>
+    <string name="template_paste_code">Paste code</string>
+    <string name="template_clipboard_empty">The clipboard has no text.</string>
+    <string name="template_details">Template details</string>
+</resources>

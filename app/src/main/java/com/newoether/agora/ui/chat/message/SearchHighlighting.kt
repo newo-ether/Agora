@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
@@ -18,6 +17,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
 import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
+import com.newoether.agora.ui.components.Text
 
 internal val SearchHighlightBackground = Color(0xFFFFD54F)
 internal val ActiveSearchHighlightBackground = Color(0xFFFFA000)

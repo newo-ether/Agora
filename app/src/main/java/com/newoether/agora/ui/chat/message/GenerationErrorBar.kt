@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -11,10 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +28,10 @@ import com.newoether.agora.ui.chat.StreamingTailAnchorHeight
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.util.NoAutoScrollSelectionContainer
 import com.newoether.agora.viewmodel.normalizePersistedGenerationErrorText
+import com.newoether.agora.ui.motion.animateColorAsState
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.TextButton
 
 /** Shared neutral text presentation for terminal generation information. */
 @Composable

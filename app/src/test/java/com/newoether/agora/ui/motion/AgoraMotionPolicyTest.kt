@@ -38,6 +38,17 @@ class AgoraMotionPolicyTest {
         assertReduced(policy)
     }
 
+    @Test
+    fun einkDisablesMotionWithoutChangingTheStoredReducedMotionPreference() {
+        val enabled = resolveAgoraMotionPolicy(false, false, eInkMode = true)
+        assertReduced(enabled)
+        assertTrue(enabled.eInkMode)
+        val restored = resolveAgoraMotionPolicy(false, false, eInkMode = false)
+        assertFalse(restored.reduceMotion)
+        assertTrue(restored.allowContinuousMotion)
+        assertFalse(resolveAgoraMotionPolicy(true, false).eInkMode)
+    }
+
     private fun assertReduced(policy: AgoraMotionPolicy) {
         assertTrue(policy.reduceMotion)
         assertFalse(policy.allowContinuousMotion)

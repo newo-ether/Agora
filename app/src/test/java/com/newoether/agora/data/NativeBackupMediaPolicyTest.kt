@@ -22,6 +22,56 @@ class NativeBackupMediaPolicyTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
+    fun sharedExcerptCoverRoundTripsAsDisplayMetadataWithoutProviderImages() {
+        val selected = SelectedAttachment(uri = "file:///source.txt", type = "file", localPath = "/source.txt",
+            preparedText = "Chapter text", sourceTitle = "Chapter Two", sourceBookTitle = "The Book",
+            sourceAuthors = "Author", sourceThumbnailPath = "/cover.jpg")
+        val exported = NativeBackupMediaPolicy.rewriteDraftAttachmentsForExport(listOf(selected),
+            archiveEntryForSource = { "archive/" + it.substringAfterLast('/') }, onMissingResource = {})
+        assertEquals("archive/cover.jpg", exported.single().sourceThumbnailPath)
+        assertEquals("Chapter Two", exported.single().sourceTitle)
+        val restored = NativeBackupMediaPolicy.restoreDraftAttachments(exported,
+            restoredPrimaryForArchiveEntry = { "/restored/source.txt" to "file:///restored/source.txt" },
+            restoredPathForArchiveEntry = { "/restored/cover.jpg" })
+        assertEquals("/restored/cover.jpg", restored.single().sourceThumbnailPath)
+        assertEquals("The Book", restored.single().sourceBookTitle)
+        val item = AttachmentItem(type = "file", textContent = "Chapter text", sourceTitle = "Chapter Two",
+            sourceThumbnailPath = "/cover.jpg")
+        val raw = json.encodeToString(AttachmentMeta(listOf(item)))
+        val archived = NativeBackupMediaPolicy.rewriteAttachmentMetaForExport(raw,
+            oldToNewImageIndex = emptyMap(), archiveEntryForSource = { "archive/cover.jpg" })
+        val returned = NativeBackupMediaPolicy.restoreAttachmentMeta(archived, archiveVersion = 5,
+            legacyVideoUris = emptyMap(), restoredUriForArchiveEntry = { "file:///restored/cover.jpg" })
+        val finalItem = json.decodeFromString<AttachmentMeta>(requireNotNull(returned)).items.single()
+        assertEquals("file:///restored/cover.jpg", finalItem.sourceThumbnailPath)
+        assertEquals("Chapter Two", finalItem.sourceTitle)
+        assertNull(finalItem.imageIndex)
+    }
+
+    @Test
+    fun legacyNotebookBundleAndCoverSurviveArchiveRoundTrip() {
+        val item = AttachmentItem(
+            originalUri = "file:///saved/note.zip", type = "file", fileName = "note.zip",
+            mimeType = "application/vnd.kalamos.notes-document+zip", textContent = "Saved text",
+            notesDocumentId = "old-document", notesRevisionId = "old-revision",
+            notesThumbnailPath = "/saved/cover.jpg", imageIndex = 0,
+        )
+        val raw = json.encodeToString(AttachmentMeta(listOf(item)))
+        val archived = NativeBackupMediaPolicy.rewriteAttachmentMetaForExport(raw,
+            oldToNewImageIndex = mapOf(0 to 0),
+            archiveEntryForSource = { "archive/" + it.substringAfterLast('/') })
+        val restored = NativeBackupMediaPolicy.restoreAttachmentMeta(archived, archiveVersion = 5,
+            legacyVideoUris = emptyMap(), restoredUriForArchiveEntry = { "file:///restored/" + it.substringAfterLast('/') })
+        val result = json.decodeFromString<AttachmentMeta>(requireNotNull(restored)).items.single()
+        assertEquals("file:///restored/note.zip", result.originalUri)
+        assertEquals("file:///restored/cover.jpg", result.notesThumbnailPath)
+        assertEquals("Saved text", result.textContent)
+        assertEquals("old-document", result.notesDocumentId)
+        assertEquals("old-revision", result.notesRevisionId)
+        assertFalse(result.unavailable)
+    }
+
+    @Test
     fun nativeBackupExcludesPendingAndRuntimeSandboxDraftPayloads() {
         val private = SelectedAttachment(uri = "private", type = "file")
         val pending = SelectedAttachment(

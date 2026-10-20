@@ -42,7 +42,9 @@ internal fun ConversationComposerSnapshot.replaceAttachment(
 internal fun SelectedAttachment.asProcessing() = copy(
     processedFrames = null,
     preRenderedPaths = null,
+    notesThumbnailPath = null,
     preparedText = null,
+    notesMarkdownText = null,
     importState = AttachmentImportState.PROCESSING,
     unavailable = false,
 )

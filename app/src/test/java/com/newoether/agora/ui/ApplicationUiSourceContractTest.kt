@@ -42,28 +42,19 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
     }
 
     @Test
-    fun `Skills settings mirrors the saved Memory file presentation`() {
-        val source = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/settings/SettingsSkillsPage.kt",
-        )
-
-        assertTrue(source.contains("var skillsLoaded"))
-        assertTrue(source.contains("var skillOperationInFlight"))
-        assertTrue(source.contains("fun loadSkills("))
-        assertTrue(source.contains("CircularProgressIndicator("))
-        assertTrue(source.contains("R.string.memory_access_title"))
-        assertTrue(source.contains("R.string.skills_create_hint"))
-        assertTrue(source.contains("Icons.Default.MoreVert"))
-        assertTrue(source.contains("DropdownMenu("))
+    fun `Skills settings uses the approved shared full editor navigation`() {
+        val source = sourceFile("app/src/main/java/com/newoether/agora/ui/settings/SettingsSkillsPage.kt")
+        val editor = sourceFile("app/src/main/java/com/newoether/agora/ui/settings/SkillEditorPage.kt")
+        assertTrue(source.contains("GuardedAnimatedContent("))
+        assertTrue(source.contains("CollapsingSettingsScaffold("))
         assertTrue(source.contains("SettingsAddItem("))
-        assertFalse(source.contains("import androidx.compose.material3.Button\n"))
-        assertTrue(source.contains("containerColor = MaterialTheme.colorScheme.surfaceContainer"))
-        assertTrue(source.contains("fontWeight = FontWeight.Bold"))
-        assertTrue(source.contains("shape = RoundedCornerShape(16.dp)"))
-        assertTrue(source.contains("FontFamily.Monospace"))
-        assertTrue(source.contains("Modifier.clearFocusOnTap()"))
-        assertTrue(source.contains("Spacer(modifier = Modifier.height(80.dp))"))
+        assertTrue(source.contains("R.string.memory_access_title"))
+        assertTrue(source.contains("Icons.Default.MoreVert"))
         assertTrue(source.contains("file.name.removeSuffix(\".md\")"))
+        assertTrue(editor.contains("CollapsingSettingsScaffold("))
+        assertTrue(editor.contains("FontFamily.Monospace"))
+        assertTrue(editor.contains("DocumentationFab(\"skills.md\")"))
+        assertFalse(source.contains("active_skill"))
     }
 
     @Test
@@ -84,7 +75,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
     }
 
     @Test
-    fun `Skills entry uses Extension while Markdown import uses Memory Description icon`() {
+    fun `Skills entry uses Extension and offers manual or AI creation`() {
         val settings = sourceFile("app/src/main/java/com/newoether/agora/ui/settings/SettingsScreen.kt")
         val page = sourceFile("app/src/main/java/com/newoether/agora/ui/settings/SettingsSkillsPage.kt")
         val strings = sourceFile("app/src/main/res/values/strings.xml")
@@ -92,7 +83,8 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertTrue(settings.contains("R.string.settings_skills, R.string.settings_skills_desc, Icons.Default.Extension"))
         assertFalse(page.contains("AutoAwesome"))
         assertTrue(page.contains("Icons.Default.Extension"))
-        assertTrue(page.contains("Icons.Default.Description"))
+        assertFalse(page.contains("OpenDocument"))
+        assertTrue(page.contains("R.string.skill_create_ai"))
         mapOf(
             "skills_access" to "Access Saved Skills",
             "skills_saved_title" to "Saved Skills",
@@ -412,8 +404,11 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertTrue(groupIndices.zipWithNext().all { (current, next) -> current < next })
         assertFalse(appearance.contains("R.string.appearance_interface"))
         assertEquals(4, Regex("SettingsGroup\\(").findAll(appearance).count())
-        assertEquals(16, Regex("SettingsItem\\(").findAll(appearance).count())
-        assertEquals(16, Regex("leadingContent\\s*=").findAll(appearance).count())
+        val appearanceRows = appearance + sourceFile(
+            "app/src/main/java/com/newoether/agora/ui/settings/SettingsAppearancePresentation.kt",
+        )
+        assertEquals(17, Regex("\\bSettingsItem\\(").findAll(appearanceRows).count())
+        assertEquals(17, Regex("leadingContent\\s*=").findAll(appearanceRows).count())
         listOf(
             "Palette",
             "Style",
@@ -506,9 +501,9 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         val archive = sourceFile(
             "app/src/main/java/com/newoether/agora/data/PortableSettingsArchive.kt",
         )
-        val availability = chatApp
-            .substringAfter("val streamingFollowAvailability =")
-            .substringBefore("Box(modifier = Modifier.fillMaxSize())")
+        val availability = requireNotNull(Regex(
+            """val streamingFollowAvailability\s*=\s*streamingTailAvailability\(([\s\S]*?)\n\s*\)""",
+        ).find(chatApp)) { "Streaming-tail availability calculation is missing" }.groupValues[1]
 
         assertTrue(appearance.contains("R.string.stick_to_bottom"))
         assertTrue(appearance.contains("setStickToBottom"))

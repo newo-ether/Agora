@@ -291,8 +291,7 @@ interface ChatDao :
         at: Long,
         touchConversationOnAdmission: Boolean,
     ): RunGraphCommit {
-        require(run.status == RunStatus.ACTIVE)
-        require(run.activeSlot == 1)
+        validateLocalOrActiveRunAdmission(run, messages)
         require(messages.isNotEmpty())
         require(conversationModelId == null || conversationModelId.isNotBlank())
         require(messages.all { it.runId == run.id })

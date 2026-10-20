@@ -8,6 +8,19 @@ import org.junit.Test
 
 class MessagePayloadBuilderTest {
     private val builder = MessagePayloadBuilder()
+    @Test fun legacyNotebookMetadataDoesNotInjectPromptsOrPageImages() {
+        val payload = builder.buildComposerPayload(listOf(SelectedAttachment(
+            uri = "file:///ready/note.zip", type = "file", localPath = "/ready/note.zip",
+            fileName = "Saved note.zip", mimeType = "application/vnd.kalamos.notes-document+zip",
+            preparedText = "Previously prepared text", notesMarkdownText = "Obsolete instructions",
+            notesDocumentId = "legacy-document", notesRevisionId = "legacy-revision",
+            notesThumbnailPath = "/ready/cover.jpg", preRenderedPaths = listOf("/ready/page.jpg"),
+        )))
+        val item = payload.attachmentMeta!!.items.single()
+        assertEquals("Previously prepared text", item.textContent)
+        assertEquals("/ready/cover.jpg", item.notesThumbnailPath)
+        assertEquals(emptyList<String>(), payload.allImages)
+    }
 
     @Test
     fun mixedReadyArtifactsPreserveFrozenComposerOrderAndExactIndices() {

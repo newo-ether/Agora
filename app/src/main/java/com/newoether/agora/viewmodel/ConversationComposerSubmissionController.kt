@@ -66,6 +66,8 @@ internal class ConversationComposerSubmissionController(
         retry: () -> Unit,
     ) -> Unit = { _, _ -> },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val resolveSkillPrompt: suspend (String) -> String? = { null },
+    private val localSubmit: suspend (ForegroundSendTarget, ConversationComposerSnapshot, String?) -> LocalComposerResult? = { _, _, _ -> null },
 ) {
     private class OwnerSubmission {
         val state = MutableStateFlow(ConversationComposerSubmissionSnapshot())
@@ -81,6 +83,7 @@ internal class ConversationComposerSubmissionController(
         val target: ForegroundSendTarget,
         val text: String,
         val attachmentIds: List<String>,
+        val localTemplateId: String?,
     ) {
         val ownerId: String get() = target.ownerId
         val acceptanceStarted = AtomicBoolean(false)
@@ -135,6 +138,7 @@ internal class ConversationComposerSubmissionController(
         ownerId: String,
         text: String,
         attachmentIds: List<String>,
+        localTemplateId: String? = null,
     ): Boolean {
         val target = captureTarget(ownerId) ?: return false
         val owner = owner(ownerId)
@@ -145,6 +149,7 @@ internal class ConversationComposerSubmissionController(
                 target = target,
                 text = text,
                 attachmentIds = attachmentIds.toList(),
+                localTemplateId = localTemplateId,
             ).also { frozen ->
                 owner.request = frozen
                 owner.cancelWaitingRequested = false
@@ -248,14 +253,25 @@ internal class ConversationComposerSubmissionController(
                 request.attachmentIds,
             ) ?: return
             request.frozenRevision = frozen.revision
+            val skillPrompt = if (request.localTemplateId == null) resolveSkillPrompt(request.text) else null
+            val sendText = skillPrompt ?: request.text
+            val local = if (skillPrompt == null) localSubmit(request.target, frozen, request.localTemplateId) else null
+            if (skillPrompt == null && (local != null || request.localTemplateId != null || com.newoether.agora.templates.isTemplateCommand(request.text))) {
+                local?.acceptance?.let { acceptance ->
+                    request.accepted = acceptance
+                    request.expectedNewChatWorkspace = local.expectedWorkspace
+                    clearAccepted(owner, request)
+                }
+                return
+            }
             markStage("prepare-admission")
-            val admission = prepare(request.target, frozen) ?: return
+            val admission = prepare(request.target, frozen.copy(text = sendText)) ?: return
             markStage("await-attachments")
             composers.awaitProcessing(request.ownerId, request.attachmentIds.toSet())
             markStage("resolve-ready-attachments")
             val settledComposer = composers.state(request.ownerId).value
             val acceptedAdmission = admission.withSettledComposerDraft(
-                acceptedText = request.text,
+                acceptedText = sendText,
                 settledAttachments = settledComposer.attachments,
             )
             request.expectedNewChatWorkspace = acceptedAdmission.newChatPersistSnapshot
@@ -278,7 +294,7 @@ internal class ConversationComposerSubmissionController(
             request.durableAttachmentIds = readyAttachments
                 .mapTo(hashSetOf(), SelectedAttachment::localId)
             markStage("send")
-            send(acceptedAdmission, request.text, readyAttachments) { acceptance ->
+            send(acceptedAdmission, sendText, readyAttachments) { acceptance ->
                 if (!request.acceptanceStarted.compareAndSet(false, true)) return@send
                 markStage(if (acceptance is SendAcceptance.Direct) "accepted-direct" else "accepted-queued")
                 markStage("clear-accepted-draft")

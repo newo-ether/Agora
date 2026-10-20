@@ -2,7 +2,6 @@ package com.newoether.agora.ui.chat
 
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,6 +29,11 @@ import com.newoether.agora.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.components.Button
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.motion.animateColorAsState
 
 data class VideoSliceResult(
     val uri: String,

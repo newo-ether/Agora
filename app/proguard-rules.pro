@@ -48,3 +48,8 @@
 -keep class com.newoether.agora.screenshot.ScreenshotFixture { *; }# Ktor server: JVM-only debug detection (DevelopmentMode), absent on Android.
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
+
+# Keep embedded-View focus teardown consistent with AgoraApplication in optimized builds.
+-assumevalues class androidx.compose.ui.ComposeUiFlags {
+    public static boolean isViewFocusFixEnabled return true;
+}

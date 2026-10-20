@@ -425,3 +425,23 @@ and WebUI share this contract.
 - Verification covers successful responses with/without messages, invalid optional payloads,
   rejection, duplicate IDs, runtime package metadata, plain-text dialog dismissal, and preservation
   of existing submission cleanup. Real-device visual acceptance remains owner-tested.
+
+
+## Optional E-ink Mode
+
+E-ink Mode appears first in Appearance Theme & Color. Its portable boolean defaults off.
+The mode-specific drawing and motion amendment in application-ui.md section 38 overrides the
+normal colour, crossfade and collapsing-header rules while enabled. Disabling restores normal
+preferences without rewriting them. Android Remote shares the same mode; WebUI does not inherit it.
+
+## Custom Skills editor
+
+The owner-approved reference is System Prompt list/detail editing. Skills uses shared collapsing
+Settings navigation with four main fields: name, description (at most ten words), shortcut and instructions.
+An optional Workflow group selects Before template, After template and Continue with Skill.
+The continuation is shown only with an After template; removing After clears it. Choices use
+existing template names and Skill filenames. Both themed and e-ink modes use shared components.
+Tools, call examples, Alpine paths and other Skill filenames are written in the instructions.
+No import, duplicate, folder pickers or separate dependency forms. Create with AI prepares an
+unsent request. A completed chat Skill proposal uses the existing interactive viewer and opens
+this same native editor for review/save. See [skills.md](skills.md) for authority and persistence.

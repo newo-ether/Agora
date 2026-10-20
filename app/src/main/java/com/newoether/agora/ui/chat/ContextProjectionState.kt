@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.api.util.tokens.bpe.O200kBase
 
 /** Every value capable of changing fixed system-prompt or tool-definition token cost. */
 @Composable
@@ -11,6 +12,7 @@ internal fun rememberContextProjectionInvalidationKey(
     viewModel: ChatViewModel,
     requestConfiguration: List<Any?>,
 ): List<Any?> {
+    val tokenizerReady by O200kBase.ready.collectAsState()
     val settings = viewModel.settings
     val activePromptId by settings.activeSystemPromptId.collectAsState()
     val pendingPromptId by viewModel.pendingSystemPromptId.collectAsState()
@@ -34,6 +36,7 @@ internal fun rememberContextProjectionInvalidationKey(
     val activeMemoryRevision by viewModel.memoryManager.activeMemoryRevision.collectAsState()
     val skillCatalogRevision by viewModel.skillManager.catalogRevision.collectAsState()
     return requestConfiguration + listOf(
+        tokenizerReady,
         activePromptId,
         pendingPromptId,
         systemPrompts,

@@ -1,6 +1,8 @@
 package com.newoether.agora.util
 
 import android.util.Base64
+import android.os.Build
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
@@ -20,10 +22,15 @@ object ShellCrypto {
     private val secureRandom = SecureRandom()
     private const val B64_URL_FLAGS = Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
 
+    // Android exposes X25519 through XDH from API 33. Older releases use the bundled
+    // implementation without registering or replacing a process-wide provider.
+    private val legacyX25519Provider by lazy { BouncyCastleProvider() }
+
     // --- Key Generation (X25519) ---
 
     fun generateEphemeralKeyPair(): java.security.KeyPair {
-        val generator = KeyPairGenerator.getInstance("X25519")
+        val generator = if (Build.VERSION.SDK_INT >= 33) KeyPairGenerator.getInstance("XDH")
+            else KeyPairGenerator.getInstance("X25519", legacyX25519Provider)
         return generator.generateKeyPair()
     }
 
@@ -35,7 +42,7 @@ object ShellCrypto {
     }
 
     private val X25519_SPKI_PREFIX: ByteArray by lazy {
-        val kp = KeyPairGenerator.getInstance("X25519").generateKeyPair()
+        val kp = generateEphemeralKeyPair()
         val encoded = kp.public.encoded
         encoded.copyOfRange(0, encoded.size - 32)
     }
@@ -47,7 +54,9 @@ object ShellCrypto {
         }
         val spki = X25519_SPKI_PREFIX + rawKey
         val keySpec = X509EncodedKeySpec(spki)
-        return KeyFactory.getInstance("XDH").generatePublic(keySpec)
+        val factory = if (Build.VERSION.SDK_INT >= 33) KeyFactory.getInstance("XDH")
+            else KeyFactory.getInstance("X25519", legacyX25519Provider)
+        return factory.generatePublic(keySpec)
     }
 
     // --- ECDH + HKDF ---
@@ -56,7 +65,8 @@ object ShellCrypto {
         ourPrivateKey: java.security.PrivateKey,
         theirPublicKey: java.security.PublicKey
     ): ByteArray {
-        val keyAgreement = KeyAgreement.getInstance("X25519")
+        val keyAgreement = if (Build.VERSION.SDK_INT >= 33) KeyAgreement.getInstance("XDH")
+            else KeyAgreement.getInstance("X25519", legacyX25519Provider)
         keyAgreement.init(ourPrivateKey)
         keyAgreement.doPhase(theirPublicKey, true)
         val sharedSecret = keyAgreement.generateSecret()

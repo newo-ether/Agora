@@ -363,13 +363,16 @@ class ConversationToolsRowTest {
         assertEquals("The measured inset has one declaration and two message-list consumers", 3,
             Regex("\\bmessageToolsInset\\b").findAll(source).count())
         assertTrue("MessageList geometry receives the same inset as its trailing padding", source.contains(
-            "bottomBarHeight = bottomBarHeight + shareSelectionBarSpace + messageToolsInset,",
+            "bottomBarHeight = (if (readingMode.active) 0.dp else bottomBarHeight) + shareSelectionBarSpace + messageToolsInset,",
         ))
-        assertTrue("The ordinary 8dp tail padding remains separate from tools clearance", source.contains(
-            "bottom = bottomBarHeight + shareSelectionBarSpace + messageToolsInset + 8.dp",
+        assertTrue("Tail padding remains separate from tools clearance", source.contains(
+            "bottom = (if (readingMode.active) 0.dp else bottomBarHeight) + shareSelectionBarSpace + messageToolsInset +",
+        ))
+        assertTrue("E-ink keeps its larger tail padding and ordinary mode keeps 8dp", source.contains(
+            "(if (motionPolicy.eInkMode) 56.dp else 8.dp)",
         ))
         assertTrue("The scroll button keeps its existing measured row lift, without message-only clearance",
-            source.contains("ChatBottomScrollButton(showButton, bottomBarHeight + interactionBarHeight)"))
+            source.contains("bottomObstruction = (if (readingMode.active) 0.dp else bottomBarHeight) + interactionBarHeight,"))
     }
 
     @Test fun finalToolClearanceFollowsTheSameExitProgressForEveryKind() {

@@ -39,7 +39,7 @@ class AgoraOptionHighlightTest {
             "tasks/TaskEditorSupportingComponents.kt" to (2 to 0),
             "chat/ImageActions.kt" to (0 to 1),
             "settings/SettingsPromptsPage.kt" to (0 to 2),
-            "settings/SettingsSkillsPage.kt" to (0 to 2),
+            "settings/SettingsSkillsPage.kt" to (0 to 0), // Skills now uses the approved full-page editor, not an Add sheet.
             "settings/SystemPromptEditorPage.kt" to (0 to 1),
         )
         expected.forEach { (path, counts) ->

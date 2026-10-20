@@ -3,8 +3,6 @@ package com.newoether.agora.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -14,6 +12,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.newoether.agora.R
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.IconButton
 
 /*
  * The single owner of secret-field masking. Every secret text input (API keys, passwords, tokens)

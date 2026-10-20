@@ -76,6 +76,8 @@ internal class AttachmentOrphanSweeper(
                         null
                     }
                         ?.items?.forEach { item ->
+                            item.notesThumbnailPath?.let { referenced.add(normalizePath(it)) }
+                            item.sourceThumbnailPath?.let { referenced.add(normalizePath(it)) }
                             item.originalUri?.takeIf { it.startsWith("file://") }
                                 ?.let { referenced.add(normalizePath(it)) }
                         }
@@ -103,6 +105,8 @@ internal class AttachmentOrphanSweeper(
                     null
                 }?.forEach { attachment ->
                     attachment.localPath?.let { referenced.add(normalizePath(it)) }
+                    attachment.notesThumbnailPath?.let { referenced.add(normalizePath(it)) }
+                    attachment.sourceThumbnailPath?.let { referenced.add(normalizePath(it)) }
                     attachment.processedFrames?.forEach { referenced.add(normalizePath(it)) }
                     attachment.preRenderedPaths?.forEach { referenced.add(normalizePath(it)) }
                 }
@@ -120,6 +124,8 @@ internal class AttachmentOrphanSweeper(
                 null
             }?.forEach { attachment ->
                 attachment.localPath?.let { referenced.add(normalizePath(it)) }
+                    attachment.notesThumbnailPath?.let { referenced.add(normalizePath(it)) }
+                    attachment.sourceThumbnailPath?.let { referenced.add(normalizePath(it)) }
                 attachment.processedFrames?.forEach { referenced.add(normalizePath(it)) }
                 attachment.preRenderedPaths?.forEach { referenced.add(normalizePath(it)) }
             }

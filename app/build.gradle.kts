@@ -20,7 +20,12 @@ android {
     testOptions.unitTests.isIncludeAndroidResources = true
     // Robolectric installs Conscrypt as the first security provider for the whole test JVM;
     // on JDK 17+ its TLS server needs reflective access to java.net (InetAddress.holder).
-    testOptions.unitTests.all { it.jvmArgs("--add-opens=java.base/java.net=ALL-UNNAMED") }
+    testOptions.unitTests.all {
+        it.jvmArgs("--add-opens=java.base/java.net=ALL-UNNAMED")
+        // Bound retained Robolectric/MockK state across the combined regression suite.
+        it.maxHeapSize = "1536m"
+        it.forkEvery = 200
+    }
     compileSdk {
         version = release(36)
     }

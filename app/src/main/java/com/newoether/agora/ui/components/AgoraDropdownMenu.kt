@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.runtime.remember
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 
 /*
  * Every dropdown in the app goes through these wrappers, which own the menu geometry: a 24dp menu
@@ -57,6 +59,10 @@ fun AgoraDropdownMenu(
     border: BorderStroke? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) {
+        if (expanded) EinkDropdown(onDismissRequest, modifier, offset, scrollState, properties, content)
+        return
+    }
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
@@ -87,6 +93,11 @@ fun ExposedDropdownMenuBoxScope.AgoraExposedDropdownMenu(
     border: BorderStroke? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) {
+        if (expanded) EinkDropdown(onDismissRequest, modifier, DpOffset.Zero, scrollState,
+            PopupProperties(focusable = true), content)
+        return
+    }
     ExposedDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
@@ -118,6 +129,8 @@ fun AgoraDropdownMenuItem(
     contentPadding: PaddingValues = DROPDOWN_ITEM_CONTENT_PADDING,
     interactionSource: MutableInteractionSource? = null,
 ) {
+    val eInk = LocalAgoraMotionPolicy.current.eInkMode
+    val source = interactionSource ?: remember { MutableInteractionSource() }
     DropdownMenuItem(
         text = text,
         onClick = onClick,
@@ -125,12 +138,14 @@ fun AgoraDropdownMenuItem(
         // inset and clipped to the item shape.
         modifier = modifier
             .padding(horizontal = DROPDOWN_ITEM_INSET)
-            .clip(DROPDOWN_ITEM_SHAPE),
+            .clip(DROPDOWN_ITEM_SHAPE).einkFeedback(source, enabled),
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
         enabled = enabled,
-        colors = colors,
+        colors = if (eInk) MenuDefaults.itemColors(textColor = Color.Black, leadingIconColor = Color.Black,
+            trailingIconColor = Color.Black, disabledTextColor = Color.Black,
+            disabledLeadingIconColor = Color.Black, disabledTrailingIconColor = Color.Black) else colors,
         contentPadding = contentPadding,
-        interactionSource = interactionSource,
+        interactionSource = source,
     )
 }

@@ -46,6 +46,7 @@ class DataExporter(
     enum class ExportCategory(val manifestKey: String) {
         CONVERSATIONS("conversations"),
         MEMORIES("memories"),
+        TEMPLATES("templates"),
         SYSTEM_PROMPTS("system_prompts"),
         SETTINGS("settings"),
         API_KEYS("api_keys");
@@ -487,11 +488,15 @@ class DataExporter(
                         }
                         meta?.items
                             ?.asSequence()
-                            ?.filter { it.type == "video" && !it.unavailable }
+                            ?.filter { (it.type == "video" || it.mimeType == "application/vnd.kalamos.notes-document+zip") && !it.unavailable }
                             ?.mapNotNull { it.originalUri }
                             ?.forEach { source ->
                                 copySource(source, NativeBackupFormat.VIDEO_MEDIA_PREFIX, null)
                             }
+
+                        meta?.items.orEmpty().flatMap { listOfNotNull(it.notesThumbnailPath, it.sourceThumbnailPath) }.forEach { source ->
+                            copySource(source, NativeBackupFormat.VIDEO_MEDIA_PREFIX, null)
+                        }
 
                         if (message.images.isNotEmpty()) {
                             val oldToNewImageIndex = mutableMapOf<Int, Int>()
@@ -664,6 +669,12 @@ class DataExporter(
                 }
 
             // Memories
+            if (ExportCategory.TEMPLATES in categories) {
+                val catalogue = com.newoether.agora.templates.InteractiveTemplateRepository(context).exportCatalogue()
+                zip.putArchiveEntry(ZipArchiveEntry(com.newoether.agora.templates.InteractiveTemplateRepository.ARCHIVE_ENTRY))
+                zip.write(catalogue.toByteArray(Charsets.UTF_8))
+                zip.closeArchiveEntry()
+            }
             if (ExportCategory.MEMORIES in categories) {
                 val activeMemory = memoryManager.getActiveMemory()
                 if (activeMemory.isNotEmpty()) {

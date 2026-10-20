@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.settings
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,9 +12,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Error
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -29,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.mcp.McpConnectionStatus
 import com.newoether.agora.mcp.McpServerSnapshot
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
 
 private data class McpStatusUiState(
     val status: McpConnectionStatus,

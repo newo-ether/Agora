@@ -1,0 +1,30 @@
+gradle.beforeProject { project ->
+    project.plugins.withId('com.android.application') {
+        def android = project.extensions.getByName('android')
+        android.buildFeatures.resValues = true
+        android.testBuildType = 'einkPreview'
+        // This device already uses Alpine/shared storage: the Play flavor omits them.
+        // Restrict preview delivery to the full-capability device variant.
+        def components = project.extensions.getByName('androidComponents')
+        components.beforeVariants(components.selector().withBuildType('einkPreview')) { variant ->
+            variant.enable = variant.productFlavors.any { it.first == 'store' && it.second == 'fdroid' }
+        }
+        android.buildTypes.create('einkPreview') {
+            initWith(android.buildTypes.getByName('debug'))
+            applicationIdSuffix = '.einkpreview'
+            versionNameSuffix = '-combined-preview'
+            ndk.abiFilters.clear()
+            ndk.abiFilters.add('arm64-v8a')
+            matchingFallbacks = ['debug']
+            resValue 'string', 'app_name', 'Agora'
+        }
+        // initWith copies Android options, not the debug dependency configuration.
+        project.afterEvaluate {
+            project.configurations.getByName('einkPreviewImplementation').extendsFrom(
+                project.configurations.getByName('debugImplementation'))
+        }
+        android.defaultConfig.externalNativeBuild.cmake.arguments.addAll([
+            '-DCMAKE_JOB_POOLS=agoraCompile=2', '-DCMAKE_JOB_POOL_COMPILE=agoraCompile'
+        ])
+    }
+}

@@ -8,6 +8,7 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.data.repository.remapToolRoundReferences
 import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.interactiveAnswer
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
 import com.newoether.agora.util.Constants
@@ -364,7 +365,11 @@ internal fun formatShareText(title: String, messages: List<MessageEntity>): Stri
                     var includedAnswer = false
                     segments.forEach { segment ->
                         when (segment.type) {
-                            "thought", "tool" -> Unit
+                            "thought" -> Unit
+                            "interactive_template", "tool" -> segment.interactiveAnswer()?.let { answer ->
+                                blocks += "## Assistant\n\n${answer.fallback.trim()}"
+                                includedAnswer = true
+                            }
                             "answer" -> segment.content.trim().takeIf { it.isNotBlank() }?.let {
                                 includedAnswer = true
                                 blocks += "## Assistant\n\n$it"

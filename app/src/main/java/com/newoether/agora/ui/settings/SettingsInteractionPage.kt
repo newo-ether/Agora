@@ -3,10 +3,7 @@ package com.newoether.agora.ui.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,14 +11,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
 
-/**
- * Settings for the ways the assistant interrupts the user: right now the `ask_user` tool, which
- * puts a decision back to the user instead of guessing at it.
- */
+/** Conversation interaction settings, including dictation, local interfaces and assistant questions. */
 @Composable
 fun SettingsInteractionPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val askUserEnabled by viewModel.settings.askUserEnabled.collectAsState()
+    val interactiveAnswersEnabled by viewModel.settings.interactiveAnswersEnabled.collectAsState()
     val timeoutMinutes by viewModel.settings.askUserTimeoutMinutes.collectAsState()
     SettingsInteractionContent(
         askUserEnabled = askUserEnabled,
@@ -29,6 +27,20 @@ fun SettingsInteractionPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         onEnabledChange = viewModel.settings::setAskUserEnabled,
         onTimeoutChange = viewModel.settings::setAskUserTimeoutMinutes,
         onBack = onBack,
+        voiceTypingGroup = { VoiceTypingSettingsGroup(viewModel.settings) },
+        interactiveAnswersItem = {
+            SettingsItem(
+                headlineContent = { Text(stringResource(R.string.interactive_answers)) },
+                supportingContent = { Text(stringResource(R.string.interactive_answers_description)) },
+                trailingContent = {
+                    Switch(checked = interactiveAnswersEnabled,
+                        onCheckedChange = viewModel.settings::setInteractiveAnswersEnabled)
+                },
+                modifier = Modifier.clickable {
+                    viewModel.settings.setInteractiveAnswersEnabled(!interactiveAnswersEnabled)
+                },
+            )
+        },
     )
 }
 
@@ -39,6 +51,8 @@ internal fun SettingsInteractionContent(
     onEnabledChange: (Boolean) -> Unit,
     onTimeoutChange: (Int) -> Unit,
     onBack: () -> Unit,
+    voiceTypingGroup: @Composable () -> Unit = {},
+    interactiveAnswersItem: (@Composable () -> Unit)? = null,
 ) {
     val scrollState = rememberSettingsScrollState()
     CollapsingSettingsScaffold(
@@ -47,9 +61,11 @@ internal fun SettingsInteractionContent(
         scrollState = scrollState,
     ) {
         SettingsGroupColumn {
+            voiceTypingGroup()
             SettingsGroup(
                 title = stringResource(R.string.settings_interaction),
                 items = buildList {
+                    interactiveAnswersItem?.let { add(it) }
                     add {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.ask_user_enable)) },

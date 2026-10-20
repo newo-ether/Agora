@@ -1,8 +1,8 @@
 package com.newoether.agora.ui.chat.bottombar
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -31,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.ContextBudget
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.motion.animateFloatAsState
+import com.newoether.agora.ui.components.Text
 
 private val BarHeight = 12.dp
 private val LegendDotSize = 10.dp
@@ -65,6 +66,7 @@ internal fun ContextCompositionBar(
     showBreakdown: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val eInk = LocalAgoraMotionPolicy.current.eInkMode
     val budget = tokenBudget.coerceAtLeast(1)
     val system = systemPromptTokens.coerceAtLeast(0)
     val tools = toolTokens.coerceAtLeast(0)
@@ -73,8 +75,8 @@ internal fun ContextCompositionBar(
         val total = system + tools + messages
         // No compaction threshold is known here, so nothing is reserved and the remainder is free.
         val free = (budget - total).coerceAtLeast(0)
-        val primary = MaterialTheme.colorScheme.primary
-        val freeColor = MaterialTheme.colorScheme.surfaceVariant
+        val primary = if (eInk) Color(0xFF0066FF) else MaterialTheme.colorScheme.primary
+        val freeColor = if (eInk) Color.White else MaterialTheme.colorScheme.surfaceVariant
         Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             SegmentedBar(
                 fractions = listOf(total.toFloat() / budget),
@@ -95,11 +97,13 @@ internal fun ContextCompositionBar(
     // show and the whole remainder is free.
     val reserved = if (compactEnabled) contextReservedTokens(budget, compactThresholdPercent) else null
     val free = (budget - used - (reserved ?: 0)).coerceAtLeast(0)
-    val systemColor = MaterialTheme.colorScheme.primary
-    val toolColor = MaterialTheme.colorScheme.secondary
+    val systemColor = if (eInk) Color(0xFF00AD68) else MaterialTheme.colorScheme.primary
+    val toolColor = if (eInk) Color(0xFF0066FF) else MaterialTheme.colorScheme.secondary
     // The transcript is the part that grows into the compact threshold, so it carries the warning.
-    val messageColor = if (overCompactThreshold) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
-    val freeColor = MaterialTheme.colorScheme.surfaceVariant
+    val messageColor = if (eInk) {
+        if (overCompactThreshold) Color(0xFFFF4500) else Color(0xFFFFB300)
+    } else if (overCompactThreshold) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
+    val freeColor = if (eInk) Color.White else MaterialTheme.colorScheme.surfaceVariant
     val reservedColor = MaterialTheme.colorScheme.outline
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SegmentedBar(
@@ -165,6 +169,7 @@ private fun SegmentedBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(BarHeight)
+            .then(if (motionPolicy.eInkMode) Modifier.border(1.dp, Color.Black, RoundedCornerShape(BarHeight / 2)) else Modifier)
             .clip(RoundedCornerShape(BarHeight / 2))
             .background(trackColor)
             .drawBehind {
@@ -203,7 +208,9 @@ private fun SegmentedBar(
 @Composable
 private fun LegendRow(color: Color, label: String, tokens: Int) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(LegendDotSize).clip(CircleShape).background(color))
+        Box(modifier = Modifier.size(LegendDotSize)
+            .then(if (LocalAgoraMotionPolicy.current.eInkMode) Modifier.border(1.dp, Color.Black, CircleShape) else Modifier)
+            .clip(CircleShape).background(color))
         Spacer(Modifier.width(8.dp))
         Text(
             text = label,

@@ -70,7 +70,7 @@ class DrawerSearchLoadingSourceContractTest {
         assertTrue(drawer.split("LazyColumn(").size - 1 == 2)
         assertTrue(drawer.contains("key = { \"search:\${it.key}\" }"))
         assertTrue(drawer.contains("key = { it },"))
-        assertTrue(drawer.contains("add(\"conversation:\${it.id}\")"))
+        assertTrue(source("ui/chat/DrawerConversationPolicy.kt").contains("add(\"conversation:\${it.id}\")"))
         assertTrue(drawer.split("fadeInSpec = null").size - 1 == 1)
         assertTrue(drawer.split("fadeOutSpec = tween(180)").size - 1 == 1)
         val normalizedDrawer = drawer.replace("\r\n", "\n")

@@ -118,6 +118,10 @@ internal class MessagePayloadBuilder {
                             fileName = attachment.fileName,
                             mimeType = attachment.mimeType,
                             storage = attachment.storage.transferForSend(),
+                            sourceTitle = attachment.sourceTitle,
+                            sourceBookTitle = attachment.sourceBookTitle,
+                            sourceAuthors = attachment.sourceAuthors,
+                            sourceThumbnailPath = attachment.sourceThumbnailPath,
                             sandboxPath = sandboxPath,
                             fileSize = attachment.fileSize,
                         )
@@ -132,6 +136,14 @@ internal class MessagePayloadBuilder {
                             fileName = attachment.fileName,
                             mimeType = attachment.mimeType,
                             textContent = text,
+                            warning = attachment.warning,
+                            notesDocumentId = attachment.notesDocumentId,
+                            notesRevisionId = attachment.notesRevisionId,
+                            notesThumbnailPath = attachment.notesThumbnailPath,
+                            sourceTitle = attachment.sourceTitle,
+                            sourceBookTitle = attachment.sourceBookTitle,
+                            sourceAuthors = attachment.sourceAuthors,
+                            sourceThumbnailPath = attachment.sourceThumbnailPath,
                             fileSize = attachment.fileSize,
                         )
                     }

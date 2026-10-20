@@ -1,5 +1,9 @@
 # Remote Sessions
 
+Pi extension: the owner-authorized PC learning runtime is described in [pi-remote.md](pi-remote.md).
+Its Go bridge advertises agent=pi; the existing Codex ownership rules below remain specific to
+the Codex adapter. Shared transport, presentation and receipt invariants apply to both.
+
 Status: current owner-approved Filo integration, 2026-09-11. Earlier staged plans and
 superseded UI decisions are retained in Git and the single active task log.
 
@@ -419,3 +423,38 @@ The scrollable list reserves 104dp below its last row: the 64dp action, 24dp
 bottom inset and a 16dp clear gap. The final row must scroll fully above the FAB.
 Remote exposes the native ultrafast tier when advertised for that device/model, keeps its wire ID unchanged and uses the localized Ultra Fast label. Do not invent availability for another model/account.
 While Remote Search is open, matches and count may update as pages arrive without moving the viewport. Automatic positioning is admitted once after input settles; a page, hydration or result refresh cannot renew it. Explicit Previous/Next still positions the requested match. Selection uses match identity, not a stale index into a new list. An ongoing seek must resolve the current index of that identity as pages are prepended.
+
+## Session-only native Skill completion
+
+The ordinary Remote runtime snapshot may optionally carry `skills`: an array of objects with
+`name`, short `description`, and exact slash `command`. This is a backward-compatible extension;
+missing/empty means no native Skill suggestions, never an invented capability or endpoint.
+The computer-side adapter must obtain commands from the selected agent's own session/workspace
+registry and preserve its native invocation syntax. Pi/Codex/other agent adapters stay server-owned;
+the existing Codex-only connection qualification is unchanged. This checkout implements the Android
+consumer, not an unqualified multi-agent execution backend.
+
+Typing `/` in the connected Remote composer filters this metadata locally and fills the selected
+native command without sending. Explicit Send follows the existing native Remote input path.
+Only the selected live runtime supplies entries. Selection changes, hide, disconnect and read
+failure already revoke runtime/control readiness and therefore remove suggestions; old history
+packets and read-only fallback snapshots cannot populate the menu. No extra network request,
+model call, local SkillManager write, Room entry or archive/cache of these skills is introduced.
+Bound to 512 entries, validate single-command tokens, and deduplicate normalized names and commands.
+Remote never merges local Skills/templates into native suggestions, preventing double entries and
+accidental local invocation. Shared slash row presentation uses five-word descriptions, regular
+theme styling, and the established static black/white e-ink controls and list paging.
+
+Bridge payload example (inside the existing selected-session live snapshot):
+
+```json
+{"runtime":{"status":"idle","skills":[
+  {"name":"clinical-osce","description":"Practice a focused clinical scenario","command":"/skill:clinical-osce"}
+]}}
+```
+
+The command is illustrative: return the exact command supported by the connected native adapter,
+not a syntax invented by Android. Do not reuse another session's directory/catalog. A bridge that
+cannot safely dispatch native Skill syntax must omit these entries. Qualification of additional
+agents includes their discovery, exact-owner dispatch, Stop, approvals and reconnect semantics;
+this metadata extension alone does not authorize changing the Codex-only handshake.

@@ -24,7 +24,7 @@ class SkillToolProvider(
             listOf(
                 tool(
                     name = "list_skill_files",
-                    description = "List saved skill files with their names and compact descriptions.",
+                    description = "List saved Skill filenames only. Descriptions and instructions are loaded only when a Skill is called.",
                 ),
                 tool(
                     name = "read_skill_file",
@@ -50,7 +50,7 @@ class SkillToolProvider(
                     properties = mapOf(
                         "name" to ToolProperty("string", "The skill file name."),
                         "content" to ToolProperty("string", "The complete Markdown instructions."),
-                        "description" to ToolProperty("string", "A compact catalog description."),
+                        "description" to ToolProperty("string", "A concise description of at most ten words."),
                     ),
                     required = listOf("name", "content"),
                 ),
@@ -127,7 +127,6 @@ class SkillToolProvider(
                         add(
                             buildJsonObject {
                                 put("name", file.name)
-                                put("description", file.description)
                             },
                         )
                     }
@@ -139,9 +138,9 @@ class SkillToolProvider(
                     .orEmpty()
                 when {
                     names.isNotEmpty() -> names.joinToString("\n\n") { fileName ->
-                        "--- $fileName ---\n${skillManager.readFile(fileName)}"
+                        readSelectedSkill(fileName)
                     }
-                    arg("name").isNotBlank() -> skillManager.readFile(arg("name"))
+                    arg("name").isNotBlank() -> readSelectedSkill(arg("name"))
                     else -> return@withContext ToolExecutionResult("Error: Provide name or names.", isError = true)
                 }
             }
@@ -196,6 +195,11 @@ class SkillToolProvider(
             "delete_skill_file" -> skillManager.deleteFile(arg("name"))
             else -> return@withContext ToolExecutionResult("Unknown tool: $name", isError = true)
         })
+    }
+
+    private fun readSelectedSkill(name: String): String {
+        val doc = skillManager.document(name)
+        return "--- ${doc.name} ---\nDescription: ${doc.description}\n${doc.instructions}"
     }
 
     override fun handles(name: String): Boolean = name in TOOL_NAMES

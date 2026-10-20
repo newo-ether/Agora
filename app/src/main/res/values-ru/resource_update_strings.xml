@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="import_strategy_update">Update</string>
+    <string name="import_strategy_update_hint">Updates matching items and adds new ones from this file. Keeps everything else.</string>
+</resources>

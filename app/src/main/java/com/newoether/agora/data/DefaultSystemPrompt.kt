@@ -60,7 +60,7 @@ object DefaultSystemPrompt {
         locale: Locale = Locale.getDefault(),
     ): SystemPromptEntry = SystemPromptEntry(
         title = titleForLocale(locale),
-        systemItems = systemItems(includeMathRule = false),
+        systemItems = catalogSystemItems(includeMathRule = false),
         userItems = userItems(),
         assistantItems = assistantItems(),
     )
@@ -77,7 +77,9 @@ object DefaultSystemPrompt {
     internal fun isUnmodifiedPreviousVersion(entry: SystemPromptEntry): Boolean =
         (entry.title in BUILT_IN_TITLES || entry.title.equals(ENGLISH_TITLE, ignoreCase = true)) &&
             (entry.sameTemplateAs(previousVersionForMigration()) ||
-                entry.sameTemplateAs(versionBeforeMathRuleForMigration()))
+                entry.sameTemplateAs(previousCatalogVersionForMigration()) ||
+                entry.sameTemplateAs(versionBeforeMathRuleForMigration()) ||
+                entry.sameTemplateAs(create().copy(systemItems = systemItems(includeMathRule = false))))
 
     private fun SystemPromptEntry.sameTemplateAs(other: SystemPromptEntry): Boolean =
         resolvedSystemItems.sameTemplateItems(other.resolvedSystemItems) &&
@@ -90,9 +92,23 @@ object DefaultSystemPrompt {
         left.type == right.type && left.value == right.value
     }
 
-    // [includeMathRule] = false reproduces the exact text of the version shipped before the math
-    // delimiter rule, so unmodified copies of that version can still be recognized and upgraded.
-    private fun systemItems(includeMathRule: Boolean): List<PromptTemplateItem> = listOf(
+    internal fun previousCatalogVersionForMigration(locale: Locale = Locale.getDefault()): SystemPromptEntry =
+        create(locale).copy(systemItems = catalogSystemItems())
+
+    private fun systemItems(includeMathRule: Boolean): List<PromptTemplateItem> = previousSystemItems().let { items ->
+        if (!includeMathRule) items else items.mapIndexed { index, item ->
+            if (index == 0) item.copy(value = item.value.replace(
+                "Use Markdown when it improves readability.\n",
+                "Use Markdown when it improves readability.\n" + MATH_DELIMITER_RULE + "\n",
+            )) else item
+        }
+    } + custom(
+        "\n\nSkills:\nUse a saved skill only when the user explicitly requests it or an invoked template names it. " +
+            "Read that named skill through the available skill tool. Do not list or read unrelated skills for ordinary chat. " +
+            "Supporting files are resources to read only when selected for that task."
+    )
+
+    private fun catalogSystemItems(includeMathRule: Boolean = false): List<PromptTemplateItem> = listOf(
         custom(
             """
             You are a helpful assistant in Agora.

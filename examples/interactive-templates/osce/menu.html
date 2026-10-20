@@ -1,0 +1,14 @@
+<main class="osce-menu">
+  <h1>Zero to Finals OSCE</h1>
+  <div id="categories"></div>
+  <section id="condition-page" hidden>
+    <div class="page-heading"><button id="back" type="button">‹ Specialties</button><strong id="specialty-title"></strong></div>
+    <div id="topics" role="group" aria-label="Conditions"></div>
+  </section>
+  <div class="controls">
+    <div class="count-label"><label for="count">Questions</label><output id="count-value" for="count">12</output></div>
+    <input id="count" type="range" min="1" max="40" step="1" value="12" aria-label="Number of questions">
+    <div class="run-row"><span id="selection" role="status">Select a specialty</span><button id="random" type="button">Random</button><button id="start" disabled>Run</button></div>
+    <p id="status" role="status" aria-live="polite">Local notes · one question at a time</p>
+  </div>
+</main>

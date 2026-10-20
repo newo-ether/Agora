@@ -2,6 +2,8 @@ package com.newoether.agora.api.util.tokens.bpe
 
 import android.content.Context
 import com.newoether.agora.util.DebugLog
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
@@ -25,6 +27,8 @@ object O200kBase {
     private var vocabulary: BpeVocabulary? = null
 
     private val loading = AtomicBoolean(false)
+    private val _ready = MutableStateFlow(false)
+    val ready = _ready.asStateFlow()
 
     /** The vocabulary if it is already in memory. Never loads, never blocks. */
     fun loadedOrNull(): BpeVocabulary? = vocabulary
@@ -42,6 +46,7 @@ object O200kBase {
                 .getOrNull()
         }
         vocabulary = loaded
+        _ready.value = loaded != null
         // A failed load may be retried; a successful one never needs to be.
         if (loaded == null) loading.set(false)
     }

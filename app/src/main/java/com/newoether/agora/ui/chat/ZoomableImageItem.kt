@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +37,13 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.motion.Crossfade
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
+import androidx.compose.material.icons.filled.FitScreen
+import androidx.compose.material.icons.filled.MoreVert
+import com.newoether.agora.ui.components.Icon
 
 @Composable
 internal fun ZoomableImageItem(
@@ -369,5 +375,26 @@ internal fun ZoomableImageItem(
                 }
             }
         }
+        if (motionPolicy.eInkMode) {
+            androidx.compose.foundation.layout.Row(
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(8.dp),
+            ) {
+                com.newoether.agora.ui.components.IconButton(onClick = {
+                    animationJob?.cancel(); scale = (scale / 1.5f).coerceAtLeast(1f)
+                    val (mx, my) = getMaxOffsets(scale)
+                    offsetX = offsetX.coerceIn(-mx, mx); offsetY = offsetY.coerceIn(-my, my)
+                }) { Icon(Icons.Default.ZoomOut, androidx.compose.ui.res.stringResource(com.newoether.agora.R.string.e_ink_zoom_out)) }
+                com.newoether.agora.ui.components.IconButton(onClick = {
+                    animationJob?.cancel(); scale = (scale * 1.5f).coerceAtMost(10f)
+                }) { Icon(Icons.Default.ZoomIn, androidx.compose.ui.res.stringResource(com.newoether.agora.R.string.e_ink_zoom_in)) }
+                com.newoether.agora.ui.components.IconButton(onClick = {
+                    animationJob?.cancel(); scale = 1f; offsetX = 0f; offsetY = 0f
+                }) { Icon(Icons.Default.FitScreen, androidx.compose.ui.res.stringResource(com.newoether.agora.R.string.e_ink_fit)) }
+                if (onLongPress != null) com.newoether.agora.ui.components.IconButton(onClick = onLongPress) {
+                    Icon(Icons.Default.MoreVert, androidx.compose.ui.res.stringResource(com.newoether.agora.R.string.more))
+                }
+            }
+        }
+
     }
 }

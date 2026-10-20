@@ -1,0 +1,27 @@
+// Opt-in ARM64 fork preview; leaves upstream debug/release variants unchanged.
+gradle.beforeProject { project ->
+    project.plugins.withId('com.android.application') {
+        def android = project.extensions.getByName('android')
+        android.buildFeatures.resValues = true
+        def components = project.extensions.getByName('androidComponents')
+        components.beforeVariants(components.selector().withBuildType('genericPreview')) { variant ->
+            variant.enable = variant.productFlavors.any { it.first == 'store' && it.second == 'fdroid' }
+        }
+        android.buildTypes.create('genericPreview') {
+            initWith(android.buildTypes.getByName('debug'))
+            applicationIdSuffix = null
+            versionNameSuffix = '-kalamos-preview'
+            ndk.abiFilters.clear()
+            ndk.abiFilters.add('arm64-v8a')
+            matchingFallbacks = ['debug']
+            resValue 'string', 'app_name', 'Agora (Kalamos fork)'
+        }
+        project.afterEvaluate {
+            project.configurations.getByName('genericPreviewImplementation').extendsFrom(
+                project.configurations.getByName('debugImplementation'))
+        }
+        android.defaultConfig.externalNativeBuild.cmake.arguments.addAll([
+            '-DCMAKE_JOB_POOLS=agoraCompile=2', '-DCMAKE_JOB_POOL_COMPILE=agoraCompile'
+        ])
+    }
+}

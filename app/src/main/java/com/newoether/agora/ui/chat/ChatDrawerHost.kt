@@ -33,6 +33,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -248,7 +251,8 @@ internal fun ChatDrawerHost(
                 modifier = Modifier
                     .matchParentSize()
                     .zIndex(1f)
-                    .background(scrimColor.copy(alpha = scrimColor.alpha * progress))
+                    .background(if (motionPolicy.eInkMode) androidx.compose.ui.graphics.Color.Transparent
+                        else scrimColor.copy(alpha = scrimColor.alpha * progress))
                     .clickable(
                         interactionSource = scrimInteractionSource,
                         indication = null,
@@ -264,6 +268,12 @@ internal fun ChatDrawerHost(
                 .fillMaxHeight()
                 .width(drawerWidth)
                 .offset { IntOffset(state.offsetPx.roundToInt(), 0) }
+                .then(if (motionPolicy.eInkMode) Modifier.drawWithContent {
+                    drawContent()
+                    val stroke = 1.dp.toPx()
+                    val x = size.width - stroke / 2
+                    drawLine(Color.Black, Offset(x, 0f), Offset(x, size.height), strokeWidth = stroke)
+                } else Modifier)
                 .zIndex(2f),
         ) {
             drawerContent(drawerWidth) { state.closeFromContent(motionPolicy) }

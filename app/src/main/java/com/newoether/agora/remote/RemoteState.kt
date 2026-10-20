@@ -14,7 +14,10 @@ internal data class RemoteNotice(val stage: String, val failure: RemoteFailure, 
     val canRetryRead: Boolean get() = stage in setOf("restore_failed", "check_failed", "read_failed", "page_failed", "payload_failed", "models_failed")
 }
 internal enum class RemoteDelivery { SUBMITTING, ACCEPTED, DELIVERED, REJECTED, UNKNOWN }
-internal data class RemoteAttempt(val clientId: String, val text: String, val delivery: RemoteDelivery, val turnId: String? = null)
+internal data class RemoteAttempt(
+    val clientId: String, val text: String, val delivery: RemoteDelivery,
+    val turnId: String? = null, val preserveComposer: Boolean = false,
+)
 internal data class RemoteState(
     val devices: List<RemoteDevice> = emptyList(), val deviceId: String? = null,
     val sessions: List<RemoteSession> = emptyList(), val sessionCursor: String? = null,
@@ -78,5 +81,5 @@ internal data class RemoteState(
     val canEditSettings: Boolean get() = canControlSettings && settingsModel != null
     fun settingsForModel(model: RemoteModel) = RemoteSettings(model.id,
         selectedEffort?.takeIf { it in model.reasoningEfforts.orEmpty() } ?: model.defaultReasoningEffort,
-        selectedServiceTier?.takeIf { tier -> model.serviceTiers.orEmpty().any { it.id == tier } }, true)
+        selectedServiceTier?.takeIf { tier -> model.serviceTiers.orEmpty().any { it.id == tier } }, model.serviceTiers != null)
 }

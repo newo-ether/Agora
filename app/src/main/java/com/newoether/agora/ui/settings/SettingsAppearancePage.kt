@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -53,6 +52,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.Text
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +65,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val schemeStyleName by viewModel.settings.schemeStyle.collectAsState()
     val dynamicColor by viewModel.settings.dynamicColor.collectAsState()
     val blurEffectsEnabled by viewModel.settings.blurEffectsEnabled.collectAsState()
+    val eInkMode by viewModel.settings.eInkMode.collectAsState()
     val reduceMotion by viewModel.settings.reduceMotion.collectAsState()
     val stickToBottom by viewModel.settings.stickToBottom.collectAsState()
     val parseInlineDollarMath by viewModel.settings.parseInlineDollarMath.collectAsState()
@@ -149,6 +152,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 SettingsGroup(
                     title = stringResource(R.string.appearance_theme_color),
                     items = buildList {
+                        add { EinkModeSettingsItem(eInkMode, viewModel.settings::setEInkMode) }
                         add {
                             var expanded by remember { mutableStateOf(false) }
                             val selectedLabel = when (themeMode) {

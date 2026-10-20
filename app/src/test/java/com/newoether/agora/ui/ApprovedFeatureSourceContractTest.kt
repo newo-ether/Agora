@@ -713,7 +713,7 @@ internal class ApprovedFeatureSourceContractTest : UiSourceContractFixture() {
         assertTrue(provider.contains("edit_skill_file"))
         assertTrue(provider.contains("delete_skill_file"))
         assertFalse(provider.contains("update_active_skill"))
-        assertTrue(builder.contains("skillCatalog = if (skillReadAccess) skillManager.catalog()"))
+        assertFalse(builder.contains("skillCatalog = if (skillReadAccess) skillManager.catalog()"))
         assertTrue(builder.contains("if (includeSkillCatalog) skillManager.catalog() else \"\""))
         assertTrue(builder.contains("PredefinedVariables.SKILL_CATALOG to skillCatalog"))
         assertTrue(builder.contains("skillCatalog = skillCatalogDeferred.await()"))

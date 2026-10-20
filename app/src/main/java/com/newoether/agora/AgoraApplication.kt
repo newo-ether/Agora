@@ -57,7 +57,11 @@ class AgoraApplication : Application() {
     val databaseStartupState: StateFlow<DatabaseStartupState>
         get() = startupGate.state
 
+    @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
     override fun onCreate() {
+        // Clear embedded View focus before Compose detaches it; otherwise Android can re-enter
+        // lazy-list measurement during applyChanges (for example after an OSCE Start gesture).
+        androidx.compose.ui.ComposeUiFlags.isViewFocusFixEnabled = true
         super.onCreate()
         CrashReporter.install(this)
         // The context indicator counts remote models' text with a real vocabulary once it is in

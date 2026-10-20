@@ -17,12 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -62,6 +57,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.motion.shadow
 
 private fun hasVideoExtension(url: String): Boolean {
     val normalized = url.substringBefore('?').substringBefore('#').lowercase()
@@ -133,7 +137,7 @@ fun FullScreenMediaViewer(
         Box(modifier = Modifier.fillMaxSize()) {
             VideoPlayer(uri = url, onClose = onClose, closing = closing)
             AnimatedVisibility(
-                visible = showOverlay,
+                visible = showOverlay || LocalAgoraMotionPolicy.current.eInkMode,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(24.dp)
@@ -192,7 +196,7 @@ private fun PdfPager(
             )
         }
         AnimatedVisibility(
-            visible = showOverlay,
+            visible = showOverlay || LocalAgoraMotionPolicy.current.eInkMode,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 20.dp, vertical = 24.dp)
@@ -229,7 +233,7 @@ private fun PdfPager(
         if (pdfSelectedPages != null && onTogglePdfPage != null) {
             val currentPage = pagerState.currentPage
             AnimatedVisibility(
-                visible = showOverlay,
+                visible = showOverlay || LocalAgoraMotionPolicy.current.eInkMode,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(24.dp)
@@ -280,6 +284,7 @@ private fun MediaPager(
         if (currentPageIsVideo == true) closing = true
         else onClose()
     }
+    val pageScope = rememberCoroutineScope()
     LaunchedEffect(pagerState.currentPage) { onNavigate(pagerState.currentPage) }
     BackHandler { requestClose() }
     Box(
@@ -325,7 +330,7 @@ private fun MediaPager(
         }
         actionsForUrl?.let { ImageActionsSheet(url = it, onMessage = onMessage, onDismiss = { actionsForUrl = null }) }
         AnimatedVisibility(
-            visible = showOverlay,
+            visible = showOverlay || LocalAgoraMotionPolicy.current.eInkMode,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 20.dp, vertical = 24.dp)
@@ -347,6 +352,16 @@ private fun MediaPager(
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
                         )
                     }
+                }
+                if (LocalAgoraMotionPolicy.current.eInkMode && urls.size > 1) {
+                    com.newoether.agora.ui.components.IconButton(
+                        onClick = { pageScope.launch { pagerState.scrollToPage(pagerState.currentPage - 1) } },
+                        enabled = pagerState.currentPage > 0,
+                    ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.e_ink_previous_page)) }
+                    com.newoether.agora.ui.components.IconButton(
+                        onClick = { pageScope.launch { pagerState.scrollToPage(pagerState.currentPage + 1) } },
+                        enabled = pagerState.currentPage < urls.lastIndex,
+                    ) { Icon(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.e_ink_next_page)) }
                 }
                 Spacer(Modifier.weight(1f))
                 Surface(
@@ -383,7 +398,7 @@ private fun SingleImage(
         )
         if (showActions) ImageActionsSheet(url = url, onMessage = onMessage, onDismiss = { showActions = false })
         AnimatedVisibility(
-            visible = showOverlay,
+            visible = showOverlay || LocalAgoraMotionPolicy.current.eInkMode,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(24.dp)

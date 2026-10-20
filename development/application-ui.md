@@ -98,6 +98,13 @@ content color. They therefore remain legible across light and dark themes and re
 disabled-state alpha; neither row hard-codes a light or dark tint. Provider artwork, icon size,
 spacing, labels, badges, switches, availability, ordering, and interaction remain unchanged.
 
+Opening or dismissing the attachment `+` menu preserves the composer focus and current IME visibility
+in ordinary and e-ink mode. The icon uses a plain anchored, non-focus-taking shared popup rather
+than a read-only exposed-menu anchor. Touch exploration retains the platform focusable-menu
+behavior for accessibility. Back/outside dismissal and explicit attachment selection still close
+the menu; choosing a camera or system picker may transfer focus to that destination. Opening or
+closing the menu never calls keyboard show/hide or clears the draft.
+
 ## 5. Chat bottom-bar answer fade
 
 In normal, non-expanded composer mode, the existing 40 dp vertical fade is an alpha mask on the
@@ -1900,3 +1907,86 @@ the `style.css` -> `material.css` -> `theme.css` order, the determinate track co
 indeterminate turn/step/arc durations, one stop dot per integer step with the handle band skipped and no
 trailing dot at the maximum, the window entrance duration and easing, and the
 `1 / 2 / 3 / 4 / 5 / 10` layer order with the top bar above the composer gradient on both Compose and WebUI.
+
+
+## 38. Optional E-ink Mode
+
+E-ink Mode is an opt-in portable Appearance setting, default off. It changes Android presentation
+only and preserves all ordinary appearance preferences, execution, Room truth, and provider
+behaviour. Android Remote shares this presentation; the remote browser WebUI is unchanged.
+
+The owner-approved references are Mudita Mindful Design's E Ink Guidelines and Intent's
+How to Design for E-Ink Devices. White surfaces, black text and rules, visible gesture alternatives,
+flat overlays, immediate press feedback, stationary navigation, and viewport page controls govern
+this mode. Images retain their original content. No grey disabled labels, shadows, decorative
+animations, ripple waves, opacity transitions, or continuous programmatic reply following.
+
+Visible streaming payloads are coalesced at a one-second cadence in the existing presentation
+owner. Terminal states, approval requests, user actions, and identity changes are immediate. Pending
+updates are cancelled on conversation, branch, run, or mode change. Execution and persistence must
+never consume the coalesced presentation. Page steps use unobscured viewport height minus three text
+lines (capped at half the viewport to preserve progress) and preserve touch scrolling as a shortcut. Search requires explicit submission.
+
+Portable mode ships without manufacturer APIs. First physical acceptance is on Bigme and belongs
+to the user; a build, emulator, or screenshot cannot establish panel acceptance. Handwriting and
+firmware-specific refresh integration are subsequent contributions.
+
+### E-ink reading chrome
+
+E-ink viewport arrows point up/down. Ordinary and Remote chat keep Jump to Latest and offer
+a leftmost Reading Mode / Return to Chat toggle. Chat controls appear in this order:
+reader toggle, Jump to Latest, Previous Page (up), Next Page (down). Reading hides system bars, header and composer
+without replacing the message list, draft owner or generation. Back exits reading; conversation
+or mode changes reset it. Keep paging and exit controls available, preserve the scroll anchor,
+and continue showing pending interactions through their existing immediate owner.
+The e-ink title capsule and its text fill the available width up to the trailing actions, with no clipping layer or shadow; normal
+mode retains its existing fixed-width identity clip.
+
+### E-ink-aware interactive artifacts
+
+Interactive HTML uses the existing shared native renderer and its opaque-origin frame. Only newly
+admitted e-ink authoring receives the design contract and artifact marker; old HTML is unchanged.
+Live presentation requires both current eInkMode and eInkAware. Mode changes keep browser/control
+identity and scroll position. The scoped profile and authoring instructions, not a second renderer
+or JS scheduler patch, own styling and task-appropriate output cadence. Existing native page controls apply
+three-line overlapped frame paging. See interactive-answers.md for the private protocol and limits.
+
+E-ink context usage uses a donut with black inner/outer boundaries, white free capacity and a
+black usage arc. The expanded composition bar outlines the full budget, including free capacity.
+Token categories retain bright saturated colours with labels; white/free legend markers have black
+outlines. Ordinary context colours and geometry remain unchanged.
+
+In e-ink mode the modal drawer keeps the chat visible outside its own bounds. Its existing
+tap-to-close input layer is transparent, with no white cover or translucent dimming. A 1 dp black
+rule along the drawer’s right edge separates it from visible chat. Drawer
+width, gesture/navigation ownership and ordinary-mode scrim behaviour remain unchanged.
+
+## Incoming shared text — 18 October 2026
+
+Agora is an Android ACTION_SEND text/plain and text/html target. Imported text becomes an immutable
+file attachment in a user-chosen new or existing draft, using the ordinary Composer CAS owner.
+Existing draft text/attachments remain; imports never submit a message or start generation.
+The destination picker offers a new or existing chat draft. Title/book/author
+metadata is kept with the attachment and included in its text context. An optional bounded source
+cover is a display-only thumbnail, excluded from provider image input. Source files are copied to
+app-private attachment storage before returning from the share receiver. Retry uses the same local
+attachment identity; cold/warm startup, rotation and attachment backup/cleanup retain ownership.
+
+Kalamos Notes uses these ordinary Android share targets. There is no dedicated Notes menu,
+editor handoff, result action, integration setting or background processing entry point.
+
+## Collapsible conversation toolbar
+
+Normal and Remote chats share the existing toolbar capsules and reveal button. On normal screens,
+`TopAppBarDefaults.enterAlwaysScrollBehavior` owns scroll consumption, continuous height offset,
+fling decay and snap settling. Its nested-scroll connection is delegated from the message viewport;
+the measured capsule layout supplies its height limit and reserves the existing 48dp reveal button.
+Insets follow that offset while preserving the fully expanded layout. Reduced motion disables
+settling/fling animations. See [Android's app-bar guidance](https://developer.android.com/develop/ui/compose/components/app-bars#scroll-behavior).
+
+E-ink keeps the existing discrete 48dp hide / 12dp reverse-drag reveal policy. Both paths ignore
+programmatic scrolling, pin open for search/expanded composer/new chat, and reset on owner changes.
+The retained header composition preserves control state and hides collapsed controls from
+accessibility. Explicit e-ink reading mode remains separate. Compose checks cover normal continuous
+drag offsets, non-user scroll rejection, search pinning, and gesture/button restoration in both
+normal and e-ink modes. Device acceptance remains with the owner.

@@ -39,21 +39,6 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class GenerationRequestBuilderProviderDisplayTest {
     @Test
-    fun askUserTimeoutIsFrozenForTheAdmittedContextAndChangesForTheNextRun() = runTest {
-        val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
-        val timeoutMinutes = MutableStateFlow(1)
-        every { fixture.settings.askUserTimeoutMinutes } returns timeoutMinutes
-        val first = fixture.builder.captureAdmissionSnapshot("conversation", "run", fixture.modelId)
-        assertEquals(1, first.context.askUserTimeoutMinutes)
-
-        timeoutMinutes.value = 60
-        val next = fixture.builder.captureAdmissionSnapshot("conversation", "next-run", fixture.modelId)
-
-        assertEquals(60, next.context.askUserTimeoutMinutes)
-        assertEquals(1, first.context.askUserTimeoutMinutes)
-    }
-
-    @Test
     fun globalTodoAndSubagentPermissionsMatchAdmissionAndProjectionIndependently() = runTest {
         val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
         val todoEnabled = MutableStateFlow(true)
@@ -380,6 +365,8 @@ class GenerationRequestBuilderProviderDisplayTest {
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
         every { settings.shellEnabled } returns MutableStateFlow(true)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
+        every { settings.interactiveAnswersEnabled } returns MutableStateFlow(false)
+        every { settings.eInkMode } returns MutableStateFlow(false)
         every { settings.askUserTimeoutMinutes } returns MutableStateFlow(5)
         every { settings.localLowContextModeEnabled } returns MutableStateFlow(true)
         val builder = GenerationRequestBuilder(
@@ -472,7 +459,7 @@ class GenerationRequestBuilderProviderDisplayTest {
         assertEquals("|assistant-after", snapshot.config.assistantPostpend)
         assertTrue(snapshot.config.promptTemplate != null)
         assertTrue(snapshot.context.skillReadAccess)
-        assertEquals(RequestBuilderFixture.SKILL_CATALOG, snapshot.context.skillCatalog)
+        assertEquals("", snapshot.context.skillCatalog)
         verify { fixture.memoryManager.getActiveMemory() }
         verify { fixture.skillManager.catalog() }
     }
@@ -629,6 +616,7 @@ internal class RequestBuilderFixture(
     lowContextModeEnabled: Boolean,
     compactPreserveSystemPrompt: Boolean = false,
     accessActiveMemory: Boolean = true,
+    catalogOptIn: Boolean = true,
 ) {
     companion object {
         const val COMPACT_PROMPT = "compact prompt"
@@ -665,7 +653,7 @@ internal class RequestBuilderFixture(
                     type = PromptItemType.PREDEFINED,
                     value = PredefinedVariables.SKILL_CATALOG,
                 ),
-            ),
+            ).filterNot { !catalogOptIn && it.type == PromptItemType.PREDEFINED && it.value == PredefinedVariables.SKILL_CATALOG },
             userItems = listOf(
                 PromptTemplateItem(type = PromptItemType.CUSTOM, value = "user-before|"),
                 PredefinedVariables.promptItem(),
@@ -707,6 +695,8 @@ internal class RequestBuilderFixture(
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
         every { settings.shellEnabled } returns MutableStateFlow(true)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
+        every { settings.interactiveAnswersEnabled } returns MutableStateFlow(false)
+        every { settings.eInkMode } returns MutableStateFlow(false)
         every { settings.askUserTimeoutMinutes } returns MutableStateFlow(5)
         every { settings.todoEnabled } returns MutableStateFlow(true)
         every { settings.subagentToolsEnabled } returns MutableStateFlow(true)

@@ -56,8 +56,6 @@ import com.mikepenz.markdown.compose.components.MarkdownComponents
 import com.mikepenz.markdown.compose.components.MarkdownComponentModel
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.MarkdownTable
-import com.mikepenz.markdown.compose.elements.MarkdownTableHeader
-import com.mikepenz.markdown.compose.elements.MarkdownTableRow
 import com.mikepenz.markdown.compose.elements.LocalTableRowIndex
 import org.intellij.markdown.flavours.MarkdownFlavourDescriptor
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
@@ -69,6 +67,9 @@ import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.findChildOfType
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.border
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 
 /**
  * The memoized markdown rendering assets shared by a single [MessageItem]: the main
@@ -197,8 +198,9 @@ internal fun rememberChatMarkdownAssets(
     val fg = MaterialTheme.colorScheme.onBackground
     val bg = MaterialTheme.colorScheme.surface
     // Composite fg at 0.1 alpha over bg to produce the exact opaque equivalent
-    val codeBg = remember(fg, bg) {
-        Color(
+    val eInkMode = LocalAgoraMotionPolicy.current.eInkMode
+    val codeBg = remember(fg, bg, eInkMode) {
+        if (eInkMode) Color.White else Color(
             red   = fg.red   * 0.1f + bg.red   * 0.9f,
             green = fg.green * 0.1f + bg.green * 0.9f,
             blue  = fg.blue  * 0.1f + bg.blue  * 0.9f,
@@ -207,6 +209,8 @@ internal fun rememberChatMarkdownAssets(
     val customMarkdownColors = markdownColor(
         codeBackground = codeBg,
         inlineCodeBackground = Color.Transparent,
+        dividerColor = MaterialTheme.colorScheme.outlineVariant,
+        tableBackground = if (eInkMode) Color.White else fg.copy(alpha = 0.02f),
     )
     val customMarkdownPadding = markdownPadding(block = 8.dp)
     val thoughtMarkdownPadding = markdownPadding(block = 5.dp)
@@ -504,41 +508,13 @@ private fun WithoutTableHeaderDivider(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun OverflowFriendlyMarkdownTable(model: MarkdownComponentModel) = WithoutTableHeaderDivider {
-    MarkdownTable(
-        content = model.content,
-        node = model.node,
-        style = model.typography.table,
-        headerBlock = { content, header, tableWidth, style ->
-            MarkdownTableHeader(
-                content = content,
-                header = header,
-                tableWidth = tableWidth,
-                style = style,
-                maxLines = Int.MAX_VALUE,
-                overflow = TextOverflow.Clip,
-            )
-        },
-        rowBlock = { content, row, tableWidth, style ->
-            MarkdownTableRow(
-                content = content,
-                header = row,
-                tableWidth = tableWidth,
-                style = style,
-                maxLines = Int.MAX_VALUE,
-                overflow = TextOverflow.Clip,
-            )
-        },
-    )
-}
-
-@Composable
 internal fun SearchHighlightedMarkdownTable(
     model: MarkdownComponentModel,
     spec: SearchHighlightSpec? = null,
     highlightColor: Color = SearchHighlightBackground,
     activeHighlightColor: Color = ActiveSearchHighlightBackground,
 ) = WithoutTableHeaderDivider {
+    Box(if (LocalAgoraMotionPolicy.current.eInkMode) Modifier.border(1.dp, Color.Black) else Modifier) {
     MarkdownTable(
         content = model.content,
         node = model.node,
@@ -570,6 +546,7 @@ internal fun SearchHighlightedMarkdownTable(
             )
         },
     )
+    }
 }
 
 @Composable

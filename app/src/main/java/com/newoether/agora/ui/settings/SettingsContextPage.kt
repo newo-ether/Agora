@@ -26,6 +26,11 @@ import com.newoether.agora.model.ContextBudget
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.components.optionClickable
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Switch
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.TextButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

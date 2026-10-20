@@ -60,7 +60,7 @@ object AttachmentFiles {
 
     internal fun ownedPaths(attachments: List<SelectedAttachment>): Set<String> = attachments
         .flatMapTo(linkedSetOf()) { attachment ->
-            listOfNotNull(attachment.localPath) + attachment.processedFrames.orEmpty() + attachment.preRenderedPaths.orEmpty()
+            listOfNotNull(attachment.localPath, attachment.notesThumbnailPath, attachment.sourceThumbnailPath) + attachment.processedFrames.orEmpty() + attachment.preRenderedPaths.orEmpty()
         }
 
     const val MAX_ATTACHMENT_BYTES: Long = 100L * 1024L * 1024L
@@ -145,6 +145,8 @@ object AttachmentFiles {
         if (!att.storage.reclaimWhenAbandoned) return
         att.processedFrames?.forEach { deleteQuietly(it) }
         att.preRenderedPaths?.forEach { deleteQuietly(it) }
+        att.notesThumbnailPath?.let { deleteQuietly(it) }
+        att.sourceThumbnailPath?.let { deleteQuietly(it) }
         att.localPath?.let { path ->
             deleteQuietly(path)
             if (att.storage == AttachmentStorage.LOCAL_SANDBOX_PENDING) {

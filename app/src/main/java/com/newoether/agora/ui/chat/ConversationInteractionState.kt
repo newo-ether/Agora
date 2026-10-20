@@ -34,6 +34,9 @@ internal class ConversationInteractionState internal constructor(
         private set
     var searchQuery by mutableStateOf(initialSearchQuery)
         private set
+    var submittedSearchQuery by mutableStateOf(initialSearchQuery)
+        private set
+    internal fun submitSearch() { submittedSearchQuery = searchQuery }
     var searchMatchIndex by mutableIntStateOf(initialSearchMatchIndex)
         private set
     var shareSelectionActive by mutableStateOf(false)
@@ -56,6 +59,7 @@ internal class ConversationInteractionState internal constructor(
     private fun resetForConversation() {
         searchActive = false
         searchQuery = ""
+        submittedSearchQuery = ""
         replaceSearchMatchIndex(-1)
         searchScrollRequestKey = null
         searchMatchDistances.clear()
@@ -86,6 +90,7 @@ internal class ConversationInteractionState internal constructor(
         replaceSearchMatchIndex(-1)
         searchScrollRequestKey = null
         searchQuery = query
+        if (query.isBlank()) submittedSearchQuery = ""
     }
     internal fun recordSearchMatchDistance(key: String, distance: Float) {
         searchMatchDistances[key] = distance
@@ -109,6 +114,7 @@ internal class ConversationInteractionState internal constructor(
     internal fun dismissSearch() {
         searchActive = false
         searchQuery = ""
+        submittedSearchQuery = ""
         replaceSearchMatchIndex(-1)
         searchScrollRequestKey = null
         searchMatchDistances.clear()
@@ -164,6 +170,8 @@ internal class ConversationInteractionState internal constructor(
         searchMessages: suspend (String, List<String>) -> List<ChatMessage>,
         searchAllMessages: ((String) -> Flow<List<ConversationSearchMatch>>)? = null,
     ): ConversationInteractionProjection {
+        val eInk = com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode
+        val effectiveQuery = if (eInk) submittedSearchQuery else searchQuery
         val selectedPathSearchMessages = remember(messages.value) {
             messages.value.filter(::isConversationSearchBodyEligible)
         }
@@ -177,18 +185,18 @@ internal class ConversationInteractionState internal constructor(
             initialValue = emptyList(),
             currentConversationId,
             searchActive,
-            searchQuery,
-            selectedPathSearchRevision.takeIf { searchAllMessages == null },
+            effectiveQuery,
+            selectedPathSearchRevision.takeIf { searchAllMessages == null && !eInk },
             searchMessages.takeIf { searchAllMessages == null },
             searchAllMessages,
         ) {
             value = emptyList()
-            if (searchActive && currentConversationId != null && searchQuery.isNotBlank()) {
+            if (searchActive && currentConversationId != null && effectiveQuery.isNotBlank()) {
                 if (searchAllMessages != null) {
-                    searchAllMessages(searchQuery).collect { value = it }
+                    searchAllMessages(effectiveQuery).collect { value = it }
                 } else value = scanConversationSearchMatches(
                     selectedPathMessageIds = selectedPathSearchMessageIds,
-                    query = searchQuery,
+                    query = effectiveQuery,
                     loadMessages = { messageIds ->
                         searchMessages(currentConversationId, messageIds)
                     },
@@ -200,11 +208,11 @@ internal class ConversationInteractionState internal constructor(
             messagesForSelection.mapTo(linkedSetOf()) { it.id }
         }
 
-        LaunchedEffect(searchActive, searchQuery, searchMatches, currentConversationId) {
+        LaunchedEffect(searchActive, effectiveQuery, searchMatches, currentConversationId) {
             val retainedIndex = searchSelectedMatchKey?.let { key ->
                 searchMatches.indexOfFirst { it.key == key }.takeIf { it >= 0 }
             }
-            if (!searchActive || searchQuery.isBlank() || searchMatches.isEmpty()) {
+            if (!searchActive || effectiveQuery.isBlank() || searchMatches.isEmpty()) {
                 replaceSearchMatchIndex(-1)
                 return@LaunchedEffect
             }
@@ -252,8 +260,8 @@ internal class ConversationInteractionState internal constructor(
             )
         }
         val latestSearchMatches by rememberUpdatedState(searchMatches)
-        LaunchedEffect(currentConversationId, searchActive, searchQuery, searchAllMessages != null) {
-            if (searchAllMessages == null || !searchActive || searchQuery.isBlank()) return@LaunchedEffect
+        LaunchedEffect(currentConversationId, searchActive, effectiveQuery, searchAllMessages != null) {
+            if (searchAllMessages == null || !searchActive || effectiveQuery.isBlank()) return@LaunchedEffect
             delay(300L)
             // One query owns one automatic positioning request. Pages only update results.
             snapshotFlow {
@@ -272,11 +280,13 @@ internal class ConversationInteractionState internal constructor(
             this,
             selectableShareMessageIds,
             searchMatches,
+            effectiveQuery,
         ) {
             ConversationInteractionProjection(
                 state = this,
                 selectableShareMessageIds = selectableShareMessageIds,
                 searchMatches = searchMatches,
+                renderedSearchQuery = effectiveQuery,
             )
         }
     }
@@ -299,6 +309,7 @@ internal class ConversationInteractionProjection internal constructor(
     private val state: ConversationInteractionState,
     val selectableShareMessageIds: Set<String>,
     val searchMatches: List<ConversationSearchMatch>,
+    val renderedSearchQuery: String = state.searchQuery,
 ) {
     val searchActive: Boolean get() = state.searchActive
     val searchQuery: String get() = state.searchQuery
@@ -310,6 +321,7 @@ internal class ConversationInteractionProjection internal constructor(
     val selectedShareMessageIds: Set<String> get() = state.selectedShareMessageIds
 
     fun updateSearchQuery(query: String) = state.updateSearchQuery(query)
+    fun submitSearch() = state.submitSearch()
 
     fun previousSearchMatch(): Boolean =
         searchMatchIndex > 0 && state.selectSearchMatch(searchMatchIndex - 1, searchMatches)

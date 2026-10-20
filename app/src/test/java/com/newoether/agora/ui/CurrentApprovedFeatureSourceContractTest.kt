@@ -9,77 +9,18 @@ import org.junit.Test
 
 class CurrentApprovedFeatureSourceContractTest {
     @Test
-    fun `Skill add imports Markdown and starts destinations while its sheet hides`() {
-        val skills = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/settings/SettingsSkillsPage.kt",
-        )
-        val prompts = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/settings/SettingsPromptsPage.kt",
-        )
-        val skillAction = skills
-            .substringAfter("fun runAddSkillAction(action: () -> Unit)")
-            .substringBefore("LaunchedEffect(catalogRevision)")
-        val promptAction = prompts
-            .substringAfter("val pickTemplate: (SystemPromptEntry) -> Unit")
-            .substringBefore("BackHandler(enabled = editingEntry != null)")
-        val skillSheet = skills
-            .substringAfter("if (showAddSkillSheet)")
-            .substringBefore("showDeleteFileConfirm?.let")
-
-        assertTrue(skills.contains("ActivityResultContracts.OpenDocument()"))
-        assertTrue(
-            skills.contains(
-                "import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet as ModalBottomSheet",
-            ),
-        )
-        assertTrue(skills.contains("ModalBottomSheet("))
-        assertTrue(skillSheet.contains("DialogWindowEdgeToEdge()"))
-        assertTrue(
-            skillSheet.indexOf("DialogWindowEdgeToEdge()") <
-                skillSheet.indexOf("text = stringResource(R.string.skills_add)"),
-        )
-        assertEquals(2, Regex("supportingContent =").findAll(skillSheet).count())
-        assertTrue(skillSheet.contains("R.string.skills_add_from_markdown_desc"))
-        assertTrue(skillSheet.contains("R.string.skills_add_manually_desc"))
-        assertTrue(skillSheet.contains("Icons.Default.Description"))
-        val markdownImport = sourceFile(
-            "app/src/main/java/com/newoether/agora/data/SkillMarkdownImport.kt",
-        )
-        assertTrue(skills.contains("readSkillMarkdown(context, uri)"))
-        assertTrue(markdownImport.contains("MAX_SKILL_IMPORT_BYTES"))
-        assertTrue(markdownImport.contains("CodingErrorAction.REPORT"))
-        assertTrue(skills.contains("description = \"\""))
-        assertTrue(skills.contains("markdownPicker.launch("))
-        assertTrue(skills.contains("showNewFileDialog = true"))
-        assertTrue(skillAction.indexOf("action()") < skillAction.indexOf("addSkillSheetState.hide()"))
-        assertTrue(
-            promptAction.indexOf("editingEntry = entry") <
-                promptAction.indexOf("templateSheetState.hide()"),
-        )
-        assertTrue(
-            prompts.contains(
-                "DefaultSystemPrompt.create(java.util.Locale.getDefault()).copy(title = \"\")",
-            ),
-        )
-
+    fun `Skill editor keeps the four approved fields and explicit save`() {
+        val skills = sourceFile("app/src/main/java/com/newoether/agora/ui/settings/SettingsSkillsPage.kt")
+        val editor = sourceFile("app/src/main/java/com/newoether/agora/ui/settings/SkillEditorPage.kt")
+        assertFalse(skills.contains("OpenDocument"))
+        assertFalse(skills.contains("template_duplicate"))
+        assertTrue(editor.contains("Icons.Default.Save"))
+        assertFalse(editor.contains("OpenDocumentTree"))
         localeDirectories().forEach { directory ->
             val strings = sourceFile("app/src/main/res/$directory/strings.xml")
-            assertTrue(
-                "$directory skills_add_from_markdown",
-                strings.contains("name=\"skills_add_from_markdown\""),
-            )
-            assertTrue(
-                "$directory skills_add_from_markdown_desc",
-                strings.contains("name=\"skills_add_from_markdown_desc\""),
-            )
-            assertTrue(
-                "$directory skills_add_manually",
-                strings.contains("name=\"skills_add_manually\""),
-            )
-            assertTrue(
-                "$directory skills_add_manually_desc",
-                strings.contains("name=\"skills_add_manually_desc\""),
-            )
+            listOf("skill_description_hint", "skill_instructions_hint", "skill_save_draft").forEach { key ->
+                assertTrue("$directory $key", strings.contains("name=\"$key\""))
+            }
         }
     }
 

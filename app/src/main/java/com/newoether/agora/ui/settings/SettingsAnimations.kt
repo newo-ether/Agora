@@ -59,6 +59,7 @@ internal fun <T> GuardedAnimatedContent(
     contentKey: (T) -> Any? = { it },
     content: @Composable (T) -> Unit
 ) {
+    val motion = LocalAgoraMotionPolicy.current
     val parentScrollPath = LocalSettingsScrollPath.current
     val retainScroll = LocalSettingsScrollRetentionActive.current
     val allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions
@@ -78,9 +79,16 @@ internal fun <T> GuardedAnimatedContent(
     var nextPageId by remember { mutableIntStateOf(1) }
     var activeForward by remember { mutableStateOf(forward) }
 
-    LaunchedEffect(targetState, allowSpatialTransitions) {
+    LaunchedEffect(targetState, allowSpatialTransitions, motion.eInkMode) {
         val currentTarget = pageSlots.lastOrNull { it.role == SettingsTransitionRole.Target }
             ?: return@LaunchedEffect
+        if (motion.eInkMode && targetState == currentTarget.state) {
+            pageSlots.removeAll { it.role == SettingsTransitionRole.Outgoing }
+            currentTarget.enterSlideProgress.snapTo(1f)
+            currentTarget.exitSlideProgress.snapTo(0f)
+            currentTarget.alpha.snapTo(1f)
+            currentTarget.scale.snapTo(1f)
+        }
         if (targetState != currentTarget.state) {
             pageSlots.removeAll { it.role == SettingsTransitionRole.Outgoing }
             currentTarget.role = SettingsTransitionRole.Outgoing
@@ -92,13 +100,18 @@ internal fun <T> GuardedAnimatedContent(
                 initialRole = SettingsTransitionRole.Target,
                 enterSlideProgress = Animatable(if (allowSpatialTransitions) 0f else 1f),
                 exitSlideProgress = Animatable(0f),
-                alpha = Animatable(0f),
+                alpha = Animatable(if (motion.eInkMode) 1f else 0f),
                 scale = Animatable(if (allowSpatialTransitions) ScaleFrom else 1f)
             )
             nextPageId += 1
             pageSlots.add(newTarget)
 
-            if (allowSpatialTransitions) {
+            if (motion.eInkMode) {
+                newTarget.enterSlideProgress.snapTo(1f)
+                newTarget.scale.snapTo(1f)
+                newTarget.alpha.snapTo(1f)
+                currentTarget.alpha.snapTo(0f)
+            } else if (allowSpatialTransitions) {
                 listOf(
                     launch { newTarget.enterSlideProgress.animateTo(1f, animationSpec = settingsSpring()) },
                     launch { newTarget.alpha.animateTo(1f, animationSpec = tween(FadeDuration)) },
@@ -153,7 +166,7 @@ internal fun <T> GuardedAnimatedContent(
             key(slot.id) {
                 SettingsTransitionPage(
                     offsetX = offset,
-                    alpha = slot.alpha.value.coerceIn(0f, 1f),
+                    alpha = if (motion.eInkMode) 1f else slot.alpha.value.coerceIn(0f, 1f),
                     scale = if (allowSpatialTransitions) slot.scale.value else 1f,
                     zIndex = if (isOutgoing) 0f else 1f,
                     consumeInput = isOutgoing

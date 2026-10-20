@@ -8,6 +8,11 @@ Conversations, message trees, tasks, loops, memories, prompts, attachments, and 
 
 Deleting app data or uninstalling the app removes app-managed data unless Android backup or an exported archive preserves it.
 
+A folder connected to an interactive template grants read-only access through Android’s picker.
+Template code can browse it and request bounded text/binary reads without an AI call. The bridge
+exposes relative paths, not permission URIs or unrestricted storage access. Files selected on Start
+use the normal attachment pipeline before the Skill request. See [Templates](templates.md).
+
 ## When data leaves the device
 
 Only features you use create their corresponding traffic:

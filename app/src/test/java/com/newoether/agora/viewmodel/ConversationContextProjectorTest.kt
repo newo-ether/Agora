@@ -12,6 +12,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
@@ -47,7 +48,7 @@ class ConversationContextProjectorTest {
                 NEW_CHAT_SETTINGS,
             )
         } returns snapshot
-        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 221
+        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any()) } returns 221
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
         val projector = ConversationContextProjector(
@@ -129,7 +130,7 @@ class ConversationContextProjectorTest {
         coEvery {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
-        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 137
+        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any()) } returns 137
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
         val projector = ConversationContextProjector(
@@ -146,6 +147,10 @@ class ConversationContextProjectorTest {
         assertEquals(4_096, requireNotNull(projection.usage).tokenBudget)
         assertTrue(tool.id in projection.retainedMessageIds.orEmpty())
         assertTrue(result.id in projection.retainedMessageIds.orEmpty())
+        verify {
+            generationManager.fixedContextTokenCost(snapshot.config, snapshot.context,
+                projectProviderMessages(loadedEntities, includeStoredTranscriptions = false))
+        }
     }
 
     @Test
@@ -173,7 +178,7 @@ class ConversationContextProjectorTest {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
         every {
-            generationManager.fixedContextTokenCost(snapshot.config, snapshot.context)
+            generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any())
         } returns 0
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
@@ -212,7 +217,7 @@ class ConversationContextProjectorTest {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
         every {
-            generationManager.fixedContextTokenCost(snapshot.config, snapshot.context)
+            generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any())
         } returns 0
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
@@ -256,7 +261,7 @@ class ConversationContextProjectorTest {
         coEvery {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
-        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any()) } returns 0
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
         val projector = ConversationContextProjector(
@@ -315,7 +320,7 @@ class ConversationContextProjectorTest {
         coEvery {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
-        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any()) } returns 0
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
         val projector = ConversationContextProjector(
@@ -391,7 +396,7 @@ class ConversationContextProjectorTest {
         coEvery {
             requestBuilder.captureContextProjectionSnapshot(any(), "provider:model", null)
         } returns snapshot
-        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any()) } returns 0
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
         val projector = ConversationContextProjector(
@@ -462,16 +467,20 @@ class ConversationContextProjectorTest {
         )
         val firstLoad = CompletableDeferred<DurableSelectedContext>()
         val secondLoad = CompletableDeferred<DurableSelectedContext>()
+        val firstLoadStarted = CompletableDeferred<Unit>()
         var loadIndex = 0
         coEvery { contextLoader.load(any()) } coAnswers {
-            if (loadIndex++ == 0) firstLoad.await() else secondLoad.await()
+            if (loadIndex++ == 0) {
+                firstLoadStarted.complete(Unit)
+                firstLoad.await()
+            } else secondLoad.await()
         }
         val admission = testGenerationAdmissionSnapshot(conversationId = "conversation")
         val snapshot = GenerationContextProjectionSnapshot(admission.config, admission.context)
         coEvery {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
-        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any()) } returns 0
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
         val projector = ConversationContextProjector(
@@ -488,6 +497,9 @@ class ConversationContextProjectorTest {
             projector.project("conversation", firstSelection, "provider:model", 4_096)
         }
         runCurrent()
+        // project runs the loader on Dispatchers.Default; runCurrent does not advance that pool.
+        // Observe actual first-load admission before issuing the superseding branch request.
+        firstLoadStarted.await()
         val secondJob = launch {
             projector.project("conversation", secondSelection, "provider:model", 4_096)
         }
@@ -528,7 +540,7 @@ class ConversationContextProjectorTest {
         coEvery {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
-        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any()) } returns 0
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
         val projector = ConversationContextProjector(
@@ -589,7 +601,7 @@ class ConversationContextProjectorTest {
         coEvery {
             requestBuilder.captureContextProjectionSnapshot("conversation", "provider:model", null)
         } returns snapshot
-        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context) } returns 0
+        every { generationManager.fixedContextTokenCost(snapshot.config, snapshot.context, any()) } returns 0
         every { generationManager.includesAssistantReasoning(any(), any()) } returns false
         stubFixedComposition(generationManager)
         val projector = ConversationContextProjector(
@@ -618,7 +630,7 @@ class ConversationContextProjectorTest {
         assertEquals(setOf(second.id), settled.retainedMessageIds.orEmpty())
     }
     private fun stubFixedComposition(generationManager: GenerationManager) {
-        every { generationManager.fixedContextComposition(any(), any()) } returns
+        every { generationManager.fixedContextComposition(any(), any(), any()) } returns
             FixedContextComposition(systemPromptTokens = 0, toolTokens = 0)
     }
 

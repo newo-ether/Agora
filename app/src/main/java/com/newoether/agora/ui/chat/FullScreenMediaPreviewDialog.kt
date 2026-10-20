@@ -1,9 +1,7 @@
 package com.newoether.agora.ui.chat
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
@@ -27,6 +25,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
 import com.newoether.agora.ui.components.DialogWindowNoSystemDim
 import java.util.UUID
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.motion.animateFloat
 
 internal data class MediaPreviewTarget(
     val urls: List<String>,

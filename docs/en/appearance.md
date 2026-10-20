@@ -26,3 +26,10 @@ Open **Settings → Appearance** to configure Agora's theme, motion, chat presen
 ## Font
 
 Choose Agora's bundled font, the system font, or a custom font. The custom-file picker appears only for **Custom**. Agora validates imported font files and rejects an invalid file; switching away from Custom removes the imported copy managed by Agora.
+
+
+## E-ink Mode
+
+Enable **E-ink Mode** for a flat black-and-white Android interface, static controls, page navigation,
+and batched reply updates. Your ordinary appearance preferences are retained. See the
+[e-ink implementation and device checklist](eink/IMPLEMENTATION.md).

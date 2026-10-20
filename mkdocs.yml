@@ -57,6 +57,7 @@ plugins:
             Embedding / RAG: 嵌入 / RAG
             Memory & Cache: 记忆与缓存
             Skills: 技能
+            Interactive templates: 交互模板
             Local Models: 本地模型
             PDF Import: PDF 导入
             Data Portability: 数据迁移
@@ -448,6 +449,7 @@ nav:
       - Context: context.md
       - Parameters: generation.md
       - Title Generation: title-generation.md
+  - Voice Typing: voice-typing.md
   - Image Transcription: transcription.md
   - Image Generation: image-generation.md
   - System Prompts: system-prompts.md
@@ -464,6 +466,7 @@ nav:
       - Embedding / RAG: embedding.md
       - Memory & Cache: memory.md
       - Skills: skills.md
+      - Interactive templates: templates.md
   - Local Models: local-model.md
   - PDF Import: pdf-import.md
   - Data Portability: import-export.md

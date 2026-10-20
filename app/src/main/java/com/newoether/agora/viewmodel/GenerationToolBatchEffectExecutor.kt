@@ -326,6 +326,7 @@ internal data class AuthorizedToolBatchRequest(
     val calls: List<StreamEvent.ToolCallRequest>,
     val context: GenerationContext,
     val conversationId: String,
+    val skillHistory: List<ToolCallData> = emptyList(),
     val authorizedToolNames: Set<String>,
     /** Per-generation single-image transcription flow, resolved from this generation's
      *  provider instances. Null disables tool-result image transcription. */
@@ -386,6 +387,7 @@ internal class GenerationToolBatchEffectExecutor(
                     name = call.name,
                     arguments = call.arguments,
                     context = request.context,
+                    skillHistory = request.skillHistory + results,
                     authorizedToolNames = request.authorizedToolNames,
                     toolImageTranscriber = request.toolImageTranscriber,
                 ),

@@ -1,7 +1,6 @@
 package com.newoether.agora.ui.remote
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,6 +15,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
@@ -43,6 +43,11 @@ import com.newoether.agora.util.gradientBlur
 import kotlinx.coroutines.flow.filterNotNull
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.chat.ChatEinkNavigation
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.motion.AnimatedVisibility
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +81,7 @@ internal fun RemoteConversation(
     BackHandler(active && expanded) { expanded = false }
     val spacer = rememberComposerSpacerAnimation(expanded, motion.allowSpatialTransitions, with(density) { 44.dp.toPx() })
     val field = remember(owner) { TextFieldState(state.drafts[owner].orEmpty()) }
+    var voiceTypingBusy by remember(owner) { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val attempt = state.attempts[owner]
     val attachments = state.attachments[owner].orEmpty()
@@ -168,6 +174,10 @@ internal fun RemoteConversation(
         focusManager.clearFocus()
     }
     val animatedScrollRequest by vm.animatedScrollRequest.collectAsState()
+    val readingMode = rememberEinkReadingMode(motion.eInkMode, owner, scroll.listState)
+    val collapsingHeader = rememberCollapsibleChatHeader(owner,
+        !readingMode.active && !interaction.searchActive && !expanded)
+    var topBarHeightPx by remember { mutableStateOf(0) }
     var barHeightPx by remember { mutableFloatStateOf(0f) }
     val barHeight = with(density) { barHeightPx.toDp() }
     val topBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
@@ -196,7 +206,8 @@ internal fun RemoteConversation(
     scroll.BindRequestEffects(owner, false, generationVisible, false, switching, interaction.searchActive, false, null, animatedScrollRequest,
         messageState, density, motion, barHeight, 0.dp, onAnimatedScrollFinished = vm::completeAnimatedScroll)
     val renderMessages = rememberScrollIsolatedMessages(owner, messageState, scroll.listState,
-        bypassScrollIsolation = scroll.absoluteBottomScrollPhase.isActive || scroll.streamingTailController.isAutoFollowing)
+        bypassScrollIsolation = scroll.absoluteBottomScrollPhase.isActive || scroll.streamingTailController.isAutoFollowing,
+        eInkMode = motion.eInkMode)
     var initialLeadingSpace by remember(owner) { mutableStateOf<Int?>(null) }
     val leadingSpace = initialLeadingSpace ?: messageListPageLeadingSpacing(renderMessages.value.firstOrNull())
     SideEffect { if (initialLeadingSpace == null && renderMessages.value.isNotEmpty()) initialLeadingSpace = leadingSpace }
@@ -245,49 +256,55 @@ internal fun RemoteConversation(
         // content padding is intentional, so the Material3 usage lint does not apply.
         @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
         Scaffold(containerColor = Color.Transparent, contentWindowInsets = WindowInsets(0, 0, 0, 0), topBar = {
-            ChatTopBar(
-                isNewChatMode = false, conversations = emptyList(),
-                currentConversationId = session.id, currentConversationTitle = session.displayTitle(stringResource(R.string.new_chat)),
-                totalTokens = state.runtime?.contextTokens ?: 0,
-                contextTokenBudget = state.runtime?.contextWindow ?: 0,
-                contextAvailable = state.runtime?.contextTokens != null && state.runtime?.contextWindow != null,
-                subtitle = stringResource(when (connectionStatus) {
-                    com.newoether.agora.mcp.McpConnectionStatus.CONNECTED -> R.string.remote_online
-                    com.newoether.agora.mcp.McpConnectionStatus.CONNECTING -> R.string.remote_connecting
-                    else -> R.string.remote_offline
-                }),
-                subtitleLeading = { com.newoether.agora.ui.settings.McpStatusDot(connectionStatus) },
-                searchActive = interaction.searchActive, searchQuery = interaction.searchQuery,
-                searchMatchIndex = interaction.searchMatchIndex, searchMatchCount = interaction.searchMatches.size,
-                onSearchQueryChange = interaction::updateSearchQuery,
-                onSearchPrevious = { if (interaction.previousSearchMatch()) haptics.selection() },
-                onSearchNext = { if (interaction.nextSearchMatch()) haptics.selection() },
-                onSearchDismiss = { interaction.dismissSearch(); focusManager.clearFocus() },
-                onNavigateBack = onBack, onOpenDrawer = onBack, onSystemPromptClick = {}, onNewChat = vm::newSession,
-                newChatEnabled = active && !state.controlling,
-                moreMenuContent = { dismiss ->
-                    AgoraDropdownMenuItem(
-                        text = { Text(stringResource(R.string.conversation_search)) },
-                        leadingIcon = { Icon(Icons.Default.Search, null) },
-                        enabled = active && !switching,
-                        onClick = { dismiss(); interaction.activateSearch() },
-                    )
-                },
-            )
+            CollapsibleChatHeader(collapsingHeader, readingMode.active, { topBarHeightPx = it }) {
+                ChatTopBar(
+                    reading = readingMode.active,
+                    isNewChatMode = false, conversations = emptyList(),
+                    currentConversationId = session.id, currentConversationTitle = session.displayTitle(stringResource(R.string.new_chat)),
+                    totalTokens = state.runtime?.contextTokens ?: 0,
+                    contextTokenBudget = state.runtime?.contextWindow ?: 0,
+                    contextAvailable = state.runtime?.contextTokens != null && state.runtime?.contextWindow != null,
+                    subtitle = stringResource(when (connectionStatus) {
+                        com.newoether.agora.mcp.McpConnectionStatus.CONNECTED -> R.string.remote_online
+                        com.newoether.agora.mcp.McpConnectionStatus.CONNECTING -> R.string.remote_connecting
+                        else -> R.string.remote_offline
+                    }),
+                    subtitleLeading = { com.newoether.agora.ui.settings.McpStatusDot(connectionStatus) },
+                    searchActive = interaction.searchActive, searchQuery = interaction.searchQuery,
+                    searchMatchIndex = interaction.searchMatchIndex, searchMatchCount = interaction.searchMatches.size,
+                    onSearchQueryChange = interaction::updateSearchQuery,
+                    onSearchSubmit = interaction::submitSearch,
+                    onSearchPrevious = { if (interaction.previousSearchMatch()) haptics.selection() },
+                    onSearchNext = { if (interaction.nextSearchMatch()) haptics.selection() },
+                    onSearchDismiss = { interaction.dismissSearch(); focusManager.clearFocus() },
+                    onNavigateBack = onBack, onOpenDrawer = onBack, onSystemPromptClick = {}, onNewChat = vm::newSession,
+                    newChatEnabled = active && !state.controlling,
+                    moreMenuContent = { dismiss ->
+                        AgoraDropdownMenuItem(
+                            text = { Text(stringResource(R.string.conversation_search)) },
+                            leadingIcon = { Icon(Icons.Default.Search, null) },
+                            enabled = active && !switching,
+                            onClick = { dismiss(); interaction.activateSearch() },
+                        )
+                    },
+                )
+            }
         }) { _ ->
-            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().nestedScroll(collapsingHeader.connection)) {
+                RemoteInteractiveAnswerHost(owner, state.hydrationRevision, vm) {
                 CompositionLocalProvider(com.newoether.agora.ui.chat.message.LocalToolImageLoader provides loadToolImage) {
                 MessageList(messages = StableMessageList(renderMessages.value), allMessages = StableMessageList(messages),
                     authoritativeMessages = StableMessageList(messages), conversationId = owner,
                     state = scroll.listState, overscrollEffect = historyOverscroll, onMediaClick = onMediaClick, messageActionsEnabled = false, readOnlyActions = true, parseInlineDollarMath = inlineMath,
                     autoWrapCodeBlocks = autoWrapCodeBlocks,
-                    isLoading = generationVisible, isSwitching = switching, streamingMessage = streaming,
-                    searchQuery = if (interaction.searchActive) interaction.searchQuery else "",
+                    isLoading = generationVisible, isSwitching = switching,
+                    streamingMessage = if (motion.eInkMode) renderMessages.value.firstOrNull { it.id == streaming?.id } else streaming,
+                    searchQuery = if (interaction.searchActive) interaction.renderedSearchQuery else "",
                     activeSearchMatch = searchMatch,
                     searchScrollRequestKey = interaction.searchScrollRequestKey,
                     onSearchMatchDistance = interaction::recordSearchMatchDistance,
                     onSearchTurnsChanged = interaction::recordSearchTurns,
-                    streamingAutoFollowEnabled = follow.enabled && stickToBottom,
+                    streamingAutoFollowEnabled = !motion.eInkMode && follow.enabled && stickToBottom,
                     streamingAutoFollowPaused = follow.paused,
                     streamingTailWithinAttachThreshold = scroll.isWithinAbsoluteBottomAttachThreshold,
                     streamingTailController = scroll.streamingTailController,
@@ -295,7 +312,7 @@ internal fun RemoteConversation(
                     autoExpandActiveGroup = autoExpandActiveGroup,
                     modifier = Modifier.fillMaxSize().gradientBlur(blurAtTopDp = if (blur) 8f else 0f,
                         blurAtBottomDp = 0f, fadeHeightDp = 40f, bottomOverlayHeight = barHeight + with(density) { spacer.outerHeightPx.toDp() } + 12.dp),
-                    bottomBarHeight = barHeight, viewportHeight = scroll.viewportHeightPx,
+                    bottomBarHeight = if (readingMode.active) 0.dp else barHeight, viewportHeight = scroll.viewportHeightPx,
                     messageHeights = scroll.messageHeights, observeMessage = observe, initialMessage = initialMessage,
                     programmaticScrollActive = animatedScrollRequest?.conversationId == owner,
                     onMessageHydrated = scroll::recordMessageHydrated,
@@ -319,13 +336,20 @@ internal fun RemoteConversation(
                             }
                         }
                     },
-                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 140.dp + leadingSpace.dp, bottom = barHeight + 8.dp))
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = (if (readingMode.active) 0.dp else if (motion.eInkMode) with(density) { topBarHeightPx.toDp() } else with(density) { collapsingHeader.contentInset(140.dp.toPx()).toDp() }) + leadingSpace.dp, bottom = (if (readingMode.active) 0.dp else barHeight) + if (motion.eInkMode) 56.dp else 8.dp))
                 }
+                if (motion.eInkMode && !expanded) {
+                    ChatEinkNavigation(scroll.listState, scroll.viewportHeightPx, if (readingMode.active) 0 else topBarHeightPx, if (readingMode.active) 0.dp else barHeight,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        onLatest = { scroll.requestAbsoluteBottomScroll() }, readingMode = readingMode)
+                } else {
                 ChatBottomScrollButton(
                     showBottomButton,
                     barHeight,
                 ) {
                     scroll.requestAbsoluteBottomScroll()
+                }
+                }
                 }
 
                 ChatSwitchingOverlay(
@@ -336,10 +360,13 @@ internal fun RemoteConversation(
                 )
             }
         }
-        ChatComposerSurface(expanded, { barHeightPx = it }, Modifier.align(Alignment.BottomCenter), spacer.outerHeightPx) {
+        ChatComposerSurface(expanded, { barHeightPx = it }, Modifier.align(Alignment.BottomCenter).readingChrome(readingMode.active), spacer.outerHeightPx) {
             ChatComposerLayout(field, focus, scroll::setComposerInputFocused, expanded, spacer.isRunning,
                 onExpand = { expanded = true }, onCollapse = { expanded = false },
                 statusContent = {
+                    RemoteSkillsMenu(field.text.toString(), state.runtime,
+                        enabled = active && ready && !submitting && !stopping && !state.controlling,
+                        onSelect = { command -> field.edit { replace(0, length, command) } })
                     ComposerStatusColumn(state.queued, { it.id }) { QueuedMessageRow(text = it.text) }
                 },
                 attachmentContent = {
@@ -491,16 +518,24 @@ internal fun RemoteConversation(
                             }
                         }
                     }
-                    val showStop = running && !stopping && field.text.isBlank() && attachments.isEmpty()
-                    ComposerSendButton(isActionable = active && !stopping && !state.controlling && (showStop || !state.settingsPending) && !submitting &&
-                        (if (showStop) state.runtime?.activeTurnId != null else field.text.isNotBlank() || attachments.isNotEmpty()),
-                        isBusy = submitting || stopping, showStop = showStop,
-                        onBusyShown = { shownBusyAttempt = attempt?.clientId }) {
-                        if (showStop) vm.stop()
-                        else if (attempt?.delivery == RemoteDelivery.UNKNOWN) onMessage(unknownDeliveryText, allowSendingText) {
-                            vm.acknowledgeUnknown(owner)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        key(owner) {
+                            VoiceTypingButton(settings, field,
+                                enabled = active && ready && !submitting && !stopping && !state.controlling,
+                                onBusyChanged = { voiceTypingBusy = it })
                         }
-                        else { vm.editDraft(owner, field.text.toString()); vm.send() }
+                        val showStop = running && !stopping && (voiceTypingBusy || (field.text.isBlank() && attachments.isEmpty()))
+                        ComposerSendButton(isActionable = active && !stopping && !state.controlling && (showStop || !state.settingsPending) && !submitting &&
+                            (if (showStop) state.runtime?.activeTurnId != null else !voiceTypingBusy && (field.text.isNotBlank() || attachments.isNotEmpty())),
+                            isBusy = submitting || stopping, showStop = showStop,
+                            onBusyShown = { shownBusyAttempt = attempt?.clientId }) {
+                            if (!showStop && voiceTypingBusy) return@ComposerSendButton
+                            if (showStop) vm.stop()
+                            else if (attempt?.delivery == RemoteDelivery.UNKNOWN) onMessage(unknownDeliveryText, allowSendingText) {
+                                vm.acknowledgeUnknown(owner)
+                            }
+                            else { vm.editDraft(owner, field.text.toString()); vm.send() }
+                        }
                     }
                 })
         }

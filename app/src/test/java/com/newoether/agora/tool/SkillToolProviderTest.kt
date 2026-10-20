@@ -17,7 +17,7 @@ class SkillToolProviderTest {
         every { listFiles() } returns listOf(
             SkillManager.SkillFileInfo("review.md", "Review changes"),
         )
-        every { readFile(any()) } returns "skill body"
+        every { document(any()) } answers { com.newoether.agora.skills.SkillDocument(firstArg(), "skill body", description = "Review changes") }
         every { createFile(any(), any(), any()) } returns "Created"
         every { editFile(any(), any(), any(), any(), any(), any()) } returns "Updated"
         every { deleteFile(any()) } returns "Deleted"
@@ -71,17 +71,17 @@ class SkillToolProviderTest {
     fun listReturnsOnlyCatalogMetadata() = runTest {
         val result = provider.execute("list_skill_files", "{}", enabled)
         assertTrue(result.contains("review.md"))
-        assertTrue(result.contains("Review changes"))
+        assertFalse(result.contains("Review changes"))
         assertFalse(result.contains("skill body"))
     }
 
     @Test
     fun successfulErrorPrefixedReadAndAccessFailureHaveExplicitMetadata() = runTest {
-        every { skillManager.readFile("review.md") } returns "Error: documented example"
+        every { skillManager.document("review.md") } returns com.newoether.agora.skills.SkillDocument("review.md", "Error: documented example")
         val success = provider.executeEvents("read_skill_file", """{"name":"review.md"}""", enabled)
             .toList().single() as ToolExecutionEvent.Completed
         assertFalse(success.result.isError)
-        assertEquals("Error: documented example", success.result.text)
+        assertTrue(success.result.text.endsWith("Error: documented example"))
         val failure = provider.executeEvents("read_skill_file", "{}", enabled.copy(skillReadAccess = false))
             .toList().single() as ToolExecutionEvent.Completed
         assertTrue(failure.result.isError)
@@ -91,7 +91,7 @@ class SkillToolProviderTest {
     @Test
     fun readLoadsBodyOnDemand() = runTest {
         assertEquals(
-            "skill body",
+            "--- review.md ---\nDescription: Review changes\nskill body",
             provider.execute(
                 "read_skill_file",
                 """{"name":"review.md"}""",

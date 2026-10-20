@@ -147,6 +147,10 @@ Never:
 
 | Scope | Required module contract |
 |---|---|
+| Interactive template library, user-defined shortcuts and local opening | [interactive-templates.md](interactive-templates.md) |
+| Android sharing boundary and legacy Notes attachment preservation | [notes-integration.md](notes-integration.md) |
+| Pi PC sessions, learning interactions and Remote figure transport | [pi-remote.md](pi-remote.md) |
+| Interactive answer tools, saved artifacts and sandboxed Android viewer | [interactive-answers.md](interactive-answers.md) |
 | External agent devices, existing sessions, independent Remote transport and shared chat presentation | [remote-sessions.md](remote-sessions.md) |
 | Conch/Filo encrypted network requests and client read limits | [encrypted-agent-transport.md](encrypted-agent-transport.md) |
 | Message generation, Run lifecycle, queue, tools, Compact, Regenerate, message actions/status, or Provider context | [message-generation.md](message-generation.md) |
@@ -159,6 +163,8 @@ Never:
 | Persistent Skill files, Skill catalog prompt projection, Skill tools/settings, or Skill archive transport | [skills.md](skills.md) |
 | Application-level onboarding motion, settings category copy, or other non-message global UI behavior | [application-ui.md](application-ui.md) |
 | Native `.agora` archive categories, settings portability, import strategies, secrets, or backup compatibility | [import-export.md](import-export.md) |
+| Incoming Android text shares, excerpt provenance and display-only source thumbnails | [shared-text-sharing.md](shared-text-sharing.md) |
+| Android composer dictation, speech services and transcription providers | [voice-typing.md](voice-typing.md) |
 | Shared Settings page structure, interaction, copy, localization, or documentation entry points | [settings-ui-ux.md](settings-ui-ux.md) |
 
 Add a module document when a user defines durable behavior for another subsystem. Each module

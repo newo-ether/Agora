@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.newoether.agora.R
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.ui.components.Text
 
 private data class LanguageOption(val code: String, val label: String)
 

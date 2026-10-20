@@ -47,6 +47,12 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import androidx.compose.material.icons.filled.MoreVert
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.components.Surface
 
 /**
  * The right-aligned user message bubble: attachment thumbnails, the message text
@@ -281,6 +287,7 @@ internal fun UserMessageBubble(
                                     imagePath = imagePath,
                                     fileName = fileName,
                                     originalUri = metaItem?.originalUri,
+                                    previewImagePath = attachmentSourcePreviewPath(metaItem, message.images),
                                     textContent = metaItem?.textContent,
                                     unavailable = metaItem?.unavailable == true,
                                     pdfPages = pdfPages,
@@ -396,6 +403,11 @@ internal fun UserMessageBubble(
                 )
             }
         }
+            if (LocalAgoraMotionPolicy.current.eInkMode && showActions && !showEditor) {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, stringResource(R.string.more))
+                }
+            }
         if (showBranchSelector && totalBranches > 1 && !showEditor) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

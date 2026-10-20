@@ -3,14 +3,12 @@ package com.newoether.agora.ui.chat
 import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
 import com.newoether.agora.ui.components.DialogWindowNoSystemAnimation
 import com.newoether.agora.ui.components.DialogWindowNoSystemDim
-
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
@@ -56,6 +54,11 @@ import java.io.InputStream
 import java.io.IOException
 import java.util.Locale
 import com.newoether.agora.ui.components.sheetOptionClickable
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.motion.AnimatedVisibility
 
 private fun directImageFile(url: String): File? {
     val path = if (url.startsWith("file://", ignoreCase = true)) {

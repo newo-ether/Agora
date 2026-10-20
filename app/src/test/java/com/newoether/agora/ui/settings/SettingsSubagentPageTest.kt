@@ -253,6 +253,7 @@ class SettingsSubagentPageTest {
         every { settings.schemeStyle } returns MutableStateFlow("TONAL_SPOT")
         every { settings.dynamicColor } returns MutableStateFlow(false)
         every { settings.blurEffectsEnabled } returns MutableStateFlow(false)
+        every { settings.eInkMode } returns MutableStateFlow(false)
         every { settings.reduceMotion } returns MutableStateFlow(true)
         every { settings.stickToBottom } returns MutableStateFlow(true)
         every { settings.parseInlineDollarMath } returns MutableStateFlow(false)

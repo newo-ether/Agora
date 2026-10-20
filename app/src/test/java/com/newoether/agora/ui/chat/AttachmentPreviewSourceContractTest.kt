@@ -42,6 +42,10 @@ class AttachmentPreviewSourceContractTest {
         assertFalse(source.contains("label = \"attachmentProcessingOverlay\""))
         assertFalse(source.contains("label = \"attachmentStatusIndicator\""))
         assertFalse(source.contains("coil.compose.AsyncImage("))
+        // A successfully loaded notebook image must never be overlaid with a failure label.
+        val success = source.substringAfter("AttachmentPreviewPresentation.MEDIA_SUCCESS -> {")
+            .substringBefore("@Composable\nprivate fun AttachmentTypePlaceholder")
+        assertFalse(success.contains("NoteAttachmentPlaceholder()"))
     }
 
     private fun source(relativePath: String): String =

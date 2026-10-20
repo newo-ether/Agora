@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.bottombar
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -9,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +16,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -26,9 +31,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +47,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.request.ImageRequest
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.newoether.agora.R
@@ -55,6 +59,9 @@ import com.newoether.agora.ui.chat.MediaLoadPresentation
 import com.newoether.agora.ui.chat.rememberMediaLoadingVisible
 import com.newoether.agora.ui.chat.toMediaLoadPresentation
 import com.newoether.agora.ui.common.LocalAgoraHaptics
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
 
 private const val ATTACHMENT_STATUS_CROSSFADE_MS = 200
 
@@ -64,6 +71,7 @@ internal enum class AttachmentPreviewPresentation {
     IMPORT_LOADING,
     IMPORT_FAILED,
     READY_FILE,
+    READY_NOTE,
     READY_PDF,
     READY_VIDEO_PLACEHOLDER,
     MEDIA_LOADING,
@@ -77,13 +85,17 @@ internal fun attachmentPreviewPresentation(
     type: String,
     hasVideoFrame: Boolean,
     mediaLoadState: MediaLoadPresentation,
+    isNotes: Boolean = false,
+    hasNotePreview: Boolean = false,
 ): AttachmentPreviewPresentation = when {
     unavailable -> AttachmentPreviewPresentation.UNAVAILABLE
     importState == AttachmentImportState.PROCESSING ->
         AttachmentPreviewPresentation.IMPORT_LOADING
     importState == AttachmentImportState.FAILED ->
         AttachmentPreviewPresentation.IMPORT_FAILED
-    type == "file" -> AttachmentPreviewPresentation.READY_FILE
+    isNotes && (!hasNotePreview || mediaLoadState == MediaLoadPresentation.FAILED) ->
+        AttachmentPreviewPresentation.READY_NOTE
+    type == "file" && !isNotes -> AttachmentPreviewPresentation.READY_FILE
     type == "pdf" -> AttachmentPreviewPresentation.READY_PDF
     type == "video" && !hasVideoFrame ->
         AttachmentPreviewPresentation.READY_VIDEO_PLACEHOLDER
@@ -93,6 +105,12 @@ internal fun attachmentPreviewPresentation(
         AttachmentPreviewPresentation.MEDIA_ERROR
     else -> AttachmentPreviewPresentation.MEDIA_LOADING
 }
+
+/** Notes previews are display assets; their presence does not change AI image selection. */
+internal fun notesAttachmentPreview(attachment: SelectedAttachment): String? =
+    attachment.sourceThumbnailPath ?: if (attachment.notesDocumentId != null && attachment.notesRevisionId != null)
+        attachment.preRenderedPaths?.firstOrNull() ?: attachment.notesThumbnailPath
+    else null
 
 /** Projects the exact conversation-owned attachment snapshot and emits identity commands. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -107,6 +125,11 @@ internal fun AttachmentPreviewRow(
     onPdfPagesClick: ((pages: List<String>, startIndex: Int) -> Unit)?,
 ) {
     val haptics = LocalAgoraHaptics.current
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val keyboardHeight = with(density) { WindowInsets.ime.getBottom(this).toDp().value }
+    val availableHeight = configuration.screenHeightDp - keyboardHeight
+    val context = LocalContext.current
     val mediaAttachments = remember(attachments) {
         attachments.filter {
             !it.unavailable && it.importState == AttachmentImportState.READY &&
@@ -119,160 +142,191 @@ internal fun AttachmentPreviewRow(
     val mediaIndexById = remember(mediaAttachments) {
         mediaAttachments.mapIndexed { index, attachment -> attachment.localId to index }.toMap()
     }
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 8.dp, start = 8.dp, end = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(attachments, key = SelectedAttachment::localId) { attachment ->
-            val uriString = attachment.uri
-            val isVideo = attachment.type == "video"
-            val isPdf = attachment.type == "pdf"
-            val isFile = attachment.type == "file"
-            val isReady = attachment.importState == AttachmentImportState.READY
-            val mediaIndex = mediaIndexById[attachment.localId]
-            val mediaModel = when {
-                attachment.unavailable || !isReady -> null
-                isVideo -> attachment.processedFrames?.firstOrNull()
-                isFile || isPdf -> null
-                else -> attachment.localPath ?: uriString
-            }
-            val mediaPainter = rememberAsyncImagePainter(model = mediaModel)
-            val mediaLoadState = mediaPainter.state.toMediaLoadPresentation()
-            val targetPresentation = attachmentPreviewPresentation(
-                unavailable = attachment.unavailable,
-                importState = attachment.importState,
-                type = attachment.type,
-                hasVideoFrame = attachment.processedFrames?.isNotEmpty() == true,
-                mediaLoadState = mediaLoadState,
-            )
-            val isLoading = targetPresentation == AttachmentPreviewPresentation.IMPORT_LOADING ||
-                targetPresentation == AttachmentPreviewPresentation.MEDIA_LOADING
-            val delayedLoadingVisible = rememberMediaLoadingVisible(
-                loadingKey = attachment.localId,
-                isLoading = isLoading && attachment.type == "image",
-            )
-            val loadingVisible = isLoading && (attachment.type != "image" || delayedLoadingVisible)
-            var presentedState by remember(attachment.localId) {
-                mutableStateOf(AttachmentPreviewPresentation.INITIAL to false)
-            }
-            LaunchedEffect(attachment.localId, targetPresentation, loadingVisible) {
-                presentedState = targetPresentation to loadingVisible
-            }
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .width(64.dp)
-                    .padding(top = 5.dp),
-            ) {
-                Box {
-                    val clickableModifier = when {
-                        attachment.unavailable || !isReady -> Modifier
-                        isFile -> {
-                            if (!attachment.storage.canPreview || attachment.preparedText == null) {
-                                Modifier
-                            } else if (onFileContentClick != null) {
-                                Modifier.clickable {
-                                    onFileContentClick(
-                                        attachment.fileName ?: uriString,
-                                        attachment.preparedText,
-                                    )
-                                }
-                            } else {
-                                Modifier
-                            }
-                        }
-                        isPdf -> {
-                            if (onPdfPagesClick != null) {
-                                Modifier.clickable {
-                                    onPdfPagesClick(attachment.preRenderedPaths.orEmpty(), 0)
-                                }
-                            } else {
-                                Modifier
-                            }
-                        }
-                        mediaIndex != null -> Modifier.combinedClickable(
-                            onClick = {
-                                onAllMediaClick?.invoke(allMediaUrls, mediaIndex)
-                            },
-                            onLongClick = { haptics.longPress() },
-                            hapticFeedbackEnabled = false,
-                        )
-                        else -> Modifier
-                    }
-                    Crossfade(
-                        targetState = presentedState,
-                        animationSpec = tween(ATTACHMENT_STATUS_CROSSFADE_MS),
-                        label = "attachmentPresentation",
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .then(clickableModifier),
-                    ) { (presentation, showLoading) ->
-                        AttachmentPresentationContent(
-                            presentation = presentation,
-                            showLoading = showLoading,
-                            attachment = attachment,
-                            mediaPainter = mediaPainter,
-                            editable = editable,
-                            onRetry = {
-                                haptics.selection()
-                                onRetry(attachment.localId)
-                            },
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = 5.dp, y = (-5).dp)
-                            .size(18.dp)
-                            .background(Color.Black.copy(alpha = 0.8f), CircleShape)
-                            .clip(CircleShape)
-                            .clickable(enabled = editable) {
-                                haptics.selection()
-                                onRemove(attachment.localId)
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.remove),
-                            tint = Color.White,
-                            modifier = Modifier.size(10.dp),
-                        )
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val previewWidth = ((maxWidth.value - 16) * .46f).coerceIn(144f, 220f).dp
+        val previewHeight = (availableHeight * .40f).coerceIn(144f, previewWidth.value).dp
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp, start = 8.dp, end = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(attachments, key = SelectedAttachment::localId) { attachment ->
+                val uriString = attachment.uri
+                val isVideo = attachment.type == "video"
+                val isPdf = attachment.type == "pdf"
+                val isFile = attachment.type == "file"
+                val isNotes = attachment.notesDocumentId != null && attachment.notesRevisionId != null
+                val notePreview = notesAttachmentPreview(attachment)
+                val isReady = attachment.importState == AttachmentImportState.READY
+                val mediaIndex = mediaIndexById[attachment.localId]
+                val mediaModel = when {
+                    attachment.unavailable || !isReady -> null
+                    notePreview != null -> notePreview.let { java.io.File(it) }
+                    isVideo -> attachment.processedFrames?.firstOrNull()
+                    isFile || isPdf -> null
+                    else -> attachment.localPath ?: uriString
+                }
+                val request = remember(mediaModel, previewWidth, previewHeight, density.density) {
+                    ImageRequest.Builder(context).data(mediaModel)
+                        .size(with(density) { previewWidth.roundToPx() }, with(density) { previewHeight.roundToPx() })
+                        .crossfade(false).build()
+                }
+                val mediaPainter = rememberAsyncImagePainter(model = request)
+                val drawable = (mediaPainter.state as? AsyncImagePainter.State.Success)?.result?.drawable
+                val aspect = drawable?.takeIf { it.intrinsicWidth > 0 && it.intrinsicHeight > 0 }
+                    ?.let { it.intrinsicWidth.toFloat() / it.intrinsicHeight }
+                    ?: if (isNotes) 86f / 131f else 1f
+                val followsImage = notePreview != null || isNotes || attachment.type == "image" || isVideo
+                val tileWidth = if (followsImage) minOf(previewWidth.value, previewHeight.value * aspect).dp else previewWidth
+                val tileHeight = if (followsImage) (tileWidth.value / aspect).dp else previewHeight
+                val mediaLoadState = mediaPainter.state.toMediaLoadPresentation()
+                LaunchedEffect(isNotes, mediaPainter.state) {
+                    if (isNotes && mediaPainter.state is AsyncImagePainter.State.Error) {
+                        val error=(mediaPainter.state as AsyncImagePainter.State.Error).result.throwable
+                        com.newoether.agora.util.DebugLog.w("NotesThumbnail", "Notebook image load failed", error)
                     }
                 }
-                Crossfade(
-                    targetState = presentedState.first,
-                    animationSpec = tween(ATTACHMENT_STATUS_CROSSFADE_MS),
-                    label = "attachmentCaption",
-                ) { presentation ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (
-                            presentation == AttachmentPreviewPresentation.UNAVAILABLE ||
-                            isFile ||
-                            isPdf
+                val targetPresentation = attachmentPreviewPresentation(
+                    unavailable = attachment.unavailable,
+                    importState = attachment.importState,
+                    type = attachment.type,
+                    hasVideoFrame = attachment.processedFrames?.isNotEmpty() == true,
+                    mediaLoadState = mediaLoadState,
+                    isNotes = isNotes || notePreview != null,
+                    hasNotePreview = notePreview != null,
+                )
+                val isLoading = targetPresentation == AttachmentPreviewPresentation.IMPORT_LOADING ||
+                    targetPresentation == AttachmentPreviewPresentation.MEDIA_LOADING
+                val delayedLoadingVisible = rememberMediaLoadingVisible(
+                    loadingKey = attachment.localId,
+                    isLoading = isLoading && attachment.type == "image",
+                )
+                val loadingVisible = isLoading && (attachment.type != "image" || delayedLoadingVisible)
+                var presentedState by remember(attachment.localId) {
+                    mutableStateOf(AttachmentPreviewPresentation.INITIAL to false)
+                }
+                LaunchedEffect(attachment.localId, targetPresentation, loadingVisible) {
+                    presentedState = targetPresentation to loadingVisible
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .width(tileWidth)
+                        .padding(top = 5.dp),
+                ) {
+                    Box {
+                        val clickableModifier = when {
+                            attachment.unavailable || !isReady -> Modifier
+                            isFile -> {
+                                if (!attachment.storage.canPreview || attachment.preparedText == null) {
+                                    Modifier
+                                } else if (onFileContentClick != null) {
+                                    Modifier.clickable {
+                                        onFileContentClick(
+                                            attachment.fileName ?: uriString,
+                                            attachment.preparedText,
+                                        )
+                                    }
+                                } else {
+                                    Modifier
+                                }
+                            }
+                            isPdf -> {
+                                if (onPdfPagesClick != null) {
+                                    Modifier.clickable {
+                                        onPdfPagesClick(attachment.preRenderedPaths.orEmpty(), 0)
+                                    }
+                                } else {
+                                    Modifier
+                                }
+                            }
+                            mediaIndex != null -> Modifier.combinedClickable(
+                                onClick = {
+                                    onAllMediaClick?.invoke(allMediaUrls, mediaIndex)
+                                },
+                                onLongClick = { haptics.longPress() },
+                                hapticFeedbackEnabled = false,
+                            )
+                            else -> Modifier
+                        }
+                        Crossfade(
+                            targetState = presentedState,
+                            animationSpec = tween(ATTACHMENT_STATUS_CROSSFADE_MS),
+                            label = "attachmentPresentation",
+                            modifier = Modifier
+                                .size(tileWidth, tileHeight)
+                                .clip(RoundedCornerShape(8.dp))
+                                .then(clickableModifier),
+                        ) { (presentation, showLoading) ->
+                            AttachmentPresentationContent(
+                                presentation = presentation,
+                                showLoading = showLoading,
+                                attachment = attachment,
+                                mediaPainter = mediaPainter,
+                                editable = editable,
+                                onRetry = {
+                                    haptics.selection()
+                                    onRetry(attachment.localId)
+                                },
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 5.dp, y = (-5).dp)
+                                .size(32.dp)
+                                .background(Color.Black.copy(alpha = 0.8f), CircleShape)
+                                .clip(CircleShape)
+                                .clickable(enabled = editable) {
+                                    haptics.selection()
+                                    onRemove(attachment.localId)
+                                },
+                            contentAlignment = Alignment.Center,
                         ) {
-                            attachment.fileName?.let { fileName ->
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.remove),
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    Crossfade(
+                        targetState = presentedState.first,
+                        animationSpec = tween(ATTACHMENT_STATUS_CROSSFADE_MS),
+                        label = "attachmentCaption",
+                    ) { presentation ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (
+                                presentation == AttachmentPreviewPresentation.UNAVAILABLE ||
+                                isFile ||
+                                isPdf
+                            ) {
+                                attachment.fileName?.let { fileName ->
+                                    Text(
+                                        text = attachment.sourceTitle ?: if (isNotes) fileName.removeSuffix(".notes.zip") else fileName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(top = 2.dp),
+                                    )
+                                }
+                            }
+                            attachment.sourceBookTitle?.let { book ->
+                                Text(text = book, style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            if (presentation == AttachmentPreviewPresentation.UNAVAILABLE) {
                                 Text(
-                                    text = fileName,
+                                    text = stringResource(R.string.attachment_unavailable),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = MaterialTheme.colorScheme.error,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(top = 2.dp),
                                 )
                             }
-                        }
-                        if (presentation == AttachmentPreviewPresentation.UNAVAILABLE) {
-                            Text(
-                                text = stringResource(R.string.attachment_unavailable),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error,
-                                maxLines = 1,
-                            )
                         }
                     }
                 }
@@ -299,6 +353,7 @@ private fun AttachmentPresentationContent(
     ) {
         when (presentation) {
             AttachmentPreviewPresentation.INITIAL -> Unit
+            AttachmentPreviewPresentation.READY_NOTE -> NoteAttachmentPlaceholder()
             AttachmentPreviewPresentation.UNAVAILABLE,
             AttachmentPreviewPresentation.READY_FILE,
             AttachmentPreviewPresentation.READY_PDF -> FileThumbnail(
@@ -356,7 +411,7 @@ private fun AttachmentPresentationContent(
                     painter = mediaPainter,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                 )
                 if (showLoading) {
                     CircularProgressIndicator(
@@ -375,7 +430,7 @@ private fun AttachmentPresentationContent(
                         null
                     },
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                 )
                 if (attachment.type == "video") {
                     Icon(
@@ -395,7 +450,9 @@ private fun AttachmentPresentationContent(
 
 @Composable
 private fun AttachmentTypePlaceholder(attachment: SelectedAttachment) {
-    if (attachment.type == "video") {
+    if (attachment.notesDocumentId != null && attachment.notesRevisionId != null) {
+        NoteAttachmentPlaceholder()
+    } else if (attachment.type == "video") {
         Icon(
             Icons.Default.Videocam,
             stringResource(R.string.video),
@@ -410,4 +467,10 @@ private fun AttachmentTypePlaceholder(attachment: SelectedAttachment) {
             fallbackLabel = attachment.type.uppercase().take(4).ifEmpty { "FILE" },
         )
     }
+}
+
+@Composable
+private fun NoteAttachmentPlaceholder() {
+    Text("Preview unavailable", style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
 }

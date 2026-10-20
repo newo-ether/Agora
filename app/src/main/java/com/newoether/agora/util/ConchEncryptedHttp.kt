@@ -4,6 +4,7 @@ import android.util.Base64
 import com.newoether.agora.api.readBoundedWireLine
 import com.newoether.agora.api.readBoundedWireText
 import java.io.IOException
+import java.security.GeneralSecurityException
 import kotlinx.serialization.json.*
 import okhttp3.Headers
 import okhttp3.Interceptor
@@ -20,11 +21,18 @@ internal class ConchChannelException(message: String, cause: Throwable? = null) 
 
 internal class ConchEncryptedHttp(private val token: String) : Interceptor {
     @Volatile private var serverReadKey: String? = null
-    override fun intercept(chain: Interceptor.Chain): Response = try {
-        exchange(chain, freshHandshake = false)
-    } catch (error: IOException) {
-        if (chain.request().method != "GET" || chain.call().isCanceled()) throw error
-        exchange(chain, freshHandshake = true)
+    override fun intercept(chain: Interceptor.Chain): Response {
+        try {
+            return try {
+                exchange(chain, freshHandshake = false)
+            } catch (error: IOException) {
+                if (chain.request().method != "GET" || chain.call().isCanceled()) throw error
+                exchange(chain, freshHandshake = true)
+            }
+        } catch (error: GeneralSecurityException) {
+            // OkHttp dispatches IOException to onFailure; uncaught crypto errors crash its worker.
+            throw ConchChannelException("Encrypted connection cryptography unavailable", error)
+        }
     }
 
     private fun exchange(chain: Interceptor.Chain, freshHandshake: Boolean): Response {

@@ -1,7 +1,6 @@
 package com.newoether.agora.ui.chat.search
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -22,11 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +46,11 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
 
 /** The drawer heading and its trailing, horizontally expanding search capsule. */
 @Composable
@@ -58,6 +58,7 @@ internal fun DrawerSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     searching: Boolean = false,
+    onSubmit: () -> Unit = {},
     drawerVisible: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -113,18 +114,23 @@ internal fun DrawerSearchBar(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         BasicTextField(value = query, onValueChange = onQueryChange,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSubmit() }),
                             modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
                                 .semantics { contentDescription = searchHint },
                             singleLine = true, cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             textStyle = ChatType.drawerSearch.copy(color = MaterialTheme.colorScheme.onSurface))
                     }
+                    if (LocalAgoraMotionPolicy.current.eInkMode) {
+                        IconButton(onSubmit) { Icon(Icons.Default.Search, searchHint) }
+                    }
                     Box(modifier = Modifier.size(28.dp).testTag("DrawerSearchTrailing"),
                         contentAlignment = Alignment.Center) {
-                        androidx.compose.animation.AnimatedVisibility(visible = searching,
+                        com.newoether.agora.ui.motion.AnimatedVisibility(visible = searching,
                             enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                         }
-                        androidx.compose.animation.AnimatedVisibility(visible = query.isNotEmpty() && !searching,
+                        com.newoether.agora.ui.motion.AnimatedVisibility(visible = query.isNotEmpty() && !searching,
                             enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
                             IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(28.dp)) {
                                 Icon(Icons.Default.Close, stringResource(R.string.clear_search),

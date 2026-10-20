@@ -507,3 +507,10 @@ The following are review blockers:
 13. Never attach queued guidance to a terminal Run or persist it before a legal boundary.
 14. Never accept an asynchronous result for an unexpected Run/pass/effect identity.
 15. Never delete original messages during Context Compact or split a complete tool round.
+
+## Reusable interactive templates
+
+The file-backed template library stores validated interfaces and user-defined shortcuts separately
+from Skill files. Local openings commit immutable chat snapshots without provider calls; models may
+list/open the same resources through the normal tool pipeline. The existing sandbox and confirmation
+bridge remain authoritative. See [the contract](development/interactive-templates.md).

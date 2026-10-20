@@ -1,8 +1,6 @@
 package com.newoether.agora.ui.chat.bottombar
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
@@ -13,9 +11,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +29,10 @@ import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as Cir
 import com.newoether.agora.viewmodel.ConversationComposerSnapshot
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionController
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionSnapshot
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.motion.animateColorAsState
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Surface
 
 private enum class ComposerActionIcon {
     BUSY,
@@ -65,6 +65,7 @@ internal fun ComposerSendButton(
     isStopping: Boolean = false,
     isModelValid: Boolean,
     hasQueuedSends: Boolean = false,
+    voiceTypingBusy: Boolean = false,
     onSendQueued: () -> Unit = {},
     onStopGeneration: () -> Unit,
     onCollapse: () -> Unit,
@@ -74,12 +75,12 @@ internal fun ComposerSendButton(
     val textIsEmpty = textFieldState.text.isBlank()
     val attachmentsIsEmpty = snapshot.attachments.isEmpty()
     val showStop = isLoading && !isStopping && textIsEmpty && attachmentsIsEmpty
-    val canSend = snapshot.loaded &&
+    val canSend = !voiceTypingBusy && snapshot.loaded &&
         (textFieldState.text.isNotBlank() || snapshot.attachments.isNotEmpty()) &&
-        isModelValid && !isSwitching && !isStopping && !submission.isFrozen
+        (isModelValid || com.newoether.agora.templates.isTemplateCommand(textFieldState.text.toString())) && !isSwitching && !isStopping && !submission.isFrozen
     // Idle with a non-empty queue: the button sends the queue instead of staying dead, so a batch
     // left behind by a failed drain can be delivered without typing a new message.
-    val canSendQueued = hasQueuedSends && !isLoading && !isSwitching && !isStopping &&
+    val canSendQueued = hasQueuedSends && !isLoading && !isSwitching && !isStopping && !voiceTypingBusy &&
         textIsEmpty && attachmentsIsEmpty && isModelValid && !submission.isFrozen
     val isActionable = composerSendActionEnabled(
         submission = submission,

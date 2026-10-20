@@ -1,761 +1,125 @@
 package com.newoether.agora.ui.settings
 
-import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
-import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
-import com.newoether.agora.data.SkillManager
-import com.newoether.agora.data.readSkillMarkdown
-import com.newoether.agora.ui.components.clearFocusOnTap
-import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet as ModalBottomSheet
-import com.newoether.agora.util.DebugLog
+import com.newoether.agora.skills.*
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.TextButton
+import com.newoether.agora.ui.components.AlertDialog
 import com.newoether.agora.viewmodel.ChatViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import com.newoether.agora.ui.components.AgoraDropdownMenu
-import com.newoether.agora.ui.components.AgoraDropdownMenuItem
-import com.newoether.agora.ui.components.sheetOptionClickable
+import kotlinx.coroutines.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+private data class SkillEditTarget(val document: SkillDocument, val original: String?, val description: String)
+
+/** Same settings owner and shared list/detail navigation as System Prompts. */
 @Composable
-fun SettingsSkillsPage(
-    viewModel: ChatViewModel,
-    onBack: () -> Unit,
-) {
-    val accessSkills by viewModel.settings.accessSkills.collectAsState()
-    val catalogRevision by viewModel.skillManager.catalogRevision.collectAsState()
-    val showDocumentationFab by viewModel.settings.showDocumentationFab.collectAsState()
-    val scope = rememberCoroutineScope()
+fun SettingsSkillsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
-    val motionPolicy = LocalAgoraMotionPolicy.current
-    val addSkillSheetState = rememberModalBottomSheetState()
-    val unknownError = stringResource(R.string.unknown_error)
-
-    var skillFiles by remember {
-        mutableStateOf<List<SkillManager.SkillFileInfo>>(emptyList())
-    }
-    var skillsLoaded by remember { mutableStateOf(false) }
-    var skillOperationInFlight by remember { mutableStateOf(false) }
-
-    var showFileEditor by remember { mutableStateOf<String?>(null) }
-    var fileEditorContent by remember { mutableStateOf("") }
-    var fileEditorDescription by remember { mutableStateOf("") }
-
-    var showAddSkillSheet by remember { mutableStateOf(false) }
-    var addSkillActionInFlight by remember { mutableStateOf(false) }
-    var addSkillActionGeneration by remember { mutableStateOf(0L) }
-    var showNewFileDialog by remember { mutableStateOf(false) }
-    var newFileName by remember { mutableStateOf("") }
-    var newFileDescription by remember { mutableStateOf("") }
-    var newFileContent by remember { mutableStateOf("") }
-
-    var showDeleteFileConfirm by remember { mutableStateOf<String?>(null) }
-
-    fun reportSkillFailure(action: String, error: Throwable) {
-        DebugLog.e("SettingsSkills", action, error)
-        viewModel.emitSnackbar(error.localizedMessage ?: unknownError)
-    }
-
-    suspend fun loadSkills(): Result<List<SkillManager.SkillFileInfo>> =
-        withContext(Dispatchers.IO) {
-            runCatching { viewModel.skillManager.listFiles() }
+    val scope = rememberCoroutineScope()
+    val manager = viewModel.skillManager
+    val revision by manager.catalogRevision.collectAsState()
+    val access by viewModel.settings.accessSkills.collectAsState()
+    var files by remember { mutableStateOf<List<com.newoether.agora.data.SkillManager.SkillFileInfo>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<SkillEditTarget?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    fun perform(operation: suspend () -> Unit) {
+        if (busy) return
+        busy = true
+        scope.launch {
+            try { operation() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) { viewModel.emitSnackbar(failure.message ?: context.getString(R.string.unknown_error)) }
+            finally { busy = false }
         }
-
-    val markdownPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri != null && !skillOperationInFlight) {
-            skillOperationInFlight = true
-            scope.launch {
-                val imported = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val (fileName, content) = readSkillMarkdown(context, uri)
-                        viewModel.skillManager.createFile(
-                            name = fileName,
-                            content = content,
-                            description = "",
-                        )
-                        viewModel.skillManager.listFiles()
+    }
+    LaunchedEffect(revision) {
+        try { files = withContext(Dispatchers.IO) { manager.listFiles() }; loaded = true }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: Exception) { viewModel.emitSnackbar(failure.message.orEmpty()) }
+    }
+    BackHandler { if (!busy) { if (editing == null) onBack() else editing = null } }
+    GuardedAnimatedContent(editing, forward = editing != null) { target ->
+        if (target != null) {
+            SkillEditorPage(viewModel, target.document, target.description, busy,
+                onBack = { if (!busy) editing = null },
+                onSave = { document, description -> perform {
+                    withContext(Dispatchers.IO) {
+                        manager.saveDocument(document, description,
+                            originalName = target.document.name.takeIf { target.original != null }, expected = target.original)
                     }
-                }
-                imported.onSuccess { files ->
-                    skillFiles = files
-                }.onFailure { error ->
-                    reportSkillFailure("Unable to import skill file", error)
-                }
-                skillOperationInFlight = false
+                    editing = null
+                } })
+        } else CollapsingSettingsScaffold(title = stringResource(R.string.skills_title), onBack = onBack) {
+            SettingsGroupColumn {
+                SettingsGroup(title = stringResource(R.string.memory_access_title), items = listOf({
+                    SettingsItem(headlineContent = { Text(stringResource(R.string.skills_access)) },
+                        supportingContent = { Text(stringResource(R.string.skills_access_desc)) },
+                        leadingContent = { Icon(Icons.Default.Extension, null) },
+                        trailingContent = { Switch(access, viewModel.settings::setAccessSkills) },
+                        modifier = Modifier.clickable { viewModel.settings.setAccessSkills(!access) })
+                }))
+                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.skill_search)) }, modifier = Modifier.fillMaxWidth())
+                SettingsGroup(title = stringResource(R.string.skills_saved_title), items = buildList {
+                    if (!loaded) add { Text(stringResource(R.string.loading_label), Modifier.padding(16.dp)) }
+                    if (loaded && files.isEmpty()) add { Text(stringResource(R.string.skills_empty), Modifier.padding(16.dp)) }
+                    files.filter { it.name.contains(query, true) || it.description.contains(query, true) }.forEach { file -> add {
+                        var menu by remember(file.name) { mutableStateOf(false) }
+                        SettingsItem(headlineContent = { Text(file.name.removeSuffix(".md")) },
+                            supportingContent = { Text(file.description.ifBlank { file.name }) },
+                            leadingContent = { Icon(Icons.Default.Extension, null) },
+                            trailingContent = { Box {
+                                IconButton(onClick = { menu = true }, enabled = !busy) { Icon(Icons.Default.MoreVert, stringResource(R.string.template_actions)) }
+                                com.newoether.agora.ui.components.AgoraDropdownMenu(menu, { menu = false }) {
+                                    com.newoether.agora.ui.components.AgoraDropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = {
+                                        menu = false; deleting = file.name
+                                    })
+                                }
+                            } }, modifier = Modifier.clickable(enabled = !busy) { perform {
+                                val body = withContext(Dispatchers.IO) { manager.readFile(file.name) }
+                                editing = SkillEditTarget(SkillDocument.decode(file.name, body), body, file.description)
+                            } })
+                    } }
+                    add { SettingsAddItem(label = stringResource(R.string.skills_add), onClick = {
+                        if (!busy) editing = SkillEditTarget(SkillDocument("", "", SkillConfiguration()), null, "")
+                    }) }
+                })
+                SettingsGroup(title = stringResource(R.string.skill_create_options), items = listOf({
+                    SettingsItem(headlineContent = { Text(stringResource(R.string.skill_create_ai)) },
+                        supportingContent = { Text(stringResource(R.string.skill_create_ai_desc)) },
+                        leadingContent = { Icon(Icons.Default.Edit, null) },
+                        modifier = Modifier.clickable(enabled = !busy) {
+                            val owner = if (viewModel.isNewChatMode.value) com.newoether.agora.viewmodel.NEW_CHAT_WORKSPACE_ID else viewModel.currentConversationId.value ?: com.newoether.agora.viewmodel.NEW_CHAT_WORKSPACE_ID
+                            perform {
+                                viewModel.conversationComposer.load(owner)
+                                try {
+                                    val appended = viewModel.conversationComposer.appendText(owner, context.getString(R.string.skill_create_ai_prompt))
+                                    check(viewModel.conversationComposer.persistText(owner, appended)) { context.getString(R.string.skill_draft_save_failed) }
+                                    viewModel.emitSnackbar(context.getString(R.string.skill_draft_ready))
+                                } finally { withContext(NonCancellable) { viewModel.conversationComposer.release(owner) } }
+                            }
+                        })
+                }))
             }
         }
     }
-
-    fun runAddSkillAction(action: () -> Unit) {
-        if (addSkillActionInFlight || skillOperationInFlight) return
-        addSkillActionInFlight = true
-        val actionGeneration = ++addSkillActionGeneration
-        action()
-        if (motionPolicy.allowSpatialTransitions) {
-            scope.launch {
-                try {
-                    addSkillSheetState.hide()
-                } finally {
-                    if (addSkillActionGeneration == actionGeneration) {
-                        showAddSkillSheet = false
-                        addSkillActionInFlight = false
-                    }
-                }
-            }
-        } else {
-            showAddSkillSheet = false
-            addSkillActionInFlight = false
-        }
-    }
-
-    LaunchedEffect(catalogRevision) {
-        loadSkills()
-            .onSuccess { skillFiles = it }
-            .onFailure { error -> reportSkillFailure("Unable to load skills", error) }
-        skillsLoaded = true
-    }
-
-    CollapsingSettingsScaffold(
-        title = stringResource(R.string.skills_title),
-        onBack = onBack,
-        floatingActionButton = {
-            if (showDocumentationFab) DocumentationFab("skills.md")
-        },
-    ) {
-        SettingsGroupColumn {
-            SettingsGroup(
-                title = stringResource(R.string.memory_access_title),
-                items = listOf(
-                    {
-                        SettingsItem(
-                            headlineContent = {
-                                Text(stringResource(R.string.skills_access))
-                            },
-                            supportingContent = {
-                                Text(stringResource(R.string.skills_access_desc))
-                            },
-                            leadingContent = {
-                                Icon(
-                                    Icons.Default.Extension,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = accessSkills,
-                                    onCheckedChange = viewModel.settings::setAccessSkills,
-                                )
-                            },
-                            modifier = Modifier.clickable {
-                                viewModel.settings.setAccessSkills(!accessSkills)
-                            },
-                        )
-                    },
-                ),
-            )
-
-            SettingsGroup(
-                title = stringResource(R.string.skills_saved_title),
-                items = buildList {
-                    if (!skillsLoaded) {
-                        add {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 64.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                            }
-                        }
-                    } else if (skillFiles.isEmpty()) {
-                        add {
-                            SettingsItem(
-                                headlineContent = {
-                                    Text(
-                                        stringResource(R.string.skills_empty),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                },
-                                supportingContent = {
-                                    Text(
-                                        stringResource(R.string.skills_create_hint),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.6f,
-                                        ),
-                                    )
-                                },
-                                leadingContent = {
-                                    Icon(
-                                        Icons.Default.Extension,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.4f,
-                                        ),
-                                    )
-                                },
-                                modifier = Modifier.heightIn(min = 64.dp),
-                            )
-                        }
-                    } else {
-                        skillFiles.forEach { file ->
-                            add {
-                                var showFileMenu by remember { mutableStateOf(false) }
-                                val displayName = file.name.removeSuffix(".md")
-                                SettingsItem(
-                                    headlineContent = {
-                                        Text(
-                                            displayName,
-                                            fontWeight = FontWeight.Medium,
-                                        )
-                                    },
-                                    supportingContent = if (file.description.isNotBlank()) {
-                                        { Text(file.description) }
-                                    } else {
-                                        null
-                                    },
-                                    leadingContent = {
-                                        Icon(
-                                            Icons.Default.Extension,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.6f,
-                                            ),
-                                        )
-                                    },
-                                    trailingContent = {
-                                        Box {
-                                            IconButton(
-                                                onClick = { showFileMenu = true },
-                                                enabled = !skillOperationInFlight,
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.MoreVert,
-                                                    stringResource(R.string.menu),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            }
-                                            AgoraDropdownMenu(
-                                                containerColor =
-                                                    MaterialTheme.colorScheme.surfaceContainer,
-                                                tonalElevation = 16.dp,
-                                                expanded = showFileMenu,
-                                                onDismissRequest = { showFileMenu = false },
-                                            ) {
-                                                AgoraDropdownMenuItem(
-                                                    text = {
-                                                        Text(
-                                                            stringResource(
-                                                                R.string.provider_edit,
-                                                            ),
-                                                        )
-                                                    },
-                                                    leadingIcon = {
-                                                        Icon(Icons.Default.Edit, null)
-                                                    },
-                                                    enabled = !skillOperationInFlight,
-                                                    onClick = {
-                                                        showFileMenu = false
-                                                        if (!skillOperationInFlight) {
-                                                            skillOperationInFlight = true
-                                                            scope.launch {
-                                                                val opened =
-                                                                    withContext(Dispatchers.IO) {
-                                                                        runCatching {
-                                                                            viewModel.skillManager
-                                                                                .readFile(file.name) to
-                                                                                viewModel.skillManager
-                                                                                    .getDescription(
-                                                                                        file.name,
-                                                                                    )
-                                                                        }
-                                                                    }
-                                                                opened.onSuccess {
-                                                                        (content, description) ->
-                                                                    fileEditorContent = content
-                                                                    fileEditorDescription =
-                                                                        description
-                                                                    showFileEditor = file.name
-                                                                }.onFailure { error ->
-                                                                    reportSkillFailure(
-                                                                        "Unable to open skill file",
-                                                                        error,
-                                                                    )
-                                                                }
-                                                                skillOperationInFlight = false
-                                                            }
-                                                        }
-                                                    },
-                                                )
-                                                AgoraDropdownMenuItem(
-                                                    text = {
-                                                        Text(
-                                                            stringResource(
-                                                                R.string.provider_delete,
-                                                            ),
-                                                            color =
-                                                                MaterialTheme.colorScheme.error,
-                                                        )
-                                                    },
-                                                    leadingIcon = {
-                                                        Icon(
-                                                            Icons.Default.Delete,
-                                                            contentDescription = null,
-                                                            tint =
-                                                                MaterialTheme.colorScheme.error,
-                                                        )
-                                                    },
-                                                    enabled = !skillOperationInFlight,
-                                                    onClick = {
-                                                        showFileMenu = false
-                                                        showDeleteFileConfirm = file.name
-                                                    },
-                                                )
-                                            }
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    add {
-                        SettingsAddItem(
-                            label = stringResource(R.string.skills_add),
-                            enabled = skillsLoaded && !skillOperationInFlight,
-                            onClick = {
-                                addSkillActionGeneration += 1
-                                addSkillActionInFlight = false
-                                showAddSkillSheet = true
-                            },
-                        )
-                    }
-                },
-            )
-        }
-        if (showDocumentationFab) {
-            Spacer(modifier = Modifier.height(80.dp))
-        }
-    }
-
-    if (showAddSkillSheet) {
-        ModalBottomSheet(
-            onDismissRequest = {
-                addSkillActionGeneration += 1
-                addSkillActionInFlight = false
-                showAddSkillSheet = false
-            },
-            sheetState = addSkillSheetState,
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            DialogWindowEdgeToEdge()
-            Text(
-                text = stringResource(R.string.skills_add),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SettingsItem(
-                headlineContent = {
-                    Text(
-                        stringResource(R.string.skills_add_from_markdown),
-                        fontWeight = FontWeight.Medium,
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        stringResource(R.string.skills_add_from_markdown_desc),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                leadingContent = {
-                    Icon(
-                        Icons.Default.Description,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                startPadding = SETTINGS_ITEM_SHEET_PADDING,
-                endPadding = SETTINGS_ITEM_SHEET_PADDING,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .sheetOptionClickable(enabled = !addSkillActionInFlight) {
-                        runAddSkillAction {
-                            markdownPicker.launch(
-                                arrayOf("text/markdown", "text/plain", "application/octet-stream"),
-                            )
-                        }
-                    },
-            )
-            SettingsItem(
-                headlineContent = {
-                    Text(
-                        stringResource(R.string.skills_add_manually),
-                        fontWeight = FontWeight.Medium,
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        stringResource(R.string.skills_add_manually_desc),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                leadingContent = {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                startPadding = SETTINGS_ITEM_SHEET_PADDING,
-                endPadding = SETTINGS_ITEM_SHEET_PADDING,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .sheetOptionClickable(enabled = !addSkillActionInFlight) {
-                        runAddSkillAction {
-                            showNewFileDialog = true
-                        }
-                    },
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-
-    showDeleteFileConfirm?.let { fileName ->
-        AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            onDismissRequest = {
-                if (!skillOperationInFlight) showDeleteFileConfirm = null
-            },
-            title = {
-                Text(
-                    stringResource(R.string.skills_delete_title),
-                    fontWeight = FontWeight.Bold,
-                )
-            },
-            text = {
-                Text(stringResource(R.string.skills_delete_message, fileName))
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (!skillOperationInFlight) {
-                            skillOperationInFlight = true
-                            scope.launch {
-                                val deleted = withContext(Dispatchers.IO) {
-                                    runCatching {
-                                        viewModel.skillManager.deleteFile(fileName)
-                                        viewModel.skillManager.listFiles()
-                                    }
-                                }
-                                deleted.onSuccess { files ->
-                                    skillFiles = files
-                                    showDeleteFileConfirm = null
-                                }.onFailure { error ->
-                                    reportSkillFailure(
-                                        "Unable to delete skill file",
-                                        error,
-                                    )
-                                }
-                                skillOperationInFlight = false
-                            }
-                        }
-                    },
-                    enabled = !skillOperationInFlight,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Text(stringResource(R.string.provider_delete))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDeleteFileConfirm = null },
-                    enabled = !skillOperationInFlight,
-                ) {
-                    Text(stringResource(R.string.provider_cancel))
-                }
-            },
-        )
-    }
-
-    showFileEditor?.let { fileName ->
-        var editFileName by remember {
-            mutableStateOf(fileName.removeSuffix(".md"))
-        }
-        var editDescription by remember {
-            mutableStateOf(fileEditorDescription)
-        }
-        var editContent by remember {
-            mutableStateOf(fileEditorContent)
-        }
-
-        AlertDialog(
-            modifier = Modifier.clearFocusOnTap(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            onDismissRequest = {
-                if (!skillOperationInFlight) {
-                    showFileEditor = null
-                    fileEditorContent = ""
-                    fileEditorDescription = ""
-                }
-            },
-            title = {
-                Text(
-                    stringResource(R.string.skills_edit),
-                    fontWeight = FontWeight.Bold,
-                )
-            },
-            text = {
-                Column(Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = editFileName,
-                        onValueChange = { editFileName = it },
-                        label = { Text(stringResource(R.string.skills_name)) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = editDescription,
-                        onValueChange = { editDescription = it },
-                        label = {
-                            Text(stringResource(R.string.skills_description))
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = editContent,
-                        onValueChange = { editContent = it },
-                        label = { Text(stringResource(R.string.skills_content)) },
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 200.dp, max = 400.dp),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                        ),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (!skillOperationInFlight) {
-                            val contentSnapshot = editContent
-                            val descriptionSnapshot = editDescription
-                            val editedName = editFileName.trim()
-                            val newName = editedName.takeIf {
-                                it != fileName.removeSuffix(".md")
-                            }
-                            skillOperationInFlight = true
-                            scope.launch {
-                                val saved = withContext(Dispatchers.IO) {
-                                    runCatching {
-                                        viewModel.skillManager.editFile(
-                                            name = fileName,
-                                            content = contentSnapshot,
-                                            newName = newName,
-                                            description = descriptionSnapshot,
-                                        )
-                                        viewModel.skillManager.listFiles()
-                                    }
-                                }
-                                saved.onSuccess { files ->
-                                    skillFiles = files
-                                    showFileEditor = null
-                                    fileEditorContent = ""
-                                    fileEditorDescription = ""
-                                }.onFailure { error ->
-                                    reportSkillFailure(
-                                        "Unable to save skill file",
-                                        error,
-                                    )
-                                }
-                                skillOperationInFlight = false
-                            }
-                        }
-                    },
-                    enabled =
-                        !skillOperationInFlight && editFileName.isNotBlank(),
-                ) {
-                    Text(stringResource(R.string.provider_save))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showFileEditor = null
-                        fileEditorContent = ""
-                        fileEditorDescription = ""
-                    },
-                    enabled = !skillOperationInFlight,
-                ) {
-                    Text(stringResource(R.string.provider_cancel))
-                }
-            },
-        )
-    }
-
-    if (showNewFileDialog) {
-        AlertDialog(
-            modifier = Modifier.clearFocusOnTap(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            onDismissRequest = {
-                if (!skillOperationInFlight) showNewFileDialog = false
-            },
-            title = {
-                Text(
-                    stringResource(R.string.skills_add),
-                    fontWeight = FontWeight.Bold,
-                )
-            },
-            text = {
-                Column(Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = newFileName,
-                        onValueChange = { newFileName = it },
-                        label = { Text(stringResource(R.string.skills_name)) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = newFileDescription,
-                        onValueChange = { newFileDescription = it },
-                        label = {
-                            Text(stringResource(R.string.skills_description))
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = newFileContent,
-                        onValueChange = { newFileContent = it },
-                        label = { Text(stringResource(R.string.skills_content)) },
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 150.dp),
-                        textStyle = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                        ),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (newFileName.isNotBlank() && !skillOperationInFlight) {
-                            val nameSnapshot = newFileName
-                            val descriptionSnapshot = newFileDescription
-                            val contentSnapshot = newFileContent
-                            skillOperationInFlight = true
-                            scope.launch {
-                                val created = withContext(Dispatchers.IO) {
-                                    runCatching {
-                                        viewModel.skillManager.createFile(
-                                            name = nameSnapshot,
-                                            content = contentSnapshot,
-                                            description = descriptionSnapshot,
-                                        )
-                                        viewModel.skillManager.listFiles()
-                                    }
-                                }
-                                created.onSuccess { files ->
-                                    skillFiles = files
-                                    showNewFileDialog = false
-                                    newFileName = ""
-                                    newFileDescription = ""
-                                    newFileContent = ""
-                                }.onFailure { error ->
-                                    reportSkillFailure(
-                                        "Unable to create skill file",
-                                        error,
-                                    )
-                                }
-                                skillOperationInFlight = false
-                            }
-                        }
-                    },
-                    enabled =
-                        newFileName.isNotBlank() && !skillOperationInFlight,
-                ) {
-                    Text(stringResource(R.string.skills_create))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showNewFileDialog = false
-                        newFileName = ""
-                        newFileDescription = ""
-                        newFileContent = ""
-                    },
-                    enabled = !skillOperationInFlight,
-                ) {
-                    Text(stringResource(R.string.provider_cancel))
-                }
-            },
-        )
-    }
+    deleting?.let { name -> AlertDialog(onDismissRequest = { if (!busy) deleting = null },
+        title = { Text(stringResource(R.string.delete)) }, text = { Text(name) },
+        confirmButton = { TextButton(enabled = !busy, onClick = { perform {
+            withContext(Dispatchers.IO) { manager.deleteFile(name) }; deleting = null
+        } }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { deleting = null }, enabled = !busy) { Text(stringResource(R.string.cancel)) } }) }
 }

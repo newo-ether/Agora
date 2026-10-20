@@ -2,6 +2,7 @@ package com.newoether.agora.automation
 
 import android.app.Application
 import android.content.Context
+import kotlinx.serialization.encodeToString
 import com.newoether.agora.api.HttpClient
 import com.newoether.agora.api.local.LocalProvider
 import com.newoether.agora.data.MemoryManager
@@ -89,7 +90,6 @@ class TaskExecutionEngine(
         data class Busy(val reason: String = "Conversation is already generating") : Result
         data class Failure(val reason: String, val modelMessageId: String? = null) : Result
     }
-
     /**
      * Optional bridge that redirects loop cycles on the foreground-open conversation through the
      * regular MessageGenerationController send path (with attached-only scroll) instead of the
@@ -242,17 +242,16 @@ class TaskExecutionEngine(
         foregroundServiceManagedExternally: Boolean = false,
         precondition: suspend () -> Boolean = { true },
         requestKind: String = "task",
+        attachments: List<com.newoether.agora.model.SelectedAttachment> = emptyList(),
     ): Result = automationExecutionGate.withExecution {
         executionCoordinator.withAutomationConversationLock(conversationId) {
             convRepo.recoverConversationRuntime(conversationId)
             runOnceWithAutomationGuardsHeld(
-                conversationId = conversationId,
-                userText = userText,
-                modelId = modelId,
-                systemPromptOverride = systemPromptOverride,
+                conversationId = conversationId, userText = userText,
+                modelId = modelId, systemPromptOverride = systemPromptOverride,
                 foregroundServiceManagedExternally = foregroundServiceManagedExternally,
-                precondition = precondition,
-                requestKind = requestKind,
+                precondition = precondition, requestKind = requestKind,
+                attachments = attachments,
             )
         }
     }
@@ -272,19 +271,16 @@ class TaskExecutionEngine(
         requestKind: String = "loop",
         source: MessageSource? = null,
         contextOverride: com.newoether.agora.viewmodel.GenerationContext? = null,
+        attachments: List<com.newoether.agora.model.SelectedAttachment> = emptyList(),
     ): Result = executionCoordinator.withGenerationAdmission(conversationId) {
         settings.awaitInitialLoad()
         automationWakeLockOwner.whileHeld(settings.automationWakeLockEnabled.value) {
             runOnceLocked(
-                conversationId = conversationId,
-                userText = userText,
-                modelId = modelId,
-                systemPromptOverride = systemPromptOverride,
+                conversationId = conversationId, userText = userText,
+                modelId = modelId, systemPromptOverride = systemPromptOverride,
                 foregroundServiceManagedExternally = foregroundServiceManagedExternally,
-                precondition = precondition,
-                requestKind = requestKind,
-                source = source,
-                contextOverride = contextOverride,
+                precondition = precondition, requestKind = requestKind,
+                attachments = attachments, source = source, contextOverride = contextOverride,
             )
         }
     }
@@ -297,6 +293,7 @@ class TaskExecutionEngine(
         foregroundServiceManagedExternally: Boolean,
         precondition: suspend () -> Boolean,
         requestKind: String,
+        attachments: List<com.newoether.agora.model.SelectedAttachment> = emptyList(),
         source: MessageSource?,
         contextOverride: com.newoether.agora.viewmodel.GenerationContext?,
     ): Result {
@@ -317,7 +314,7 @@ class TaskExecutionEngine(
         // conversation lease still spans the whole generation and the Result reflects what
         // actually happened rather than merely "the send was accepted".
         val bridge = currentForegroundSendBridge()
-        if (bridge != null && requestKind != "subagent") {
+        if (bridge != null && requestKind != "subagent" && attachments.isEmpty()) {
             when (
                 val outcome = bridge(
                     conversationId,
@@ -372,6 +369,7 @@ class TaskExecutionEngine(
                 conversationId = conversationId,
                 runId = runId,
                 modelId = effectiveModelId,
+                submittedAttachments = attachments,
                 resolvedPromptOverride = systemPromptOverride?.let {
                     GenerationRequestBuilder.ResolvedPrompt(
                         it.ifBlank { null },
@@ -477,12 +475,15 @@ class TaskExecutionEngine(
                 return Result.Failure("Conversation generation slot was revoked")
             }
             val persistToken = generationState.nextPersistId()
+            val attachmentPayload = com.newoether.agora.viewmodel.MessagePayloadBuilder().buildComposerPayload(attachments)
             val graphCommit = acceptedInputGraphWriter.commit(
                 AcceptedInputGraphWriter.Request(
                     inputEffect = acceptedInputEffect,
                     userMessageId = userMessageId,
                     modelMessageId = modelMessageId,
                     userText = userText,
+                    images = attachmentPayload.allImages,
+                    attachmentMeta = attachmentPayload.attachmentMeta?.let { kotlinx.serialization.json.Json.encodeToString(it) },
                     modelId = generationSnapshot.selectedModelId,
                     userTimestamp = now,
                     touchConversationOnAdmission = false,

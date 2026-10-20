@@ -510,8 +510,8 @@ class WebUiChatSessionTest {
     fun modelSelectionSettlesBeforeTheNextTapAndNewChatDoesNotWritePhoneState() = runBlocking {
         session.start()
         withTimeout(TIMEOUT_MS) { session.composerState.first { it.modelValid } }
-        session.selectModel("conversation-model", seq = 0L, commandId = 1L)
-        session.send("new choice", seq = 0L)
+        withTimeout(TIMEOUT_MS) { session.selectModel("conversation-model", seq = 0L, commandId = 1L) }
+        withTimeout(TIMEOUT_MS) { session.send("new choice", seq = 0L) }
         withTimeout(TIMEOUT_MS) { while (captures.isEmpty()) kotlinx.coroutines.delay(10) }
         assertEquals("conversation-model", captures.single().modelId)
         coVerify(exactly = 0) { conversations.upsertNewChatPersist(any()) }
@@ -523,14 +523,14 @@ class WebUiChatSessionTest {
             canonical.value = canonical.value!!.copy(modelId = "default-model")
             1
         }
-        session.open("a", seq = 2L)
-        session.selectModel("default-model", seq = 2L, commandId = 2L)
+        withTimeout(TIMEOUT_MS) { session.open("a", seq = 2L) }
+        withTimeout(TIMEOUT_MS) { session.selectModel("default-model", seq = 2L, commandId = 2L) }
         captures.clear()
-        session.send("next tap", seq = 2L)
+        withTimeout(TIMEOUT_MS) { session.send("next tap", seq = 2L) }
         withTimeout(TIMEOUT_MS) { while (captures.isEmpty()) kotlinx.coroutines.delay(10) }
         assertEquals("default-model", captures.single().modelId)
-        session.selectModel("invalid", seq = 2L, commandId = 3L)
-        session.selectModel("conversation-model", seq = 1L, commandId = 4L)
+        withTimeout(TIMEOUT_MS) { session.selectModel("invalid", seq = 2L, commandId = 3L) }
+        withTimeout(TIMEOUT_MS) { session.selectModel("conversation-model", seq = 1L, commandId = 4L) }
         coVerify(exactly = 1) { dao.updateConversationModel(any(), any(), any()) }
     }
     @Test

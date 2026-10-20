@@ -43,6 +43,8 @@ internal object NativeBackupMediaPolicy {
                 processedFrames = attachment.processedFrames
                     ?.mapNotNull(archiveEntryForSource)
                     ?.takeIf(List<String>::isNotEmpty),
+                notesThumbnailPath = attachment.notesThumbnailPath?.let(archiveEntryForSource),
+                sourceThumbnailPath = attachment.sourceThumbnailPath?.let(archiveEntryForSource),
                 preRenderedPaths = attachment.preRenderedPaths
                     ?.mapNotNull(archiveEntryForSource)
                     ?.takeIf(List<String>::isNotEmpty),
@@ -74,6 +76,8 @@ internal object NativeBackupMediaPolicy {
                 processedFrames = attachment.processedFrames
                     ?.mapNotNull(restoredPathForArchiveEntry)
                     ?.takeIf(List<String>::isNotEmpty),
+                notesThumbnailPath = attachment.notesThumbnailPath?.let(restoredPathForArchiveEntry),
+                sourceThumbnailPath = attachment.sourceThumbnailPath?.let(restoredPathForArchiveEntry),
                 preRenderedPaths = attachment.preRenderedPaths
                     ?.mapNotNull(restoredPathForArchiveEntry)
                     ?.takeIf(List<String>::isNotEmpty),
@@ -127,20 +131,22 @@ internal object NativeBackupMediaPolicy {
                     }
                     .orEmpty()
                 val archivedOriginalUri = item.originalUri
-                    ?.takeIf { !item.unavailable && item.type == "video" }
+                    ?.takeIf { !item.unavailable && (item.type == "video" || item.mimeType == "application/vnd.kalamos.notes-document+zip") }
                     ?.let(archiveEntryForSource)
                 val unavailable = when {
                     item.unavailable -> true
-                    item.type == "video" -> archivedOriginalUri == null
+                    item.type == "video" || item.mimeType == "application/vnd.kalamos.notes-document+zip" -> archivedOriginalUri == null
                     item.type == "file" -> item.textContent == null
                     item.type == "image" || item.type == "pdf" -> survivingIndices.isEmpty()
                     else -> false
                 }
                 if (unavailable) onMissingResource()
                 item.copy(
-                    // Only copied video payloads keep a structural original reference. Other types
+                    // Videos and editable Notes bundles keep their copied original bytes. Other types
                     // render from archived message media/text and must not expose a device URI.
                     originalUri = archivedOriginalUri,
+                    notesThumbnailPath = item.notesThumbnailPath?.let(archiveEntryForSource),
+                    sourceThumbnailPath = item.sourceThumbnailPath?.let(archiveEntryForSource),
                     fileName = item.fileName ?: item.originalUri?.let(::sourceFileName),
                     imageIndex = when {
                         unavailable || item.imageIndex == null -> null
@@ -207,13 +213,15 @@ internal object NativeBackupMediaPolicy {
                     }
                     val unavailable = when {
                         item.unavailable -> true
-                        item.type == "video" -> restoredOriginalUri == null
+                        item.type == "video" || item.mimeType == "application/vnd.kalamos.notes-document+zip" -> restoredOriginalUri == null
                         item.type == "file" -> item.textContent == null
                         item.type == "image" || item.type == "pdf" -> survivingIndices.isEmpty()
                         else -> false
                     }
                     item.copy(
                         originalUri = restoredOriginalUri,
+                        notesThumbnailPath = item.notesThumbnailPath?.let(restoredUriForArchiveEntry),
+                        sourceThumbnailPath = item.sourceThumbnailPath?.let(restoredUriForArchiveEntry),
                         imageIndex = when {
                             unavailable || item.imageIndex == null -> null
                             else -> survivingIndices.firstOrNull()
@@ -268,6 +276,8 @@ internal object NativeBackupMediaPolicy {
         processedFrames = null,
         selectedPages = null,
         preRenderedPaths = null,
+        notesThumbnailPath = null,
+        sourceThumbnailPath = null,
         localPath = null,
         storage = AttachmentStorage.APP_PRIVATE,
         sandboxPath = null,

@@ -34,7 +34,12 @@ internal fun projectProviderMessages(
     includeStoredTranscriptions: Boolean,
 ): List<ChatMessage> {
     val toolHistoryCompactor = ToolRoundHistoryCompactor()
-    return entities.map { entity ->
+    return entities.filterNot { entity ->
+        entity.text.isEmpty() && entity.toolCallJson?.let { raw ->
+            runCatching { Json.decodeFromString<List<MessageSegment>>(raw) }.getOrNull()
+                ?.singleOrNull()?.type == "interactive_template"
+        } == true
+    }.map { entity ->
         val decodedSegments = entity.toolCallJson?.let { json ->
             runCatching { Json.decodeFromString<List<MessageSegment>>(json) }.getOrNull()
         }
@@ -44,7 +49,18 @@ internal fun projectProviderMessages(
             thoughts = entity.thoughts,
             segments = decodedSegments,
         )
-        val providerSegments = recovered.segments?.filterNot { it.type == "citation" }
+        val providerSegments = recovered.segments
+            ?.filterNot { it.type == "citation" || it.type == "interactive_template" }
+            ?.map { segment ->
+                when (segment.toolName) {
+                    "open_interactive_template" -> segment.copy(toolStructuredResult = null)
+                    "complete_skill" -> segment.copy(toolStructuredResult =
+                        com.newoether.agora.skills.SkillCompletionReceipt.token(segment.toolStructuredResult)?.let {
+                            com.newoether.agora.skills.SkillCompletionReceipt(it).encode()
+                        })
+                    else -> segment
+                }
+            }
         val segments = if (
             providerSegments != null && entity.id.startsWith(Constants.TOOL_MSG_PREFIX)
         ) {
@@ -70,21 +86,19 @@ internal fun projectProviderMessages(
         val attachmentMeta = entity.attachmentMeta?.let { json ->
             runCatching { Json.decodeFromString<AttachmentMeta>(json) }.getOrNull()
         }
-        val attachmentText = attachmentMeta?.items?.mapNotNull { item ->
-            when {
-                item.storage.isLocalSandbox && !item.sandboxPath.isNullOrBlank() ->
-                    sandboxAttachmentInstruction(item)
-                item.textContent != null -> {
+        val attachmentText = attachmentMeta?.items?.joinToString("") { item ->
+            if (item.storage.isLocalSandbox && !item.sandboxPath.isNullOrBlank()) {
+                sandboxAttachmentInstruction(item)
+            } else buildString {
+                item.textContent?.let {
                     val label = item.fileName ?: "file"
-                    "\n\n--- File: $label ---\n${item.textContent}"
+                    append("\n\n--- File: $label ---\n$it")
                 }
-                includeStoredTranscriptions && !item.transcription.isNullOrBlank() -> {
-                    val label = item.fileName ?: "image"
-                    "\n\n--- Image Transcription: $label ---\n${item.transcription}"
+                if (includeStoredTranscriptions && !item.transcription.isNullOrBlank()) {
+                    append("\n\n--- Image Transcription: ${item.fileName ?: "image"} ---\n${item.transcription}")
                 }
-                else -> null
             }
-        }?.joinToString("").orEmpty()
+        }.orEmpty()
         val hasTranscription = includeStoredTranscriptions &&
             attachmentMeta?.items?.any { !it.transcription.isNullOrBlank() } == true
         ChatMessage(

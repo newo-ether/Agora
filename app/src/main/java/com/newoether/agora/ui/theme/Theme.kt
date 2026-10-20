@@ -15,6 +15,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import java.io.File
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
+import androidx.compose.runtime.CompositionLocalProvider
+import com.newoether.agora.ui.motion.EinkPressIndication
 
 enum class ThemeMode { LIGHT, DARK, FOLLOW_DEVICE }
 
@@ -72,6 +77,7 @@ private fun typographyWithFont(family: FontFamily): Typography {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgoraTheme(
     themeMode: ThemeMode = ThemeMode.FOLLOW_DEVICE,
@@ -79,6 +85,7 @@ fun AgoraTheme(
     schemeStyle: SchemeStyle = SchemeStyle.TONAL_SPOT,
     dynamicColor: Boolean = false,
     amoledEnabled: Boolean = false,
+    eInkMode: Boolean = false,
     fontPreference: String = "app_default",
     customFontPath: String = "",
     content: @Composable () -> Unit
@@ -100,8 +107,9 @@ fun AgoraTheme(
         }
     }
 
-    val colorScheme = remember(baseColorScheme, darkTheme, amoledEnabled) {
-        baseColorScheme.withAmoledBackground(darkTheme, amoledEnabled)
+    val colorScheme = remember(baseColorScheme, darkTheme, amoledEnabled, eInkMode) {
+        if (eInkMode) eInkColorScheme()
+        else baseColorScheme.withAmoledBackground(darkTheme, amoledEnabled)
     }
 
     val fontFamily = effectiveFontFamily(fontPreference, customFontPath)
@@ -111,6 +119,15 @@ fun AgoraTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typography,
-        content = content
+        content = {
+            val regularIndication = LocalIndication.current
+            val regularRipple = LocalRippleConfiguration.current
+            // Keep the same composition group when toggling: drafts and reading position survive.
+            CompositionLocalProvider(
+                LocalIndication provides if (eInkMode) EinkPressIndication else regularIndication,
+                LocalRippleConfiguration provides if (eInkMode) null else regularRipple,
+                content = content,
+            )
+        }
     )
 }

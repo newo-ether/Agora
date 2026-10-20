@@ -14,7 +14,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.*
-import androidx.compose.material3.Icon
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +23,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.platform.LocalContext
@@ -51,6 +51,9 @@ import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.data.modelDisplayName
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.Icon
 internal val CHAT_BOTTOM_BAR_OUTER_RADIUS = 28.dp
 internal val CHAT_BOTTOM_BAR_OUTER_SHAPE = RoundedCornerShape(CHAT_BOTTOM_BAR_OUTER_RADIUS)
 // Non-expanded bar geometry, measured from the bar's outer edge.
@@ -160,7 +163,11 @@ internal fun ChatBottomBar(
     onRemoveQueuedSend: (String) -> Unit = {},
     onSendQueuedNow: () -> Unit = {},
     isStopping: Boolean = false,
+    skillManager: com.newoether.agora.data.SkillManager? = null,
+    voiceSettings: com.newoether.agora.data.repository.SettingsRepository? = null,
+    voiceDraftKey: String = composerOwnerId,
 ) {
+    var voiceTypingBusy by remember(voiceDraftKey) { mutableStateOf(false) }
     val motionPolicy = LocalAgoraMotionPolicy.current
     val scrollState = rememberScrollState()
     BackHandler(enabled = isExpanded) { onCollapse() }
@@ -395,6 +402,10 @@ internal fun ChatBottomBar(
         inputModifier = Modifier.contentReceiver(clipboardImageReceiver),
         scrollState = scrollState,
         statusContent = {
+            ComposerSkillMenu(textFieldState.text.toString(),
+                enabled = composerSnapshot.loaded && !submission.isFrozen && !isSwitching,
+                skillManager = skillManager,
+                onSelect = { command -> textFieldState.edit { replace(0, length, command) } })
             ComposerStatusColumn(
                 queuedSends = queuedSends,
                 onRemoveQueuedSend = onRemoveQueuedSend,
@@ -624,21 +635,30 @@ internal fun ChatBottomBar(
                     }
                 }
             }
-            ComposerSendButton(
-                textFieldState = textFieldState,
-                ownerId = composerOwnerId,
-                snapshot = composerSnapshot,
-                submissionController = submissionController,
-                submission = submission,
-                isLoading = isLoading,
-                isSwitching = isSwitching,
-                isStopping = isStopping,
-                isModelValid = isModelValid,
-                hasQueuedSends = queuedSends.isNotEmpty(),
-                onSendQueued = onSendQueuedNow,
-                onStopGeneration = onStopGeneration,
-                onCollapse = onCollapse,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                voiceSettings?.let { settings ->
+                    key(voiceDraftKey) {
+                        VoiceTypingButton(settings, textFieldState, enabled = composerSnapshot.loaded && !submission.isFrozen && !isSwitching,
+                            onBusyChanged = { voiceTypingBusy = it })
+                    }
+                }
+                ComposerSendButton(
+                    voiceTypingBusy = voiceTypingBusy,
+                    textFieldState = textFieldState,
+                    ownerId = composerOwnerId,
+                    snapshot = composerSnapshot,
+                    submissionController = submissionController,
+                    submission = submission,
+                    isLoading = isLoading,
+                    isSwitching = isSwitching,
+                    isStopping = isStopping,
+                    isModelValid = isModelValid,
+                    hasQueuedSends = queuedSends.isNotEmpty(),
+                    onSendQueued = onSendQueuedNow,
+                    onStopGeneration = onStopGeneration,
+                    onCollapse = onCollapse,
+                )
+            }
     }
 
     ChatBottomBarOverlayHost(

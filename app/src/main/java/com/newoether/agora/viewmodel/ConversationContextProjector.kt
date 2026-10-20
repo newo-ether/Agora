@@ -141,13 +141,13 @@ internal class ConversationContextProjector(
                 )
             } ?: durableProviderMessages
             val fixedTokenCost = snapshot?.let {
-                generationManager().fixedContextTokenCost(it.config, it.context)
+                generationManager().fixedContextTokenCost(it.config, it.context, durableProviderMessages)
             } ?: 0
             val includeAssistantReasoning = snapshot?.let {
                 generationManager().includesAssistantReasoning(it.config, it.context)
             } ?: false
             val fixedComposition = snapshot?.let {
-                generationManager().fixedContextComposition(it.config, it.context)
+                generationManager().fixedContextComposition(it.config, it.context, durableProviderMessages)
             }
             // The indicator must price context exactly like dispatch does, so it uses the selected
             // model's cost model too.

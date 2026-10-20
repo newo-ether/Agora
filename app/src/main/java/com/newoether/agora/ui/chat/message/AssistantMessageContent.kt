@@ -1,11 +1,8 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.tween
@@ -20,8 +17,12 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.ui.platform.LocalContext
+import com.newoether.agora.ui.chat.launchConversationShare
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +53,12 @@ import com.newoether.agora.ui.chat.shouldShowStreamingTailIndicator
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.motion.AnimatedVisibility
+import com.newoether.agora.ui.motion.animateFloat
+import com.newoether.agora.ui.motion.animateFloatAsState
 
 internal val AssistantMessageHorizontalInset = 8.dp
 private val FormerAssistantStatusSpacerHeight = 6.dp
@@ -133,6 +140,14 @@ internal fun AssistantMessageContent(
             source = source,
             onDismiss = { selectedCitation = null },
         )
+    }
+    var showMarkdownShare by rememberSaveable(message.id) { mutableStateOf(false) }
+    val shareContext=LocalContext.current
+    val markdownShareTitle=stringResource(R.string.markdown_share)
+    if(showMarkdownShare && !actionCopyText.isNullOrBlank()) {
+        MarkdownShareDialog(actionCopyText,onDismiss={showMarkdownShare=false}) { selected ->
+            launchConversationShare(shareContext,selected,markdownShareTitle)
+        }
     }
     var showMenu by remember(message.id) { mutableStateOf(false) }
     var regenerateRequested by remember(message.id) { mutableStateOf(false) }
@@ -250,6 +265,7 @@ internal fun AssistantMessageContent(
     ) {
         Column {
             if (includeOuterSpacing) Spacer(modifier = Modifier.height(FormerAssistantStatusSpacerHeight))
+            InteractiveAnswerCards(message)
 
             // GenerationManager already publishes a bounded stream cadence. A second UI debounce
             // delayed every chunk, retained a stale text job through Stop, and then replaced the
@@ -632,6 +648,15 @@ internal fun AssistantMessageContent(
                                 modifier = Modifier.size(16.dp),
                                 tint = terminalActionTint,
                             )
+                        }
+                        if(!actionCopyText.isNullOrBlank()) {
+                            IconButton(
+                                onClick={showMarkdownShare=true},
+                                enabled=actionAvailability.terminalEnabled,
+                                modifier=Modifier.size(32.dp).graphicsLayer { alpha=terminalActionsAlpha },
+                            ) {
+                                Icon(Icons.Default.Checklist,contentDescription=stringResource(R.string.markdown_choose_content),modifier=Modifier.size(18.dp),tint=terminalActionTint)
+                            }
                         }
                         Box {
                             IconButton(

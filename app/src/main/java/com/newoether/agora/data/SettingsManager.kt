@@ -10,18 +10,16 @@ import com.newoether.agora.util.DebugLog
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.Locale
 import kotlinx.coroutines.flow.map
 
-internal val Context.dataStore by preferencesDataStore(
-    name = "settings", produceMigrations = { listOf(modelProviderNamesMigration) },
-)
+internal val Context.dataStore by preferencesDataStore(name = "settings", produceMigrations = { listOf(modelProviderNamesMigration) })
 
 class SettingsManager(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
+    val voiceTyping = VoiceTypingSettingsStore(context.dataStore)
     internal val modelPreferenceStore = SettingsModelPreferenceStore(context.dataStore, json)
     internal val backupPreferenceStore = SettingsBackupPreferenceStore(context.dataStore)
     internal val systemPromptStore = SettingsSystemPromptStore(context.dataStore, json)
@@ -241,6 +239,12 @@ class SettingsManager(private val context: Context) {
         it[DYNAMIC_COLOR] ?: DEFAULT_DYNAMIC_COLOR
     }
     val blurEffectsEnabled: Flow<Boolean> = context.dataStore.data.map { it[BLUR_EFFECTS_ENABLED] ?: true }
+    val eInkMode: Flow<Boolean> = context.dataStore.data.map { it[E_INK_MODE] ?: false }
+    val interactiveAnswersEnabled: Flow<Boolean> = context.dataStore.data.map { it[INTERACTIVE_ANSWERS_ENABLED] ?: false }
+    suspend fun saveInteractiveAnswersEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[INTERACTIVE_ANSWERS_ENABLED] = enabled }
+    }
+
     val reduceMotion: Flow<Boolean> = context.dataStore.data.map { it[REDUCE_MOTION] ?: false }
     val stickToBottom: Flow<Boolean> = context.dataStore.data.map { it[STICK_TO_BOTTOM] ?: true }
     val parseInlineDollarMath: Flow<Boolean> = context.dataStore.data.map { it[PARSE_INLINE_DOLLAR_MATH] ?: false }
@@ -695,21 +699,19 @@ class SettingsManager(private val context: Context) {
     suspend fun saveSandboxSharedStorageEnabled(enabled: Boolean) {
         context.dataStore.edit { it[SANDBOX_SHARED_STORAGE_ENABLED] = enabled }
     }
-    suspend fun saveThemeMode(mode: String) {
-        context.dataStore.edit { it[THEME_MODE] = mode }
-    }
-    suspend fun saveAmoledEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[AMOLED_ENABLED] = enabled }
-    }
+    suspend fun saveThemeMode(mode: String) { context.dataStore.edit { it[THEME_MODE] = mode } }
+    suspend fun saveAmoledEnabled(enabled: Boolean) { context.dataStore.edit { it[AMOLED_ENABLED] = enabled } }
     suspend fun saveColorScheme(scheme: String) {
         context.dataStore.edit { it[COLOR_SCHEME] = scheme }
     }
-    suspend fun saveDynamicColor(enabled: Boolean) {
-        context.dataStore.edit { it[DYNAMIC_COLOR] = enabled }
-    }
+    suspend fun saveDynamicColor(enabled: Boolean) { context.dataStore.edit { it[DYNAMIC_COLOR] = enabled } }
     suspend fun saveBlurEffectsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[BLUR_EFFECTS_ENABLED] = enabled }
     }
+    suspend fun saveEInkMode(enabled: Boolean) {
+        context.dataStore.edit { it[E_INK_MODE] = enabled }
+    }
+
     suspend fun saveReduceMotion(enabled: Boolean) {
         context.dataStore.edit { it[REDUCE_MOTION] = enabled }
     }

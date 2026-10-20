@@ -128,7 +128,7 @@ internal class FiloClient(
 
     suspend fun connect(): String {
         val info = json.decodeFromString<FiloInfo>(request("v1/info"))
-        require(info.protocolVersion == 2 && info.agent == "codex" &&
+        require(info.protocolVersion == 2 && info.agent in setOf("codex", "pi") &&
             info.sessionMode == "existing" && info.messageDelivery == "native-steer" &&
             info.outputMode == "live-messages" && info.supportsLazyMessages) { "Incompatible Filo service" }
         return info.device
@@ -187,7 +187,7 @@ internal class FiloClient(
                 require(activity.durationMs == null || activity.durationMs >= 0)
                 require(activity.state == null || activity.state in setOf("running", "succeeded", "failed", "stopped"))
             } }
-        }
+        }.let { page -> page.copy(runtime = page.runtime?.let { it.copy(skills = distinctRemoteSkills(it.skills)) }) }
 
     fun events(id: String): Flow<RemoteConversationPage> = eventStream(id, "paged", ::decodePage)
 

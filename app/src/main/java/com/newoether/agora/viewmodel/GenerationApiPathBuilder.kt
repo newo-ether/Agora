@@ -27,6 +27,9 @@ internal data class GenerationApiPath(
 
 internal fun interface GenerationToolDefinitionSource {
     fun definitions(context: GenerationContext): List<ToolDefinition>
+
+    fun definitions(context: GenerationContext, messages: List<ChatMessage>): List<ToolDefinition> =
+        definitions(context)
 }
 
 /**
@@ -45,10 +48,26 @@ internal class GenerationApiPathBuilder(
     suspend fun build(request: GenerationApiPathRequest): GenerationApiPath =
         withContext(Dispatchers.Default) {
             val config = request.config
+            val currentPath = request.loadedMessages?.let { loaded ->
+                projectLoadedSnapshot(
+                    parentId = request.parentId,
+                    loadedMessages = loaded,
+                    includeStoredTranscriptions =
+                        request.context.imageTranscriptionEnabled,
+                )
+            } ?: contextLoader.load(
+                DurableSelectedContextRequest(
+                    conversationId = request.conversationId,
+                    anchorMessageId = request.parentId,
+                    includeStoredTranscriptions =
+                        request.context.imageTranscriptionEnabled,
+                ),
+            ).messages
+
             val definitions = if (config.lowContextModeEnabled) {
                 emptyList()
             } else {
-                toolDefinitions.definitions(request.context)
+                toolDefinitions.definitions(request.context, currentPath)
             }
             val includeAssistantReasoning =
                 !config.responsesApiEnabled &&
@@ -75,21 +94,6 @@ internal class GenerationApiPathBuilder(
             } else {
                 config.maxContextWindow
             }
-            val currentPath = request.loadedMessages?.let { loaded ->
-                projectLoadedSnapshot(
-                    parentId = request.parentId,
-                    loadedMessages = loaded,
-                    includeStoredTranscriptions =
-                        request.context.imageTranscriptionEnabled,
-                )
-            } ?: contextLoader.load(
-                DurableSelectedContextRequest(
-                    conversationId = request.conversationId,
-                    anchorMessageId = request.parentId,
-                    includeStoredTranscriptions =
-                        request.context.imageTranscriptionEnabled,
-                ),
-            ).messages
 
             GenerationApiPath(
                 messages = currentPath,

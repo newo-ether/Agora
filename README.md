@@ -14,6 +14,14 @@
   <img src="assets/feature_graphic.png" alt="Agora — A BYOK AI app that takes back your data sovereignty." width="100%" />
 </div>
 
+## About this fork
+
+This is **[josephm1's modified Agora fork](https://github.com/josephm1/Agora)**.
+Full credit to **[newo-ether and the original Agora contributors](https://github.com/newo-ether/Agora)**
+for the application it builds on. This fork adds the template, skill, sharing, e-ink and Remote
+work described in `development/`; it is independently maintained and is not an official release.
+The application retains **[GPLv3](LICENSE)**. See [fork attribution and third-party notices](FORK-NOTICE.md).
+
 ## Announcement: third-party app “金龙AI-Pro”
 
 An Android app named “金龙AI-Pro” (Jinlong AI-Pro, package `com.youlong.ai`) is distributed as a component of the Android toolbox “游龙工具箱 9.0”, first published on 2026-09-19. It is built from Agora’s code and assets under a different name and package, is signed with a third-party certificate, and still calls Agora’s `newoether.space` endpoints. Agora has not authorized any third party to release it under another name, and Agora is not affiliated with that app in any way.
@@ -53,6 +61,7 @@ Agora is an open-source Android client for using your own model accounts and end
 - **Ten built-in provider types:** OpenAI, Anthropic, Google Gemini, DeepSeek, Qwen/DashScope, OpenRouter, OpenCode Go, Groq, Ollama, and Local llama.cpp; custom endpoints support OpenAI-compatible, Google, or Anthropic protocols.
 - **Tree-structured conversations:** edit or regenerate earlier messages without discarding alternative branches.
 - **Token-budget context:** 4K–1M estimated-token budgets and non-destructive Compact capsules that retain a verbatim recent suffix.
+- **Reusable interactive templates:** save or import interfaces, assign your own slash shortcuts, and open them locally before starting an AI workflow.
 - **Agentic tools:** web search, memory, past-conversation RAG, image generation, MCP servers, Tasks/Loops, remote shell/files, durable Conch jobs, and an F-Droid Alpine sandbox.
 - **Local intelligence:** GGUF chat models and local embeddings through llama.cpp.
 - **Portable data:** versioned `.agora` ZIP archives, ChatGPT/Claude imports, and scheduled backups.
@@ -102,3 +111,5 @@ Contributions are welcome through issues and pull requests. By submitting a pull
 For GPL releases, redistributors must keep the copyright and license notices, state that they changed the files, and make the complete corresponding source available under the same license. The Agora name, logo, and screenshots are not covered by the code license, and modified builds must not imply that they are official or endorsed; the announcement above documents the incident that prompted this change.
 
 Bundled third-party payloads keep their own licenses. The Termux bootstrap and toolchain that Agora provisions (see `build-proot.sh` and `thirdparty/`) include GPLv3 components, and their corresponding source is available from the upstream projects they come from.
+
+Fork APKs and matching source: [Releases](https://github.com/josephm1/Agora/releases). See [preview build notes](docs/RELEASE-2026-10-19.md).

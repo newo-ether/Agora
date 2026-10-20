@@ -53,3 +53,14 @@ the API beneath encryption; production transport is covered by Go/Android fixtur
 Do not enable the new client against an old public Filo server. Complete Go service
 assembly, native attachment consumption, full failure-isolation qualification and the
 owner's all-features delivery gate before updating the installed computers and phone.
+## Android provider compatibility
+
+The HiBreak crash exposed use of an unavailable X25519 alias. Android 13+ uses the
+platform's documented XDH name for key generation, decoding and agreement. Android
+8–12 use a private instance of the already-bundled Bouncy Castle provider for X25519.
+No global provider is registered or replaced. Wire keys, HKDF, authentication and
+encryption requirements remain unchanged. Crypto initialization failures become a
+channel IOException at the OkHttp interceptor boundary, so asynchronous calls report
+connection failure instead of terminating the app; no mutation is retried. Qualification
+covers native/default XDH, the older-Android implementation, unchanged global providers,
+existing cross-language vectors, async failure delivery and the single device build.

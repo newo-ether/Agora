@@ -72,6 +72,14 @@ class ChatViewModel(
 ) : AndroidViewModel(application) {
 
     val settings: SettingsRepository = settingsRepository
+    val interactiveTemplates = com.newoether.agora.templates.InteractiveTemplateRepository(application)
+    private val templateController by lazy {
+        InteractiveTemplateController(
+            appContext, convRepo, phoneClient, conversationExecutionCoordinator,
+            lastMessage = { messages.value.lastOrNull() },
+            isBusy = { isLoading.value || isSwitching.value },
+        )
+    }
 
     /**
      * Conversation/message persistence behind the repository layer. CRUD, cascade-delete,
@@ -555,6 +563,21 @@ class ChatViewModel(
             send = { admission, text, attachments, onAccepted ->
                 generationController.sendMessage(admission, text, attachments, onAccepted, phoneClient)
             },
+            resolveSkillPrompt = { text ->
+                try {
+                    composerSkill(text)?.let { (document, input) ->
+                        if (document.configuration.beforeSteps.isNotEmpty()) null else skillInvocationPrompt(document, input)
+                    }
+                } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                catch (failure: Exception) { emitSnackbar(failure.message.orEmpty()); throw failure }
+            },
+            localSubmit = { target, composer, templateId ->
+                try { localComposerSubmit(target, composer, templateId) { template, captured ->
+                    templateController.open(template, captured, consumeDraft = true)
+                } }
+                catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                catch (failure: Exception) { emitSnackbar(failure.message.orEmpty()); LocalComposerResult() }
+            },
             onAcceptedClearFailed = { _, retry ->
                 emitSnackbar(
                     message = appContext.getString(R.string.composer_clear_failed),
@@ -563,6 +586,21 @@ class ChatViewModel(
                 )
             },
         )
+    }
+
+    /** Viewer input enters the ordinary send path without touching the Composer draft. */
+    internal suspend fun sendInteractiveFollowup(
+        conversationId: String,
+        messageId: String,
+        callId: String,
+        answer: com.newoether.agora.model.InteractiveAnswer,
+        text: String,
+        sourceFiles: List<String> = emptyList(),
+    ): Boolean {
+        return submitTemplateFollowup(conversationId, messageId, callId, answer, text, sourceFiles,
+            generationController, phoneClient, conversationWorkspaces::captureNewChatSnapshot) { template, target ->
+            templateController.open(template, target)
+        }
     }
 
     fun updateConversationSetting(

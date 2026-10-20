@@ -7,6 +7,7 @@ Agora is an Android BYOK client for provider-hosted and on-device language model
 - [Getting Started](getting-started.md)
 - [Providers](provider.md) and [Models](models.md)
 - [Conversations](conversations.md)
+- [Voice Typing](voice-typing.md)
 - [Context and Compact](context.md)
 - [Privacy & Security](privacy.md)
 

@@ -119,6 +119,7 @@ internal fun rememberStreamingGlyphFade(
     color: Color,
     fade: StreamingGlyphNodeFade?,
 ): AnnotatedString {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) return content
     if (fade == null || fade.tailCodePoints <= 0 || content.isEmpty()) return content
     val effective = remember(fade, content.text.length) {
         val displayCodePoints = content.text.codePointCount(0, content.text.length)
@@ -178,6 +179,7 @@ internal fun rememberStreamingGlyphFade(
     fadeCodePoints: Int? = null,
     spatialBands: Int = 0,
 ): AnnotatedString {
+    if (com.newoether.agora.ui.motion.LocalAgoraMotionPolicy.current.eInkMode) return content
     if (!enabled || content.isEmpty()) return content
 
     val fadeTracker = remember { StreamingTailFadeTracker() }

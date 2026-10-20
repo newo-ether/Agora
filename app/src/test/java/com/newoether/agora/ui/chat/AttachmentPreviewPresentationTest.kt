@@ -103,6 +103,31 @@ class AttachmentPreviewPresentationTest {
     }
 
     @Test
+    fun notebookThumbnailDoesNotTurnAnOrdinaryZipIntoANoteOrAlterAiPages() {
+        val note = com.newoether.agora.model.SelectedAttachment(uri="file:///note.zip",type="file",
+            notesDocumentId="document",notesRevisionId="revision",preRenderedPaths=listOf("first.jpg","second.jpg"))
+        assertEquals("first.jpg", notesAttachmentPreview(note))
+        assertEquals(listOf("first.jpg","second.jpg"), note.preRenderedPaths)
+        assertEquals(null, notesAttachmentPreview(note.copy(notesDocumentId=null,notesRevisionId=null)))
+        assertEquals(null, notesAttachmentPreview(note.copy(preRenderedPaths=null)))
+    }
+
+    @Test
+    fun notesUsePreviewWithBookFallbackAndPreserveImportStates() {
+        fun presentation(media: MediaLoadPresentation, preview: Boolean = true,
+                         state: AttachmentImportState = AttachmentImportState.READY,
+                         unavailable: Boolean = false) = attachmentPreviewPresentation(
+            unavailable, state, "file", false, media, isNotes = true, hasNotePreview = preview)
+        assertEquals(AttachmentPreviewPresentation.MEDIA_SUCCESS, presentation(MediaLoadPresentation.LOADED))
+        assertEquals(AttachmentPreviewPresentation.MEDIA_LOADING, presentation(MediaLoadPresentation.LOADING))
+        assertEquals(AttachmentPreviewPresentation.READY_NOTE, presentation(MediaLoadPresentation.FAILED))
+        assertEquals(AttachmentPreviewPresentation.READY_NOTE, presentation(MediaLoadPresentation.LOADED, preview = false))
+        assertEquals(AttachmentPreviewPresentation.IMPORT_LOADING, presentation(MediaLoadPresentation.LOADED, state = AttachmentImportState.PROCESSING))
+        assertEquals(AttachmentPreviewPresentation.IMPORT_FAILED, presentation(MediaLoadPresentation.LOADED, state = AttachmentImportState.FAILED))
+        assertEquals(AttachmentPreviewPresentation.UNAVAILABLE, presentation(MediaLoadPresentation.LOADED, unavailable = true))
+    }
+
+    @Test
     fun reducerCoversEveryImportAndMediaOutcome() {
         val cases = listOf(
             Case(
@@ -160,7 +185,7 @@ class AttachmentPreviewPresentationTest {
 
         assertEquals(
             AttachmentPreviewPresentation.entries.toSet() - AttachmentPreviewPresentation.INITIAL,
-            cases.mapTo(linkedSetOf(), Case::expected),
+            cases.mapTo(linkedSetOf(), Case::expected) + AttachmentPreviewPresentation.READY_NOTE,
         )
         cases.forEach { case ->
             assertEquals(

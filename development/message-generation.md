@@ -982,3 +982,32 @@ retained-message calculation.
 | Provider-hosted output | OpenAI-compatible Chat requests serialize applicable numeric and model-specific thinking controls; Responses requests serialize the five normalized `service_tier` values after mapping the stored tier to the actual model's supported choices and serialize enabled `web_search` plus reasoning summaries; impossible thinking-off requests fail before HTTP; summary indices preserve part boundaries and headings supply titles; OpenAI Search and Gemini Google Search/Code Execution settle display-only tool blocks without local execution; Gemini Code Execution replays typed parts and fails closed when a result is missing. |
 | Races and failures | Stop before/after bind, consecutive origin/Compact release suppressions in both settlement orders, selection drift, missing target/status, transaction rollback, stale callbacks, checkpoint-versus-terminal ordering, and queue claim failure. |
 | UI stability | Compact row/pill vertical bounds do not change across progress and terminal content; entrance is draw-only and does not alter apparent vertical spacing; message and Thinking Tool terminal text reuse the shared neutral body-text tokens and alpha without Segment error cards. |
+
+Completed interactive-answer artifacts expose their readable fallback as public answer content only,
+as defined in [interactive-answers.md](interactive-answers.md). Executable fields and ordinary tool
+payloads remain excluded from public Markdown.
+
+## On-demand tool capabilities
+
+Owner-approved flow, 15 October 2026.
+
+Existing providers remain the authority for enabled tool definitions and execution permissions.
+The shared request projection replaces interactive HTML, templates, memory, skills,
+conversation search, web and structured-question schemas with one compact `load_tool_capability`
+definition listing only enabled categories. Other providers retain their visibility policy.
+A successful ordinary discovery result activates that category on the next provider pass.
+Activation is derived only from completed tool results after the latest real user input on the
+selected durable path; it is not global state, persisted settings, or an extra AI router.
+Errors, unknown/disabled categories, unrelated turns and sibling branches grant no tools.
+The next real user input resets discovery. Legacy Notes metadata grants no capability. Local template opening
+and Run continue through their existing native path without tool discovery or additional AI calls.
+
+Every tool continuation rebuilds both messages and ProviderConfig from the same selected path,
+so the schemas used for serialization, fixed-cost accounting and execution authorization agree.
+UI context accounting uses this same selection with its already-loaded durable path.
+Discovery does not modify the system prompt, enumerate files, read their bodies, or bypass any
+permission. Detailed instructions and schemas are retained when a capability is actually used.
+
+Verification must cover successive discovery/continuation requests, category isolation, permission
+changes, invalid arguments/results, user-turn and branch isolation, legacy Notes non-activation,
+low-context mode and conservative token accounting of selected schemas.

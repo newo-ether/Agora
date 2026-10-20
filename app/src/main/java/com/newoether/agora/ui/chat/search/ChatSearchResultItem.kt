@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +26,8 @@ import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.model.Participant
+import com.newoether.agora.ui.components.Surface
+import com.newoether.agora.ui.components.Text
 
 @Composable
 internal fun SearchResultItem(

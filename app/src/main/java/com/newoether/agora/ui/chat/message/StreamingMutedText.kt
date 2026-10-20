@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -13,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.motion.Crossfade
 
 private const val MUTED_STREAM_TAIL_CODE_POINTS = 42
 private const val MUTED_STREAM_TAIL_ALPHA_BANDS = 6

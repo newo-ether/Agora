@@ -84,6 +84,8 @@ rejected before category restoration.
 | --- | --- |
 | `conversations` | Version 5+: `conv/index.json`, one `conv/items/<hex-conversation-id>.json` per conversation, and `conv/tasks.json`, plus archive-safe image, video, and draft media entries. Versions 1-4: a single `conversations.json`. Conversation-scoped settings travel with their conversation, not in `settings.json`. |
 | `memories` | Active Memory, Memory database Markdown/metadata, and Skill database Markdown/metadata below `memories/`. |
+| `templates` | Version 6: reusable interfaces in `templates/catalog.json`; older archives leave the library untouched. |
+| `templates` | `templates/catalog.json`: validated reusable interfaces, shortcuts and Skill references. |
 | `system_prompts` | `system_prompts.json`. The active prompt reference remains a portable Settings field and is resolved against imported/current prompt identity. |
 | `settings` | `settings.json` containing only the allowlist below, plus `custom_font/font` when the selected custom font is readable. |
 | `api_keys` | Plain JSON `api_keys.json`, emitted only when the API Keys category and explicit include-secrets choice are both active. |
@@ -186,10 +188,11 @@ The following JSON field names are the complete current portable allowlist.
 | Interaction | `askUserEnabled`, `askUserTimeoutMinutes` |
 | Search and embedding | `ragSearchEnabled`, `modelSearchMethod`, `manualSearchMethod`, `remoteEmbeddingModels`, `activeRemoteEmbeddingModelId`, `searchContextWindow`, `searchMatchLimit`, `ragThreshold`, `autoCacheEnabled`, `showUncachedNotification` |
 | Language, Web Search, and image generation | `appLanguage`, `webSearchEnabled`, `webSearchProvider`, `webSearchNumResults`, `webSearchBaseUrl`, `imageGenEnabled`, `imageGenModel`, `imageGenSize`, `autoUpdateCheck` |
+| Voice typing | `voiceTypingConfig`: enabled, mode, existing API key ID, base URL, model and optional language; no credential value or audio |
 | Image transcription | `imageTranscriptionEnabled`, `imageTranscriptionEnabledModels`, `imageTranscriptionModel`, `imageTranscriptionBatchSize`, `imageTranscriptionPrompt` |
 | Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, secret-free `mcpServers` |
 | Proxy | `proxyEnabled`, `proxyType`, `proxyHost`, `proxyPort`, `proxyUsername`, `proxyBypass` |
-| Appearance | `showDocumentationFab`, `themeMode`, `amoledEnabled`, `colorScheme`, `dynamicColor`, `blurEffectsEnabled`, `reduceMotion`, `stickToBottom`, `parseInlineDollarMath`, `hapticsEnabled`, `detailedTokenUsage`, `toolCallDisplayMode`, `thinkingSegmentDisplayMode`, `autoExpandActiveGroup`, `schemeStyle` |
+| Appearance | `showDocumentationFab`, `themeMode`, `amoledEnabled`, `eInkMode`, `colorScheme`, `dynamicColor`, `blurEffectsEnabled`, `reduceMotion`, `stickToBottom`, `parseInlineDollarMath`, `hapticsEnabled`, `detailedTokenUsage`, `toolCallDisplayMode`, `thinkingSegmentDisplayMode`, `autoExpandActiveGroup`, `schemeStyle` |
 | Custom font | `fontPreference`; `customFontName` only when `custom_font/font` is included. The device file path is never portable. |
 | Generation defaults | Nullable `defaultTemperature`, `defaultMaxTokens`, `defaultTopP`, `defaultFrequencyPenalty`, `defaultPresencePenalty` |
 | Prompt selection | Nullable `activeSystemPromptId` |
@@ -263,6 +266,10 @@ when remote model records are imported. A present active-reference field also ap
 model-list field and may select only a surviving remote record. An explicit null or invalid remote
 reference clears a remote selection while retaining a surviving device-local selection. REPLACE
 without a valid remote reference likewise retains only a surviving device-local selection.
+
+Retired `notesIntegrationEnabled` and `notesPageImagesEnabled` fields are ignored on import
+and omitted from new exports. Legacy Notes attachment metadata and original bundle/cover bytes
+remain archive-compatible, without restoring editor actions or processing.
 
 ## 4. Device-local exclusions
 
@@ -391,3 +398,46 @@ Focused tests for any archive or setting change must prove:
 
 The project full build remains required after implementation changes. Build success alone does not
 prove SAF access, large-archive streaming, device storage, or user-visible conflict handling.
+
+Interactive answers use existing structured segment JSON; native archives and forks retain that
+content without a new archive category. The global opt-in setting is portable and resets to false.
+See [interactive-answers.md](interactive-answers.md) for the bounded-payload contract.
+
+Legacy Notes document attachments preserve their original ZIP as well as text/previews through the existing media archive mechanism. See [notes-integration.md](notes-integration.md).
+
+## Shared-text source metadata
+
+Optional attachment fields `sourceTitle`, `sourceBookTitle`, `sourceAuthors` and
+`sourceThumbnailPath` preserve incoming share provenance through draft/message persistence and
+native backup. The thumbnail is owned attachment media and is rewritten, restored and reclaimed
+with its ordinary attachment owner. It is excluded from provider image input; source labels are
+included in the file's prepared text. Missing preview bytes do not make complete excerpt text
+unavailable. Legacy records omit these fields and retain ordinary file behavior.
+
+## Skill descriptions during Merge
+
+Merge fills missing Skill descriptions from the incoming metadata only when the saved Skill body
+exactly matches that archive's body. Existing nonblank descriptions, assigned shortcuts and unrelated Skills
+remain unchanged, including a conflicting filename with different instructions. SkillManager owns
+this comparison and atomic metadata write under its existing synchronization boundary. New labels
+use the normal ten-word validation; malformed labels never partially rewrite the metadata catalogue.
+Legacy metadata-only shortcuts are restored for matching bodies only when absent and nonconflicting.
+The existing category selection and Replace behavior remain unchanged.
+
+## Explicit resource Update
+
+The native import preview offers Update alongside Merge/Replace/Skip only for Memories/Skills and
+Templates. Update adds incoming resources and replaces matching Skill/memory filenames or template
+IDs, including their supplied descriptions/configuration. It never clears either library; absent
+resources and absent active memory remain untouched. Supplied active memory updates only on this
+explicit choice. Merge and Replace keep their existing semantics. Other categories reject Update
+before mutation. The UI explains that matching items change and everything else is kept.
+
+Updates reuse the existing synchronized file/metadata replacement and atomic template catalogue
+write. An archive can clear a removed Skill workflow/shortcut; ordinary instruction-only edits still
+preserve configuration. Legacy shortcut metadata is validated using the same Skill configuration
+rules. Template ID/shortcut conflicts are reported; invalid template catalogues never partly commit.
+Import errors retain the existing category error reporting; this is not a new cross-category
+transaction engine. Existing chat cards keep their original snapshots, so a new Skill invocation
+uses the updated templates. One archive import with Update for both resource categories updates a
+learning pack without manual template replacement or deleting unrelated resources.

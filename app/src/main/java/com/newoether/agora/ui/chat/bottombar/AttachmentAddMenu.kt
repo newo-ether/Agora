@@ -1,5 +1,8 @@
 package com.newoether.agora.ui.chat.bottombar
 
+import android.view.accessibility.AccessibilityManager
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -10,14 +13,10 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -26,10 +25,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
-import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import com.newoether.agora.ui.components.AgoraDropdownMenu
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.IconButton
+import com.newoether.agora.ui.components.Text
 
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
@@ -50,7 +54,16 @@ internal fun AttachmentAddMenu(
         lastAddDismissTime = 0L
         action()
     }
-    ExposedDropdownMenuBox(expanded = enabled && showAddMenu, onExpandedChange = {}) {
+    // Like an editable Material anchor, preserve the IME unless touch exploration needs menu focus.
+    val accessibility = LocalContext.current.getSystemService(AccessibilityManager::class.java)
+    var menuNeedsFocus by remember(accessibility) { mutableStateOf(accessibility.isTouchExplorationEnabled) }
+    DisposableEffect(accessibility) {
+        val listener = AccessibilityManager.TouchExplorationStateChangeListener { menuNeedsFocus = it }
+        accessibility.addTouchExplorationStateChangeListener(listener)
+        onDispose { accessibility.removeTouchExplorationStateChangeListener(listener) }
+    }
+    BackHandler(enabled = enabled && showAddMenu && !menuNeedsFocus) { showAddMenu = false }
+    Box {
         IconButton(
             onClick = {
                 val now = System.currentTimeMillis()
@@ -58,10 +71,7 @@ internal fun AttachmentAddMenu(
                 else if (now - lastAddDismissTime > 200) showAddMenu = true
             },
             enabled = enabled,
-            modifier = Modifier.size(32.dp).menuAnchor(
-                type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
-                enabled = enabled,
-            ),
+            modifier = Modifier.size(32.dp),
         ) {
             Icon(
                 Icons.Default.Add,
@@ -70,7 +80,7 @@ internal fun AttachmentAddMenu(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        AgoraExposedDropdownMenu(
+        AgoraDropdownMenu(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             expanded = enabled && showAddMenu,
             onDismissRequest = {
@@ -79,7 +89,7 @@ internal fun AttachmentAddMenu(
                     lastAddDismissTime = System.currentTimeMillis()
                 }
             },
-            matchAnchorWidth = false,
+            properties = PopupProperties(focusable = menuNeedsFocus),
         ) {
             if (showCamera) AttachmentMenuItem(Icons.Default.PhotoCamera, R.string.camera) { select(onCamera) }
             AttachmentMenuItem(Icons.Default.Image, R.string.photos) { select(onPhotos) }

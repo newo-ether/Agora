@@ -15,6 +15,9 @@ import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.model.ContextBudget
 import com.newoether.agora.ui.components.optionClickable
 import java.util.Locale
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.TextButton
 
 @Composable
 fun AdvancedSettingsDialog(

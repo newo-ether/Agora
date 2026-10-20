@@ -549,7 +549,4 @@ class GptChatImporter {
         }
     }
 
-    private fun convertTimestamp(unixSeconds: Double): Long {
-        return (unixSeconds * 1000).toLong()
-    }
 }

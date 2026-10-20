@@ -224,30 +224,40 @@ internal class ConversationComposerController(
     suspend fun importAttachment(ownerId: String, attachment: SelectedAttachment): Boolean =
         withSession(ownerId) { session ->
             ensureLoaded(ownerId, session)
-            session.mutex.withLock {
-                if (session.frozenSubmissionId != null) return@withLock false
-                check(session.state.value.attachments.none { it.localId == attachment.localId }) {
-                    "Attachment identity already belongs to this composer"
-                }
-                val processing = attachment.asProcessing()
-                session.transientAttachmentIds += attachment.localId
-                session.publish(session.state.value.copy(
-                    attachments = session.state.value.attachments + processing,
-                ))
-                val generation = session.nextGeneration(attachment.localId)
-                session.registerJobLocked(
-                    attachmentId = attachment.localId,
-                    generation = generation,
-                    job = stagingJob(ownerId, session, processing, generation),
-                )
-                true
+            session.importAttachment(attachment) { processing, generation ->
+                stagingJob(ownerId, session, processing, generation)
             }
+        }
+
+    /** Atomically imports an already copied attachment through this draft's existing owner. */
+    suspend fun attachPrepared(ownerId: String, attachment: SelectedAttachment): Boolean =
+        withSession(ownerId) { session ->
+            ensureLoaded(ownerId, session)
+            session.attachPrepared(drafts, ownerId, attachment) { reloadAndMergeLocked(ownerId, session) }
+        }
+
+    suspend fun attachPreparedMany(ownerId:String, attachments:List<SelectedAttachment>):Boolean =
+        withSession(ownerId) { session ->
+            ensureLoaded(ownerId,session)
+            session.attachPreparedMany(drafts, ownerId, attachments,
+                reload = { reloadAndMergeLocked(ownerId, session) },
+                processingJob = { attachment, generation -> processingJob(ownerId, session, attachment, generation) })
         }
 
     suspend fun updateText(ownerId: String, text: String) = withSession(ownerId) { session ->
         ensureLoaded(ownerId, session)
         session.mutex.withLock {
             session.publish(session.state.value.copy(text = text))
+        }
+    }
+
+    suspend fun appendText(ownerId: String, text: String): String = withSession(ownerId) { session ->
+        ensureLoaded(ownerId, session)
+        session.mutex.withLock {
+            val current = session.state.value
+            val combined = if (current.text.isEmpty()) text else current.text + "\n\n" + text
+            session.publish(current.copy(text = combined))
+            combined
         }
     }
 

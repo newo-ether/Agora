@@ -78,4 +78,17 @@ class DataImporterPreviewTest {
         val invalid = archive("invalid.agora", mapOf(NativeBackupFormat.MANIFEST_ENTRY to "not-json"))
         assertEquals(0, invalid.use { importer().preview(it) }.manifest.version)
     }
+    @Test fun templateOnlyArchiveIsImportableWithoutOtherCategories() {
+        val backup = archive("templates-only.agora", mapOf(
+            NativeBackupFormat.MANIFEST_ENTRY to manifest(6),
+            com.newoether.agora.templates.InteractiveTemplateRepository.ARCHIVE_ENTRY to "[]",
+        ))
+        val preview = backup.use { importer().preview(it) }
+        assertTrue(preview.templatesPresent)
+        assertTrue(preview.hasImportableData)
+        assertEquals(0, preview.memoryCount)
+        assertEquals(0, preview.conversationCount)
+        org.junit.Assert.assertFalse(DataImporter.ImportPreview(DataImporter.ImportManifest(version = 6)).hasImportableData)
+    }
+
 }

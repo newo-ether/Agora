@@ -111,7 +111,7 @@ class ConversationSwitchSafetySourceContractTest {
         )
         assertTrue(
             "target and admission configuration must be captured before attachment waiting",
-            submission.indexOf("val admission = prepare(request.target, frozen)") in
+            submission.indexOf("val admission = prepare(request.target, frozen.copy(text = sendText))") in
                 0 until submission.indexOf(
                     "composers.awaitProcessing(request.ownerId, request.attachmentIds.toSet())",
                 ),

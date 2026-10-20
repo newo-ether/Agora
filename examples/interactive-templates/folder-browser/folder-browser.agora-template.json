@@ -1,0 +1,22 @@
+{
+  "kind": "agora.interactive-template",
+  "version": 1,
+  "id": "147d1f39-e6ac-4c04-bf3c-c8107ad6b178",
+  "name": "Folder browser",
+  "description": "Choose files for a Skill",
+  "sourceFolderId": "4b5be1b1-57f8-4ad0-a231-53947c173ccb",
+  "sourceFilesAuto": false,
+  "resourceFiles": [],
+  "answer": {
+    "title": "Folder browser",
+    "description": "Browse any file type locally",
+    "fallback": "Connect a folder in template settings, then select files and Start.",
+    "html": "<main><h1 id=\"location\">Connected folder</h1><button id=\"back\" type=\"button\">Up</button><section id=\"files\"></section><nav><button id=\"previous\" type=\"button\">Previous</button><button id=\"next\" type=\"button\">Next</button><button id=\"start\" type=\"button\" disabled>Start</button></nav><p id=\"status\" role=\"status\" aria-live=\"polite\"></p></main>",
+    "css": "main{max-width:44rem;margin:auto;padding:12px}#files{display:grid;gap:4px;margin:12px 0}button{font:inherit;text-align:left;min-height:44px;background:#fff;color:#000;border:1px solid #000;padding:8px}button[aria-pressed=true]{background:#000;color:#fff}button:disabled{border-style:dashed}nav{display:flex;gap:8px}h1{font-size:1.1rem;overflow-wrap:anywhere}",
+    "jsFunctions": "function initFolderBrowser() {\n  const api = Websandbox.connection.remote;\n  const el = id => document.getElementById(id);\n  const selected = new Set();\n  let folder = '', offset = 0, next = null, busy = false;\n  async function browse(path = '', start = 0) {\n    if (busy) return;\n    busy = true; el('status').textContent = 'Loading folder…';\n    try {\n      const page = await api.listDirectory({path, offset:start, limit:100});\n      folder = path; offset = start; next = page.nextOffset;\n      el('location').textContent = path || 'Connected folder';\n      el('files').replaceChildren();\n      for (const entry of page.entries) {\n        const button = document.createElement('button');\n        button.textContent = (entry.directory ? '▸ ' : '') + entry.name;\n        button.type = 'button';\n        if (entry.directory) button.onclick = () => browse(entry.path);\n        else {\n          button.setAttribute('aria-pressed',String(selected.has(entry.path)));\n          button.onclick = () => {\n            if (selected.has(entry.path)) selected.delete(entry.path);\n            else if (selected.size < 16) selected.add(entry.path);\n            button.setAttribute('aria-pressed',String(selected.has(entry.path)));\n            el('start').disabled = !selected.size;\n            el('status').textContent = selected.size + ' selected';\n          };\n        }\n        el('files').append(button);\n      }\n      el('back').disabled = !path;\n      el('previous').disabled = !start;\n      el('next').disabled = next == null;\n      el('status').textContent = page.entries.length ? selected.size + ' selected' : 'Empty folder';\n    } catch (error) { el('status').textContent = error.message || 'Could not open folder'; }\n    finally { busy = false; }\n  }\n  el('back').onclick = () => browse(folder.split('/').slice(0,-1).join('/'));\n  el('previous').onclick = () => browse(folder,Math.max(0,offset-100));\n  el('next').onclick = () => next == null ? undefined : browse(folder,next);\n  el('start').onclick = async () => {\n    if (!selected.size || busy) return;\n    el('start').disabled = true;\n    try {\n      await api.sendPrompt({text:JSON.stringify({files:[...selected]}),sourceFiles:[...selected]});\n      el('status').textContent = 'Submitted · continue in chat';\n    } catch (error) { el('status').textContent = error.message || 'Not sent'; el('start').disabled = false; }\n  };\n  browse();\n}\n",
+    "jsExpressions": [
+      "initFolderBrowser()"
+    ],
+    "eInkAware": true
+  }
+}

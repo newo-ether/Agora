@@ -222,7 +222,7 @@ class ChatDrawerContentTest {
     }
 
     @Test
-    fun tasksAndRemoteUse46DpAndKeepJoinedGeometry() {
+    fun tasksAndRemoteKeepJoinedGeometryWhileTemplatesLivesInSettings() {
         val root = generateSequence(File(requireNotNull(System.getProperty("user.dir"))).absoluteFile) {
             it.parentFile
         }.first { File(it, "app/src/main/java").isDirectory }
@@ -239,6 +239,11 @@ class ChatDrawerContentTest {
         assertTrue(group.contains("bottomStart = 24.dp, bottomEnd = 24.dp"))
         assertEquals(2, Regex("""focusManager\.clearFocus\(\)""").findAll(group).count())
         assertEquals(2, Regex("""scope\.launch \{ onRequestClose\(\) \}""").findAll(group).count())
+        assertFalse(source.contains("onOpenTemplates"))
+        val settings = File(root, "app/src/main/java/com/newoether/agora/ui/settings/SettingsScreen.kt").readText()
+        val destinations = File(root, "app/src/main/java/com/newoether/agora/ui/settings/SettingsTwoPane.kt").readText()
+        assertTrue(settings.contains("SettingsCategory(\"templates\", R.string.templates"))
+        assertTrue(destinations.contains("\"templates\" -> com.newoether.agora.ui.templates.TemplatesScreen"))
         assertTrue(group.indexOf("onOpenTasks()") < group.indexOf("onOpenRemote()"))
     }
     @Test

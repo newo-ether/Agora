@@ -23,3 +23,8 @@ For compatible endpoints, the service tier can be **Off**, **Auto**, **Default**
 ## Related settings
 
 Context budgeting and Compact are configured separately under [Context](context.md). Automatic titles use [Title Generation](title-generation.md), and image-specific defaults use [Image Generation](image-generation.md).
+
+## Interactive answers
+
+Optional calculators, charts and diagrams are available through
+[Interactive answers](interactive-answers.md). Enable them under Settings → Interaction.

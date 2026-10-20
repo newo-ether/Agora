@@ -14,7 +14,6 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet as MaterialModalBottomSheet
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -30,6 +29,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import com.newoether.agora.ui.components.BOTTOM_SHEET_SHAPE
 import com.newoether.agora.ui.components.BottomSheetMaxWidth
 import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
+import com.newoether.agora.ui.components.Surface
 
 /**
  * Uses Material's draggable sheet normally and an immediate, stationary sheet when motion is
@@ -77,7 +77,7 @@ fun MotionAwareModalBottomSheet(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BottomSheetDefaults.ScrimColor),
+                .background(if (LocalAgoraMotionPolicy.current.eInkMode) Color.White else BottomSheetDefaults.ScrimColor),
         ) {
             val scrimInteractionSource = remember { MutableInteractionSource() }
             Box(

@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,7 +39,6 @@ import com.newoether.agora.ui.chat.MEDIA_STATE_CROSSFADE_MILLIS
 import com.newoether.agora.ui.chat.MediaLoadPresentation
 import com.newoether.agora.ui.chat.toMediaLoadPresentation
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
-
 import androidx.compose.foundation.layout.fillMaxWidth
 import com.newoether.agora.ui.components.LatexImageTransformer
 import com.newoether.agora.ui.components.latexSourceForLink
@@ -56,6 +53,8 @@ import org.intellij.markdown.IElementType
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.findChildOfType
+import com.newoether.agora.ui.motion.Crossfade
+import com.newoether.agora.ui.components.Icon
 
 /** Generated-image geometry and media transitions, shared by Markdown block and inline slots. */
 @Composable

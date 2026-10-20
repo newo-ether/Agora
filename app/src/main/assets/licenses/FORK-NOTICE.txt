@@ -1,0 +1,16 @@
+Agora — independently maintained josephm1 fork
+
+Original Agora application: newo-ether and contributors.
+https://github.com/newo-ether/Agora
+
+Modified fork and corresponding source:
+https://github.com/josephm1/Agora
+
+This fork adds templates, native folder access, skills/workflows, sharing, e-ink
+refinements, dictation and Remote integration. It is not an official release
+and is not endorsed by upstream. Copyright remains with the respective authors.
+
+The current application is licensed under GNU GPL version 3; the full text
+is included in LICENSE-GPL-3.0.txt. Upstream v2.1.0 and earlier retain their
+original MIT terms. Third-party components retain their own licences/notices.
+See FORK-NOTICE.md in the public source for the complete attribution map.

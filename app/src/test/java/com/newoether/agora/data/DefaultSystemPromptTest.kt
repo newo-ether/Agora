@@ -8,6 +8,20 @@ import java.util.Locale
 
 class DefaultSystemPromptTest {
     @Test
+    fun defaultDoesNotAdvertiseTheSkillLibraryAndMigratesCatalogDefaultsInPlace() {
+        val old = DefaultSystemPrompt.previousCatalogVersionForMigration(Locale.ENGLISH).copy(id = "keep-id")
+        val migrated = migrateSystemPromptsOnStartup(listOf(old), Locale.ENGLISH).single()
+        assertEquals("keep-id", migrated.id)
+        val values = mapOf(PredefinedVariables.ACTIVE_MEMORY to "", PredefinedVariables.SKILL_CATALOG to "never advertise.md")
+        val text = PredefinedVariables.compile(migrated.resolvedSystemItems, values)
+        assertFalse(text.contains("never advertise.md"))
+        assertFalse(text.contains("<skill_catalog>"))
+        assertTrue(text.contains("only when the user explicitly requests it"))
+        val custom = old.copy(systemItems = old.systemItems + PromptTemplateItem(type = PromptItemType.CUSTOM, value = "personal"))
+        assertEquals(custom, migrateSystemPromptsOnStartup(listOf(custom), Locale.ENGLISH).single())
+    }
+
+    @Test
     fun sentDateExample_includesEnglishWeekday() {
         assertEquals("2026-05-09 Sat", PredefinedVariables.EXAMPLE_VALUES[PredefinedVariables.SENT_DATE])
     }

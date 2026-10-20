@@ -30,6 +30,8 @@ object ScreenshotFixture {
         settings.saveSchemeStyle("TONAL_SPOT")
         settings.saveDynamicColor(false)
         settings.saveReduceMotion(true)
+        settings.saveEInkMode(destination.endsWith(":eink"))
+        settings.saveAutoUpdateCheck(false)
         settings.saveSelectedModel(MODEL_ID)
         settings.saveAvailableModels(DebugProvider.PROVIDER_NAME, listOf(MODEL_ID))
         settings.saveEnabledModels(setOf(MODEL_ID))

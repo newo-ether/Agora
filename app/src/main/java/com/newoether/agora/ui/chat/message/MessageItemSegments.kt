@@ -3,7 +3,6 @@ package com.newoether.agora.ui.chat.message
 import android.content.res.Resources
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -22,6 +21,7 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.api.LOCAL_CONTEXT_CAPACITY_ERROR_CODE
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
+import com.newoether.agora.ui.motion.animateDpAsState
 
 internal fun MessageSegment.isHiddenFromMessagePresentation(): Boolean =
     type == "tool" && toolName == "google_search"

@@ -61,6 +61,7 @@ private fun fullScreenPreviewEnterTransition(allowSpatialTransitions: Boolean): 
 private fun fullScreenPreviewExitTransition(allowSpatialTransitions: Boolean): ExitTransition = fadeOut(tween(durationMillis = 180)) + (if (allowSpatialTransitions) scaleOut(tween(durationMillis = 220, easing = FastOutLinearInEasing), targetScale = 0.96f) else ExitTransition.None)
 class MainActivity : ComponentActivity() {
 
+    private val sharedTextRequestId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     private val notificationConversationId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     companion object {
@@ -132,6 +133,7 @@ class MainActivity : ComponentActivity() {
             val dynamicColor by settingsManager.dynamicColor.collectAsState(initial = com.newoether.agora.data.DEFAULT_DYNAMIC_COLOR)
             val fontPreference by settingsManager.fontPreference.collectAsState(initial = "app_default")
             val customFontPath by settingsManager.customFontPath.collectAsState(initial = "")
+            val eInkMode by settingsManager.eInkMode.collectAsState(initial = false)
             val appReduceMotion by settingsManager.reduceMotion.collectAsState(initial = false)
 
             val themeModeEnum = try { com.newoether.agora.ui.theme.ThemeMode.valueOf(themeMode) } catch (_: Exception) { com.newoether.agora.ui.theme.ThemeMode.FOLLOW_DEVICE }
@@ -148,20 +150,21 @@ class MainActivity : ComponentActivity() {
             SideEffect {
                 val window = this@MainActivity.window
                 val insetsController = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
-                insetsController.isAppearanceLightStatusBars = !isDark
-                insetsController.isAppearanceLightNavigationBars = !isDark
+                insetsController.isAppearanceLightStatusBars = eInkMode || !isDark
+                insetsController.isAppearanceLightNavigationBars = eInkMode || !isDark
             }
 
             AgoraTheme(
                 themeMode = themeModeEnum,
                 amoledEnabled = amoledEnabled,
+                eInkMode = eInkMode,
                 colorSchemePreset = colorSchemePreset,
                 schemeStyle = schemeStyle,
                 dynamicColor = dynamicColor,
                 fontPreference = fontPreference,
                 customFontPath = customFontPath
             ) {
-                ProvideAgoraMotionPolicy(appReduceMotion = appReduceMotion) {
+                ProvideAgoraMotionPolicy(appReduceMotion = appReduceMotion, eInkMode = eInkMode) {
                 val activity = LocalActivity.current
 
                 if (needsErrorDialog) {
@@ -205,7 +208,15 @@ class MainActivity : ComponentActivity() {
                     // so the same shared singletons back both the UI and background task execution.
                     val container = agoraApplication.requireContainer()
                     // The WebUI mirrors the app's resolved colors and font.
-                    com.newoether.agora.webui.PublishWebUiTheme(container.webUi, fontPreference, customFontPath)
+                    // Android-only e-ink mode must not recolour the remote browser WebUI.
+                    AgoraTheme(
+                        themeMode = themeModeEnum, colorSchemePreset = colorSchemePreset,
+                        schemeStyle = schemeStyle, dynamicColor = dynamicColor,
+                        amoledEnabled = amoledEnabled, fontPreference = fontPreference,
+                        customFontPath = customFontPath, eInkMode = false,
+                    ) {
+                        com.newoether.agora.webui.PublishWebUiTheme(container.webUi, fontPreference, customFontPath)
+                    }
                     val factory = remember { container.chatViewModelFactory() }
                     val viewModel: ChatViewModel = viewModel(factory = factory)
 
@@ -228,10 +239,17 @@ class MainActivity : ComponentActivity() {
                                 viewModel = viewModel,
                                 settingsManager = settingsManager,
                                 notificationConversationId = notificationConversationId,
+                                sharedTextRequestId = sharedTextRequestId,
+                                onSharedTextConsumed = {
+                                    if (sharedTextRequestId.value == it) {
+                                        sharedTextRequestId.value = null
+                                        intent?.removeExtra(com.newoether.agora.sharing.EXTRA_SHARED_TEXT_REQUEST)
+                                    }
+                                },
                                 onNotificationConversationConsumed = { expectedId ->
                                     consumeNotificationTarget(notificationConversationId, expectedId)
                                 },
-                                screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
+                                screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION)?.removeSuffix(":eink"),
                             )
                         }
                     }
@@ -264,6 +282,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleNavigationIntent(intent: Intent?) {
+        sharedTextRequestId.value = intent?.getStringExtra(com.newoether.agora.sharing.EXTRA_SHARED_TEXT_REQUEST)
         notificationConversationId.value = intent?.getStringExtra(EXTRA_CONVERSATION_ID)
             ?.takeIf { it.isNotBlank() }
             ?: intent?.data?.takeIf { uri ->
@@ -279,8 +298,12 @@ fun MainNavigation(
     settingsManager: SettingsManager,
     notificationConversationId: kotlinx.coroutines.flow.StateFlow<String?>,
     onNotificationConversationConsumed: (String) -> Unit,
+    sharedTextRequestId: kotlinx.coroutines.flow.StateFlow<String?>,
+    onSharedTextConsumed: (String) -> Unit,
     screenshotDestination: String? = null,
 ) {
+    val incomingSharedText by sharedTextRequestId.collectAsState()
+    com.newoether.agora.ui.chat.SharedTextIncoming(viewModel, incomingSharedText, onSharedTextConsumed)
     val appContext = LocalContext.current.applicationContext
     val motionPolicy = LocalAgoraMotionPolicy.current
     val shouldRequestNotificationPermission =

@@ -1,44 +1,30 @@
 package com.newoether.agora.ui.chat
-
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.newoether.agora.R
 import com.newoether.agora.TopLevelPresentation
 import com.newoether.agora.api.DebugProvider
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.util.gradientBlur
-import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
 import com.newoether.agora.ui.chat.bottombar.LoopStatusBackdrop
 import com.newoether.agora.ui.chat.interaction.ChatConversationToolsOverlay
@@ -52,7 +38,7 @@ import com.newoether.agora.model.StableModelAliases
 import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.viewmodel.validChatModels
 import kotlinx.coroutines.launch
-
+import com.newoether.agora.ui.motion.animateFloatAsState
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalFoundationApi::class,
@@ -139,11 +125,11 @@ fun ChatApp(
     val displayMessagesState = remember(messagesState, customProviders) { derivedStateOf { messagesState.value.map { it.forDisplay(customProviders) } } }
     val webSearchApiKeys by viewModel.settings.webSearchApiKeys.collectAsState()
     val shellDevices by viewModel.settings.shellDevices.collectAsState()
-    val amoledEnabled by viewModel.settings.amoledEnabled.collectAsState()
+    val savedAmoledEnabled by viewModel.settings.amoledEnabled.collectAsState()
+    val amoledEnabled = savedAmoledEnabled || motionPolicy.eInkMode
     val toolCallDisplayMode by viewModel.settings.toolCallDisplayMode.collectAsState()
     val thinkingSegmentDisplayMode by viewModel.settings.thinkingSegmentDisplayMode.collectAsState()
     val autoExpandActiveGroup by viewModel.settings.autoExpandActiveGroup.collectAsState()
-
     val parseInlineDollarMath by viewModel.settings.parseInlineDollarMath.collectAsState()
     val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
     val conversationControls = effectiveConversationControls(
@@ -171,7 +157,8 @@ fun ChatApp(
     }
     val contextProjectionReady = contextProjection.completed && !contextProjection.loading && !contextProjection.failed && contextProjection.conversationId == currentConversationId && contextProjection.selectedBranchesJson == currentConversation?.selectedBranchesJson
     val contextUsage = contextProjection.usage ?: com.newoether.agora.api.util.ContextWindowUsage(0, conversationControls.contextWindow, 0, false)
-    val blurEffectsEnabled by viewModel.settings.blurEffectsEnabled.collectAsState()
+    val savedBlurEffectsEnabled by viewModel.settings.blurEffectsEnabled.collectAsState()
+    val blurEffectsEnabled = savedBlurEffectsEnabled && !motionPolicy.eInkMode
     val stickToBottom by viewModel.settings.stickToBottom.collectAsState()
     val reduceMotion = motionPolicy.reduceMotion
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
@@ -184,7 +171,6 @@ fun ChatApp(
     // haptics there gives each visible accepted send one confirm(), independent of its send path.
     // Covered acceptances are consumed silently instead of replaying feedback after an overlay exits.
     SendAcceptedHapticBindingEffect(viewModel, haptics, chatHapticActive)
-
     var isExpanded by remember { mutableStateOf(false) }
     // Composer-expand spacer collapse (44dp → 0). An Animatable driven from an effect replaces the
     // former hand-rolled clock, which wrote animation state DURING composition (Compose forbids
@@ -197,7 +183,6 @@ fun ChatApp(
     )
     val isExpandAnimating = composerSpacerAnimation.isRunning
     val outerSpacerHeightPx = composerSpacerAnimation.outerHeightPx
-
     val windowSize = LocalWindowInfo.current.containerSize
     val windowHeightDp = with(density) {
         windowSize.height.toDp().value.coerceAtLeast(1f)
@@ -247,6 +232,8 @@ fun ChatApp(
     val streamingTailController = scrollCoordinator.streamingTailController
     val messageLifecycleAppearanceRegistry = scrollCoordinator.messageLifecycleAppearanceRegistry
     val messageHeights = scrollCoordinator.messageHeights
+    val readingMode = rememberEinkReadingMode(motionPolicy.eInkMode, currentConversationId, listState)
+    var topBarHeightPx by remember { mutableStateOf(0) }
     val viewportHeightPx = scrollCoordinator.viewportHeightPx
     val renderMessagesState = rememberScrollIsolatedMessages(
         conversationId = currentConversationId,
@@ -254,6 +241,8 @@ fun ChatApp(
         listState = listState,
         bypassScrollIsolation =
             streamingTailController.isAutoFollowing || absoluteBottomScrollPhase.isActive,
+        eInkMode = motionPolicy.eInkMode,
+        presentationIdentity = currentConversation?.selectedBranchesJson,
     )
     val messageHydration = rememberChatMessageHydrationBindings(viewModel, customProviders)
     val conversationInteraction = rememberConversationInteractionState(
@@ -262,8 +251,10 @@ fun ChatApp(
         listState = listState,
         searchMessages = messageHydration.searchMessages,
     )
+    val collapsingHeader = rememberCollapsibleChatHeader(currentConversationId,
+        !readingMode.active && !conversationInteraction.searchActive && !isExpanded && !isNewChatMode)
     val conversationSearchActive = conversationInteraction.searchActive
-    val conversationSearchQuery = conversationInteraction.searchQuery
+    val conversationSearchQuery = conversationInteraction.renderedSearchQuery
     val conversationSearchMatchIndex = conversationInteraction.searchMatchIndex
     val shareSelectionActive = conversationInteraction.shareSelectionActive
     val selectedShareMessageIds = conversationInteraction.selectedShareMessageIds
@@ -283,7 +274,6 @@ fun ChatApp(
         inputFocusRequester = inputFocusRequester,
         onShowLaunchContent = { showLaunchContent = true },
     )
-
     scrollCoordinator.BindTransitionEffects(
         currentConversationId = currentConversationId,
         currentConversation = currentConversation,
@@ -298,7 +288,6 @@ fun ChatApp(
         haptics = haptics,
         chatPresented = topLevelPresentation == TopLevelPresentation.CHAT,
     )
-
     val composerOwnerId = if (isNewChatMode) com.newoether.agora.viewmodel.NEW_CHAT_WORKSPACE_ID else currentConversationId ?: com.newoether.agora.viewmodel.NEW_CHAT_WORKSPACE_ID
     val composerSnapshot by rememberComposerDraftSnapshot(
         ownerId = composerOwnerId,
@@ -306,7 +295,6 @@ fun ChatApp(
         viewModel = viewModel,
         textFieldState = textFieldState,
     )
-
     val animatedScrollRequest by viewModel.scrollRequests.request.collectAsState()
     scrollCoordinator.BindRequestEffects(
         currentConversationId = currentConversationId,
@@ -327,7 +315,6 @@ fun ChatApp(
         onRegenerationTransitionFinished = viewModel.regenerationTransitions::complete,
         onAnimatedScrollFinished = viewModel.scrollRequests::complete,
     )
-
     ChatNavigationEffects(
         drawerState = drawerState,
         focusManager = focusManager,
@@ -337,7 +324,6 @@ fun ChatApp(
         conversationInteraction = conversationInteraction,
         onCollapseComposer = { isExpanded = false },
     )
-
     AnsweringHapticEffect(
         generationSnapshot = selectedConversationGenerationSnapshot,
         topLevelPresentation = topLevelPresentation,
@@ -345,6 +331,7 @@ fun ChatApp(
         haptics = haptics,
     )
 
+    InteractiveAnswerHost(viewModel) {
     CompositionLocalProvider(LocalAgoraHaptics provides haptics) {
     ChatDrawerHost(
         state = drawerState,
@@ -405,42 +392,44 @@ fun ChatApp(
                     motionEnabled = newChatMotion.animateBackground,
                 )
             }
-
             @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
             Scaffold(
                 containerColor = Color.Transparent,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 topBar = {
-                    ChatTopBar(
-                        viewModel = viewModel,
-                        dialogState = dialogState,
-                        conversationInteraction = conversationInteraction,
-                        conversations = displayConversations,
-                        totalTokens = contextUsage.estimatedTokenCount,
-                        contextTokenBudget = contextUsage.tokenBudget,
-                        systemPromptEnabled = !conversationControls.lowContextModeEnabled,
-                        onNavigateBack = onNavigateBack,
-                        onOpenDrawer = {
-                            if (drawerEnabled) {
-                                scope.launch { drawerState.toggle(motionPolicy) }
-                            }
-                        },
-                        onForkConversation = { pendingForkRequest = ForkConversationRequest(messageId = null) },
-                        onNewChat = {
-                            if (!isNewChatMode) {
-                                isExpanded = false
-                                viewModel.createNewChat()
-                                inputFocusRequester.requestFocus()
-                            }
-                        },
-                    )
+                    CollapsibleChatHeader(collapsingHeader, readingMode.active, { topBarHeightPx = it }) {
+                        ChatTopBar(
+                            reading = readingMode.active,
+                            viewModel = viewModel,
+                            dialogState = dialogState,
+                            conversationInteraction = conversationInteraction,
+                            conversations = displayConversations,
+                            totalTokens = contextUsage.estimatedTokenCount,
+                            contextTokenBudget = contextUsage.tokenBudget,
+                            systemPromptEnabled = !conversationControls.lowContextModeEnabled,
+                            onNavigateBack = onNavigateBack,
+                            onOpenDrawer = {
+                                if (drawerEnabled) {
+                                    scope.launch { drawerState.toggle(motionPolicy) }
+                                }
+                            },
+                            onForkConversation = { pendingForkRequest = ForkConversationRequest(messageId = null) },
+                            onNewChat = {
+                                if (!isNewChatMode) {
+                                    isExpanded = false
+                                    viewModel.createNewChat()
+                                    inputFocusRequester.requestFocus()
+                                }
+                            },
+                        )
+                    }
                 }
             ) { padding -> Box(modifier = Modifier.fillMaxSize()) {
                     val topBarH = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
                     val pivotY =
                         ((windowHeightDp + topBarH.value / 2f - bottomBarHeight.value) / 2f)
                             .coerceAtLeast(0f) / windowHeightDp
-                    AnimatedContent(
+                    ChatContentTransition(
                         targetState = Pair(isNewChatMode, showLaunchContent),
                         transitionSpec = {
                             chatMainContentTransition(motionPolicy, pivotY)
@@ -465,7 +454,7 @@ fun ChatApp(
                                         regenerationTransition?.conversationId ==
                                             currentConversationId,
                             )
-                            Box(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = Modifier.fillMaxSize().nestedScroll(collapsingHeader.connection)) {
                             MessageList(
                                 messages = StableMessageList(renderMessagesState.value),
                                 authoritativeMessages = StableMessageList(displayMessagesState.value),
@@ -489,9 +478,11 @@ fun ChatApp(
                                 compactPreview = viewModel.compactUi.compactPreview,
                                 isStopping = isStopping,
                                 isSwitching = isSwitching,
-                                streamingMessage = generationSnapshot.streamingMessage?.forDisplay(customProviders),
+                                streamingMessage = (if (motionPolicy.eInkMode) {
+                                    renderMessagesState.value.firstOrNull { it.id == generationSnapshot.streamingMessage?.id }
+                                } else generationSnapshot.streamingMessage)?.forDisplay(customProviders),
                                 streamingAutoFollowEnabled =
-                                    streamingFollowAvailability.enabled && stickToBottom,
+                                    streamingFollowAvailability.enabled && stickToBottom && !motionPolicy.eInkMode,
                                 streamingAutoFollowPaused =
                                     streamingFollowAvailability.paused,
                                 streamingTailWithinAttachThreshold =
@@ -512,7 +503,7 @@ fun ChatApp(
                                 contextRetainedMessageIds = contextProjection.retainedMessageIds.orEmpty(),
                                 modelAliases = StableModelAliases(modelAliases, modelProviderNames),
                                 customProviders = customProviders,
-                                bottomBarHeight = bottomBarHeight + shareSelectionBarSpace + messageToolsInset,
+                                bottomBarHeight = (if (readingMode.active) 0.dp else bottomBarHeight) + shareSelectionBarSpace + messageToolsInset,
                                 viewportHeight = viewportHeightPx,
                                 messageHeights = messageHeights,
                                 observeMessage = messageHydration.observeMessage,
@@ -581,8 +572,9 @@ fun ChatApp(
                                 contentPadding = PaddingValues(
                                     start = 8.dp,
                                     end = 8.dp,
-                                    top = 140.dp,
-                                    bottom = bottomBarHeight + shareSelectionBarSpace + messageToolsInset + 8.dp
+                                    top = if (readingMode.active) 0.dp else if (motionPolicy.eInkMode) with(density) { topBarHeightPx.toDp() } else with(density) { collapsingHeader.contentInset(140.dp.toPx()).toDp() },
+                                    bottom = (if (readingMode.active) 0.dp else bottomBarHeight) + shareSelectionBarSpace + messageToolsInset +
+                                        (if (motionPolicy.eInkMode) 56.dp else 8.dp)
                                 )
                             )
                             }
@@ -612,9 +604,14 @@ fun ChatApp(
                         regenerationScrollActive = regenerationScrollActive,
                         imeBottomAnchorActive = imeBottomAnchorState.active,
                     )
-                    ChatBottomScrollButton(showButton, bottomBarHeight + interactionBarHeight) {
-                        scrollCoordinator.requestAbsoluteBottomScroll()
-                    }
+                    ChatNavigationControls(
+                        eInk = motionPolicy.eInkMode && !isNewChatMode && !isExpanded,
+                        showBottomButton = showButton, listState = listState,
+                        viewportHeight = viewportHeightPx, topObstruction = if (readingMode.active) 0 else topBarHeightPx, readingMode = readingMode,
+                        bottomObstruction = (if (readingMode.active) 0.dp else bottomBarHeight) + interactionBarHeight,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        onLatest = { scrollCoordinator.requestAbsoluteBottomScroll() },
+                    )
 
                     ChatSelectionOverlay(
                         shareSelectionActive, motionPolicy, bottomBarHeight,
@@ -633,13 +630,13 @@ fun ChatApp(
                 viewModel = viewModel,
                 conversationId = currentConversationId,
                 autoWrapCodeBlocks = autoWrapCodeBlocks,
-                bottomBarHeight = bottomBarHeight,
+                bottomBarHeight = if (readingMode.active) 48.dp else bottomBarHeight,
                 onHeightChanged = { interactionBarHeightPx = it },
                 onMessageInsetChanged = { messageToolsInsetPx = it },
             )
 
             com.newoether.agora.ui.chat.bottombar.ChatComposerSurface(
-                modifier = Modifier.align(Alignment.BottomCenter),
+                modifier = Modifier.align(Alignment.BottomCenter).readingChrome(readingMode.active),
                 contentMaxWidth = 840.dp,
                 isExpanded = isExpanded,
                 outerSpacerHeightPx = outerSpacerHeightPx,
@@ -657,6 +654,9 @@ fun ChatApp(
                         composerOwnerId = composerOwnerId,
                         composerController = viewModel.conversationComposer,
                         composerSnapshot = composerSnapshot,
+                        skillManager = viewModel.skillManager,
+                        voiceSettings = viewModel.settings,
+                        voiceDraftKey = "$composerOwnerId:$newChatEntryId",
                         onStopGeneration = {
                             haptics.interrupt()
                             viewModel.stopGeneration()
@@ -745,6 +745,7 @@ fun ChatApp(
             }
         }
         }
+    }
 
     ChatAppDialogHost(
         state = dialogState,

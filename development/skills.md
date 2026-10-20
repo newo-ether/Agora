@@ -1,161 +1,158 @@
 # Skills Architecture Contract
 
-Status: authoritative development contract, 2026-08-28.
+Status: authoritative; simplified by owner request and extended with template sequencing, 17 October 2026.
 
-This document is required context for changes to Agora's persistent Skill library, Skill catalog
-prompt projection, Skill tools, Skill settings, or Skill archive transport.
+## Product and editing
 
-## 1. Product model
+A Skill is a content-descriptive Markdown filename, a concise description (aim for 5–10 words,
+maximum ten), an optional shortcut and Markdown instructions. Settings → Skills uses the established
+System Prompt list/detail editor with those four main fields, optional Before/After/continuation
+choices (see below), and explicit Save/Back. Back
+cancels unsaved edits. Saved rows can be reopened or deleted; there are no standalone Markdown
+import/export or duplication actions. Native application archives and backups retain Skills.
 
-A Skill is a named Markdown instruction file plus an optional short description. Skills are durable,
-global, user-owned resources. They are not memories, conversation messages, Providers, MCP servers,
-system prompts, or a second generation pipeline.
+All tool names, call examples, Alpine filesystem paths and other Skill filenames belong in the
+instructions. No tool/folder/child dependency forms, Android file/folder grants, Skill UUIDs or hidden
+rename aliases. Renaming a referenced Skill or directory requires updating the referring text.
+The name should describe its contents. Filenames containing spaces are supported in quoted commands.
 
-Agora has no Active Skill. There is no `active_skill.md`, active-Skill singleton, active-Skill
-toggle, active-Skill prompt variable, or `update_active_skill` tool. A single active item would waste
-context, limit composition, and inject irrelevant instructions into unrelated requests.
+## Persistence
 
-Instead, when Skill access is enabled, one compact catalog containing only each saved file's name and
-description is available to the `{skill_catalog}` predefined variable. The variable reads the current
-catalog immediately before each outbound ordinary Provider API request. The model may then read one
-or more relevant Skill bodies through the ordinary tool loop. An empty library contributes an empty
-catalog. The current user message and ordinary system prompt remain authoritative over conflicting
-Skill content.
+SkillManager owns app-private skill_db Markdown and skill_meta.json descriptions/shortcut index.
+Shortcut and native template-sequencing settings travel in a leading agora-skill/v1 comment;
+instructions remain Markdown.
+Read previous draft comments while discarding removed configuration on an explicit edit. No Skill
+library body is stored as a separate Room resource; invoked instruction snapshots live in normal
+message/tool history. Keep path containment, normalized .md names, no-overwrite creation, expected-content
+comparison on editor saves, atomic body replacement/recovery and existing rollback behavior.
+File operations run off Main. Failures retain user drafts and report errors.
 
-## 2. Storage and safety
+Catalog revision invalidates only consumers. Settings list and /skills discovery read filenames and
+small metadata, never all Skill bodies. Shortcut resolution uses the small index then reads only the
+selected file. Descriptions are visible in local Settings; model discovery lists filenames only.
+The selected description and full instructions are returned by read_skill_file or invoke_skill.
+An explicit composer invocation also prefixes that selected document’s instructions to the first
+request. After local Before steps, this happens only at final Start; there is no prior AI request.
+The existing invoke_skill registration still owns provenance, parent tokens and completion hooks.
+Ordinary default prompts remain catalog-free. Explicit {skill_catalog} uses filenames only and no
+bodies/descriptions. Opening Settings or a local picker makes no model request.
 
-`SkillManager` owns app-private `skill_db` Markdown files and `skill_meta.json` descriptions. Its
-create/read/edit/rename/delete/list and exact-once patch behavior mirrors the established saved-Memory
-file store, including deterministic name ordering, `.md` normalization, separator sanitization,
-canonical containment checks, synchronized metadata access, and atomic metadata replacement.
+## Runtime and paths
 
-Skill content never enters Room. File operations run off Main. A failed write/edit/delete does not
-claim success. Renaming preserves metadata, duplicate targets fail, blank descriptions are removed,
-and malformed metadata fails closed to an empty description map without deleting Skill files.
+Existing accessSkills controls discovery/read/modify tools. Reuse ordinary capability loading,
+GenerationToolExecutor, authorized batch identity, durable tool segments, timeouts and error handling.
+There is no Active Skill, separate agent, Provider, queue, Run or context builder.
 
-A monotonic catalog revision changes whenever a mutation can alter catalog text. It invalidates only
-the exact context projection/request preview that consumes the catalog; it is not generation state.
+The existing list/read/create/edit/delete tools remain available to authorized requests.
+invoke_skill loads one named Skill and returns a snapshot and actual tool-call token. Instructions
+can call another Skill by filename with that parent token. Completed selected-path tool records own
+ancestry. Reject unknown parents, cycles, depth beyond six, more than 24 calls per Run or retained
+instruction snapshots beyond 240 KB. Edits affect new roots; an already used child snapshot stays
+pinned within its root invocation. Required dependency forms and tool preflight lists are removed.
 
-## 3. Access and generation admission
+Paths are plain text for the existing Alpine Linux terminal integration. Use the established shell
+file_glob/file_read/shell tools and existing permissions; no Skill-specific file adapter, private
+reference collection, SAF linking or automatic path repair. Only list/read selected reference material
+when needed. Disabled/missing terminal access or stale filenames fail through ordinary tools.
+The local Linux sandbox remains F-Droid-only and needs setup/enabling; shared storage uses its
+existing /mnt/shared mount. Pi-native session discovery is outside this draft.
 
-One default-enabled `accessSkills` setting controls Skill tool availability and whether the
-`{skill_catalog}` predefined variable may resolve. It does not independently inject catalog text.
-Skill tool definitions and execution authority may be frozen at ordinary Run admission under the
-shared tool contract. Prompt projection is separate: immediately before every outbound ordinary
-Provider API request, including tool continuations and transport retries, the request path checks the
-current access setting and resolves `{skill_catalog}` from the current catalog. Catalog text is not
-captured in `GenerationContext`, the admission snapshot, or an earlier compiled system prompt.
-Changing Skill access or catalog contents after admission may change a later request's resolved
-system prompt, but it does not retroactively change an already serialized request or the Run-frozen
-tool-definition set.
+/skills shows filenames and optional shortcuts; selection prepares its /shortcut when configured, otherwise a quoted /skill filename command,
+without sending. Explicit /skill and unambiguous shortcuts use the existing composer freeze/admission/
+clearing path. Template shortcuts are retained as legacy data only and cannot shadow Skills.
 
-The default system prompt contains one `<skill_catalog>` block and the predefined
-`{skill_catalog}` variable. The block explains that catalog entries are untrusted task resources:
-read only relevant Skills, treat their bodies as instructions subordinate to the current user/system
-request, and do not claim a Skill was applied without reading it. Custom prompt templates may place
-the same predefined variable. For ordinary generation, the catalog enters the system prompt only at
-an explicitly placed variable; the request builder must never append or restore it implicitly. Empty,
-disabled, or absent catalog projection resolves to an empty string.
+## Create from a discussion
 
-System Prompt Editor presents `{skill_catalog}` with the same Material `Extension` (plugin) icon
-used by the Skills settings entry.
+create-skill.md is packaged authoring guidance, loaded on explicit invocation only, with a user-saved
+file of that name taking precedence. It does not seed files or read conversation owners at startup.
+It formalizes the current discussion into a reusable workflow, without gathering unrelated chats.
+Create with AI appends an unsent request to invoke it in the exact originating draft, preserving
+existing text and attachments through the admitted composer owner and cancellation-safe release.
 
-Ordinary foreground generation, queued sends, Compact projection/accounting, Tasks, and Loops reuse
-the same immutable request builder and tool executor. Skills never create a second context builder,
-Provider call, queue, Run, settlement, or automation path. Compact's own tool-disabled generation
-context remains tool-disabled and does not read Skills unless the ordinary shared contract explicitly
-allows those tools.
+propose_skill returns an ordinary completed InteractiveAnswer artifact with a SkillDocument draft.
+It performs no library mutation. Its deterministic escaped HTML presents name, short description,
+shortcut and complete instructions, with a readable fallback. It uses the existing inline/expanded
+viewer, independent of the generic AI-generated interactive-answers permission: its markup is
+app-owned and has no generated script. Skill modify access remains required.
 
-## 4. Tools
+Expanded Review and save Skill opens the same four-field native editor. A deliberate Save verifies
+the exact originating artifact on the selected conversation path and uses SkillManager's no-overwrite
+save. Editing the draft cannot target another chat or silently
+overwrite an existing file. Cancel leaves the library untouched. Only completed propose_skill
+artifacts with a valid draft obtain this action; ordinary render_interactive_answer rejects drafts.
+No arbitrary interface JavaScript receives storage authority. Archive/fork transport uses existing
+structured tool result serialization; no extra draft store, table or generation lifecycle.
 
-When `accessSkills` is true, the ordinary `GenerationToolExecutor` exposes exactly:
+## Verification
 
-- `list_skill_files`
-- `read_skill_file`
-- `create_skill_file`
-- `edit_skill_file`
-- `delete_skill_file`
+Cover name-based save/rename/missing references, stale-save rejection, shortcut conflicts, atomic
+body recovery, instruction-only edits, filename-only discovery, selected description/body reads,
+quoted commands, nested call provenance/cycles/budgets/pinning, four-field editor save/cancel,
+review artifacts and disabled/oversized/malformed drafting. Existing composer race/cancellation and
+unrelated-owner preservation checks remain mandatory. Run both flavor suites, build-logic and Kotlin
+size gates and both preview APK builds. Physical/e-ink acceptance belongs to the owner.
 
-Definitions, argument validation, multi-read formatting, exact-once patching, result JSON, timeout,
-accepted tool-batch identity, durable tool/result persistence, and error handling mirror the saved
-Memory tools. `edit_skill_file` requires an explicit `operation` of `replace`, `patch`, `rename`, or
-`describe`. The executor reads only the selected operation's value, so runtime-required empty
-placeholders for unrelated fields cannot create conflicting edits. Empty replacement content clears
-the file, an empty patch replacement deletes the unique match, and an empty description removes the
-catalog description. Unknown operations and missing patch/rename inputs fail before `SkillManager`
-is called. When access is false, no Skill definitions are advertised and Skill names are not handled
-through a hidden path. There is no active-Skill update tool.
+## Slash discovery presentation
 
-Tool presentation owns localized labels/icons and structured list-result formatting. Unknown,
-malformed, or failed operations return ordinary tool failure content; they do not mutate generation
-state or silently fall back to Memory storage.
+Typing `/` or `/skills` offers saved Skills and Create Skill only. Rows show a command/name
+and a concise description from small metadata, without reading instruction files or putting
+descriptions into model context. Duplicate Skill commands/names are omitted. Templates are absent
+from the picker and cannot be invoked through their legacy shortcuts or AI tools.
+Skill selection fills its short /shortcut when configured (for example /osce), preserving the
+draft until Send. Skills without shortcuts retain the explicit quoted filename command.
+The same row component serves connected Remote native Skills (see remote-sessions.md), using
+separate session-owned sources and no remote-to-local persistence. Normal theme styling and
+static high-contrast e-ink styling share input, accessibility and bounded-list behavior; e-ink
+adds the existing list page controls rather than another scrolling owner.
 
-## 5. Settings and localization
+## Skill-owned template workflow (17 October 2026)
 
-Settings includes one Skills destination beside Memory in the Memory & Data group. Its page mirrors
-the saved-file portion of the Memory page and uses the same shared Settings components and visual
-language. The Access group contains the one Skill-access row with the Settings document icon and Memory-equivalent title casing. The Saved Skills group owns an explicit
-loading state, a descriptive empty state, saved-file rows, and the canonical centered
-`SettingsAddItem`; it does not introduce a full-width Material Button.
+Owner revision supersedes the four-fields-only restriction: an optional Workflow section selects
+ordered Before and After template lists and Continue with Skill (after the final After template's Continue gesture).
+References are template IDs internally and Skill filenames. No During phase. Before opens locally
+at composer admission; submitting each template opens the next locally, and the final Start invokes the originating Skill. complete_skill is the explicit end
+signal and presents its first configured After template as an ordinary completed tool artifact. It never
+infers completion from an assistant reply, Stop or Run settlement. Continue starts the configured
+next Skill through normal foreground admission, including its Before template if present. Opening,
+selecting and closing UI never sends. Actual parent invocation tokens and ancestry bound cycles and
+chain depth. Missing references fail without sending or silently skipping steps.
 
-A saved row displays the normalized name without the `.md` suffix, uses the same medium title,
-description typography, subdued primary document icon, and right-side overflow menu as saved Memory.
-The menu exposes Edit and destructive Delete. Add copies the System Prompt template bottom sheet's
-content structure exactly: the same motion-aware edge-to-edge container, top-corner shape, title
-style/padding, title-to-list gap, two `SettingsItem` rows with medium headlines and supporting text,
-primary leading icons, and bottom spacing. Only Skill-specific copy, icons, and actions differ;
-Markdown import uses Memory's `Description` icon, while manual creation uses `Edit`. Each action starts
-its picker/dialog and sheet hide from the same tap, keeps the sheet composed until hide completion,
-generation-fences stale completion, and snaps both states under Reduced Motion. Markdown import uses SAF `OpenDocument`, accepts only a
-case-insensitive `.md` display name, rejects a reported or streamed payload above 1 MiB, decodes
-strict UTF-8 off Main, normalizes the suffix, and creates through `SkillManager` with an empty
-description. Existing names fail through the manager's no-overwrite policy.
+Routing is native snapshot metadata on the opened card, not template HTML or model prompt settings.
+Templates remain reusable input/output interfaces. Legacy template-owned linkedSkill is read-only
+compatibility; the metadata editor no longer offers it. New/edited Skill and template descriptions
+are limited to ten words; old template catalogues remain readable.
 
-Create and Edit are separate dialogs with the Memory dialog container, bold titles, 16 dp field
-corners, 12 dp field spacing, body-small monospace content, and the same bounded content heights.
-Delete confirmation names the target file and uses destructive button tint. Loading and every
-mutation are guarded against overlapping operations, all file I/O remains off Main, successful CRUD
-refreshes the visible list, and failures retain a usable state while reporting the actual error
-through the established fallback. Documentation-FAB bottom spacing matches Memory and the FAB opens
-`skills.md`. No Active Skill section is shown.
+A template can specify a local Alpine sourceDirectory. Opening lists bounded Markdown paths through
+the existing sandbox, injects filenames locally into the interface, and snapshots the allowed
+selection. Start validates exactly one selected relative path, canonical containment and bounded
+readability, then includes only that file's text in the normal Skill request. No corpus or HTML is
+sent to a model. No Android SAF bindings, file UUIDs, new provider loop or workflow execution engine.
 
-Every app-owned Skills destination, switch, empty-state hint, field label, action, dialog,
-filename-bearing confirmation, error fallback, and tool-presentation string exists in every supported
-locale with matching format placeholders. External file content is never translated.
+### Editing ordered steps
 
-## 6. Export, import, backup, and compatibility
+The shared regular/e-ink menu provides plus to choose another template, minus to detach a step,
+up/down controls to reorder within a phase, and a Before/After action to move a step between phases.
+Clicking its name replaces the selected template through a searchable chooser. Edit template opens
+the existing shared metadata editor; those changes save to the library separately, as labelled.
+Removing a step preserves the library template. Workflow edits apply only on the Skill's Save.
+Removing or moving the final After step also clears its continuation.
 
-Native export and automatic backup add `skills/skill_db/*.md` and
-`skills/skill_db/skill_meta.json`. Portable settings include `accessSkills`. Archives created
-before Skills remain valid and import as an empty Skill library with the current/default setting.
-Unknown archive entries remain ignored by the existing importer.
+Each Skill supports up to 16 total template steps. Old beforeTemplate/afterTemplate settings remain
+readable; edited workflows store ordered beforeTemplates/afterTemplates. Opened cards snapshot the
+remaining sequence, collected input and selected source references. Intermediate submissions use
+local composer admission without a model request; the final submission includes the accumulated
+inputs and only the selected files, with a combined 128 KB reference limit and the existing 8,000
+character workflow input limit. Missing templates or unreadable references stop the flow.
 
-Replace import clears existing Skills before applying archive Skill entries. Merge import preserves
-existing files according to the same conflict policy as saved Memory files. Import validates paths
-through `SkillManager`; archive names cannot escape app-private storage. A failed Skill entry does
-not corrupt Memory, Room, settings, or unrelated archive categories.
 
-## 7. Ownership
+## Selected reference attachments
 
-| Owner | Responsibility | Prohibited responsibility |
-|---|---|---|
-| SkillManager | Private files, metadata, catalog text/revision, safe CRUD. | Prompt compilation, Provider calls, Room, or generation lifecycle. |
-| SettingsManager/Repository | Persist and expose the access toggle. | File bodies or catalog construction. |
-| GenerationRequestBuilder/request projection | Preserve the selected structured variable and resolve the current authorized catalog immediately before each outbound ordinary Provider request. | Admission-time catalog capture, implicit catalog injection, Provider calls, or tool execution. |
-| SkillToolProvider | Definitions, validation, and manager calls. | Independent tool loop, persistence, or admission. |
-| GenerationToolExecutor | Register/execute/present Skill tools through the shared tool path. | Skill-specific Run or settlement. |
-| Import/export/backup owners | Additive archive transport with Memory-equivalent conflict rules. | Silent destructive fallback. |
-| SkillMarkdownImport | Bounded SAF Markdown reads, extension normalization, and strict UTF-8 validation. | Persistent writes, overwrite policy, UI state, or generation lifecycle. |
-| Settings Skills UI | User CRUD and access presentation. | File safety, prompt authority, or generation state. |
-
-## 8. Required verification
-
-Focused verification covers path containment, extension normalization, create/read/list/edit/rename/
-patch/delete and metadata behavior, catalog ordering/escaping/revision, tool visibility and all five
-definitions, disabled access, multi-read and validation failures, per-request authorized catalog
-resolution across initial requests, tool continuations, and retries, absence of admission-time catalog
-capture, default/custom prompt variable compilation, context-projection invalidation, ordinary/automation
-wiring, localized tool presentation, settings navigation/CRUD, Memory-parity loading/empty/list/add
-states, overflow actions, dialog geometry, mutation guarding and list refresh, export/import merge and
-replace, auto-backup, old-archive compatibility, locale key and format-placeholder parity, and the
-explicit absence of every Active Skill artifact. The project-defined full build gate remains required.
+Final workflow submissions snapshot each validated selected Markdown source as an ordinary ready
+app-private file attachment. The visible message contains the selected Skill instructions and
+collected inputs; article bodies are no longer concatenated into it. Existing attachment metadata,
+file previews, provider projection, backups/forks and reference-aware cleanup own these snapshots.
+Provider projection appends each attachment's text once using the normal file boundary. No other
+articles are copied. Live ownership protects snapshots during admission; pre-Send failures discard
+them. Once Send is attempted, ambiguous acceptance is reclaimed only by the existing reference-aware
+orphan sweeper. The source folder is never modified. The 128 KB combined selected-source limit and
+canonical Alpine containment checks still apply.

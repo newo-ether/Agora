@@ -50,6 +50,7 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
                         toolState = activity.state ?: ToolExecutionStates.SUCCEEDED.takeIf { !activity.imagePath.isNullOrBlank() },
                         durationMs = activity.durationMs,
                         toolImages = activity.images,
+                        toolStructuredResult = remoteInteractiveResult(activity),
                         toolResult = activity.result.takeUnless { activity.state == ToolExecutionStates.RUNNING },
                         toolProgress = activity.result.takeIf { activity.state == ToolExecutionStates.RUNNING },
                     )
@@ -85,7 +86,7 @@ internal fun projectRemoteMessages(messages: List<RemoteMessage>, runtime: Remot
             id = first.groupId ?: first.nativeId ?: first.id, parentId = lastOrNull()?.id,
             text = if (segments == null) userText else answerText.toString(),
             participant = if (first.role == "user") Participant.USER else Participant.MODEL,
-            timestamp = first.timestamp, modelName = "Codex", runId = first.turnId,
+            timestamp = first.timestamp, modelName = runtime?.agent ?: "Codex", runId = first.turnId,
             segments = segments, markdownImages = inlineImages,
             status = if (segments?.any { it.type == "error" } == true) MessageStatus.ERROR else MessageStatus.SUCCESS,
         ))

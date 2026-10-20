@@ -18,6 +18,10 @@ import com.newoether.agora.ui.settings.PillTabSwitcher
 import com.newoether.agora.data.DataExporter
 import com.newoether.agora.data.DataImporter
 import com.newoether.agora.data.NativeBackupFormat
+import com.newoether.agora.ui.components.Text
+import com.newoether.agora.ui.components.Icon
+import com.newoether.agora.ui.components.AlertDialog
+import com.newoether.agora.ui.components.TextButton
 
 @Composable
 internal fun ExportDataDialog(
@@ -28,12 +32,13 @@ internal fun ExportDataDialog(
     onExport: (categories: Set<DataExporter.ExportCategory>, includeApiKeys: Boolean) -> Unit
 ) {
     var exportConversations by remember { mutableStateOf(true) }
+    var exportTemplates by remember { mutableStateOf(true) }
     var exportMemories by remember { mutableStateOf(true) }
     var exportPrompts by remember { mutableStateOf(true) }
     var exportSettings by remember { mutableStateOf(true) }
     var exportApiKeys by remember { mutableStateOf(false) }
 
-    val anyChecked = exportConversations || exportMemories || exportPrompts || exportSettings || exportApiKeys
+    val anyChecked = exportTemplates || exportConversations || exportMemories || exportPrompts || exportSettings || exportApiKeys
 
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -43,6 +48,7 @@ internal fun ExportDataDialog(
             Column {
                 CheckRow(exportConversations, { exportConversations = it },
                     "${stringResource(R.string.export_category_conversations)} ($conversationCount)")
+                CheckRow(exportTemplates, { exportTemplates = it }, stringResource(R.string.export_category_templates))
                 CheckRow(exportMemories, { exportMemories = it },
                     "${stringResource(R.string.export_category_memories)} ($memoryCount)")
                 CheckRow(exportPrompts, { exportPrompts = it },
@@ -70,6 +76,7 @@ internal fun ExportDataDialog(
             TextButton(onClick = {
                     val cats = mutableSetOf<DataExporter.ExportCategory>()
                     if (exportConversations) cats.add(DataExporter.ExportCategory.CONVERSATIONS)
+                    if (exportTemplates) cats.add(DataExporter.ExportCategory.TEMPLATES)
                     if (exportMemories) cats.add(DataExporter.ExportCategory.MEMORIES)
                     if (exportPrompts) cats.add(DataExporter.ExportCategory.SYSTEM_PROMPTS)
                     if (exportSettings) cats.add(DataExporter.ExportCategory.SETTINGS)
@@ -108,6 +115,7 @@ internal fun ImportPreviewDialog(
     onImport: (Map<DataExporter.ExportCategory, DataImporter.ImportStrategy>) -> Unit
 ) {
     var convStrategy by remember { mutableStateOf(DataImporter.ImportStrategy.MERGE) }
+    var templateStrategy by remember { mutableStateOf(DataImporter.ImportStrategy.MERGE) }
     var memStrategy by remember { mutableStateOf(DataImporter.ImportStrategy.MERGE) }
     var promptStrategy by remember { mutableStateOf(DataImporter.ImportStrategy.MERGE) }
     var settingsStrategy by remember { mutableStateOf(DataImporter.ImportStrategy.MERGE) }
@@ -148,10 +156,13 @@ internal fun ImportPreviewDialog(
                             ),
                             convStrategy, { convStrategy = it })
                     }
+                    if (preview.templatesPresent) {
+                        StrategyRow(stringResource(R.string.export_category_templates), templateStrategy, { templateStrategy = it }, allowUpdate = true)
+                    }
                     if (preview.memoryCount > 0) {
                         StrategyRow(
                             "${stringResource(R.string.export_category_memories)} (${preview.memoryCount})",
-                            memStrategy, { memStrategy = it })
+                            memStrategy, { memStrategy = it }, allowUpdate = true)
                     }
                     if (preview.systemPromptCount > 0) {
                         StrategyRow(
@@ -191,6 +202,7 @@ internal fun ImportPreviewDialog(
                 if (preview.hasConversationGraph) {
                     decisions[DataExporter.ExportCategory.CONVERSATIONS] = convStrategy
                 }
+                if (preview.templatesPresent) decisions[DataExporter.ExportCategory.TEMPLATES] = templateStrategy
                 if (preview.memoryCount > 0) decisions[DataExporter.ExportCategory.MEMORIES] = memStrategy
                 if (preview.systemPromptCount > 0) decisions[DataExporter.ExportCategory.SYSTEM_PROMPTS] = promptStrategy
                 if (preview.settingsPresent) decisions[DataExporter.ExportCategory.SETTINGS] = settingsStrategy
@@ -210,24 +222,35 @@ internal fun ImportPreviewDialog(
 private fun StrategyRow(
     label: String,
     strategy: DataImporter.ImportStrategy,
-    onSelect: (DataImporter.ImportStrategy) -> Unit
+    onSelect: (DataImporter.ImportStrategy) -> Unit,
+    allowUpdate: Boolean = false
 ) {
-    val strategies = listOf(
-        DataImporter.ImportStrategy.MERGE,
-        DataImporter.ImportStrategy.REPLACE,
-        DataImporter.ImportStrategy.SKIP,
-    )
+    val strategies = buildList {
+        add(DataImporter.ImportStrategy.MERGE)
+        if (allowUpdate) add(DataImporter.ImportStrategy.UPDATE)
+        add(DataImporter.ImportStrategy.REPLACE)
+        add(DataImporter.ImportStrategy.SKIP)
+    }
     Column {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(4.dp))
-        PillTabSwitcher(
-            tabs = listOf(
-                stringResource(R.string.import_strategy_merge),
-                stringResource(R.string.import_strategy_replace),
-                stringResource(R.string.import_strategy_skip),
-            ),
-            selectedIndex = strategies.indexOf(strategy),
-            onSelect = { onSelect(strategies[it]) },
-        )
+        // Keep the existing three-choice row elsewhere; resource modes fit in two readable rows.
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val rows = if (allowUpdate) strategies.chunked(2) else listOf(strategies)
+            rows.forEach { options -> PillTabSwitcher(
+                tabs = options.map { option -> stringResource(when (option) {
+                    DataImporter.ImportStrategy.MERGE -> R.string.import_strategy_merge
+                    DataImporter.ImportStrategy.UPDATE -> R.string.import_strategy_update
+                    DataImporter.ImportStrategy.REPLACE -> R.string.import_strategy_replace
+                    DataImporter.ImportStrategy.SKIP -> R.string.import_strategy_skip
+                }) },
+                selectedIndex = options.indexOf(strategy),
+                onSelect = { onSelect(options[it]) },
+            ) }
+        }
+        if (strategy == DataImporter.ImportStrategy.UPDATE) {
+            Text(stringResource(R.string.import_strategy_update_hint), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp))
+        }
     }
 }

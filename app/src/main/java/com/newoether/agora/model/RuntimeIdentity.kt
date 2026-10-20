@@ -17,6 +17,7 @@ enum class RunStatus {
 }
 enum class RunEndReason {
     MODEL_COMPLETED,
+    LOCAL_TEMPLATE_OPENED,
     CONTINUATION_PENDING,
     USER_STOPPED,
     PROCESS_RECOVERED,

@@ -1,0 +1,16 @@
+{
+  "id": "197d7681-a9e2-4ec0-9439-a1e12bb0b171",
+  "name": "OSCE review",
+  "description": "Review outcomes and choose revision focus",
+  "answer": {
+    "title": "OSCE review",
+    "description": "Review outcomes and choose revision focus",
+    "fallback": "Review the outcome, choose a revision focus and Continue.",
+    "html": "<main><h1>OSCE review</h1><pre id=\"outcome\" style=\"white-space:pre-wrap\"></pre><label for=\"focus\">Revision focus</label><input id=\"focus\" placeholder=\"What would you like to practise?\"><button id=\"continue\">Continue</button><p id=\"status\"></p></main>",
+    "jsFunctions": "function initReview() {document.getElementById('outcome').textContent = globalThis.agoraWorkflowInput || ''; document.getElementById('continue').onclick = async function () {this.disabled=true; try {const ok=await Websandbox.connection.remote.sendPrompt({text:JSON.stringify({focus:document.getElementById('focus').value})}); if(ok===false)this.disabled=false;} catch(_){this.disabled=false;}};}",
+    "jsExpressions": [
+      "initReview()"
+    ],
+    "eInkAware": true
+  }
+}

@@ -679,26 +679,31 @@ internal class RemoteViewModel(
         }
     }
 
-    fun send() {
+    fun send() { submitRemote(null) }
+
+    internal fun sendInteractiveText(owner: String, text: String): Job? =
+        if (state.value.owner == owner) submitRemote(text) else null
+
+    private fun submitRemote(overrideText: String?): Job? {
         val snapshot = state.value
-        if (!visible || snapshot.controlling || snapshot.isStopping || snapshot.settingsPending) return
-        val owner = snapshot.owner ?: return
-        val client = clients[snapshot.deviceId] ?: return
-        val text = snapshot.drafts[owner].orEmpty()
-        val attachments = snapshot.attachments[owner].orEmpty()
+        if (!visible || snapshot.controlling || snapshot.isStopping || snapshot.settingsPending) return null
+        val owner = snapshot.owner ?: return null
+        val client = clients[snapshot.deviceId] ?: return null
+        val text = overrideText ?: snapshot.drafts[owner].orEmpty()
+        val attachments = if (overrideText == null) snapshot.attachments[owner].orEmpty() else emptyList()
         if ((text.isBlank() && attachments.isEmpty()) || snapshot.attempts[owner]?.delivery in
-            setOf(RemoteDelivery.SUBMITTING, RemoteDelivery.ACCEPTED, RemoteDelivery.UNKNOWN)) return
+            setOf(RemoteDelivery.SUBMITTING, RemoteDelivery.ACCEPTED, RemoteDelivery.UNKNOWN)) return null
         if (snapshot.isDraft && snapshot.settingsModel == null) {
             trace("models_failed", FiloInputException())
-            return
+            return null
         }
         if (attachments.any { it.importState != com.newoether.agora.model.AttachmentImportState.READY }) {
-            trace("send_failed", RemoteAttachmentException("Finish or remove pending attachments before sending")); return
+            trace("send_failed", RemoteAttachmentException("Finish or remove pending attachments before sending")); return null
         }
         val selected = selectionEpoch
-        val attempt = RemoteAttempt(UUID.randomUUID().toString(), text, RemoteDelivery.SUBMITTING)
+        val attempt = RemoteAttempt(UUID.randomUUID().toString(), text, RemoteDelivery.SUBMITTING, preserveComposer = overrideText != null)
         mutableState.value = state.value.copy(attempts = state.value.attempts + (owner to attempt))
-        viewModelScope.launch {
+        return viewModelScope.launch {
             var uploadComplete = false
             try {
                 val uploads = attachments.map { client.upload(it) }
@@ -759,21 +764,6 @@ internal class RemoteViewModel(
         }
     }
 
-    private fun confirmDelivery(owner: String, attempt: RemoteAttempt, receipts: List<RemoteInputReceipt> = emptyList()) {
-        val current = state.value.attempts[owner]?.takeIf { it.clientId == attempt.clientId } ?: return
-        if (current.delivery == RemoteDelivery.DELIVERED || state.value.owner != owner) return
-        val message = state.value.nodes.firstOrNull { it.role == "user" && it.clientId == attempt.clientId &&
-            (current.turnId == null || current.turnId == it.turnId) }
-        val receipt = receipts.firstOrNull { it.clientId == current.clientId &&
-            it.turnId.isNotBlank() && it.messageId.isNotBlank() && (current.turnId == null || current.turnId == it.turnId) }
-        if (message == null && receipt == null) return
-        state.value.attachments[owner].orEmpty().forEach { attachmentStore?.remove(it) }
-        mutableState.value = state.value.copy(
-            attachments = state.value.attachments - owner,
-            drafts = if (state.value.drafts[owner] == attempt.text) state.value.drafts - owner else state.value.drafts,
-            attempts = state.value.attempts + (owner to current.copy(delivery = RemoteDelivery.DELIVERED)),
-        )
-        val target = message?.let { it.nativeId ?: it.id } ?: state.value.messageGroups.lastOrNull()?.stub?.id
-        if (target != null) scrollRequests.requestAbsoluteBottomAfter(owner, target)
-    }
+    private fun confirmDelivery(owner: String, attempt: RemoteAttempt, receipts: List<RemoteInputReceipt> = emptyList()) =
+        confirmRemoteDelivery(mutableState, attachmentStore, scrollRequests, owner, attempt, state.value.nodes, receipts)
 }

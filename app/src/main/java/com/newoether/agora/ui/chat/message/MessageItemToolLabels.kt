@@ -48,6 +48,7 @@ internal fun shellExecutionSummary(presentation: ToolPresentation): String =
 
 internal fun Resources.toolDisplayName(segment: MessageSegment): String {
     val toolName = segment.toolName.orEmpty()
+    if (toolName == "render_interactive_answer") return getString(R.string.interactive_answers)
     val kind = ToolPresentationResolver.kindForToolName(toolName)
     if (kind == ToolKind.MCP) {
         return mcpToolDisplayName(
@@ -180,6 +181,14 @@ internal fun Resources.toolSummary(segment: MessageSegment): String {
 internal fun Resources.toolSummary(presentation: ToolPresentation): String {
     if (presentation.state == ToolPresentationState.FAILED) {
         toolFailureReasonSummary(presentation.errorMessage)?.let { return it }
+    }
+    if (presentation.toolName == "render_interactive_answer") {
+        when (presentation.state) {
+            ToolPresentationState.CALLING, ToolPresentationState.RUNNING ->
+                return getString(R.string.interactive_answer_creating)
+            ToolPresentationState.COMPLETED -> return getString(R.string.interactive_answer_created)
+            else -> Unit
+        }
     }
     if (presentation.kind == ToolKind.SHELL_EXECUTE) {
         return this.shellToolSummary(presentation)

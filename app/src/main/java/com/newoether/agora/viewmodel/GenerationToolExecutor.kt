@@ -44,6 +44,7 @@ internal data class AuthorizedToolCall(
     val arguments: String,
     val context: GenerationContext,
     val authorizedToolNames: Set<String>,
+    val skillHistory: List<ToolCallData> = emptyList(),
     /** Per-generation single-image transcription flow; null disables it. */
     val toolImageTranscriber: (suspend (com.newoether.agora.model.ToolImageAttachment, suspend (String) -> Unit) -> String?)? = null,
 )
@@ -103,8 +104,13 @@ internal class GenerationToolExecutor private constructor(
                     com.newoether.agora.tool.TodoToolProvider(conversations),
                     MemoryToolProvider(memoryManager),
                     SkillToolProvider(skillManager),
+                    com.newoether.agora.tool.SkillCompletionToolProvider(com.newoether.agora.templates.InteractiveTemplateRepository(app), sandboxFactory,
+                        app.getString(com.newoether.agora.R.string.skill_finish)),
+                    com.newoether.agora.tool.SkillDraftToolProvider(app.getString(com.newoether.agora.R.string.skill_create_ai)),
+                    com.newoether.agora.tool.SkillInvocationToolProvider(skillManager, app.getString(com.newoether.agora.R.string.skill_invoke)),
                     WebSearchToolProvider(),
                     RagToolProvider(conversations, generatingConversationIds),
+                    com.newoether.agora.tool.InteractiveAnswerToolProvider(),
                     imageGenProvider,
                     shellProvider,
                 ) + additionalProviders,
@@ -116,8 +122,18 @@ internal class GenerationToolExecutor private constructor(
             GenerationToolExecutor(providers, imageGenProvider = null)
     }
 
-    override fun definitions(context: GenerationContext): List<ToolDefinition> =
+    private fun availableDefinitions(context: GenerationContext): List<ToolDefinition> =
         providers.flatMap { it.definitions(context) }
+
+    override fun definitions(context: GenerationContext): List<ToolDefinition> =
+        definitions(context, emptyList())
+
+    override fun definitions(
+        context: GenerationContext,
+        messages: List<com.newoether.agora.model.ChatMessage>,
+    ): List<ToolDefinition> = com.newoether.agora.tool.ToolCapabilityLoading.definitions(
+        availableDefinitions(context), context, messages,
+    )
 
     fun imageDefinitions(context: GenerationContext): List<ToolDefinition> =
         imageGenProvider?.definitions(context).orEmpty()
@@ -198,6 +214,12 @@ internal class GenerationToolExecutor private constructor(
             )
         }
 
+        if (call.name == com.newoether.agora.tool.ToolCapabilityLoading.NAME) {
+            return call.result(com.newoether.agora.tool.ToolCapabilityLoading.load(
+                completeArguments, availableDefinitions(call.context),
+            ))
+        }
+
         val executionTimeoutMs = toolExecutionTimeoutMs(
             toolName = call.name,
             defaultTimeoutMs = call.context.toolTimeoutMs,
@@ -214,6 +236,14 @@ internal class GenerationToolExecutor private constructor(
             val attempt = CoroutineScope(currentCoroutineContext() + attemptJob).async {
                 var completedResult: ToolExecutionResult? = null
                 val context = call.context.copy(toolEffectIdentity = call.batchIdentity)
+                if (provider is com.newoether.agora.tool.SkillCompletionToolProvider) {
+                    return@async provider.complete(completeArguments, context, call.skillHistory)
+                }
+                if (provider is com.newoether.agora.tool.SkillInvocationToolProvider) {
+                    return@async provider.invoke(completeArguments, context, call.callId,
+                        call.skillHistory, call.batchIdentity.runId)
+                }
+
                 provider.executeEvents(call.name, completeArguments, context).collect { event ->
                     if (event is ToolExecutionEvent.Completed) {
                         completedResult = event.result

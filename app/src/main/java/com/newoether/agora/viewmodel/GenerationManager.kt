@@ -110,10 +110,11 @@ class GenerationManager(
     internal fun fixedContextTokenCost(
         config: GenerationConfig,
         context: GenerationContext,
+        messages: List<ChatMessage> = emptyList(),
     ): Int = ContextTokenEstimator.forModel(config.modelId).estimateFixed(
         systemPrompt = config.effectiveSystemPrompt,
         tools = if (config.lowContextModeEnabled) emptyList()
-        else toolExecutor.definitions(context),
+        else toolExecutor.definitions(context, messages),
         initialUserPrompt = config.initialUserPrompt,
         codeExecutionEnabled = config.codeExecutionEnabled,
         googleSearchEnabled = config.googleSearchEnabled,
@@ -123,11 +124,12 @@ class GenerationManager(
     internal fun fixedContextComposition(
         config: GenerationConfig,
         context: GenerationContext,
+        messages: List<ChatMessage> = emptyList(),
     ): FixedContextComposition =
         ContextTokenEstimator.forModel(config.modelId).estimateFixedComposition(
             systemPrompt = config.effectiveSystemPrompt,
             tools = if (config.lowContextModeEnabled) emptyList()
-            else toolExecutor.definitions(context),
+            else toolExecutor.definitions(context, messages),
             initialUserPrompt = config.initialUserPrompt,
             codeExecutionEnabled = config.codeExecutionEnabled,
             googleSearchEnabled = config.googleSearchEnabled,
@@ -316,7 +318,8 @@ class GenerationManager(
                 "api_path_ready",
                 "messages=${currentPath.size} tools=${rawProviderConfig.tools.orEmpty().size}",
             )
-            val providerConfig = rawProviderConfig
+            var providerConfig = rawProviderConfig
+            val connectionNotice = ApiConnectionNotice(context, config.providerName, providerConfig.baseUrl)
 
             var toolCallData: ToolCallData? = null
             var toolCallDataList: List<ToolCallData> = emptyList()
@@ -374,6 +377,7 @@ class GenerationManager(
                     request = AuthorizedToolBatchRequest(
                         effect = batchEffect,
                         calls = calls,
+                        skillHistory = toolPath.mapNotNull { it.toolCall },
                         context = ctx,
                         conversationId = conversationId,
                         authorizedToolNames = providerConfig.tools.orEmpty()
@@ -440,6 +444,7 @@ class GenerationManager(
                     effectId = "provider-$pass-$providerRequestIndex",
                 )
                 try {
+                    connectionNotice.showIfDisconnected()
                     return providerPassEffects.execute(
                         request = ProviderPassExecutionRequest(
                             proposedIdentity = proposedIdentity,
@@ -455,6 +460,8 @@ class GenerationManager(
                             },
                             onFirstEvent = onFirstEvent,
                             onEvent = { event ->
+                                if (event is StreamEvent.Error && event.error is com.newoether.agora.api.GenerationError.Network)
+                                    connectionNotice.showIfDisconnected()
                                 output.handleStreamEvent(
                                     event = event,
                                     providerAnswerStart = providerAnswerStart,
@@ -585,14 +592,16 @@ class GenerationManager(
                     followUpParentMessageId = round.lastResultId
                 }
                 val boundaryParentId = round.lastResultId
-                toolPath = apiPathBuilder.build(
+                val continuation = apiPathBuilder.build(
                     GenerationApiPathRequest(
                         parentId = boundaryParentId,
                         conversationId = conversationId,
                         config = config,
                         context = ctx,
                     ),
-                ).messages
+                )
+                toolPath = continuation.messages
+                providerConfig = continuation.providerConfig
 
                 toolCallData = null
                 toolCallDataList = emptyList()
