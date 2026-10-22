@@ -50,6 +50,8 @@ class StartupSettingsSynchronizerTest {
             ),
             currentProxyConfig(fixture.settings),
         )
+        fixture.type.value = "HTTPS"
+        assertEquals(HttpClient.ProxyType.HTTPS, currentProxyConfig(fixture.settings)?.type)
         fixture.type.value = "http"
         fixture.port.value = "invalid"
         assertEquals(HttpClient.ProxyType.HTTP, currentProxyConfig(fixture.settings)?.type)
