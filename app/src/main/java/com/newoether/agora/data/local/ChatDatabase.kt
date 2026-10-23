@@ -24,6 +24,7 @@ import com.newoether.agora.data.local.migration.MIGRATION_31_32
 import com.newoether.agora.data.local.migration.MIGRATION_32_33
 import com.newoether.agora.data.local.migration.MIGRATION_33_34
 import com.newoether.agora.data.local.migration.MIGRATION_34_35
+import com.newoether.agora.data.local.migration.MIGRATION_36_37
 import java.util.concurrent.Executor
 
 @Database(
@@ -40,6 +41,7 @@ import java.util.concurrent.Executor
         MaintenanceDebtEntity::class,
         SemanticIndexLedgerEntity::class,
         SemanticIndexWorkEntity::class,
+        DocumentEmbeddingEntity::class,
     ],
     version = ChatDatabase.CURRENT_VERSION,
     exportSchema = true
@@ -48,9 +50,15 @@ abstract class ChatDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
     abstract fun maintenanceDebtDao(): MaintenanceDebtDao
     abstract fun semanticIndexDao(): SemanticIndexDao
+    abstract fun documentEmbeddingDao(): DocumentEmbeddingDao
 
     companion object {
-        const val CURRENT_VERSION = 39
+        // Sync-merge 2026-10-21: XNet's 36->37 (document_embeddings) and
+        // upstream's three new migrations coexist. Upstream's 36/37/38 targets
+        // were renumbered to 37->38, 38->39, 39->40 so they land AFTER XNet's
+        // existing v37, avoiding a version collision that would corrupt the DBs
+        // of users already on XNet v37.
+        const val CURRENT_VERSION = 40
         const val DB_NAME = "agora_db"
 
         val ALL_MIGRATIONS = listOf(
@@ -203,12 +211,14 @@ abstract class ChatDatabase : RoomDatabase() {
                     db.execSQL("ALTER TABLE conversations ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0")
                 }
             },
-            object : Migration(36, 37) {
+            MIGRATION_36_37,
+            // --- upstream migrations, renumbered to follow XNet's v37 (see CURRENT_VERSION note) ---
+            object : Migration(37, 38) {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("ALTER TABLE conversations ADD COLUMN todoJson TEXT")
                 }
             },
-            object : Migration(37, 38) {
+            object : Migration(38, 39) {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("ALTER TABLE conversations ADD COLUMN parentConversationId TEXT")
                     db.execSQL("ALTER TABLE conversations ADD COLUMN subagentResultJson TEXT")
@@ -218,7 +228,7 @@ abstract class ChatDatabase : RoomDatabase() {
                     db.execSQL("CREATE INDEX IF NOT EXISTS index_conversations_parentConversationId ON conversations (parentConversationId)")
                 }
             },
-            object : Migration(38, 39) {
+            object : Migration(39, 40) {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("ALTER TABLE conversations ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
                     // Legacy rows have no exact creation record. Freeze their earliest stored activity once.

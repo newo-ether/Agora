@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ragdocs_title">文件</string>
+    <string name="ragdocs_category_desc">匯入檔案供代理檢索</string>
+    <string name="ragdocs_desc">匯入文字、Markdown 或 PDF 檔案。它們會被切分成片段並嵌入到一個私有的語意索引中，代理可透過 search_documents 工具進行檢索。檔案保留在你的裝置上。</string>
+    <string name="ragdocs_add">匯入文件</string>
+    <string name="ragdocs_remove">移除</string>
+    <string name="ragdocs_empty">尚未匯入任何文件。</string>
+    <string name="ragdocs_chunks">%1$d 個片段</string>
+    <string name="ragdocs_no_model">請先在「語意搜尋」中設定嵌入模型。</string>
+    <string name="ragdocs_status_unsupported">不支援的檔案類型</string>
+    <string name="ragdocs_status_notext">無法擷取文字（掃描版 PDF？）</string>
+</resources>

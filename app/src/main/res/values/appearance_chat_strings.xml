@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">Chat appearance</string>
+    <string name="appearance_bubble_color">Your message bubble color</string>
+    <string name="appearance_chat_background">Chat background</string>
+    <string name="appearance_bg_pick_media">Choose image or video…</string>
+    <string name="appearance_bg_change_media">Change background media</string>
+    <string name="appearance_bg_clear">Remove background</string>
+    <string name="appearance_bg_opacity">Background opacity: %1$d%%</string>
+    <string name="appearance_bg_video_muted">Mute video</string>
+    <string name="appearance_bg_video_loop">Loop video</string>
+</resources>

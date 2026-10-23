@@ -207,7 +207,7 @@ internal fun EmbeddingModelEditor(
             viewModel.ragManager.addEmbeddingModel(
                 EmbeddingModelConfig(
                     name = finalName,
-                    type = EmbeddingModelType.LOCAL,
+                    type = EmbeddingModelType.LOCAL_ONNX,
                     localFilePath = draft.localFilePath,
                     batchSize = batch,
                 ),

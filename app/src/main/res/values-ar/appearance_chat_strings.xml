@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">مظهر المحادثة</string>
+    <string name="appearance_bubble_color">لون فقاعة رسالتك</string>
+    <string name="appearance_chat_background">خلفية المحادثة</string>
+    <string name="appearance_bg_pick_media">اختر صورة أو فيديو…</string>
+    <string name="appearance_bg_change_media">تغيير الخلفية</string>
+    <string name="appearance_bg_clear">إزالة الخلفية</string>
+    <string name="appearance_bg_opacity">عتامة الخلفية: %1$d%%</string>
+    <string name="appearance_bg_video_muted">كتم الفيديو</string>
+    <string name="appearance_bg_video_loop">تكرار الفيديو</string>
+</resources>

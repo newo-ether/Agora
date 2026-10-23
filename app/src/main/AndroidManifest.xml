@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Network scanner gateway lookup and file-server LAN IP / WifiLock. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -15,10 +19,19 @@
     <!-- Optional: capture goes through the platform IMAGE_CAPTURE intent, so the
          camera feature must not exclude hardware-less devices (e.g. Chromebooks). -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- On-device speech-to-text (sherpa-onnx). Mic is optional hardware; voice input is
+         a user-granted, opt-in capability gated on the model being installed. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- Optional user-granted access; exact automation remains off by default. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Saving images to the gallery on pre-Q only; Q+ uses scoped MediaStore (no permission). -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
+    <!-- Assistant (Layer 1): optional floating-invoke overlay. All assistant
+         capabilities are user-granted (assistant role + this overlay); no
+         privileged/system permissions. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Allows a visibility-safe preflight before using the platform capture contract. -->
     <queries>
@@ -88,6 +101,16 @@
                 android:value="Local web server that lets the user control this app from their own browser on the same network" />
         </service>
 
+        <!-- LAN file server; runs until the user turns it off, so specialUse not dataSync. -->
+        <service
+            android:name=".fileserver.FileServerService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Local HTTP file server that shares a user-chosen folder with other devices on the same network" />
+        </service>
+
         <!-- WorkManager owns the foreground lifecycle for scheduled automation runs. -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
@@ -121,6 +144,58 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <!-- ================= Assistant (Layer 1) ================= -->
+        <!-- Always-on voice-interaction service: holding it + the ASSISTANT
+             role routes the assist gesture / power button to Agora. -->
+        <service
+            android:name=".assistant.AgoraVoiceInteractionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/voice_interaction_service" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".assistant.AgoraVoiceInteractionSessionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
+
+        <service
+            android:name=".assistant.AgoraRecognitionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.speech"
+                android:resource="@xml/recognition_service" />
+        </service>
+
+        <!-- Runs one assistant turn through Agora's engine, surfaces the result. -->
+        <service
+            android:name=".assistant.AssistantService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Runs an assistant response through Agora's agent engine when invoked by the assist gesture" />
+        </service>
+
+        <!-- Optional floating invoke button drawn over other apps (user-granted). -->
+        <service
+            android:name=".assistant.AssistantOverlayService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating button to invoke the Agora assistant from any app" />
+        </service>
     </application>
 
 </manifest>

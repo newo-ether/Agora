@@ -48,3 +48,31 @@
 -keep class com.newoether.agora.screenshot.ScreenshotFixture { *; }# Ktor server: JVM-only debug detection (DevelopmentMode), absent on Android.
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
+
+# PDFBox-Android references an optional JPEG2000 decoder (gemalto jp2) only used to
+# extract JP2-encoded images from PDFs. We only extract text, so the dependency is
+# intentionally absent; silence the missing-class warning.
+-dontwarn com.gemalto.jp2.**
+
+# ONNX Runtime (vendored onnxruntime-1.28.2.jar) + onnxruntime-genai.
+# The native JNI (libonnxruntime4j_jni.so / libonnxruntime-genai-jni.so) resolves these Java
+# classes, their fields, constructors and methods BY NAME via FindClass/GetMethodID/GetFieldID
+# during OrtSession.run and generation. R8 has no visibility into those native references, so
+# without keeping them it strips e.g. ai.onnxruntime.TensorInfo and the run() aborts with
+# "JNI DETECTED ERROR IN APPLICATION: java_class == null" (ClassNotFoundException: TensorInfo).
+# Keep the whole ORT + genai Java surface.
+-keep class ai.onnxruntime.** { *; }
+-keep class ai.onnxruntime.genai.** { *; }
+-keep class com.microsoft.applications.events.** { *; }
+-keepclassmembers class ai.onnxruntime.** { *; }
+-keepclassmembers class ai.onnxruntime.genai.** { *; }
+-dontwarn ai.onnxruntime.**
+
+# sherpa-onnx (on-device STT). Its JNI (libsherpa-onnx-jni.so) reads the Kotlin config classes'
+# FIELDS by exact name via GetFieldID (e.g. OnlineModelConfig.decodingMethod) and calls
+# constructors/methods by name. R8 can't see those native references, so without keeping the
+# whole com.k2fsa.sherpa.onnx surface it renames/strips those fields and OnlineRecognizer
+# construction aborts with "Failed to get field ID for decodingMethod". Keep names and members.
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+-keepclassmembers class com.k2fsa.sherpa.onnx.** { *; }
+-dontwarn com.k2fsa.sherpa.onnx.**

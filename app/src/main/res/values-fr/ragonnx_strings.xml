@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="embedding_type_onnx">Sur l\'appareil (ONNX)</string>
+    <string name="onnx_embed_title">Embeddings sur l\'appareil (ONNX)</string>
+    <string name="onnx_embed_desc">Générez des embeddings entièrement sur votre appareil avec un modèle ONNX privé (Bekko, multilingue, 384 dim). Sans cloud ni clé API. Alimente la recherche de conversations et le RAG de documents.</string>
+    <string name="onnx_embed_download">Télécharger le modèle (~124 Mo)</string>
+    <string name="onnx_embed_downloading">Téléchargement… %1$s</string>
+    <string name="onnx_embed_installed">Modèle installé (%1$d Mo)</string>
+    <string name="onnx_embed_add">Utiliser pour les embeddings</string>
+    <string name="onnx_embed_remove">Supprimer le modèle</string>
+    <string name="onnx_embed_added">Ajouté comme modèle d\'embedding — sélectionnez-le ci-dessus pour l\'activer.</string>
+    <string name="onnx_embed_failed">Échec du téléchargement. Vérifiez votre connexion et réessayez.</string>
+    <string name="onnx_chat_title">Chat sur l\'appareil (ONNX)</string>
+    <string name="onnx_chat_desc">Exécutez un petit LLM entièrement sur votre appareil (Qwen3 0.6B via ONNX Runtime). Sans cloud ni clé API.</string>
+    <string name="onnx_chat_download">Télécharger le modèle (~487 Mo)</string>
+    <string name="onnx_chat_downloading">Téléchargement… %1$s</string>
+    <string name="onnx_chat_installed">Modèle installé (%1$d Mo)</string>
+    <string name="onnx_chat_add">Ajouter comme modèle local</string>
+    <string name="onnx_chat_remove">Supprimer le modèle</string>
+    <string name="onnx_chat_added">Ajouté — sélectionnez “Qwen3 0.6B (on-device)”.</string>
+    <string name="onnx_chat_failed">Échec du téléchargement. Vérifiez votre connexion.</string>
+</resources>

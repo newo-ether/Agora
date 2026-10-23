@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">Đã đặt khóa riêng</string>
+    <string name="shell_ssh_key_none">Chưa có khóa riêng (xác thực mật khẩu)</string>
+    <string name="shell_ssh_key_clear">Xóa khóa</string>
+    <string name="shell_ssh_key_import_file">Nhập từ tệp</string>
+    <string name="shell_ssh_key_paste">Dán khóa</string>
+    <string name="shell_ssh_key_passphrase">Mật khẩu khóa (nếu được mã hóa)</string>
+    <string name="shell_ssh_key_paste_hint">Dán khóa riêng OpenSSH/PEM của bạn</string>
+</resources>

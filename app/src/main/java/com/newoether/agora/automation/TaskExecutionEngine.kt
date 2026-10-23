@@ -3,7 +3,7 @@ package com.newoether.agora.automation
 import android.app.Application
 import android.content.Context
 import com.newoether.agora.api.HttpClient
-import com.newoether.agora.api.local.LocalProvider
+import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.data.MemoryManager
 import com.newoether.agora.data.SkillManager
 import com.newoether.agora.data.repository.ConversationRepository
@@ -70,7 +70,7 @@ class TaskExecutionEngine(
     private val memoryManager: MemoryManager,
     private val skillManager: SkillManager,
     private val providerRegistry: ProviderRegistry,
-    localProvider: LocalProvider,
+    localProvider: LlmProvider,
     sandboxFactory: SandboxManagerFactory?,
     private val appScope: CoroutineScope,
     private val executionCoordinator: ConversationExecutionCoordinator,

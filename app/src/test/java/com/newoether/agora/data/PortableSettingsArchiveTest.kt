@@ -271,7 +271,10 @@ class PortableSettingsArchiveTest {
     fun amoledIsDefaultOffPortableAndAvailableInEveryTheme() {
         val root = locateDirectory("app/src/main/java", "src/main/java")
         fun source(path: String) = File(root, "com/newoether/agora/$path").readText()
-        val manager = source("data/SettingsManager.kt") + source("data/PortableSettingsReset.kt")
+        val manager = source("data/SettingsManager.kt") +
+            // Appearance save* accessors were extracted here to keep SettingsManager <=800 lines.
+            source("data/SettingsManagerAppearance.kt") +
+            source("data/PortableSettingsReset.kt")
         val archive = source("data/PortableSettingsArchive.kt")
         val repository = source("data/repository/SettingsRepository.kt")
         val page = source("ui/settings/SettingsAppearancePage.kt")

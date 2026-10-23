@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">تم تعيين المفتاح الخاص</string>
+    <string name="shell_ssh_key_none">لا مفتاح خاص (مصادقة كلمة المرور)</string>
+    <string name="shell_ssh_key_clear">مسح المفتاح</string>
+    <string name="shell_ssh_key_import_file">استيراد من ملف</string>
+    <string name="shell_ssh_key_paste">لصق المفتاح</string>
+    <string name="shell_ssh_key_passphrase">عبارة مرور المفتاح (إن كان مشفرًا)</string>
+    <string name="shell_ssh_key_paste_hint">الصق مفتاحك الخاص OpenSSH/PEM</string>
+</resources>

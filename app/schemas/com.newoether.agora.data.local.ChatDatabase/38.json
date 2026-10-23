@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 38,
-    "identityHash": "ad3c10a2d15afe22885484a9c17e9e7d",
+    "identityHash": "d6c46c7597a7ca4b915e748bf9177e6f",
     "entities": [
       {
         "tableName": "conversations",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `lastUpdated` INTEGER NOT NULL, `dataChangedAt` INTEGER NOT NULL, `selectedBranchesJson` TEXT, `systemPromptId` TEXT, `modelId` TEXT, `taskId` TEXT, `origin` TEXT NOT NULL, `graduated` INTEGER NOT NULL, `draftText` TEXT NOT NULL, `draftAttachments` TEXT, `selectedRunBranchesJson` TEXT, `hasUnreadGeneration` INTEGER NOT NULL, `isPinned` INTEGER NOT NULL DEFAULT 0, `todoJson` TEXT, `parentConversationId` TEXT, `subagentResultJson` TEXT, `subagentResultId` TEXT, `subagentResultStatus` TEXT, `subagentDeliveredResultId` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `lastUpdated` INTEGER NOT NULL, `dataChangedAt` INTEGER NOT NULL, `selectedBranchesJson` TEXT, `systemPromptId` TEXT, `modelId` TEXT, `taskId` TEXT, `origin` TEXT NOT NULL, `graduated` INTEGER NOT NULL, `draftText` TEXT NOT NULL, `draftAttachments` TEXT, `selectedRunBranchesJson` TEXT, `hasUnreadGeneration` INTEGER NOT NULL, `isPinned` INTEGER NOT NULL DEFAULT 0, `todoJson` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -97,31 +97,6 @@
             "fieldPath": "todoJson",
             "columnName": "todoJson",
             "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "parentConversationId",
-            "columnName": "parentConversationId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "subagentResultJson",
-            "columnName": "subagentResultJson",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "subagentResultId",
-            "columnName": "subagentResultId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "subagentResultStatus",
-            "columnName": "subagentResultStatus",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "subagentDeliveredResultId",
-            "columnName": "subagentDeliveredResultId",
-            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -139,15 +114,6 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_conversations_taskId` ON `${TABLE_NAME}` (`taskId`)"
-          },
-          {
-            "name": "index_conversations_parentConversationId",
-            "unique": false,
-            "columnNames": [
-              "parentConversationId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_conversations_parentConversationId` ON `${TABLE_NAME}` (`parentConversationId`)"
           }
         ]
       },
@@ -1013,11 +979,107 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "document_embeddings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `corpus` TEXT NOT NULL, `docId` TEXT NOT NULL, `title` TEXT NOT NULL, `chunkIndex` INTEGER NOT NULL, `modelId` TEXT NOT NULL, `embedding` BLOB NOT NULL, `dimension` INTEGER NOT NULL, `chunkText` TEXT NOT NULL, `sourceFingerprint` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "corpus",
+            "columnName": "corpus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "docId",
+            "columnName": "docId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chunkIndex",
+            "columnName": "chunkIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modelId",
+            "columnName": "modelId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "embedding",
+            "columnName": "embedding",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimension",
+            "columnName": "dimension",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chunkText",
+            "columnName": "chunkText",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceFingerprint",
+            "columnName": "sourceFingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_document_embeddings_corpus_docId_chunkIndex_modelId",
+            "unique": true,
+            "columnNames": [
+              "corpus",
+              "docId",
+              "chunkIndex",
+              "modelId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_document_embeddings_corpus_docId_chunkIndex_modelId` ON `${TABLE_NAME}` (`corpus`, `docId`, `chunkIndex`, `modelId`)"
+          },
+          {
+            "name": "index_document_embeddings_corpus_modelId",
+            "unique": false,
+            "columnNames": [
+              "corpus",
+              "modelId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_document_embeddings_corpus_modelId` ON `${TABLE_NAME}` (`corpus`, `modelId`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ad3c10a2d15afe22885484a9c17e9e7d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd6c46c7597a7ca4b915e748bf9177e6f')"
     ]
   }
 }

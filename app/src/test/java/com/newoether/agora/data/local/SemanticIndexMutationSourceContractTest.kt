@@ -201,7 +201,7 @@ class SemanticIndexMutationSourceContractTest {
 
         assertFalse(worker.contains("EmbeddingCacheLocks.forModel(modelId).withLock"))
         assertTrue(worker.contains("EmbeddingClient.computeEmbeddings("))
-        assertTrue(worker.contains("LlamaEngine.computeEmbeddings("))
+        assertTrue(worker.contains("OnnxEmbeddingProvider.engine("))
         assertTrue(worker.contains("database.commitSemanticEmbedding("))
         assertTrue(worker.contains("expectedFingerprint = candidate.fingerprint"))
         assertTrue(worker.contains("ExistingWorkPolicy.APPEND_OR_REPLACE"))
@@ -380,13 +380,14 @@ class SemanticIndexMutationSourceContractTest {
         val local = EmbeddingModelConfig(
             id = "local",
             name = "Local",
-            type = EmbeddingModelType.LOCAL,
-            localFilePath = "/models/one.gguf",
+            type = EmbeddingModelType.LOCAL_ONNX,
         )
-        assertTrue(embeddingModelSemanticsChanged(
+        // ONNX is a single fixed bundled model: per-config field edits do NOT change semantics.
+        assertFalse(embeddingModelSemanticsChanged(
             local,
-            local.copy(localFilePath = "/models/two.gguf"),
+            local.copy(localFilePath = "/ignored"),
         ))
+        // But switching backend type does require a re-index.
         assertTrue(embeddingModelSemanticsChanged(
             local,
             local.copy(type = EmbeddingModelType.REMOTE, remoteModelName = "embed-v1"),

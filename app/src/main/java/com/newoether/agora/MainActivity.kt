@@ -133,6 +133,10 @@ class MainActivity : ComponentActivity() {
             val fontPreference by settingsManager.fontPreference.collectAsState(initial = "app_default")
             val customFontPath by settingsManager.customFontPath.collectAsState(initial = "")
             val appReduceMotion by settingsManager.reduceMotion.collectAsState(initial = false)
+            val userBubbleColorPref by settingsManager.userBubbleColor.collectAsState(initial = "")
+            val userBubbleColor = remember(userBubbleColorPref) {
+                com.newoether.agora.ui.theme.parseHexColor(userBubbleColorPref)
+            }
 
             val themeModeEnum = try { com.newoether.agora.ui.theme.ThemeMode.valueOf(themeMode) } catch (_: Exception) { com.newoether.agora.ui.theme.ThemeMode.FOLLOW_DEVICE }
             val colorSchemePreset = try { com.newoether.agora.ui.theme.ColorSchemePreset.valueOf(colorSchemeName) } catch (_: Exception) { com.newoether.agora.ui.theme.ColorSchemePreset.FOREST }
@@ -161,6 +165,9 @@ class MainActivity : ComponentActivity() {
                 fontPreference = fontPreference,
                 customFontPath = customFontPath
             ) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    com.newoether.agora.ui.theme.LocalUserBubbleColor provides userBubbleColor
+                ) {
                 ProvideAgoraMotionPolicy(appReduceMotion = appReduceMotion) {
                 val activity = LocalActivity.current
 
@@ -236,6 +243,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
             }
             }
             }

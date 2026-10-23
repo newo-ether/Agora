@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">Chat-Erscheinungsbild</string>
+    <string name="appearance_bubble_color">Farbe deiner Nachrichtenblase</string>
+    <string name="appearance_chat_background">Chat-Hintergrund</string>
+    <string name="appearance_bg_pick_media">Bild oder Video wählen…</string>
+    <string name="appearance_bg_change_media">Hintergrund ändern</string>
+    <string name="appearance_bg_clear">Hintergrund entfernen</string>
+    <string name="appearance_bg_opacity">Hintergrund-Deckkraft: %1$d%%</string>
+    <string name="appearance_bg_video_muted">Video stummschalten</string>
+    <string name="appearance_bg_video_loop">Video wiederholen</string>
+</resources>

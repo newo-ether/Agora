@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">채팅 모양</string>
+    <string name="appearance_bubble_color">내 메시지 말풍선 색</string>
+    <string name="appearance_chat_background">채팅 배경</string>
+    <string name="appearance_bg_pick_media">이미지 또는 동영상 선택…</string>
+    <string name="appearance_bg_change_media">배경 변경</string>
+    <string name="appearance_bg_clear">배경 제거</string>
+    <string name="appearance_bg_opacity">배경 불투명도: %1$d%%</string>
+    <string name="appearance_bg_video_muted">동영상 음소거</string>
+    <string name="appearance_bg_video_loop">동영상 반복</string>
+</resources>

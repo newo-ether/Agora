@@ -352,7 +352,11 @@ internal object PortableSettingsArchive {
                     localFilePath = "",
                 )
             }
-            val existingLocal = previousEmbeddingModels.filter { it.type == EmbeddingModelType.LOCAL }
+            // Local backends (GGUF LOCAL and on-device LOCAL_ONNX) are never serialized into the
+            // portable archive (no secrets, device-specific), so preserve the existing ones.
+            val existingLocal = previousEmbeddingModels.filter {
+                it.type == EmbeddingModelType.LOCAL_ONNX
+            }
             val finalRemote = if (replace) {
                 restoredRemote
             } else {
@@ -377,7 +381,7 @@ internal object PortableSettingsArchive {
                 ?: previousActive.takeIf { previous ->
                     finalModels.any {
                         it.id == previous &&
-                            (it.type == EmbeddingModelType.LOCAL || (!replace && !hasActiveReference))
+                            (it.type == EmbeddingModelType.LOCAL_ONNX || (!replace && !hasActiveReference))
                     }
                 }
                 .orEmpty()

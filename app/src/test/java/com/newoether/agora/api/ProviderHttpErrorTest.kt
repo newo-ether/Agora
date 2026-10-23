@@ -99,7 +99,9 @@ class ProviderHttpErrorTest {
     @Test
     fun `all provider HTTP transports use the shared parser`() {
         val providerFiles = listOf(
-            "app/src/main/java/com/newoether/agora/api/openai/BaseOpenAiProvider.kt",
+            // BaseOpenAiProvider's shared-parser call lives in its same-package support file
+            // (BaseOpenAiProviderSupport.kt) to stay within the 800-line source budget.
+            "app/src/main/java/com/newoether/agora/api/openai/BaseOpenAiProviderSupport.kt",
             "app/src/main/java/com/newoether/agora/api/anthropic/AnthropicProvider.kt",
             "app/src/main/java/com/newoether/agora/api/gemini/GeminiProvider.kt",
             "app/src/main/java/com/newoether/agora/api/ollama/OllamaProvider.kt",

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -272,14 +273,18 @@ internal val baseSettingsGroups = listOf(
         SettingsCategory("todo", R.string.settings_todo, R.string.settings_todo_desc, Icons.Default.Checklist),
         SettingsCategory("subagents", R.string.settings_subagents, R.string.settings_subagents_desc, Icons.Default.AccountTree),
         SettingsCategory("interaction", R.string.settings_interaction, R.string.settings_interaction_desc, Icons.Default.QuestionAnswer),
+        SettingsCategory("assistant", R.string.settings_assistant, R.string.settings_assistant_desc, Icons.Default.Assistant),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_network, items = listOf(
         SettingsCategory("proxy", R.string.settings_proxy, R.string.settings_proxy_desc, Icons.Default.Lan),
         SettingsCategory("webui", R.string.settings_webui, R.string.settings_webui_desc, Icons.Default.Web),
+        SettingsCategory("fileserver", R.string.settings_fileserver, R.string.settings_fileserver_desc, Icons.Default.Folder),
+        SettingsCategory("scanner", R.string.settings_scanner, R.string.settings_scanner_desc, Icons.Default.Wifi),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_memory_data, items = listOf(
         SettingsCategory("memory", R.string.settings_memory, R.string.settings_memory_desc, Icons.Default.Description),
         SettingsCategory("skills", R.string.settings_skills, R.string.settings_skills_desc, Icons.Default.Extension),
+        SettingsCategory("ragdocs", R.string.ragdocs_title, R.string.ragdocs_category_desc, Icons.Default.LibraryBooks),
         SettingsCategory("datacontrol", R.string.settings_data_control, R.string.settings_data_control_desc, Icons.Default.Storage),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_appearance_language, items = listOf(

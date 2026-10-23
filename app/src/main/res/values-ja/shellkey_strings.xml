@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">秘密鍵を設定済み</string>
+    <string name="shell_ssh_key_none">秘密鍵なし（パスワード認証）</string>
+    <string name="shell_ssh_key_clear">鍵をクリア</string>
+    <string name="shell_ssh_key_import_file">ファイルから取り込む</string>
+    <string name="shell_ssh_key_paste">鍵を貼り付け</string>
+    <string name="shell_ssh_key_passphrase">鍵のパスフレーズ（暗号化時）</string>
+    <string name="shell_ssh_key_paste_hint">OpenSSH/PEM の秘密鍵を貼り付け</string>
+</resources>

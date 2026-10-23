@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">Clé privée définie</string>
+    <string name="shell_ssh_key_none">Aucune clé privée (mot de passe)</string>
+    <string name="shell_ssh_key_clear">Effacer la clé</string>
+    <string name="shell_ssh_key_import_file">Importer depuis un fichier</string>
+    <string name="shell_ssh_key_paste">Coller la clé</string>
+    <string name="shell_ssh_key_passphrase">Phrase secrète de la clé (si chiffrée)</string>
+    <string name="shell_ssh_key_paste_hint">Collez votre clé privée OpenSSH/PEM</string>
+</resources>

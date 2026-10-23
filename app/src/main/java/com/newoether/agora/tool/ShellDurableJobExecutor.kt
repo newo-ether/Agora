@@ -19,7 +19,9 @@ internal fun resolveConchDevice(
     ctx: GenerationContext,
 ) = ctx.shellDevices.filter { it.type != "ssh" }.let { conchDevices ->
     if (serverName.isNotBlank()) {
-        conchDevices.find { it.name.equals(serverName, ignoreCase = true) }
+        // singleOrNull: a name shared by two Conch devices is ambiguous and resolves to null so
+        // the caller surfaces conchServerNotFoundMessage() instead of silently picking the first.
+        conchDevices.filter { it.name.equals(serverName, ignoreCase = true) }.singleOrNull()
     } else {
         conchDevices.singleOrNull()
     }
@@ -31,11 +33,16 @@ internal fun getConchBackend(
 ): ConchBackend? = resolveConchDevice(serverName, ctx)?.let(::ConchBackend)
 
 internal fun conchServerNotFoundMessage(serverName: String, ctx: GenerationContext): String {
-    val names = ctx.shellDevices
-        .filter { it.type != "ssh" }
-        .map { it.name.ifBlank { "Untitled" } }
+    val conch = ctx.shellDevices.filter { it.type != "ssh" }
+    val names = conch.map { it.name.ifBlank { "Untitled" } }
+    val duplicateCount = if (serverName.isNotBlank()) {
+        conch.count { it.name.equals(serverName, ignoreCase = true) }
+    } else 0
     return when {
         names.isEmpty() -> "No Conch server is configured. Background jobs require Conch."
+        duplicateCount > 1 ->
+            "Ambiguous Conch server: \"$serverName\" matches $duplicateCount configured Conch " +
+                "devices. Rename one so each has a unique name, then retry."
         serverName.isNotBlank() ->
             "Unknown Conch server \"$serverName\". Available: ${names.joinToString(", ")}."
         names.size > 1 ->

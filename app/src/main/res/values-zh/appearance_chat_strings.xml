@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">聊天外观</string>
+    <string name="appearance_bubble_color">你的消息气泡颜色</string>
+    <string name="appearance_chat_background">聊天背景</string>
+    <string name="appearance_bg_pick_media">选择图片或视频…</string>
+    <string name="appearance_bg_change_media">更换背景</string>
+    <string name="appearance_bg_clear">移除背景</string>
+    <string name="appearance_bg_opacity">背景不透明度：%1$d%%</string>
+    <string name="appearance_bg_video_muted">视频静音</string>
+    <string name="appearance_bg_video_loop">循环播放</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">개인 키 설정됨</string>
+    <string name="shell_ssh_key_none">개인 키 없음(비밀번호 인증)</string>
+    <string name="shell_ssh_key_clear">키 지우기</string>
+    <string name="shell_ssh_key_import_file">파일에서 가져오기</string>
+    <string name="shell_ssh_key_paste">키 붙여넣기</string>
+    <string name="shell_ssh_key_passphrase">키 암호(암호화된 경우)</string>
+    <string name="shell_ssh_key_paste_hint">OpenSSH/PEM 개인 키를 붙여넣으세요</string>
+</resources>

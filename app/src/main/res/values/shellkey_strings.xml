@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">Private key set</string>
+    <string name="shell_ssh_key_none">No private key (password auth)</string>
+    <string name="shell_ssh_key_clear">Clear key</string>
+    <string name="shell_ssh_key_import_file">Import from file</string>
+    <string name="shell_ssh_key_paste">Paste key</string>
+    <string name="shell_ssh_key_passphrase">Key passphrase (if encrypted)</string>
+    <string name="shell_ssh_key_paste_hint">Paste your OpenSSH/PEM private key</string>
+</resources>

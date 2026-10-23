@@ -209,6 +209,35 @@ class ShellToolProviderTest {
     }
 
     @Test
+    fun executeShellCommand_duplicateServerName_returnsAmbiguityError() =
+        kotlinx.coroutines.test.runTest {
+            // Two devices share the name "prod" (one conch, one ssh) — the real-world case that
+            // previously routed silently to the first match. It must now fail with a clear error.
+            val ctx = GenerationContext(
+                shellEnabled = true,
+                shellDevices = listOf(
+                    com.newoether.agora.data.ShellDeviceConfig(
+                        name = "prod", type = "conch", serverUrl = "http://10.11.12.1:14216",
+                    ),
+                    com.newoether.agora.data.ShellDeviceConfig(
+                        name = "prod", type = "ssh", sshHost = "10.11.12.1", sshPort = 22,
+                    ),
+                ),
+            )
+            val result = provider.execute(
+                "execute_shell_command",
+                """{"command":"uname -a","server":"prod","timeout_ms":15000}""",
+                ctx,
+            )
+            assertTrue(
+                "expected ambiguity error, got: $result",
+                result.contains("Ambiguous server") && result.contains("prod"),
+            )
+            // And it names both backend types so the user knows what to rename.
+            assertTrue(result.contains("conch") && result.contains("ssh"))
+        }
+
+    @Test
     fun executeShellCommandValidatesUtf8LimitsInOneShotAndEventPaths() =
         kotlinx.coroutines.test.runTest {
             val ctx = GenerationContext(shellEnabled = true)

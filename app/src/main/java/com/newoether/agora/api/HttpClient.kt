@@ -252,11 +252,17 @@ object HttpClient {
         }
     }
 
-    val client: OkHttpClient = OkHttpClient.Builder()
+    val client: OkHttpClient = SafeOkHttp.builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .eventListenerFactory(traceEventListenerFactory)
         .readTimeout(5, TimeUnit.MINUTES)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        // Cellular NAT kills idle reused sockets mid-stream; HTTP/1.1 with no pooling forces a
+        // fresh TCP connection per request (SSE is single-response anyway).
+        .protocols(listOf(Protocol.HTTP_1_1))
+        .connectionPool(okhttp3.ConnectionPool(0, 1, TimeUnit.SECONDS))
+        .socketFactory(KeepAliveSocketFactory)
         .proxySelector(proxySelector)
         .proxyAuthenticator(proxyAuthenticator)
         .build()
@@ -536,12 +542,13 @@ object HttpClient {
         bodyText: String,
         headers: Map<String, String> = emptyMap(),
         callTimeoutMillis: Long? = null,
+        readTimeoutMillis: Long? = null,
     ): TextResponse {
         guardCleartextCredentials(url, headers)
         val body = bodyText.toRequestBody(JSON)
         val requestBuilder = Request.Builder().url(url).post(body)
         headers.forEach { (key, value) -> requestBuilder.addHeader(key, value) }
-        return newCall(requestBuilder.build(), callTimeoutMillis).execute().use { response ->
+        return newCall(requestBuilder.build(), callTimeoutMillis, readTimeoutMillis).execute().use { response ->
             TextResponse(
                 code = response.code,
                 body = response.body?.string().orEmpty(),

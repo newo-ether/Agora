@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">Giao diện trò chuyện</string>
+    <string name="appearance_bubble_color">Màu bong bóng tin nhắn của bạn</string>
+    <string name="appearance_chat_background">Nền trò chuyện</string>
+    <string name="appearance_bg_pick_media">Chọn ảnh hoặc video…</string>
+    <string name="appearance_bg_change_media">Đổi nền</string>
+    <string name="appearance_bg_clear">Gỡ nền</string>
+    <string name="appearance_bg_opacity">Độ mờ nền: %1$d%%</string>
+    <string name="appearance_bg_video_muted">Tắt tiếng video</string>
+    <string name="appearance_bg_video_loop">Lặp video</string>
+</resources>

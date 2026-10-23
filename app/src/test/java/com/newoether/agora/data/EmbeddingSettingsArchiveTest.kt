@@ -27,8 +27,8 @@ import org.junit.Test
 class EmbeddingSettingsArchiveTest {
     private val json = Json { ignoreUnknownKeys = true }
     private val local = EmbeddingModelConfig(
-        id = "local", name = "Local", type = EmbeddingModelType.LOCAL,
-        localFilePath = "/device/models/local.gguf",
+        id = "local", name = "Local", type = EmbeddingModelType.LOCAL_ONNX,
+        localFilePath = "/device/models/local.onnx",
     )
     private val remote = EmbeddingModelConfig(
         id = "remote", name = "Remote", type = EmbeddingModelType.REMOTE,

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">Apariencia del chat</string>
+    <string name="appearance_bubble_color">Color de tu burbuja de mensaje</string>
+    <string name="appearance_chat_background">Fondo del chat</string>
+    <string name="appearance_bg_pick_media">Elegir imagen o vídeo…</string>
+    <string name="appearance_bg_change_media">Cambiar fondo</string>
+    <string name="appearance_bg_clear">Quitar fondo</string>
+    <string name="appearance_bg_opacity">Opacidad del fondo: %1$d%%</string>
+    <string name="appearance_bg_video_muted">Silenciar vídeo</string>
+    <string name="appearance_bg_video_loop">Repetir vídeo</string>
+</resources>

@@ -44,6 +44,7 @@ import com.newoether.agora.R
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.ui.theme.contrastingOn
 import com.newoether.agora.model.MessageSource
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.isContextCompact
@@ -255,14 +256,17 @@ internal fun MessageItem(
         Participant.ERROR -> Alignment.CenterHorizontally
     }
 
+    val customUserBubble = com.newoether.agora.ui.theme.LocalUserBubbleColor.current
     val backgroundColor = when (message.participant) {
-        Participant.USER -> MaterialTheme.colorScheme.primaryContainer
+        Participant.USER -> customUserBubble ?: MaterialTheme.colorScheme.primaryContainer
         Participant.MODEL -> Color.Transparent
         Participant.ERROR -> MaterialTheme.colorScheme.errorContainer
     }
 
     val textColor = when (message.participant) {
-        Participant.USER -> MaterialTheme.colorScheme.onPrimaryContainer
+        Participant.USER ->
+            if (customUserBubble != null) contrastingOn(customUserBubble)
+            else MaterialTheme.colorScheme.onPrimaryContainer
         Participant.MODEL -> MaterialTheme.colorScheme.onSurface
         Participant.ERROR -> MaterialTheme.colorScheme.onErrorContainer
     }

@@ -6,29 +6,6 @@ import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.RunEndReason
 import com.newoether.agora.model.RunStatus
 import kotlinx.coroutines.flow.Flow
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-
-private fun decodeSelectionMap(raw: String?): MutableMap<String?, String> =
-    raw?.let {
-        runCatching {
-            Json.decodeFromString<Map<String, String>>(it)
-                .mapKeysTo(mutableMapOf()) { entry ->
-                    if (entry.key == "null") null else entry.key
-                }
-        }.getOrDefault(mutableMapOf())
-    } ?: mutableMapOf()
-
-internal fun encodeSelectionMap(selections: Map<String?, String>): String =
-    Json.encodeToString(selections.mapKeys { it.key ?: "null" })
-
-/** Only the columns needed to paint navigation; no conversation-owned payloads. */
-data class DrawerConversationRow(
-    val id: String,
-    val title: String,
-    val hasUnreadGeneration: Boolean,
-    val isPinned: Boolean,
-)
 
 @Dao
 interface ChatDao :
@@ -643,6 +620,10 @@ interface ChatDao :
 
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastMessageForConversation(conversationId: String): MessageEntity?
+
+    /** Newest message row that carries images, for image-to-image reference lookup. */
+    @Query("SELECT images FROM messages WHERE conversationId = :conversationId AND images IS NOT NULL AND images != '[]' ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestImagesJson(conversationId: String): String?
 
     /** Message invalidations for task execution summaries. Unlike getExecutionsForTask(),
      * this Flow observes the messages table, so terminal status/snippet changes are emitted.

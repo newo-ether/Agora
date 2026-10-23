@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">チャットの外観</string>
+    <string name="appearance_bubble_color">自分のメッセージの吹き出しの色</string>
+    <string name="appearance_chat_background">チャットの背景</string>
+    <string name="appearance_bg_pick_media">画像または動画を選択…</string>
+    <string name="appearance_bg_change_media">背景を変更</string>
+    <string name="appearance_bg_clear">背景を削除</string>
+    <string name="appearance_bg_opacity">背景の不透明度: %1$d%%</string>
+    <string name="appearance_bg_video_muted">動画をミュート</string>
+    <string name="appearance_bg_video_loop">動画をループ</string>
+</resources>

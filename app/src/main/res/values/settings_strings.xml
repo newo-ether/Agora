@@ -559,4 +559,27 @@
     <string name="install_guide_run_command">Copy and Run the Command</string>
     <string name="conch_guide_finish">Return to Add Device. Enter the installer’s service address and API key, choose a name, then save.</string>
     <string name="filo_guide_finish">Choose the Windows account used by your native client when prompted. Return to Add Device, enter the reachable service URL and access token, then save. localhost only works on the computer.</string>
+
+    <!-- Assistant (Layer 1) -->
+    <string name="settings_assistant">Assistant</string>
+    <string name="settings_assistant_desc">Make Agora your device assistant</string>
+    <string name="assistant_intro">Set Agora as your default digital assistant. When enabled, the assist gesture or power-button handoff brings Agora forward and lets it read the current screen to help. All access is granted by you; Agora never injects input into other apps.</string>
+    <string name="assistant_role_group">Default assistant</string>
+    <string name="assistant_role_title">Set Agora as assistant</string>
+    <string name="assistant_role_request">Tap to make Agora your device assistant</string>
+    <string name="assistant_role_held">Agora is your default assistant</string>
+    <string name="assistant_role_unavailable">The assistant role is not available on this device</string>
+    <string name="assistant_overlay_group">Floating button</string>
+    <string name="assistant_overlay_title">Show floating assistant button</string>
+    <string name="assistant_overlay_desc">A draggable box to chat with Agora from any app. Long-press it (or tap ✕) to dismiss.</string>
+    <string name="assistant_overlay_needs_permission">Needs permission to draw over other apps</string>
+    <string name="assistant_overlay_prompt_hint">Type or tap the mic to ask Agora. Responses appear here.</string>
+    <string name="assistant_overlay_thinking">Thinking…</string>
+    <string name="assistant_overlay_dismiss">Dismiss</string>
+    <string name="assistant_voice_group">Voice input (offline)</string>
+    <string name="assistant_voice_title">On-device speech-to-text</string>
+    <string name="assistant_voice_desc">Download the offline speech model (~52 MB) to dictate by voice. Runs fully on-device; no audio leaves the phone.</string>
+    <string name="assistant_voice_installed">Speech model installed. Tap to remove.</string>
+    <string name="assistant_voice_needs_mic">Tap to grant microphone access and download the model</string>
+    <string name="assistant_voice_downloading">Downloading speech model…</string>
 </resources>

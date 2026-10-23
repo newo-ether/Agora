@@ -86,6 +86,7 @@ class KotlinSourceSizePlugin : Plugin<Project> {
             VerifyKotlinFileSizeTask::class.java,
             object : Action<VerifyKotlinFileSizeTask> {
                 override fun execute(task: VerifyKotlinFileSizeTask) {
+                    task.dependsOn(":app:copyManualAssets")
                     task.group = "verification"
                     task.description = "Verifies the physical-line budget for handwritten Kotlin sources."
                     task.repositoryRoot.set(project.layout.projectDirectory)
@@ -108,6 +109,10 @@ class KotlinSourceSizePlugin : Plugin<Project> {
                                 "**/cache/**",
                                 "**/caches/**",
                                 "**/generated/**",
+                                // Generated at build time by copyManualAssets (docs/en -> assets).
+                                // Contains only .md, never .kt; excluding avoids an implicit
+                                // task-dependency on copyManualAssets under the build cache.
+                                "**/src/main/assets/manual/**",
                                 "site/**",
                                 "thirdparty/**",
                             )

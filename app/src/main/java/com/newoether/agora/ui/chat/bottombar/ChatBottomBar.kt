@@ -459,6 +459,10 @@ internal fun ChatBottomBar(
                     },
                     onFiles = { pendingFileOwnerId = composerOwnerId; fileLauncher.launch("*/*") },
                 )
+                ComposerMicButton(
+                    textFieldState = textFieldState,
+                    enabled = !submission.isFrozen,
+                )
                 val activeMenuState = remember { mutableStateOf<String?>(null) }
                 var activeMenu by activeMenuState
                 var lastModelDismissTime by remember { mutableLongStateOf(0L) }

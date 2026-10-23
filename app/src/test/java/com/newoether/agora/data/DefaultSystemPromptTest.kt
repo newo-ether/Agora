@@ -133,7 +133,8 @@ class DefaultSystemPromptTest {
 
         assertTrue(
             systemPrompt.contains(
-                "Use Markdown when it improves readability.\n" +
+                "Do not claim access to tools, files, real-time data, or app capabilities " +
+                    "unless Agora has made them available for the current request.\n" +
                     "For math, write inline formulas as \\( ... \\) and display formulas as \\[ ... \\]. " +
                     "Do not use \$ or \$\$ as math delimiters.\n\n<active_memory_context>"
             )

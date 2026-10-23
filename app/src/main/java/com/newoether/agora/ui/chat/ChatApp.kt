@@ -117,6 +117,10 @@ fun ChatApp(
     val debugModelEnabled by viewModel.settings.debugModelEnabled.collectAsState()
     val modelAliases by viewModel.settings.modelAliases.collectAsState()
     val modelProviderNames by viewModel.settings.modelProviderNames.collectAsState()
+    val chatBackgroundSpec by viewModel.settings.chatBackground.collectAsState()
+    val chatBgOpacity by viewModel.settings.chatBackgroundOpacity.collectAsState()
+    val chatBgVideoMuted by viewModel.settings.chatBackgroundVideoMuted.collectAsState()
+    val chatBgVideoLoop by viewModel.settings.chatBackgroundVideoLoop.collectAsState()
     val chatEnabledModels = validChatModels(
         enabledModels,
         developerOptionsEnabled,
@@ -241,8 +245,7 @@ fun ChatApp(
     ScreenshotInitialScrollEffect(initialScrollToTop, currentConversationId, loadedMessagesConversationId, listState)
     val absoluteBottomScrollPhase = scrollCoordinator.absoluteBottomScrollPhase
     val isNearAbsoluteBottom = scrollCoordinator.isNearAbsoluteBottom
-    val isWithinAbsoluteBottomAttachThreshold =
-        scrollCoordinator.isWithinAbsoluteBottomAttachThreshold
+    val isWithinAbsoluteBottomAttachThreshold = scrollCoordinator.isWithinAbsoluteBottomAttachThreshold
     val imeBottomAnchorState = scrollCoordinator.imeBottomAnchorState
     val streamingTailController = scrollCoordinator.streamingTailController
     val messageLifecycleAppearanceRegistry = scrollCoordinator.messageLifecycleAppearanceRegistry
@@ -378,6 +381,7 @@ fun ChatApp(
                 .clearFocusOnTap()
                 .onSizeChanged { scrollCoordinator.recordViewportHeight(it.height) }
         ) {
+            ChatBackgroundLayer(chatBackgroundSpec, chatBgOpacity, chatBgVideoMuted, chatBgVideoLoop)
             val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
             val (targetCa, targetQa) = if (!dark) {
                 0.00f to 0.00f

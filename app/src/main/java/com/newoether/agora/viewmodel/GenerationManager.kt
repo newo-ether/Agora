@@ -641,10 +641,12 @@ class GenerationManager(
 
             if (output.currentStatus != MessageStatus.ERROR) {
                 // A queue-steered interruption is a SUCCESSFUL turn even with no answer text —
-                // its value is the persisted tool activity.
+                // its value is the persisted tool activity. Inline generated images (direct-chat
+                // image models) also count: the answer is the image, not text.
                 output.currentStatus = if (
                     output.totalText.isNotEmpty() ||
                     output.totalThoughts.isNotEmpty() ||
+                    output.totalImageCount > 0 ||
                     endedAtGuidanceBoundary ||
                     endedForFollowUp
                 ) {

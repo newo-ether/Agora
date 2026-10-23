@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ragdocs_title">ドキュメント</string>
+    <string name="ragdocs_category_desc">エージェントが検索できるファイルをインポート</string>
+    <string name="ragdocs_desc">テキスト、Markdown、PDF ファイルをインポートします。チャンクに分割され、プライベートなセマンティックインデックスに埋め込まれ、エージェントが search_documents ツールで検索できます。ファイルは端末内に保持されます。</string>
+    <string name="ragdocs_add">ドキュメントをインポート</string>
+    <string name="ragdocs_remove">削除</string>
+    <string name="ragdocs_empty">まだドキュメントがインポートされていません。</string>
+    <string name="ragdocs_chunks">%1$d 個のチャンク</string>
+    <string name="ragdocs_no_model">まずセマンティック検索で埋め込みモデルを設定してください。</string>
+    <string name="ragdocs_status_unsupported">サポートされていないファイル形式</string>
+    <string name="ragdocs_status_notext">抽出可能なテキストがありません（スキャンされた PDF ですか？）</string>
+</resources>

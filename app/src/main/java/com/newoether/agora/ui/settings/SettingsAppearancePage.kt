@@ -360,6 +360,9 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 }
                 )
 
+                // ── Chat appearance (custom bubble color + background) ──
+                SettingsChatAppearanceSection(viewModel)
+
                 // ── Motion & Feedback ──
                 SettingsGroup(
                     title = stringResource(R.string.appearance_motion_feedback),

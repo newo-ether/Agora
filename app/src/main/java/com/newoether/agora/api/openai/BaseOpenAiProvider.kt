@@ -104,6 +104,15 @@ abstract class BaseOpenAiProvider : LlmProvider {
         config: ProviderConfig
     ): Flow<StreamEvent> = flow {
         val baseUrl = config.baseUrl?.trimEnd('/')?.ifBlank { null } ?: defaultBaseUrl
+        // Image-only generation models cannot use chat completions on DashScope-family hosts:
+        // compatible-mode rewrites the request into its native image schema and rejects it with
+        // "Input should be 'user': input.messages.0.role" no matter what roles the client sends.
+        // Like AIOPE's MEDIA mode, bypass chat and call the native multimodal-generation
+        // endpoint directly, emitting the result as answer text.
+        if (isImageOnlyChatModel(config.modelId) && isNativeImageHost(baseUrl)) {
+            emitNativeImageResponse(json, defaultBaseUrl, messages, config, baseUrl)
+            return@flow
+        }
         val endpointUrls = openAiEndpointCandidates(
             baseUrl = baseUrl,
             path = if (config.responsesApiEnabled) "responses" else "chat/completions",
@@ -119,16 +128,23 @@ abstract class BaseOpenAiProvider : LlmProvider {
             fun buildRequestBody(
                 apiMessages: List<OpenAiMessage>,
                 base64Files: Base64FileRegistry,
+                tools: List<ToolDefinition>? = config.tools,
             ): Pair<String, StreamingJsonRequest?> {
+                // DashScope image models need their bare, lowercase model id on the wire.
+                val wireModelId = if (isImageOnlyChatModel(config.modelId)) {
+                    config.modelId.substringAfterLast('/').lowercase()
+                } else {
+                    config.modelId
+                }
                 val requestBodyJson = if (config.responsesApiEnabled) {
                     val request = OpenAiResponsesRequest(
-                        model = config.modelId,
+                        model = wireModelId,
                         input = apiMessages.toResponsesInput(
                             providerName = name,
                             targetModel = config.modelId,
                         ),
                         tools = buildList {
-                            addAll(config.tools.orEmpty().toResponsesTools())
+                            addAll(tools.orEmpty().toResponsesTools())
                             if (config.openAiWebSearchEnabled) {
                                 add(OpenAiResponseTool(type = "web_search"))
                             }
@@ -150,12 +166,12 @@ abstract class BaseOpenAiProvider : LlmProvider {
                     json.encodeToString(OpenAiResponsesRequest.serializer(), request)
                 } else {
                     var request = OpenAiChatRequest(
-                        model = config.modelId,
+                        model = wireModelId,
                         messages = apiMessages,
                         stream = true,
                         streamOptions = OpenAiStreamOptions(includeUsage = true),
                         serviceTier = config.openAiServiceTier,
-                        tools = config.tools,
+                        tools = tools,
                         temperature = config.temperature,
                         maxTokens = config.effectiveOpenAiMaxTokens(),
                         topP = config.topP,
@@ -194,17 +210,28 @@ abstract class BaseOpenAiProvider : LlmProvider {
                 while (endpointIndex < endpointUrls.size && !finished && !retryScheduled) {
                     val endpointUrl = endpointUrls[endpointIndex]
                     val resolvedRequest = config.resolveRequest(messages)
+                    val imageOnlyChat = isImageOnlyChatModel(config.modelId)
                     val base64Files = Base64FileRegistry()
                     val apiMessages = convertToOpenAiMessages(
-                        messages = resolvedRequest.messages,
-                        systemPrompt = transformSystemPrompt(resolvedRequest.systemPrompt),
+                        messages = if (imageOnlyChat) {
+                            collapseToSingleUserMessage(resolvedRequest.messages)
+                        } else {
+                            resolvedRequest.messages
+                        },
+                        systemPrompt = if (imageOnlyChat) {
+                            null
+                        } else {
+                            transformSystemPrompt(resolvedRequest.systemPrompt)
+                        },
                         includeImages = config.includeImages,
                         base64Files = base64Files,
-                        forwardAssistantReasoning = forwardsAssistantReasoningContent(config),
+                        forwardAssistantReasoning = !imageOnlyChat &&
+                            forwardsAssistantReasoningContent(config),
                     )
                     val (requestBodyJson, streamingRequest) = buildRequestBody(
                         apiMessages,
                         base64Files,
+                        tools = if (imageOnlyChat) null else config.tools,
                     )
                     DebugLog.d(
                         "AgoraAPI",
@@ -647,24 +674,6 @@ abstract class BaseOpenAiProvider : LlmProvider {
             alreadyReportedError = reportedError,
             timedOut = timedOut,
         )
-    }
-
-    private fun buildGenerationError(
-        statusCode: Int,
-        errorRaw: String,
-        endpointUrls: List<String>
-    ): GenerationError {
-        val endpointHint = if (statusCode == 404 && endpointUrls.size > 1) {
-            "\nTried ${endpointUrls.joinToString(" and ")}. OpenAI-compatible servers often require a /v1 Base URL."
-        } else {
-            ""
-        }
-        val error = providerHttpError(statusCode, errorRaw)
-        return if (endpointHint.isEmpty()) {
-            error
-        } else {
-            error.copy(message = error.message + endpointHint)
-        }
     }
 
     private fun fetchModelPages(

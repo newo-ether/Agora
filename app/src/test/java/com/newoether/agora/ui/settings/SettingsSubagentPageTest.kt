@@ -265,6 +265,13 @@ class SettingsSubagentPageTest {
         every { settings.customFontPath } returns MutableStateFlow("")
         every { settings.customFontName } returns MutableStateFlow("")
         every { settings.showDocumentationFab } returns MutableStateFlow(false)
+        // XNet theming fields rendered by SettingsChatAppearanceSection (absent upstream).
+        // Unstubbed relaxed-mock StateFlows return Object and ClassCast on collectAsState<String>.
+        every { settings.userBubbleColor } returns MutableStateFlow("")
+        every { settings.chatBackground } returns MutableStateFlow("")
+        every { settings.chatBackgroundOpacity } returns MutableStateFlow(0.3f)
+        every { settings.chatBackgroundVideoMuted } returns MutableStateFlow(true)
+        every { settings.chatBackgroundVideoLoop } returns MutableStateFlow(true)
         appearanceViewModel = viewModel
         show()
         compose.onNodeWithTag("subagent-capsule-display").performScrollTo().performClick()

@@ -165,6 +165,7 @@ private fun Throwable.matchingFailureMessage(
  */
 internal fun StreamEvent.carriesModelOutput(): Boolean = when (this) {
     is StreamEvent.TextChunk -> text.isNotBlank()
+    is StreamEvent.ImageChunk -> bytes.isNotEmpty()
     is StreamEvent.CitationUpdate -> false
     is StreamEvent.ThoughtChunk -> thought.isNotBlank() || signature != null
     is StreamEvent.HostedToolCallUpdate -> true

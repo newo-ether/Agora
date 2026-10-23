@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">已設定私鑰</string>
+    <string name="shell_ssh_key_none">無私鑰（密碼驗證）</string>
+    <string name="shell_ssh_key_clear">清除私鑰</string>
+    <string name="shell_ssh_key_import_file">從檔案匯入</string>
+    <string name="shell_ssh_key_paste">貼上私鑰</string>
+    <string name="shell_ssh_key_passphrase">私鑰密語（若已加密）</string>
+    <string name="shell_ssh_key_paste_hint">貼上你的 OpenSSH/PEM 私鑰</string>
+</resources>

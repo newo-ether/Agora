@@ -145,7 +145,7 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
             listOf(
                 Triple(EmbeddingModelType.REMOTE, R.string.embedding_type_remote, R.string.embedding_type_remote_desc),
-                Triple(EmbeddingModelType.LOCAL, R.string.embedding_type_local, R.string.embedding_type_local_desc),
+                Triple(EmbeddingModelType.LOCAL_ONNX, R.string.embedding_type_local, R.string.embedding_type_local_desc),
             ).forEach { (type, titleRes, descRes) ->
                 SettingsItem(
                     headlineContent = { Text(stringResource(titleRes), fontWeight = FontWeight.Medium) },

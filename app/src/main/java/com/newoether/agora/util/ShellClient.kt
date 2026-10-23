@@ -267,6 +267,21 @@ private fun String.withFileEditLineEnding(lineEnding: String): String {
     return if (lineEnding == "\n") normalized else normalized.replace("\n", lineEnding)
 }
 
+/**
+ * Normalize a user-entered Conch server URL. A saved config value can accidentally contain a
+ * trailing newline plus stray text (e.g. a half-pasted alternate address like
+ * "http://10.11.12.1:14216/\n   146.254:14216"). Without sanitizing, that whole blob is
+ * concatenated with "/execute" etc. and a healthy agent returns a confusing "404 page not found".
+ * Keep only the first whitespace-delimited token and drop trailing slashes.
+ */
+internal fun sanitizeConchServerUrl(raw: String): String =
+    raw.trim()
+        .substringBefore('\n')
+        .substringBefore('\r')
+        .trim()
+        .takeWhile { !it.isWhitespace() }
+        .trimEnd('/')
+
 internal fun describeConchConnectionFailure(serverUrl: String, error: Exception): String =
     describeConchRequestFailure(serverUrl, "public-key request", error)
 
@@ -290,10 +305,19 @@ internal fun describeConchRequestFailure(
     }
 
 class ShellClient(
-    private val serverUrl: String,
+    serverUrl: String,
     private val apiKey: String,
     cachedPublicKey: String = ""
 ) {
+    /**
+     * Sanitized server URL used for every request. A saved config value can accidentally contain a
+     * trailing newline plus stray text (e.g. a half-pasted alternate address), which would
+     * otherwise be concatenated into every request path and make a healthy agent return a confusing
+     * "404 page not found". Keep only the first whitespace-delimited token and drop trailing
+     * slashes so the public-key, execute and jobs paths resolve against a clean base.
+     */
+    private val serverUrl: String = sanitizeConchServerUrl(serverUrl)
+
     private var serverPublicKey: java.security.PublicKey? = null
     private var securityVerified = false
     private var currentAesKey: ByteArray? = null

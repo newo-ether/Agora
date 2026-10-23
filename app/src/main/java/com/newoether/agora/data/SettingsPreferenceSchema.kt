@@ -1,6 +1,7 @@
 package com.newoether.agora.data
 
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -135,6 +136,14 @@ internal val SCHEME_STYLE = stringPreferencesKey("scheme_style")
 internal val FONT_PREFERENCE = stringPreferencesKey("font_preference")
 internal val CUSTOM_FONT_PATH = stringPreferencesKey("custom_font_path")
 internal val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
+// Theming: user bubble color override (hex "#RRGGBB" or empty = theme default); chat background
+// spec: "" / "none" = default, "color:#RRGGBB", or "image:<absolute path>".
+internal val USER_BUBBLE_COLOR = stringPreferencesKey("user_bubble_color")
+internal val CHAT_BACKGROUND = stringPreferencesKey("chat_background")
+// Chat-background tuning: opacity (0..1, low keeps chat readable) + video playback options.
+internal val CHAT_BACKGROUND_OPACITY = floatPreferencesKey("chat_background_opacity")
+internal val CHAT_BACKGROUND_VIDEO_MUTED = booleanPreferencesKey("chat_background_video_muted")
+internal val CHAT_BACKGROUND_VIDEO_LOOP = booleanPreferencesKey("chat_background_video_loop")
 internal val FIRST_LAUNCH_TIME = longPreferencesKey("first_launch_time")
 internal val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
 internal val DISPLAYED_SUBMISSION_MESSAGES = stringSetPreferencesKey("displayed_submission_messages")

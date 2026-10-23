@@ -7,7 +7,6 @@ import com.newoether.agora.api.ModelFetchEmptyResultException
 import com.newoether.agora.api.ModelFetchTimeoutException
 import com.newoether.agora.api.anthropic.AnthropicProvider
 import com.newoether.agora.api.gemini.GeminiProvider
-import com.newoether.agora.api.local.LocalProvider
 import com.newoether.agora.api.ollama.OllamaProvider
 import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.api.openai.DeepSeekProvider
@@ -129,7 +128,7 @@ internal fun providerConfigurationIsValid(
 class ProviderRegistry(
     private val settings: SettingsRepository,
     private val conversations: ConversationRepository,
-    localProvider: LocalProvider,
+    localProvider: LlmProvider,
     private val scope: CoroutineScope,
     appVersion: String = "?",
 ) {

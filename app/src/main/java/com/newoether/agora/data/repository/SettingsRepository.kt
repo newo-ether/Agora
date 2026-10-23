@@ -57,10 +57,10 @@ import kotlinx.coroutines.withContext
  * so observable behavior is unchanged.
  */
 class SettingsRepository(
-    internal val settingsManager: SettingsManager,
-    internal val scope: CoroutineScope,
+    settingsManager: SettingsManager,
+    scope: CoroutineScope,
     private val touchConversationData: suspend (String) -> Unit = {},
-) {
+) : SettingsRepositoryAppearanceBase(settingsManager, scope) {
     private val publication = SettingsFlowPublication(scope)
 
     private val conversationSettingsState = ConversationSettingsState()
@@ -230,6 +230,11 @@ class SettingsRepository(
     val fontPreference: StateFlow<String> = publication.hot(settingsManager.fontPreference, "app_default")
     val customFontPath: StateFlow<String> = publication.hot(settingsManager.customFontPath, "")
     val customFontName: StateFlow<String> = publication.hot(settingsManager.customFontName, "")
+    val userBubbleColor: StateFlow<String> = publication.hot(settingsManager.userBubbleColor, "")
+    val chatBackground: StateFlow<String> = publication.hot(settingsManager.chatBackground, "")
+    val chatBackgroundOpacity: StateFlow<Float> = publication.hot(settingsManager.chatBackgroundOpacity, 0.3f)
+    val chatBackgroundVideoMuted: StateFlow<Boolean> = publication.hot(settingsManager.chatBackgroundVideoMuted, true)
+    val chatBackgroundVideoLoop: StateFlow<Boolean> = publication.hot(settingsManager.chatBackgroundVideoLoop, true)
     val searchContextWindow: StateFlow<Int> = publication.hot(settingsManager.searchContextWindow, 8)
     val searchMatchLimit: StateFlow<Int> = publication.hot(settingsManager.searchMatchLimit, 10)
     val ragThreshold: StateFlow<Float> = publication.hot(settingsManager.ragThreshold, 0.5f)
@@ -671,29 +676,6 @@ class SettingsRepository(
     fun setDefaultTopP(v: Float?) = scope.launch { settingsManager.saveDefaultTopP(v) }
     fun setDefaultFrequencyPenalty(v: Float?) = scope.launch { settingsManager.saveDefaultFrequencyPenalty(v) }
     fun setDefaultPresencePenalty(v: Float?) = scope.launch { settingsManager.saveDefaultPresencePenalty(v) }
-    fun setThemeMode(mode: String) = scope.launch { settingsManager.saveThemeMode(mode) }
-    fun setAmoledEnabled(enabled: Boolean) = scope.launch { settingsManager.saveAmoledEnabled(enabled) }
-    fun setColorScheme(scheme: String) = scope.launch { settingsManager.saveColorScheme(scheme) }
-    fun setDynamicColor(enabled: Boolean) = scope.launch { settingsManager.saveDynamicColor(enabled) }
-    fun setBlurEffectsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveBlurEffectsEnabled(enabled) }
-    fun setReduceMotion(enabled: Boolean) = scope.launch { settingsManager.saveReduceMotion(enabled) }
-    fun setStickToBottom(enabled: Boolean) = scope.launch { settingsManager.saveStickToBottom(enabled) }
-    fun setParseInlineDollarMath(enabled: Boolean) =
-        scope.launch { settingsManager.saveParseInlineDollarMath(enabled) }
-    fun setAutoWrapCodeBlocks(enabled: Boolean) = scope.launch { settingsManager.saveAutoWrapCodeBlocks(enabled) }
-    fun setHapticsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveHapticsEnabled(enabled) }
-    fun setDetailedTokenUsage(enabled: Boolean) =
-        scope.launch { settingsManager.saveDetailedTokenUsage(enabled) }
-    fun setToolCallDisplayMode(mode: String) = scope.launch { settingsManager.saveToolCallDisplayMode(mode) }
-    fun setThinkingSegmentDisplayMode(mode: String) =
-        scope.launch { settingsManager.saveThinkingSegmentDisplayMode(mode) }
-
-    fun setAutoExpandActiveGroup(enabled: Boolean) =
-        scope.launch { settingsManager.saveAutoExpandActiveGroup(enabled) }
-    fun setSchemeStyle(style: String) = scope.launch { settingsManager.saveSchemeStyle(style) }
-    fun setFontPreference(value: String) = scope.launch { settingsManager.saveFontPreference(value) }
-    fun setCustomFontPath(value: String) = scope.launch { settingsManager.saveCustomFontPath(value) }
-    fun setCustomFontName(value: String) = scope.launch { settingsManager.saveCustomFontName(value) }
     fun setSearchMatchLimit(n: Int) = scope.launch { settingsManager.saveSearchMatchLimit(n) }
     fun setSearchContextWindow(n: Int) = scope.launch { settingsManager.saveSearchContextWindow(n) }
     fun setRagThreshold(threshold: Float) = scope.launch { settingsManager.saveRagThreshold(threshold) }

@@ -20,6 +20,9 @@
     <string name="thinking">Thinking</string>
     <string name="web_search">Web Search</string>
     <string name="ask_agora">Ask Agora anything...</string>
+    <string name="stt_dictate">Dictate by voice</string>
+    <string name="stt_stop">Stop dictation</string>
+    <string name="stt_model_needed">Download the offline speech model in Settings to dictate.</string>
     <string name="send">Send</string>
 
     <!-- Tool Display -->

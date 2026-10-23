@@ -473,6 +473,9 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         val settings = sourceFile(
             "app/src/main/java/com/newoether/agora/data/SettingsManager.kt",
         ) + sourceFile(
+            // Appearance save* accessors were extracted here to keep SettingsManager <=800 lines.
+            "app/src/main/java/com/newoether/agora/data/SettingsManagerAppearance.kt",
+        ) + sourceFile(
             "app/src/main/java/com/newoether/agora/data/PortableSettingsReset.kt",
         )
         val archive = sourceFile(
@@ -497,6 +500,9 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         val chatApp = sourceFile("app/src/main/java/com/newoether/agora/ui/chat/ChatApp.kt")
         val settings = sourceFile(
             "app/src/main/java/com/newoether/agora/data/SettingsManager.kt",
+        ) + sourceFile(
+            // Appearance save* accessors were extracted here to keep SettingsManager <=800 lines.
+            "app/src/main/java/com/newoether/agora/data/SettingsManagerAppearance.kt",
         ) + sourceFile(
             "app/src/main/java/com/newoether/agora/data/PortableSettingsReset.kt",
         )

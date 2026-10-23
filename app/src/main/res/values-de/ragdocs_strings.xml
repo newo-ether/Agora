@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ragdocs_title">Dokumente</string>
+    <string name="ragdocs_category_desc">Eigene Dateien zum Durchsuchen importieren</string>
+    <string name="ragdocs_desc">Importiere Text-, Markdown- oder PDF-Dateien. Sie werden in Abschnitte zerlegt und in einen privaten semantischen Index eingebettet, den der Agent mit dem Werkzeug search_documents durchsuchen kann. Die Dateien bleiben auf deinem Gerät.</string>
+    <string name="ragdocs_add">Dokument importieren</string>
+    <string name="ragdocs_remove">Entfernen</string>
+    <string name="ragdocs_empty">Noch keine Dokumente importiert.</string>
+    <string name="ragdocs_chunks">%1$d Abschnitte</string>
+    <string name="ragdocs_no_model">Richte zuerst ein Embedding-Modell unter Semantische Suche ein.</string>
+    <string name="ragdocs_status_unsupported">nicht unterstützter Dateityp</string>
+    <string name="ragdocs_status_notext">kein extrahierbarer Text (gescanntes PDF?)</string>
+</resources>

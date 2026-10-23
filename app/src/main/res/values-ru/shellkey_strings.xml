@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">Приватный ключ задан</string>
+    <string name="shell_ssh_key_none">Нет приватного ключа (пароль)</string>
+    <string name="shell_ssh_key_clear">Очистить ключ</string>
+    <string name="shell_ssh_key_import_file">Импорт из файла</string>
+    <string name="shell_ssh_key_paste">Вставить ключ</string>
+    <string name="shell_ssh_key_passphrase">Пароль ключа (если зашифрован)</string>
+    <string name="shell_ssh_key_paste_hint">Вставьте приватный ключ OpenSSH/PEM</string>
+</resources>

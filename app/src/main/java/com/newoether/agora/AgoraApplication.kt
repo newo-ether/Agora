@@ -64,6 +64,18 @@ class AgoraApplication : Application() {
         // memory. Loading it in its own job keeps the first estimate off the heuristic without
         // delaying the database gate behind it.
         startupScope.launch { O200kBase.ensureLoaded(this@AgoraApplication) }
+        // Preload the on-device STT recognizer so the first dictation has no model-load latency.
+        // Its own job (off the main thread); no-op when the model isn't installed. Unlike AIOPE,
+        // which builds and frees the recognizer per session, Agora keeps it warm via SttEngineHolder.
+        startupScope.launch {
+            try {
+                com.newoether.agora.stt.SttEngineHolder.preload(this@AgoraApplication)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                DebugLog.e("AgoraApplication", "STT preload failed closed", error)
+            }
+        }
         startupScope.launch {
             try {
                 DeveloperDiagnostics.initialize(noBackupFilesDir, startupScope)

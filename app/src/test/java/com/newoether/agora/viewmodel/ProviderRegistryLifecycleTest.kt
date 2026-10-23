@@ -1,7 +1,7 @@
 package com.newoether.agora.viewmodel
 import com.newoether.agora.data.repository.renameConfiguredProviderModelReferences
 
-import com.newoether.agora.api.local.LocalProvider
+import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.data.ApiKeyEntry
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.CustomProviderIdentityMigration
@@ -156,7 +156,7 @@ class ProviderRegistryLifecycleTest {
             registry = ProviderRegistry(
                 settings = settings,
                 conversations = conversations,
-                localProvider = mockk<LocalProvider>(),
+                localProvider = mockk<LlmProvider>(relaxed = true),
                 scope = scope,
             )
         }

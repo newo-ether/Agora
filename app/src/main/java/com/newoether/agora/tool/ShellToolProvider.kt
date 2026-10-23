@@ -5,8 +5,6 @@ import com.newoether.agora.data.ShellDeviceConfig
 import com.newoether.agora.model.ToolCallData
 import com.newoether.agora.sandbox.SandboxManagerFactory
 import com.newoether.agora.util.Constants
-import com.newoether.agora.util.SHELL_COMMAND_MAX_BYTES
-import com.newoether.agora.util.SHELL_WORKDIR_MAX_BYTES
 import com.newoether.agora.util.SHELL_FILE_WRITE_MAX_BYTES
 import com.newoether.agora.util.SHELL_FILE_GREP_MAX_CONTEXT_LINES
 import com.newoether.agora.util.ShellGrepOptions
@@ -27,14 +25,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-
-private fun shellCommandValidationError(command: String, workdir: String): String? = when {
-    command.toByteArray(Charsets.UTF_8).size > SHELL_COMMAND_MAX_BYTES ->
-        "command exceeds 64KB limit"
-    workdir.toByteArray(Charsets.UTF_8).size > SHELL_WORKDIR_MAX_BYTES ->
-        "workdir exceeds 32KB limit"
-    else -> null
-}
 
 class ShellToolProvider(
     private val sandboxFactory: SandboxManagerFactory? = null,
@@ -91,23 +81,27 @@ class ShellToolProvider(
         return confirm?.invoke(target, summary, ctx.conversationId) ?: true
     }
 
-    private fun targetsSharedStorage(path: String): Boolean {
-        val normalized = path.trim().replace('\\', '/').replace(Regex("/+"), "/")
-        return normalized == "/mnt/shared" || normalized.startsWith("/mnt/shared/")
-    }
-
     // ── Helpers ────────────────────────────────────────────
 
     private fun resolveShellDevice(serverName: String, ctx: GenerationContext): ShellDeviceConfig? {
         if (serverName.equals("Local Sandbox", ignoreCase = true)) return null
         return if (serverName.isNotBlank()) {
-            ctx.shellDevices.find { it.name.equals(serverName, ignoreCase = true) }
-        } else if (ctx.shellDevices.size == 1) {
-            ctx.shellDevices.first()
-        } else null
+            // singleOrNull: a duplicate name is ambiguous -> null -> serverNotFoundMessage() explains it.
+            ctx.shellDevices.filter { it.name.equals(serverName, ignoreCase = true) }.singleOrNull()
+        } else if (ctx.shellDevices.size == 1) ctx.shellDevices.first() else null
     }
 
+    private fun isAmbiguousServer(serverName: String, ctx: GenerationContext): Boolean =
+        serverName.isNotBlank() &&
+            ctx.shellDevices.count { it.name.equals(serverName, ignoreCase = true) } > 1
+
     private fun serverNotFoundMessage(serverName: String, ctx: GenerationContext): String {
+        if (isAmbiguousServer(serverName, ctx)) {
+            val dupes = ctx.shellDevices.filter { it.name.equals(serverName, ignoreCase = true) }
+                .joinToString(", ") { "${it.name} (type: ${it.type})" }
+            return "Ambiguous server: \"$serverName\" matches more than one configured device " +
+                "[$dupes]. Rename one of them so each shell server has a unique name, then retry."
+        }
         val hasSandbox = ctx.sandboxEnabled && sandboxFactory?.isAvailable() == true
         val allNames = buildList {
             if (hasSandbox) add("\"Local Sandbox\"")
@@ -620,14 +614,15 @@ class ShellToolProvider(
             } catch (e: Exception) {
                 return jsonError(
                     "file_read",
-                    e.message ?: "Read failed",
+                    (e.message ?: "Read failed") +
+                        storageHint(backend.device, path),
                     server = backend.device?.name ?: "Local Sandbox",
                 )
             }
             result.error?.let {
                 return jsonError(
                     "file_read",
-                    it,
+                    it + storageHint(backend.device, path),
                     server = backend.device?.name ?: "Local Sandbox",
                 )
             }
@@ -667,7 +662,11 @@ class ShellToolProvider(
                 return jsonError("file_write", "denied_by_user: the user declined to write this file", server = serverName)
             }
             val error = backend.fileWrite(path, content, arg(args, "expected_sha256").trim())
-            if (error != null) return error
+            if (error != null) return jsonError(
+                "file_write",
+                error + storageHint(backend.device, path),
+                server = backend.device?.name ?: "Local Sandbox",
+            )
             return buildJsonObject {
                 put("type", "file_write"); put("path", path); put("ok", true)
                 put("sha256", shellFileSha256(content.toByteArray(Charsets.UTF_8)))
@@ -711,14 +710,15 @@ class ShellToolProvider(
             } catch (e: Exception) {
                 return jsonError(
                     toolName,
-                    e.message ?: "Edit failed",
+                    (e.message ?: "Edit failed") +
+                        storageHint(backend.device, path),
                     server = backend.device?.name ?: "Local Sandbox",
                 )
             }
             result.error?.let {
                 return jsonError(
                     toolName,
-                    it,
+                    it + storageHint(backend.device, path),
                     server = backend.device?.name ?: "Local Sandbox",
                 )
             }

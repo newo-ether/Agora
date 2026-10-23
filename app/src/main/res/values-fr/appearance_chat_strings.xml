@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_chat_section">Apparence du chat</string>
+    <string name="appearance_bubble_color">Couleur de votre bulle de message</string>
+    <string name="appearance_chat_background">Arrière-plan du chat</string>
+    <string name="appearance_bg_pick_media">Choisir une image ou une vidéo…</string>
+    <string name="appearance_bg_change_media">Changer l\'arrière-plan</string>
+    <string name="appearance_bg_clear">Retirer l\'arrière-plan</string>
+    <string name="appearance_bg_opacity">Opacité de l\'arrière-plan : %1$d%%</string>
+    <string name="appearance_bg_video_muted">Couper le son</string>
+    <string name="appearance_bg_video_loop">Lire en boucle</string>
+</resources>

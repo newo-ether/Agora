@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_ssh_key_set">Clave privada establecida</string>
+    <string name="shell_ssh_key_none">Sin clave privada (contraseña)</string>
+    <string name="shell_ssh_key_clear">Borrar clave</string>
+    <string name="shell_ssh_key_import_file">Importar de archivo</string>
+    <string name="shell_ssh_key_paste">Pegar clave</string>
+    <string name="shell_ssh_key_passphrase">Frase de la clave (si está cifrada)</string>
+    <string name="shell_ssh_key_paste_hint">Pega tu clave privada OpenSSH/PEM</string>
+</resources>

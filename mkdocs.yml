@@ -50,11 +50,13 @@ plugins:
             System Prompts: 系统提示词
             Agentic Tools: 代理工具
             Overview: 概述
+            Self-Knowledge: 自我认知
             Web Search: 网络搜索
             Remote Shell (Conch): 远程 Shell (Conch)
             Knowledge Management: 知识管理
             Conversation Search: 对话搜索
             Embedding / RAG: 嵌入 / RAG
+            Document RAG: 文档 RAG
             Memory & Cache: 记忆与缓存
             Skills: 技能
             Local Models: 本地模型
@@ -67,6 +69,9 @@ plugins:
             Context: 上下文
             MCP: MCP
             Automation: 自动化
+            Networking: 网络
+            File Server: 文件服务器
+            Network Scanner: 网络扫描器
             Parameters: 生成设置
             Title Generation: 标题生成
             Image Transcription: 图像转录
@@ -89,11 +94,13 @@ plugins:
             System Prompts: 系統提示詞
             Agentic Tools: 代理工具
             Overview: 概述
+            Self-Knowledge: 自我認知
             Web Search: 網路搜尋
             Remote Shell (Conch): 遠端 Shell (Conch)
             Knowledge Management: 知識管理
             Conversation Search: 對話搜尋
             Embedding / RAG: 嵌入 / RAG
+            Document RAG: 文件 RAG
             Memory & Cache: 記憶與快取
             Skills: 技能
             Local Models: 本機模型
@@ -106,6 +113,9 @@ plugins:
             Context: 上下文
             MCP: MCP
             Automation: 自動化
+            Networking: 網路
+            File Server: 檔案伺服器
+            Network Scanner: 網路掃描器
             Parameters: 生成設定
             Title Generation: 標題生成
             Image Transcription: 圖像轉錄
@@ -133,6 +143,7 @@ plugins:
             Knowledge Management: Gestión de Conocimiento
             Conversation Search: Búsqueda de Conversaciones
             Embedding / RAG: Embedding / RAG
+            Document RAG: Document RAG
             Memory & Cache: Memoria y Caché
             Skills: Habilidades
             Local Models: Modelos Locales
@@ -171,6 +182,7 @@ plugins:
             Knowledge Management: Gestion des Connaissances
             Conversation Search: Recherche de Conversations
             Embedding / RAG: Embedding / RAG
+            Document RAG: RAG de Documents
             Memory & Cache: Mémoire et Cache
             Skills: Compétences
             Local Models: Modèles Locaux
@@ -209,6 +221,7 @@ plugins:
             Knowledge Management: Wissensverwaltung
             Conversation Search: Unterhaltungssuche
             Embedding / RAG: Embedding / RAG
+            Document RAG: Dokument-RAG
             Memory & Cache: Speicher & Cache
             Skills: Fähigkeiten
             Local Models: Lokale Modelle
@@ -247,6 +260,7 @@ plugins:
             Knowledge Management: Управление Знаниями
             Conversation Search: Поиск по Диалогам
             Embedding / RAG: Эмбеддинг / RAG
+            Document RAG: RAG по Документам
             Memory & Cache: Память и Кэш
             Skills: Навыки
             Local Models: Локальные Модели
@@ -285,6 +299,7 @@ plugins:
             Knowledge Management: Gestão de Conhecimento
             Conversation Search: Busca de Conversas
             Embedding / RAG: Embedding / RAG
+            Document RAG: RAG de Documentos
             Memory & Cache: Memória e Cache
             Skills: Habilidades
             Local Models: Modelos Locais
@@ -323,6 +338,7 @@ plugins:
             Knowledge Management: ナレッジ管理
             Conversation Search: 会話検索
             Embedding / RAG: 埋め込み / RAG
+            Document RAG: ドキュメント RAG
             Memory & Cache: メモリとキャッシュ
             Skills: スキル
             Local Models: ローカルモデル
@@ -361,6 +377,7 @@ plugins:
             Knowledge Management: 지식 관리
             Conversation Search: 대화 검색
             Embedding / RAG: 임베딩 / RAG
+            Document RAG: 문서 RAG
             Memory & Cache: 메모리 및 캐시
             Skills: 스킬
             Local Models: 로컬 모델
@@ -402,6 +419,7 @@ plugins:
             Knowledge Management: إدارة المعرفة
             Conversation Search: بحث المحادثات
             Embedding / RAG: التضمين / RAG
+            Document RAG: استرجاع المستندات (RAG)
             Memory & Cache: الذاكرة والتخزين المؤقت
             Skills: المهارات
             Local Models: النماذج المحلية
@@ -453,6 +471,7 @@ nav:
   - System Prompts: system-prompts.md
   - Agentic Tools:
       - Overview: tools.md
+      - Self-Knowledge: introspect.md
       - MCP: mcp.md
       - Automation: automation.md
       - Web Search: web-search.md
@@ -462,12 +481,16 @@ nav:
   - Knowledge Management:
       - Conversation Search: search.md
       - Embedding / RAG: embedding.md
+      - Document RAG: rag-documents.md
       - Memory & Cache: memory.md
       - Skills: skills.md
   - Local Models: local-model.md
   - PDF Import: pdf-import.md
   - Data Portability: import-export.md
-  - Network Proxy: proxy.md
+  - Networking:
+      - Network Proxy: proxy.md
+      - File Server: fileserver.md
+      - Network Scanner: scanner.md
   - Appearance & Language:
       - Appearance: appearance.md
       - Language: language.md

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="embedding_type_onnx">En el dispositivo (ONNX)</string>
+    <string name="onnx_embed_title">Incrustaciones en el dispositivo (ONNX)</string>
+    <string name="onnx_embed_desc">Genera incrustaciones totalmente en tu dispositivo con un modelo ONNX privado (Bekko, multilingüe, 384 dim). Sin nube ni clave de API. Impulsa la búsqueda de conversaciones y el RAG de documentos.</string>
+    <string name="onnx_embed_download">Descargar modelo (~124MB)</string>
+    <string name="onnx_embed_downloading">Descargando… %1$s</string>
+    <string name="onnx_embed_installed">Modelo instalado (%1$d MB)</string>
+    <string name="onnx_embed_add">Usar para incrustaciones</string>
+    <string name="onnx_embed_remove">Eliminar modelo</string>
+    <string name="onnx_embed_added">Añadido como modelo de incrustación: selecciónalo arriba para activarlo.</string>
+    <string name="onnx_embed_failed">Error de descarga. Comprueba tu conexión e inténtalo de nuevo.</string>
+    <string name="onnx_chat_title">Chat en el dispositivo (ONNX)</string>
+    <string name="onnx_chat_desc">Ejecuta un LLM pequeño totalmente en tu dispositivo (Qwen3 0.6B con ONNX Runtime). Sin nube ni clave de API.</string>
+    <string name="onnx_chat_download">Descargar modelo (~487MB)</string>
+    <string name="onnx_chat_downloading">Descargando… %1$s</string>
+    <string name="onnx_chat_installed">Modelo instalado (%1$d MB)</string>
+    <string name="onnx_chat_add">Añadir como modelo local</string>
+    <string name="onnx_chat_remove">Eliminar modelo</string>
+    <string name="onnx_chat_added">Añadido: selecciona “Qwen3 0.6B (on-device)”.</string>
+    <string name="onnx_chat_failed">Error de descarga. Comprueba tu conexión.</string>
+</resources>

@@ -378,6 +378,7 @@ private fun ProviderDetailSettingsList(
                                 onClick = onAddModel,
                             )
                         }
+                        add { SettingsOnnxChatCard(viewModel) }
                     }
                 )
                 SettingsGroup(

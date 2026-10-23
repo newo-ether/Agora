@@ -36,6 +36,8 @@ data class ShellDeviceConfig(
     val sshPort: Int = 22,
     val sshUser: String = "root",
     val sshPassword: String = "",
+    // Optional private-key auth (PEM). When set, used in addition to / instead of the password.
+    // sshKeyPassphrase decrypts an encrypted key; blank for an unencrypted key.
     val sshAuthMode: String = SSH_AUTH_PASSWORD,
     val sshPrivateKey: String = "",
     val sshPrivateKeyName: String = "",

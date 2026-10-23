@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="embedding_type_onnx">온디바이스 (ONNX)</string>
+    <string name="onnx_embed_title">온디바이스 임베딩 (ONNX)</string>
+    <string name="onnx_embed_desc">비공개 ONNX 모델(Bekko, 다국어, 384차원)로 임베딩을 기기에서 완전히 생성합니다. 클라우드와 API 키가 필요 없습니다. 대화 검색과 문서 RAG를 지원합니다.</string>
+    <string name="onnx_embed_download">모델 다운로드 (~124MB)</string>
+    <string name="onnx_embed_downloading">다운로드 중… %1$s</string>
+    <string name="onnx_embed_installed">모델 설치됨 (%1$d MB)</string>
+    <string name="onnx_embed_add">임베딩에 사용</string>
+    <string name="onnx_embed_remove">모델 제거</string>
+    <string name="onnx_embed_added">임베딩 모델로 추가됨 — 위에서 선택하여 활성화하세요.</string>
+    <string name="onnx_embed_failed">다운로드 실패. 연결을 확인하고 다시 시도하세요.</string>
+    <string name="onnx_chat_title">온디바이스 채팅 (ONNX)</string>
+    <string name="onnx_chat_desc">작은 LLM을 기기에서 완전히 실행합니다(Qwen3 0.6B, ONNX Runtime). 클라우드와 API 키가 필요 없습니다.</string>
+    <string name="onnx_chat_download">모델 다운로드 (~487MB)</string>
+    <string name="onnx_chat_downloading">다운로드 중… %1$s</string>
+    <string name="onnx_chat_installed">모델 설치됨 (%1$d MB)</string>
+    <string name="onnx_chat_add">로컬 모델로 추가</string>
+    <string name="onnx_chat_remove">모델 제거</string>
+    <string name="onnx_chat_added">추가됨 — “Qwen3 0.6B (on-device)” 선택.</string>
+    <string name="onnx_chat_failed">다운로드 실패. 연결을 확인하세요.</string>
+</resources>

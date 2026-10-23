@@ -35,7 +35,11 @@ class SshClient(
     private val device: ShellDeviceConfig,
     private val timeoutMs: Int = Constants.NETWORK_CONNECT_TIMEOUT_MS.toInt(),
     private val pinnedHostKey: String = "",
-    private val allowUnknownHostKey: Boolean = false
+    private val allowUnknownHostKey: Boolean = false,
+    /** Optional OpenSSH/PEM private key for public-key auth; blank = password auth only. */
+    private val privateKey: String = "",
+    /** Passphrase for an encrypted [privateKey]; blank for an unencrypted key. */
+    private val keyPassphrase: String = ""
 ) {
     private var session: Session? = null
     private var identityOwner: JSch? = null

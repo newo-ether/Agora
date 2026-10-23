@@ -20,7 +20,7 @@ internal val Context.dataStore by preferencesDataStore(
     name = "settings", produceMigrations = { listOf(modelProviderNamesMigration) },
 )
 
-class SettingsManager(private val context: Context) {
+class SettingsManager(private val context: Context) : SettingsManagerAppearanceBase(context) {
     private val json = Json { ignoreUnknownKeys = true }
     internal val modelPreferenceStore = SettingsModelPreferenceStore(context.dataStore, json)
     internal val backupPreferenceStore = SettingsBackupPreferenceStore(context.dataStore)
@@ -256,6 +256,11 @@ class SettingsManager(private val context: Context) {
     val fontPreference: Flow<String> = context.dataStore.data.map { it[FONT_PREFERENCE] ?: "app_default" }
     val customFontPath: Flow<String> = context.dataStore.data.map { it[CUSTOM_FONT_PATH] ?: "" }
     val customFontName: Flow<String> = context.dataStore.data.map { it[CUSTOM_FONT_NAME] ?: "" }
+    val userBubbleColor: Flow<String> = context.dataStore.data.map { it[USER_BUBBLE_COLOR] ?: "" }
+    val chatBackground: Flow<String> = context.dataStore.data.map { it[CHAT_BACKGROUND] ?: "" }
+    val chatBackgroundOpacity: Flow<Float> = context.dataStore.data.map { it[CHAT_BACKGROUND_OPACITY] ?: 0.3f }
+    val chatBackgroundVideoMuted: Flow<Boolean> = context.dataStore.data.map { it[CHAT_BACKGROUND_VIDEO_MUTED] ?: true }
+    val chatBackgroundVideoLoop: Flow<Boolean> = context.dataStore.data.map { it[CHAT_BACKGROUND_VIDEO_LOOP] ?: true }
     val firstLaunchTime: Flow<Long?> = context.dataStore.data.map { it[FIRST_LAUNCH_TIME] }
     val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { it[ONBOARDING_COMPLETED] ?: false }
     val ratingPromptSubmitted: Flow<Boolean> = context.dataStore.data.map { it[RATING_PROMPT_SUBMITTED] ?: false }
@@ -694,62 +699,6 @@ class SettingsManager(private val context: Context) {
     }
     suspend fun saveSandboxSharedStorageEnabled(enabled: Boolean) {
         context.dataStore.edit { it[SANDBOX_SHARED_STORAGE_ENABLED] = enabled }
-    }
-    suspend fun saveThemeMode(mode: String) {
-        context.dataStore.edit { it[THEME_MODE] = mode }
-    }
-    suspend fun saveAmoledEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[AMOLED_ENABLED] = enabled }
-    }
-    suspend fun saveColorScheme(scheme: String) {
-        context.dataStore.edit { it[COLOR_SCHEME] = scheme }
-    }
-    suspend fun saveDynamicColor(enabled: Boolean) {
-        context.dataStore.edit { it[DYNAMIC_COLOR] = enabled }
-    }
-    suspend fun saveBlurEffectsEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[BLUR_EFFECTS_ENABLED] = enabled }
-    }
-    suspend fun saveReduceMotion(enabled: Boolean) {
-        context.dataStore.edit { it[REDUCE_MOTION] = enabled }
-    }
-    suspend fun saveStickToBottom(enabled: Boolean) {
-        context.dataStore.edit { it[STICK_TO_BOTTOM] = enabled }
-    }
-    suspend fun saveParseInlineDollarMath(enabled: Boolean) {
-        context.dataStore.edit { it[PARSE_INLINE_DOLLAR_MATH] = enabled }
-    }
-    suspend fun saveAutoWrapCodeBlocks(enabled: Boolean) {
-        context.dataStore.edit { it[AUTO_WRAP_CODE_BLOCKS] = enabled }
-    }
-    suspend fun saveHapticsEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[HAPTICS_ENABLED] = enabled }
-    }
-    suspend fun saveDetailedTokenUsage(enabled: Boolean) {
-        context.dataStore.edit { it[DETAILED_TOKEN_USAGE] = enabled }
-    }
-    suspend fun saveToolCallDisplayMode(mode: String) {
-        context.dataStore.edit { it[TOOL_CALL_DISPLAY_MODE] = ToolCallDisplayModes.normalize(mode) }
-    }
-    suspend fun saveThinkingSegmentDisplayMode(mode: String) {
-        context.dataStore.edit {
-            it[THINKING_SEGMENT_DISPLAY_MODE] = ThinkingSegmentDisplayModes.normalize(mode)
-        }
-    }
-    suspend fun saveAutoExpandActiveGroup(enabled: Boolean) {
-        context.dataStore.edit { it[AUTO_EXPAND_ACTIVE_GROUP] = enabled }
-    }
-    suspend fun saveFontPreference(value: String) {
-        context.dataStore.edit { it[FONT_PREFERENCE] = value }
-    }
-    suspend fun saveCustomFontPath(value: String) {
-        context.dataStore.edit { it[CUSTOM_FONT_PATH] = value }
-    }
-    suspend fun saveCustomFontName(value: String) {
-        context.dataStore.edit { it[CUSTOM_FONT_NAME] = value }
-    }
-    suspend fun saveSchemeStyle(style: String) {
-        context.dataStore.edit { it[SCHEME_STYLE] = style }
     }
     suspend fun saveFirstLaunchTime(time: Long) {
         context.dataStore.edit { it[FIRST_LAUNCH_TIME] = time }

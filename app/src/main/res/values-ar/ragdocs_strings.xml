@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ragdocs_title">المستندات</string>
+    <string name="ragdocs_category_desc">استيراد ملفاتك ليبحث فيها الوكيل</string>
+    <string name="ragdocs_desc">استورد ملفات نصية أو Markdown أو PDF. يتم تقسيمها إلى مقاطع وتضمينها في فهرس دلالي خاص يمكن للوكيل البحث فيه باستخدام أداة search_documents. تبقى الملفات على جهازك.</string>
+    <string name="ragdocs_add">استيراد مستند</string>
+    <string name="ragdocs_remove">إزالة</string>
+    <string name="ragdocs_empty">لم يتم استيراد أي مستندات بعد.</string>
+    <string name="ragdocs_chunks">%1$d مقطع</string>
+    <string name="ragdocs_no_model">قم أولاً بتهيئة نموذج تضمين ضمن البحث الدلالي.</string>
+    <string name="ragdocs_status_unsupported">نوع ملف غير مدعوم</string>
+    <string name="ragdocs_status_notext">لا يوجد نص قابل للاستخراج (ملف PDF ممسوح ضوئياً؟)</string>
+</resources>

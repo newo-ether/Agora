@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ragdocs_title">Документы</string>
+    <string name="ragdocs_category_desc">Импортируйте файлы для поиска агентом</string>
+    <string name="ragdocs_desc">Импортируйте текстовые файлы, Markdown или PDF. Они разбиваются на фрагменты и встраиваются в приватный семантический индекс, по которому агент может искать с помощью инструмента search_documents. Файлы остаются на вашем устройстве.</string>
+    <string name="ragdocs_add">Импортировать документ</string>
+    <string name="ragdocs_remove">Удалить</string>
+    <string name="ragdocs_empty">Документы ещё не импортированы.</string>
+    <string name="ragdocs_chunks">%1$d фрагментов</string>
+    <string name="ragdocs_no_model">Сначала настройте модель эмбеддингов в разделе «Семантический поиск».</string>
+    <string name="ragdocs_status_unsupported">неподдерживаемый тип файла</string>
+    <string name="ragdocs_status_notext">нет извлекаемого текста (отсканированный PDF?)</string>
+</resources>
