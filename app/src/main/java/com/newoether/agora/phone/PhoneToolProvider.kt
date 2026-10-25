@@ -191,7 +191,6 @@ internal class PhoneToolProvider(
     private suspend fun point(args: JsonObject, permit: PhoneControlLease.Permit, backend: PhoneDevice): Pair<Int, Int> {
         val node = args["node"]?.jsonPrimitive?.intOrNull
         if (node == null) return coordinates(args, "x", "y", permit, backend)
-        if (args["x"] != null || args["y"] != null) throw PhoneFailure("ambiguous_target")
         val snapshot = tree?.takeIf { it.first == permit.epoch && it.second == backend.dimensions() }
             ?: throw PhoneFailure("ui_tree_required")
         if (treePackage != backend.foreground()) throw PhoneFailure("ui_tree_required")

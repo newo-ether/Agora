@@ -1,6 +1,9 @@
 package com.newoether.agora.phone
 
 import android.graphics.Bitmap
+import android.graphics.Rect
+import io.mockk.every
+import io.mockk.mockk
 import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.viewmodel.GenerationContext
 import kotlinx.coroutines.CompletableDeferred
@@ -22,17 +25,20 @@ class PhoneToolProviderTest {
     private var readiness: suspend () -> Boolean = { true }
     private var foreground: suspend () -> String = { "allowed" }
     private val keys = mutableListOf<String>()
+    private val taps = mutableListOf<Triple<Int, Int, Long>>()
+    private var nodes = emptyList<PhoneNode>()
+    private var dimensions = Triple(1080, 2400, 0)
     private val backend = object : PhoneDevice {
         override suspend fun foreground(): String { platformEffects++; return foreground.invoke() }
         override suspend fun screenshot(): Bitmap = error("Unexpected capture")
-        override suspend fun nodes(): List<PhoneNode> { platformEffects++; return emptyList() }
-        override suspend fun tap(x: Int, y: Int, durationMs: Long) { platformEffects++ }
+        override suspend fun nodes(): List<PhoneNode> { platformEffects++; return nodes }
+        override suspend fun tap(x: Int, y: Int, durationMs: Long) { platformEffects++; taps += Triple(x, y, durationMs) }
         override suspend fun swipe(x: Int, y: Int, endX: Int, endY: Int, durationMs: Long) { platformEffects++ }
         override suspend fun type(text: String) { platformEffects++ }
         override suspend fun key(key: String) { platformEffects++; keys += key }
         override suspend fun launch(packageName: String) { platformEffects++ }
         override suspend fun apps(): List<PhoneApp> { platformEffects++; return listOf(PhoneApp("allowed", "Allowed"), PhoneApp("private", "Private")) }
-        override fun dimensions() = Triple(1080, 2400, 0)
+        override fun dimensions() = dimensions
     }
     private val provider = PhoneToolProvider(
         lease = lease, settings = { config }, accepts = { accepted && it == identity },
@@ -154,6 +160,47 @@ class PhoneToolProviderTest {
         readiness = { true }
         assertFalse(provider.executeOneShotResult("phone_app_list", "{}", context).isError)
     }
+    @Test fun nodeTargetIgnoresOptionalCoordinatesForTapAndLongPress() = runTest {
+        assertFalse(claim().isError)
+        val bounds = mockk<Rect>()
+        every { bounds.centerX() } returns 320
+        every { bounds.centerY() } returns 640
+        nodes = listOf(PhoneNode(0, bounds, "Target", "Button", true, false, false, false))
+        for ((name, duration) in listOf("phone_tap" to 60L, "phone_long_press" to 800L)) {
+            assertFalse(provider.executeOneShotResult("phone_ui_tree", "{}", context).isError)
+            val result = provider.executeOneShotResult(name,
+                """{"node":0,"x":0,"y":0,"screenshot":false}""", context)
+            assertFalse(result.text, result.isError)
+            assertEquals(Triple(320, 640, duration), taps.last())
+            assertError("ui_tree_required", provider.executeOneShotResult(name,
+                """{"node":0,"x":0,"y":0,"screenshot":false}""", context))
+        }
+        assertEquals(2, taps.size)
+    }
+
+    @Test fun nodePriorityRetainsSnapshotAndIndexValidationWithoutCoordinateFallback() = runTest {
+        assertFalse(claim().isError)
+        val args = """{"node":0,"x":0,"y":0,"screenshot":false}"""
+        assertError("ui_tree_required", provider.executeOneShotResult("phone_tap", args, context))
+        assertFalse(provider.executeOneShotResult("phone_ui_tree", "{}", context).isError)
+        assertError("invalid_node", provider.executeOneShotResult("phone_tap", args, context))
+        dimensions = Triple(2400, 1080, 1)
+        assertError("ui_tree_required", provider.executeOneShotResult("phone_tap", args, context))
+        dimensions = Triple(1080, 2400, 0)
+        foreground = { "another.allowed.app" }
+        assertError("ui_tree_required", provider.executeOneShotResult("phone_tap", args, context))
+        assertError("screenshot_required", provider.executeOneShotResult("phone_tap",
+            """{"x":0,"y":0,"screenshot":false}""", context))
+        assertTrue(taps.isEmpty())
+    }
+
+    @Test fun targetDefinitionsExplainNodePriority() {
+        for (name in listOf("phone_tap", "phone_long_press")) {
+            val definition = provider.definitions(context).single { it.function.name == name }
+            assertTrue(definition.function.description.contains("If node is given, x/y are ignored."))
+        }
+    }
+
     @Test fun definitionsRespectFrozenReadinessAndAutomationLineage() {
         assertEquals(11, provider.definitions(context).size)
         assertTrue(provider.definitions(context.copy(phoneReady = false)).isEmpty())

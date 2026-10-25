@@ -62,7 +62,10 @@ Rules:
 
 - Coordinates in tool arguments are in the space of the latest returned screenshot (long edge
   ≤ 2048 per the existing media limit). The tool layer converts to physical pixels. Node index
-  targeting is preferred in tool descriptions because it survives scaling.
+  targeting is preferred in tool descriptions because it survives scaling. For `phone_tap` and
+  `phone_long_press`, a supplied node index takes priority and `x`/`y` are ignored, including optional
+  coordinate defaults filled by the model. A stale snapshot or invalid node still fails explicitly;
+  it never falls back to those coordinates.
 - Action tools accept `screenshot` (default `true`); when true the result includes a post-action
   screenshot captured after a short settle delay, saving one round per step.
 - Tool descriptions state current-mode limits (Accessibility screenshot rate limit and API 30+,

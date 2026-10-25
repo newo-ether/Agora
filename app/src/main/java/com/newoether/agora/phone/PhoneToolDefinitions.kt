@@ -15,7 +15,7 @@ internal fun phoneDefinitions(ctx: GenerationContext): List<ToolDefinition> {
         "Prefer node indices from the latest phone_ui_tree. A thin colored border is Agora's control indicator. " +
         "FLAG_SECURE windows capture black. $limits"
     val point = mapOf(
-        "node" to ToolProperty("integer", "Preferred: index from the latest phone_ui_tree snapshot. Use node or x/y."),
+        "node" to ToolProperty("integer", "Preferred: index from the latest phone_ui_tree snapshot. If node is given, x/y are ignored."),
         "x" to ToolProperty("number", "X in the latest screenshot."),
         "y" to ToolProperty("number", "Y in the latest screenshot."),
     )
@@ -29,8 +29,8 @@ internal fun phoneDefinitions(ctx: GenerationContext): List<ToolDefinition> {
         definition("phone_release", "Release your device control lease."),
         definition("phone_screenshot", "Capture the screen and return its coordinate width and height."),
         definition("phone_ui_tree", "Return a compressed interactive node snapshot. Indices remain stable only for this snapshot; refresh after UI changes."),
-        definition("phone_tap", "Tap a node or coordinate.", point + screenshot),
-        definition("phone_long_press", "Long press a node or coordinate.", point + screenshot +
+        definition("phone_tap", "Tap a node or coordinate. If node is given, x/y are ignored.", point + screenshot),
+        definition("phone_long_press", "Long press a node or coordinate. If node is given, x/y are ignored.", point + screenshot +
             ("duration_ms" to ToolProperty("integer", "Hold time, 500 to 10000 ms. Default 800."))),
         definition("phone_swipe", "Swipe from x/y to end_x/end_y.", point.filterKeys { it != "node" } + screenshot + mapOf(
             "end_x" to ToolProperty("number", "End X in screenshot coordinates."),
