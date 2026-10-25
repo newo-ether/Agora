@@ -31,11 +31,38 @@ internal class AndroidPhoneDevice(
         }
     override suspend fun nodes(): List<PhoneNode> {
         if (mode == "accessibility") return accessibility().snapshot()
-        val dump = command("uiautomator dump /dev/tty").toString(Charsets.UTF_8)
-        val start = dump.indexOf("<?xml").takeIf { it >= 0 } ?: dump.indexOf("<hierarchy")
-        val end = dump.lastIndexOf("</hierarchy>")
-        if (start < 0 || end < start) throw PhoneFailure("ui_tree_unavailable")
-        val parser = Xml.newPullParser().apply { setInput(dump.substring(start, end + 12).reader()) }
+        // Merge dump stderr here only; binary commands keep their stdout separate.
+        val command = "trap 'rm -f /data/local/tmp/agora_ui.xml' EXIT; " +
+            "rm -f /data/local/tmp/agora_ui.xml && " +
+            "(uiautomator dump /data/local/tmp/agora_ui.xml && " +
+            "cat /data/local/tmp/agora_ui.xml) 2>&1"
+        var dump = ""
+        for (attempt in 0..1) {
+            dump = try {
+                command(command).toString(Charsets.UTF_8)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                val detail = error.message ?: error.javaClass.simpleName
+                if (attempt == 0 && detail.contains("could not get idle state", ignoreCase = true)) continue
+                throw PhoneFailure("ui_tree_unavailable", detail.take(500))
+            }
+            val start = dump.indexOf("<?xml").takeIf { it >= 0 } ?: dump.indexOf("<hierarchy")
+            val end = dump.lastIndexOf("</hierarchy>")
+            if (start >= 0 && end >= start) {
+                try {
+                    return parseNodes(dump.substring(start, end + "</hierarchy>".length))
+                } catch (error: Exception) {
+                    throw PhoneFailure("ui_tree_unavailable", dump.take(500))
+                }
+            }
+            if (attempt == 0 && dump.contains("could not get idle state", ignoreCase = true)) continue
+            throw PhoneFailure("ui_tree_unavailable", dump.take(500))
+        }
+        throw PhoneFailure("ui_tree_unavailable", dump.take(500))
+    }
+    private fun parseNodes(xml: String): List<PhoneNode> {
+        val parser = Xml.newPullParser().apply { setInput(xml.reader()) }
         val nodes = ArrayList<PhoneNode>()
         while (parser.eventType != XmlPullParser.END_DOCUMENT && nodes.size < 1000) {
             if (parser.eventType == XmlPullParser.START_TAG && parser.name == "node") {

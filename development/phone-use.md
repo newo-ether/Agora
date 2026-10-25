@@ -70,6 +70,13 @@ Rules:
   screenshot captured after a short settle delay, saving one round per step.
 - Tool descriptions state current-mode limits (Accessibility screenshot rate limit and API 30+,
   `uiautomator dump` latency in Shizuku/Root, `FLAG_SECURE` windows capture black).
+- Shizuku/Root UI trees dump to `/data/local/tmp/agora_ui.xml`, read the file and delete it on
+  command exit, including failures. Remove any prior file before dumping; never return stale XML.
+  Do not depend on an interactive terminal. Retry once only for `could not get idle state`;
+  other command/XML failures return `ui_tree_unavailable` with up to 500 characters of raw output.
+  Privileged command failures retain bounded stderr/stdout diagnostics, including a nonzero exit
+  code; stderr-only output from an otherwise successful command remains available. Nonempty
+  successful binary stdout remains unchanged.
 - Text input: Accessibility uses `ACTION_SET_TEXT` on the focused node. Shizuku/Root `input text`
   cannot carry non-ASCII; non-ASCII text uses clipboard set + paste, then restores the previous
   clipboard content.

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
+import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,17 +46,22 @@ internal class PhonePrivilegedConnection(private val context: Context) {
     suspend fun command(mode: String, command: String): ByteArray = withContext(Dispatchers.IO) {
         if (mode == "root") phoneProcess(listOf("su", "-c", command)) else {
             val descriptor = service().command(command)
-            android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
-                val output = java.io.ByteArrayOutputStream()
-                val buffer = ByteArray(8192)
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    if (output.size() + count > 20 * 1024 * 1024) throw PhoneFailure("device_output_too_large")
-                    output.write(buffer, 0, count)
+            try {
+                android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                    val output = java.io.ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (output.size() + count > 20 * 1024 * 1024) throw PhoneFailure("device_output_too_large")
+                        output.write(buffer, 0, count)
+                    }
+                    descriptor.checkError()
+                    output.toByteArray()
                 }
-                descriptor.checkError()
-                output.toByteArray()
+            } catch (error: IOException) {
+                // Reliable-pipe failures carry the privileged process's bounded diagnostics.
+                throw PhoneFailure("device_command_failed", error.message ?: "device_command_failed")
             }
         }
     }

@@ -51,7 +51,15 @@ internal fun phoneProcess(arguments: List<String>): ByteArray {
         stdout.join(2000); stderr.join(2000)
         if (stdout.isAlive || stderr.isAlive) throw PhoneFailure("device_output_incomplete")
         if (overflow.get()) throw PhoneFailure("device_output_too_large")
-        if (process.exitValue() != 0) throw PhoneFailure("device_command_failed", error.toString("UTF-8").take(1000))
+        val exit = process.exitValue()
+        if (exit != 0) {
+            val diagnostics = listOf(error.toString("UTF-8").take(500), output.toString("UTF-8").take(500))
+                .filter { it.isNotBlank() }.joinToString("\n").take(1000)
+            throw PhoneFailure("device_command_failed", "exit $exit: $diagnostics")
+        }
+        // uiautomator may report failure only on stderr while exiting successfully.
+        // Keep successful binary stdout (screenshots) byte-for-byte unchanged.
+        if (output.size() == 0 && error.size() > 0) return error.toByteArray()
         return output.toByteArray()
     } finally { process.destroyForcibly() }
 }
