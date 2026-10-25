@@ -261,6 +261,7 @@ internal val baseSettingsGroups = listOf(
     SettingsGroupData(titleRes = R.string.settings_group_tools, items = listOf(
         SettingsCategory("websearch", R.string.settings_web_search, R.string.settings_web_search_desc, Icons.Default.Language),
         SettingsCategory("search", R.string.search_title, R.string.search_desc, Icons.Default.Search),
+        SettingsCategory("phoneuse", R.string.phone_title, R.string.phone_description, Icons.Default.TouchApp),
         SettingsCategory("shell", R.string.shell_title, R.string.shell_desc, Icons.Default.Terminal),
         SettingsCategory(
             "mcp",

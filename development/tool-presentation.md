@@ -82,6 +82,14 @@ history consume those fields without requiring a connected or still-existing MCP
 per-tool MCP names retain their existing read-side title fallback. Native and WebUI consume the
 same localized title, lifecycle, summary and detail owners; neither changes protocol identity.
 
+## Phone Use Tools
+The eleven `phone_*` tools use the shared Phone kind with localized action titles. Active cards
+use progressive summaries ending in `…`; completed cards describe the finished action in past
+tense without terminal punctuation. These summaries do not reuse the overlay's concise status
+labels. Concrete structured failures such as `not_claimed`, `occupied`, `released_by_user`,
+`permission_lost` and `app_blocked` retain their error reason through the existing resolver.
+Native and WebUI use the same resource-backed summary and ordinary JSON/image detail owners.
+
 ## Remote Native Tools
 
 Remote tool payloads keep their native name, arguments, results and running state. A transient

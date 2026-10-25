@@ -226,7 +226,7 @@ class ToolSummaryRegressionTest {
             "file_read", "file_write", "file_edit", "file_multi_edit", "file_glob", "file_grep", "view_image", "generate_image",
             "create_task", "list_tasks", "delete_task", "start_loop", "stop_loop", "ask_user", "mcp_list_servers", "mcp_search_tools", "mcp_test", "unknown",
             "read_todo", "update_todo", "spawn_agent", "send_agent_message", "wait_agents", "list_agents", "stop_agent", "delete_agent",
-        )
+        ) + com.newoether.agora.phone.PHONE_TOOL_NAMES
         assertEquals(ToolKind.entries.toSet(), names.map(ToolPresentationResolver::kindForToolName).toSet())
         for (name in names) {
             val call = MessageSegment(type = "tool", toolName = name, toolArgs = "{}")

@@ -47,6 +47,7 @@ internal enum class ToolKind {
     TASK_DELETE,
     LOOP_START,
     LOOP_STOP,
+    PHONE,
     ASK_USER,
     TODO_READ,
     TODO_UPDATE,
@@ -334,6 +335,8 @@ internal object ToolPresentationResolver {
         "task_delete" -> ToolKind.TASK_DELETE
         "loop_start" -> ToolKind.LOOP_START
         "loop_stop" -> ToolKind.LOOP_STOP
+        "phone_claim", "phone_release", "phone_screenshot", "phone_ui_tree", "phone_tap",
+        "phone_long_press", "phone_swipe", "phone_type", "phone_key", "phone_app_launch", "phone_app_list" -> ToolKind.PHONE
         "ask_user" -> ToolKind.ASK_USER
         "todo_read" -> ToolKind.TODO_READ
         "todo_update" -> ToolKind.TODO_UPDATE
