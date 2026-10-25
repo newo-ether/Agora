@@ -104,6 +104,7 @@ android {
     }
     buildFeatures {
         compose = true
+        aidl = true
     }
     // The app switches locales at runtime without Play Feature Delivery. Keep every
     // packaged translation available instead of letting App Bundles split languages.
@@ -168,6 +169,8 @@ afterEvaluate {
 }
 
 dependencies {
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
