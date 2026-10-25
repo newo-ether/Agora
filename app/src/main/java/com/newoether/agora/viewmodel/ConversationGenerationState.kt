@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -62,6 +63,7 @@ class ConversationGenerationState(
     val conversationId: String,
     private val onRegistryActive: (String) -> Unit = {},
     private val onRegistryIdle: (String) -> Unit = {},
+    private val onRunControlEnded: (String, String) -> Unit = { _, _ -> },
     reclaimQueuedAttachments: (List<com.newoether.agora.model.SelectedAttachment>) -> Unit,
 ) {
 
@@ -140,6 +142,16 @@ class ConversationGenerationState(
     }
 
     fun currentRunId(): String? = synchronized(genLock) { runState.identityOrNull()?.runId }
+    /** Exact mailbox-owned batch authority. A Run ID alone cannot authorize device effects. */
+    fun acceptsToolEffect(identity: RunEffectIdentity): Boolean = synchronized(genLock) {
+        val active = runState as? RunState.Active ?: return@synchronized false
+        scope.isActive && !active.coroutineSettled &&
+            (active.toolPhase as? com.newoether.agora.model.RunToolPhase.Executing)?.batchIdentity == identity
+    }
+    fun controlsRun(runId: String): Boolean = synchronized(genLock) {
+        val active = runState as? RunState.Active
+        scope.isActive && active?.identity?.runId == runId && !active.coroutineSettled
+    }
 
     /** Echo the exact Room acceptance effect back through the mailbox. */
     suspend fun finishInputPersistence(identity: RunEffectIdentity): RunBindingOutcome =
@@ -563,7 +575,10 @@ class ConversationGenerationState(
     /** Runtime disposal is not a user Stop and therefore does not create a durable Stop effect. */
     internal fun dispose(): List<QueuedSend> {
         val pendingGuidance = guidanceLeases.disposePending()
-        val job = synchronized(genLock) { resources.currentGenerationJob() }
+        val job = synchronized(genLock) {
+            runState.identityOrNull()?.runId?.let { onRunControlEnded(conversationId, it) }
+            resources.currentGenerationJob()
+        }
         resources.cancelStreamsAnd(job)
         cancelScope()
         return pendingGuidance
@@ -722,7 +737,12 @@ class ConversationGenerationState(
         val transition = ConversationRuntimeReducer.reduce(oldState, command)
         val traceEntry = runtimeTrace.record(oldState, command, transition)
         DeveloperDiagnostics.recordRuntimeTransition(traceEntry)
-        if (transition.accepted) runState = transition.newState
+        if (transition.accepted) {
+            runState = transition.newState
+            if (oldState is RunState.Active &&
+                (runState !is RunState.Active || (runState as RunState.Active).coroutineSettled)
+            ) oldState.identity.runId?.let { onRunControlEnded(conversationId, it) }
+        }
         return transition
     }
 

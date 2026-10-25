@@ -232,6 +232,7 @@ internal class DirectAcceptedInputEffectExecutor(
                         modelId = request.modelId,
                         conversationOverride = request.newConversation,
                         conversationSettingsOverride = request.newConversationSettings,
+                        automationCaller = request.requestKind == "task" || request.requestKind == "loop",
                     )
                 titleGenerationEnabled = generationSnapshot.titleGenerationEnabled
                 markStage("commit-message-graph")

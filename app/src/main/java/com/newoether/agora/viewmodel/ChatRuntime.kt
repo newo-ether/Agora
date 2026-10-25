@@ -44,6 +44,8 @@ class ChatRuntime(
     memoryManager: MemoryManager,
     skillManager: SkillManager,
     sandboxFactory: SandboxManagerFactory?,
+    phoneToolProvider: com.newoether.agora.tool.ToolProvider,
+    phoneReady: suspend (String) -> Boolean,
     automationToolProvider: AutomationToolProvider,
     subagentToolProvider: com.newoether.agora.tool.SubagentToolProvider,
     subagentManager: com.newoether.agora.automation.SubagentManager,
@@ -91,6 +93,7 @@ class ChatRuntime(
             context = appContext,
             sandboxFactory = sandboxFactory,
             additionalToolProviders = listOf(
+                phoneToolProvider,
                 automationToolProvider,
                 subagentToolProvider,
                 mcpToolProvider,
@@ -109,6 +112,7 @@ class ChatRuntime(
 
     /** Stateless request assembly shared by every command; context previews read it too. */
     internal val requestBuilder = GenerationRequestBuilder(
+        phoneReady = phoneReady,
         settings = settings,
         convRepo = conversations,
         memoryManager = memoryManager,

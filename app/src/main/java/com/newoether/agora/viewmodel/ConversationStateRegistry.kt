@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
  * conversation's private flows into the global UI StateFlows.
  */
 class ConversationStateRegistry(
+    private val onRunControlEnded: (String, String) -> Unit = { _, _ -> },
     private val reclaimQueuedAttachments: (List<com.newoether.agora.model.SelectedAttachment>) -> Unit,
 ) {
 
@@ -48,6 +49,7 @@ class ConversationStateRegistry(
                 onRegistryActive = ::markActive,
                 onRegistryIdle = ::markIdle,
                 reclaimQueuedAttachments = reclaimQueuedAttachments,
+                onRunControlEnded = onRunControlEnded,
             )
         }
         // Re-applying the current binder is idempotent and closes the race where a state is

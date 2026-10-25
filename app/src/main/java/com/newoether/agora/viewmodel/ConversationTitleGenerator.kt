@@ -80,6 +80,22 @@ class ConversationTitleGenerator(
         >()
     }
 
+    /** Task fallback belongs beside the shared title generation and persistence rules. */
+    internal suspend fun updateTaskTitle(conversationId: String, response: String) {
+        settings.awaitInitialLoad()
+        providers.awaitInitialSync()
+        if (settings.titleGenerationEnabled.value) {
+            when (generateAndPersist(conversationId)) {
+                is Result.Success -> return
+                is Result.Failure -> DebugLog.w("ConversationTitleGenerator", "Using task response title fallback")
+            }
+        }
+        val fallback = fallbackConversationTitle(response)
+        if (fallback.isBlank()) return
+        conversations.getConversation(conversationId)?.let { conversation ->
+            conversations.updateConversationTitleIfUnchanged(conversationId, conversation.title, fallback)
+        }
+    }
     suspend fun generateAndPersist(
         conversationId: String,
         runtimeSnapshot: ConversationGenerationSnapshot? = null,

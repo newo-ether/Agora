@@ -7,9 +7,12 @@ internal fun narrowQueuedGuidancePermissions(
     batch: List<QueuedSend>,
     chosen: GenerationAdmissionSnapshot,
 ): GenerationAdmissionSnapshot {
+    val automaticSource = batch.any { it.source?.kind in setOf(
+        com.newoether.agora.model.MessageSource.Kind.TASK, com.newoether.agora.model.MessageSource.Kind.LOOP,
+    ) }
     val restrictions = batch.mapNotNull { it.generationSnapshot?.context } + chosen.context
-    val context = chosen.context.narrowPermissions(restrictions)
-    val compactContext = chosen.automaticCompact.generationContext.narrowPermissions(restrictions)
+    val context = chosen.context.narrowPermissions(restrictions, automaticSource)
+    val compactContext = chosen.automaticCompact.generationContext.narrowPermissions(restrictions, automaticSource)
     if (context == chosen.context && compactContext == chosen.automaticCompact.generationContext) return chosen
     return chosen.copy(
         context = context,
@@ -17,11 +20,15 @@ internal fun narrowQueuedGuidancePermissions(
     )
 }
 
-private fun GenerationContext.narrowPermissions(restrictions: List<GenerationContext>): GenerationContext {
+private fun GenerationContext.narrowPermissions(restrictions: List<GenerationContext>, automaticSource: Boolean): GenerationContext {
     fun allowed(permission: (GenerationContext) -> Boolean): Boolean =
         permission(this) && restrictions.all(permission)
 
     return copy(
+        phoneEnabled = allowed { it.phoneEnabled } && restrictions.all { it.phoneMode == phoneMode },
+        phoneReady = allowed { it.phoneReady },
+        phoneAllowAutomation = allowed { it.phoneAllowAutomation },
+        automationCaller = automationCaller || automaticSource || restrictions.any { it.automationCaller },
         subagentToolsEnabled = allowed { it.subagentToolsEnabled },
         subagentDeleteEnabled = allowed { it.subagentDeleteEnabled },
         todoEnabled = allowed { it.todoEnabled },

@@ -44,6 +44,7 @@ class GenerationRequestBuilder(
     private val providerRegistry: ProviderRegistry,
     private val ragManager: RagManager,
     private val appContext: Context,
+    private val phoneReady: suspend (String) -> Boolean = { false },
 ) {
     data class ProviderKey(val providerName: String, val apiKey: String)
 
@@ -241,7 +242,9 @@ class GenerationRequestBuilder(
         conversationOverride: ChatEntity? = null,
         resolvedPromptOverride: ResolvedPrompt? = null,
         conversationSettingsOverride: ConversationSettings? = null,
+        automationCaller: Boolean = false,
     ): GenerationAdmissionSnapshot {
+        settings.awaitInitialLoad()
         providerRegistry.awaitInitialSync()
         val selectedModelId = providerRegistry.canonicalModelId(modelId)
         val providerName = providerRegistry.providerForModel(selectedModelId)
@@ -268,6 +271,7 @@ class GenerationRequestBuilder(
             effectiveSettings = effectiveSettings,
             currentId = conversationId,
             applyLowContextMode = true,
+            automationCaller = automationCaller,
             includeSkillCatalog =
                 settings.accessSkills.value &&
                     !(
@@ -307,6 +311,7 @@ class GenerationRequestBuilder(
             currentId = conversationId,
             applyLowContextMode = false,
             includeSkillCatalog = false,
+            phoneToolsEnabled = false,
         )
         val automaticCompact = AutomaticCompactConfig(
             enabled = settings.contextCompactEnabled.value,
@@ -375,6 +380,7 @@ class GenerationRequestBuilder(
             selectedModelId = selectedModelId,
             config = ordinaryConfig,
             context = context.copy(
+                automationCaller = automationCaller,
                 subagentToolsEnabled = context.subagentToolsEnabled && !isSubagent,
                 accessPastConversations = context.accessPastConversations && !isSubagent,
                 webSearchApiKeys = context.webSearchApiKeys.toMap(),
@@ -450,7 +456,7 @@ class GenerationRequestBuilder(
         )
     }
 
-    private fun buildGenerationPair(
+    private suspend fun buildGenerationPair(
         providerName: String,
         modelId: String,
         activeKey: String,
@@ -461,6 +467,8 @@ class GenerationRequestBuilder(
         currentId: String,
         applyLowContextMode: Boolean,
         includeSkillCatalog: Boolean,
+        automationCaller: Boolean = false,
+        phoneToolsEnabled: Boolean = true,
     ): Pair<GenerationConfig, GenerationContext> {
         val lowContextModeEnabled =
             applyLowContextMode &&
@@ -525,7 +533,14 @@ class GenerationRequestBuilder(
         val enabledModelIds = settings.enabledModels.value.toSet()
         val subagentModelIds = settings.subagentEnabledModels.value.orEmpty()
             .intersect(enabledModelIds).sorted()
+        val phoneConfig = settings.phoneUse.value
         val genCtx = GenerationContext(
+            phoneEnabled = phoneToolsEnabled && phoneConfig.enabled,
+            phoneMode = phoneConfig.mode,
+            phoneAllowAutomation = phoneConfig.allowAutomation,
+            phoneReady = phoneToolsEnabled && phoneConfig.enabled && !lowContextModeEnabled &&
+                (!automationCaller || phoneConfig.allowAutomation) && phoneReady(phoneConfig.mode),
+            automationCaller = automationCaller,
             conversationId = currentId,
             todoEnabled = settings.todoEnabled.value,
             subagentToolsEnabled = settings.subagentToolsEnabled.value,

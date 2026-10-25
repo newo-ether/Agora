@@ -63,6 +63,23 @@ class SubagentMessageQueueTest {
         }
     }
 
+    @Test fun childrenKeepFrozenPhoneAdmissionAndAutomationLineageFromTheirParent() = runTest {
+        val f = Fixture()
+        try {
+            val parent = f.parentContext.copy(phoneEnabled = true, phoneReady = true, phoneMode = "root",
+                phoneAllowAutomation = false, automationCaller = true)
+            f.queue.enqueue("child", "Follow up", parent)
+            val child = f.registry.get("child")!!.queuedSends.value.single().generationSnapshot!!.context
+            assertTrue(child.phoneEnabled)
+            assertTrue(child.phoneReady)
+            assertEquals("root", child.phoneMode)
+            assertTrue(child.automationCaller)
+            assertFalse(child.phoneAllowAutomation)
+            assertNull(child.toolEffectIdentity)
+            assertTrue(com.newoether.agora.phone.phoneDefinitions(child).isEmpty())
+        } finally { f.registry.cancelAll() }
+    }
+
     @Test fun idleWakeupAtCapacityFailsBeforeSnapshotOrQueueAndBusyChildReusesAllowance() = runTest {
         val f = Fixture()
         val releases = (0 until 4).map { f.coordinator.reserveSubagentGeneration("parent", "busy-$it") }

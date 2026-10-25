@@ -214,8 +214,15 @@ class AppContainer(
     }
 
     /** Foreground generation slots survive Activity/ViewModel recreation within this process. */
+    private val phoneLease by lazy { com.newoether.agora.phone.PhoneControlLease(android.os.SystemClock::elapsedRealtime) }
+    internal val phoneUse by lazy {
+        com.newoether.agora.phone.PhoneUseRuntime(appContext, settingsRepository, phoneLease,
+            askUserController, conversationStateRegistry, conversationRepository, appScope)
+    }
     val conversationStateRegistry: ConversationStateRegistry by lazy {
-        ConversationStateRegistry { attachments ->
+        ConversationStateRegistry(onRunControlEnded = { conversation, run ->
+            phoneLease.forget(com.newoether.agora.phone.PhoneControlLease.Owner(conversation, run))
+        }) { attachments ->
             appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 conversationRepository.deleteUnreferencedDraftAttachmentFiles(attachments)
             }
@@ -287,7 +294,8 @@ class AppContainer(
             askUser = askUserController,
             generationRegistry = conversationStateRegistry,
             pauseConversationLoop = { conversationId -> loopManager.stopLoop(conversationId) },
-            additionalTools = { listOf(automationToolProvider, subagentToolProvider) },
+            additionalTools = { listOf(automationToolProvider, subagentToolProvider, phoneUse.provider) },
+            phoneReady = { phoneUse.readiness(it) },
         )
     }
 
@@ -383,6 +391,8 @@ class AppContainer(
             memoryManager = memoryManager,
             skillManager = skillManager,
             sandboxFactory = sandboxManagerFactory,
+            phoneToolProvider = phoneUse.provider,
+            phoneReady = { phoneUse.readiness(it) },
             automationToolProvider = automationToolProvider,
             subagentToolProvider = subagentToolProvider,
             subagentManager = subagentManager,

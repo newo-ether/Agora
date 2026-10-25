@@ -378,6 +378,7 @@ class GenerationRequestBuilderProviderDisplayTest {
         every { settings.openAiServiceTierEnabled } returns MutableStateFlow(false)
         every { settings.openAiServiceTier } returns MutableStateFlow("auto")
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
+        every { settings.phoneUse } returns MutableStateFlow(com.newoether.agora.phone.PhoneUseSettings())
         every { settings.shellEnabled } returns MutableStateFlow(true)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
         every { settings.askUserTimeoutMinutes } returns MutableStateFlow(5)
@@ -630,6 +631,7 @@ internal class RequestBuilderFixture(
     lowContextModeEnabled: Boolean,
     compactPreserveSystemPrompt: Boolean = false,
     accessActiveMemory: Boolean = true,
+    phoneReady: suspend (String) -> Boolean = { false },
 ) {
     companion object {
         const val COMPACT_PROMPT = "compact prompt"
@@ -706,6 +708,7 @@ internal class RequestBuilderFixture(
         every { settings.openAiServiceTierEnabled } returns MutableStateFlow(false)
         every { settings.openAiServiceTier } returns MutableStateFlow("auto")
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
+        every { settings.phoneUse } returns MutableStateFlow(com.newoether.agora.phone.PhoneUseSettings())
         every { settings.shellEnabled } returns MutableStateFlow(true)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
         every { settings.askUserTimeoutMinutes } returns MutableStateFlow(5)
@@ -778,6 +781,7 @@ internal class RequestBuilderFixture(
             providerRegistry = providerRegistry,
             ragManager = ragManager,
             appContext = appContext,
+            phoneReady = phoneReady,
         )
     }
 }

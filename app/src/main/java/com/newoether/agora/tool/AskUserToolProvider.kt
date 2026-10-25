@@ -143,6 +143,7 @@ class AskUserToolProvider(private val askUser: AskUserController) : ToolProvider
                 allowMultiple = question.allowMultiple,
                 blocking = blocking,
                 setId = setId,
+                runId = ctx.toolEffectIdentity?.runId,
             )
         }
         if (!blocking) return queuedResult(requests.size)

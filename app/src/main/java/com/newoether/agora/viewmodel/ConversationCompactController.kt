@@ -259,6 +259,7 @@ internal class ConversationCompactController(
             thinkingEnabled = false,
         ),
         context = context.copy(
+            phoneEnabled = false,
             todoEnabled = false,
             subagentToolsEnabled = false,
             accessSavedMemories = false,

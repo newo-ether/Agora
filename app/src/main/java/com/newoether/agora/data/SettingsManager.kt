@@ -167,12 +167,9 @@ class SettingsManager(private val context: Context) {
     val autoUpdateCheck: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_CHECK] ?: true }
     val lastUpdateCheckTime: Flow<Long> = context.dataStore.data.map { it[LAST_UPDATE_CHECK_TIME] ?: 0L }
     val localChatModels: Flow<List<LocalChatModelConfig>> = modelPreferenceStore.localChatModels
-    val localModelIdleRetentionMinutes: Flow<Int> = context.dataStore.data.map {
-        normalizeLocalModelIdleRetentionMinutes(it[LOCAL_MODEL_IDLE_RETENTION_MINUTES])
-    }
-    val localLowContextModeEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[LOCAL_LOW_CONTEXT_MODE_ENABLED] ?: DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
-    }
+    val phoneUse = com.newoether.agora.phone.PhoneUseSettingsStore(context.dataStore)
+    val localModelIdleRetentionMinutes: Flow<Int> = modelPreferenceStore.localModelIdleRetentionMinutes
+    val localLowContextModeEnabled: Flow<Boolean> = modelPreferenceStore.localLowContextModeEnabled
     val customProviders: Flow<List<CustomProviderConfig>> = modelPreferenceStore.customProviders
 
     val showDocumentationFab: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DOCUMENTATION_FAB] ?: true }
@@ -535,16 +532,11 @@ class SettingsManager(private val context: Context) {
     suspend fun saveLocalChatModels(models: List<LocalChatModelConfig>) =
         modelPreferenceStore.saveLocalChatModels(models)
 
-    suspend fun saveLocalModelIdleRetentionMinutes(minutes: Int) {
-        context.dataStore.edit {
-            it[LOCAL_MODEL_IDLE_RETENTION_MINUTES] =
-                normalizeLocalModelIdleRetentionMinutes(minutes)
-        }
-    }
+    suspend fun saveLocalModelIdleRetentionMinutes(minutes: Int) =
+        modelPreferenceStore.saveLocalModelIdleRetentionMinutes(minutes)
 
-    suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[LOCAL_LOW_CONTEXT_MODE_ENABLED] = enabled }
-    }
+    suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) =
+        modelPreferenceStore.saveLocalLowContextModeEnabled(enabled)
 
     suspend fun saveCustomProviders(providers: List<CustomProviderConfig>) =
         modelPreferenceStore.saveCustomProviders(providers)

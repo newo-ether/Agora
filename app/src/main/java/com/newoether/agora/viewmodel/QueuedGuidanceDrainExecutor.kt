@@ -175,6 +175,10 @@ internal class QueuedGuidanceDrainExecutor(
                             conversationId = conversationId,
                             runId = runId,
                             modelId = selectedInput.modelId,
+                            automationCaller = activeBatch.any { send -> send.source?.kind in setOf(
+                                com.newoether.agora.model.MessageSource.Kind.TASK,
+                                com.newoether.agora.model.MessageSource.Kind.LOOP,
+                            ) || send.generationSnapshot?.context?.automationCaller == true },
                         )
                     val generationSnapshot = narrowQueuedGuidancePermissions(activeBatch, capturedSnapshot)
                     val topology =
