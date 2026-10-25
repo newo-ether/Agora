@@ -607,7 +607,9 @@ changes affect future captured contexts only; no global timer, request state own
 
 ### 8.13b Built-in tool name compatibility
 
-Built-in definitions use namespace_action protocol names. `BuiltInToolNames` is the sole legacy alias
+Built-in definitions use namespace_action protocol names: the domain comes first and the detail
+after (`memory_read`, `task_create`, `phone_tap`). Every new built-in tool must follow this rule and
+join an existing domain prefix when one applies; never put the verb first. `BuiltInToolNames` is the sole legacy alias
 map. Execution canonicalizes the called name and frozen authorized names before permission checks
 and provider dispatch. Historical Room rows stay unchanged. Immutable request projection canonicalizes
 call/result names, segment names and Responses function_call.name before validation, preserving IDs,
