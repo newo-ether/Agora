@@ -10,8 +10,9 @@ existing pipelines defined in [message-generation.md](message-generation.md).
 
 ## 1. Settings surface
 
-Location: Settings → Tools → `Phone Use` item, following [settings-ui-ux.md](settings-ui-ux.md)
-(collapsing scaffold, `SettingsGroup`, `SettingsItem` with icon/title/description).
+Location: Settings → Tools → `Phone Use` item, immediately after MCP and before Automation, following
+[settings-ui-ux.md](settings-ui-ux.md) (collapsing scaffold, `SettingsGroup`, `SettingsItem` with
+icon/title/description). The destination and Phone Use controls use the PhonelinkSetup phone icon.
 
 Sub-page, top to bottom:
 
@@ -19,7 +20,10 @@ Sub-page, top to bottom:
 2. Working mode selector: one `SettingsItem` (icon, title, description) whose trailing primary
    `labelLarge` text shows the current mode; tapping the row opens an `AgoraDropdownMenu` of
    `Accessibility`, `Shizuku`, `Root` with a primary check on the selected item. Same pattern as
-   `SearchMethodItem` in `SettingsSearchPage.kt`. Exactly one mode is active.
+   `SearchMethodItem` in `SettingsSearchPage.kt`. Exactly one mode is active. Shared choice values
+   and permission statuses use the Appearance reference's 96 dp trailing slot, 4 dp end inset,
+   end-aligned primary `labelLarge` text and one-line ellipsis. Granted/missing retains its semantic
+   color; changing status or selection never moves the text column or its trailing edge.
 3. Permission list for the selected mode. One `SettingsItem` per permission with a live granted /
    missing state indicator. Tapping an item requests the permission directly when the platform
    allows it, otherwise deep-links to the most specific system page. State refreshes on resume.
@@ -169,6 +173,12 @@ colored border is Agora's control indicator.
 
 Exactly one of: `Off`, `Blocklist`, `Allowlist`, selected with the same dropdown row pattern as
 the working mode selector (section 1 item 2). Lists are package names chosen from installed apps.
+The app picker follows Image Transcription's Add Model dialog: `surfaceContainer` background, bold
+Material title, transparent `SettingsItem` option rows, a leading checkbox and right-side application
+name/package column. Package names use `bodySmall`. The whole row owns one checkbox action and the
+shared rounded option highlight. A full-width, single-line search field with 16 dp rounded corners
+and a 12 dp gap above the list filters by application name or package. Selection persists immediately
+through the existing Settings store; Done only dismisses, without a separate Save/Add transaction.
 
 - Agora itself is exempt from app access control: it never appears in the app picker, cannot be
   listed, and is always allowed in every mode.

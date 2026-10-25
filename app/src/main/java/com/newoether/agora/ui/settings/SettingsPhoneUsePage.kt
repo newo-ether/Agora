@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,13 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.newoether.agora.AgoraApplication
 import com.newoether.agora.R
-import com.newoether.agora.phone.AndroidPhoneDevice
 import com.newoether.agora.phone.PhoneApp
 import com.newoether.agora.phone.PhoneUseRuntime
 import com.newoether.agora.ui.components.optionClickable
@@ -67,7 +70,7 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
             })
             if (config.enabled) {
                 SettingsGroup(title = stringResource(R.string.phone_mode), items = listOf {
-                    SettingsChoiceItem(R.string.phone_mode, R.string.phone_mode_description, Icons.Default.TouchApp,
+                    SettingsChoiceItem(R.string.phone_mode, R.string.phone_mode_description, Icons.Default.PhonelinkSetup,
                         config.mode, listOf("accessibility" to R.string.phone_accessibility,
                             "shizuku" to R.string.phone_shizuku, "root" to R.string.phone_root)) { mode ->
                         scope.launch { settings.phoneUseStore.setMode(mode) }
@@ -79,7 +82,9 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         leadingContent = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary) },
                         trailingContent = { Text(stringResource(if (granted) R.string.phone_granted else R.string.phone_missing),
                             color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelLarge) },
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.width(96.dp).padding(end = 4.dp),
+                            textAlign = TextAlign.End, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         modifier = Modifier.clickable {
                             when {
                                 key == "root" -> scope.launch { runtime?.permissions?.probeRoot(); revision++ }
@@ -121,7 +126,7 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
 @Composable
 private fun PhoneSwitch(title: Int, description: Int, checked: Boolean, onChange: (Boolean) -> Unit) {
     SettingsItem(headlineContent = { Text(stringResource(title)) }, supportingContent = { Text(stringResource(description)) },
-        leadingContent = { Icon(Icons.Default.TouchApp, null, tint = MaterialTheme.colorScheme.primary) },
+        leadingContent = { Icon(Icons.Default.PhonelinkSetup, null, tint = MaterialTheme.colorScheme.primary) },
         trailingContent = { Switch(checked, onCheckedChange = null) },
         modifier = Modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange))
 }
@@ -130,7 +135,6 @@ private fun PhoneSwitch(title: Int, description: Int, checked: Boolean, onChange
 private fun PhoneAppPicker(runtime: PhoneUseRuntime, selected: Set<String>, mode: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var apps by remember { mutableStateOf<List<PhoneApp>?>(null) }
-    var query by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         apps = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -140,23 +144,54 @@ private fun PhoneAppPicker(runtime: PhoneUseRuntime, selected: Set<String>, mode
                 .sortedBy { it.label.lowercase() }
         }
     }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.phone_choose_apps)) },
+    PhoneAppPickerDialog(
+        apps = apps,
+        selected = selected,
+        onToggle = { packageName ->
+            scope.launch { runtime.settings.phoneUseStore.setPackage(packageName,
+                packageName !in selected, mode, context.packageName) }
+        },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+internal fun PhoneAppPickerDialog(
+    apps: List<PhoneApp>?,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.phone_choose_apps), fontWeight = FontWeight.Bold) },
         text = {
-            Column {
-                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.phone_find_app)) }, singleLine = true)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text(stringResource(R.string.phone_find_app)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (apps == null) CircularProgressIndicator(Modifier.padding(24.dp))
-                LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
                     items(apps.orEmpty().filter { it.label.contains(query, true) || it.packageName.contains(query, true) }, key = { it.packageName }) { app ->
-                        ListItem(headlineContent = { Text(app.label) }, supportingContent = { Text(app.packageName) },
-                            trailingContent = { Checkbox(app.packageName in selected, onCheckedChange = null) },
-                            modifier = Modifier.optionClickable(role = Role.Checkbox) {
-                                scope.launch { runtime.settings.phoneUseStore.setPackage(app.packageName,
-                                    app.packageName !in selected, mode, context.packageName) }
-                            })
+                        SettingsItem(
+                            headlineContent = { Text(app.label) },
+                            supportingContent = { Text(app.packageName, style = MaterialTheme.typography.bodySmall) },
+                            leadingContent = { Checkbox(app.packageName in selected, onCheckedChange = { onToggle(app.packageName) }) },
+                            modifier = Modifier.optionClickable(role = Role.Checkbox) { onToggle(app.packageName) },
+                        )
                     }
                 }
             }
-        }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.phone_done)) } })
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.phone_done)) } },
+    )
 }
 
 private fun phonePermissionLabel(key: String): Int = when (key) {

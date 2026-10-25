@@ -261,7 +261,6 @@ internal val baseSettingsGroups = listOf(
     SettingsGroupData(titleRes = R.string.settings_group_tools, items = listOf(
         SettingsCategory("websearch", R.string.settings_web_search, R.string.settings_web_search_desc, Icons.Default.Language),
         SettingsCategory("search", R.string.search_title, R.string.search_desc, Icons.Default.Search),
-        SettingsCategory("phoneuse", R.string.phone_title, R.string.phone_description, Icons.Default.TouchApp),
         SettingsCategory("shell", R.string.shell_title, R.string.shell_desc, Icons.Default.Terminal),
         SettingsCategory(
             "mcp",
@@ -269,6 +268,7 @@ internal val baseSettingsGroups = listOf(
             R.string.mcp_desc,
             iconRes = R.drawable.ic_mcp,
         ),
+        SettingsCategory("phoneuse", R.string.phone_title, R.string.phone_description, Icons.Default.PhonelinkSetup),
         SettingsCategory("automation", R.string.settings_automation, R.string.settings_automation_desc, Icons.Default.Repeat),
         SettingsCategory("todo", R.string.settings_todo, R.string.settings_todo_desc, Icons.Default.Checklist),
         SettingsCategory("subagents", R.string.settings_subagents, R.string.settings_subagents_desc, Icons.Default.AccountTree),
