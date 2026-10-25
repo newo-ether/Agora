@@ -10,6 +10,7 @@ import com.newoether.agora.util.Constants
 
 class DeepSeekProvider : BaseOpenAiProvider() {
     override val name: String = Constants.PROVIDER_DEEPSEEK
+    override val thinkingProviderFamily = ThinkingProviderFamily.DEEPSEEK
     override val defaultBaseUrl: String = "https://api.deepseek.com"
 
     /**

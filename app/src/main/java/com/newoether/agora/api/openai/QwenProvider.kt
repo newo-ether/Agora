@@ -8,6 +8,7 @@ import com.newoether.agora.util.Constants
 
 class QwenProvider : BaseOpenAiProvider() {
     override val name: String = Constants.PROVIDER_QWEN
+    override val thinkingProviderFamily = ThinkingProviderFamily.QWEN
     override val defaultBaseUrl: String = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
     /**

@@ -18,6 +18,8 @@ import com.newoether.agora.api.util.safeWireToolCallId
 import com.newoether.agora.api.util.safeWireToolName
 import com.newoether.agora.api.util.malformedToolCallRequest
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.ThinkingProviderFamily
+import com.newoether.agora.api.util.resolvedThinking
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +38,7 @@ import java.net.UnknownHostException
 abstract class BaseOpenAiProvider : LlmProvider {
 
     protected val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
+    protected open val thinkingProviderFamily = ThinkingProviderFamily.OPENAI_COMPATIBLE
 
     // -- Override points --
 
@@ -121,31 +124,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
                 base64Files: Base64FileRegistry,
             ): Pair<String, StreamingJsonRequest?> {
                 val requestBodyJson = if (config.responsesApiEnabled) {
-                    val request = OpenAiResponsesRequest(
-                        model = config.modelId,
-                        input = apiMessages.toResponsesInput(
-                            providerName = name,
-                            targetModel = config.modelId,
-                        ),
-                        tools = buildList {
-                            addAll(config.tools.orEmpty().toResponsesTools())
-                            if (config.openAiWebSearchEnabled) {
-                                add(OpenAiResponseTool(type = "web_search"))
-                            }
-                        }.ifEmpty { null },
-                        reasoning = config.thinkingLevel.takeIf { config.thinkingEnabled }
-                            ?.let {
-                                OpenAiReasoning(
-                                    effort = it,
-                                    summary = "auto",
-                                )
-                            },
-                        serviceTier = config.openAiServiceTier,
-                        temperature = config.temperature,
-                        maxOutputTokens = config.effectiveOpenAiMaxTokens(),
-                        topP = config.topP,
-                        promptCacheKey = config.promptCacheKey,
-                    )
+                    val request = buildOpenAiResponsesRequest(config, apiMessages, name, thinkingProviderFamily)
                     request.requireValidWireFormat(name)
                     json.encodeToString(OpenAiResponsesRequest.serializer(), request)
                 } else {
@@ -164,6 +143,10 @@ abstract class BaseOpenAiProvider : LlmProvider {
                         promptCacheKey = config.promptCacheKey,
                     )
                     request = customizeRequest(request, config)
+                    if (!config.resolvedThinking(thinkingProviderFamily).capability.supportsSamplingParams) {
+                        request = request.copy(temperature = null, topP = null,
+                            frequencyPenalty = null, presencePenalty = null)
+                    }
                     request.requireValidWireFormat(name)
                     json.encodeToString(OpenAiChatRequest.serializer(), request)
                 }

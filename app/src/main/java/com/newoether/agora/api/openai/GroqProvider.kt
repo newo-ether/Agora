@@ -8,6 +8,7 @@ import com.newoether.agora.util.Constants
 
 class GroqProvider : BaseOpenAiProvider() {
     override val name: String = Constants.PROVIDER_GROQ
+    override val thinkingProviderFamily = ThinkingProviderFamily.GROQ
     override val defaultBaseUrl: String = "https://api.groq.com/openai/v1"
 
     /**
