@@ -16,8 +16,10 @@ Location: Settings → Tools → `Phone Use` item, following [settings-ui-ux.md]
 Sub-page, top to bottom:
 
 1. Master switch. Off hides every control below and removes all `phone_*` tools from requests.
-2. Working mode selector using the owner's existing three-capsule chip component:
-   `Accessibility`, `Shizuku`, `Root`. Exactly one mode is active.
+2. Working mode selector: one `SettingsItem` (icon, title, description) whose trailing primary
+   `labelLarge` text shows the current mode; tapping the row opens an `AgoraDropdownMenu` of
+   `Accessibility`, `Shizuku`, `Root` with a primary check on the selected item. Same pattern as
+   `SearchMethodItem` in `SettingsSearchPage.kt`. Exactly one mode is active.
 3. Permission list for the selected mode. One `SettingsItem` per permission with a live granted /
    missing state indicator. Tapping an item requests the permission directly when the platform
    allows it, otherwise deep-links to the most specific system page. State refreshes on resume.
@@ -155,7 +157,8 @@ colored border is Agora's control indicator.
 
 ## 6. App access control
 
-Exactly one of: `Off`, `Blocklist`, `Allowlist`. Lists are package names chosen from installed apps.
+Exactly one of: `Off`, `Blocklist`, `Allowlist`, selected with the same dropdown row pattern as
+the working mode selector (section 1 item 2). Lists are package names chosen from installed apps.
 
 - Agora itself is exempt from app access control: it never appears in the app picker, cannot be
   listed, and is always allowed in every mode.

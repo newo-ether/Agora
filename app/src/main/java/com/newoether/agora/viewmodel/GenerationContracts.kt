@@ -68,6 +68,11 @@ data class GenerationConfig(
 )
 
 data class GenerationContext(
+    val phoneEnabled: Boolean = false,
+    val phoneMode: String = "accessibility",
+    val phoneAllowAutomation: Boolean = false,
+    val phoneReady: Boolean = false,
+    val automationCaller: Boolean = false,
     val conversationId: String? = null,
     val subagentToolsEnabled: Boolean = false,
     /** Exposes agent_delete; effective only together with [subagentToolsEnabled]. */
