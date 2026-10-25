@@ -80,7 +80,7 @@ const linearOutSlowIn = cubicBezierEasing(0, 0, 0.2, 1);
 function groupForMessage(message, groupKey) {
   const presentation = message?.presentation;
   if (!presentation) return null;
-  if (presentation.compact?.key === groupKey) return presentation.compact;
+  if (presentation.thinkingCard?.key === groupKey) return presentation.thinkingCard;
   return presentation.blocks?.find((block) => block.type === "group" && block.group.key === groupKey)?.group ?? null;
 }
 
@@ -854,7 +854,7 @@ export function ModelMessage({ message, wrap, display, expansion, expansionContr
     });
   } else {
     body = html`
-      ${presentation?.compact && html`<${InfoGroup} group=${presentation.compact} messageId=${message.id}
+      ${presentation?.thinkingCard && html`<${InfoGroup} group=${presentation.thinkingCard} messageId=${message.id}
         display=${display} expansion=${expansion} expansionController=${expansionController}
         onOpenSheet=${onOpenSheet} onOpenDetail=${onOpenDetail}
         appearances=${appearances} streaming=${streaming} opensSheet=${presentation.useThinkingSheet} />`}

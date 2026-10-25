@@ -44,7 +44,6 @@ import com.newoether.agora.model.CitationRecord
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
-import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
 import com.newoether.agora.model.citationRecords
 import com.newoether.agora.ui.chat.GenerationActivityDot
@@ -265,7 +264,6 @@ internal fun AssistantMessageContent(
                 }
                 val errorContent = presentation.errorContent
                 val orderedSegments = presentation.orderedSegments
-                val normalizedToolCallDisplayMode = presentation.normalizedToolCallDisplayMode
                 val useThinkingSheet = presentation.useThinkingSheet
                 val groupAdjacentTimelineTools = presentation.groupAdjacentTimelineTools
                 val groupOrderedInfoBlocks = presentation.groupOrderedInfoBlocks
@@ -310,9 +308,7 @@ internal fun AssistantMessageContent(
                         onLayoutMutationSettled = onLayoutMutationSettled,
                         onMediaClick = onMediaClick,
                         opensDetailSheet = useThinkingSheet,
-                        preserveInitialCompactIdentity =
-                            normalizedToolCallDisplayMode == ToolCallDisplayModes.COMPACT ||
-                                useThinkingSheet,
+                        preserveInitialCompactIdentity = useThinkingSheet,
                         onGroupHeaderClick = if (useThinkingSheet) {
                             { indices -> onSegmentSelected(indices, true) }
                         } else {
@@ -324,9 +320,7 @@ internal fun AssistantMessageContent(
                     )
                 }
 
-                // Compact segment block: single block, newest title/icon when collapsed.
-                // Answer segments are timeline anchors only; compact mode still renders
-                // message.text below as the complete answer.
+                // Shared Thinking card for Bottom Sheet and legacy segment presentation.
                 if (compactVisible) {
                     AnimatedTimelineBlockAppearance(
                         animationKey = compactAppearanceKey,

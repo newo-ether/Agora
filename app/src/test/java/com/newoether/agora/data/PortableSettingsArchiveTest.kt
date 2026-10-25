@@ -264,7 +264,7 @@ class PortableSettingsArchiveTest {
         assertTrue(export.contains("putEncoded(\"modelProviderNames\", sm.modelProviderNames.first())"))
         assertTrue(storage.contains("clearPortableSettings(prefs)"))
         assertTrue(storage.contains("prefs[MODEL_PROVIDER_NAMES_JSON] = \"{}\""))
-        assertTrue(storage.contains("produceMigrations = { listOf(modelProviderNamesMigration) }"))
+        assertTrue(storage.contains("produceMigrations = { listOf(modelProviderNamesMigration, toolCallDisplayModeMigration) }"))
     }
 
     @Test

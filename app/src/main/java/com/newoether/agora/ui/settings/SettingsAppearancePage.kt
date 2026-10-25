@@ -499,18 +499,15 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             var expanded by remember { mutableStateOf(false) }
                             val selectedLabel = when (normalizedToolCallDisplayMode) {
                                 ToolCallDisplayModes.GROUPED_TIMELINE -> stringResource(R.string.tool_call_display_mode_grouped_timeline)
-                                ToolCallDisplayModes.COMPACT -> stringResource(R.string.tool_call_display_mode_compact)
                                 else -> stringResource(R.string.tool_call_display_mode_timeline)
                             }
                             val selectedDescription = when (normalizedToolCallDisplayMode) {
                                 ToolCallDisplayModes.GROUPED_TIMELINE -> stringResource(R.string.tool_call_display_mode_grouped_timeline_desc)
-                                ToolCallDisplayModes.COMPACT -> stringResource(R.string.tool_call_display_mode_compact_desc)
                                 else -> stringResource(R.string.tool_call_display_mode_timeline_desc)
                             }
                             val options = listOf(
                                 ToolCallDisplayModes.TIMELINE to stringResource(R.string.tool_call_display_mode_timeline),
-                                ToolCallDisplayModes.GROUPED_TIMELINE to stringResource(R.string.tool_call_display_mode_grouped_timeline),
-                                ToolCallDisplayModes.COMPACT to stringResource(R.string.tool_call_display_mode_compact)
+                                ToolCallDisplayModes.GROUPED_TIMELINE to stringResource(R.string.tool_call_display_mode_grouped_timeline)
                             )
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.tool_call_display_mode)) },

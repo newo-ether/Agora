@@ -200,12 +200,10 @@
     <string name="tool_call_display_mode">사고 및 도구 블록</string>
     <string name="tool_call_display_mode_timeline">타임라인</string>
     <string name="tool_call_display_mode_grouped_timeline">그룹</string>
-    <string name="tool_call_display_mode_compact">간결</string>
     <string name="tool_call_display_mode_timeline_desc">답변, 사고, 도구 블록을 시간순으로 표시합니다</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">시간순은 유지하되 연속된 사고, 도구, 이미지 블록을 병합합니다</string>
     <string name="auto_expand_active_group">활성 그룹 자동 펼치기</string>
     <string name="auto_expand_active_group_desc">현재 사고 및 도구 그룹을 자동으로 펼치고 모델이 다음 단계로 진행하면 접습니다.</string>
-    <string name="tool_call_display_mode_compact_desc">사고와 도구 블록을 답변 위에 모아 표시합니다</string>
     <string name="interaction_feedback">상호작용 피드백</string>
     <string name="stick_to_bottom">하단에 고정</string>
     <string name="stick_to_bottom_desc">응답을 생성하는 동안 새 콘텐츠를 자동으로 따라갑니다.</string>

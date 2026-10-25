@@ -17,7 +17,7 @@ import java.util.Locale
 import kotlinx.coroutines.flow.map
 
 internal val Context.dataStore by preferencesDataStore(
-    name = "settings", produceMigrations = { listOf(modelProviderNamesMigration) },
+    name = "settings", produceMigrations = { listOf(modelProviderNamesMigration, toolCallDisplayModeMigration) },
 )
 
 class SettingsManager(private val context: Context) {

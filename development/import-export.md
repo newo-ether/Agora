@@ -252,6 +252,11 @@ older missing fields restore an effectively empty candidate list and no recommen
 empty set under REPLACE keeps it empty. Existing children and their model IDs are never rewritten by
 these global preferences.
 
+`toolCallDisplayMode` writes only `timeline` or `grouped_timeline` (default). Legacy `compact`
+imports normalize to `grouped_timeline` through the ordinary Settings write in both MERGE and REPLACE.
+An absent field remains untouched in MERGE and resolves to the default after REPLACE. Device-local
+legacy preferences migrate transactionally before publication, and exports contain the resolved value.
+Thinking Card/Bottom Sheet preferences remain independent; Context Compact data and settings are unchanged.
 `subagentCapsuleDisplayMode` is a secret-free presentation string: `individual` or `grouped` (default).
 Unknown, invalid or absent values normalize to `grouped`; an explicitly saved `individual` remains
 unchanged. Export writes the resolved value. MERGE leaves an absent field unchanged; REPLACE clears

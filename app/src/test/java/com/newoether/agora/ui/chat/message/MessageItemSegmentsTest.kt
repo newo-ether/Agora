@@ -237,7 +237,6 @@ class MessageItemSegmentsTest {
     fun thinkingSegmentDisplayPolicyCoversVisibilityEffectiveModeAndAutoExpansion() {
         assertFalse(ThinkingSegmentDisplayModes.isAvailableFor(ToolCallDisplayModes.TIMELINE))
         assertTrue(ThinkingSegmentDisplayModes.isAvailableFor(ToolCallDisplayModes.GROUPED_TIMELINE))
-        assertTrue(ThinkingSegmentDisplayModes.isAvailableFor(ToolCallDisplayModes.COMPACT))
         assertEquals(
             ThinkingSegmentDisplayModes.CARD,
             ThinkingSegmentDisplayModes.effectiveMode(
@@ -262,12 +261,6 @@ class MessageItemSegmentsTest {
             ThinkingSegmentDisplayModes.allowsAutoExpand(
                 ThinkingSegmentDisplayModes.BOTTOM_SHEET,
                 ToolCallDisplayModes.GROUPED_TIMELINE,
-            ),
-        )
-        assertFalse(
-            ThinkingSegmentDisplayModes.allowsAutoExpand(
-                ThinkingSegmentDisplayModes.CARD,
-                ToolCallDisplayModes.COMPACT,
             ),
         )
     }

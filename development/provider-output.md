@@ -152,21 +152,21 @@ message-level generated-image tail may own current output. Existing `ChatMessage
 read-compatible and retain their legacy full-width renderer, but new generated images never enter
 that path.
 
-The visible `image_generate` segment is a hard ordered presentation boundary in Compact, Grouped
-Timeline, ordinary Timeline, and the Compact/Grouped Bottom Sheet presentation mode. Its current
+The visible `image_generate` segment is a hard ordered presentation boundary in Grouped,
+ordinary Timeline, and Grouped Bottom Sheet presentation mode. Its current
 information card ends immediately after that call. The fixed left-aligned `300 x 300 dp` slot is
 rendered next, and every later image call, Tool, Thought, Transcription, or Answer starts after that
 slot. Group and slot identity depend only on the append-only segment/detail position, never on the
 pending, failed, or successful payload, so lifecycle updates cannot replace, regroup, resize, or
 otherwise rewrite the preceding prefix. Multiple image calls establish multiple boundaries in their
-original segment order. In Grouped/Compact and ordinary Timeline, the information card immediately
+original segment order. In Grouped and ordinary Timeline, the information card immediately
 before the generated-image slot has exactly `8 dp` of bottom separation. This matches the existing
 `8 dp` top separation owned by a later independent Timeline information card. Expanded grouped-card
 spacing, the ordinary `2 dp` within-group separation, answer spacing, the Thinking Bottom Sheet, and
 the fixed image-slot geometry remain unchanged.
 
 On the boundary's first visible frame, the owning card is presented collapsed and one collapsed
-value is committed through the existing expansion map. Compact and Bottom Sheet preserve the first
+value is committed through the existing expansion map. Bottom Sheet preserves the first
 card's existing expansion and appearance identity during this transition. The image-boundary claim
 is session-scoped and one-shot: terminal completion does not collapse again, and a later manual
 expansion remains effective. The slot owns one draw-only 0.90-to-1.0 scale plus opacity entrance
@@ -233,8 +233,8 @@ thought duration is a fallback only when at least one thought segment
 exists; it must not turn a tool-only card into `Thought for xs, called x tools`.
 Gemini keeps its hosted output protocol-local. Candidate `groundingMetadata` becomes a completed,
 durable `google_search` hosted block with normalized `results` and full grounding metadata. The shared
-UI segment-preparation boundary excludes that exact tool name from compact, grouped timeline,
-ordinary timeline, and thinking-detail presentation, so it produces neither a `Google Search` card
+UI segment-preparation boundary excludes that exact tool name from the shared Thinking card, grouped
+timeline, ordinary timeline, and thinking-detail presentation, so it produces neither a `Google Search` card
 nor a `Called x tools` count; generic `web_search`, OpenAI `openai_search`, and other tools remain
 visible. This presentation rule does not change request serialization, hosted-tool settlement,
 persistence, replay, citation extraction, source order, or failure behavior. An `executableCode` part

@@ -179,7 +179,7 @@ settings persistence/import behavior remains unchanged.
 
 When the Thinking segment display setting is available, Appearance places it immediately below the
 Thought and Tool Blocks display setting and before Auto-Expand Active Group. Reordering must not
-change the existing Grouped/Compact availability rule, the exact Grouped + Card Auto-Expand rule, or
+change the existing Grouped availability rule, the exact Grouped + Card Auto-Expand rule, or
 any stored/effective display-mode behavior.
 
 ## 10. Settings destination rows without redundant arrows
@@ -1144,8 +1144,8 @@ tools) and the `48 dp` send button. English and Chinese labels are the app's own
 sign-in page centers its card with flex and caps it at `400 px`: a grid's auto track sized to the
 card's max-content and pushed it past a narrow screen once the app font loaded.
 The browser's message details mirror `SegmentDetailSheet` for Thought, Transcription, and Tool. In
-Grouped/Compact Bottom Sheet mode, the group header opens a segment list; ordinary Timeline
-cards and inline Grouped/Compact rows open the selected detail directly. Tool details consume the
+Grouped Bottom Sheet mode, the group header opens a segment list; ordinary Timeline
+cards and inline Grouped rows open the selected detail directly. Tool details consume the
 shared typed presentation, including lifecycle, shell/file/search results and prefix-aware JSON
 nodes; they never parse tool-result envelopes in the browser. Failed/stopped details retain the
 shared unboxed neutral terminal text. Under a generating turn the browser also owns the phone's single

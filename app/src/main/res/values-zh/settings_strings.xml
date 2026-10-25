@@ -449,12 +449,10 @@
     <string name="tool_call_display_mode">思考与工具块</string>
     <string name="tool_call_display_mode_timeline">时间线</string>
     <string name="tool_call_display_mode_grouped_timeline">分组</string>
-    <string name="tool_call_display_mode_compact">紧凑</string>
     <string name="tool_call_display_mode_timeline_desc">按时间顺序显示回答、思考和工具块</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">保留时间顺序，但合并连续的思考、工具和图片块</string>
     <string name="auto_expand_active_group">自动展开当前分组</string>
     <string name="auto_expand_active_group_desc">自动展开当前思考与工具分组，并在模型进入下一阶段时收起。</string>
-    <string name="tool_call_display_mode_compact_desc">将思考和工具块聚合显示在回答上方</string>
     <string name="interaction_feedback">交互反馈</string>
     <string name="stick_to_bottom">始终贴底</string>
     <string name="stick_to_bottom_desc">回复生成期间自动跟随新增内容。</string>

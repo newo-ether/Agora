@@ -53,7 +53,7 @@ class WebUiMcpPresentationTest {
         )
         for (language in listOf("en", "ar", "de", "es", "fr", "ja", "ko", "pt-BR", "ru", "vi", "zh", "zh-Hant")) {
             val resources = app.appLanguageResources(language)
-            for (mode in listOf(ToolCallDisplayModes.GROUPED_TIMELINE, ToolCallDisplayModes.COMPACT)) {
+            for (mode in listOf(ToolCallDisplayModes.GROUPED_TIMELINE, ToolCallDisplayModes.TIMELINE)) {
                 val display = WebDisplayContext(
                     resources = resources,
                     toolCallDisplayMode = mode,
@@ -68,8 +68,11 @@ class WebUiMcpPresentationTest {
                         status = if (active) MessageStatus.SENDING else MessageStatus.SUCCESS,
                         segments = listOf(segment))
                     val projected = requireNotNull(webPresentation(message, active, display))
-                    val item = projected.compact?.items?.single()
-                        ?: (projected.blocks.single() as WebTimelineBlock.Group).group.items.single()
+                    val item = projected.thinkingCard?.items?.single() ?: when (val block = projected.blocks.single()) {
+                        is WebTimelineBlock.Group -> block.group.items.single()
+                        is WebTimelineBlock.Card -> block.item
+                        else -> error("Expected an information card")
+                    }
                     assertEquals(language, resources.toolDisplayName(segment), item.title)
                     assertEquals(language, resources.toolSummary(segment), item.summary)
                     assertEquals(segment.toolState, item.toolState)

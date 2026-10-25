@@ -8,6 +8,7 @@ import com.newoether.agora.api.util.ContextTokenEstimator
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
+import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.model.isContextCompact
 import com.newoether.agora.model.citationRecords
 import com.newoether.agora.model.copyTextWithCitations
@@ -57,7 +58,7 @@ internal data class WebDisplayContext(
 ) {
     /** Settings plus the live timer templates; the browser formats the running seconds. */
     fun toEvent() = WebSyncEvent.Display(
-        toolCallDisplayMode = toolCallDisplayMode,
+        toolCallDisplayMode = ToolCallDisplayModes.normalize(toolCallDisplayMode),
         thinkingSegmentDisplayMode = thinkingSegmentDisplayMode,
         autoExpandActiveGroup = autoExpandActiveGroup,
         autoWrapCodeBlocks = autoWrapCodeBlocks,
@@ -109,7 +110,7 @@ internal fun webPresentation(
         } else {
             emptyList()
         },
-        compact = if (presentation.compactVisible) projector.compact() else null,
+        thinkingCard = if (presentation.compactVisible) projector.thinkingCard() else null,
         answer = answerBody
             .takeIf { !presentation.useTimelineSegments && it.isNotEmpty() }
             ?.webCitationText(message.citationRecords(), isStreaming, display),
@@ -197,9 +198,9 @@ private class WebPresentationProjector(
         )
     }
 
-    /** The single block compact mode shows above the answer. */
-    fun compact(): WebInfoGroup = group(
-        key = "compact",
+    /** Shared Thinking card for Bottom Sheet and legacy segment presentation. */
+    fun thinkingCard(): WebInfoGroup = group(
+        key = "thinking",
         segs = presentation.detailSegments,
         detailIndices = presentation.detailSegments.indices.toList(),
         useLiveStatus = true,
@@ -315,9 +316,9 @@ internal data class WebPresentation(
     val useTimeline: Boolean,
     val useThinkingSheet: Boolean,
     val blocks: List<WebTimelineBlock>,
-    /** The compact-mode block above the answer. */
-    val compact: WebInfoGroup?,
-    /** The compact-mode answer body. */
+    /** Shared Thinking card used outside the inline timeline. */
+    val thinkingCard: WebInfoGroup?,
+    /** The answer body when it is not split into timeline blocks. */
     val answer: WebText?,
     val inlineTerminalText: String?,
     val terminalFollowsCard: Boolean,

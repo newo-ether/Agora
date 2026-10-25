@@ -400,6 +400,9 @@ retain their original JSON/plain display; this projection does not change the na
 Reuse MessageList, Markdown/glyph fade, ChatTopBar, composer/TextField, message menus,
 ChatScrollCoordinator, ChatLaunchInteractionEffects and bottom-scroll button directly.
 No invented Remote renderer, scroll algorithm, keyboard behavior or animation.
+Tool-call display follows the shared Timeline/Grouped policy in streaming-markdown.md. A retired
+`compact` value resolves to Grouped before rendering; Remote has no independent Compact display branch.
+The shared Grouped Thinking card and ordinary Context Compact features retain their existing owners.
 The bottom-scroll button must use ordinary ChatApp's canonical visibility owner, including its
 scroll-direction latch, not only the lower-level availability predicate. Each conversation starts
 with the button hidden. Preserve the existing 32dp directional-travel rule, readiness, near-bottom,

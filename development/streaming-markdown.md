@@ -64,7 +64,7 @@ animation merely because they share typography.
 `ToolSummaryText` uses the canonical `ToolPresentationState` as its only whole-summary Crossfade
 identity. Argument, subject, progress, output, and other incremental summary changes inside one state
 render directly through the shared muted-tail streaming text; they must not restart a whole-row
-Crossfade. A Crossfade is allowed only when the resolved Tool lifecycle state changes. Compact/grouped
+Crossfade. A Crossfade is allowed only when the resolved Tool lifecycle state changes. Grouped
 and individual Timeline rows use this same owner and contract.
 
 The fade is draw-only. One unchanged full AnnotatedString/Text layout owns shaping, kerning, wrapping,
@@ -377,14 +377,19 @@ remain unchanged. The detail-page circular back button alone overrides the share
 `CircularBackButton` container with `surfaceVariant.copy(alpha = 0.25f)`; its foreground and the
 global component defaults remain unchanged.
 
+Tool-call display has only Timeline (`timeline`) and Grouped (`grouped_timeline`, default).
+The retired `compact` preference normalizes to Grouped. A DataStore migration persists that change
+before Settings publication; old `.agora` imports use the same normalized write. Native chat,
+Remote and WebUI consume this shared policy. The shared Thinking card and Context Compact capsule,
+summary generation and detail presentation remain available under their existing contracts.
 The Thinking segment Card/Bottom Sheet setting is visible and effective only while Tool-call display
-mode is Grouped or Compact. Timeline ignores a persisted Bottom Sheet preference and retains ordinary
+mode is Grouped. Timeline ignores a persisted Bottom Sheet preference and retains ordinary
 inline Timeline presentation; the stored value remains untouched and becomes effective again after
-switching back to Grouped or Compact. Auto-Expand Active Group is visible and effective only for the
+switching back to Grouped. Auto-Expand Active Group is visible and effective only for the
 exact Grouped + Card combination. One shared pure display policy owns these applicability decisions so
 Settings visibility and message rendering cannot drift. Regardless of that setting, selecting any
 ordinary Timeline card or grouped Timeline row always opens the selected segment detail directly.
-Only a Grouped/Compact card that is actually presented in Bottom Sheet mode opens the segment-list
+Only a Grouped card that is actually presented in Bottom Sheet mode opens the segment-list
 page first; click intent is passed explicitly and is never recomputed from the raw stored preference.
 
 Slash-qualified MCP/tool display titles preserve `/` and capitalize the following initial,
