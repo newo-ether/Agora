@@ -167,12 +167,12 @@ class PhoneOverlayLabelsTest {
         assertTrue(movement.x > 0f && movement.y > 0f)
         assertEquals(0, stops)
         val beforeStop = movement
-        compose.onNodeWithText("Stop").performClick()
+        compose.onNodeWithContentDescription("Stop").performClick()
         assertEquals(1, stops)
         assertEquals(beforeStop, movement)
         val strip = compose.onNodeWithTag("strip").getUnclippedBoundsInRoot()
         val duration = compose.onNodeWithText("0:00").getUnclippedBoundsInRoot()
-        val stop = compose.onNodeWithText("Stop").getUnclippedBoundsInRoot()
+        val stop = compose.onNodeWithContentDescription("Stop").getUnclippedBoundsInRoot()
         assertTrue(duration.left >= strip.left && stop.right <= strip.right)
         assertTrue(stop.left > duration.right)
     }

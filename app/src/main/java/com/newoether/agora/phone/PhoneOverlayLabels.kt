@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
@@ -37,17 +38,27 @@ internal fun phoneDurationTemplate(text: String, measurer: TextMeasurer, style: 
 }
 
 @Composable
-internal fun PhoneDurationCapsule(seconds: Long, modifier: Modifier = Modifier) {
+internal fun PhoneDurationCapsule(
+    seconds: Long,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
+) {
     val text = phoneDuration(seconds)
     val style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum")
     val measurer = rememberTextMeasurer()
     val template = phoneDurationTemplate(text, measurer, style)
-    PhoneLabelCapsule(text, template, template, style, duration = true, modifier = modifier)
+    PhoneLabelCapsule(text, template, template, style, duration = true, modifier = modifier,
+        containerColor = containerColor)
 }
 
 @Composable
-internal fun PhoneStatusCapsule(text: String, modifier: Modifier = Modifier) {
-    PhoneLabelCapsule(text, text, text, MaterialTheme.typography.labelLarge, duration = false, modifier = modifier)
+internal fun PhoneStatusCapsule(
+    text: String,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
+) {
+    PhoneLabelCapsule(text, text, text, MaterialTheme.typography.labelLarge, duration = false,
+        modifier = modifier, containerColor = containerColor)
 }
 
 /** Same final-layout canvas, clip owner and label transition as ComposerModelSelector. */
@@ -59,12 +70,13 @@ private fun PhoneLabelCapsule(
     style: TextStyle,
     duration: Boolean,
     modifier: Modifier,
+    containerColor: Color,
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val measured = measurer.measure(AnnotatedString(measurementText), style, maxLines = 1, softWrap = false)
     val targetWidth = with(density) { measured.size.width.toDp() } + 24.dp
-    val height = with(density) { measured.size.height.toDp() } + 16.dp
+    val height = (with(density) { measured.size.height.toDp() } + 16.dp).coerceAtLeast(48.dp)
     val clipWidth = rememberIdentityClipWidth(
         identity = widthIdentity,
         targetWidth = targetWidth,
@@ -78,7 +90,8 @@ private fun PhoneLabelCapsule(
         Surface(
             modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true).size(targetWidth, height),
             shape = shape,
-            color = MaterialTheme.colorScheme.primaryContainer,
+            color = containerColor.copy(alpha = 1f),
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 1f),
         ) {
             Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
                 if (duration) {

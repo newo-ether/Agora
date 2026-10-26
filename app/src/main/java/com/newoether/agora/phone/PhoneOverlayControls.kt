@@ -6,15 +6,24 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -27,11 +36,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
@@ -99,19 +113,62 @@ internal fun PhoneControlStrip(
     onDrag: (Offset) -> Unit,
 ) {
     val latestDrag by rememberUpdatedState(onDrag)
-    Row(modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    var pressed by remember { mutableStateOf(false) }
+    val allowScale = LocalAgoraMotionPolicy.current.allowSpatialTransitions
+    val scale by animateFloatAsState(
+        if (pressed && allowScale) 1.05f else 1f,
+        tween(if (allowScale) 120 else 0, easing = FastOutSlowInEasing),
+        label = "phoneStripPressScale",
+    )
+    val baseColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 1f)
+    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 1f)
+    val containerColor by animateColorAsState(
+        if (pressed) lerp(baseColor, contentColor, 0.06f) else baseColor,
+        tween(120), label = "phoneStripPressTint",
+    )
+    Row(
+        modifier.layout { measurable, constraints ->
+            // Reserve the maximum press size so drawing and hit bounds remain inside the safe frame.
+            val child = measurable.measure(constraints.copy(
+                minWidth = 0, minHeight = 0,
+                maxWidth = (constraints.maxWidth / 1.05f).toInt(),
+                maxHeight = (constraints.maxHeight / 1.05f).toInt(),
+            ))
+            val width = constraints.constrainWidth(ceil(child.width * 1.05f).toInt())
+            val height = constraints.constrainHeight(ceil(child.height * 1.05f).toInt())
+            layout(width, height) { child.place((width - child.width) / 2, (height - child.height) / 2) }
+        }.graphicsLayer { scaleX = scale; scaleY = scale }
+            .pointerInput(Unit) {
+                // Observe before children consume events; dragging and Stop keep their own input owners.
+                awaitEachGesture {
+                    try {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        pressed = true
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                        } while (event.changes.any { it.pressed })
+                    } finally {
+                        pressed = false
+                    }
+                }
+            }.height(IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Row(Modifier.pointerInput(Unit) {
             detectDragGestures { change, delta -> change.consume(); latestDrag(delta) }
         }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            PhoneDurationCapsule(elapsed)
-            PhoneStatusCapsule(status)
+            PhoneDurationCapsule(elapsed, containerColor = containerColor)
+            PhoneStatusCapsule(status, containerColor = containerColor)
         }
         val shape = RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 24.dp, bottomEnd = 24.dp)
-        Surface(shape = shape, color = MaterialTheme.colorScheme.primaryContainer) {
-            Box(Modifier.fillMaxHeight().clickable(onClick = onStop).padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.phone_stop), style = MaterialTheme.typography.labelLarge)
+        Surface(shape = shape, color = containerColor, contentColor = contentColor) {
+            Box(Modifier.width(48.dp).fillMaxHeight().heightIn(min = 48.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() }, indication = null,
+                    role = Role.Button, onClick = onStop,
+                ), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Stop, stringResource(R.string.phone_stop), Modifier.size(24.dp))
             }
         }
     }

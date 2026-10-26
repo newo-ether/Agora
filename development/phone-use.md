@@ -136,8 +136,23 @@ Screen stays on through `FLAG_KEEP_SCREEN_ON` on the effect window; no WakeLock.
 ### 4.2 Capsules and Stop
 
 Initially top-left, below the status bar: duration, status and Stop form one joined strip with
-small inner corners and rounded outer ends. Dragging the duration/status area begins after platform
-touch slop and keeps the strip inside the available visible frame; Stop has its own click region.
+small inner corners and rounded outer ends. Stop reuses the existing filled Stop icon at 24 dp,
+with the localized `phone_stop` content description and a click target of at least 48 x 48 dp.
+Duration/status and Stop share one strip-level press feedback: scale to 1.05 over 120 ms and
+blend the opaque theme primaryContainer toward onPrimaryContainer by six percent. Keep that
+feedback through dragging; release and pointer cancellation restore the resting scale/color.
+Stop has no second scale or ripple owner. Reduced Motion keeps scale at one and retains tint.
+Reserve the maximum press size in layout so enlarged drawing stays inside the safe frame.
+Capsule Surface/background colors and content colors are opaque; the border glow is independent.
+Platform window alpha is separate: Accessibility uses alpha one. On Android 12+, the two ordinary
+Shizuku/Root overlay windows retain the shared obscuring-opacity budget required for underlying
+touch pass-through. The owner accepts the default 80 percent combined budget instead of visual
+opacity one. For a platform maximum M, each window uses 1 - sqrt(1 - M), with a small rounding
+margin; at M = 0.8 that is approximately 0.5527 per window, not 0.8 per window. Capsule paint is
+opaque before this platform composition; final ordinary-window capsules remain translucent.
+Border drawing and its existing window opacity stay unchanged.
+Dragging the duration/status area begins after platform touch slop and keeps the strip inside the
+available visible frame; Stop has its own click region.
 Status text: `Thinking` while the owning Run streams model output, the action name during a tool
 (`Tap`, `Swipe`, `Typing`, ...), `Waiting for you` during ask_user. Stop releases
 the lease without stopping the owning Run. The model is told the user revoked control: an in-flight
@@ -227,6 +242,9 @@ through the existing Settings store; Done only dismisses, without a separate Sav
 - Overlay verification: visible action-time input exclusion without alpha changes, immediate restore,
   ask priority, cancellation/error cleanup and stale owner removal. Verify independent system corner
   centers/radii, inset stroke geometry, merged Stop/drag separation and safe placement.
+  Native gesture/drawing tests cover the icon's localized accessible button semantics and 48 dp
+  target, one shared press scale/tint through drag/Stop/release/cancellation, Reduced Motion,
+  maximum-scale safe bounds and opaque capsule paint in light/dark themes.
   Native text measurement reports default-font tnum shaping and proves digit-template stability,
   direct duration text replacement and both format carries through the shared clip owner.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is

@@ -73,6 +73,15 @@ class PhoneOverlayControlsTest {
         compose.waitForIdle()
         val edge = bounds.getValue("strip")
         assertTrue(edge.right <= 348f && edge.bottom <= 494f)
+        val restDuration = compose.onNodeWithText("0:00").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithText("0:00").performTouchInput { down(center) }
+        compose.waitForIdle()
+        val pressedStop = compose.onNodeWithContentDescription("Stop").fetchSemanticsNode().boundsInRoot
+        val pressedDuration = compose.onNodeWithText("0:00").fetchSemanticsNode().boundsInRoot
+        assertEquals(restDuration.width * 1.05f, pressedDuration.width, 0.3f)
+        assertTrue(pressedStop.right <= 348f && pressedStop.bottom <= 494f)
+        compose.onNodeWithText("0:00").performTouchInput { cancel() }
+        compose.waitForIdle()
         compose.runOnIdle { frameWidth = 300.dp; frameHeight = 260.dp; action.value = "phone_swipe" }
         compose.waitForIdle()
         val resized = bounds.getValue("strip")
