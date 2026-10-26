@@ -32,6 +32,7 @@ import com.newoether.agora.AgoraApplication
 import com.newoether.agora.R
 import com.newoether.agora.phone.PhoneApp
 import com.newoether.agora.phone.PhonePermissions
+import com.newoether.agora.phone.PhoneUseIcon
 import com.newoether.agora.phone.PhoneUseRuntime
 import com.newoether.agora.ui.components.optionClickable
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -65,7 +66,7 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
             })
             if (config.enabled) {
                 SettingsGroup(title = stringResource(R.string.phone_mode), items = listOf {
-                    SettingsChoiceItem(R.string.phone_mode, R.string.phone_mode_description, Icons.Default.PhonelinkSetup,
+                    SettingsChoiceItem(R.string.phone_mode, R.string.phone_mode_description, PhoneUseIcon,
                         config.mode, listOf("accessibility" to R.string.phone_accessibility,
                             "shizuku" to R.string.phone_shizuku, "root" to R.string.phone_root)) { mode ->
                         scope.launch { settings.phoneUseStore.setMode(mode) }
@@ -112,7 +113,7 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
 @Composable
 private fun PhoneSwitch(title: Int, description: Int, checked: Boolean, onChange: (Boolean) -> Unit) {
     SettingsItem(headlineContent = { Text(stringResource(title)) }, supportingContent = { Text(stringResource(description)) },
-        leadingContent = { Icon(Icons.Default.PhonelinkSetup, null, tint = MaterialTheme.colorScheme.primary) },
+        leadingContent = { Icon(PhoneUseIcon, null, tint = MaterialTheme.colorScheme.primary) },
         trailingContent = { Switch(checked, onCheckedChange = null) },
         modifier = Modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange))
 }

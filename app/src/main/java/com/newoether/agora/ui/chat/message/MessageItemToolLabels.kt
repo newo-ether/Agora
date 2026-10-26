@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.newoether.agora.R
 import com.newoether.agora.model.MessageSegment
+import com.newoether.agora.phone.PhoneUseIcon
 
 /**
  * The only localization layer for tool cards. Parsing and lifecycle inference live in
@@ -103,6 +104,7 @@ internal fun mcpToolDisplayName(
 }
 
 internal fun toolHeaderIcon(kind: ToolKind): ImageVector = when (kind) {
+    ToolKind.PHONE -> PhoneUseIcon
     ToolKind.TODO_READ, ToolKind.TODO_UPDATE -> Icons.Default.Checklist
     ToolKind.SUBAGENT_SPAWN, ToolKind.SUBAGENT_SEND, ToolKind.SUBAGENT_WAIT,
     ToolKind.SUBAGENT_LIST, ToolKind.SUBAGENT_STOP, ToolKind.SUBAGENT_DELETE -> Icons.Default.AccountTree

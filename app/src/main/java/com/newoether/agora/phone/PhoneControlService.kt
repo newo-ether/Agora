@@ -77,7 +77,7 @@ class PhoneControlService : Service() {
     private fun notification(held: PhoneControlLease.Held?): android.app.Notification {
         val resources = appLanguageResources(runtime?.settings?.appLanguage?.value ?: "system")
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_notification).setContentTitle(resources.getString(R.string.phone_title))
+            .setSmallIcon(R.drawable.ic_phone_use).setContentTitle(resources.getString(R.string.phone_title))
             .setContentText(held?.title ?: resources.getString(R.string.phone_thinking))
             .setOngoing(true).setOnlyAlertOnce(true)
             .apply {

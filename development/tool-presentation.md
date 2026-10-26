@@ -83,8 +83,10 @@ per-tool MCP names retain their existing read-side title fallback. Native and We
 same localized title, lifecycle, summary and detail owners; neither changes protocol identity.
 
 ## Phone Use Tools
-The eleven `phone_*` tools use the shared Phone kind with localized action titles. Active cards
-use progressive summaries ending in `…`; completed cards describe the finished action in past
+The eleven `phone_*` tools use the shared Phone kind with localized action titles. Individual
+native and WebUI cards use the shared Material Symbols Outlined `mobile_hand` icon, matching
+Phone Use Settings and the control notification; mixed tool groups keep their generic group icon.
+Active cards use progressive summaries ending in `…`; completed cards describe the finished action in past
 tense without terminal punctuation. These summaries do not reuse the overlay's concise status
 labels. Concrete structured failures such as `not_claimed`, `occupied`, `released_by_user`,
 `permission_lost` and `app_blocked` retain their error reason through the existing resolver.

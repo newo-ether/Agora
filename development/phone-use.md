@@ -12,7 +12,10 @@ existing pipelines defined in [message-generation.md](message-generation.md).
 
 Location: Settings → Tools → `Phone Use` item, immediately after MCP and before Automation, following
 [settings-ui-ux.md](settings-ui-ux.md) (collapsing scaffold, `SettingsGroup`, `SettingsItem` with
-icon/title/description). The destination and Phone Use controls use the PhonelinkSetup phone icon.
+icon/title/description). The destination, Phone Use switches and working-mode selector use the
+Material Symbols Outlined `mobile_hand` icon (24 dp, weight 400, fill 0). The control foreground
+notification uses the same geometry. Native and WebUI individual Phone tool cards share it; mixed
+tool groups retain the existing generic group icon. App access and Stop keep their own action icons.
 
 Sub-page, top to bottom:
 

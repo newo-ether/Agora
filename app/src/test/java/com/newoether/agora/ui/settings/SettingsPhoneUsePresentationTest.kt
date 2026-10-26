@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PhonelinkSetup
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -33,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.phone.PhoneApp
 import com.newoether.agora.phone.PhonePermissions
+import com.newoether.agora.phone.PhoneUseIcon
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -237,7 +236,7 @@ class SettingsPhoneUsePresentationTest {
                 MaterialTheme {
                     Column(Modifier.width(360.dp)) {
                         SettingsChoiceItem(R.string.phone_mode, R.string.phone_mode_description,
-                            Icons.Default.PhonelinkSetup, mode,
+                            PhoneUseIcon, mode,
                             listOf("root" to R.string.phone_root, "accessibility" to R.string.phone_accessibility),
                         ) { mode = it }
                     }
@@ -265,7 +264,7 @@ class SettingsPhoneUsePresentationTest {
         val index = tools.indexOfFirst { it.key == "phoneuse" }
         assertEquals("mcp", tools[index - 1].key)
         assertEquals("automation", tools[index + 1].key)
-        assertEquals(Icons.Default.PhonelinkSetup, tools[index].icon)
+        assertEquals(PhoneUseIcon, tools[index].icon)
     }
 
     private fun layout(node: SemanticsNodeInteraction): TextLayoutResult {

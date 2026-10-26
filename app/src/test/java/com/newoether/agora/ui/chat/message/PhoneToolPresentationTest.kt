@@ -5,6 +5,11 @@ import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.ToolExecutionStates
 import com.newoether.agora.phone.PHONE_TOOL_NAMES
+import com.newoether.agora.phone.PhoneUseIcon
+import com.newoether.agora.phone.PhoneControlLease
+import com.newoether.agora.phone.PhoneControlService
+import com.newoether.agora.R
+import org.robolectric.Robolectric
 import com.newoether.agora.util.appLanguageResources
 import org.junit.Assert.*
 import org.junit.Test
@@ -36,6 +41,21 @@ class PhoneToolPresentationTest {
         }
     }
 
+    @Test fun everyPhoneToolUsesTheSharedMobileHandIcon() {
+        for (name in PHONE_TOOL_NAMES) {
+            assertSame(PhoneUseIcon, toolHeaderIcon(ToolPresentationResolver.kindForToolName(name)))
+        }
+        assertNotEquals(PhoneUseIcon, toolHeaderIcon(ToolKind.UNKNOWN))
+        assertEquals("mobile_hand", PhoneUseIcon.name)
+    }
+    @Test fun foregroundNotificationUsesTheMobileHandResource() {
+        val service = Robolectric.buildService(PhoneControlService::class.java).get()
+        val method = PhoneControlService::class.java.getDeclaredMethod(
+            "notification", PhoneControlLease.Held::class.java,
+        ).apply { isAccessible = true }
+        val notification = method.invoke(service, null) as android.app.Notification
+        assertEquals(R.drawable.ic_phone_use, notification.smallIcon.resId)
+    }
     @Test fun titlesAndConcreteFailuresKeepTheirOwnMeaning() {
         val segment = MessageSegment(type = "tool", toolName = "phone_type", toolArgs = "{}",
             toolState = ToolExecutionStates.RUNNING)

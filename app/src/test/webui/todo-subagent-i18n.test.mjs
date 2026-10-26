@@ -36,7 +36,7 @@ test("tool card icons consume projected kinds without translating protocol ident
   const context = vm.createContext({
     html: htm.bind(h), icon: (path, viewBox) => ({ path, viewBox }),
     ICON_BUILD: "tool", ICON_CHECKLIST: "todo", ICON_ACCOUNT_TREE: "subagent",
-    ICON_IMAGE: "image", ICON_NEUROLOGY: "thinking",
+    ICON_IMAGE: "image", ICON_MOBILE_HAND: "phone", ICON_NEUROLOGY: "thinking",
   });
   vm.runInContext(prepare(read("detail-sheet.js")), context);
   for (const kind of ["TODO_READ", "TODO_UPDATE"]) {
@@ -45,6 +45,8 @@ test("tool card icons consume projected kinds without translating protocol ident
   for (const kind of ["SUBAGENT_SPAWN", "SUBAGENT_SEND", "SUBAGENT_WAIT", "SUBAGENT_LIST", "SUBAGENT_STOP"]) {
     assert.equal(context.CardIcon({ kind: "TOOL", toolKind: kind }).path, "subagent");
   }
+  assert.equal(context.CardIcon({ kind: "TOOL", toolKind: "PHONE" }).path, "phone");
+  assert.equal(context.CardIcon({ kind: "TOOL", toolKind: "PHONE" }).viewBox, "0 0 24 24");
   for (const kind of [undefined, "UNKNOWN", "MCP", "FILE_READ"]) {
     assert.equal(context.CardIcon({ kind: "TOOL", toolKind: kind }).path, "tool");
   }

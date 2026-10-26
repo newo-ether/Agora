@@ -1,5 +1,9 @@
 package com.newoether.agora.ui.settings
 
+import com.newoether.agora.phone.PHONE_USE_ICON_PATH
+import com.newoether.agora.phone.PhoneUseIcon
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.vector.addPathNodes
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
@@ -9,6 +13,25 @@ import org.junit.Test
 import org.w3c.dom.Element
 
 class SettingsResourceContractTest {
+    @Test
+    fun phoneIconGeometryMatchesNativeNotificationAndBrowser() {
+        val resources = locateResourceDirectory()
+        val vector = parse(File(resources, "drawable/ic_phone_use.xml")).documentElement
+        assertEquals(24f, vector.androidFloat("viewportWidth"), 0f)
+        assertEquals(24f, vector.androidFloat("viewportHeight"), 0f)
+        val path = vector.getElementsByTagName("path").item(0) as Element
+        assertEquals(PHONE_USE_ICON_PATH, path.getAttributeNS(ANDROID_NAMESPACE, "pathData"))
+        assertEquals("nonZero", path.getAttributeNS(ANDROID_NAMESPACE, "fillType"))
+        val nativePath = PhoneUseIcon.root[0] as androidx.compose.ui.graphics.vector.VectorPath
+        assertEquals(addPathNodes(PHONE_USE_ICON_PATH), nativePath.pathData)
+        assertEquals(PathFillType.NonZero, nativePath.pathFillType)
+        assertEquals(24f, PhoneUseIcon.viewportWidth, 0f)
+        assertEquals(24f, PhoneUseIcon.viewportHeight, 0f)
+        val browser = File(resources.parentFile, "assets/webui/icons.js").readText()
+        val browserPath = Regex("""export const ICON_MOBILE_HAND = "([^"]+)";""")
+            .find(browser)?.groupValues?.get(1)
+        assertEquals(PHONE_USE_ICON_PATH, browserPath)
+    }
     @Test
     fun toolCallDisplayOffersOnlyTimelineAndGroupedInEveryLocale() {
         val resources = locateResourceDirectory()
