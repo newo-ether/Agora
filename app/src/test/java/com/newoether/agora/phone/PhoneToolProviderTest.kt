@@ -45,7 +45,9 @@ class PhoneToolProviderTest {
     }
     private val provider = PhoneToolProvider(
         lease = lease, settings = { config }, accepts = { accepted && it == identity },
-        title = { platformEffects++; "Title" }, ready = { probes++; readiness() }, locked = { isLocked },
+        title = { platformEffects++; "Title" }, checkEntry = { _, _ ->
+            probes++; if (readiness()) null else "permission_lost:not_ready:notifications"
+        }, locked = { isLocked },
         device = { platformEffects++; backend }, ownPackage = "agora", launcher = { "launcher" },
         persist = { error("Unexpected persistence") }, captured = { error("Unexpected capture") },
         showControl = { platformEffects++ }, action = { _, _, _, _, _, _ -> platformEffects++ },
@@ -95,7 +97,7 @@ class PhoneToolProviderTest {
     @Test fun permissionLossAndLockReleaseInflightLease() = runTest {
         assertFalse(claim().isError)
         readiness = { false }
-        assertError("permission_lost", provider.executeOneShotResult("phone_key", "{\"key\":\"back\",\"screenshot\":false}", context))
+        assertError("permission_lost:not_ready:notifications", provider.executeOneShotResult("phone_key", "{\"key\":\"back\",\"screenshot\":false}", context))
         assertNull(lease.held.value)
         readiness = { true }
         assertFalse(claim().isError)
@@ -231,6 +233,64 @@ class PhoneToolProviderTest {
         assertEquals(2, operationEnds)
         assertFalse(provider.executeOneShotResult("phone_release", "{}", context).isError)
         assertEquals(2, operationStarts)
+    }
+    @Test fun permissionChecksRunOncePerToolAndNeverInsideFences() = runTest {
+        assertFalse(claim().isError)
+        assertEquals(1, probes)
+        beforeOperation = { readiness = { false } }
+        assertFalse(provider.executeOneShotResult("phone_app_list", "{}", context).isError)
+        assertEquals(2, probes)
+        assertNotNull(lease.held.value)
+        time = 30_000
+        assertNotNull(lease.held.value)
+        assertEquals(2, probes)
+    }
+    @Test fun unexpectedReleaseIsVisibleOnNextRefusalAndSuccessfulReclaim() = runTest {
+        assertFalse(claim().isError)
+        time = 31_000
+        lease.releaseOwner(identity.owner(), "permission_lost:shizuku_binder_dead")
+        val refused = provider.executeOneShotResult("phone_app_list", "{}", context)
+        assertError("not_claimed", refused)
+        assertTrue(refused.text.contains("\"last_release\""))
+        assertTrue(refused.text.contains("permission_lost:shizuku_binder_dead"))
+        assertTrue(refused.text.contains("\"held_ms\":31000"))
+        val reclaimed = claim()
+        assertFalse(reclaimed.isError)
+        assertTrue(reclaimed.text.contains("permission_lost:shizuku_binder_dead"))
+    }
+    @Test fun actualPermissionFailureReleasesButCommandErrorsAndTimeoutsKeepLease() = runTest {
+        for (code in listOf("device_timeout", "device_command_failed", "permission_lost:root_denied",
+            "permission_lost:accessibility_unavailable", "permission_lost:shizuku_security_exception")) {
+            assertFalse(claim().isError)
+            foreground = { throw PhoneFailure(code) }
+            assertError(code, provider.executeOneShotResult("phone_app_list", "{}", context))
+            if (code.startsWith("permission_lost:")) assertEquals(code, lease.recentReleases().last().reason)
+            assertEquals(code, !code.startsWith("permission_lost:"), lease.held.value != null)
+            foreground = { "allowed" }
+        }
+    }
+    @Test fun platformSecurityExceptionReleasesWithModeSpecificDiagnostics() = runTest {
+        assertFalse(claim().isError)
+        foreground = { throw SecurityException("Accessibility dispatch denied") }
+        assertError("permission_lost:accessibility_security_exception",
+            provider.executeOneShotResult("phone_app_list", "{}", context))
+        assertNull(lease.held.value)
+        assertEquals("permission_lost:accessibility_security_exception", lease.recentReleases().single().reason)
+    }
+    @Test fun reclaimEntryFailureReleasesTheExistingEpoch() = runTest {
+        assertFalse(claim().isError)
+        val epoch = lease.held.value!!.epoch
+        readiness = { false }
+        assertError("permission_lost:not_ready:notifications", claim())
+        assertNull(lease.held.value)
+        assertEquals(epoch, lease.recentReleases().single().epoch)
+    }
+    @Test fun settingsChangeDuringSuspensionIsFencedWithoutAnotherPermissionProbe() = runTest {
+        assertFalse(claim().isError)
+        beforeOperation = { config = config.copy(enabled = false) }
+        assertError("permission_lost:disabled", provider.executeOneShotResult("phone_app_list", "{}", context))
+        assertNull(lease.held.value)
+        assertEquals(2, probes)
     }
     @Test fun targetDefinitionsExplainNodePriority() {
         for (name in listOf("phone_tap", "phone_long_press")) {

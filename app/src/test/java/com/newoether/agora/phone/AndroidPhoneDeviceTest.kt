@@ -95,6 +95,20 @@ class AndroidPhoneDeviceTest {
         coVerify(exactly = 3) { privileged.command("root", any()) }
     }
 
+    @Test fun permissionErrorsReachTheLeaseOwnerWithoutTreeErrorConversionOrRetry() = runTest {
+        for ((mode, error) in listOf(
+            "root" to PhoneFailure("permission_lost:root_denied"),
+            "shizuku" to PhoneFailure("permission_lost:shizuku_binder_dead"),
+            "shizuku" to SecurityException("Dispatch permission revoked"),
+        )) {
+            coEvery { privileged.command(mode, any()) } throws error
+            val failure = runCatching { AndroidPhoneDevice(context, mode, privileged).nodes() }.exceptionOrNull()
+            assertSame(error, failure)
+        }
+        coVerify(exactly = 1) { privileged.command("root", any()) }
+        coVerify(exactly = 2) { privileged.command("shizuku", any()) }
+    }
+
     @Test fun cancellationPropagatesWithoutRetryOrErrorConversion() = runTest {
         val cancelled = CancellationException("Stopped")
         coEvery { privileged.command("root", any()) } throws cancelled

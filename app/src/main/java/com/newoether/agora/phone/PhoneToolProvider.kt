@@ -17,9 +17,8 @@ internal class PhoneToolProvider(
     private val settings: () -> PhoneUseSettings,
     private val accepts: (RunEffectIdentity) -> Boolean,
     private val title: suspend (String) -> String,
-    private val ready: suspend (String) -> Boolean,
+    private val checkEntry: suspend (String, Boolean) -> String?,
     private val locked: () -> Boolean,
-    private val currentReady: (String) -> Boolean = { true },
     private val device: (String) -> PhoneDevice,
     private val ownPackage: String,
     private val launcher: () -> String?,
@@ -51,14 +50,18 @@ internal class PhoneToolProvider(
         return run {
             executionMode = ctx.phoneMode
             var permit = (decision as? PhoneControlLease.Decision.Granted)?.permit
+                ?: lease.held.value?.takeIf { name == "phone_claim" && it.owner == identity.owner() }
+                    ?.let { PhoneControlLease.Permit(identity, it.epoch) }
             try {
                 if (!accepts(identity)) throw PhoneFailure("stale_identity")
                 permit?.let { fence(it) }
                 if (name == "phone_claim") lease.claimRefusal(identity)?.let { return@run refused(it) }
                 val config = settings()
-                if (!config.enabled || config.mode != ctx.phoneMode || !ready(ctx.phoneMode)) {
-                    lease.releaseOwner(identity.owner(), "permission_lost")
-                    throw PhoneFailure("permission_lost")
+                val settingsFailure = phoneSettingsFailure(config, ctx.phoneMode)
+                val readinessFailure = settingsFailure ?: checkEntry(ctx.phoneMode, name == "phone_claim")
+                if (readinessFailure != null) {
+                    permit?.let { lease.releaseEpoch(it.epoch, readinessFailure) }
+                    throw PhoneFailure(readinessFailure)
                 }
                 permit?.let { fence(it) }
                 if (!accepts(identity)) throw PhoneFailure("stale_identity")
@@ -73,13 +76,19 @@ internal class PhoneToolProvider(
                     // Occupied is a pure lease decision. Do not start a service or alter windows.
                     val conversationTitle = title(identity.conversationId)
                     if (!accepts(identity)) throw PhoneFailure("stale_identity")
-                    when (val claim = lease.claim(identity, conversationTitle)) {
+                    when (val claim = lease.claim(identity, conversationTitle, ctx.phoneMode)) {
                         is PhoneControlLease.Decision.Refused -> return@run refused(claim)
                         is PhoneControlLease.Decision.Granted -> permit = claim.permit
                     }
                     fence(checkNotNull(permit))
                     try { showControl(ctx.phoneMode) } catch (error: Exception) {
-                        lease.releaseOwner(identity.owner(), "overlay_failed"); throw error
+                        val reason = when (error) {
+                            is PhoneFailure -> error.code
+                            is SecurityException -> "permission_lost:${ctx.phoneMode}_security_exception"
+                            else -> "overlay_failed"
+                        }
+                        lease.releaseEpoch(checkNotNull(permit).epoch, reason)
+                        throw error
                     }
                     fence(checkNotNull(permit))
                     return@run success(buildJsonObject { put("status", "claimed"); put("idle_seconds", 300) })
@@ -160,12 +169,20 @@ internal class PhoneToolProvider(
                     } else success(body)
                     fence(authorized)
                     lease.complete(authorized)?.let { throw PhoneFailure(it) }
-                    result
+                    diagnostics(result)
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
+                val code = when (error) {
+                    is PhoneFailure -> error.code
+                    is SecurityException -> "permission_lost:${ctx.phoneMode}_security_exception"
+                    else -> null
+                }
+                if (code?.startsWith("permission_lost:") == true) {
+                    permit?.let { lease.releaseEpoch(it.epoch, code) }
+                }
                 val fenced = permit?.let { lease.validate(it) }
-                failure(fenced ?: (error as? PhoneFailure)?.code ?: "phone_failed", error.message)
+                failure(fenced ?: code ?: "phone_failed", error.message)
             } finally {
                 try { status(null) } finally { executing.set(false) }
             }
@@ -174,11 +191,10 @@ internal class PhoneToolProvider(
     private fun fence(permit: PhoneControlLease.Permit) {
         lease.validate(permit)?.let { throw PhoneFailure(it) }
         if (!accepts(permit.identity)) throw PhoneFailure("stale_identity")
-        if (!settings().let { it.enabled && it.mode == executionMode } || !currentReady(executionMode)) {
-            lease.releaseOwner(permit.identity.owner(), "permission_lost")
-            throw PhoneFailure("permission_lost")
+        phoneSettingsFailure(settings(), executionMode)?.let { reason ->
+            lease.releaseEpoch(permit.epoch, reason)
+            throw PhoneFailure(reason)
         }
-        if (locked()) { lease.releaseOwner(permit.identity.owner(), "screen_locked"); throw PhoneFailure("screen_locked") }
     }
     private fun allowed(pkg: String): Boolean = settings().let {
         phoneAppAllowed(pkg, ownPackage, it.accessMode, it.packages, launcher())
@@ -215,8 +231,18 @@ internal class PhoneToolProvider(
         put("message", code.replace('_', ' ') + detail?.takeIf { it != code && it.isNotBlank() }
             ?.let { ": ${it.take(1500)}" }.orEmpty())
         detail?.let { put("detail", it.take(1500)) }
+        lease.lastUnexpectedRelease()?.let { put("last_release", releaseJson(it)) }
     }.toString(), isError = true)
-    private fun success(value: JsonObject) = ToolExecutionResult(value.toString())
+    private fun success(value: JsonObject) = diagnostics(ToolExecutionResult(value.toString()))
+    private fun diagnostics(result: ToolExecutionResult): ToolExecutionResult {
+        val release = lease.lastUnexpectedRelease() ?: return result
+        val body = Json.parseToJsonElement(result.text).jsonObject
+        return result.copy(text = JsonObject(body + ("last_release" to releaseJson(release))).toString())
+    }
+    private fun releaseJson(release: PhoneControlLease.Release) = buildJsonObject {
+        put("reason", release.reason); put("epoch", release.epoch)
+        put("held_ms", release.heldMs); put("mode", release.mode)
+    }
     private fun JsonObject.string(key: String) = this[key]?.jsonPrimitive?.content ?: throw PhoneFailure("bad_arguments", "$key is required")
     private fun JsonObject.long(key: String, default: Long) = this[key]?.jsonPrimitive?.longOrNull ?: default
     companion object { private val ACTIONS = setOf("phone_tap", "phone_long_press", "phone_swipe", "phone_type", "phone_key", "phone_app_launch") }

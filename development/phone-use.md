@@ -24,9 +24,10 @@ Sub-page, top to bottom:
    and permission statuses use the Appearance reference's 96 dp trailing slot, 4 dp end inset,
    end-aligned primary `labelLarge` text and one-line ellipsis. Granted/missing retains its semantic
    color; changing status or selection never moves the text column or its trailing edge.
-3. Permission list for the selected mode. One `SettingsItem` per permission with a live granted /
+3. Permission list for the selected mode. One `SettingsItem` per permission with a granted /
    missing state indicator. Tapping an item requests the permission directly when the platform
-   allows it, otherwise deep-links to the most specific system page. State refreshes on resume.
+   allows it, otherwise deep-links to the most specific system page. Refresh only on page entry,
+   resume, mode change or permission-item click; no periodic settings probes.
 4. Automation access: one switch `Allow Task and Loop runs`, default off (section 5).
 5. App access control (section 6).
 
@@ -40,8 +41,28 @@ Required permissions:
 | Root | `su` grant confirmed by a probe command |
 
 Phone Use is `ready` only when every permission of the selected mode is granted. Tools are exposed
-to the model only when enabled and ready. Readiness is re-checked at claim time; a lost permission
-during control releases control with an explicit error result.
+only when enabled and ready. Each admitted `phone_*` call takes one permission snapshot at entry.
+Claim additionally checks overlay permission and runs one Root grant probe. While held, entries
+never check overlay permission or re-probe Root; Root operations establish actual denial themselves.
+Settings Root probes are independent and cannot overwrite the grant admitted by claim. Suspended
+operation fences check only the lease epoch, exact Run identity and enabled/mode settings. A
+transient readiness false while no tool is called never releases a lease.
+
+There is no runtime polling monitor. Release events come from the existing Run termination callback,
+`ACTION_SCREEN_OFF` / locked `ACTION_USER_PRESENT`, distinct enabled/mode settings changes,
+Accessibility `onUnbind` / `onDestroy`, Shizuku binder death / denied permission result, and actual
+platform permission failures. Old Accessibility instances and Shizuku bindings cannot release a
+replacement owner. Accessibility instance absence and platform `SecurityException`, Shizuku binder
+failure and Root `su` refusal/unavailability retain specific `permission_lost:<reason>` codes.
+Ordinary command failure and timeout return tool errors without revoking the lease. Binding and
+command-output waits are bounded; Root uses a unique shell-entry marker to distinguish `su` refusal
+from a command error after entry, without parsing generic permission-denied text.
+
+Every release logs tag `AgoraPhone` with `reason`, `epoch`, `held_ms` and `mode`. The in-memory lease
+retains the most recent 32 releases. Subsequent tool results and claim refusals include `last_release`
+for the latest release other than explicit release, user Stop or Run end. Disabled, mode changed,
+missing entry permission and backend failures retain distinct reasons. These diagnostics establish
+what released control; they do not establish an OEM-level cause without device evidence.
 
 ## 2. Tools
 
@@ -95,7 +116,8 @@ One process-wide lease owner. At most one active controller at any time.
   issued it, per the core stale-result rules.
 - `phone_claim` while held by another owner returns `occupied` with the owner conversation title
   and remaining lease time, no side effect. Re-claim by the current owner renews.
-- Every successful `phone_*` call renews the lease. Lease length: 300 s idle.
+- Every successful `phone_*` call renews the lease. Lease length: 300 s idle. One cancellable delayed
+  task expires the current epoch; claim/completion resets its deadline, without periodic ticks.
 - The idle timer pauses while the owner has a pending `ask_user` shown on the overlay.
 - Release on: `phone_release`; idle expiry; user Stop button (overlay or notification, section 4.2); Run Stop or
   terminal settlement of the owning Run; owning conversation deletion; permission loss; screen
@@ -168,7 +190,7 @@ window's LayoutParams.alpha from its current value to the safe operation alpha o
 FastOutSlowIn easing. Stop and dragging remain available during that fade. Once safe alpha is reached,
 publish FLAG_NOT_TOUCHABLE and NOT_FOCUSABLE on the whole control window, then wait two frames and
 recheck the window's operation-ready state before device effects. Revalidate the exact lease/Run
-and permissions after this suspension. The view stays visible and its own alpha remains one; the
+and enabled/mode settings after this suspension, without another platform permission probe. The view stays visible and its own alpha remains one; the
 effect window and border remain unchanged. App-list privacy fallback navigation shares this boundary.
 On success, error or cancellation, restore input immediately in the operation finally boundary and
 fade back to alpha one over 180 ms, without delaying input restoration. A new action or question
@@ -257,5 +279,10 @@ through the existing Settings store; Done only dismisses, without a separate Sav
   maximum-scale safe bounds and opaque capsule paint in light/dark themes.
   Native text measurement reports default-font tnum shaping and proves digit-template stability,
   direct duration text replacement and both format carries through the shared clip owner.
+- Permission diagnostics: one entry snapshot, claim-only overlay and Root probe, no periodic
+  checks or mid-operation re-probes, settings-probe isolation, mode-filtered platform events,
+  Accessibility replacement lifecycle, stale Shizuku disconnects, command/timeout non-release,
+  bounded release history and later-result diagnostics. Idle tests cover completion resets, exact
+  Run question pause/resume and stale deadlines after reclaim.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.

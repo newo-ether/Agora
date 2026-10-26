@@ -14,7 +14,6 @@ import com.newoether.agora.viewmodel.ConversationStateRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -32,11 +31,12 @@ internal class PhoneUseRuntime(
     conversations: ConversationRepository,
     private val scope: CoroutineScope,
 ) {
-    val privileged = PhonePrivilegedConnection(context)
+    val privileged = PhonePrivilegedConnection(context) { epoch ->
+        lease.releaseEpoch(epoch, "permission_lost:shizuku_service_disconnected")
+    }
     val permissions = PhonePermissions(context, privileged)
     val actionName = MutableStateFlow<String?>(null)
     val cursor = MutableStateFlow<PhoneCursor?>(null)
-    private var activeMode = "accessibility"
     private var overlayEpoch: Long? = null
     private var exitingOverlay: PhoneOverlay? = null
     var overlay: PhoneOverlay? = null
@@ -47,10 +47,15 @@ internal class PhoneUseRuntime(
         settings = { settings.phoneUse.value },
         accepts = { registry.get(it.conversationId)?.acceptsToolEffect(it) == true },
         title = { conversations.getConversation(it)?.title.orEmpty() },
-        ready = ::readiness,
         locked = permissions::locked,
-        currentReady = permissions::ready,
-        device = { AndroidPhoneDevice(context, it, privileged) },
+        checkEntry = { mode, claiming ->
+            if (claiming && mode == "root" && !permissions.claimRoot()) "permission_lost:root_denied"
+            else permissions.entryFailure(mode, claiming)
+        },
+        device = { mode ->
+            if (mode == "shizuku") privileged.leaseEpoch = lease.held.value?.epoch
+            AndroidPhoneDevice(context, mode, privileged)
+        },
         ownPackage = context.packageName,
         launcher = { context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName },
         persist = { source -> withContext(Dispatchers.IO) {
@@ -71,7 +76,6 @@ internal class PhoneUseRuntime(
             if (overlayEpoch != held.epoch) {
                 // Main-thread replacement is synchronous: an old exit never overlaps fresh windows.
                 if (overlayEpoch != null || exitingOverlay != null) clearResources(animate = false)
-                activeMode = mode
                 val next = PhoneOverlay(context.withAppLocale(settings.appLanguage.value), this@PhoneUseRuntime, held.epoch)
                 next.show(mode)
                 overlay = next
@@ -99,46 +103,12 @@ internal class PhoneUseRuntime(
     init {
         scope.launch(Dispatchers.Main.immediate) {
             lease.held.map { it?.epoch }.distinctUntilChanged().collect {
-                // StateFlow may conflate release/reclaim. Compare the live epoch, never an old null.
+                // StateFlow may conflate release/reclaim. Always compare the live epoch.
                 if (overlayEpoch != null && overlayEpoch != lease.held.value?.epoch) clearResources(animate = true)
             }
         }
-        scope.launch(Dispatchers.Main.immediate) {
-            lease.held.map { it?.epoch }.distinctUntilChanged().collect { epoch ->
-                if (epoch != null) scope.launch(Dispatchers.Main.immediate) { monitor(epoch) }
-            }
-        }
-    }
-
-    private suspend fun monitor(epoch: Long) {
-        var rootProbeAt = 0L
-        while (lease.held.value?.epoch == epoch) {
-            val held = lease.held.value ?: break
-            val owner = held.owner
-            when {
-                registry.get(owner.conversationId)?.controlsRun(owner.runId) != true -> lease.forget(owner)
-                permissions.locked() -> lease.releaseOwner(owner, "screen_locked")
-                overlayEpoch == epoch -> {
-                    val config = settings.phoneUse.value
-                    if (!config.enabled || config.mode != activeMode || !permissions.ready(activeMode)) {
-                        lease.releaseOwner(owner, "permission_lost")
-                    } else {
-                        lease.pause(owner, askUser.requests.value.any {
-                            it.conversationId == owner.conversationId && it.runId == owner.runId
-                        })
-                        lease.tick()
-                        if (activeMode == "root" && SystemClock.elapsedRealtime() >= rootProbeAt) {
-                            rootProbeAt = SystemClock.elapsedRealtime() + 5000
-                            scope.launch {
-                                val granted = permissions.probeRoot()
-                                if (!granted && lease.held.value?.epoch == epoch) lease.releaseOwner(owner, "permission_lost")
-                            }
-                        }
-                    }
-                }
-            }
-            delay(250)
-        }
+        lease.watchIdle(scope, SystemClock::elapsedRealtime)
+        lease.watchPermissions(context, scope, settings.phoneUse, askUser.requests, permissions::locked)
     }
 
     /** Called only on Main. Detach ownership before scheduling a cosmetic exit. */
@@ -161,7 +131,9 @@ internal class PhoneUseRuntime(
     }
 
     suspend fun readiness(mode: String): Boolean {
-        if (mode == "root") permissions.probeRoot()
+        if (lease.held.value?.mode == mode) return permissions.entryFailure(mode, false) == null
+        if (mode == "root") return permissions.probeRoot() &&
+            permissions.granted(mode).filterKeys { it != "root" }.values.all { it }
         return permissions.ready(mode)
     }
     fun revoke(owner: PhoneControlLease.Owner, epoch: Long) = lease.revokeByUser(owner, epoch)

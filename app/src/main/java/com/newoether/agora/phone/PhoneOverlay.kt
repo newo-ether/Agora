@@ -67,7 +67,7 @@ internal class PhoneOverlay(
 
     fun show(mode: String) {
         val windowContext = if (mode == "accessibility") PhoneAccessibilityService.instance
-            ?: throw PhoneFailure("permission_lost") else context
+            ?: throw PhoneFailure("permission_lost:accessibility_unavailable") else context
         val windows = windowContext.getSystemService(WindowManager::class.java)
         val localizedContext = windowContext.withAppLocale(runtime.settings.appLanguage.value)
         manager = windows

@@ -17,7 +17,7 @@ internal class AndroidPhoneDevice(
     private val mode: String,
     private val privileged: PhonePrivilegedConnection,
 ) : PhoneDevice {
-    private fun accessibility() = PhoneAccessibilityService.instance ?: throw PhoneFailure("permission_lost")
+    private fun accessibility() = PhoneAccessibilityService.instance ?: throw PhoneFailure("permission_lost:accessibility_unavailable")
     private suspend fun command(value: String) = privileged.command(mode, value)
     override suspend fun foreground(): String {
         if (mode == "accessibility") return accessibility().foregroundPackage()
@@ -43,6 +43,8 @@ internal class AndroidPhoneDevice(
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
+                if (error is SecurityException ||
+                    error is PhoneFailure && error.code.startsWith("permission_lost:")) throw error
                 val detail = error.message ?: error.javaClass.simpleName
                 if (attempt == 0 && detail.contains("could not get idle state", ignoreCase = true)) continue
                 throw PhoneFailure("ui_tree_unavailable", detail.take(500))

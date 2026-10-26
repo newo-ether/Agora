@@ -19,7 +19,17 @@ import kotlin.coroutines.resumeWithException
 class PhoneAccessibilityService : AccessibilityService() {
     @Volatile private var lastPackage: String? = null
     override fun onServiceConnected() { instance = this }
-    override fun onDestroy() { if (instance === this) instance = null; super.onDestroy() }
+    private fun disconnected() {
+        if (instance === this) {
+            instance = null
+            onDisconnected?.invoke()
+        }
+    }
+    override fun onUnbind(intent: android.content.Intent?): Boolean {
+        disconnected()
+        return super.onUnbind(intent)
+    }
+    override fun onDestroy() { disconnected(); super.onDestroy() }
     override fun onInterrupt() = Unit
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
@@ -122,5 +132,9 @@ class PhoneAccessibilityService : AccessibilityService() {
         }
         if (!performGlobalAction(action)) throw PhoneFailure("key_failed")
     }
-    companion object { @Volatile internal var instance: PhoneAccessibilityService? = null; private set }
+    companion object {
+        @Volatile internal var instance: PhoneAccessibilityService? = null
+            private set
+        @Volatile internal var onDisconnected: (() -> Unit)? = null
+    }
 }

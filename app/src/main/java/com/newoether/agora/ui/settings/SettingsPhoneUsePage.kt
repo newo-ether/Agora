@@ -31,7 +31,7 @@ import com.newoether.agora.phone.PhoneApp
 import com.newoether.agora.phone.PhoneUseRuntime
 import com.newoether.agora.ui.components.optionClickable
 import com.newoether.agora.viewmodel.ChatViewModel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 @Composable
@@ -52,10 +52,12 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     var grants by remember { mutableStateOf(emptyMap<String, Boolean>()) }
     LaunchedEffect(runtime, config.enabled, config.mode, revision) {
         if (!config.enabled) return@LaunchedEffect
-        if (config.mode == "root") runtime?.permissions?.probeRoot()
-        while (true) {
-            grants = runtime?.permissions?.granted(config.mode).orEmpty()
-            delay(750)
+        val permissions = runtime?.permissions ?: return@LaunchedEffect
+        grants = permissions.granted(config.mode)
+        if (config.mode == "root") {
+            val result = permissions.probeRoot()
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            grants = grants + ("root" to result)
         }
     }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { revision++ }
@@ -87,12 +89,13 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             textAlign = TextAlign.End, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         modifier = Modifier.clickable {
                             when {
-                                key == "root" -> scope.launch { runtime?.permissions?.probeRoot(); revision++ }
+                                key == "root" -> revision++
                                 key == "notifications" && Build.VERSION.SDK_INT >= 33 &&
                                     context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED ->
                                     notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 else -> runtime?.permissions?.open(key)
                             }
+                            if (key != "root") revision++
                         })
                 } })
                 SettingsGroup(title = stringResource(R.string.phone_automation), items = listOf {

@@ -28,8 +28,16 @@ class PhoneUserService : IPhoneUserService.Stub() {
     override fun destroy() { kotlin.system.exitProcess(0) }
 }
 
-internal fun phoneProcess(arguments: List<String>): ByteArray {
-    val process = ProcessBuilder(arguments).redirectError(ProcessBuilder.Redirect.PIPE).start()
+internal fun phoneProcess(arguments: List<String>, rootEntryMarker: String? = null): ByteArray {
+    val process = try { ProcessBuilder(arguments).redirectError(ProcessBuilder.Redirect.PIPE).start() }
+    catch (error: java.io.IOException) {
+        val errno = (error.cause as? android.system.ErrnoException)?.errno
+        val unavailable = errno in setOf(1, 2, 13) || Regex("error=(?:1|2|13)(?:,|\\s|$)").containsMatchIn(error.message.orEmpty())
+        if (rootEntryMarker != null && unavailable) {
+            throw PhoneFailure("permission_lost:root_denied", "su unavailable: ${error.message}")
+        }
+        throw PhoneFailure("device_command_failed", error.message ?: "Process start failed")
+    }
     val output = ByteArrayOutputStream()
     val error = ByteArrayOutputStream()
     val overflow = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -52,14 +60,19 @@ internal fun phoneProcess(arguments: List<String>): ByteArray {
         if (stdout.isAlive || stderr.isAlive) throw PhoneFailure("device_output_incomplete")
         if (overflow.get()) throw PhoneFailure("device_output_too_large")
         val exit = process.exitValue()
+        val rawError = error.toString("UTF-8")
+        val markerLine = rootEntryMarker?.let { marker -> Regex("(?m)^${Regex.escape(marker)}\\r?\\n") }
+        val enteredRoot = markerLine == null || markerLine.containsMatchIn(rawError)
+        val commandError = markerLine?.replace(rawError, "") ?: rawError
+        if (!enteredRoot) throw PhoneFailure("permission_lost:root_denied", "su exit $exit: ${commandError.take(500)}")
         if (exit != 0) {
-            val diagnostics = listOf(error.toString("UTF-8").take(500), output.toString("UTF-8").take(500))
+            val diagnostics = listOf(commandError.take(500), output.toString("UTF-8").take(500))
                 .filter { it.isNotBlank() }.joinToString("\n").take(1000)
             throw PhoneFailure("device_command_failed", "exit $exit: $diagnostics")
         }
         // uiautomator may report failure only on stderr while exiting successfully.
         // Keep successful binary stdout (screenshots) byte-for-byte unchanged.
-        if (output.size() == 0 && error.size() > 0) return error.toByteArray()
+        if (output.size() == 0 && commandError.isNotEmpty()) return commandError.toByteArray(Charsets.UTF_8)
         return output.toByteArray()
     } finally { process.destroyForcibly() }
 }
