@@ -24,10 +24,14 @@ Sub-page, top to bottom:
    and permission statuses use the Appearance reference's 96 dp trailing slot, 4 dp end inset,
    end-aligned primary `labelLarge` text and one-line ellipsis. Granted/missing retains its semantic
    color; changing status or selection never moves the text column or its trailing edge.
-3. Permission list for the selected mode. One `SettingsItem` per permission with a granted /
-   missing state indicator. Tapping an item requests the permission directly when the platform
-   allows it, otherwise deep-links to the most specific system page. Refresh only on page entry,
-   resume, mode change or permission-item click; no periodic settings probes.
+3. Permission list for the selected mode. One `SettingsItem` per permission with checking, granted
+   or missing status. The selected mode defines the rows immediately, including before the runtime
+   is available. Pending Root probes show checking instead of a cached false/missing result, while
+   other permission rows resolve immediately. Each page/resume/mode/click refresh owns its results;
+   cancelled or old-mode probes cannot update a replacement projection. Status stays in the fixed
+   trailing slot with the shared 250 ms crossfade. Tapping an item requests the permission directly
+   when the platform allows it, otherwise deep-links to the most specific system page. Refresh only
+   on page entry, resume, mode change or permission-item click; no periodic settings probes.
 4. Automation access: one switch `Allow Task and Loop runs`, default off (section 5).
 5. App access control (section 6).
 
@@ -254,6 +258,8 @@ name/package column. Package names use `bodySmall`. The whole row owns one check
 shared rounded option highlight. A full-width, single-line search field with 16 dp rounded corners
 and a 12 dp gap above the list filters by application name or package. Selection persists immediately
 through the existing Settings store; Done only dismisses, without a separate Save/Add transaction.
+While installed applications load, one full-width Box centers the progress indicator horizontally
+with 24 dp vertical padding. The lazy list is composed only after loading completes.
 
 - Agora itself is exempt from app access control: it never appears in the app picker, cannot be
   listed, and is always allowed in every mode.

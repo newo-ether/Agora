@@ -4,6 +4,8 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -28,6 +31,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.newoether.agora.AgoraApplication
 import com.newoether.agora.R
 import com.newoether.agora.phone.PhoneApp
+import com.newoether.agora.phone.PhonePermissions
 import com.newoether.agora.phone.PhoneUseRuntime
 import com.newoether.agora.ui.components.optionClickable
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -49,17 +53,6 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
         lifecycle.lifecycle.addObserver(observer)
         onDispose { lifecycle.lifecycle.removeObserver(observer) }
     }
-    var grants by remember { mutableStateOf(emptyMap<String, Boolean>()) }
-    LaunchedEffect(runtime, config.enabled, config.mode, revision) {
-        if (!config.enabled) return@LaunchedEffect
-        val permissions = runtime?.permissions ?: return@LaunchedEffect
-        grants = permissions.granted(config.mode)
-        if (config.mode == "root") {
-            val result = permissions.probeRoot()
-            kotlinx.coroutines.currentCoroutineContext().ensureActive()
-            grants = grants + ("root" to result)
-        }
-    }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { revision++ }
     var picker by remember { mutableStateOf(false) }
     CollapsingSettingsScaffold(title = stringResource(R.string.phone_title), onBack = onBack,
@@ -78,26 +71,16 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         scope.launch { settings.phoneUseStore.setMode(mode) }
                     }
                 })
-                SettingsGroup(title = stringResource(R.string.phone_permissions), items = grants.map { (key, granted) -> {
-                    SettingsItem(headlineContent = { Text(stringResource(phonePermissionLabel(key))) },
-                        supportingContent = { Text(stringResource(R.string.phone_permission_description)) },
-                        leadingContent = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary) },
-                        trailingContent = { Text(stringResource(if (granted) R.string.phone_granted else R.string.phone_missing),
-                            color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.width(96.dp).padding(end = 4.dp),
-                            textAlign = TextAlign.End, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        modifier = Modifier.clickable {
-                            when {
-                                key == "root" -> revision++
-                                key == "notifications" && Build.VERSION.SDK_INT >= 33 &&
-                                    context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED ->
-                                    notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                else -> runtime?.permissions?.open(key)
-                            }
-                            if (key != "root") revision++
-                        })
-                } })
+                SettingsPhonePermissions(config.mode, revision, runtime?.permissions) { key ->
+                    when {
+                        key == "root" -> Unit
+                        key == "notifications" && Build.VERSION.SDK_INT >= 33 &&
+                            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED ->
+                            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        else -> runtime?.permissions?.open(key)
+                    }
+                    revision++
+                }
                 SettingsGroup(title = stringResource(R.string.phone_automation), items = listOf {
                     PhoneSwitch(R.string.phone_automation, R.string.phone_automation_description, config.allowAutomation) {
                         scope.launch { settings.phoneUseStore.setAutomation(it) }
@@ -180,9 +163,12 @@ internal fun PhoneAppPickerDialog(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (apps == null) CircularProgressIndicator(Modifier.padding(24.dp))
-                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
-                    items(apps.orEmpty().filter { it.label.contains(query, true) || it.packageName.contains(query, true) }, key = { it.packageName }) { app ->
+                if (apps == null) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else LazyColumn(Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                    items(apps.filter { it.label.contains(query, true) || it.packageName.contains(query, true) }, key = { it.packageName }) { app ->
                         SettingsItem(
                             headlineContent = { Text(app.label) },
                             supportingContent = { Text(app.packageName, style = MaterialTheme.typography.bodySmall) },
@@ -195,6 +181,56 @@ internal fun PhoneAppPickerDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.phone_done)) } },
     )
+}
+
+@Composable
+internal fun SettingsPhonePermissions(
+    mode: String,
+    revision: Int,
+    permissions: PhonePermissions?,
+    onClick: (String) -> Unit,
+) {
+    // This is only the page's current projection, independent of claim readiness.
+    var grants by remember(permissions, mode, revision) { mutableStateOf(emptyMap<String, Boolean>()) }
+    LaunchedEffect(permissions, mode, revision) {
+        permissions ?: return@LaunchedEffect
+        grants = permissions.granted(mode).filterKeys { it != "root" }
+        if (mode == "root") {
+            val granted = permissions.probeRoot()
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            grants = grants + ("root" to granted)
+        }
+    }
+    val keys = listOf("overlay", "notifications") + when (mode) {
+        "shizuku" -> listOf("shizuku_installed", "shizuku_running", "shizuku_permission")
+        "root" -> listOf("root")
+        else -> listOf("accessibility")
+    }
+    SettingsGroup(title = stringResource(R.string.phone_permissions), items = keys.map { permission -> {
+        key(mode, permission) {
+            SettingsItem(
+                headlineContent = { Text(stringResource(phonePermissionLabel(permission))) },
+                supportingContent = { Text(stringResource(R.string.phone_permission_description)) },
+                leadingContent = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary) },
+                trailingContent = {
+                    Crossfade(grants[permission], Modifier.width(96.dp).padding(end = 4.dp),
+                        animationSpec = tween(250), label = "phonePermissionStatus") { granted ->
+                        Text(stringResource(when (granted) {
+                            null -> R.string.about_checking
+                            true -> R.string.phone_granted
+                            false -> R.string.phone_missing
+                        }), color = when (granted) {
+                            null -> MaterialTheme.colorScheme.onSurfaceVariant
+                            true -> MaterialTheme.colorScheme.primary
+                            false -> MaterialTheme.colorScheme.error
+                        }, style = MaterialTheme.typography.labelLarge, modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.End, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                modifier = Modifier.clickable { onClick(permission) },
+            )
+        }
+    } })
 }
 
 private fun phonePermissionLabel(key: String): Int = when (key) {
