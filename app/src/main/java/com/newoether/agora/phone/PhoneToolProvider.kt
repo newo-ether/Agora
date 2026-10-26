@@ -28,6 +28,7 @@ internal class PhoneToolProvider(
     private val showControl: suspend (String) -> Unit,
     private val action: (String, Int, Int, Int, Int, Long) -> Unit,
     private val status: (String?) -> Unit,
+    private val operating: suspend (suspend () -> ToolExecutionResult) -> ToolExecutionResult = { it() },
 ) : ToolProvider {
     private var executionMode = "accessibility"
     private val executing = AtomicBoolean(false)
@@ -89,74 +90,78 @@ internal class PhoneToolProvider(
                     lease.release(authorized)?.let { throw PhoneFailure(it) }
                     return@run success(buildJsonObject { put("status", "released") })
                 }
-                val backend = device(ctx.phoneMode)
-                status(name)
-                checkApp(backend, authorized)
-                val body = buildJsonObject {
-                    put("status", "ok")
-                    when (name) {
-                        "phone_screenshot" -> Unit
-                        "phone_ui_tree" -> {
-                            val dimensions = backend.dimensions()
-                            val nodes = backend.nodes()
+                return@run operating {
+                    // Visibility may suspend for a question or fade. Revalidate before any device effect.
+                    fence(authorized)
+                    val backend = device(ctx.phoneMode)
+                    status(name)
+                    checkApp(backend, authorized)
+                    val body = buildJsonObject {
+                        put("status", "ok")
+                        when (name) {
+                            "phone_screenshot" -> Unit
+                            "phone_ui_tree" -> {
+                                val dimensions = backend.dimensions()
+                                val nodes = backend.nodes()
+                                fence(authorized)
+                                checkApp(backend, authorized)
+                                treePackage = backend.foreground()
+                                tree = Triple(authorized.epoch, dimensions, nodes)
+                                put("nodes", JsonArray(nodes.map { node -> buildJsonObject {
+                                    put("index", node.index); put("text", node.text); put("role", node.role)
+                                    put("bounds", JsonArray(listOf(node.bounds.left, node.bounds.top, node.bounds.right, node.bounds.bottom).map(::JsonPrimitive)))
+                                    put("enabled", node.enabled); put("selected", node.selected)
+                                    put("editable", node.editable); put("password", node.password)
+                                } }))
+                            }
+                            "phone_tap", "phone_long_press" -> {
+                                val (x, y) = point(args, authorized, backend)
+                                val duration = if (name == "phone_tap") 60L else args.long("duration_ms", 800).coerceIn(500, 10_000)
+                                fence(authorized); action(name, x, y, x, y, duration)
+                                backend.tap(x, y, duration)
+                            }
+                            "phone_swipe" -> {
+                                val (x, y) = point(args, authorized, backend)
+                                val (endX, endY) = coordinates(args, "end_x", "end_y", authorized, backend)
+                                val duration = args.long("duration_ms", 400).coerceIn(100, 10_000)
+                                fence(authorized); action(name, x, y, endX, endY, duration)
+                                backend.swipe(x, y, endX, endY, duration)
+                            }
+                            "phone_type" -> { fence(authorized); backend.type(args.string("text")) }
+                            "phone_key" -> { fence(authorized); backend.key(args.string("key")) }
+                            "phone_app_launch" -> {
+                                val pkg = args.string("package")
+                                if (!allowed(pkg)) throw PhoneFailure("app_blocked", pkg)
+                                fence(authorized); backend.launch(pkg)
+                            }
+                            "phone_app_list" -> put("apps", JsonArray(backend.apps().filter { allowed(it.packageName) }.map {
+                                buildJsonObject { put("package", it.packageName); put("label", it.label) }
+                            }))
+                            else -> throw PhoneFailure("unknown_tool")
+                        }
+                    }
+                    if (name in ACTIONS) { tree = null; treePackage = null }
+                    fence(authorized)
+                    val wantsScreenshot = name == "phone_screenshot" || (name in ACTIONS && args["screenshot"]?.jsonPrimitive?.booleanOrNull != false)
+                    val result = if (wantsScreenshot) {
+                        if (name in ACTIONS) delay(180)
+                        checkApp(backend, authorized)
+                        val bitmap = captured { fence(authorized); checkApp(backend, authorized); backend.screenshot() }
+                        try {
                             fence(authorized)
                             checkApp(backend, authorized)
-                            treePackage = backend.foreground()
-                            tree = Triple(authorized.epoch, dimensions, nodes)
-                            put("nodes", JsonArray(nodes.map { node -> buildJsonObject {
-                                put("index", node.index); put("text", node.text); put("role", node.role)
-                                put("bounds", JsonArray(listOf(node.bounds.left, node.bounds.top, node.bounds.right, node.bounds.bottom).map(::JsonPrimitive)))
-                                put("enabled", node.enabled); put("selected", node.selected)
-                                put("editable", node.editable); put("password", node.password)
-                            } }))
-                        }
-                        "phone_tap", "phone_long_press" -> {
-                            val (x, y) = point(args, authorized, backend)
-                            val duration = if (name == "phone_tap") 60L else args.long("duration_ms", 800).coerceIn(500, 10_000)
-                            fence(authorized); action(name, x, y, x, y, duration)
-                            backend.tap(x, y, duration)
-                        }
-                        "phone_swipe" -> {
-                            val (x, y) = point(args, authorized, backend)
-                            val (endX, endY) = coordinates(args, "end_x", "end_y", authorized, backend)
-                            val duration = args.long("duration_ms", 400).coerceIn(100, 10_000)
-                            fence(authorized); action(name, x, y, endX, endY, duration)
-                            backend.swipe(x, y, endX, endY, duration)
-                        }
-                        "phone_type" -> { fence(authorized); backend.type(args.string("text")) }
-                        "phone_key" -> { fence(authorized); backend.key(args.string("key")) }
-                        "phone_app_launch" -> {
-                            val pkg = args.string("package")
-                            if (!allowed(pkg)) throw PhoneFailure("app_blocked", pkg)
-                            fence(authorized); backend.launch(pkg)
-                        }
-                        "phone_app_list" -> put("apps", JsonArray(backend.apps().filter { allowed(it.packageName) }.map {
-                            buildJsonObject { put("package", it.packageName); put("label", it.label) }
-                        }))
-                        else -> throw PhoneFailure("unknown_tool")
-                    }
+                            val dimensions = backend.dimensions()
+                            val image = persist(bitmap)
+                            fence(authorized)
+                            screen = authorized.epoch to PhoneScreenSpace(checkNotNull(image.width), checkNotNull(image.height), dimensions.first, dimensions.second, dimensions.third)
+                            ToolExecutionResult(JsonObject(body + mapOf("width" to JsonPrimitive(image.width), "height" to JsonPrimitive(image.height))).toString(),
+                                images = listOf(image), transcribeImages = true)
+                        } finally { bitmap.recycle() }
+                    } else success(body)
+                    fence(authorized)
+                    lease.complete(authorized)?.let { throw PhoneFailure(it) }
+                    result
                 }
-                if (name in ACTIONS) { tree = null; treePackage = null }
-                fence(authorized)
-                val wantsScreenshot = name == "phone_screenshot" || (name in ACTIONS && args["screenshot"]?.jsonPrimitive?.booleanOrNull != false)
-                val result = if (wantsScreenshot) {
-                    if (name in ACTIONS) delay(180)
-                    checkApp(backend, authorized)
-                    val bitmap = captured { fence(authorized); checkApp(backend, authorized); backend.screenshot() }
-                    try {
-                        fence(authorized)
-                        checkApp(backend, authorized)
-                        val dimensions = backend.dimensions()
-                        val image = persist(bitmap)
-                        fence(authorized)
-                        screen = authorized.epoch to PhoneScreenSpace(checkNotNull(image.width), checkNotNull(image.height), dimensions.first, dimensions.second, dimensions.third)
-                        ToolExecutionResult(JsonObject(body + mapOf("width" to JsonPrimitive(image.width), "height" to JsonPrimitive(image.height))).toString(),
-                            images = listOf(image), transcribeImages = true)
-                    } finally { bitmap.recycle() }
-                } else success(body)
-                fence(authorized)
-                lease.complete(authorized)?.let { throw PhoneFailure(it) }
-                result
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 val fenced = permit?.let { lease.validate(it) }

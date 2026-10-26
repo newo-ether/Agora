@@ -140,14 +140,34 @@ the lease without stopping the owning Run. The model is told the user revoked co
 including `phone_claim`, returns `released_by_user` with no side effect. A later Run of that
 conversation may claim again. User touches on the screen do not interrupt control.
 
-### 4.3 Ask card
+### 4.3 Action visibility and duration
+Before tap, long press, swipe, type, key, app launch, screenshot and UI tree work, fade the
+control window out over 180 ms and wait for completion. The window is FLAG_NOT_TOUCHABLE and
+NOT_FOCUSABLE from fade-out admission; zero alpha also publishes zero platform window opacity.
+The effect window and border do not participate. App-list privacy fallback navigation shares this
+same boundary. Revalidate the exact lease/Run after the wait and before device effects.
+On success, error or cancellation, schedule restoration after 300 ms, then fade in over 180 ms.
+A newer operation cancels that restore and keeps the window hidden. Removed/replaced overlays
+cancel their own animation and cannot restore a newer owner's window. Pending ask_user takes
+priority: show the controls and inputs, and wait before admitting device work until it settles.
+The floating Stop is temporarily unavailable during hidden actions; notification Stop remains live.
+Duration uses the selected application font with `fontFeatureSettings = "tnum"`, never a separate
+monospace face. Verify actual `0:00` and `1:11` shaping widths before claiming tabular support.
+Independently measure all ten digits, fill the current colon-preserving format with its widest digit,
+and reserve that measured width. Use m:ss, mm:ss and h:mm:ss as elapsed time grows. Per-second
+changes retain width; only format carries change it. Duration carries and status identity changes
+use the model selector's actual shared IdentityClipWidth (400 ms FastOutSlowIn) and
+IdentityLabelCrossfade (200 ms FastOutSlowIn), final-width content and a start-anchored rounded
+clip. Reduced Motion snaps spatial changes and retains the label fade.
+
+### 4.4 Ask card
 
 `ask_user` is reused. While the caller holds the lease, its questions are also presented on an
 overlay card centered horizontally below the capsules: options plus an in-card text field.
 Fade + scale in/out. Submission uses the canonical ask_user submission so the in-app and overlay
 surfaces settle the same request exactly once.
 
-### 4.4 Cursor
+### 4.5 Cursor
 
 A solid circle drawn on the effect window at each action point, theme colored.
 
@@ -157,10 +177,13 @@ A solid circle drawn on the effect window at each action point, theme colored.
   at end. No trail.
 - Reduced Motion: static dot, fade only.
 
-### 4.5 Screenshot hygiene
+### 4.6 Screenshot hygiene
 
-Before capture, hide the cursor and the control window (capsules, Stop, ask card), wait one frame,
-capture, then restore. The border stays visible and tool descriptions tell the model a thin
+Before capture, recheck question priority and the completed fade, then hide the cursor and the
+control view (capsules, Stop, ask card) for two frames and the bitmap capture. Restore capture-only
+visibility in finally; the operation boundary still owns the delayed alpha/input restoration.
+A question arriving during that short capture interval becomes visible after capture cleanup.
+The border stays visible and tool descriptions tell the model a thin
 colored border is Agora's control indicator.
 
 ## 5. Caller admission
@@ -196,5 +219,9 @@ through the existing Settings store; Done only dismisses, without a separate Sav
   admission matrix, app access decisions including implicit allowlist entries, coordinate mapping,
   non-ASCII input path selection.
 - Every `phone_*` tool without a lease performs no side effect.
+- Overlay verification: completed fade before device effects, genuine input exclusion, delayed restore,
+  continuous actions without flash, ask priority, cancellation/error cleanup and stale owner removal.
+  Native text measurement reports default-font tnum shaping and proves digit-template stability and
+  both duration carries through the shared clip owner.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.

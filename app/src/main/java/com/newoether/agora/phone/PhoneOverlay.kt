@@ -24,6 +24,11 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.newoether.agora.util.withAppLocale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -47,6 +52,8 @@ internal class PhoneOverlay(
     private var effect: ComposeView? = null
     private var control: ComposeView? = null
     private var controlParams: WindowManager.LayoutParams? = null
+    private val controlScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var controlWindow: PhoneControlWindow? = null
     private val touchBounds = mutableMapOf<String, Rect>()
     private var removed = false
     val capturing = androidx.compose.runtime.mutableStateOf(false)
@@ -110,6 +117,15 @@ internal class PhoneOverlay(
         try {
             windows.addView(effectView, effectParams)
             windows.addView(controls, params)
+            controlWindow = PhoneControlWindow(controls, params, windows, controlScope)
+            controlScope.launch {
+                runtime.askUser.requests.collect { requests ->
+                    val owner = runtime.lease.held.value?.takeIf { it.epoch == epoch }?.owner
+                    controlWindow?.showForUser(owner != null && requests.any {
+                        it.conversationId == owner.conversationId && it.runId == owner.runId
+                    })
+                }
+            }
             installTouchRegion(controls)
             lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         } catch (error: Exception) { remove(); throw error }
@@ -123,7 +139,8 @@ internal class PhoneOverlay(
     }
 
     private fun region() = Region().apply {
-        if (!capturing.value && visible.value) touchBounds.values.forEach { op(it, Region.Op.UNION) }
+        if (!capturing.value && visible.value && controlWindow?.touchable == true)
+            touchBounds.values.forEach { op(it, Region.Op.UNION) }
     }
 
     private fun installTouchRegion(view: View) {
@@ -160,13 +177,19 @@ internal class PhoneOverlay(
 
     private fun focusable(focused: Boolean) {
         val params = controlParams ?: return
-        params.flags = if (focused) params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        params.flags = if (focused && controlWindow?.touchable == true && !capturing.value)
+            params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
             else params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         control?.let { runCatching { manager?.updateViewLayout(it, params) } }
     }
 
+    suspend fun beforeOperation() = withContext(Dispatchers.Main.immediate) {
+        (controlWindow ?: throw PhoneFailure("overlay_unavailable")).beforeOperation()
+    }
+    fun afterOperation() { controlWindow?.afterOperation() }
     suspend fun capture(block: suspend () -> android.graphics.Bitmap): android.graphics.Bitmap =
         withContext(Dispatchers.Main.immediate) {
+            (controlWindow ?: throw PhoneFailure("overlay_unavailable")).beforeOperation()
             capturing.value = true
             control?.visibility = View.INVISIBLE
             try {
@@ -191,6 +214,9 @@ internal class PhoneOverlay(
     fun remove() {
         if (removed) return
         removed = true
+        controlWindow?.close()
+        controlScope.cancel()
+        controlWindow = null
         listOfNotNull(effect, control).forEach { view ->
             runCatching { manager?.removeViewImmediate(view) }
             view.disposeComposition()

@@ -11,7 +11,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,14 +53,8 @@ internal fun PhoneControls(
     val reduce = LocalAgoraMotionPolicy.current.reduceMotion
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            Surface(modifier = phoneTouchBounds("duration", bounds), shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 5.dp, bottomEnd = 5.dp),
-                color = MaterialTheme.colorScheme.primaryContainer) {
-                Text("%02d:%02d".format(elapsed / 60, elapsed % 60), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge)
-            }
-            Surface(modifier = phoneTouchBounds("status", bounds), shape = RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 24.dp, bottomEnd = 24.dp),
-                color = MaterialTheme.colorScheme.primaryContainer) {
-                Text(stringResource(label), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge)
-            }
+            PhoneDurationCapsule(elapsed, phoneTouchBounds("duration", bounds))
+            PhoneStatusCapsule(stringResource(label), phoneTouchBounds("status", bounds))
             Spacer(Modifier.weight(1f))
             FilledTonalButton(modifier = phoneTouchBounds("stop", bounds), onClick = { runtime.revoke(owner.owner, owner.epoch) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
                 Text(stringResource(R.string.phone_stop))

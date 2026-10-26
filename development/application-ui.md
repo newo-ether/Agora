@@ -788,7 +788,8 @@ lift ending at zero, the post-exit gone callback, and both option radii.
 ## 28. Composer model selector motion
 The Chat bottom-bar model selector follows the section 24 motion language through the same shared
 clip owner (`ui/motion/IdentityClipWidth.kt`, also used by the top-bar title). A change of the
-displayed label Crossfades the label over `200 ms` with `FastOutSlowInEasing`. The button is always
+displayed label Crossfades through `ui/motion/IdentityLabelCrossfade.kt` over `200 ms` with
+`FastOutSlowInEasing`; Phone Use consumes that same label transition and shared clip owner. The button is always
 laid out at its independently measured final width: label width plus `8 dp` padding on each side,
 at least the Material button minimum width and at most the space left in the controls capsule. One start-anchored rounded clip
 (`50%` corners) cuts the whole button, including its ripple, at the visible edge, which moves over

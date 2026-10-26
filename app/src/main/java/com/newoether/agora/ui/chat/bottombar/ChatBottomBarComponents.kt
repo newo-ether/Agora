@@ -45,8 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.FastOutSlowInEasing
+import com.newoether.agora.ui.motion.IdentityLabelCrossfade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
@@ -137,11 +136,7 @@ internal fun RowScope.ComposerModelSelector(
                         .menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = enabled),
                     contentPadding = PaddingValues(MODEL_SELECTOR_PADDING),
                 ) {
-                    Crossfade(
-                        targetState = displayText,
-                        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                        label = "composerModelSelector",
-                    ) { label ->
+                    IdentityLabelCrossfade(targetState = displayText) { label ->
                         // Each label keeps its own width while it fades, so an outgoing longer name is
                         // cut only by the moving clip; it ellipsizes only past the space left.
                         Text(

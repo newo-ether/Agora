@@ -23,6 +23,9 @@ class PhoneToolProviderTest {
     private var probes = 0
     private var platformEffects = 0
     private var readiness: suspend () -> Boolean = { true }
+    private var beforeOperation: suspend () -> Unit = {}
+    private var operationStarts = 0
+    private var operationEnds = 0
     private var foreground: suspend () -> String = { "allowed" }
     private val keys = mutableListOf<String>()
     private val taps = mutableListOf<Triple<Int, Int, Long>>()
@@ -47,6 +50,10 @@ class PhoneToolProviderTest {
         persist = { error("Unexpected persistence") }, captured = { error("Unexpected capture") },
         showControl = { platformEffects++ }, action = { _, _, _, _, _, _ -> platformEffects++ },
         status = { platformEffects++ },
+        operating = { work ->
+            operationStarts++
+            try { beforeOperation(); work() } finally { operationEnds++ }
+        },
     )
     private suspend fun claim() = provider.executeOneShotResult("phone_claim", "{}", context)
     private fun assertError(code: String, result: com.newoether.agora.tool.ToolExecutionResult) {
@@ -194,6 +201,37 @@ class PhoneToolProviderTest {
         assertTrue(taps.isEmpty())
     }
 
+    @Test fun visibilityBarrierPrecedesDeviceWorkAndRechecksRevocation() = runTest {
+        assertFalse(claim().isError)
+        val entered = CompletableDeferred<Unit>()
+        val resume = CompletableDeferred<Unit>()
+        beforeOperation = { entered.complete(Unit); resume.await() }
+        val before = platformEffects
+        val pending = async { provider.executeOneShotResult("phone_key", """{"key":"home","screenshot":false}""", context) }
+        entered.await()
+        assertEquals(before, platformEffects)
+        lease.held.value!!.let { lease.revokeByUser(it.owner, it.epoch) }
+        resume.complete(Unit)
+        assertError("released_by_user", pending.await())
+        assertTrue(keys.isEmpty())
+        assertEquals(1, operationStarts)
+        assertEquals(1, operationEnds)
+        assertEquals(before + 1, platformEffects)
+    }
+    @Test fun visibilityScopeRestoresOnFailureAndCancellationAndDoesNotWrapClaimOrRelease() = runTest {
+        assertFalse(claim().isError)
+        assertEquals(0, operationStarts)
+        foreground = { throw PhoneFailure("device_failure") }
+        assertError("device_failure", provider.executeOneShotResult("phone_ui_tree", "{}", context))
+        assertEquals(1, operationEnds)
+        val entered = CompletableDeferred<Unit>()
+        beforeOperation = { entered.complete(Unit); kotlinx.coroutines.awaitCancellation() }
+        val pending = async { provider.executeOneShotResult("phone_screenshot", "{}", context) }
+        entered.await(); pending.cancel(); pending.join()
+        assertEquals(2, operationEnds)
+        assertFalse(provider.executeOneShotResult("phone_release", "{}", context).isError)
+        assertEquals(2, operationStarts)
+    }
     @Test fun targetDefinitionsExplainNodePriority() {
         for (name in listOf("phone_tap", "phone_long_press")) {
             val definition = provider.definitions(context).single { it.function.name == name }

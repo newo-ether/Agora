@@ -13,6 +13,7 @@ import com.newoether.agora.viewmodel.AskUserController
 import com.newoether.agora.viewmodel.ConversationStateRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
@@ -82,6 +83,17 @@ internal class PhoneUseRuntime(
             cursor.value = PhoneCursor(name, x, y, endX, endY, duration, SystemClock.elapsedRealtime())
         },
         status = { actionName.value = it },
+        operating = { operation ->
+            val active = withContext(Dispatchers.Main.immediate) {
+                overlay ?: throw PhoneFailure("overlay_unavailable")
+            }
+            try {
+                active.beforeOperation()
+                operation()
+            } finally {
+                withContext(NonCancellable + Dispatchers.Main.immediate) { active.afterOperation() }
+            }
+        },
     )
 
     init {
