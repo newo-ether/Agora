@@ -46,6 +46,11 @@ class WebUiConversationMenuTest {
     )
     private val conversations = mockk<ConversationRepository> {
         every { observeDrawerConversations(any()) } answers { list.map { rows -> rows.take(firstArg<Int>()) } }
+        every { subagentJobs } returns MutableStateFlow(emptyMap())
+        every { subagentGenerationIds } returns MutableStateFlow(emptySet())
+        every { chatDao } returns mockk {
+            every { observeSubagentParentIds(any()) } returns kotlinx.coroutines.flow.flowOf(emptyList())
+        }
     }
     private val generation = mockk<com.newoether.agora.viewmodel.MessageGenerationController>(relaxed = true)
     private val generating = MutableStateFlow<Set<String>>(emptySet())

@@ -307,11 +307,11 @@ Conversation search exposes a separate in-flight state from the moment a nonblan
 
 The drawer's first-list state is not a second conversation authority or a new search architecture; Room remains the durable source and the existing search methods remain authoritative.
 
-The Android drawer's ordinary conversation row shows its existing generation indicator while that
+The native and WebUI drawers' ordinary conversation rows show their existing generation indicator while that
 conversation generates or any linked Subagent is running. The parent remains active until both its
 own generation and all child activity end, including when only one of several children finishes.
 The existing indicator appearance, unread priority and child-row visibility remain unchanged.
-`ChatViewModel.generatingConversationIds` consumes the repository's presentation-only union of
+`ChatViewModel.generatingConversationIds` and `WebUiSync` consume the same repository presentation-only union of
 foreground generation, automation and registered delegation Jobs, including each active child's
 parent ID. Parent membership is observed in one narrow Room query restricted to those active IDs;
 idle startup performs no child/Run/message scan, and no per-row query or polling is introduced.
@@ -1725,9 +1725,11 @@ Settings > Subagents offers Capsule display: Individual or Grouped (default), ap
 on native and WebUI. This presentation preference does not change delegation admission or family data.
 Individual retains one capsule per child. Grouped hides at zero and keeps direct child navigation
 at one; two or more children share a count capsule and open the existing child sheet.
-The native grouped capsule displays localized `X Running` while any child has the canonical
-`running` status, using only that running count; otherwise it displays localized `X Subagents`
-using the total child count, including `1 Subagent` at one. Its plurals cover every supported locale.
+On native and WebUI, one grouped child always displays its own name, regardless of status. Only when
+there are two or more children does the capsule display localized `X Running` while any child has the
+canonical `running` status, using only that running count; otherwise it displays localized `X Subagents`
+using the total child count. Native plurals cover every supported locale; browser labels follow its
+existing English/Simplified Chinese language selection.
 Running consumes the existing repository status projection: a durable Run with `activeSlot = 1`
 or a registered Subagent worker is `running`, including a worker waiting for generation admission
 or crossing Compact/ordinary handoffs. Queued messages alone do not count. The existing progress

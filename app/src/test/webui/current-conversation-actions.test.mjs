@@ -346,6 +346,23 @@ test("drawer row actions still use their own ID and custom MoreMenu children rep
   assert.deepEqual(menuItems(popup.render({ ...menu, children: custom })).map(item => text(item)), ["Custom action"]);
 });
 
+test("drawer row keeps generation ahead of unread and clears progress after activity ends", () => {
+  const f = harness("ConversationRow");
+  const row = { id: "parent", title: "Parent", generating: true, unread: true };
+  const props = { conversation: row, selected: false, onSelect() {}, onMenu() {} };
+  for (const selected of [false, true]) {
+    f.render({ ...props, selected });
+    const progress = f.component("CircularProgress");
+    assert.equal(progress.props.size, 18);
+    assert.equal(progress.props.stroke, 2);
+    assert.equal(nodes(f.tree).filter(node => node.props.class === "unread-dot").length, 0);
+  }
+  f.render({ ...props, conversation: { ...row, generating: false } });
+  assert.equal(nodes(f.tree).filter(node => node.type?.name === "CircularProgress").length, 0);
+  assert.equal(nodes(f.tree).filter(node => node.props.class === "unread-dot").length, 1);
+  f.render({ ...props, selected: true, conversation: { ...row, generating: false } });
+  assert.equal(nodes(f.tree).filter(node => node.props.class === "conversation-indicator").length, 0);
+});
 test("Sign Out remains the final default action and uses the existing sign-out owner", async () => {
   const s = shell(), f = topBar(s), menu = openMenu(f), popup = harness("MoreMenu");
   let signedOut = 0;

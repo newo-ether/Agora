@@ -32,6 +32,7 @@ class WebUiMessagePresentationTest {
     private fun repositoryForConversationOpen() =
         io.mockk.mockk<com.newoether.agora.data.repository.ConversationRepository>(relaxed = true) {
             io.mockk.every { subagentJobs } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap())
+            io.mockk.every { subagentGenerationIds } returns kotlinx.coroutines.flow.MutableStateFlow(emptySet())
             io.mockk.every { chatDao } returns io.mockk.mockk {
                 io.mockk.every { observeConversationTodo(any()) } returns kotlinx.coroutines.flow.flowOf(null)
                 io.mockk.every { observeParentConversationId(any()) } returns kotlinx.coroutines.flow.flowOf(null)

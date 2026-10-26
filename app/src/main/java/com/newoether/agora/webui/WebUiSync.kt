@@ -6,6 +6,7 @@ import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
+import com.newoether.agora.data.repository.observeDrawerGeneratingConversationIds
 import com.newoether.agora.data.repository.recoverOpenedConversationFamily
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.model.ChatConversation
@@ -131,7 +132,10 @@ internal class WebUiSync(
                 listLimit.flatMapLatest { limit ->
                     conversations.observeDrawerConversations(limit + 1).map { limit to it }
                 },
-                registry.activeConversationIds,
+                conversations.observeDrawerGeneratingConversationIds(
+                    foregroundIds = registry.activeConversationIds,
+                    automationIds = executionCoordinator.activeAutomationConversationIds,
+                ),
             ) { (limit, items), active ->
                 WebSyncEvent.Conversations(items.take(limit).map { it.toWeb(it.id in active) }, items.size > limit, limit)
             }

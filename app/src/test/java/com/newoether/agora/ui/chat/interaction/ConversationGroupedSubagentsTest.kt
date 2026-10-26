@@ -66,7 +66,7 @@ class ConversationGroupedSubagentsTest {
         }
         compose.onNodeWithTag("subagents-capsule:parent").assertDoesNotExist()
         compose.runOnIdle { agents = listOf(agent("z")) }
-        compose.onNodeWithText("1 Subagent").performClick()
+        compose.onNodeWithText("Worker z").performClick()
         assertEquals("z", selected)
         compose.onNode(isDialog()).assertDoesNotExist()
         compose.runOnIdle { agents = listOf(agent("z", "failed"), agent("a", "stopped")) }
@@ -197,7 +197,7 @@ class ConversationGroupedSubagentsTest {
         assertEquals(identity, capsule.fetchSemanticsNode().id)
     }
 
-    @Test fun singleGroupedChildUsesCountLabelsAndRetainsDirectNavigation() {
+    @Test fun singleGroupedChildKeepsItsNameAcrossEveryStatusAndRetainsDirectNavigation() {
         var child by mutableStateOf(agent("a", "running"))
         var selected: String? = null
         compose.setContent {
@@ -206,12 +206,17 @@ class ConversationGroupedSubagentsTest {
                     subagentCapsuleDisplayMode = SubagentCapsuleDisplayModes.GROUPED)
             }
         }
-        compose.onNodeWithText("1 Running").performClick()
-        assertEquals("a", selected)
-        compose.onNode(isDialog()).assertDoesNotExist()
-        compose.runOnIdle { child = child.copy(status = "idle") }
-        compose.onNodeWithText("1 Subagent").assertExists()
-        compose.onNodeWithText("1 Running").assertDoesNotExist()
+        val capsule = compose.onNodeWithTag("subagents-capsule:parent")
+        val identity = capsule.fetchSemanticsNode().id
+        for (status in listOf("running", "idle", "completed", "failed", "stopped")) {
+            compose.runOnIdle { child = child.copy(title = "Worker $status", status = status); selected = null }
+            compose.onNodeWithText("Worker $status").performClick()
+            assertEquals("a", selected)
+            assertEquals(identity, capsule.fetchSemanticsNode().id)
+            compose.onNode(isDialog()).assertDoesNotExist()
+            compose.onNodeWithText("1 Running").assertDoesNotExist()
+            compose.onNodeWithText("1 Subagent").assertDoesNotExist()
+        }
     }
 
     @Test fun invalidatingSheetNeverReopensStaleFamilyOrKeepsPendingNavigation() {
@@ -289,12 +294,11 @@ class ConversationGroupedSubagentsTest {
 
     private fun verifyCountCrossfade(reduced: Boolean) {
         var agents by mutableStateOf(listOf(agent("a")))
-        lateinit var one: String
+        val one = "Worker a"
         lateinit var two: String
         lateinit var three: String
         var selections = 0
         compose.setContent {
-            one = androidx.compose.ui.res.pluralStringResource(R.plurals.subagents_count, 1, 1)
             two = androidx.compose.ui.res.pluralStringResource(R.plurals.subagents_count, 2, 2)
             three = androidx.compose.ui.res.pluralStringResource(R.plurals.subagents_count, 3, 3)
             CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduced)) {
@@ -326,13 +330,13 @@ class ConversationGroupedSubagentsTest {
         compose.runOnIdle { agents = listOf(agent("a").copy(title = "Renamed worker")) }
         advance(96)
         compose.onNodeWithText(three, useUnmergedTree = true).assertExists()
-        compose.onNodeWithText(one, useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("Renamed worker", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(one, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Renamed worker", useUnmergedTree = true).assertExists()
         assertEquals(initial.id, capsule.fetchSemanticsNode().id)
         advance(400)
         compose.onNodeWithText(three, useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithText(one, useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("Renamed worker", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(one, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Renamed worker", useUnmergedTree = true).assertExists()
         capsule.performClick()
         assertEquals(1, selections)
         compose.onNode(isDialog()).assertDoesNotExist()
