@@ -7,7 +7,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.async
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -25,109 +24,113 @@ class PhoneControlWindowTest {
     private val params = WindowManager.LayoutParams().apply { alpha = 0.55f }
     private val manager = mockk<WindowManager>(relaxed = true)
 
-    @Test fun fadeIsAnExecutionBarrierAndRestorationWaitsBeforeFadingIn() = runTest {
-        val window = PhoneControlWindow(view, params, manager, this)
-        val hidden = async { window.beforeOperation() }
-        runCurrent()
+    @Test fun actionRemainsVisibleAndImmediatelyExcludesAllInputUntilCompletion() = runTest {
+        val window = PhoneControlWindow(view, params, manager)
+        window.beforeOperation()
         assertFalse(window.touchable)
         assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
-        advanceTimeBy(179); runCurrent()
-        assertFalse(hidden.isCompleted)
-        assertTrue(view.alpha > 0f)
-        advanceTimeBy(1); runCurrent(); hidden.await()
-        assertEquals(0f, view.alpha)
-        assertEquals(0f, params.alpha)
-        window.afterOperation()
-        advanceTimeBy(299); runCurrent()
-        assertEquals(0f, view.alpha)
-        advanceTimeBy(181); runCurrent()
+        assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0)
         assertEquals(1f, view.alpha)
         assertEquals(0.55f, params.alpha)
+        assertEquals(View.VISIBLE, view.visibility)
+        window.afterOperation()
         assertTrue(window.touchable)
         assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
-    }
-
-    @Test fun nextOperationCancelsPendingRestoreWithoutAVisibleFlash() = runTest {
-        val window = PhoneControlWindow(view, params, manager, this)
-        val first = async { window.beforeOperation() }
-        advanceTimeBy(180); runCurrent(); first.await()
-        window.afterOperation()
-        advanceTimeBy(250); runCurrent()
-        val second = async { window.beforeOperation() }
-        runCurrent(); second.await()
-        advanceTimeBy(600); runCurrent()
-        assertEquals(0f, view.alpha)
-        assertFalse(window.touchable)
-        window.afterOperation()
-        advanceTimeBy(480); runCurrent()
-        assertTrue(window.touchable)
-    }
-
-    @Test fun questionRestoresInputAndDeviceWorkWaitsUntilItIsAnswered() = runTest {
-        val window = PhoneControlWindow(view, params, manager, this)
-        val hidden = async { window.beforeOperation() }
-        advanceTimeBy(80); runCurrent()
-        window.showForUser(true)
-        advanceTimeBy(200); runCurrent()
-        assertFalse(hidden.isCompleted)
         assertEquals(1f, view.alpha)
+        assertEquals(0.55f, params.alpha)
+    }
+
+    @Test fun consecutiveActionsHaveNoDelayedRestorationOrOpacityWork() = runTest {
+        val window = PhoneControlWindow(view, params, manager)
+        repeat(3) {
+            window.beforeOperation()
+            assertFalse(window.touchable)
+            window.afterOperation()
+            assertTrue(window.touchable)
+        }
+        runCurrent()
+        assertEquals(1f, view.alpha)
+        assertEquals(0.55f, params.alpha)
+    }
+
+    @Test fun pendingQuestionRetainsInputAndBlocksDeviceAdmissionUntilAnswered() = runTest {
+        val window = PhoneControlWindow(view, params, manager)
+        window.showForUser(true)
+        val waiting = async { window.beforeOperation() }
+        runCurrent()
+        assertFalse(waiting.isCompleted)
         assertTrue(window.touchable)
         window.showForUser(false)
         runCurrent()
+        waiting.await()
         assertFalse(window.touchable)
-        advanceTimeBy(180); runCurrent(); hidden.await()
-        assertEquals(0f, view.alpha)
         window.afterOperation()
-        advanceTimeBy(480); runCurrent()
+        assertTrue(window.touchable)
     }
 
-    @Test fun questionThatArrivesDuringAnActionHidesAgainWhenSettled() = runTest {
-        val window = PhoneControlWindow(view, params, manager, this)
-        val hidden = async { window.beforeOperation() }
-        advanceTimeBy(180); runCurrent(); hidden.await()
+    @Test fun questionDuringActionTemporarilyRestoresInputAndSettlingRestoresPassThrough() = runTest {
+        val window = PhoneControlWindow(view, params, manager)
+        window.beforeOperation()
         window.showForUser(true)
-        advanceTimeBy(180); runCurrent()
         assertTrue(window.touchable)
-        assertEquals(1f, view.alpha)
         window.showForUser(false)
         assertFalse(window.touchable)
-        advanceTimeBy(180); runCurrent()
-        assertEquals(0f, view.alpha)
+        assertEquals(1f, view.alpha)
         window.afterOperation()
-        advanceTimeBy(480); runCurrent()
         assertTrue(window.touchable)
     }
 
-    @Test fun closingAWaitingQuestionUnblocksTheOldOperationAndCancelsWindowWrites() = runTest {
-        val window = PhoneControlWindow(view, params, manager, this)
+    @Test fun closingQuestionUnblocksOldOperationWithoutLaterWindowWrites() = runTest {
+        val window = PhoneControlWindow(view, params, manager)
         window.showForUser(true)
         val waiting = async { runCatching { window.beforeOperation() }.exceptionOrNull() }
         runCurrent()
         window.close()
         runCurrent()
         assertTrue(waiting.await() is PhoneFailure)
-        val updates = mutableListOf<Int>()
-        every { manager.updateViewLayout(any(), any()) } answers { updates += 1 }
+        val writes = mutableListOf<Int>()
+        every { manager.updateViewLayout(any(), any()) } answers { writes += 1 }
         window.afterOperation()
-        advanceTimeBy(1000); runCurrent()
-        assertTrue(updates.isEmpty())
+        window.showForUser(true)
+        runCurrent()
+        assertTrue(writes.isEmpty())
         assertFalse(window.touchable)
     }
 
-    @Test fun cancellationRestoresTheSameWindowAndNeverMakesAFadingOutWindowTouchable() = runTest {
-        val window = PhoneControlWindow(view, params, manager, this)
-        val pending = async {
+    @Test fun questionDuringCaptureCannotMakeTheHiddenWindowInterceptInput() = runTest {
+        val window = PhoneControlWindow(view, params, manager)
+        window.beforeOperation()
+        window.capture(true)
+        window.showForUser(true)
+        assertFalse(window.touchable)
+        assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+        window.capture(false)
+        assertTrue(window.touchable)
+        window.showForUser(false)
+        assertFalse(window.touchable)
+        window.afterOperation()
+        assertTrue(window.touchable)
+    }
+
+    @Test fun cancellationAndFailureRestoreInputInTheOperationFinallyBoundary() = runTest {
+        val window = PhoneControlWindow(view, params, manager)
+        window.showForUser(true)
+        val waiting = async {
             try { window.beforeOperation() } finally { window.afterOperation() }
         }
-        advanceTimeBy(80); runCurrent()
-        pending.cancel(); runCurrent()
-        advanceTimeBy(480); runCurrent()
-        assertEquals(1f, view.alpha)
+        runCurrent()
+        waiting.cancel()
+        runCurrent()
         assertTrue(window.touchable)
-        val next = async { window.beforeOperation() }
-        advanceTimeBy(180); runCurrent(); next.await()
-        assertFalse(window.touchable)
+        window.showForUser(false)
+        val error = runCatching {
+            try { window.beforeOperation(); error("device failed") } finally { window.afterOperation() }
+        }.exceptionOrNull()
+        assertEquals("device failed", error?.message)
+        assertTrue(window.touchable)
         window.close()
+        window.afterOperation()
+        assertFalse(window.touchable)
         verify(atLeast = 1) { manager.updateViewLayout(view, params) }
     }
 }

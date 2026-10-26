@@ -8,6 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
@@ -131,6 +135,46 @@ class PhoneOverlayLabelsTest {
         assertTrue(final > initial)
         frames(400)
         assertEquals(final, width("status"), 0.01f)
+    }
+    @Test fun durationReplacesItsOnlyTextNodeWithoutAnOutgoingLabel() {
+        start()
+        compose.runOnIdle { seconds = 71 }
+        frames(32)
+        compose.onNodeWithText("1:11").assertExists()
+        compose.onNodeWithText("0:00").assertDoesNotExist()
+        compose.runOnIdle { seconds = 600 }
+        frames(32)
+        compose.onNodeWithText("10:00").assertExists()
+        compose.onNodeWithText("1:11").assertDoesNotExist()
+    }
+    @Test fun mergedStripSeparatesSlopGatedDraggingFromStopClicks() {
+        var movement = Offset.Zero
+        var stops = 0
+        compose.setContent {
+            AgoraTheme {
+                Box(Modifier.size(360.dp, 200.dp)) {
+                    PhoneControlStrip(0, "Thinking", { stops++ }, Modifier.testTag("strip"),
+                        onDrag = { movement += it })
+                }
+            }
+        }
+        compose.onNodeWithText("0:00").performTouchInput { click() }
+        assertEquals(Offset.Zero, movement)
+        assertEquals(0, stops)
+        compose.onNodeWithText("Thinking").performTouchInput {
+            down(center); moveBy(Offset(80f, 30f), delayMillis = 100); up()
+        }
+        assertTrue(movement.x > 0f && movement.y > 0f)
+        assertEquals(0, stops)
+        val beforeStop = movement
+        compose.onNodeWithText("Stop").performClick()
+        assertEquals(1, stops)
+        assertEquals(beforeStop, movement)
+        val strip = compose.onNodeWithTag("strip").getUnclippedBoundsInRoot()
+        val duration = compose.onNodeWithText("0:00").getUnclippedBoundsInRoot()
+        val stop = compose.onNodeWithText("Stop").getUnclippedBoundsInRoot()
+        assertTrue(duration.left >= strip.left && stop.right <= strip.right)
+        assertTrue(stop.left > duration.right)
     }
     @Test fun durationFormatsCoverBothRequestedCarries() {
         assertEquals("0:00", phoneDuration(0))

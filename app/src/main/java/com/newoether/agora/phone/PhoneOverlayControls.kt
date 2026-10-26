@@ -6,6 +6,16 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.AbsoluteAlignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
@@ -51,21 +61,27 @@ internal fun PhoneControls(
     val label = if (questions.isNotEmpty()) R.string.phone_waiting
         else if (action == "phone_type") R.string.phone_typing else phoneActionLabel(action)
     val reduce = LocalAgoraMotionPolicy.current.reduceMotion
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            PhoneDurationCapsule(elapsed, phoneTouchBounds("duration", bounds))
-            PhoneStatusCapsule(stringResource(label), phoneTouchBounds("status", bounds))
-            Spacer(Modifier.weight(1f))
-            FilledTonalButton(modifier = phoneTouchBounds("stop", bounds), onClick = { runtime.revoke(owner.owner, owner.epoch) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
-                Text(stringResource(R.string.phone_stop))
-            }
-        }
-        AnimatedVisibility(questions.isNotEmpty(), enter = fadeIn() + if (reduce) androidx.compose.animation.EnterTransition.None else scaleIn(initialScale = 0.96f),
+    BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
+        var position by remember(owner.epoch) { mutableStateOf(Offset.Zero) }
+        var stripSize by remember { mutableStateOf(IntSize.Zero) }
+        fun constrained(value: Offset) = Offset(
+            value.x.coerceIn(0f, (constraints.maxWidth - stripSize.width).coerceAtLeast(0).toFloat()),
+            value.y.coerceIn(0f, (constraints.maxHeight - stripSize.height).coerceAtLeast(0).toFloat()),
+        )
+        val placed = constrained(position)
+        PhoneControlStrip(elapsed, stringResource(label), { runtime.revoke(owner.owner, owner.epoch) },
+            Modifier.align(AbsoluteAlignment.TopLeft)
+                .absoluteOffset { IntOffset(placed.x.roundToInt(), placed.y.roundToInt()) }
+                .onSizeChanged { stripSize = it }.then(phoneTouchBounds("strip", bounds)),
+            onDrag = { position = constrained(constrained(position) + it) })
+        val askTop = with(LocalDensity.current) { stripSize.height.toDp() } + 8.dp
+        AnimatedVisibility(questions.isNotEmpty(), modifier = Modifier.align(Alignment.TopCenter).padding(top = askTop),
+            enter = fadeIn() + if (reduce) androidx.compose.animation.EnterTransition.None else scaleIn(initialScale = 0.96f),
             exit = fadeOut() + if (reduce) androidx.compose.animation.ExitTransition.None else scaleOut(targetScale = 0.96f)) {
             val first = contentQuestions.firstOrNull()
             if (first != null) {
                 val group = contentQuestions.filter { if (first.setId == null) it.id == first.id else it.setId == first.setId }
-                Surface(Modifier.widthIn(max = 420.dp).fillMaxWidth().padding(top = 8.dp).then(phoneTouchBounds("ask", bounds)), shape = MaterialTheme.shapes.extraLarge,
+                Surface(Modifier.widthIn(max = 420.dp).fillMaxWidth().then(phoneTouchBounds("ask", bounds)), shape = MaterialTheme.shapes.extraLarge,
                     color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 8.dp, shadowElevation = 6.dp) {
                     PhoneAskCard(group, runtime.askUser, focusable, bounds)
                 }
@@ -74,6 +90,32 @@ internal fun PhoneControls(
     }
 }
 
+@Composable
+internal fun PhoneControlStrip(
+    elapsed: Long,
+    status: String,
+    onStop: () -> Unit,
+    modifier: Modifier = Modifier,
+    onDrag: (Offset) -> Unit,
+) {
+    val latestDrag by rememberUpdatedState(onDrag)
+    Row(modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(Modifier.pointerInput(Unit) {
+            detectDragGestures { change, delta -> change.consume(); latestDrag(delta) }
+        }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            PhoneDurationCapsule(elapsed)
+            PhoneStatusCapsule(status)
+        }
+        val shape = RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 24.dp, bottomEnd = 24.dp)
+        Surface(shape = shape, color = MaterialTheme.colorScheme.primaryContainer) {
+            Box(Modifier.fillMaxHeight().clickable(onClick = onStop).padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center) {
+                Text(stringResource(R.string.phone_stop), style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+}
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PhoneAskCard(

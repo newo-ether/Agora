@@ -72,7 +72,7 @@ private fun PhoneLabelCapsule(
     )
     val shape = remember(duration) {
         if (duration) RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 5.dp, bottomEnd = 5.dp)
-        else RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 24.dp, bottomEnd = 24.dp)
+        else RoundedCornerShape(5.dp)
     }
     Box(modifier.height(height).width(clipWidth).clip(shape)) {
         Surface(
@@ -81,9 +81,14 @@ private fun PhoneLabelCapsule(
             color = MaterialTheme.colorScheme.primaryContainer,
         ) {
             Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
-                IdentityLabelCrossfade(targetState = text) { label ->
-                    Text(label, Modifier.wrapContentWidth(Alignment.Start, unbounded = true), style = style,
+                if (duration) {
+                    Text(text, Modifier.wrapContentWidth(Alignment.Start, unbounded = true), style = style,
                         maxLines = 1, softWrap = false)
+                } else {
+                    IdentityLabelCrossfade(targetState = text) { label ->
+                        Text(label, Modifier.wrapContentWidth(Alignment.Start, unbounded = true), style = style,
+                            maxLines = 1, softWrap = false)
+                    }
                 }
             }
         }

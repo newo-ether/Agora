@@ -100,7 +100,7 @@ internal class PhoneOverlay(
             PhoneControls(runtime, epoch, ::focusable, ::bounds)
         } }
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT, type,
+            WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
         )
@@ -117,7 +117,7 @@ internal class PhoneOverlay(
         try {
             windows.addView(effectView, effectParams)
             windows.addView(controls, params)
-            controlWindow = PhoneControlWindow(controls, params, windows, controlScope)
+            controlWindow = PhoneControlWindow(controls, params, windows)
             controlScope.launch {
                 runtime.askUser.requests.collect { requests ->
                     val owner = runtime.lease.held.value?.takeIf { it.epoch == epoch }?.owner
@@ -191,6 +191,7 @@ internal class PhoneOverlay(
         withContext(Dispatchers.Main.immediate) {
             (controlWindow ?: throw PhoneFailure("overlay_unavailable")).beforeOperation()
             capturing.value = true
+            controlWindow?.capture(true)
             control?.visibility = View.INVISIBLE
             try {
                 frame()
@@ -200,6 +201,7 @@ internal class PhoneOverlay(
                 withContext(NonCancellable + Dispatchers.Main.immediate) {
                     capturing.value = false
                     if (visible.value) control?.visibility = View.VISIBLE
+                    controlWindow?.capture(false)
                 }
             }
         }

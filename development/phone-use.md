@@ -112,15 +112,19 @@ otherwise):
 
 - Effect window: full screen, `FLAG_NOT_TOUCHABLE | FLAG_NOT_FOCUSABLE`, `FLAG_KEEP_SCREEN_ON`.
   Draws the border and the cursor.
-- Control window: wraps only the capsules, Stop button, and ask card; touchable. Focusable only
-  while the ask card has a text field focused.
+- Control window: occupies the available inset-safe frame, with only the measured strip and ask
+  card in its touch region. Transparent space passes through. Focusable only while an ask text field
+  is focused; device work temporarily excludes the entire window from input.
 
 Screen stays on through `FLAG_KEEP_SCREEN_ON` on the effect window; no WakeLock.
 
 ### 4.1 Border
 
-- Inward alpha falloff from the screen edges, following the device corner radius. Color from the
-  current theme primary.
+- Inward alpha falloff from the screen edges. On API 31+, use all four system RoundedCorner
+  radii and centers, translated into the effect view's coordinates. Refresh after attachment,
+  Insets, layout and rotation changes, with Display corner data as the window-Inset fallback.
+  Valid square/no-corner data never retains the legacy 28 dp fallback. System quarter-circles are
+  an approximation of the physical mask, not exact pixel geometry. Color from current theme primary.
 - Enter: a reveal mask sweeps bottom to top. Inside the mask band alpha ramps 0 → 1 and glow
   ramps 0 → 1 → 0. The band edge may be slanted and broken up by Perlin-noise masking.
 - Exit: the same animation reversed.
@@ -131,34 +135,35 @@ Screen stays on through `FLAG_KEEP_SCREEN_ON` on the effect window; no WakeLock.
 
 ### 4.2 Capsules and Stop
 
-Top-left, below the status bar: a duration capsule (elapsed since claim) joined to a status
-capsule; the inner joining corners use a small radius. Status text: `Thinking` while the owning
-Run streams model output, the action name during a tool (`Tap`, `Swipe`, `Typing`, ...),
-`Waiting for you` during ask_user. On the same row at the right edge: a Stop button that releases
+Initially top-left, below the status bar: duration, status and Stop form one joined strip with
+small inner corners and rounded outer ends. Dragging the duration/status area begins after platform
+touch slop and keeps the strip inside the available visible frame; Stop has its own click region.
+Status text: `Thinking` while the owning Run streams model output, the action name during a tool
+(`Tap`, `Swipe`, `Typing`, ...), `Waiting for you` during ask_user. Stop releases
 the lease without stopping the owning Run. The model is told the user revoked control: an in-flight
 `phone_*` call returns `released_by_user`, and every later `phone_*` call from the same Run,
 including `phone_claim`, returns `released_by_user` with no side effect. A later Run of that
 conversation may claim again. User touches on the screen do not interrupt control.
 
 ### 4.3 Action visibility and duration
-Before tap, long press, swipe, type, key, app launch, screenshot and UI tree work, fade the
-control window out over 180 ms and wait for completion. The window is FLAG_NOT_TOUCHABLE and
-NOT_FOCUSABLE from fade-out admission; zero alpha also publishes zero platform window opacity.
-The effect window and border do not participate. App-list privacy fallback navigation shares this
-same boundary. Revalidate the exact lease/Run after the wait and before device effects.
-On success, error or cancellation, schedule restoration after 300 ms, then fade in over 180 ms.
-A newer operation cancels that restore and keeps the window hidden. Removed/replaced overlays
-cancel their own animation and cannot restore a newer owner's window. Pending ask_user takes
-priority: show the controls and inputs, and wait before admitting device work until it settles.
-The floating Stop is temporarily unavailable during hidden actions; notification Stop remains live.
+Before tap, long press, swipe, type, key, app launch, screenshot and UI tree work, publish
+FLAG_NOT_TOUCHABLE and NOT_FOCUSABLE on the whole control window before device effects. Keep
+its view visibility, alpha and shared platform opacity unchanged. The effect window and border
+remain visible. App-list privacy fallback navigation shares this boundary. Revalidate the exact
+lease/Run after question suspension and before device effects. On success, error or cancellation,
+restore input immediately in the operation finally boundary, without a delay or opacity animation.
+Removed/replaced overlays cannot restore a newer owner's window. Pending ask_user takes priority:
+restore question inputs and wait before admitting device work until it settles. Stop and dragging
+are unavailable while the strip passes input through; notification Stop remains available.
 Duration uses the selected application font with `fontFeatureSettings = "tnum"`, never a separate
 monospace face. Verify actual `0:00` and `1:11` shaping widths before claiming tabular support.
 Independently measure all ten digits, fill the current colon-preserving format with its widest digit,
 and reserve that measured width. Use m:ss, mm:ss and h:mm:ss as elapsed time grows. Per-second
-changes retain width; only format carries change it. Duration carries and status identity changes
-use the model selector's actual shared IdentityClipWidth (400 ms FastOutSlowIn) and
-IdentityLabelCrossfade (200 ms FastOutSlowIn), final-width content and a start-anchored rounded
-clip. Reduced Motion snaps spatial changes and retains the label fade.
+changes retain width; only format carries change it. Duration text updates directly with one Text
+node and no crossfade. Format carries retain the model selector's shared IdentityClipWidth (400 ms
+FastOutSlowIn), final-width content and start-anchored rounded clip. Status uses that same clip
+owner and IdentityLabelCrossfade (200 ms FastOutSlowIn). Reduced Motion snaps spatial changes;
+only status retains the label fade.
 
 ### 4.4 Ask card
 
@@ -179,9 +184,9 @@ A solid circle drawn on the effect window at each action point, theme colored.
 
 ### 4.6 Screenshot hygiene
 
-Before capture, recheck question priority and the completed fade, then hide the cursor and the
-control view (capsules, Stop, ask card) for two frames and the bitmap capture. Restore capture-only
-visibility in finally; the operation boundary still owns the delayed alpha/input restoration.
+Before capture, recheck question priority and input exclusion, then hide the cursor and control
+view (strip and ask card) for two frames and bitmap capture. Restore capture-only visibility in
+finally; the outer operation boundary owns immediate input restoration.
 A question arriving during that short capture interval becomes visible after capture cleanup.
 The border stays visible and tool descriptions tell the model a thin
 colored border is Agora's control indicator.
@@ -219,9 +224,10 @@ through the existing Settings store; Done only dismisses, without a separate Sav
   admission matrix, app access decisions including implicit allowlist entries, coordinate mapping,
   non-ASCII input path selection.
 - Every `phone_*` tool without a lease performs no side effect.
-- Overlay verification: completed fade before device effects, genuine input exclusion, delayed restore,
-  continuous actions without flash, ask priority, cancellation/error cleanup and stale owner removal.
-  Native text measurement reports default-font tnum shaping and proves digit-template stability and
-  both duration carries through the shared clip owner.
+- Overlay verification: visible action-time input exclusion without alpha changes, immediate restore,
+  ask priority, cancellation/error cleanup and stale owner removal. Verify independent system corner
+  centers/radii, inset stroke geometry, merged Stop/drag separation and safe placement.
+  Native text measurement reports default-font tnum shaping and proves digit-template stability,
+  direct duration text replacement and both format carries through the shared clip owner.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.
