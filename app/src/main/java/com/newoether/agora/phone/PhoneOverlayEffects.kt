@@ -2,6 +2,7 @@ package com.newoether.agora.phone
 
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,10 +46,16 @@ internal fun PhoneOverlayTheme(settings: SettingsRepository, content: @Composabl
 @Composable
 internal fun PhoneEffect(runtime: PhoneUseRuntime, overlay: PhoneOverlay) {
     val primary = MaterialTheme.colorScheme.primary
-    val reduce = LocalAgoraMotionPolicy.current.reduceMotion
+    val motion = LocalAgoraMotionPolicy.current
+    val reduce = motion.reduceMotion
     val reveal = remember { Animatable(0f) }
     val visible = overlay.visible.value
-    LaunchedEffect(visible, reduce) { reveal.animateTo(if (visible) 1f else 0f, tween(if (reduce) 180 else 240)) }
+    LaunchedEffect(visible, reduce, motion.systemAnimationsDisabled) {
+        val target = if (visible) 1f else 0f
+        if (motion.systemAnimationsDisabled) reveal.snapTo(target)
+        else reveal.animateTo(target, tween(if (reduce) 180 else if (visible) 400 else 240,
+            easing = FastOutSlowInEasing))
+    }
     val cursor by runtime.cursor.collectAsState()
     var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     LaunchedEffect(cursor) {

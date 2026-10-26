@@ -158,18 +158,27 @@ Screen stays on through `FLAG_KEEP_SCREEN_ON` on the effect window; no WakeLock.
   Insets, layout and rotation changes, with Display corner data as the window-Inset fallback.
   Valid square/no-corner data never retains the legacy 28 dp fallback. System quarter-circles are
   an approximation of the physical mask, not exact pixel geometry. Color from current theme primary.
-- Enter: a reveal mask sweeps bottom to top. Inside the mask band alpha ramps 0 → 1 and glow
-  ramps 0 → 1 → 0. The band edge may be slanted and broken up by Perlin-noise masking.
-- Exit: the same animation reversed.
+- Enter: a 400 ms FastOutSlowIn reveal mask sweeps bottom to top. Inside the mask band alpha ramps
+  0 → 1 and glow ramps 0 → 1 → 0. The band edge may be slanted and broken up by Perlin-noise masking.
+- Exit: the same reveal reverses over 240 ms from its current progress.
 - Optional chromatic split is applied only to the border's own glow (RGB offset). Displacement or
   refraction of underlying app pixels is not possible: an overlay cannot sample other windows, and
   a MediaProjection feedback loop is rejected for latency and power.
-- Reduced Motion: plain fade.
+- App Reduced Motion: plain 180 ms fade. Disabled system animations snap to the final state.
 
 ### 4.2 Capsules and Stop
 
 Initially top-left, below the status bar: duration, status and Stop form one joined strip with
-small inner corners and rounded outer ends. Stop reuses the existing filled Stop icon at 24 dp,
+small inner corners and rounded outer ends. A successful claim fades this strip from zero opacity
+and scale 0.96 to one over 240 ms FastOutSlowIn, including its first composition. Release reverses
+that transition from the current progress. Retain the outgoing epoch's last duration, status and
+question presentation until the fade completes; later action/question updates and replacement leases
+cannot replace that content. Close the control window's input immediately at release, cancel its
+operation-opacity animation and reject old admission waiters. Outgoing Stop, drag and ask inputs
+are disabled. Retained drawing never extends or recreates the lease. The existing two windows are
+removed after the exit, or synchronously before a replacement epoch attaches. App Reduced Motion
+keeps the fade and fixes scale at one; disabled system animations snap.
+Stop reuses the existing filled Stop icon at 24 dp,
 with the localized `phone_stop` content description and a click target of at least 48 x 48 dp.
 Duration/status and Stop share one strip-level press feedback: scale to 1.05 over 120 ms and
 blend the opaque theme primaryContainer toward onPrimaryContainer by six percent. Keep that
@@ -287,7 +296,10 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
   centers/radii, inset stroke geometry, merged Stop/drag separation and safe placement.
   Native gesture/drawing tests cover the icon's localized accessible button semantics and 48 dp
   target, one shared press scale/tint through drag/Stop/release/cancellation, Reduced Motion,
-  maximum-scale safe bounds and opaque capsule paint in light/dark themes.
+  maximum-scale safe bounds and opaque capsule paint in light/dark themes. Real drawn frames also
+  cover initial/intermediate/settled claim and release opacity, scale, retained outgoing action/ask
+  content, disabled outgoing inputs, epoch replacement, interrupted entry, slower border reveal,
+  App Reduced Motion fade-only and disabled-system snap.
   Native text measurement reports default-font tnum shaping and proves digit-template stability,
   direct duration text replacement and both format carries through the shared clip owner.
 - Permission diagnostics: one entry snapshot, claim-only overlay and Root probe, no periodic

@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -59,22 +60,41 @@ internal fun PhoneControls(
     epoch: Long,
     focusable: (Boolean) -> Unit,
     bounds: (String, Rect?) -> Unit,
+    visible: Boolean = true,
 ) {
     val held by runtime.lease.held.collectAsState()
     val requests by runtime.askUser.requests.collectAsState()
     val action by runtime.actionName.collectAsState()
-    val owner = held?.takeIf { it.epoch == epoch } ?: return
-    val questions = requests.filter { it.conversationId == owner.owner.conversationId && it.runId == owner.owner.runId }
+    val liveOwner = held?.takeIf { it.epoch == epoch }
+    val owner = remember(epoch) { liveOwner } ?: return
+    val active = visible && liveOwner != null
+    val liveQuestions = requests.filter { it.conversationId == owner.owner.conversationId && it.runId == owner.owner.runId }
+    var retainedQuestions by remember(epoch) { mutableStateOf(liveQuestions) }
+    var retainedAction by remember(epoch) { mutableStateOf(action) }
+    if (active) SideEffect { retainedQuestions = liveQuestions; retainedAction = action }
+    val questions = if (active) liveQuestions else retainedQuestions
+    val displayedAction = if (active) action else retainedAction
     var elapsed by remember(owner.epoch) { mutableLongStateOf(0) }
-    LaunchedEffect(owner.epoch) {
-        while (true) { elapsed = (SystemClock.elapsedRealtime() - owner.claimedAt) / 1000; delay(1000) }
+    LaunchedEffect(owner.epoch, active) {
+        if (active) while (true) {
+            elapsed = (SystemClock.elapsedRealtime() - owner.claimedAt) / 1000
+            delay(1000)
+        }
     }
+    val motion = LocalAgoraMotionPolicy.current
+    val reveal = remember(epoch) { Animatable(0f) }
+    LaunchedEffect(active, motion.systemAnimationsDisabled) {
+        if (motion.systemAnimationsDisabled) reveal.snapTo(if (active) 1f else 0f)
+        else reveal.animateTo(if (active) 1f else 0f, tween(240, easing = FastOutSlowInEasing))
+    }
+    val progress = if (motion.systemAnimationsDisabled) if (active) 1f else 0f else reveal.value
+    if (!active && progress == 0f) return
     var exitingQuestions by remember(owner.epoch) { mutableStateOf(emptyList<AskUserController.Request>()) }
     if (questions.isNotEmpty()) SideEffect { exitingQuestions = questions }
     val contentQuestions = questions.ifEmpty { exitingQuestions }
     val label = if (questions.isNotEmpty()) R.string.phone_waiting
-        else if (action == "phone_type") R.string.phone_typing else phoneActionLabel(action)
-    val reduce = LocalAgoraMotionPolicy.current.reduceMotion
+        else if (displayedAction == "phone_type") R.string.phone_typing else phoneActionLabel(displayedAction)
+    val reduce = motion.reduceMotion
     BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
         var position by remember(owner.epoch) { mutableStateOf(Offset.Zero) }
         var stripSize by remember { mutableStateOf(IntSize.Zero) }
@@ -83,21 +103,34 @@ internal fun PhoneControls(
             value.y.coerceIn(0f, (constraints.maxHeight - stripSize.height).coerceAtLeast(0).toFloat()),
         )
         val placed = constrained(position)
-        PhoneControlStrip(elapsed, stringResource(label), { runtime.revoke(owner.owner, owner.epoch) },
+        PhoneControlStrip(elapsed, stringResource(label), {
+            if (active && runtime.lease.held.value?.epoch == epoch) runtime.revoke(owner.owner, owner.epoch)
+        },
             Modifier.align(AbsoluteAlignment.TopLeft)
                 .absoluteOffset { IntOffset(placed.x.roundToInt(), placed.y.roundToInt()) }
-                .onSizeChanged { stripSize = it }.then(phoneTouchBounds("strip", bounds)),
-            onDrag = { position = constrained(constrained(position) + it) })
+                .onSizeChanged { stripSize = it }
+                .graphicsLayer {
+                    alpha = progress
+                    val scale = if (reduce) 1f else 0.96f + 0.04f * progress
+                    scaleX = scale; scaleY = scale
+                }.then(phoneTouchBounds("strip", bounds)),
+            enabled = active,
+            onDrag = { if (active && runtime.lease.held.value?.epoch == epoch)
+                position = constrained(constrained(position) + it) })
         val askTop = with(LocalDensity.current) { stripSize.height.toDp() } + 8.dp
-        AnimatedVisibility(questions.isNotEmpty(), modifier = Modifier.align(Alignment.TopCenter).padding(top = askTop),
-            enter = fadeIn() + if (reduce) androidx.compose.animation.EnterTransition.None else scaleIn(initialScale = 0.96f),
-            exit = fadeOut() + if (reduce) androidx.compose.animation.ExitTransition.None else scaleOut(targetScale = 0.96f)) {
+        val questionDuration = if (motion.systemAnimationsDisabled) 0 else 240
+        AnimatedVisibility(questions.isNotEmpty(), modifier = Modifier.align(Alignment.TopCenter).padding(top = askTop)
+            .graphicsLayer { alpha = progress },
+            enter = fadeIn(tween(questionDuration)) + if (reduce) androidx.compose.animation.EnterTransition.None
+                else scaleIn(tween(questionDuration), initialScale = 0.96f),
+            exit = fadeOut(tween(questionDuration)) + if (reduce) androidx.compose.animation.ExitTransition.None
+                else scaleOut(tween(questionDuration), targetScale = 0.96f)) {
             val first = contentQuestions.firstOrNull()
             if (first != null) {
                 val group = contentQuestions.filter { if (first.setId == null) it.id == first.id else it.setId == first.setId }
                 Surface(Modifier.widthIn(max = 420.dp).fillMaxWidth().then(phoneTouchBounds("ask", bounds)), shape = MaterialTheme.shapes.extraLarge,
                     color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 8.dp, shadowElevation = 6.dp) {
-                    PhoneAskCard(group, runtime.askUser, focusable, bounds)
+                    PhoneAskCard(group, runtime.askUser, focusable, bounds, enabled = active)
                 }
             }
         }
@@ -110,6 +143,7 @@ internal fun PhoneControlStrip(
     status: String,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     onDrag: (Offset) -> Unit,
 ) {
     val latestDrag by rememberUpdatedState(onDrag)
@@ -138,7 +172,8 @@ internal fun PhoneControlStrip(
             val height = constraints.constrainHeight(ceil(child.height * 1.05f).toInt())
             layout(width, height) { child.place((width - child.width) / 2, (height - child.height) / 2) }
         }.graphicsLayer { scaleX = scale; scaleY = scale }
-            .pointerInput(Unit) {
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
                 // Observe before children consume events; dragging and Stop keep their own input owners.
                 awaitEachGesture {
                     try {
@@ -155,8 +190,8 @@ internal fun PhoneControlStrip(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Row(Modifier.pointerInput(Unit) {
-            detectDragGestures { change, delta -> change.consume(); latestDrag(delta) }
+        Row(Modifier.pointerInput(enabled) {
+            if (enabled) detectDragGestures { change, delta -> change.consume(); latestDrag(delta) }
         }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             PhoneDurationCapsule(elapsed, containerColor = containerColor)
             PhoneStatusCapsule(status, containerColor = containerColor)
@@ -166,7 +201,7 @@ internal fun PhoneControlStrip(
             Box(Modifier.width(48.dp).fillMaxHeight().heightIn(min = 48.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() }, indication = null,
-                    role = Role.Button, onClick = onStop,
+                    enabled = enabled, role = Role.Button, onClick = onStop,
                 ), contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Stop, stringResource(R.string.phone_stop), Modifier.size(24.dp))
             }
@@ -177,7 +212,7 @@ internal fun PhoneControlStrip(
 @Composable
 private fun PhoneAskCard(
     questions: List<AskUserController.Request>, controller: AskUserController,
-    focusable: (Boolean) -> Unit, bounds: (String, Rect?) -> Unit,
+    focusable: (Boolean) -> Unit, bounds: (String, Rect?) -> Unit, enabled: Boolean,
 ) {
     val selections = remember(questions.map { it.id }) { mutableStateMapOf<Long, Set<String>>() }
     val texts = remember(questions.map { it.id }) { mutableStateMapOf<Long, String>() }
@@ -193,18 +228,20 @@ private fun PhoneAskCard(
                     FilterChip(selected = selected, onClick = {
                         selections[question.id] = if (!question.allowMultiple) if (selected) emptySet() else setOf(option)
                         else selections[question.id].orEmpty().let { if (selected) it - option else it + option }
-                    }, label = { Text(option) })
+                    }, enabled = enabled, label = { Text(option) })
                 }
             }
             OutlinedTextField(value = texts[question.id].orEmpty(), onValueChange = { texts[question.id] = it },
+                enabled = enabled,
                 modifier = Modifier.fillMaxWidth().then(phoneTouchBounds("text-${question.id}", bounds))
-                    .pointerInput(question.id) {
+                    .pointerInput(question.id, enabled) {
+                        if (!enabled) return@pointerInput
                         awaitEachGesture {
                             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                             focusable(true)
                         }
                     }.onFocusChanged {
-                        if (it.isFocused) { focusedFields[question.id] = true; focusable(true) }
+                        if (it.isFocused && enabled) { focusedFields[question.id] = true; focusable(true) }
                         else {
                             focusedFields.remove(question.id)
                             scope.launch { withFrameNanos { }; focusable(focusedFields.isNotEmpty()) }
@@ -219,7 +256,7 @@ private fun PhoneAskCard(
                 val text = texts[question.id]?.takeIf(String::isNotBlank)
                 question.id to AskUserController.Answer(choices, text, choices.isNotEmpty() || text != null)
             })
-        }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.phone_send)) }
+        }, enabled = enabled, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.phone_send)) }
     }
 }
 

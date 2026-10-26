@@ -97,7 +97,7 @@ internal class PhoneOverlay(
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         val controls = view().also { control = it }
         controls.setContent { PhoneOverlayTheme(runtime.settings) {
-            PhoneControls(runtime, epoch, ::focusable, ::bounds)
+            PhoneControls(runtime, epoch, ::focusable, ::bounds, visible = visible.value)
         } }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, type,
@@ -176,8 +176,9 @@ internal class PhoneOverlay(
     }
 
     private fun focusable(focused: Boolean) {
+        if (!visible.value || removed) return
         val params = controlParams ?: return
-        params.flags = if (focused && controlWindow?.touchable == true && !capturing.value)
+        params.flags = if (visible.value && focused && controlWindow?.touchable == true && !capturing.value)
             params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
             else params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         control?.let { runCatching { manager?.updateViewLayout(it, params) } }
@@ -214,8 +215,8 @@ internal class PhoneOverlay(
 
     suspend fun hide() {
         visible.value = false
-        control?.visibility = View.GONE
-        kotlinx.coroutines.delay(260)
+        controlWindow?.close()
+        kotlinx.coroutines.delay(280)
         remove()
     }
 
