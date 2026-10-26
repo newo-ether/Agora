@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -88,11 +87,10 @@ internal fun PhoneStatusCapsule(
     }
     if (active) SideEffect { retainedAlpha = alpha }
     PhoneLabelCapsule(text, text, text, MaterialTheme.typography.labelLarge, duration = false,
-        modifier = modifier.graphicsLayer { this.alpha = alpha },
-        containerColor = containerColor)
+        modifier = modifier, containerColor = containerColor, textAlpha = alpha)
 }
 
-/** Same final-layout canvas, clip owner and label transition as ComposerModelSelector. */
+/** Final-width label canvas inside a painted clip whose slot also positions the next capsule. */
 @Composable
 private fun PhoneLabelCapsule(
     text: String,
@@ -102,6 +100,7 @@ private fun PhoneLabelCapsule(
     duration: Boolean,
     modifier: Modifier,
     containerColor: Color,
+    textAlpha: Float = 1f,
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -117,22 +116,27 @@ private fun PhoneLabelCapsule(
         if (duration) RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 5.dp, bottomEnd = 5.dp)
         else RoundedCornerShape(5.dp)
     }
-    Box(modifier.height(height).width(clipWidth).clip(shape)) {
-        Surface(
-            modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true).size(targetWidth, height),
-            shape = shape,
-            color = containerColor.copy(alpha = 1f),
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 1f),
+    Surface(
+        modifier = modifier.height(height).width(clipWidth),
+        shape = shape,
+        color = containerColor.copy(alpha = 1f),
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 1f),
+    ) {
+        // Paint the whole visible width even while shrinking past the incoming label's final width.
+        // Only the label canvas uses targetWidth; its text never receives animated constraints.
+        Box(
+            Modifier.wrapContentWidth(Alignment.Start, unbounded = true).size(targetWidth, height)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            contentAlignment = Alignment.CenterStart,
         ) {
-            Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
-                if (duration) {
-                    Text(text, Modifier.wrapContentWidth(Alignment.Start, unbounded = true), style = style,
+            if (duration) {
+                Text(text, Modifier.wrapContentWidth(Alignment.Start, unbounded = true), style = style,
+                    maxLines = 1, softWrap = false)
+            } else {
+                IdentityLabelCrossfade(targetState = text,
+                    modifier = Modifier.graphicsLayer { alpha = textAlpha }) { label ->
+                    Text(label, Modifier.wrapContentWidth(Alignment.Start, unbounded = true), style = style,
                         maxLines = 1, softWrap = false)
-                } else {
-                    IdentityLabelCrossfade(targetState = text) { label ->
-                        Text(label, Modifier.wrapContentWidth(Alignment.Start, unbounded = true), style = style,
-                            maxLines = 1, softWrap = false)
-                    }
                 }
             }
         }

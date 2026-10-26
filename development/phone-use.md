@@ -209,9 +209,10 @@ and device work. The existing serialized provider supplies this bounded pacing; 
 queue can accumulate behind device execution. Recheck the exact lease/Run/settings after that wait.
 On completion, retain the last action for one second before returning to Thinking. A new operation
 cancels this idle deadline and switches as soon as the previous 200 ms minimum has elapsed.
-Thinking breathes the status capsule's composed alpha from 0.8 to 0.2 and back over a two-second
-FastOutSlowIn cycle. Duration and Stop remain unchanged. Reduced Motion and disabled system
-animations keep Thinking at alpha 0.8; exiting controls stop breathing and retain their last alpha.
+Thinking breathes only the status text's alpha from 0.8 to 0.2 and back over a two-second
+FastOutSlowIn cycle. The capsule background remains opaque; duration and Stop remain unchanged.
+Reduced Motion and disabled system animations keep Thinking text at alpha 0.8; exiting controls
+stop breathing and retain their last text alpha.
 Stop releases
 the lease without stopping the owning Run. The model is told the user revoked control: an in-flight
 `phone_*` call returns `released_by_user`, and every later `phone_*` call from the same Run,
@@ -241,8 +242,11 @@ and reserve that measured width. Use m:ss, mm:ss and h:mm:ss as elapsed time gro
 changes retain width; only format carries change it. Duration text updates directly with one Text
 node and no crossfade. Format carries retain the model selector's shared IdentityClipWidth (400 ms
 FastOutSlowIn), final-width content and start-anchored rounded clip. Status uses that same clip
-owner and IdentityLabelCrossfade (200 ms FastOutSlowIn). Reduced Motion snaps spatial changes;
-only status retains the label fade.
+owner and IdentityLabelCrossfade (200 ms FastOutSlowIn). The rounded Surface paints and clips the
+entire animated visible width in both directions, while its label remains laid out at the final
+width. The layout slot equals that visible clip width, so status follows duration and Stop follows
+status with the unchanged 2 dp gap on every frame, including shrinking and interrupted changes.
+Reduced Motion snaps spatial changes; only status retains the label fade.
 
 ### 4.4 Ask card
 
@@ -324,7 +328,9 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
   direct duration text replacement and both format carries through the shared clip owner.
   Feedback regressions cover real capture fade frames/zero-alpha barrier/finally/removal, one-second
   status grace, 200 ms minimum including identical names, stale reset/cancellation, actual Thinking
-  alpha range and Reduced Motion stability, and consecutive snapshot reuse with epoch/display/app fences.
+  text-only alpha range with opaque capsule backgrounds, Reduced Motion stability, per-frame
+  painted width and Stop adjacency through expansion/shrink/interruption and duration carries,
+  and consecutive snapshot reuse with epoch/display/app fences.
 - Permission diagnostics: one entry snapshot, claim-only overlay and Root probe, no periodic
   checks or mid-operation re-probes, settings-probe isolation, mode-filtered platform events,
   Accessibility replacement lifecycle, stale Shizuku disconnects, command/timeout non-release,
