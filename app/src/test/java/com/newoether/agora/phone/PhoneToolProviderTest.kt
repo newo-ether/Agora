@@ -24,6 +24,7 @@ class PhoneToolProviderTest {
     private var platformEffects = 0
     private var readiness: suspend () -> Boolean = { true }
     private var beforeOperation: suspend () -> Unit = {}
+    private var statusUpdate: suspend (String?) -> Unit = {}
     private var operationStarts = 0
     private var operationEnds = 0
     private var foreground: suspend () -> String = { "allowed" }
@@ -51,7 +52,7 @@ class PhoneToolProviderTest {
         device = { platformEffects++; backend }, ownPackage = "agora", launcher = { "launcher" },
         persist = { error("Unexpected persistence") }, captured = { error("Unexpected capture") },
         showControl = { platformEffects++ }, action = { _, _, _, _, _, _ -> platformEffects++ },
-        status = { platformEffects++ },
+        status = { platformEffects++; statusUpdate(it) },
         operating = { work ->
             operationStarts++
             try { beforeOperation(); work() } finally { operationEnds++ }
@@ -175,16 +176,16 @@ class PhoneToolProviderTest {
         every { bounds.centerX() } returns 320
         every { bounds.centerY() } returns 640
         nodes = listOf(PhoneNode(0, bounds, "Target", "Button", true, false, false, false))
+        assertFalse(provider.executeOneShotResult("phone_ui_tree", "{}", context).isError)
         for ((name, duration) in listOf("phone_tap" to 60L, "phone_long_press" to 800L)) {
-            assertFalse(provider.executeOneShotResult("phone_ui_tree", "{}", context).isError)
             val result = provider.executeOneShotResult(name,
                 """{"node":0,"x":0,"y":0,"screenshot":false}""", context)
             assertFalse(result.text, result.isError)
             assertEquals(Triple(320, 640, duration), taps.last())
-            assertError("ui_tree_required", provider.executeOneShotResult(name,
-                """{"node":0,"x":0,"y":0,"screenshot":false}""", context))
+            assertFalse(provider.executeOneShotResult(name,
+                """{"node":0,"x":0,"y":0,"screenshot":false}""", context).isError)
         }
-        assertEquals(2, taps.size)
+        assertEquals(4, taps.size)
     }
 
     @Test fun nodePriorityRetainsSnapshotAndIndexValidationWithoutCoordinateFallback() = runTest {
@@ -211,14 +212,15 @@ class PhoneToolProviderTest {
         val before = platformEffects
         val pending = async { provider.executeOneShotResult("phone_key", """{"key":"home","screenshot":false}""", context) }
         entered.await()
-        assertEquals(before, platformEffects)
+        // Status is a local projection before the suspended window boundary.
+        assertEquals(before + 1, platformEffects)
         lease.held.value!!.let { lease.revokeByUser(it.owner, it.epoch) }
         resume.complete(Unit)
         assertError("released_by_user", pending.await())
         assertTrue(keys.isEmpty())
         assertEquals(1, operationStarts)
         assertEquals(1, operationEnds)
-        assertEquals(before + 1, platformEffects)
+        assertEquals(before + 2, platformEffects)
     }
     @Test fun visibilityScopeRestoresOnFailureAndCancellationAndDoesNotWrapClaimOrRelease() = runTest {
         assertFalse(claim().isError)
@@ -297,6 +299,55 @@ class PhoneToolProviderTest {
             val definition = provider.definitions(context).single { it.function.name == name }
             assertTrue(definition.function.description.contains("If node is given, x/y are ignored."))
         }
+    }
+
+    @Test fun statusPacingPrecedesWindowAdmissionAndFencesRevocationBeforeDeviceWork() = runTest {
+        assertFalse(claim().isError)
+        val entered = CompletableDeferred<Unit>()
+        val resume = CompletableDeferred<Unit>()
+        statusUpdate = { if (it != null) { entered.complete(Unit); resume.await() } }
+        val pending = async { provider.executeOneShotResult("phone_key",
+            """{"key":"home","screenshot":false}""", context) }
+        entered.await()
+        assertEquals(0, operationStarts)
+        lease.held.value!!.let { lease.revokeByUser(it.owner, it.epoch) }
+        resume.complete(Unit)
+        assertError("released_by_user", pending.await())
+        assertTrue(keys.isEmpty())
+        assertEquals(1, operationStarts)
+        assertEquals(1, operationEnds)
+    }
+
+    @Test fun reusedNodeSnapshotStillRejectsAReplacementEpoch() = runTest {
+        assertFalse(claim().isError)
+        assertFalse(provider.executeOneShotResult("phone_ui_tree", "{}", context).isError)
+        assertFalse(provider.executeOneShotResult("phone_release", "{}", context).isError)
+        assertFalse(claim().isError)
+        assertError("ui_tree_required", provider.executeOneShotResult("phone_tap",
+            """{"node":0,"screenshot":false}""", context))
+        assertTrue(taps.isEmpty())
+    }
+
+    @Test fun consecutiveCoordinatesReuseOneCalibratedScreenAndRejectRotation() = runTest {
+        assertFalse(claim().isError)
+        // Seed the provider's exact persisted screenshot calibration without a bitmap fixture.
+        PhoneToolProvider::class.java.getDeclaredField("screen").apply { isAccessible = true }
+            .set(provider, lease.held.value!!.epoch to PhoneScreenSpace(540, 1200, 1080, 2400, 0))
+        repeat(3) {
+            assertFalse(provider.executeOneShotResult("phone_tap",
+                """{"x":160,"y":320,"screenshot":false}""", context).isError)
+        }
+        assertEquals(List(3) { Triple(320, 640, 60L) }, taps)
+        dimensions = Triple(2400, 1080, 1)
+        assertError("screen_changed", provider.executeOneShotResult("phone_tap",
+            """{"x":160,"y":320,"screenshot":false}""", context))
+        assertEquals(3, taps.size)
+    }
+
+    @Test fun definitionsDescribeOptionalObservationAndConsecutiveActions() {
+        val definition = provider.definitions(context).single { it.function.name == "phone_tap" }
+        assertTrue(definition.function.description.contains("reading the screen between actions is optional"))
+        assertTrue(definition.function.parameters.properties.getValue("screenshot").description.contains("set false"))
     }
 
     @Test fun definitionsRespectFrozenReadinessAndAutomationLineage() {

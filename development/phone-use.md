@@ -99,9 +99,15 @@ Rules:
   targeting is preferred in tool descriptions because it survives scaling. For `phone_tap` and
   `phone_long_press`, a supplied node index takes priority and `x`/`y` are ignored, including optional
   coordinate defaults filled by the model. A stale snapshot or invalid node still fails explicitly;
-  it never falls back to those coordinates.
+  it never falls back to those coordinates. A valid snapshot may be reused for consecutive actions;
+  an action does not invalidate it solely because an action occurred. Epoch, display dimensions,
+  rotation and foreground package still fence node reuse. Snapshot bounds are observations, not
+  live tracking: refresh when the target layout changes. Screenshot coordinate calibration can
+  likewise be reused while its epoch/display remain valid. No observation is required between
+  consecutive known actions; initial node/coordinate targeting still needs its corresponding snapshot.
 - Action tools accept `screenshot` (default `true`); when true the result includes a post-action
-  screenshot captured after a short settle delay, saving one round per step.
+  screenshot captured after a short settle delay, saving one round per step. Set `screenshot=false`
+  for consecutive steps without capturing each action; tool descriptions make this option explicit.
 - Tool descriptions state current-mode limits (Accessibility screenshot rate limit and API 30+,
   `uiautomator dump` latency in Shizuku/Root, `FLAG_SECURE` windows capture black).
 - Shizuku/Root UI trees dump to `/data/local/tmp/agora_ui.xml`, read the file and delete it on
@@ -187,7 +193,8 @@ Stop has no second scale or ripple owner. Reduced Motion keeps scale at one and 
 Reserve the maximum press size in layout so enlarged drawing stays inside the safe frame.
 Capsule Surface/background colors and content colors are opaque; the border glow is independent.
 Platform window alpha is separate: the control window rests at one and fades to its operation
-alpha before device work. Accessibility keeps alpha one throughout. On Android 12+, ordinary
+alpha before device work. Accessibility uses alpha one for ordinary operations and participates in
+capture-only fade-out/fade-in. On Android 12+, ordinary
 Shizuku/Root overlay windows share the platform obscuring-opacity budget, normally 80 percent.
 For a platform maximum M, the unchanged effect window and the operating control window each use
 1 - sqrt(1 - M), with a small rounding margin; at M = 0.8 that is approximately 0.5527 per window,
@@ -196,7 +203,16 @@ existing window opacity stay unchanged.
 Dragging the duration/status area begins after platform touch slop and keeps the strip inside the
 available visible frame; Stop has its own click region.
 Status text: `Thinking` while the owning Run streams model output, the action name during a tool
-(`Tap`, `Swipe`, `Typing`, ...), `Waiting for you` during ask_user. Stop releases
+(`Tap`, `Swipe`, `Typing`, ...), `Waiting for you` during ask_user. Each operation, including repeated
+identical names, holds its status for at least 200 ms before admitting the next operation's status
+and device work. The existing serialized provider supplies this bounded pacing; no display-event
+queue can accumulate behind device execution. Recheck the exact lease/Run/settings after that wait.
+On completion, retain the last action for one second before returning to Thinking. A new operation
+cancels this idle deadline and switches as soon as the previous 200 ms minimum has elapsed.
+Thinking breathes the status capsule's composed alpha from 0.8 to 0.2 and back over a two-second
+FastOutSlowIn cycle. Duration and Stop remain unchanged. Reduced Motion and disabled system
+animations keep Thinking at alpha 0.8; exiting controls stop breathing and retain their last alpha.
+Stop releases
 the lease without stopping the owning Run. The model is told the user revoked control: an in-flight
 `phone_*` call returns `released_by_user`, and every later `phone_*` call from the same Run,
 including `phone_claim`, returns `released_by_user` with no side effect. A later Run of that
@@ -247,10 +263,14 @@ A solid circle drawn on the effect window at each action point, theme colored.
 
 ### 4.6 Screenshot hygiene
 
-Before capture, recheck question priority and input exclusion, then hide the cursor and control
-view (strip and ask card) for two frames and bitmap capture. Restore capture-only visibility in
-finally; the outer operation boundary owns immediate input restoration.
-A question arriving during that short capture interval becomes visible after capture cleanup.
+Before capture, recheck question priority and input exclusion, then hide the cursor and fade the
+control window's platform alpha from its current value to zero over 180 ms FastOutSlowIn. Keep the
+view attached and visible. Wait for actual zero alpha and two committed frames before bitmap capture.
+In finally, clear capture-only state and fade from the current alpha back to the current question or
+operation target; the outer operation boundary restores input and retargets alpha one. Cancellation
+and errors restore through the same owner. Close/removal rejects hidden-state waiters and prevents
+late alpha/input writes. Reduced Motion retains this fade; disabled system animations snap.
+A question arriving during capture remains input-excluded until capture cleanup, then fades in.
 The border stays visible and tool descriptions tell the model a thin
 colored border is Agora's control indicator.
 
@@ -302,6 +322,9 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
   App Reduced Motion fade-only and disabled-system snap.
   Native text measurement reports default-font tnum shaping and proves digit-template stability,
   direct duration text replacement and both format carries through the shared clip owner.
+  Feedback regressions cover real capture fade frames/zero-alpha barrier/finally/removal, one-second
+  status grace, 200 ms minimum including identical names, stale reset/cancellation, actual Thinking
+  alpha range and Reduced Motion stability, and consecutive snapshot reuse with epoch/display/app fences.
 - Permission diagnostics: one entry snapshot, claim-only overlay and Root probe, no periodic
   checks or mid-operation re-probes, settings-probe isolation, mode-filtered platform events,
   Accessibility replacement lifecycle, stale Shizuku disconnects, command/timeout non-release,

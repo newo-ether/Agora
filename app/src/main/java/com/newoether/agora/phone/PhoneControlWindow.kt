@@ -17,6 +17,7 @@ internal class PhoneControlWindow(
     private val operationAlpha: Float,
 ) {
     private val operationReady = MutableStateFlow(false)
+    private val captureReady = MutableStateFlow(false)
     private var userPriority = false
     private var operating = false
     private var closed = false
@@ -53,6 +54,11 @@ internal class PhoneControlWindow(
         refresh()
     }
 
+    suspend fun awaitCaptureHidden() {
+        captureReady.first { it }
+        if (closed || !capturing || params.alpha != 0f) throw PhoneFailure("overlay_unavailable")
+    }
+
     fun close() {
         if (closed) return
         closed = true
@@ -60,10 +66,15 @@ internal class PhoneControlWindow(
         publish()
         // Wake an old waiter so it fails instead of waiting on a removed window.
         operationReady.value = true
+        captureReady.value = true
     }
 
     private fun refresh() {
-        val target = if (capturing || (operating && !userPriority)) operationAlpha else 1f
+        val target = when {
+            capturing -> 0f
+            operating && !userPriority -> operationAlpha
+            else -> 1f
+        }
         publish()
         if (animator != null && alphaTarget == target) return
         cancelAnimation()
@@ -108,6 +119,7 @@ internal class PhoneControlWindow(
         else params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         manager.updateViewLayout(view, params)
         view.requestLayout()
+        captureReady.value = !closed && capturing && params.alpha == 0f && animator == null
         operationReady.value = !closed && operating && !userPriority && !capturing &&
             !touchable && params.alpha <= operationAlpha
     }

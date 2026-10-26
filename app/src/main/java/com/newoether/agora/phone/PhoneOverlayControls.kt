@@ -115,6 +115,7 @@ internal fun PhoneControls(
                     scaleX = scale; scaleY = scale
                 }.then(phoneTouchBounds("strip", bounds)),
             enabled = active,
+            thinking = questions.isEmpty() && displayedAction == null,
             onDrag = { if (active && runtime.lease.held.value?.epoch == epoch)
                 position = constrained(constrained(position) + it) })
         val askTop = with(LocalDensity.current) { stripSize.height.toDp() } + 8.dp
@@ -144,6 +145,7 @@ internal fun PhoneControlStrip(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    thinking: Boolean = false,
     onDrag: (Offset) -> Unit,
 ) {
     val latestDrag by rememberUpdatedState(onDrag)
@@ -194,7 +196,7 @@ internal fun PhoneControlStrip(
             if (enabled) detectDragGestures { change, delta -> change.consume(); latestDrag(delta) }
         }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             PhoneDurationCapsule(elapsed, containerColor = containerColor)
-            PhoneStatusCapsule(status, containerColor = containerColor)
+            PhoneStatusCapsule(status, containerColor = containerColor, thinking = thinking, active = enabled)
         }
         val shape = RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 24.dp, bottomEnd = 24.dp)
         Surface(shape = shape, color = containerColor, contentColor = contentColor) {

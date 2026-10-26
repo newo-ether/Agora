@@ -192,7 +192,7 @@ class PhoneControlWindowTest {
         window.showForUser(true)
         frames()
         assertFalse(window.touchable)
-        assertEquals(safeAlpha, params.alpha)
+        assertEquals(0f, params.alpha)
         window.capture(false)
         assertTrue(window.touchable)
         frames()
@@ -247,12 +247,63 @@ class PhoneControlWindowTest {
         window.close()
     }
 
+    @Test fun captureWaitsForRealFadeOutAndRestoresFromZeroWithoutVisibilitySwitches() = runTest {
+        val window = window()
+        val operation = async { window.beforeOperation() }
+        runCurrent(); frames(); runCurrent(); operation.await()
+        window.capture(true)
+        val capture = async { window.awaitCaptureHidden() }
+        runCurrent()
+        assertFalse(capture.isCompleted)
+        frames(80); runCurrent()
+        assertTrue(params.alpha > 0f && params.alpha < safeAlpha)
+        assertFalse(capture.isCompleted)
+        assertFalse(window.touchable)
+        assertEquals(View.VISIBLE, view.visibility)
+        frames(); runCurrent(); capture.await()
+        assertEquals(0f, params.alpha)
+        window.capture(false)
+        window.afterOperation()
+        assertTrue(window.touchable)
+        assertEquals(0f, params.alpha)
+        frames(80)
+        assertTrue(params.alpha > 0f && params.alpha < 1f)
+        frames()
+        assertEquals(1f, params.alpha)
+        window.close()
+    }
+
+    @Test fun closingDuringCaptureFadeRejectsWaiterAndPreventsRestoreWrites() = runTest {
+        val window = window(alpha = 1f)
+        window.beforeOperation()
+        window.capture(true)
+        val capture = async { runCatching { window.awaitCaptureHidden() }.exceptionOrNull() }
+        runCurrent(); frames(64)
+        assertFalse(capture.isCompleted)
+        window.close()
+        runCurrent()
+        assertTrue(capture.await() is PhoneFailure)
+        var writes = 0
+        every { manager.updateViewLayout(any(), any()) } answers { writes++ }
+        window.capture(false)
+        window.afterOperation()
+        frames()
+        assertEquals(0, writes)
+        assertFalse(window.touchable)
+    }
+
     @Test fun disabledSystemAnimationsSnapToTheSafeOpacityBeforeAdmission() = runTest {
         val durationScale = ValueAnimator::class.java.getDeclaredMethod("setDurationScale", Float::class.javaPrimitiveType)
         durationScale.invoke(null, 0f)
         try {
             val window = window()
             window.beforeOperation()
+            assertPassThrough(window)
+            window.capture(true)
+            window.awaitCaptureHidden()
+            assertEquals(0f, params.alpha)
+            assertFalse(window.touchable)
+            window.capture(false)
             assertPassThrough(window)
             window.afterOperation()
             assertTrue(window.touchable)

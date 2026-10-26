@@ -1,6 +1,7 @@
 package com.newoether.agora.phone
 
 import android.app.Application
+import android.os.Looper
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
@@ -22,7 +23,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowChoreographer
+import java.time.Duration
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -42,6 +46,8 @@ class PhoneOverlayLifecycleTest {
 
     @Before fun attachWindowFixture() {
         Dispatchers.setMain(dispatcher)
+        ShadowChoreographer.setPaused(true)
+        ShadowChoreographer.setFrameDelay(Duration.ofMillis(16))
         every { manager.updateViewLayout(any(), any()) } answers { writes++ }
         every { manager.removeViewImmediate(any()) } answers { removals++ }
         mapOf("manager" to manager, "control" to control, "effect" to effect,
@@ -96,6 +102,70 @@ class PhoneOverlayLifecycleTest {
         runCurrent()
         exiting.join()
         assertEquals(2, removals)
+    }
+
+    private fun frames(millis: Long = 320) {
+        repeat(((millis + 15) / 16).toInt()) {
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16))
+            dispatcher.scheduler.runCurrent()
+        }
+    }
+
+    @Test fun captureRunsOnlyAtZeroAlphaAfterFramesAndRestoresAfterFailure() = runTest(dispatcher) {
+        var captures = 0
+        val capture = async {
+            runCatching { overlay.capture {
+                captures++
+                assertEquals(0f, params.alpha)
+                assertFalse(window.touchable)
+                assertTrue(overlay.capturing.value)
+                assertEquals(View.VISIBLE, control.visibility)
+                error("capture failed")
+            } }.exceptionOrNull()
+        }
+        runCurrent()
+        frames(80)
+        assertEquals(0, captures)
+        assertFalse(capture.isCompleted)
+        frames(320)
+        assertEquals("capture failed", capture.await()?.message)
+        assertEquals(1, captures)
+        assertFalse(overlay.capturing.value)
+        window.afterOperation()
+        assertTrue(window.touchable)
+        frames()
+        assertEquals(1f, params.alpha)
+    }
+
+    @Test fun cancellingCaptureFadeRestoresWithoutInvokingTheBitmapBlock() = runTest(dispatcher) {
+        var captures = 0
+        val capture = launch { overlay.capture { captures++; error("unexpected capture") } }
+        runCurrent()
+        frames(80)
+        capture.cancel()
+        runCurrent()
+        capture.join()
+        assertFalse(overlay.capturing.value)
+        window.afterOperation()
+        frames()
+        assertEquals(0, captures)
+        assertEquals(1f, params.alpha)
+        assertTrue(window.touchable)
+    }
+
+    @Test fun removingDuringCaptureFadeRejectsOldWorkWithoutLaterWindowWrites() = runTest(dispatcher) {
+        var captures = 0
+        val capture = async { runCatching { overlay.capture { captures++; error("unexpected") } }.exceptionOrNull() }
+        runCurrent()
+        frames(80)
+        overlay.remove()
+        val writesAfterRemove = writes
+        runCurrent()
+        assertTrue(capture.await() is PhoneFailure)
+        frames()
+        assertEquals(0, captures)
+        assertEquals(writesAfterRemove, writes)
+        assertFalse(overlay.capturing.value)
     }
 
     @Test fun synchronousReplacementRemovalMakesTheOldDelayedExitInert() = runTest(dispatcher) {

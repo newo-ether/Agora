@@ -26,7 +26,7 @@ internal class PhoneToolProvider(
     private val captured: suspend (suspend () -> Bitmap) -> Bitmap,
     private val showControl: suspend (String) -> Unit,
     private val action: (String, Int, Int, Int, Int, Long) -> Unit,
-    private val status: (String?) -> Unit,
+    private val status: suspend (String?) -> Unit,
     private val operating: suspend (suspend () -> ToolExecutionResult) -> ToolExecutionResult = { it() },
 ) : ToolProvider {
     private var executionMode = "accessibility"
@@ -99,11 +99,11 @@ internal class PhoneToolProvider(
                     lease.release(authorized)?.let { throw PhoneFailure(it) }
                     return@run success(buildJsonObject { put("status", "released") })
                 }
+                status(name)
                 return@run operating {
-                    // Visibility may suspend for a question or fade. Revalidate before any device effect.
+                    // Status pacing and visibility may suspend; revalidate before any device effect.
                     fence(authorized)
                     val backend = device(ctx.phoneMode)
-                    status(name)
                     checkApp(backend, authorized)
                     val body = buildJsonObject {
                         put("status", "ok")
@@ -149,7 +149,6 @@ internal class PhoneToolProvider(
                             else -> throw PhoneFailure("unknown_tool")
                         }
                     }
-                    if (name in ACTIONS) { tree = null; treePackage = null }
                     fence(authorized)
                     val wantsScreenshot = name == "phone_screenshot" || (name in ACTIONS && args["screenshot"]?.jsonPrimitive?.booleanOrNull != false)
                     val result = if (wantsScreenshot) {

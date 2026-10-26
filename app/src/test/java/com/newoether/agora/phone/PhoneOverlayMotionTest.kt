@@ -195,6 +195,41 @@ class PhoneOverlayMotionTest {
         assertEquals(255, green(point))
     }
 
+    @Test fun thinkingBreathesOnlyTheStatusCapsuleBetweenPointTwoAndPointEight() {
+        action.value = null
+        start()
+        frames(336)
+        val bounds = compose.onNodeWithText("Thinking").fetchSemanticsNode().boundsInRoot
+        val point = Offset(bounds.left + 2f, bounds.top - 5f)
+        val samples = mutableListOf<Int>()
+        repeat(126) {
+            samples += green(point)
+            assertEquals(0, green(stripPoint()))
+            frames(16)
+        }
+        assertTrue("status range $samples", samples.all { it in 49..206 })
+        assertTrue(samples.min() <= 56)
+        assertTrue(samples.max() >= 198)
+        compose.runOnIdle { action.value = "phone_tap" }
+        frames(480)
+        val tap = compose.onNodeWithText("Tap").fetchSemanticsNode().boundsInRoot
+        assertEquals(0, green(Offset(tap.left + 2f, tap.top - 5f)))
+        assertEquals(0, green(stripPoint()))
+    }
+
+    @Test fun reducedMotionKeepsThinkingAtStablePointEightAlpha() {
+        action.value = null
+        start(reduced = true)
+        frames(336)
+        val bounds = compose.onNodeWithText("Thinking").fetchSemanticsNode().boundsInRoot
+        val point = Offset(bounds.left + 2f, bounds.top - 5f)
+        val initial = green(point)
+        assertTrue(initial in 49..53)
+        frames(1100)
+        assertEquals(initial, green(point))
+        assertEquals(0, green(stripPoint()))
+    }
+
     @Test fun outgoingQuestionIsFrozenAndDisabledWhileReplacementEpochGetsFreshContent() {
         start(pendingQuestion = true)
         frames(336)

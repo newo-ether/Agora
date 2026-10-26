@@ -35,7 +35,10 @@ internal class PhoneUseRuntime(
         lease.releaseEpoch(epoch, "permission_lost:shizuku_service_disconnected")
     }
     val permissions = PhonePermissions(context, privileged)
-    val actionName = MutableStateFlow<String?>(null)
+    private val actionStatus = PhoneActionStatus(
+        CoroutineScope(scope.coroutineContext + Dispatchers.Main.immediate), SystemClock::elapsedRealtime,
+    )
+    val actionName = actionStatus.name
     val cursor = MutableStateFlow<PhoneCursor?>(null)
     private var overlayEpoch: Long? = null
     private var exitingOverlay: PhoneOverlay? = null
@@ -86,7 +89,10 @@ internal class PhoneUseRuntime(
         action = { name, x, y, endX, endY, duration ->
             cursor.value = PhoneCursor(name, x, y, endX, endY, duration, SystemClock.elapsedRealtime())
         },
-        status = { actionName.value = it },
+        status = { name ->
+            if (name == null) withContext(NonCancellable + Dispatchers.Main.immediate) { actionStatus.update(null) }
+            else withContext(Dispatchers.Main.immediate) { actionStatus.update(name) }
+        },
         operating = { operation ->
             val active = withContext(Dispatchers.Main.immediate) {
                 overlay ?: throw PhoneFailure("overlay_unavailable")
@@ -119,7 +125,7 @@ internal class PhoneUseRuntime(
         overlay = null
         overlayEpoch = null
         privileged.close()
-        actionName.value = null
+        actionStatus.reset()
         cursor.value = null
         if (animate && previous != null) {
             exitingOverlay = previous

@@ -197,18 +197,19 @@ internal class PhoneOverlay(
     suspend fun capture(block: suspend () -> android.graphics.Bitmap): android.graphics.Bitmap =
         withContext(Dispatchers.Main.immediate) {
             beforeOperation()
+            val window = controlWindow ?: throw PhoneFailure("overlay_unavailable")
             capturing.value = true
-            controlWindow?.capture(true)
-            control?.visibility = View.INVISIBLE
             try {
+                window.capture(true)
+                window.awaitCaptureHidden()
                 frame()
                 frame()
+                if (!visible.value || removed) throw PhoneFailure("overlay_unavailable")
                 block()
             } finally {
                 withContext(NonCancellable + Dispatchers.Main.immediate) {
                     capturing.value = false
-                    if (visible.value) control?.visibility = View.VISIBLE
-                    controlWindow?.capture(false)
+                    window.capture(false)
                 }
             }
         }
