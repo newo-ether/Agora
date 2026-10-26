@@ -104,7 +104,7 @@ internal class PhoneOverlay(
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
         )
-        params.alpha = windowAlpha
+        params.alpha = 1f
         params.gravity = Gravity.TOP or Gravity.START
         params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         controlParams = params
@@ -117,7 +117,7 @@ internal class PhoneOverlay(
         try {
             windows.addView(effectView, effectParams)
             windows.addView(controls, params)
-            controlWindow = PhoneControlWindow(controls, params, windows)
+            controlWindow = PhoneControlWindow(controls, params, windows, operationAlpha = windowAlpha)
             controlScope.launch {
                 runtime.askUser.requests.collect { requests ->
                     val owner = runtime.lease.held.value?.takeIf { it.epoch == epoch }?.owner
@@ -184,12 +184,18 @@ internal class PhoneOverlay(
     }
 
     suspend fun beforeOperation() = withContext(Dispatchers.Main.immediate) {
-        (controlWindow ?: throw PhoneFailure("overlay_unavailable")).beforeOperation()
+        val window = controlWindow ?: throw PhoneFailure("overlay_unavailable")
+        do {
+            window.beforeOperation()
+            // Let WindowManager commit the safe opacity and input region before injection.
+            frame()
+            frame()
+        } while (!window.readyToOperate)
     }
     fun afterOperation() { controlWindow?.afterOperation() }
     suspend fun capture(block: suspend () -> android.graphics.Bitmap): android.graphics.Bitmap =
         withContext(Dispatchers.Main.immediate) {
-            (controlWindow ?: throw PhoneFailure("overlay_unavailable")).beforeOperation()
+            beforeOperation()
             capturing.value = true
             controlWindow?.capture(true)
             control?.visibility = View.INVISIBLE

@@ -113,8 +113,10 @@ otherwise):
 - Effect window: full screen, `FLAG_NOT_TOUCHABLE | FLAG_NOT_FOCUSABLE`, `FLAG_KEEP_SCREEN_ON`.
   Draws the border and the cursor.
 - Control window: occupies the available inset-safe frame, with only the measured strip and ask
-  card in its touch region. Transparent space passes through. Focusable only while an ask text field
-  is focused; device work temporarily excludes the entire window from input.
+  card in its touch region. The window is opaque while idle. On Android 12+, an ordinary opaque
+  full-frame overlay can block underlying manual touches even outside that region; lowering to the
+  safe combined-opacity budget before device work enables action-time pass-through. Focusable only
+  while an ask text field is focused; device work excludes the entire window from input.
 
 Screen stays on through `FLAG_KEEP_SCREEN_ON` on the effect window; no WakeLock.
 
@@ -144,13 +146,13 @@ feedback through dragging; release and pointer cancellation restore the resting 
 Stop has no second scale or ripple owner. Reduced Motion keeps scale at one and retains tint.
 Reserve the maximum press size in layout so enlarged drawing stays inside the safe frame.
 Capsule Surface/background colors and content colors are opaque; the border glow is independent.
-Platform window alpha is separate: Accessibility uses alpha one. On Android 12+, the two ordinary
-Shizuku/Root overlay windows retain the shared obscuring-opacity budget required for underlying
-touch pass-through. The owner accepts the default 80 percent combined budget instead of visual
-opacity one. For a platform maximum M, each window uses 1 - sqrt(1 - M), with a small rounding
-margin; at M = 0.8 that is approximately 0.5527 per window, not 0.8 per window. Capsule paint is
-opaque before this platform composition; final ordinary-window capsules remain translucent.
-Border drawing and its existing window opacity stay unchanged.
+Platform window alpha is separate: the control window rests at one and fades to its operation
+alpha before device work. Accessibility keeps alpha one throughout. On Android 12+, ordinary
+Shizuku/Root overlay windows share the platform obscuring-opacity budget, normally 80 percent.
+For a platform maximum M, the unchanged effect window and the operating control window each use
+1 - sqrt(1 - M), with a small rounding margin; at M = 0.8 that is approximately 0.5527 per window,
+not 0.8 per window. Capsule paint is opaque before platform composition. Border drawing and its
+existing window opacity stay unchanged.
 Dragging the duration/status area begins after platform touch slop and keeps the strip inside the
 available visible frame; Stop has its own click region.
 Status text: `Thinking` while the owning Run streams model output, the action name during a tool
@@ -161,15 +163,21 @@ including `phone_claim`, returns `released_by_user` with no side effect. A later
 conversation may claim again. User touches on the screen do not interrupt control.
 
 ### 4.3 Action visibility and duration
-Before tap, long press, swipe, type, key, app launch, screenshot and UI tree work, publish
-FLAG_NOT_TOUCHABLE and NOT_FOCUSABLE on the whole control window before device effects. Keep
-its view visibility, alpha and shared platform opacity unchanged. The effect window and border
-remain visible. App-list privacy fallback navigation shares this boundary. Revalidate the exact
-lease/Run after question suspension and before device effects. On success, error or cancellation,
-restore input immediately in the operation finally boundary, without a delay or opacity animation.
-Removed/replaced overlays cannot restore a newer owner's window. Pending ask_user takes priority:
-restore question inputs and wait before admitting device work until it settles. Stop and dragging
-are unavailable while the strip passes input through; notification Stop remains available.
+Before tap, long press, swipe, type, key, app launch, screenshot and UI tree work, fade the control
+window's LayoutParams.alpha from its current value to the safe operation alpha over 180 ms with
+FastOutSlowIn easing. Stop and dragging remain available during that fade. Once safe alpha is reached,
+publish FLAG_NOT_TOUCHABLE and NOT_FOCUSABLE on the whole control window, then wait two frames and
+recheck the window's operation-ready state before device effects. Revalidate the exact lease/Run
+and permissions after this suspension. The view stays visible and its own alpha remains one; the
+effect window and border remain unchanged. App-list privacy fallback navigation shares this boundary.
+On success, error or cancellation, restore input immediately in the operation finally boundary and
+fade back to alpha one over 180 ms, without delaying input restoration. A new action or question
+retargets the current alpha without jumping to an old endpoint. Removed/replaced overlays cancel
+animation and unblock old waiters with an error, without later window writes. Pending ask_user takes
+priority: restore question inputs, fade to one and wait before admitting device work until it settles
+and safe operation alpha is reached again. Capture keeps input excluded even if a question arrives.
+Stop and dragging are unavailable only while the strip passes input through; notification Stop remains
+available. App Reduced Motion retains this opacity-only transition; disabled system animations snap.
 Duration uses the selected application font with `fontFeatureSettings = "tnum"`, never a separate
 monospace face. Verify actual `0:00` and `1:11` shaping widths before claiming tabular support.
 Independently measure all ten digits, fill the current colon-preserving format with its widest digit,
@@ -239,8 +247,10 @@ through the existing Settings store; Done only dismisses, without a separate Sav
   admission matrix, app access decisions including implicit allowlist entries, coordinate mapping,
   non-ASCII input path selection.
 - Every `phone_*` tool without a lease performs no side effect.
-- Overlay verification: visible action-time input exclusion without alpha changes, immediate restore,
-  ask priority, cancellation/error cleanup and stale owner removal. Verify independent system corner
+- Overlay verification: opaque idle controls, actual intermediate action-opacity frames, admission
+  only after safe opacity/input exclusion, immediate input restore and fade back, interrupted return,
+  ask priority before/during fade/capture, cancellation/error cleanup, disabled-animation snap,
+  trusted-window opacity and stale owner removal. Verify independent system corner
   centers/radii, inset stroke geometry, merged Stop/drag separation and safe placement.
   Native gesture/drawing tests cover the icon's localized accessible button semantics and 48 dp
   target, one shared press scale/tint through drag/Stop/release/cancellation, Reduced Motion,
