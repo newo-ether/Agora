@@ -9,6 +9,20 @@ shared streaming Markdown message UI implementation. That implementation owns th
 incremental append-only scan, stable/live block split, off-main parsing, long-document update
 cadence, and stream-to-terminal renderer continuity. A caller must not keep a second streaming
 Markdown algorithm or switch to a different terminal renderer merely because streaming ended.
+
+Native reference definitions are document metadata. Definitions parsed in a later live or stable
+block resolve references in earlier stable text without reparsing that text's AST. Definition labels
+use the parser's case/whitespace normalization; the first definition wins. Inline/autolink annotation
+must not overwrite that document lookup. A non-append reset clears the old definitions, while a
+partial live destination updates only the current tail's metadata. Closed blocks are inspected once.
+Normal, prepared, virtualized and incremental roots share the same definition-free render projection.
+Definitions and their trailing structural separators contribute no rows, text or height, including
+inside lists and quotes; separators between visible paragraphs retain their existing spacing.
+Projection must preserve the original source, stable ASTs, source offsets, parent relationships and
+full glyph birth timeline. Stream-to-terminal settlement keeps the same message subtree and links.
+Regression coverage uses the real message component to verify URI activation and equal message
+height with 48 trailing definitions, plus prepared and virtualized detail paths, split definitions,
+duplicates, reset, fenced literals, nested metadata and ordinary paragraph geometry.
 The browser Compact detail uses the existing `DetailSheet` and `Markdown`, with authoritative
 running state, thought typography and App Reduced Motion passed into the shared renderer.
 The shared browser Markdown accepts an optional emptyStreamingText input. Compact passes the native

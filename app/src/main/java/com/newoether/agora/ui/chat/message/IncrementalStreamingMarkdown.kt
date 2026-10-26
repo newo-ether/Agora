@@ -22,7 +22,7 @@ import com.newoether.agora.model.StreamingTextDelta
 import com.newoether.agora.util.NoAutoScrollSelectionContainer
 import com.mikepenz.markdown.compose.LocalMarkdownInlineContent
 import com.mikepenz.markdown.compose.MarkdownElement
-import com.mikepenz.markdown.model.ReferenceLinkHandlerImpl
+import com.mikepenz.markdown.model.ReferenceLinkHandler
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.markdownAnimations
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +54,7 @@ internal class StableMarkdownBlock(
     val root: ASTNode,
 ) {
     val identity: Int = 31 * startOffset + sourceContent.hashCode()
+    val hasVisibleContent: Boolean = markdownVisibleBlocks(root).isNotEmpty()
 }
 
 /**
@@ -66,7 +67,9 @@ internal class LiveMarkdownBlock(
     val startOffset: Int,
     val sourceContent: String,
     val root: ASTNode,
-)
+) {
+    val hasVisibleContent: Boolean = markdownVisibleBlocks(root).isNotEmpty()
+}
 
 @Immutable
 internal data class StreamingMarkdownSnapshot(
@@ -77,6 +80,7 @@ internal data class StreamingMarkdownSnapshot(
     val isStreaming: Boolean,
     val fadeSample: StreamingTailFadeSample? = null,
     val textDeltas: List<StreamingTextDelta>? = null,
+    val references: Map<String, String> = emptyMap(),
 )
 
 private data class StreamingMarkdownInput(
@@ -295,6 +299,8 @@ internal class IncrementalMarkdownDocument(
     private var fence: MarkdownFence? = null
     private var finalized = false
     private var liveBlock: LiveMarkdownBlock? = null
+    private val stableReferences = linkedMapOf<String, String>()
+    private var liveReferences: Map<String, String> = emptyMap()
 
     internal var scannedCodeUnits: Long = 0L
         private set
@@ -341,6 +347,8 @@ internal class IncrementalMarkdownDocument(
         fence = null
         finalized = false
         liveBlock = null
+        stableReferences.clear()
+        liveReferences = emptyMap()
     }
 
     private fun scanCompletedLines() {
@@ -403,6 +411,9 @@ internal class IncrementalMarkdownDocument(
             sourceContent = blockText,
             root = root,
         )
+        markdownReferenceDefinitions(root, blockText).forEach { (label, destination) ->
+            stableReferences.putIfAbsent(label, destination)
+        }
         return true
     }
 
@@ -410,12 +421,14 @@ internal class IncrementalMarkdownDocument(
         val tail = source.substring(blockStart.coerceIn(0, source.length))
         if (tail.isEmpty()) {
             liveBlock = null
+            liveReferences = emptyMap()
             return
         }
         if (liveBlock?.startOffset == blockStart && liveBlock?.sourceContent == tail) return
         val root = runCatching {
             MarkdownParser(flavour).buildMarkdownTreeFromString(tail)
         }.getOrNull() ?: return
+        liveReferences = markdownReferenceDefinitions(root, tail)
         liveBlock = LiveMarkdownBlock(
             startOffset = blockStart,
             sourceContent = tail,
@@ -432,6 +445,10 @@ internal class IncrementalMarkdownDocument(
         tail = source.substring(blockStart.coerceIn(0, source.length)),
         liveBlock = liveBlock,
         isStreaming = isStreaming,
+        references = buildMap {
+            putAll(stableReferences)
+            liveReferences.forEach { (label, destination) -> putIfAbsent(label, destination) }
+        },
     )
 }
 
@@ -604,7 +621,13 @@ internal fun IncrementalStreamingMarkdownContent(
     }
 
     val snapshot by state.snapshot.collectAsState()
+    val lastVisibleBlockIndex = if (snapshot.liveBlock?.hasVisibleContent == true) {
+        snapshot.stableBlocks.size
+    } else snapshot.stableBlocks.indexOfLast { it.hasVisibleContent }
     val blockFadeSpecs = remember(snapshot) { computeBlockFadeSpecs(snapshot) }
+    val referenceHandler = remember(snapshot.references) {
+        MarkdownDocumentReferenceHandler(snapshot.references)
+    }
     androidx.compose.runtime.CompositionLocalProvider(
         LocalStreamingMarkdownInteractionController provides state,
     ) {
@@ -617,7 +640,10 @@ internal fun IncrementalStreamingMarkdownContent(
                         androidx.compose.runtime.CompositionLocalProvider(
                             LocalStreamingGlyphFadeSpec provides blockFadeSpecs.getOrNull(index),
                         ) {
-                            StableMarkdownBlockContent(block, renderContext)
+                            StableMarkdownBlockContent(
+                                block, renderContext, referenceHandler,
+                                preserveTrailingSpacing = index < lastVisibleBlockIndex,
+                            )
                         }
                     }
                 }
@@ -633,6 +659,7 @@ internal fun IncrementalStreamingMarkdownContent(
                                 sourceContent = block.sourceContent,
                                 root = block.root,
                                 renderContext = renderContext,
+                                referenceHandler = referenceHandler,
                             )
                         }
                     }
@@ -660,11 +687,15 @@ private fun MarkdownSelectionHost(
 private fun StableMarkdownBlockContent(
     block: StableMarkdownBlock,
     renderContext: ChatMarkdownRenderContext,
+    referenceHandler: ReferenceLinkHandler,
+    preserveTrailingSpacing: Boolean,
 ) {
     ParsedMarkdownBlockContent(
         sourceContent = block.sourceContent,
         root = block.root,
         renderContext = renderContext,
+        referenceHandler = referenceHandler,
+        preserveTrailingSpacing = preserveTrailingSpacing,
     )
 }
 
@@ -673,15 +704,20 @@ private fun ParsedMarkdownBlockContent(
     sourceContent: String,
     root: ASTNode,
     renderContext: ChatMarkdownRenderContext,
+    referenceHandler: ReferenceLinkHandler,
+    preserveTrailingSpacing: Boolean = false,
 ) {
     val inlineContent = LocalMarkdownInlineContent.current
-    val state = remember(sourceContent, root) {
+    val state = remember(sourceContent, root, referenceHandler) {
         State.Success(
             node = root,
             content = sourceContent,
-            linksLookedUp = false,
-            referenceLinkHandler = ReferenceLinkHandlerImpl(),
+            linksLookedUp = true,
+            referenceLinkHandler = referenceHandler,
         )
+    }
+    val visibleNodes = remember(root, preserveTrailingSpacing) {
+        markdownVisibleBlocks(root, preserveTrailingSpacing)
     }
     com.mikepenz.markdown.compose.Markdown(
         state = state,
@@ -696,7 +732,7 @@ private fun ParsedMarkdownBlockContent(
         animations = markdownAnimations { this },
         success = { successState, components, successModifier ->
             Column(successModifier) {
-                successState.node.children.forEach { node ->
+                visibleNodes.forEach { node ->
                     MarkdownElement(
                         node = node,
                         components = components,

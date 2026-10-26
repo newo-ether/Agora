@@ -382,9 +382,9 @@ internal fun rememberChatMarkdownAssets(
                         highlightColor = searchHighlightColor,
                         activeHighlightColor = activeSearchHighlightColor,
                     )
-                } else {
-                    // Installing a custom component makes the dependency consider every unknown
-                    // node handled. Preserve its normal recursive fallback for non-HTML nodes.
+                } else if (type != MarkdownElementTypes.LINK_DEFINITION) {
+                    // Definitions are document metadata. Preserve recursive fallback for other
+                    // unknown nodes without rendering a nested definition's label or destination.
                     model.node.children.forEach { child ->
                         MarkdownElement(
                             node = child,
