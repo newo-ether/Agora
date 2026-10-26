@@ -52,6 +52,13 @@ object DebugLog {
         }
     }
 
+    // Phone release diagnostics contain fixed reason/mode labels and in-memory counters only.
+    internal fun phoneRelease(reason: String, epoch: Long, heldMs: Long, mode: String) {
+        runCatching {
+            android.util.Log.i("AgoraPhone", "release reason=$reason epoch=$epoch held_ms=$heldMs mode=$mode")
+        }
+    }
+
     fun d(tag: String, msg: String) { if (active) android.util.Log.d(tag, msg) }
     fun d(tag: String, msg: String, tr: Throwable) {
         if (active) android.util.Log.d(tag, "$msg ${safeThrowableSummary(tr)}")

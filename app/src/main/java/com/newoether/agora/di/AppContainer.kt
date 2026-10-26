@@ -215,8 +215,8 @@ class AppContainer(
 
     /** Foreground generation slots survive Activity/ViewModel recreation within this process. */
     private val phoneLease by lazy { com.newoether.agora.phone.PhoneControlLease(
-        recordRelease = { release -> android.util.Log.i("AgoraPhone",
-            "release reason=${release.reason} epoch=${release.epoch} held_ms=${release.heldMs} mode=${release.mode}") },
+        recordRelease = { release -> com.newoether.agora.util.DebugLog.phoneRelease(
+            release.reason, release.epoch, release.heldMs, release.mode) },
         now = android.os.SystemClock::elapsedRealtime,
     ) }
     internal val phoneUse by lazy {

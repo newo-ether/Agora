@@ -58,7 +58,9 @@ Ordinary command failure and timeout return tool errors without revoking the lea
 command-output waits are bounded; Root uses a unique shell-entry marker to distinguish `su` refusal
 from a command error after entry, without parsing generic permission-denied text.
 
-Every release logs tag `AgoraPhone` with `reason`, `epoch`, `held_ms` and `mode`. The in-memory lease
+Every release logs tag `AgoraPhone` through the shared privacy-aware release diagnostic wrapper,
+with only `reason`, `epoch`, `held_ms` and `mode`; logging failure never interrupts lease cleanup.
+The in-memory lease
 retains the most recent 32 releases. Subsequent tool results and claim refusals include `last_release`
 for the latest release other than explicit release, user Stop or Run end. Disabled, mode changed,
 missing entry permission and backend failures retain distinct reasons. These diagnostics establish
