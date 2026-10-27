@@ -3,6 +3,7 @@ package com.newoether.agora.data.local
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Ignore
 import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -72,16 +73,24 @@ data class SemanticIndexWorkEntity(
 /** One reconcile page row plus the existing embedding metadata needed for safe reuse. */
 data class ReconcileIndexableMessage(
     val id: String,
-    val text: String,
+    val sourcePrefix: ByteArray,
     val embeddingId: Long?,
     val embeddingFingerprint: String?,
     val dimension: Int?,
     val embeddingBytes: Int?,
-)
+) {
+    @get:Ignore
+    val text: String get() = sourcePrefix.toString(Charsets.UTF_8)
+}
 
 private fun requireSemanticModelId(modelId: String) {
     require(modelId.isNotBlank())
 }
+
+// Decode the bounded BLOB in Kotlin: a split UTF-8 tail must not reach CursorWindow.getString.
+// Four UTF-8 bytes per UTF-16 unit cover the existing take() input, including NULs.
+// Any partial UTF-8 sequence at the byte boundary is beyond the fingerprinted prefix.
+internal const val SEMANTIC_SOURCE_PREFIX_BYTES = Constants.MAX_EMBEDDING_TEXT_LENGTH * 4
 
 internal fun semanticSourceFingerprint(text: String): String =
     MessageDigest.getInstance("SHA-256")
@@ -173,39 +182,46 @@ interface SemanticIndexDao {
         maxSourceRevision: Long,
     ): Int
 
+    @Query("SELECT id FROM messages ORDER BY id LIMIT :limit")
+    suspend fun getFirstReconcileMessageIdsPage(limit: Int): List<String>
+
+    // Seek through the covering primary-key index before reading any message payload.
+    @Query("SELECT id FROM messages WHERE id > :afterId ORDER BY id LIMIT :limit")
+    suspend fun getReconcileMessageIdsPage(afterId: String, limit: Int): List<String>
+
     @Query(
         """
-        SELECT m.id, m.text,
+        SELECT m.id,
+               SUBSTR(CAST(m.text AS BLOB), 1, :sourcePrefixBytes) AS sourcePrefix,
                e.id AS embeddingId,
                e.sourceFingerprint AS embeddingFingerprint,
                e.dimension AS dimension,
                LENGTH(e.embedding) AS embeddingBytes
         FROM messages m
-        INNER JOIN conversations c ON m.conversationId = c.id
+        CROSS JOIN conversations c ON m.conversationId = c.id
         LEFT JOIN embeddings e ON e.messageId = m.id AND e.modelId = :modelId
         LEFT JOIN semantic_index_work w ON w.messageId = m.id AND w.modelId = :modelId
-        WHERE c.taskId IS NULL
+        WHERE m.id IN (:messageIds)
+          AND c.taskId IS NULL
           AND m.participant IN ('USER', 'MODEL')
           AND m.text != ''
           AND m.id NOT LIKE 'tool_%'
           AND m.id NOT LIKE 'result_%'
           AND m.id NOT LIKE 'compact_%'
           AND (w.sourceRevision IS NULL OR w.sourceRevision <= :maxWorkRevision)
-          AND (:afterId IS NULL OR m.id > :afterId)
         ORDER BY m.id
-        LIMIT :limit
         """,
     )
-    suspend fun getReconcileMessagesPage(
+    suspend fun getReconcileMessagesByIds(
         modelId: String,
         maxWorkRevision: Long,
-        afterId: String?,
-        limit: Int,
+        messageIds: List<String>,
+        sourcePrefixBytes: Int,
     ): List<ReconcileIndexableMessage>
 
     @Query(
         """
-        SELECT m.text
+        SELECT SUBSTR(CAST(m.text AS BLOB), 1, $SEMANTIC_SOURCE_PREFIX_BYTES)
         FROM messages m
         INNER JOIN conversations c ON m.conversationId = c.id
         WHERE m.id = :messageId
@@ -217,7 +233,10 @@ interface SemanticIndexDao {
           AND m.id NOT LIKE 'compact_%'
         """,
     )
-    suspend fun getSearchableMessageText(messageId: String): String?
+    suspend fun getSearchableMessageSource(messageId: String): ByteArray?
+
+    suspend fun getSearchableMessageText(messageId: String): String? =
+        getSearchableMessageSource(messageId)?.toString(Charsets.UTF_8)
 
     @Upsert
     suspend fun upsertEmbedding(embedding: EmbeddingEntity)

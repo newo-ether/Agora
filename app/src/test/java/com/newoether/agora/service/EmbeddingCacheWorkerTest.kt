@@ -53,12 +53,23 @@ class EmbeddingCacheWorkerTest {
         every { settings.embeddingModels } returns flowOf(listOf(model))
         every { settings.customProviders } returns flowOf(emptyList())
         coEvery { dao.getLedger(model.id) } answers { ledger }
-        coEvery { dao.getReconcileMessagesPage(any(), any(), any(), any()) } answers {
+        coEvery { dao.getFirstReconcileMessageIdsPage(any()) } answers {
             pageReads++
-            val after = thirdArg<String?>()
-            val page = rows.filter { after == null || it.id > after }.take(arg(3))
+            val page = rows.map { it.id }.take(firstArg())
             afterPage()
             page
+        }
+        coEvery { dao.getReconcileMessageIdsPage(any(), any()) } answers {
+            pageReads++
+            val after = firstArg<String>()
+            val ids = rows.map { it.id }
+            val page = ids.drop(ids.indexOf(after) + 1).take(secondArg())
+            afterPage()
+            page
+        }
+        coEvery { dao.getReconcileMessagesByIds(any(), any(), any(), any()) } answers {
+            val ids = thirdArg<List<String>>()
+            rows.filter { it.id in ids }
         }
         coEvery { dao.completeReconcile(any(), any(), any()) } answers {
             secondArg<Long>() == ledger.reconcileRevision
@@ -138,6 +149,47 @@ class EmbeddingCacheWorkerTest {
         coVerify(exactly = 0) { dao.completeReconcile(any(), any(), any()) }
     }
 
+    @Test
+    fun filteredPageStillAdvancesBeforeAnEligiblePage() = runTest {
+        rows = cachedRows(129)
+        coEvery { dao.getReconcileMessagesByIds(any(), any(), any(), any()) } answers {
+            val ids = thirdArg<List<String>>()
+            rows.filter { it.id in ids && it.id == rows.last().id }
+        }
+        assertTrue(worker().cacheModel(model.id, database, settings) is Result.Success)
+        assertEquals(3, pageReads)
+        coVerify(exactly = 1) { dao.completeReconcile(model.id, 1, any()) }
+    }
+
+    @Test
+    fun brokenIdentityPageFailsWithoutCompletingOrLooping() = runTest {
+        coEvery { dao.getFirstReconcileMessageIdsPage(any()) } returns listOf("b", "a")
+        assertTrue(worker().cacheModel(model.id, database, settings) is Result.Failure)
+        coVerify(exactly = 0) { dao.completeReconcile(any(), any(), any()) }
+        coVerify(exactly = 0) { dao.getReconcileMessagesByIds(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun emptyLegacyIdAndSqliteUnicodeOrderCompleteAcrossPageBoundary() = runTest {
+        val ids = listOf("") + List(126) { "a%03d".format(it) } +
+            listOf("\uE000", "\uD800\uDC00")
+        rows = cachedRows(ids.size).mapIndexed { index, row -> row.copy(id = ids[index]) }
+        assertTrue(worker().cacheModel(model.id, database, settings) is Result.Success)
+        assertEquals(3, pageReads)
+        coVerify(exactly = 1) { dao.getFirstReconcileMessageIdsPage(128) }
+        coVerify(exactly = 1) { dao.getReconcileMessageIdsPage("\uE000", 128) }
+        coVerify(exactly = 1) { dao.completeReconcile(model.id, 1, any()) }
+    }
+
+    @Test
+    fun repeatedPageFailsWithoutCompletingOrLooping() = runTest {
+        rows = cachedRows(128)
+        coEvery { dao.getReconcileMessageIdsPage(any(), any()) } returns rows.map { it.id }
+        assertTrue(worker().cacheModel(model.id, database, settings) is Result.Failure)
+        coVerify(exactly = 0) { dao.completeReconcile(any(), any(), any()) }
+        coVerify(exactly = 1) { dao.getReconcileMessagesByIds(any(), any(), any(), any()) }
+    }
+
     private fun worker(): EmbeddingCacheWorker {
         val updater = mockk<ProgressUpdater>()
         every { updater.updateProgress(any(), any(), any()) } answers {
@@ -153,7 +205,8 @@ class EmbeddingCacheWorkerTest {
 
     private fun cachedRows(size: Int) = List(size) { index ->
         ReconcileIndexableMessage(
-            id = index.toString().padStart(5, '0'), text = "Cached searchable text $index",
+            id = index.toString().padStart(5, '0'),
+            sourcePrefix = "Cached searchable text $index".toByteArray(Charsets.UTF_8),
             embeddingId = index.toLong() + 1, embeddingFingerprint = null,
             dimension = 3, embeddingBytes = 12,
         )

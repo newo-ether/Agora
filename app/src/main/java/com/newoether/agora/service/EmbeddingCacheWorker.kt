@@ -21,6 +21,7 @@ import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.data.local.EmbeddingEntity
 import com.newoether.agora.data.local.IndexableMessage
 import com.newoether.agora.data.local.ReconcileIndexableMessage
+import com.newoether.agora.data.local.SEMANTIC_SOURCE_PREFIX_BYTES
 import com.newoether.agora.data.local.SemanticIndexLedgerEntity
 import com.newoether.agora.data.local.commitSemanticEmbedding
 import com.newoether.agora.data.local.semanticSourceFingerprint
@@ -251,14 +252,27 @@ class EmbeddingCacheWorker(
             if (semanticDao.getLedger(model.id)?.reconcileRevision != expectedReconcileRevision) {
                 return false
             }
-            val page = semanticDao.getReconcileMessagesPage(
+            val cursor = afterMessageId
+            val messageIds = if (cursor == null) {
+                semanticDao.getFirstReconcileMessageIdsPage(limit = RECONCILE_SCAN_PAGE_SIZE)
+            } else {
+                semanticDao.getReconcileMessageIdsPage(
+                    afterId = cursor,
+                    limit = RECONCILE_SCAN_PAGE_SIZE,
+                )
+            }
+            if (messageIds.isEmpty()) break
+            check((cursor == null || messageIds.first().isAfterSqliteId(cursor)) &&
+                messageIds.zipWithNext().all { (previous, next) -> next.isAfterSqliteId(previous) }) {
+                "Semantic reconciliation cursor did not advance"
+            }
+            afterMessageId = messageIds.last()
+            val page = semanticDao.getReconcileMessagesByIds(
                 modelId = model.id,
                 maxWorkRevision = expectedReconcileRevision,
-                afterId = afterMessageId,
-                limit = RECONCILE_SCAN_PAGE_SIZE,
+                messageIds = messageIds,
+                sourcePrefixBytes = SEMANTIC_SOURCE_PREFIX_BYTES,
             )
-            if (page.isEmpty()) break
-            afterMessageId = page.last().id
             val candidates = mutableListOf<EmbeddingCandidate>()
             page.forEach { row ->
                 val fingerprint = semanticSourceFingerprint(row.text)
@@ -299,6 +313,18 @@ class EmbeddingCacheWorker(
             expectedReconcileRevision = expectedReconcileRevision,
             updatedAt = System.currentTimeMillis(),
         )
+    }
+
+    // SQLite's BINARY text collation compares unsigned UTF-8 bytes, not UTF-16 chars.
+    private fun String.isAfterSqliteId(previous: String): Boolean {
+        val nextBytes = toByteArray(Charsets.UTF_8)
+        val previousBytes = previous.toByteArray(Charsets.UTF_8)
+        for (index in 0 until minOf(nextBytes.size, previousBytes.size)) {
+            val comparison = (nextBytes[index].toInt() and 0xff)
+                .compareTo(previousBytes[index].toInt() and 0xff)
+            if (comparison != 0) return comparison > 0
+        }
+        return nextBytes.size > previousBytes.size
     }
 
     private suspend fun embedCandidates(

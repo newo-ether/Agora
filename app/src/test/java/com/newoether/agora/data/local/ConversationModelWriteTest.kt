@@ -36,8 +36,9 @@ class ConversationModelWriteTest {
             assertEquals(null, semantic.getSearchableMessageText(compact.id))
             assertEquals(listOf(ordinary.id), dao.getSearchableMessagesPage(null, 10).map { it.id })
             assertEquals(listOf(ordinary.id), dao.getUnembeddedMessagesPage("embedding", null, 10).map { it.id })
-            assertEquals(listOf(ordinary.id), semantic.getReconcileMessagesPage(
-                "embedding", ledger.reconcileRevision, null, 10,
+            assertEquals(listOf(ordinary.id), semantic.getReconcileMessagesByIds(
+                "embedding", ledger.reconcileRevision,
+                semantic.getFirstReconcileMessageIdsPage(10), SEMANTIC_SOURCE_PREFIX_BYTES,
             ).map { it.id })
             fun embedding(message: MessageEntity) = EmbeddingEntity(
                 messageId = message.id, modelId = "embedding", embedding = ByteArray(4),

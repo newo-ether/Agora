@@ -233,7 +233,17 @@ observation never hold the model write mutex.
 
 The worker consumes bounded exact-work pages or bounded full-reconcile pages, limits embedding batch
 size, yields between pages, and commits only when both the database source fingerprint and durable
-work revision still match its admitted candidate. Failed or superseded items remain durable work for
+work revision still match its admitted candidate. Reconciliation first seeks a fixed page of message
+IDs through the covering primary-key index, then hydrates eligible rows only for those IDs. The first
+page has no lower bound so legacy empty IDs remain included; later cursors and validation retain
+SQLite BINARY UTF-8 byte order, including supplementary characters. Filtering must not prevent cursor
+advancement or turn an empty eligible page into corpus exhaustion. Neither eligibility joins nor
+sorting may precede the identity-page limit. Semantic-source reads return at most four UTF-8 bytes
+per existing 8,000-UTF-16-unit embedding prefix as a BLOB, preserving embedded NULs. Kotlin decodes
+the bounded bytes so a partial UTF-8 tail cannot invalidate a CursorWindow string conversion.
+Fingerprinting and embedding keep their existing Kotlin `take` semantics; complete
+message bodies remain stored unchanged. No semantic maintenance read may materialize an unbounded
+source text in CursorWindow. Failed or superseded items remain durable work for
 a later pass. Worker activity is observed from unique WorkManager state; completion may refresh
 presentation but aggregate equality cannot mark the ledger current.
 

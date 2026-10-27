@@ -302,7 +302,10 @@ class SemanticIndexMutationSourceContractTest {
             reconcile,
             "while (true)",
             "semanticDao.getLedger(model.id)?.reconcileRevision",
-            "semanticDao.getReconcileMessagesPage(",
+            "semanticDao.getFirstReconcileMessageIdsPage(",
+            "semanticDao.getReconcileMessageIdsPage(",
+            "afterMessageId = messageIds.last()",
+            "semanticDao.getReconcileMessagesByIds(",
             "semanticSourceFingerprint(row.text)",
             "!embedCandidates(",
             "yield()",
@@ -337,9 +340,20 @@ class SemanticIndexMutationSourceContractTest {
         assertTrue(workPage.contains("ORDER BY sourceRevision, messageId"))
         assertTrue(workPage.contains("LIMIT :limit"))
 
-        val searchablePage = ledger.substringBefore("suspend fun getReconcileMessagesPage(")
+        assertTrue(reconcile.contains("var afterMessageId: String? = null"))
+        val firstIdentityPage = ledger.substringBefore("suspend fun getFirstReconcileMessageIdsPage(")
             .substringAfterLast("@Query(")
-        assertTrue(searchablePage.contains("SELECT m.id, m.text"))
+        assertTrue(firstIdentityPage.contains("SELECT id FROM messages ORDER BY id LIMIT :limit"))
+        val identityPage = ledger.substringBefore("suspend fun getReconcileMessageIdsPage(")
+            .substringAfterLast("@Query(")
+        assertTrue(identityPage.contains("SELECT id FROM messages WHERE id > :afterId"))
+        assertTrue(identityPage.contains("ORDER BY id LIMIT :limit"))
+        assertFalse(identityPage.contains("text"))
+        val searchablePage = ledger.substringBefore("suspend fun getReconcileMessagesByIds(")
+            .substringAfterLast("@Query(")
+        assertTrue(searchablePage.contains("SUBSTR(CAST(m.text AS BLOB)"))
+        assertTrue(searchablePage.contains("AS sourcePrefix"))
+        assertFalse(searchablePage.contains("AS TEXT"))
         assertTrue(searchablePage.contains("LEFT JOIN embeddings"))
         assertTrue(searchablePage.contains("LEFT JOIN semantic_index_work"))
         assertTrue(
@@ -347,9 +361,9 @@ class SemanticIndexMutationSourceContractTest {
                 "w.sourceRevision IS NULL OR w.sourceRevision <= :maxWorkRevision",
             ),
         )
-        assertTrue(searchablePage.contains(":afterId IS NULL OR m.id > :afterId"))
+        assertTrue(searchablePage.contains("m.id IN (:messageIds)"))
         assertTrue(searchablePage.contains("ORDER BY m.id"))
-        assertTrue(searchablePage.contains("LIMIT :limit"))
+        assertFalse(searchablePage.contains(":afterId"))
         assertFalse(searchablePage.contains("NOT EXISTS"))
     }
 
