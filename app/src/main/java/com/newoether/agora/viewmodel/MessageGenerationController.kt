@@ -68,6 +68,7 @@ internal class MessageGenerationController(
     private val titleGenerator = ConversationTitleGenerator(convRepo, settings, providerRegistry)
     private val contextCompactor = ContextCompactor(
         conversations = convRepo,
+        appContext = appContext,
         generationErrorFormatter = { raw ->
             normalizePersistedGenerationErrorText(appContext, raw)
         },
@@ -725,40 +726,56 @@ internal class MessageGenerationController(
         state: ConversationGenerationState,
     ) {
         val guidanceClaimRevision = state.guidanceClaimRevision()
+        val originOwnerToken = request.generationRequest.uiToken
+        state.retainRunHandoff(originOwnerToken)
         // The current Assistant must release first. Suppress exactly that release's ordinary queue
         // drain so the already-decided Compact generation owns the next standard slot.
         state.deferNextQueueDrain()
         state.scope.launch(start = CoroutineStart.UNDISPATCHED) {
-            executionCoordinator.withGenerationAdmission(state.conversationId) admission@ {
-                state.awaitSendAvailable()
-                val compactLaunch = compactController.startAutomaticStandard(
-                    conversationId = request.generationRequest.conversationId,
-                    contextLimit = request.generationRequest.snapshot.config.maxContextWindow,
-                    config = request.config,
-                    state = state,
-                ) ?: return@admission
-                compactLaunch.job.join()
-                state.awaitSendAvailable()
-                val compactMessageId = compactLaunch.messageId
-                val compactStatus = convRepo.getMessage(compactMessageId)?.status
-                if (!automaticCompactAllowsHandoff(compactStatus)) return@admission
-
-                // Guidance inspection and continuation admission share the ordinary queue boundary.
-                val continuation = launchStandardContinuationAfterGuidance(
-                    state = state,
-                    guidanceClaimRevision = guidanceClaimRevision,
-                ) {
-                    standardContinuationLauncher.launch(
-                        request = StandardGenerationContinuationRequest(
-                            conversationId = request.generationRequest.conversationId,
-                            parentMessageId = compactMessageId,
-                            snapshot = request.generationRequest.snapshot,
-                            touchConversationOnAdmission = false,
-                        ),
+            try {
+                executionCoordinator.withGenerationAdmission(state.conversationId) admission@ {
+                    state.awaitSendAvailable()
+                    val compactLaunch = compactController.startAutomaticStandard(
+                        conversationId = request.generationRequest.conversationId,
+                        contextLimit = request.generationRequest.snapshot.config.maxContextWindow,
+                        config = request.config,
                         state = state,
-                    )
+                        continuesAfterSuccess = true,
+                    ) ?: return@admission
+                    try {
+                        compactLaunch.job.join()
+                        state.awaitSendAvailable()
+                        val compactMessageId = compactLaunch.messageId
+                        val compactStatus = convRepo.getMessage(compactMessageId)?.status
+                        if (!automaticCompactAllowsHandoff(compactStatus)) {
+                            state.finishRunHandoff(compactLaunch.uiToken)
+                            return@admission
+                        }
+
+                        // Guidance inspection and continuation admission share the ordinary queue boundary.
+                        val continuation = launchStandardContinuationAfterGuidance(
+                            state = state,
+                            guidanceClaimRevision = guidanceClaimRevision,
+                            handoffOwnerToken = compactLaunch.uiToken,
+                        ) {
+                            standardContinuationLauncher.launch(
+                                request = StandardGenerationContinuationRequest(
+                                    conversationId = request.generationRequest.conversationId,
+                                    parentMessageId = compactMessageId,
+                                    snapshot = request.generationRequest.snapshot,
+                                    touchConversationOnAdmission = false,
+                                ),
+                                state = state,
+                            )
+                        }
+                        continuation?.job?.join()
+                    } catch (error: Exception) {
+                        state.finishRunHandoff(compactLaunch.uiToken)
+                        throw error
+                    }
                 }
-                continuation?.job?.join()
+            } finally {
+                state.finishRunHandoff(originOwnerToken)
             }
         }
     }

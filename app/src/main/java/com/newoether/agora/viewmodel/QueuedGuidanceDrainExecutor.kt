@@ -95,7 +95,12 @@ internal class QueuedGuidanceDrainExecutor(
     suspend fun drainAfterSettlement(state: ConversationGenerationState) {
         val claim = state.queueMutationMutex.withLock {
             if (!state.consumeQueueDrainPermission()) return@withLock null
-            state.claimQueuedSends()?.let { lease -> claimUnderLock(state, lease) }
+            val originOwnerToken = state.handoffOwnerToken()
+            try {
+                state.claimQueuedSends()?.let { lease -> claimUnderLock(state, lease) }
+            } finally {
+                state.finishRunHandoff(originOwnerToken, queuedDrainOnly = true)
+            }
         } ?: return
         launchClaim(state, claim)
     }

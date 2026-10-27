@@ -75,6 +75,7 @@ internal suspend fun ConversationCompactController.continueTaskGenerations(
         terminalSettlement = terminalSettlement,
         toUiMessage = { it.toUiChatMessage(appContext) },
         onAutomaticCompactContinuation = { request, generationState ->
+            generationState.retainRunHandoff(request.generationRequest.uiToken)
             generationState.deferNextQueueDrain()
             check(pendingRequest.compareAndSet(null, request)) {
                 "A standard generation produced overlapping continuation requests"
@@ -82,57 +83,82 @@ internal suspend fun ConversationCompactController.continueTaskGenerations(
         },
     )
 
-    var request: AutomaticCompactContinuationRequest? = initialRequest
-    var lastModelMessageId: String? = null
-    while (request != null) {
-        val current = request
-        val guidanceClaimRevision = state.guidanceClaimRevision()
-        val compactLaunch = startAutomaticStandard(
-            conversationId = current.generationRequest.conversationId,
-            contextLimit = current.generationRequest.snapshot.config.maxContextWindow,
-            config = current.config,
-            state = state,
-            // The Task run already holds this conversation's automation lease.
-            alreadyHoldsConversationLock = true,
-        ) ?: return StandardCompactContinuationResult(lastModelMessageId, aborted = true)
-        try {
-            compactLaunch.job.join()
-        } catch (cancelled: CancellationException) {
-            withContext(NonCancellable) {
-                compactLaunch.job.cancel(cancelled)
-                compactLaunch.job.join()
-            }
-            throw cancelled
-        }
-        val compactMessageId = compactLaunch.messageId
-        val compactStatus = convRepo.getMessage(compactMessageId)?.status
-        if (!automaticCompactAllowsHandoff(compactStatus)) {
-            return StandardCompactContinuationResult(lastModelMessageId, aborted = true)
-        }
-        val launch = launchStandardContinuationAfterGuidance(
-            state = state,
-            guidanceClaimRevision = guidanceClaimRevision,
-        ) {
-            pendingRequest.set(null)
-            continuationLauncher.launch(
-                request = StandardGenerationContinuationRequest(
-                    conversationId = current.generationRequest.conversationId,
-                    parentMessageId = compactMessageId,
-                    snapshot = current.generationRequest.snapshot,
-                    alreadyHoldsConversationLock = true,
-                    touchConversationOnAdmission = false,
-                ),
+    var originOwnerToken = initialRequest.generationRequest.uiToken
+    try {
+        var request: AutomaticCompactContinuationRequest? = initialRequest
+        var lastModelMessageId: String? = null
+        while (request != null) {
+            val current = request
+            originOwnerToken = current.generationRequest.uiToken
+            val guidanceClaimRevision = state.guidanceClaimRevision()
+            val compactLaunch = startAutomaticStandard(
+                conversationId = current.generationRequest.conversationId,
+                contextLimit = current.generationRequest.snapshot.config.maxContextWindow,
+                config = current.config,
                 state = state,
-            )
-        } ?: return StandardCompactContinuationResult(lastModelMessageId)
-        launch.job.join()
-        state.awaitGenerationSettled(launch.uiToken)
-        val continuationMessage = convRepo.getMessage(launch.modelMessageId)
-        if (continuationMessage?.status == MessageStatus.STOPPED) {
-            return StandardCompactContinuationResult(lastModelMessageId, aborted = true)
+                // The Task run already holds this conversation's automation lease.
+                alreadyHoldsConversationLock = true,
+                continuesAfterSuccess = true,
+            ) ?: return StandardCompactContinuationResult(lastModelMessageId, aborted = true)
+            try {
+                compactLaunch.job.join()
+                state.awaitGenerationSettled(compactLaunch.uiToken)
+            } catch (cancelled: CancellationException) {
+                withContext(NonCancellable) {
+                    compactLaunch.job.cancel(cancelled)
+                    compactLaunch.job.join()
+                }
+                state.finishRunHandoff(compactLaunch.uiToken)
+                throw cancelled
+            }
+            val launch = try {
+                val compactStatus = convRepo.getMessage(compactLaunch.messageId)?.status
+                if (!automaticCompactAllowsHandoff(compactStatus)) {
+                    state.finishRunHandoff(compactLaunch.uiToken)
+                    return StandardCompactContinuationResult(lastModelMessageId, aborted = true)
+                }
+                launchStandardContinuationAfterGuidance(
+                    state = state,
+                    guidanceClaimRevision = guidanceClaimRevision,
+                    handoffOwnerToken = compactLaunch.uiToken,
+                ) {
+                    pendingRequest.set(null)
+                    continuationLauncher.launch(
+                        request = StandardGenerationContinuationRequest(
+                            conversationId = current.generationRequest.conversationId,
+                            parentMessageId = compactLaunch.messageId,
+                            snapshot = current.generationRequest.snapshot,
+                            alreadyHoldsConversationLock = true,
+                            touchConversationOnAdmission = false,
+                        ),
+                        state = state,
+                    )
+                }
+            } catch (error: Exception) {
+                state.finishRunHandoff(compactLaunch.uiToken)
+                throw error
+            } ?: return StandardCompactContinuationResult(lastModelMessageId)
+            try {
+                launch.job.join()
+                state.awaitGenerationSettled(launch.uiToken)
+            } catch (cancelled: CancellationException) {
+                withContext(NonCancellable) {
+                    launch.job.cancel(cancelled)
+                    launch.job.join()
+                }
+                state.finishRunHandoff(launch.uiToken)
+                throw cancelled
+            }
+            val continuationMessage = convRepo.getMessage(launch.modelMessageId)
+            if (continuationMessage?.status == MessageStatus.STOPPED) {
+                return StandardCompactContinuationResult(lastModelMessageId, aborted = true)
+            }
+            if (continuationMessage != null) lastModelMessageId = launch.modelMessageId
+            request = pendingRequest.getAndSet(null)
         }
-        if (continuationMessage != null) lastModelMessageId = launch.modelMessageId
-        request = pendingRequest.getAndSet(null)
+        return StandardCompactContinuationResult(lastModelMessageId)
+    } finally {
+        state.finishRunHandoff(originOwnerToken)
+        pendingRequest.get()?.let { state.finishRunHandoff(it.generationRequest.uiToken) }
     }
-    return StandardCompactContinuationResult(lastModelMessageId)
 }

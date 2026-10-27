@@ -29,8 +29,6 @@ import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,15 +41,22 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.ui.chat.interaction.InteractionDeck
+import com.newoether.agora.ui.chat.interaction.QuestionDrafts
+import com.newoether.agora.ui.chat.interaction.UserInteraction
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.viewmodel.AskUserController
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -66,7 +71,9 @@ internal fun PhoneControls(
     val requests by runtime.askUser.requests.collectAsState()
     val action by runtime.actionName.collectAsState()
     val liveOwner = held?.takeIf { it.epoch == epoch }
-    val owner = remember(epoch) { liveOwner } ?: return
+    var retainedOwner by remember(epoch) { mutableStateOf(liveOwner) }
+    if (liveOwner != null) SideEffect { retainedOwner = liveOwner }
+    val owner = liveOwner ?: retainedOwner ?: return
     val active = visible && liveOwner != null
     val liveQuestions = requests.filter { it.conversationId == owner.owner.conversationId && it.runId == owner.owner.runId }
     var retainedQuestions by remember(epoch) { mutableStateOf(liveQuestions) }
@@ -92,8 +99,9 @@ internal fun PhoneControls(
     var exitingQuestions by remember(owner.epoch) { mutableStateOf(emptyList<AskUserController.Request>()) }
     if (questions.isNotEmpty()) SideEffect { exitingQuestions = questions }
     val contentQuestions = questions.ifEmpty { exitingQuestions }
-    val label = if (questions.isNotEmpty()) R.string.phone_waiting
-        else if (displayedAction == "phone_type") R.string.phone_typing else phoneActionLabel(displayedAction)
+    val label = if (questions.isNotEmpty()) stringResource(R.string.phone_waiting)
+        else if (displayedAction == "phone_type") stringResource(R.string.phone_typing)
+        else phoneActionLabel(displayedAction)?.let { stringResource(it) } ?: displayedAction.orEmpty()
     val reduce = motion.reduceMotion
     BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
         var position by remember(owner.epoch) { mutableStateOf(Offset.Zero) }
@@ -103,8 +111,10 @@ internal fun PhoneControls(
             value.y.coerceIn(0f, (constraints.maxHeight - stripSize.height).coerceAtLeast(0).toFloat()),
         )
         val placed = constrained(position)
-        PhoneControlStrip(elapsed, stringResource(label), {
-            if (active && runtime.lease.held.value?.epoch == epoch) runtime.revoke(owner.owner, owner.epoch)
+        PhoneControlStrip(elapsed, label, {
+            if (active) runtime.lease.held.value?.takeIf { it.epoch == epoch }?.let {
+                runtime.revoke(it.owner, it.epoch)
+            }
         },
             Modifier.align(AbsoluteAlignment.TopLeft)
                 .absoluteOffset { IntOffset(placed.x.roundToInt(), placed.y.roundToInt()) }
@@ -129,9 +139,9 @@ internal fun PhoneControls(
             val first = contentQuestions.firstOrNull()
             if (first != null) {
                 val group = contentQuestions.filter { if (first.setId == null) it.id == first.id else it.setId == first.setId }
-                Surface(Modifier.widthIn(max = 420.dp).fillMaxWidth().then(phoneTouchBounds("ask", bounds)), shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 8.dp, shadowElevation = 6.dp) {
-                    PhoneAskCard(group, runtime.askUser, focusable, bounds, enabled = active)
+                Box(Modifier.widthIn(max = 420.dp).fillMaxWidth().then(phoneTouchBounds("ask", bounds))) {
+                    PhoneAskInteraction(group, runtime.askUser, focusable, bounds,
+                        enabled = active && questions.isNotEmpty())
                 }
             }
         }
@@ -210,56 +220,108 @@ internal fun PhoneControlStrip(
         }
     }
 }
-@OptIn(ExperimentalLayoutApi::class)
+
 @Composable
-private fun PhoneAskCard(
-    questions: List<AskUserController.Request>, controller: AskUserController,
-    focusable: (Boolean) -> Unit, bounds: (String, Rect?) -> Unit, enabled: Boolean,
+internal fun PhoneAskInteraction(
+    questions: List<AskUserController.Request>,
+    controller: AskUserController,
+    focusable: (Boolean) -> Unit,
+    bounds: (String, Rect?) -> Unit,
+    enabled: Boolean,
 ) {
-    val selections = remember(questions.map { it.id }) { mutableStateMapOf<Long, Set<String>>() }
-    val texts = remember(questions.map { it.id }) { mutableStateMapOf<Long, String>() }
-    val focusedFields = remember(questions.map { it.id }) { mutableStateMapOf<Long, Boolean>() }
+    val drafts = remember { QuestionDrafts() }
+    drafts.retainOnly(questions)
+    var minimized by remember { mutableStateOf(false) }
+    var pageKey by remember { mutableStateOf<String?>(null) }
+    val focusedFields = remember { mutableStateMapOf<Long, Boolean>() }
+    var preparingInput by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    DisposableEffect(Unit) { onDispose { focusable(false) } }
-    Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        questions.forEach { question ->
-            Text(question.question, style = MaterialTheme.typography.titleSmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                question.options.forEach { option ->
-                    val selected = option in selections[question.id].orEmpty()
-                    FilterChip(selected = selected, onClick = {
-                        selections[question.id] = if (!question.allowMultiple) if (selected) emptySet() else setOf(option)
-                        else selections[question.id].orEmpty().let { if (selected) it - option else it + option }
-                    }, enabled = enabled, label = { Text(option) })
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val window = LocalWindowInfo.current
+    val latestFocusable by rememberUpdatedState(focusable)
+    val latestEnabled by rememberUpdatedState(enabled)
+    fun clearInputFocus() {
+        keyboard?.hide()
+        focusManager.clearFocus(force = true)
+        focusedFields.clear()
+        preparingInput = false
+        latestFocusable(false)
+    }
+    LaunchedEffect(enabled) { if (!enabled) clearInputFocus() }
+    DisposableEffect(Unit) { onDispose { latestFocusable(false) } }
+    InteractionDeck(
+        interactions = listOf(UserInteraction.Question(questions)),
+        autoWrapCodeBlocks = false,
+        onSubmitQuestions = { answers ->
+            if (enabled) {
+                clearInputFocus()
+                controller.submitAll(answers)
+            }
+        },
+        onSkipQuestion = { id ->
+            if (enabled) {
+                clearInputFocus()
+                controller.dismiss(id)
+            }
+        },
+        onShellDecision = { _, _, _ -> },
+        onCardMeasured = {},
+        minimized = minimized,
+        onMinimizedChange = {
+            clearInputFocus()
+            minimized = it
+        },
+        drafts = drafts,
+        pageKey = pageKey,
+        onPageChange = {
+            clearInputFocus()
+            pageKey = it
+        },
+        inSharedRow = true,
+        onExpansionChanged = {},
+        active = enabled,
+        questionTextFieldModifier = { request ->
+            val accepting = enabled && !minimized && pageKey == "question:${request.id}"
+            DisposableEffect(request.id) {
+                onDispose {
+                    focusedFields.remove(request.id)
+                    if (focusedFields.isEmpty() && !preparingInput) latestFocusable(false)
                 }
             }
-            OutlinedTextField(value = texts[question.id].orEmpty(), onValueChange = { texts[question.id] = it },
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth().then(phoneTouchBounds("text-${question.id}", bounds))
-                    .pointerInput(question.id, enabled) {
-                        if (!enabled) return@pointerInput
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                            focusable(true)
+            Modifier.then(phoneTouchBounds("text-${request.id}", bounds))
+                .pointerInput(request.id, accepting) {
+                    if (!accepting) return@pointerInput
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        latestFocusable(true)
+                    }
+                }.onFocusChanged {
+                    if (it.isFocused && accepting) {
+                        focusedFields[request.id] = true
+                        latestFocusable(true)
+                    } else {
+                        focusedFields.remove(request.id)
+                        scope.launch {
+                            withFrameNanos { }
+                            latestFocusable(latestEnabled && (preparingInput || focusedFields.isNotEmpty()))
                         }
-                    }.onFocusChanged {
-                        if (it.isFocused && enabled) { focusedFields[question.id] = true; focusable(true) }
-                        else {
-                            focusedFields.remove(question.id)
-                            scope.launch { withFrameNanos { }; focusable(focusedFields.isNotEmpty()) }
-                        }
-                    },
-                label = { Text(stringResource(R.string.phone_answer)) }, maxLines = 4)
-        }
-        Button(onClick = {
-            focusable(false)
-            controller.submitAll(questions.map { question ->
-                val choices = selections[question.id].orEmpty().toList()
-                val text = texts[question.id]?.takeIf(String::isNotBlank)
-                question.id to AskUserController.Answer(choices, text, choices.isNotEmpty() || text != null)
-            })
-        }, enabled = enabled, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.phone_send)) }
-    }
+                    }
+                }
+        },
+        prepareQuestionTextInput = {
+            preparingInput = true
+            latestFocusable(true)
+            var ready = false
+            try {
+                snapshotFlow { window.isWindowFocused }.first { it }
+                ready = true
+            } finally {
+                preparingInput = false
+                if (!ready) latestFocusable(latestEnabled && focusedFields.isNotEmpty())
+            }
+        },
+    )
 }
 
 @Composable
@@ -268,7 +330,7 @@ private fun phoneTouchBounds(key: String, bounds: (String, Rect?) -> Unit): Modi
     return Modifier.onGloballyPositioned { bounds(key, it.boundsInRoot()) }
 }
 
-internal fun phoneActionLabel(name: String?): Int = when (name) {
+internal fun phoneActionLabel(name: String?): Int? = when (name) {
     "phone_claim" -> R.string.phone_claim
     "phone_release" -> R.string.phone_release
     "phone_screenshot" -> R.string.phone_screenshot
@@ -280,5 +342,6 @@ internal fun phoneActionLabel(name: String?): Int = when (name) {
     "phone_key" -> R.string.phone_key
     "phone_app_launch" -> R.string.phone_app_launch
     "phone_app_list" -> R.string.phone_app_list
-    else -> R.string.phone_thinking
+    null -> R.string.phone_thinking
+    else -> null
 }

@@ -63,7 +63,8 @@ class ConversationGenerationState(
     val conversationId: String,
     private val onRegistryActive: (String) -> Unit = {},
     private val onRegistryIdle: (String) -> Unit = {},
-    private val onRunControlEnded: (String, String) -> Unit = { _, _ -> },
+    private val onRunStateChanged: (ConversationGenerationState, RunState, RunState?) -> Unit = { _, _, _ -> },
+    private val onRunHandoffFinished: (ConversationGenerationState, Long) -> Unit = { _, _ -> },
     reclaimQueuedAttachments: (List<com.newoether.agora.model.SelectedAttachment>) -> Unit,
 ) {
 
@@ -276,6 +277,7 @@ class ConversationGenerationState(
     fun launchGenerationJob(
         uiToken: Long,
         suppressAutomaticQueueDrain: Boolean = false,
+        retainHandoff: Boolean = false,
         block: suspend CoroutineScope.() -> Unit,
     ): Job? {
         val job = scope.launch(start = CoroutineStart.LAZY, block = block)
@@ -293,6 +295,7 @@ class ConversationGenerationState(
             } else {
                 resources.installGenerationJob(job).also { didInstall ->
                     installed.set(didInstall)
+                    if (didInstall && retainHandoff) resources.retainRunHandoff(uiToken)
                     if (didInstall && suppressAutomaticQueueDrain) {
                         resources.deferNextQueueDrain()
                     }
@@ -576,7 +579,7 @@ class ConversationGenerationState(
     internal fun dispose(): List<QueuedSend> {
         val pendingGuidance = guidanceLeases.disposePending()
         val job = synchronized(genLock) {
-            runState.identityOrNull()?.runId?.let { onRunControlEnded(conversationId, it) }
+            onRunStateChanged(this, runState, null)
             resources.currentGenerationJob()
         }
         resources.cancelStreamsAnd(job)
@@ -731,6 +734,28 @@ class ConversationGenerationState(
         onIdle?.invoke(conversationId)
     }
 
+    /** Capture the exact released owner while the reducer still serializes slot replacement. */
+    internal fun handoffOwnerToken(): Long? = synchronized(genLock) {
+        lastReleasedOwnerToken.takeIf { runState is RunState.Idle }
+    }
+
+    internal fun retainRunHandoff(ownerToken: Long) = synchronized(genLock) {
+        resources.retainRunHandoff(ownerToken)
+    }
+
+    internal fun releaseRunHandoffRetention(ownerToken: Long?) = synchronized(genLock) {
+        if (ownerToken != null) resources.releaseRunHandoffRetention(ownerToken)
+    }
+
+    internal fun finishRunHandoff(ownerToken: Long?, queuedDrainOnly: Boolean = false) = synchronized(genLock) {
+        if (ownerToken != null && (!queuedDrainOnly || !resources.isRunHandoffRetained(ownerToken))) {
+            resources.releaseRunHandoffRetention(ownerToken)
+            onRunHandoffFinished(this, ownerToken)
+        }
+    }
+
+    private var lastReleasedOwnerToken: Long? = null
+
     /** Must be called while [genLock] is held. This is the only process-slot state write path. */
     private fun reduceLocked(command: ConversationCommand): com.newoether.agora.model.Transition {
         val oldState = runState
@@ -738,10 +763,11 @@ class ConversationGenerationState(
         val traceEntry = runtimeTrace.record(oldState, command, transition)
         DeveloperDiagnostics.recordRuntimeTransition(traceEntry)
         if (transition.accepted) {
+            if (transition.newState is RunState.Idle) {
+                lastReleasedOwnerToken = oldState.identityOrNull()?.ownerToken ?: lastReleasedOwnerToken
+            }
             runState = transition.newState
-            if (oldState is RunState.Active &&
-                (runState !is RunState.Active || (runState as RunState.Active).coroutineSettled)
-            ) oldState.identity.runId?.let { onRunControlEnded(conversationId, it) }
+            onRunStateChanged(this, oldState, runState)
         }
         return transition
     }

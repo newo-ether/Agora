@@ -565,7 +565,10 @@ class TaskExecutionEngine(
                 )
             }
             val boundaryParentId = generationResult.followUpParentMessageId
-            if (boundaryParentId != null) generationState.deferNextQueueDrain()
+            if (boundaryParentId != null) {
+                generationState.retainRunHandoff(uiToken)
+                generationState.deferNextQueueDrain()
+            }
             ownerJob.complete()
             ownerJob.join()
             generationState.awaitGenerationSettled(uiToken)
@@ -777,6 +780,8 @@ class TaskExecutionEngine(
                 }
             }
             Result.Failure(reason, modelMessageId.takeIf { runCreated })
+        } finally {
+            generationState.finishRunHandoff(inputEffect?.identity?.ownerToken)
         }
     }
 }

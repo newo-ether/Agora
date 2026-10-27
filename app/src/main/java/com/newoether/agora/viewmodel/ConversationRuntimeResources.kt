@@ -59,6 +59,7 @@ internal class ConversationRuntimeResources {
     private var uiGenToken = 0L
     private val persistId = AtomicLong(0L)
     private var suppressedQueueDrainCount = 0
+    private var retainedHandoffOwnerToken: Long? = null
 
     fun captureUiToken(): Long = uiGenToken
 
@@ -86,6 +87,7 @@ internal class ConversationRuntimeResources {
         // Keeping it armed would make THIS run's release silently skip its queue drain, leaving
         // queued sends stranded with nothing left to trigger them.
         suppressedQueueDrainCount = 0
+        retainedHandoffOwnerToken = null
         _isLoading.value = loading
         _generating.value = true
         _stopping.value = false
@@ -168,6 +170,16 @@ internal class ConversationRuntimeResources {
         if (_streamingMessage.value?.status == MessageStatus.STOPPED) {
             _streamingMessage.value = null
         }
+    }
+
+    fun retainRunHandoff(ownerToken: Long) {
+        if (uiGenToken == ownerToken) retainedHandoffOwnerToken = ownerToken
+    }
+
+    fun isRunHandoffRetained(ownerToken: Long): Boolean = retainedHandoffOwnerToken == ownerToken
+
+    fun releaseRunHandoffRetention(ownerToken: Long) {
+        if (retainedHandoffOwnerToken == ownerToken) retainedHandoffOwnerToken = null
     }
 
     fun deferNextQueueDrain() {

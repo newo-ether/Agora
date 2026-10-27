@@ -6,6 +6,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.model.RunEffectIdentity
+import com.newoether.agora.model.RunEndReason
+import com.newoether.agora.model.RunState
+import com.newoether.agora.model.RunStatus
+import com.newoether.agora.model.RuntimeRunIdentity
 import com.newoether.agora.viewmodel.AskUserController
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -105,6 +109,48 @@ class PhonePermissionEventsTest {
         locked = true
         receiver.onReceive(context, Intent(Intent.ACTION_USER_PRESENT))
         assertEquals("screen_locked", lease.recentReleases().last().reason)
+    }
+    @Test fun pendingQuestionPausesSuccessorWhenOwnerChangesWithinTheSameEpoch() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val lease = PhoneControlLease { testScheduler.currentTime }
+        val watcher = lease.watchPermissions(context, backgroundScope, config, ask.requests) { false }
+        claim(lease); runCurrent()
+        val epoch = lease.held.value!!.epoch
+        val request = ask.open("conversation", "Successor question", emptyList(), false, false, runId = "next")
+        runCurrent()
+        assertFalse(lease.held.value!!.paused)
+        val questions = ask.requests.value
+
+        val source = Any()
+        val active = RunState.Active(identity.runIdentity())
+        val finalizing = RunState.Finalizing(
+            identity = identity.runIdentity(),
+            effectIdentity = identity.copy(effectId = "finalize"),
+            status = RunStatus.COMPLETED,
+            reason = RunEndReason.CONTINUATION_PENDING,
+            markConversationUnread = false,
+            coroutineSettled = false,
+            persistenceSettled = false,
+        )
+        val settled = finalizing.copy(coroutineSettled = true)
+        val idle = RunState.Idle("conversation")
+        val successor = RunState.Active(RuntimeRunIdentity("conversation", 2))
+        val bound = successor.copy(identity = successor.identity.copy(runId = "next"))
+        lease.onRunStateChanged(source, active, finalizing)
+        lease.onRunStateChanged(source, finalizing, settled)
+        lease.onRunStateChanged(source, settled, idle)
+        lease.onRunStateChanged(source, idle, successor)
+        lease.onRunStateChanged(source, successor, bound)
+        runCurrent()
+
+        assertEquals(epoch, lease.held.value!!.epoch)
+        assertEquals(PhoneControlLease.Owner("conversation", "next"), lease.held.value!!.owner)
+        assertSame(questions, ask.requests.value)
+        assertTrue(lease.held.value!!.paused)
+        assertTrue(lease.recentReleases().isEmpty())
+        ask.submit(request.id, emptyList(), "Answer"); runCurrent()
+        assertFalse(lease.held.value!!.paused)
+        watcher.cancelAndJoin()
     }
     @Test fun accessibilityDisconnectIsAnEventAndQuestionPauseUsesExactRun() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))

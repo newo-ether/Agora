@@ -230,6 +230,8 @@ internal data class GenerationCallbacks(
      *  each round boundary and ends the generation there so the queue can flush immediately
      *  (steering) instead of waiting out the entire loop. Headless runs keep the default. */
     val hasQueuedSends: () -> Boolean = { false },
+    /** An already-scheduled ordinary successor keeps successful terminalization interim. */
+    val hasPendingContinuation: Boolean = false,
     /** Null for headless automation, which retains its existing foreground/background policy. */
     val isConversationVisible: (() -> Boolean)? = null,
     /** A validated Provider outcome is necessary but not sufficient: runtime identity must accept

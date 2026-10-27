@@ -13,6 +13,10 @@ import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSource
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
+import com.newoether.agora.model.RunEffectIdentity
+import com.newoether.agora.model.RunEndReason
+import com.newoether.agora.model.RunStatus
+import com.newoether.agora.phone.PhoneControlLease
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -34,7 +38,7 @@ import org.junit.Test
 
 class QueuedGuidanceDrainExecutorTest {
     @Test
-    fun claimUsesFreshRunIdentityAndFailedLeaseReturnsToFifoFront() = runBlocking {
+    fun claimUsesFreshRunIdentityAndFailedLeaseReturnsToFifoFront() = runBlocking<Unit> {
         val fixture = Fixture()
         val state = ConversationGenerationState("conversation", reclaimQueuedAttachments = {})
         QUEUED.forEach(state::enqueueSend)
@@ -58,7 +62,7 @@ class QueuedGuidanceDrainExecutorTest {
     }
 
     @Test
-    fun launchCommitsWholeFifoAsSeparateMessagesWithOneRunAndLatestSnapshot() = runBlocking {
+    fun launchCommitsWholeFifoAsSeparateMessagesWithOneRunAndLatestSnapshot() = runBlocking<Unit> {
         val fixture = Fixture()
         val state = ConversationGenerationState("conversation", reclaimQueuedAttachments = {})
         val olderSnapshot = testGenerationAdmissionSnapshot(
@@ -144,7 +148,7 @@ class QueuedGuidanceDrainExecutorTest {
     }
 
     @Test
-    fun latestInputWithoutSnapshotCapturesOnceForWholeBatchInsteadOfUsingOlderSnapshot() = runBlocking {
+    fun latestInputWithoutSnapshotCapturesOnceForWholeBatchInsteadOfUsingOlderSnapshot() = runBlocking<Unit> {
         val fixture = Fixture()
         val state = ConversationGenerationState("conversation", reclaimQueuedAttachments = {})
         state.enqueueSend(QUEUED.first().copy(generationSnapshot = testGenerationAdmissionSnapshot(
@@ -170,6 +174,128 @@ class QueuedGuidanceDrainExecutorTest {
         assertFalse(state.settleGuidanceClaim(lease.id, durable = false))
         state.dispose()
         Unit
+    }
+
+    @Test
+    fun emptyDrainRetiresUnclaimedHandoffButSuppressionPreservesScheduledWork() = runBlocking<Unit> {
+        for (suppressed in listOf(false, true)) {
+            val fixture = Fixture()
+            val phone = PhoneControlLease { 0L }
+            val state = phoneState(phone)
+            val token = settlePhoneOrigin(state, phone)
+            if (suppressed) state.deferNextQueueDrain()
+
+            fixture.executor.drainAfterSettlement(state)
+
+            assertEquals(suppressed, phone.held.value != null)
+            state.finishRunHandoff(token)
+            assertNull(phone.held.value)
+            coVerify(exactly = 0) { fixture.boundLauncher.launch(any(), any()) }
+            state.dispose()
+        }
+    }
+
+    @Test
+    fun compactEmptyDrainCannotRetireScheduledContinuationAndFailedLaunchCleansIt() = runBlocking<Unit> {
+        val fixture = Fixture()
+        val phone = PhoneControlLease { 0L }
+        val state = phoneState(phone)
+        val token = settlePhoneOrigin(state, phone, retained = true)
+        val epoch = phone.held.value!!.epoch
+
+        fixture.executor.drainAfterSettlement(state)
+        fixture.executor.drainAfterSettlement(state)
+        assertEquals(epoch, phone.held.value!!.epoch)
+        assertNull(launchStandardContinuationAfterGuidance(state, state.guidanceClaimRevision(), token) { null })
+        assertNull(phone.held.value)
+        state.dispose()
+    }
+
+    @Test
+    fun queuedGuidanceWinsScheduledContinuationAndTransfersPhoneEpochAfterBinding() = runBlocking<Unit> {
+        val fixture = Fixture()
+        val phone = PhoneControlLease { 0L }
+        val state = phoneState(phone)
+        val token = settlePhoneOrigin(state, phone, retained = true)
+        val epoch = phone.held.value!!.epoch
+        val revision = state.guidanceClaimRevision()
+        QUEUED.forEach { state.enqueueSend(it.copy(generationSnapshot = fixture.snapshot)) }
+        val holdGeneration = CompletableDeferred<Unit>()
+        coEvery { fixture.boundLauncher.launch(any(), state) } coAnswers {
+            fixture.launched.complete(firstArg())
+            holdGeneration.await()
+        }
+
+        assertNull(launchStandardContinuationAfterGuidance(state, revision, token) {
+            error("Pending FIFO guidance must own admission")
+        })
+        assertEquals(epoch, phone.held.value!!.epoch)
+        fixture.executor.drainAfterSettlement(state)
+        val request = withTimeout(5_000) { fixture.launched.await() }
+        assertEquals("fresh-run", request.runId)
+        assertEquals(PhoneControlLease.Owner("conversation", "fresh-run"), phone.held.value!!.owner)
+        assertEquals(epoch, phone.held.value!!.epoch)
+        state.finishRunHandoff(token)
+        assertEquals(epoch, phone.held.value!!.epoch)
+        assertTrue(phone.recentReleases().isEmpty())
+        state.dispose()
+        holdGeneration.complete(Unit)
+    }
+
+    @Test
+    fun cancelledGuidanceAfterWinningContinuationLeavesNoRetainedLease() = runBlocking<Unit> {
+        val fixture = Fixture()
+        val phone = PhoneControlLease { 0L }
+        val state = phoneState(phone)
+        val token = settlePhoneOrigin(state, phone, retained = true)
+        val revision = state.guidanceClaimRevision()
+        state.enqueueSend(QUEUED.first())
+        launchStandardContinuationAfterGuidance(state, revision, token) { error("Queued guidance wins") }
+        state.removeQueuedSend(QUEUED.first().id)
+        fixture.executor.drainAfterSettlement(state)
+        assertNull(phone.held.value)
+        state.dispose()
+    }
+
+    @Test
+    fun retiredClaimWithoutSuccessorReleasesRetainedPhoneHandoff() = runBlocking<Unit> {
+        val phone = PhoneControlLease { 0L }
+        val state = phoneState(phone)
+        val token = settlePhoneOrigin(state, phone, retained = true)
+        val revision = state.guidanceClaimRevision()
+        state.enqueueSend(QUEUED.first())
+        val claim = requireNotNull(state.claimQueuedSends())
+        assertTrue(state.settleGuidanceClaim(claim.id, durable = false))
+        state.removeQueuedSend(QUEUED.first().id)
+
+        assertNull(launchStandardContinuationAfterGuidance(state, revision, token) {
+            error("Claimed guidance already superseded this continuation")
+        })
+        assertNull(phone.held.value)
+        state.dispose()
+    }
+
+    private fun phoneState(phone: PhoneControlLease) = ConversationGenerationState(
+        "conversation", onRunStateChanged = phone::onRunStateChanged,
+        onRunHandoffFinished = phone::finishHandoff, reclaimQueuedAttachments = {},
+    )
+
+    private suspend fun settlePhoneOrigin(
+        state: ConversationGenerationState,
+        phone: PhoneControlLease,
+        retained: Boolean = false,
+    ): Long {
+        val token = state.acquireForSend()!!
+        state.bindRun(token, "origin")
+        val identity = RunEffectIdentity("conversation", token, "origin", 0, "finalize-origin")
+        phone.claim(identity, "Title")
+        if (retained) state.retainRunHandoff(token)
+        checkNotNull(state.commands.requestRunFinalization(
+            identity, RunStatus.COMPLETED, RunEndReason.CONTINUATION_PENDING, false,
+        ))
+        state.finishRunFinalization(identity, true)
+        assertTrue(state.endGeneration(token))
+        return token
     }
 
     private class Fixture {

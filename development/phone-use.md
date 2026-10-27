@@ -134,9 +134,20 @@ One process-wide lease owner. At most one active controller at any time.
 - Every successful `phone_*` call renews the lease. Lease length: 300 s idle. One cancellable delayed
   task expires the current epoch; claim/completion resets its deadline, without periodic ticks.
 - The idle timer pauses while the owner has a pending `ask_user` shown on the overlay.
-- Release on: `phone_release`; idle expiry; user Stop button (overlay or notification, section 4.2); Run Stop or
-  terminal settlement of the owning Run; owning conversation deletion; permission loss; screen
+- Release on: `phone_release`; idle expiry; user Stop button (overlay or notification, section 4.2); Run Stop,
+  failure or final non-continuation settlement; owning conversation deletion; permission loss; screen
   lock; process death (lease is in-memory only and never restored).
+- Inserted/FIFO messages and automatic Compact continuations preserve the current epoch across
+  successful `CONTINUATION_PENDING` settlement. Each successor still creates and durably binds a
+  fresh Run through ordinary admission. Only accepted reducer transitions transfer control to that
+  exact owner; old Run/pass/effect permits remain invalid. Claimed time, mode and remaining idle
+  budget survive, so overlay windows and timeout rollback are not restarted.
+- An explicitly scheduled continuation retains only its origin token in the existing runtime
+  resources, installed before its generation Job starts. An empty queue drain cannot end that
+  retained handoff. The existing queue mutex decides queued guidance versus continuation admission;
+  failed/abandoned admission, disposal and no-successor cleanup retire only the exact pending origin.
+  A stale cleanup or notification cannot affect a replacement epoch. Stop from a same-epoch
+  notification addresses the live owner, including a handoff gap.
 - `phone_claim` fails when the device is locked or keyguard is showing.
 - The lease decision is one serialized boundary; it is never held across tool execution, network
   or UI suspension.
@@ -226,13 +237,17 @@ not 0.8 per window. Capsule paint is opaque before platform composition. Border 
 existing window opacity stay unchanged.
 Dragging the duration/status area begins after platform touch slop and keeps the strip inside the
 available visible frame; Stop has its own click region.
-Status text: `Thinking` while the owning Run streams model output, the action name during a tool
-(`Tap`, `Swipe`, `Typing`, ...), `Waiting for you` during ask_user. Each operation, including repeated
-identical names, holds its status for at least 200 ms before admitting the next operation's status
-and device work. The existing serialized provider supplies this bounded pacing; no display-event
-queue can accumulate behind device execution. Recheck the exact lease/Run/settings after that wait.
-On completion, retain the last action for one second before returning to Thinking. A new operation
-cancels this idle deadline and switches as soon as the previous 200 ms minimum has elapsed.
+Status text: `Thinking` while the owning Run streams model output, the name of every tool while
+it is active, and `Waiting for you` during ask_user. Phone tools keep their localized action labels
+(`Tap`, `Swipe`, `Typing`, ...); other built-in, MCP and provider-hosted tools use the existing
+segment display name or protocol name. The capsule reads the exact owner's ordinary streaming
+segments. Executing tools take priority over calls whose arguments are still streaming.
+One pending target coalesces rapid changes without a display-event queue. A shown call holds its
+status for at least 200 ms, including successive calls with identical names. Phone device effects
+wait for their call to become visible, then recheck the exact lease/Run/settings; other tools do not
+wait for the capsule. On completion, retain the last action for one second before returning to
+Thinking. A new call cancels this idle deadline and switches when the previous minimum has elapsed.
+An owner handoff resets old display deadlines without releasing the retained overlay epoch.
 Thinking breathes only the status text's alpha from 0.8 to 0.2 and back over a two-second
 FastOutSlowIn cycle. The capsule background remains opaque; duration and Stop remain unchanged.
 Reduced Motion and disabled system animations keep Thinking text at alpha 0.8; exiting controls
@@ -274,10 +289,20 @@ Reduced Motion snaps spatial changes; only status retains the label fade.
 
 ### 4.4 Ask card
 
-`ask_user` is reused. While the caller holds the lease, its questions are also presented on an
-overlay card centered horizontally below the capsules: options plus an in-card text field.
-Fade + scale in/out. Submission uses the canonical ask_user submission so the in-app and overlay
-surfaces settle the same request exactly once.
+`ask_user` uses the same `InteractionDeck`, `MorphingInteractionCard`, question bodies and actions
+as the native chat interaction bar. While the caller holds the lease, its pending question set is
+presented centered horizontally below the capsules, with the native header, page count, single or
+multiple choices, custom-answer field, Back/Next, whole-set Send/Skip and fold/expand behavior.
+Drafts remain keyed by request id across paging and newly arriving questions. Folding never answers
+or dismisses a request. Only the question text is selectable; options remain whole-row tap targets.
+
+The overlay host owns placement, the existing 240 ms fade/scale entrance and exit, touch bounds and
+window focus. It draws no second card surface and does not copy the question UI. Open questions do
+not automatically take focus. Choosing a custom answer first makes the control window focusable
+and waits for actual window focus before the shared field requests focus. Folding, paging,
+submission, skipping and removal release input focus. Outgoing or inactive content retains its last
+question and draft with disabled controls, and cannot edit drafts or settle requests. Submission uses canonical `submitAll` and
+Skip uses canonical dismissal, so the in-app and overlay surfaces settle each request at most once.
 
 ### 4.5 Cursor
 
@@ -366,5 +391,8 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
   `WRITE_SETTINGS` deep link and fallback, and explicit release waiting/error reporting. Runtime
   callback regressions keep the lease held and use distinct caller/Main dispatchers to verify
   cancelled release and failed-claim cleanup still reach timeout restoration in an active context.
+- Handoff: both durable/Job barrier orders, empty and suppressed queue drains, scheduled Compact
+  continuation versus FIFO guidance, failed admission, direct bound successor, stale cleanup and
+  old effects, disposal during the idle gap, and Ask pause changes under one retained epoch.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.

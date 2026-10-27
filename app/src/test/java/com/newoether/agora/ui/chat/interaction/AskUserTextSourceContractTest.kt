@@ -9,7 +9,7 @@ class AskUserTextSourceContractTest {
     @Test
     fun `only the question text in the interaction card is selectable`() {
         val card = source("com/newoether/agora/ui/chat/interaction/QuestionCard.kt")
-        val host = "NoAutoScrollSelectionContainer {"
+        val host = "NoAutoScrollSelectionContainer(enabled = enabled) {"
         val start = card.indexOf(host)
 
         assertTrue(start >= 0)

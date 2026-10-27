@@ -261,9 +261,9 @@ class PhoneOverlayMotionTest {
         }
         frames(64)
         compose.onNodeWithText("Waiting for you").assertExists()
-        compose.onNodeWithText("Keep this question?").assertExists()
-        compose.onNodeWithText("Yes").assertIsNotEnabled()
-        compose.onNodeWithText("Send").assertIsNotEnabled()
+        compose.onNodeWithText("Keep this question?", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Yes", useUnmergedTree = true).onParent().assertIsNotEnabled()
+        compose.onNodeWithText("Send", useUnmergedTree = true).onParent().assertIsNotEnabled()
         stop().assertIsNotEnabled()
         compose.onNodeWithText("Tap").assertDoesNotExist()
         compose.runOnIdle { presentedEpoch = lease.held.value!!.epoch; visible = true }

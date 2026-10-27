@@ -46,9 +46,8 @@ class PhoneControlService : Service() {
             runtime = control
             if (intent?.action == STOP) {
                 val conversation = intent.getStringExtra("conversation")
-                val run = intent.getStringExtra("run")
-                if (conversation != null && run != null) control.revoke(
-                    PhoneControlLease.Owner(conversation, run), intent.getLongExtra("epoch", -1),
+                if (conversation != null) control.lease.revokeEpochByUser(
+                    conversation, intent.getLongExtra("epoch", -1),
                 )
             }
             control.lease.held.collect {
@@ -65,10 +64,7 @@ class PhoneControlService : Service() {
 
     override fun onDestroy() {
         observed?.let { held ->
-            val control = runtime
-            if (control?.lease?.held?.value?.epoch == held.epoch) {
-                control.lease.releaseOwner(held.owner, "control_service_stopped")
-            }
+            runtime?.lease?.releaseEpoch(held.epoch, "control_service_stopped")
         }
         scope.cancel()
         super.onDestroy()

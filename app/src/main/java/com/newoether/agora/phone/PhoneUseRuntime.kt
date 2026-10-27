@@ -2,7 +2,6 @@ package com.newoether.agora.phone
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.newoether.agora.data.repository.ConversationRepository
@@ -16,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -38,6 +39,7 @@ internal class PhoneUseRuntime(
     private val actionStatus = PhoneActionStatus(
         CoroutineScope(scope.coroutineContext + Dispatchers.Main.immediate), SystemClock::elapsedRealtime,
     )
+    private var statusOwnership: Pair<Long, PhoneControlLease.Owner>? = null
     val actionName = actionStatus.name
     val cursor = MutableStateFlow<PhoneCursor?>(null)
     private var overlayEpoch: Long? = null
@@ -64,16 +66,7 @@ internal class PhoneUseRuntime(
         ownPackage = context.packageName,
         launcher = { context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName },
         persist = { source -> withContext(Dispatchers.IO) {
-            val scale = minOf(1f, 2048f / maxOf(source.width, source.height))
-            val bitmap = if (scale < 1) Bitmap.createScaledBitmap(source, (source.width * scale).toInt().coerceAtLeast(1),
-                (source.height * scale).toInt().coerceAtLeast(1), true) else source
-            try {
-                val bytes = java.io.ByteArrayOutputStream().use { output ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-                    output.toByteArray()
-                }
-                images.persistBytes(bytes, "image/png", "phone")
-            } finally { if (bitmap !== source) bitmap.recycle() }
+            images.persistBitmap(source, "phone")
         } },
         captured = { capture -> (overlay ?: throw PhoneFailure("overlay_unavailable")).capture(capture) },
         showControl = { mode ->
@@ -117,8 +110,17 @@ internal class PhoneUseRuntime(
             cursor.value = PhoneCursor(name, x, y, endX, endY, duration, SystemClock.elapsedRealtime())
         },
         status = { name ->
-            if (name == null) withContext(NonCancellable + Dispatchers.Main.immediate) { actionStatus.update(null) }
-            else withContext(Dispatchers.Main.immediate) { actionStatus.update(name) }
+            if (name != null) withContext(Dispatchers.Main.immediate) {
+                val (epoch, owner) = syncActionStatus() ?: throw PhoneFailure("not_claimed")
+                val state = registry.get(owner.conversationId) ?: throw PhoneFailure("stale_identity")
+                val activity = PhoneActionStatus.activity(state.streamingMessage.value, owner.runId, name)
+                    ?.takeIf { it.running }
+                    ?: throw PhoneFailure("stale_identity")
+                actionStatus.awaitVisible(activity) {
+                    lease.held.value?.let { it.epoch == epoch && it.owner == owner } == true &&
+                        PhoneActionStatus.isRunning(state.streamingMessage.value, activity)
+                }
+            }
         },
         operating = { operation ->
             val active = withContext(Dispatchers.Main.immediate) {
@@ -135,6 +137,22 @@ internal class PhoneUseRuntime(
 
     init {
         scope.launch(Dispatchers.Main.immediate) {
+            lease.held.map { it?.let { held -> held.epoch to held.owner } }.distinctUntilChanged()
+                .collectLatest { ownership ->
+                    if (syncActionStatus() != ownership) return@collectLatest
+                    val (_, owner) = ownership ?: return@collectLatest
+                    val state = registry.get(owner.conversationId) ?: return@collectLatest
+                    // Notifications may contain old values; only live snapshots own the display.
+                    combine(state.streamingMessage, state.generating) { _, _ -> Unit }.collect {
+                        if (syncActionStatus() == ownership) {
+                            actionStatus.present(if (state.generating.value) {
+                                PhoneActionStatus.activity(state.streamingMessage.value, owner.runId)
+                            } else null)
+                        }
+                    }
+                }
+        }
+        scope.launch(Dispatchers.Main.immediate) {
             lease.held.map { it?.epoch }.distinctUntilChanged().collect {
                 // StateFlow may conflate release/reclaim. Always compare the live epoch.
                 if (overlayEpoch != null && overlayEpoch != lease.held.value?.epoch) clearResources(animate = true)
@@ -148,6 +166,16 @@ internal class PhoneUseRuntime(
         lease.watchPermissions(context, scope, settings.phoneUse, askUser.requests, permissions::locked)
     }
 
+    /** Main-only, shared by synchronous effects, delayed collectors and old resource cleanup. */
+    private fun syncActionStatus(): Pair<Long, PhoneControlLease.Owner>? {
+        val ownership = lease.held.value?.let { it.epoch to it.owner }
+        if (statusOwnership != ownership) {
+            statusOwnership = ownership
+            actionStatus.reset()
+        }
+        return ownership
+    }
+
     /** Called only on Main. Detach ownership before scheduling a cosmetic exit. */
     private fun clearResources(animate: Boolean) {
         exitingOverlay?.remove()
@@ -156,7 +184,7 @@ internal class PhoneUseRuntime(
         overlay = null
         overlayEpoch = null
         privileged.close()
-        actionStatus.reset()
+        syncActionStatus()
         cursor.value = null
         if (animate && previous != null) {
             exitingOverlay = previous

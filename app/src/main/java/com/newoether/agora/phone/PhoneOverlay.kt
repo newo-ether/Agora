@@ -28,6 +28,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -119,12 +122,12 @@ internal class PhoneOverlay(
             windows.addView(controls, params)
             controlWindow = PhoneControlWindow(controls, params, windows, operationAlpha = windowAlpha)
             controlScope.launch {
-                runtime.askUser.requests.collect { requests ->
-                    val owner = runtime.lease.held.value?.takeIf { it.epoch == epoch }?.owner
-                    controlWindow?.showForUser(owner != null && requests.any {
+                combine(runtime.lease.held.map { it?.takeIf { current -> current.epoch == epoch }?.owner }
+                    .distinctUntilChanged(), runtime.askUser.requests) { owner, requests ->
+                    owner != null && requests.any {
                         it.conversationId == owner.conversationId && it.runId == owner.runId
-                    })
-                }
+                    }
+                }.collect { waiting -> controlWindow?.showForUser(waiting) }
             }
             installTouchRegion(controls)
             lifecycleRegistry.currentState = Lifecycle.State.RESUMED

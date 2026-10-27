@@ -63,7 +63,8 @@ internal fun PhoneControlLease.watchPermissions(
                 }
             }
             launch {
-                combine(held.map { it?.epoch }.distinctUntilChanged(), questions) { _, requests -> requests }
+                combine(held.map { it?.let { current -> current.epoch to current.owner } }.distinctUntilChanged(),
+                    questions) { _, requests -> requests }
                     .collect { requests ->
                         held.value?.let { current -> pause(current.owner, requests.any {
                             it.conversationId == current.owner.conversationId && it.runId == current.owner.runId

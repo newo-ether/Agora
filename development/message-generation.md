@@ -394,6 +394,15 @@ message/status, stale identity, or any other Compact anomaly stops this automati
 claimed guidance remains owned and ordered but is not automatically invoked or cleared after that
 failure; only a later explicit user action may resume ordinary queue admission.
 
+A caller with an already-scheduled ordinary continuation marks successful terminalization as
+`CONTINUATION_PENDING`, including an automatic Compact that will hand off again. This never reopens
+its Run or grants tool authority. Accepted reducer transitions may retain the existing Phone Use
+resource epoch until the admitted successor binds; see [phone-use.md](phone-use.md) section 3.
+The existing runtime resource owner retains the exact scheduling token before execution. Empty
+queue drains respect that obligation, while queue-versus-continuation admission remains serialized
+by `queueMutationMutex`. Guidance winning this decision transfers the cleanup obligation to the
+ordinary queue; failed or abandoned continuation releases only its original unclaimed resource.
+
 ### 8.7 Compact UI
 
 Compact may own a capsule renderer, message label/menu, haptic exclusion, and stable presentation.

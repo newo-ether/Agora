@@ -222,7 +222,7 @@ internal fun UserInteractionBar(
 }
 
 @Composable
-private fun InteractionDeck(
+internal fun InteractionDeck(
     interactions: List<UserInteraction>,
     autoWrapCodeBlocks: Boolean,
     onSubmitQuestions: (List<Pair<Long, AskUserController.Answer>>) -> Unit,
@@ -237,6 +237,8 @@ private fun InteractionDeck(
     inSharedRow: Boolean,
     onExpansionChanged: (Float) -> Unit,
     active: Boolean,
+    questionTextFieldModifier: @Composable (AskUserController.Request) -> Modifier = { Modifier },
+    prepareQuestionTextInput: suspend () -> Unit = {},
 ) {
     val shell = interactions.firstNotNullOfOrNull { (it as? UserInteraction.ShellCommand)?.pending }
     val questions = interactions.filterIsInstance<UserInteraction.Question>().flatMap { it.requests }
@@ -260,8 +262,8 @@ private fun InteractionDeck(
     }
     val index = keys.indexOf(current.key)
     val position = if (pages.size > 1) "${index + 1} / ${pages.size}" else null
-    val back: (() -> Unit)? = if (index > 0) ({ onPageChange(keys[index - 1]) }) else null
-    val next: (() -> Unit)? = if (index < pages.lastIndex) ({ onPageChange(keys[index + 1]) }) else null
+    val back: (() -> Unit)? = if (index > 0) ({ if (active) onPageChange(keys[index - 1]) }) else null
+    val next: (() -> Unit)? = if (index < pages.lastIndex) ({ if (active) onPageChange(keys[index + 1]) }) else null
     val motion = LocalAgoraMotionPolicy.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
@@ -330,6 +332,9 @@ private fun InteractionDeck(
                             is DeckPage.Question -> QuestionBody(
                                 request = page.request,
                                 draft = draftOf(page.request),
+                                textFieldModifier = { questionTextFieldModifier(page.request) },
+                                prepareTextInput = prepareQuestionTextInput,
+                                enabled = active && !minimized && page.key == current.key,
                             )
                         }
                     }
@@ -353,6 +358,7 @@ private fun InteractionDeck(
                         onNext = next,
                         onSubmit = { if (active) onSubmitQuestions(it) },
                         onSkip = { if (active) onSkipQuestion(it) },
+                        enabled = active && !minimized,
                     )
                 }
             }

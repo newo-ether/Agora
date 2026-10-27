@@ -224,9 +224,10 @@ class AppContainer(
             askUserController, conversationStateRegistry, conversationRepository, appScope)
     }
     val conversationStateRegistry: ConversationStateRegistry by lazy {
-        ConversationStateRegistry(onRunControlEnded = { conversation, run ->
-            phoneLease.forget(com.newoether.agora.phone.PhoneControlLease.Owner(conversation, run))
-        }) { attachments ->
+        ConversationStateRegistry(
+            onRunStateChanged = phoneLease::onRunStateChanged,
+            onRunHandoffFinished = phoneLease::finishHandoff,
+        ) { attachments ->
             appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 conversationRepository.deleteUnreferencedDraftAttachmentFiles(attachments)
             }
