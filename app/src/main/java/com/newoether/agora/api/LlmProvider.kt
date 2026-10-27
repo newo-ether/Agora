@@ -410,7 +410,8 @@ data class OpenAiContentPart(
 
 @Serializable
 data class OpenAiImageUrl(
-    val url: String
+    val url: String,
+    val detail: String? = null,
 )
 
 

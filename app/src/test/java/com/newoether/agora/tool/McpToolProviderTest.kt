@@ -98,7 +98,7 @@ class McpToolProviderTest {
 
     @Test fun `router preserves nested argument values rich output and errors`() = runTest {
         val arguments = """{"fields":[{"kind":"checkbox","value":true}],"data":{"text/plain":"hello"}}"""
-        val image = ToolImageAttachment("image.png", "image/png", 10, sha256 = "hash")
+        val image = ToolImageAttachment("image.png", "image/png", 10)
         val expected = ToolExecutionResult("body", listOf(image), "{\"a\":1}", "shown", isError = true)
         coEvery { registry.execute(descriptor.publicName, arguments) } returns expected
         val actual = provider.executeOneShotResult(

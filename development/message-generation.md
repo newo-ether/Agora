@@ -934,11 +934,13 @@ descriptors, and the optional API-only initial USER prompt. Every Provider-visib
 page, video frame, assistant-generated image projected to the latest USER, and tool-result image
 projected to its synthetic USER turn.
 
-Exact tokenization and visual-token pricing vary by selected model and custom Provider, so the
-shared estimator remains intentionally conservative: text uses its deterministic cross-provider
-heuristic and every projected image uses the established fixed per-image estimate. It may
-overestimate, but it may not omit a Provider-visible category. Display-only citations, tool
-progress, presentation metadata, and attachment metadata that is not serialized are excluded.
+Exact tokenization and visual-token pricing vary by selected model and custom Provider. Image
+processing, preview/dispatch identity and dimension-based estimation follow
+[image-processing.md](image-processing.md). Every image is estimated from its own transmitted
+artifact dimensions and actual request detail/resolution mode using the most accurate verified
+model rule available; unknown rules remain explicitly heuristic. The former fixed per-image rule
+is superseded. The estimator must not omit a Provider-visible category. Display-only citations,
+tool progress, presentation metadata and attachment metadata that is not serialized are excluded.
 
 The Chat top-bar token subtitle and Bottom Bar context indicator report the same full selected canonical
 context estimate plus fixed request cost; neither surface replaces that number with the already-retained

@@ -3,6 +3,7 @@ package com.newoether.agora.api.util
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSource
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
@@ -113,13 +114,20 @@ class ToolMessagesTest {
 
     @Test
     fun toolImagesAreProjectedAfterTheCompleteResultBatch() {
+        val firstArtifact = ImageArtifact(
+            path = "/private/first.png", mimeType = "image/png", sizeBytes = 100L,
+            width = 100, height = 50,
+        )
+        val secondArtifact = firstArtifact.copy(path = "/private/second.png")
         val first = result("result_a", "call-a").copy(
-            images = listOf("/private/first.png"),
+            images = listOf(firstArtifact.path),
+            imageArtifacts = mapOf(firstArtifact.path to firstArtifact),
             runId = "run-1",
             runSequence = 7L,
         )
         val second = result("result_b", "call-b").copy(
-            images = listOf("/private/second.png", "/private/first.png"),
+            images = listOf(secondArtifact.path, firstArtifact.path),
+            imageArtifacts = mapOf(secondArtifact.path to secondArtifact, firstArtifact.path to firstArtifact),
             runId = "run-1",
             runSequence = 7L,
         )
@@ -138,8 +146,26 @@ class ToolMessagesTest {
             listOf("/private/first.png", "/private/second.png"),
             visualTurn.images,
         )
+        assertEquals(listOf(firstArtifact, secondArtifact), visualTurn.imageArtifactOccurrences())
         assertEquals("run-1", visualTurn.runId)
         assertEquals(7L, visualTurn.runSequence)
+    }
+
+    @Test
+    fun toolBatchDeduplicatesUnmeasuredPathsWithoutInventingUnavailableFacts() {
+        val first = result("result_a", "call-a").copy(images = listOf("/private/first.png"))
+        val second = result("result_b", "call-b").copy(
+            images = listOf("/private/second.png", "/private/first.png"),
+        )
+        val projected = projectToolResultImagesToUserMessage(
+            listOf(tool("tool_round", "call-a", "call-b"), first, second), includeImages = true,
+        )
+        assertEquals(listOf(first, second), projected.drop(1).take(2))
+        val visualTurn = projected.last()
+        assertEquals(Participant.USER, visualTurn.participant)
+        assertEquals(second.id, visualTurn.parentId)
+        assertEquals(listOf("/private/first.png", "/private/second.png"), visualTurn.images)
+        assertEquals(listOf(null, null), visualTurn.imageArtifactOccurrences())
     }
 
     @Test
@@ -191,7 +217,7 @@ class ToolMessagesTest {
 
         val wire = convertToOpenAiMessages(
             projected,
-            includeImages = true,
+            includeImages = false,
             base64Files = Base64FileRegistry(),
         )
         val wireUser = wire.single { message ->
@@ -250,6 +276,92 @@ class ToolMessagesTest {
         assertEquals(2, projected.size)
         assertTrue(projected.last().images.isEmpty())
         assertTrue(projected.last().text.contains("does not support image input"))
+    }
+
+    @Test
+    fun toolPlaceholdersKeepSourceDimensionsAndCreateNoSyntheticImageWarning() {
+        val first = missingArtifact(200)
+        val second = missingArtifact(1_000)
+        val source = result("result_images", "call-image").copy(
+            images = listOf("", ""),
+            segments = listOf(toolResultSegment("call-image", "images").copy(
+                toolImages = listOf(first, second),
+            )),
+            imageArtifacts = mapOf("" to second),
+        )
+        val projected = projectToolResultImagesToUserMessage(listOf(source), true)
+        assertEquals(listOf(source), projected)
+        assertEquals(listOf(first, second), source.imageArtifactOccurrences())
+        assertFalse(projected.any { it.id.startsWith("image_context_") })
+    }
+
+    @Test
+    fun generatedImagePrefixRemapsTheExistingUserOccurrences() {
+        val generated = missingArtifact(200)
+        val existing = missingArtifact(1_000)
+        val assistant = normal("model", Participant.MODEL).copy(
+            images = listOf(""),
+            attachmentMeta = AttachmentMeta(listOf(AttachmentItem(
+                type = "image", imageIndex = 0, imageArtifacts = listOf(generated),
+            ))),
+        )
+        val user = normal("user", Participant.USER).copy(
+            images = listOf(""),
+            attachmentMeta = AttachmentMeta(listOf(AttachmentItem(
+                type = "image", imageIndex = 0, imageArtifacts = listOf(existing),
+            ))),
+        )
+        val projected = projectAssistantImagesToLatestUserMessage(listOf(assistant, user), true)
+        assertTrue(projected.first().images.isEmpty())
+        assertTrue(projected.first().imageArtifacts.isEmpty())
+        assertTrue(projected.last().images.isEmpty())
+        assertEquals(user.text, projected.last().text)
+        assertEquals(listOf(existing), user.imageArtifactOccurrences())
+    }
+
+    @Test
+    fun mergedGeneratedTurnsRetainAllMissingOccurrences() {
+        val first = missingArtifact(200)
+        val second = missingArtifact(1_000)
+        fun generated(id: String, artifact: ImageArtifact) = normal(id, Participant.MODEL).copy(
+            images = listOf(""),
+            attachmentMeta = AttachmentMeta(listOf(AttachmentItem(
+                type = "image", imageIndex = 0, imageArtifacts = listOf(artifact),
+            ))),
+        )
+        val merged = mergeConsecutiveSameRole(listOf(
+            generated("first", first), generated("second", second),
+        )).single()
+        assertEquals(listOf("", ""), merged.images)
+        assertEquals(listOf(first, second), merged.imageArtifactOccurrences())
+        val projected = projectAssistantImagesToLatestUserMessage(
+            listOf(merged, normal("follow-up", Participant.USER)), true,
+        )
+        assertTrue(projected.last().images.isEmpty())
+        assertEquals("follow-up", projected.last().text)
+    }
+
+    private fun missingArtifact(edge: Int) = ImageArtifact(
+        path = "", mimeType = "image/jpeg", sizeBytes = 0L,
+        width = edge, height = edge, unavailable = true,
+    )
+
+    @Test
+    fun mixedToolBatchKeepsValidRepeatedPathAndSilentlySkipsBrokenImagesInEitherOrder() {
+        val good = ImageArtifact("/private/shared.png", "image/png", 100L, 200, 200)
+        for (badIndex in 0..1) {
+            val records = List(2) { good.copy(unavailable = it == badIndex) }
+            val source = result("result_mixed", "call-image").copy(
+                images = List(2) { good.path },
+                segments = listOf(toolResultSegment("call-image", "ordinary tool text").copy(toolImages = records)),
+            )
+            val projected = projectToolResultImagesToUserMessage(listOf(source), true)
+            assertEquals(source, projected.first())
+            assertEquals(listOf(good.path), projected.last().images)
+            assertEquals(listOf(good), projected.last().imageArtifactOccurrences())
+            assertFalse(projected.last().text.contains("unavailable"))
+            assertEquals(records, source.imageArtifactOccurrences())
+        }
     }
 
     @Test

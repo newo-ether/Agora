@@ -124,36 +124,29 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
     }
 
     @Test
-    fun `PDF page bitmaps are initialized opaque white before both framework render paths`() {
+    fun `PDF pages share opaque white rasterization and the common image processor`() {
         val source = sourceFile(
             "app/src/main/java/com/newoether/agora/util/PdfPageRenderer.kt",
         )
 
         assertTrue(source.contains("private const val MAX_PAGES = 5"))
-        assertTrue(source.contains("private const val TARGET_LONG_EDGE = 1536"))
         assertTrue(source.contains("private fun createPageBitmap(width: Int, height: Int): Bitmap"))
         assertEquals(1, Regex("Bitmap\\.createBitmap\\(").findAll(source).count())
         assertTrue(source.contains("eraseColor(Color.WHITE)"))
+        assertTrue(source.contains("setHasAlpha(false)"))
+        assertEquals(1, Regex("bitmap = createPageBitmap\\(width, height\\)").findAll(source).count())
         assertEquals(
-            2,
-            Regex("bitmap = createPageBitmap\\(width, height\\)")
-                .findAll(source)
-                .count(),
-        )
-        assertEquals(
-            2,
+            1,
             Regex(
                 "page\\.render\\(bitmap, null, null, " +
                     "PdfRenderer\\.Page\\.RENDER_MODE_FOR_DISPLAY\\)",
             ).findAll(source).count(),
         )
-        assertEquals(
-            2,
-            Regex("Bitmap\\.CompressFormat\\.JPEG, 80").findAll(source).count(),
-        )
-        assertTrue(source.contains("for (index in selectedPages.sorted())"))
-        assertTrue(source.contains("onProgress?.invoke(index + 1, effectiveTotal)"))
-        assertEquals(4, Regex("paths\\.forEach \\{ File\\(it\\)\\.delete\\(\\) \\}")
+        assertTrue(source.contains("val processor = ImageArtifactProcessor(context)"))
+        assertTrue(source.contains("processor.maxLongEdge.toDouble() / maxOf(page.width, page.height)"))
+        assertTrue(source.contains("processor.fromBitmap(bitmap, context.filesDir,"))
+        assertTrue(source.contains("onProgress?.invoke(position + 1, indices.size)"))
+        assertEquals(2, Regex("paths\\.forEach \\{ File\\(it\\)\\.delete\\(\\) \\}")
             .findAll(source).count())
         assertTrue(source.contains(
             "): List<String> = renderAllPages(context, uri.toString(), maxPages, onProgress)",

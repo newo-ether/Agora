@@ -162,6 +162,19 @@ internal fun toolDetailHorizontalPadding(segment: MessageSegment): Dp =
         else -> 24.dp
     }
 
+internal fun projectToolImageOccurrences(
+    images: List<ToolImageAttachment>,
+): StoredMediaOccurrenceProjection {
+    val paths = mutableListOf<String>()
+    val indices = images.map { image ->
+        if (image.unavailable || image.path.isBlank()) null else {
+            paths += image.path
+            paths.lastIndex
+        }
+    }
+    return StoredMediaOccurrenceProjection(paths, indices)
+}
+
 @Composable
 private fun ToolImageResults(
     images: List<ToolImageAttachment>,
@@ -171,11 +184,12 @@ private fun ToolImageResults(
     requestKey: String?,
 ) {
     val displayImages = remember(images) {
-        images.filter { it.path.isNotBlank() }
+        images.filter { it.path.isNotBlank() || it.unavailable }
     }
-    val paths = remember(displayImages) {
-        displayImages.map(ToolImageAttachment::path)
+    val mediaProjection = remember(displayImages) {
+        projectToolImageOccurrences(displayImages)
     }
+    val paths = mediaProjection.urls
     val loader = LocalToolImageLoader.current
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (requestKey != null && toolCallId != null && displayImages.isEmpty()) {
@@ -186,11 +200,15 @@ private fun ToolImageResults(
             }
         }
         displayImages.forEachIndexed { index, image ->
-            key(image.path, image.sha256) {
+            key(index, image.path) {
                 ToolImagePreview(
                     image = image,
                     squareCrop = squareCrop,
-                    onClick = { onMediaClick(paths, index) },
+                    onClick = {
+                        mediaProjection.indexByDisplayItem[index]?.let { mediaIndex ->
+                            onMediaClick(paths, mediaIndex)
+                        }
+                    },
                 )
             }
         }
@@ -214,17 +232,19 @@ private fun ToolImagePreview(
             (width.toFloat() / height.toFloat()).coerceIn(0.55f, 2.2f)
         }
     }
-    var loadState by remember(image) {
-        mutableStateOf(MediaLoadPresentation.LOADING)
-    }
-    var presentedState by remember(image) {
-        mutableStateOf(MediaLoadPresentation.LOADING)
-    }
-    LaunchedEffect(loadState) {
-        presentedState = loadState
+    val initialState = if (image?.unavailable == true) {
+        MediaLoadPresentation.FAILED
+    } else MediaLoadPresentation.LOADING
+    var loadState by remember(image) { mutableStateOf(initialState) }
+    var presentedState by remember(image) { mutableStateOf(initialState) }
+    val targetState = if (attachment?.unavailable == true) {
+        MediaLoadPresentation.FAILED
+    } else loadState
+    LaunchedEffect(targetState) {
+        presentedState = targetState
     }
     LaunchedEffect(image) {
-        if (loadImage != null) {
+        if (image?.unavailable != true && loadImage != null) {
             try { attachment = loadImage() }
             catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) { loadState = MediaLoadPresentation.FAILED }
@@ -247,13 +267,14 @@ private fun ToolImagePreview(
                     MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f),
                 )
                 .clickable(
-                    enabled = presentedState == MediaLoadPresentation.LOADED,
-                    onClick = { attachment?.let(onClick) },
+                    enabled = attachment?.unavailable == false &&
+                        presentedState == MediaLoadPresentation.LOADED,
+                    onClick = { attachment?.takeUnless { it.unavailable }?.let(onClick) },
                 ),
             contentAlignment = Alignment.Center,
         ) {
             val displayedImage = attachment
-            if (displayedImage != null) coil.compose.AsyncImage(
+            if (displayedImage != null && !displayedImage.unavailable) coil.compose.AsyncImage(
                 model = displayedImage.path,
                 contentDescription = stringResource(R.string.tool_view_image),
                 contentScale = if (squareCrop) ContentScale.Crop else ContentScale.Fit,

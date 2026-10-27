@@ -248,9 +248,11 @@ class DataControlImportStrategySourceContractTest {
         assertFalse(warningBranch.contains("sendFailureNotification"))
         assertTrue(thumbnail.contains("if (unavailable)"))
         assertTrue(thumbnail.contains("R.string.attachment_unavailable"))
-        assertTrue(preview.contains("attachment.unavailable || !isReady -> Modifier"))
+        assertTrue(preview.contains("unavailable || !isReady -> Modifier"))
+        assertTrue(preview.contains("if (isPdf && attachment.imageArtifacts.isNotEmpty()) firstPdfPage < 0"))
         assertTrue(bubble.contains("metadataItems + legacyItems"))
-        assertTrue(bubble.contains("unavailable = metaItem?.unavailable == true"))
+        assertTrue(bubble.contains("unavailable = storedMediaUnavailable("))
+        assertTrue(bubble.contains("return occurrences.all { it.unavailable || it.path.isBlank() }"))
     }
 
     @Test

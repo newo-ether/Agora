@@ -228,12 +228,13 @@ as model attachments and all-page full-screen preview generation. Every newly al
 PDF regions that do not paint an explicit background and prevents JPEG encoding from flattening
 transparent black pixels into a black page that hides correctly rendered black glyphs.
 
-Both consumers share one bitmap-initialization path. The change does not alter page dimensions,
-1536 px long-edge scaling, JPEG quality 80, filename/storage ownership, selected-page filtering and
-ordering, preview page limits, progress callbacks, cancellation cleanup, page-count behavior,
-PDF-authored colors or backgrounds, viewer motion, or attachment/LLM routing. A different PDF engine
-or dependency is not introduced without separate evidence of a rendering defect that remains after
-opaque-white initialization.
+Both consumers share one bitmap-initialization path. Raster dimensions and final encoding follow
+[image-processing.md](image-processing.md), which supersedes the former PDF-only 1536 px rule.
+Selected-page previews and model inputs use the same completed page artifact. Filename/storage
+ownership, selected-page filtering and ordering, preview page limits, progress callbacks,
+cancellation cleanup, page-count behavior, PDF-authored colors or backgrounds and viewer motion
+remain with their existing owners. A different PDF engine or dependency is not introduced without
+separate evidence of a rendering defect that remains after opaque-white initialization.
 
 ## 13. Full-screen media window layering
 
@@ -1159,7 +1160,8 @@ is in flight and keeps the terminal text, and App Reduce Motion shows the full r
 breathing. Persisted tool images are requested only from authenticated
 `GET /api/tool-images/{conversationId}/{messageId}/{detailIndex}/{imageIndex}` with original
 attachment indices. Each request revalidates message ownership, real-path containment in the private
-tool-media store, raster MIME and recorded size; browser paths and inline image bytes are forbidden.
+tool-media store or its restored/fork attachment roots, and measures current decoded MIME, dimensions
+and byte length; browser paths and inline image bytes are forbidden.
 The preview keeps its Compose-sized viewport through loading, failure and decoding, follows square
 crop metadata, and opens a full-image viewer. The browser-local sheet uses 45%/94%
 viewport anchors and a flat scrim whose alpha follows the sheet's rise, without backdrop blur;
@@ -1886,8 +1888,8 @@ Thinking segment -> Auto-Expand Appearance row order with unchanged predicates, 
 0 dp gradient lead with unchanged 40 dp width and 20 dp expanded behavior, and scoped Settings-arrow
 absence with preserved category/Sandbox/Provider click destinations, Sandbox Switch, and custom
 protocol badge. PDF rasterization verification must cover one shared opaque-white bitmap initializer
-used by both render paths, initialization before every framework page render, and unchanged
-scaling/JPEG/page-selection/progress/cancellation behavior. Full-screen text-preview verification
+used by both render paths, initialization before every framework page render, shared image-artifact
+sizing/encoding, exact page-selection/progress/cancellation behavior and preview/request reuse. Full-screen text-preview verification
 must cover current App-font inheritance in
 both Markdown and ordinary-text paths, exact 1.1 Markdown line-height scaling, explicit Bold H1-H6,
 unchanged Markdown font sizes, and the unchanged 13 sp / 20 sp ordinary-text metrics. It must also

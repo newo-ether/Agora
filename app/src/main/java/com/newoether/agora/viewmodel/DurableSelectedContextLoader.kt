@@ -1,5 +1,6 @@
 package com.newoether.agora.viewmodel
 
+import android.content.Context
 import com.newoether.agora.api.util.projectGenerationStatusesForApi
 import com.newoether.agora.data.local.MessageContextTopology
 import com.newoether.agora.data.local.MessageEntity
@@ -8,6 +9,8 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.util.Constants
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 internal data class DurableSelectedContextRequest(
@@ -40,7 +43,13 @@ internal fun selectedVisibleContextMessageIds(
 internal class DurableSelectedContextLoader(
     private val conversations: ConversationRepository,
     private val generationErrorFormatter: (String) -> String,
+    private val appContext: Context?,
 ) {
+    constructor(
+        conversations: ConversationRepository,
+        generationErrorFormatter: (String) -> String,
+    ) : this(conversations, generationErrorFormatter, null)
+
     suspend fun load(request: DurableSelectedContextRequest): DurableSelectedContext {
         val rows = conversations.withProviderContextSnapshot {
             val snapshot = conversations.getProviderContextTopologySnapshot(request.conversationId)
@@ -74,15 +83,20 @@ internal class DurableSelectedContextLoader(
                 )
             }
         }
-        // All rows belong to the same durable snapshot; pure payload conversion needs no DB lock.
+        // Media reads happen only after the selected snapshot transaction has released its lock.
         val entities = InterruptedToolRounds.materialize(rows)
+        val projected = projectProviderMessages(
+            entities = entities,
+            includeStoredTranscriptions = request.includeStoredTranscriptions,
+        )
+        val messages = appContext?.let { context ->
+            withContext(Dispatchers.IO) {
+                val hydration = ImageArtifactHydration(context)
+                projected.map(hydration::hydrate)
+            }
+        } ?: projected
         return DurableSelectedContext(
-            messages = projectProviderMessages(
-                entities = entities,
-                includeStoredTranscriptions = request.includeStoredTranscriptions,
-            ).let { messages ->
-                projectGenerationStatusesForApi(messages, generationErrorFormatter)
-            },
+            messages = projectGenerationStatusesForApi(messages, generationErrorFormatter),
             entities = entities,
         )
     }

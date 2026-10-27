@@ -63,6 +63,9 @@ internal fun ChatMessage.estimatedHydratedPayloadBytes(): Long {
     bytes += parentId.estimatedHeapBytes()
     bytes += text.estimatedHeapBytes()
     bytes += images.estimatedStringListHeapBytes()
+    bytes += imageArtifacts.entries.sumOf { (path, artifact) ->
+        64L + path.estimatedHeapBytes() + artifact.estimatedHeapBytes()
+    }
     bytes += markdownImages.entries.sumOf { (link, image) -> 64L + link.estimatedHeapBytes() + (image.attachment?.estimatedHeapBytes() ?: 0L) }
     bytes += thoughts.estimatedHeapBytes()
     bytes += thoughtTitle.estimatedHeapBytes()
@@ -114,8 +117,7 @@ private fun MessageSegment.estimatedHeapBytes(): Long =
 private fun ToolImageAttachment.estimatedHeapBytes(): Long =
     128L +
         path.estimatedHeapBytes() +
-        mimeType.estimatedHeapBytes() +
-        sha256.estimatedHeapBytes()
+        mimeType.estimatedHeapBytes()
 
 private fun AttachmentItem.estimatedHeapBytes(): Long =
     160L +
@@ -125,7 +127,8 @@ private fun AttachmentItem.estimatedHeapBytes(): Long =
         mimeType.estimatedHeapBytes() +
         warning.estimatedHeapBytes() +
         textContent.estimatedHeapBytes() +
-        transcription.estimatedHeapBytes()
+        transcription.estimatedHeapBytes() +
+        imageArtifacts.sumOf(ToolImageAttachment::estimatedHeapBytes)
 
 private fun JsonElement.estimatedHeapBytes(): Long = when (this) {
     is JsonObject -> estimatedHeapBytes()

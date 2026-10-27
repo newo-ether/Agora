@@ -41,6 +41,9 @@ import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.ToolImageAttachment
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [35], application = android.app.Application::class)
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 class WebUiServerTest {
     @get:Rule val temporary = TemporaryFolder()
     private val hasher = WebUiPasswordHasher(iterations = 1_000)
@@ -286,7 +289,7 @@ class WebUiServerTest {
     @Test
     fun toolImagesRequireTheSessionAndOriginBeforeLoadingAnyMessage() {
         val root = temporary.newFolder("media")
-        val bytes = byteArrayOf(1, 2, 3, 4)
+        val bytes = webUiSameLengthPngs().first
         val image = File(root, "image.png").apply { writeBytes(bytes) }
         var loads = 0
         val images = WebUiToolImages(root) { conversation, message ->
@@ -329,15 +332,21 @@ class WebUiServerTest {
     fun persistedMessageAttachmentRequiresAuthAndOwnedPath() {
         val root = temporary.newFolder("attachment-root")
         val imageRoot = File(root, "images").apply { mkdir() }
-        val image = File(imageRoot, "photo.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        val image = File(imageRoot, "photo.jpg").apply { writeBytes(webUiSameLengthPngs().first) }
         val outside = temporary.newFile("outside.jpg").apply { writeBytes(byteArrayOf(4)) }
         val normalized = File(root, "img_00000000-0000-0000-0000-000000000001.jpg")
-            .apply { writeBytes(byteArrayOf(5)) }
+            .apply { writeBytes(webUiSameLengthPngs().second) }
         var loads = 0
         val images = WebUiToolImages(root, root) { conversation, id ->
             loads++
-            if (conversation != "c") null else ChatMessage(id = id, text = "", participant = Participant.USER,
-                images = listOf(when (id) { "outside" -> outside.path; "normalized" -> normalized.path; else -> image.path }))
+            if (conversation != "c") null else {
+                val file = when (id) { "outside" -> outside; "normalized" -> normalized; else -> image }
+                ChatMessage(id = id, text = "", participant = Participant.USER,
+                    images = listOf(file.path),
+                    imageArtifacts = mapOf(file.path to com.newoether.agora.model.ImageArtifact(
+                        file.path, "image/jpeg", file.length(), 1, 1,
+                    )))
+            }
         }
         webUi(toolImages = images) { auth ->
             val path = "/api/message-attachments/c/m/0"
@@ -351,7 +360,7 @@ class WebUiServerTest {
             assertEquals(HttpStatusCode.Forbidden, request(path, "https://other.example").status)
             val response = request(path)
             assertEquals(HttpStatusCode.OK, response.status)
-            org.junit.Assert.assertArrayEquals(byteArrayOf(1, 2, 3), response.body<ByteArray>())
+            org.junit.Assert.assertArrayEquals(image.readBytes(), response.body<ByteArray>())
             assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
             assertEquals(HttpStatusCode.OK, request("/api/message-attachments/c/normalized/0").status)
             assertEquals(HttpStatusCode.NotFound, request("/api/message-attachments/c/outside/0").status)
@@ -362,9 +371,45 @@ class WebUiServerTest {
     }
 
     @Test
+    fun persistedImageRoutesServeCurrentSameLengthValidReplacement() {
+        val root = temporary.newFolder("attachment-root")
+        val file = File(File(root, "images").apply { mkdir() }, "photo.png")
+        val (original, replacement) = webUiSameLengthPngs()
+        file.writeBytes(original)
+        val artifact = com.newoether.agora.model.ImageArtifact(file.absolutePath, "image/png", file.length(),
+            31, 47)
+        val message = imageMessage(file, file.length()).copy(images = listOf(artifact.path),
+            imageArtifacts = mapOf(artifact.path to artifact))
+        val images = WebUiToolImages(root, root) { conversation, id ->
+            message.takeIf { conversation == "c" && id == "m" }
+        }
+        webUi(toolImages = images) { _ ->
+            val token = sessionToken()
+            suspend fun request(path: String) = client.get(path) {
+                header(HttpHeaders.Cookie, "${WebUiServer.SESSION_COOKIE}=$token")
+            }
+            val paths = listOf("/api/message-attachments/c/m/0", "${WebUiServer.TOOL_IMAGE_PATH}/c/m/0/0")
+            for (path in paths) {
+                val response = request(path)
+                assertEquals(HttpStatusCode.OK, response.status)
+                org.junit.Assert.assertArrayEquals(original, response.body<ByteArray>())
+            }
+            val pixel = javax.imageio.ImageIO.read(file).getRGB(0, 0)
+            file.writeBytes(replacement)
+            assertEquals(artifact.sizeBytes, file.length())
+            assertFalse(pixel == javax.imageio.ImageIO.read(file).getRGB(0, 0))
+            for (path in paths) {
+                val response = request(path)
+                assertEquals(HttpStatusCode.OK, response.status)
+                org.junit.Assert.assertArrayEquals(replacement, response.body<ByteArray>())
+            }
+        }
+    }
+
+    @Test
     fun imageSessionRevokedDuringMessageReadNeverReceivesBytes() {
         val root = temporary.newFolder("media")
-        val file = File(root, "image.png").apply { writeBytes(byteArrayOf(1)) }
+        val file = File(root, "image.png").apply { writeBytes(webUiSameLengthPngs().first) }
         lateinit var auth: WebUiAuth
         val images = WebUiToolImages(root) { _, _ ->
             auth.revokeAllSessions()
@@ -496,7 +541,7 @@ class WebUiServerTest {
     private fun imageMessage(file: File, size: Long) = ChatMessage(
         id = "m", text = "", participant = Participant.MODEL, status = MessageStatus.SUCCESS,
         segments = listOf(MessageSegment(type = "tool", toolName = "view_image", toolResult = "{}",
-            toolImages = listOf(ToolImageAttachment(file.absolutePath, "image/png", size, sha256 = "hash")),
+            toolImages = listOf(ToolImageAttachment(file.absolutePath, "image/png", size)),
         )),
     )
 

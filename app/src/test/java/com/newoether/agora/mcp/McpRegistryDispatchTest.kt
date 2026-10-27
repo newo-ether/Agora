@@ -174,7 +174,6 @@ class McpRegistryDispatchTest {
             sizeBytes = 10,
             width = 1,
             height = 1,
-            sha256 = "fixture-digest",
         )
         every {
             anyConstructed<ToolImageStore>().persistBase64("aW1hZ2U=", "image/png", "mcp")

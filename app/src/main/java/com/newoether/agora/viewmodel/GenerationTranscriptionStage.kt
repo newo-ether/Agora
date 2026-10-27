@@ -40,7 +40,7 @@ internal class GenerationTranscriptionStage(
             onSnapshot: suspend (snapshot: ChatMessage, forceCheckpoint: Boolean) -> Unit,
         ): GenerationTranscriptionStageOutcome {
             val context = request.context
-            if (!context.imageTranscriptionEnabled || context.transcriptionModelId.isEmpty()) {
+            if (!context.imageTranscriptionEnabled) {
                 return GenerationTranscriptionStageOutcome(performed = false)
             }
             val targets = manager.collectTargets(
@@ -48,6 +48,10 @@ internal class GenerationTranscriptionStage(
                 request.parentId,
             )
             if (targets.isEmpty()) return GenerationTranscriptionStageOutcome(performed = false)
+            if (context.transcriptionModelId.isBlank()) return GenerationTranscriptionStageOutcome(
+                performed = false,
+                error = "Image transcription is enabled but no transcription model is configured.",
+            )
 
             val (segments, error) = manager.transcribe(
                 targets,

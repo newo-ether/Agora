@@ -87,12 +87,12 @@ class WebUiToolDetailTest {
 
     @Test fun imageProjectionKeepsOriginalIndicesAndNeverPublishesPrivatePaths() {
         val images = listOf(
-            ToolImageAttachment("", "image/png", 1, sha256 = "empty"),
-            ToolImageAttachment("/private/tool-image.png", "image/png", 10, 20, 30, "version"),
+            ToolImageAttachment("", "image/png", 1),
+            ToolImageAttachment("/private/tool-image.png", "image/png", 10, 20, 30),
         )
         val segment = MessageSegment(type = "tool", toolName = "generate_image", toolResult = "{}", toolImages = images)
         val detail = resources().webToolDetail(segment)
-        assertEquals(listOf(WebToolImage(1, 20, 30, "version")), detail.images)
+        assertEquals(listOf(WebToolImage(1, 20, 30)), detail.images)
         assertTrue(detail.squareCrop)
         val encoded = WebUiSync.json.encodeToString(WebToolDetail.serializer(), detail)
         assertFalse(encoded.contains("/private/"))

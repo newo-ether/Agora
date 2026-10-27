@@ -369,11 +369,9 @@ internal data class ToolBatchProgressCallbacks(
 /**
  * Executes one already-authorized tool batch without committing or continuing the Run.
  *
- * Tool-result image transcription sub-phase: when a completed result declares
- * [ToolExecutionResult.transcribeImages] and carries images, the executor runs the
- * per-generation [AuthorizedToolCall.toolImageTranscriber] over the first declared image,
- * streams a thinking (transcription) segment into the overlay, and appends the description to
- * the result text. This is one generic rule — the executor contains no tool-name routing.
+ * Tool-result image transcription uses the generation's configured transcriber for every image.
+ * One description is published only after every occurrence succeeds, so a partial transcription
+ * cannot replace an undescribed image. The executor has no tool-name or source routing.
  */
 internal class GenerationToolBatchEffectExecutor(
     private val tools: GenerationToolExecutor,
@@ -423,40 +421,35 @@ internal class GenerationToolBatchEffectExecutor(
             check(executed.callId == call.id)
             val result = executed.result
             val transcriber = request.toolImageTranscriber
-            val toolImage = result.images.firstOrNull()
             var transcription: String? = null
-            if (result.transcribeImages && toolImage != null && transcriber != null) {
-                // Generic rule (no tool-name routing): results that declare their images as
-                // model input are described with the main transcription flow and streamed as a
-                // thinking segment. The description reaches the model through the API-only
-                // image-context row, mirroring regular image transcriptions — the tool result
-                // text itself stays clean.
-                val segmentIndex = overlay.appendTranscriptionSegment("")
-                callbacks.publish(true)
-                callbacks.onPublishedAt(nowMs())
-                var lastTranscriptionUiEmitMs = 0L
-                var lastPartial = ""
-                val description = transcriber(toolImage) { partial ->
-                    lastPartial = partial
-                    overlay.updateTranscriptionSegment(segmentIndex, partial)
-                    val now = nowMs()
-                    if (now - lastTranscriptionUiEmitMs >= TOOL_PROGRESS_UI_UPDATE_INTERVAL_MS) {
-                        callbacks.publish(false)
-                        callbacks.onPublishedAt(now)
-                        lastTranscriptionUiEmitMs = now
+            if (result.images.isNotEmpty() && transcriber != null) {
+                val descriptions = mutableListOf<String>()
+                for (toolImage in result.images) {
+                    val segmentIndex = overlay.appendTranscriptionSegment("")
+                    callbacks.publish(true)
+                    callbacks.onPublishedAt(nowMs())
+                    var lastTranscriptionUiEmitMs = 0L
+                    var lastPartial = ""
+                    val description = transcriber(toolImage) { partial ->
+                        lastPartial = partial
+                        overlay.updateTranscriptionSegment(segmentIndex, partial)
+                        val now = nowMs()
+                        if (now - lastTranscriptionUiEmitMs >= TOOL_PROGRESS_UI_UPDATE_INTERVAL_MS) {
+                            callbacks.publish(false)
+                            callbacks.onPublishedAt(now)
+                            lastTranscriptionUiEmitMs = now
+                        }
                     }
+                    overlay.updateTranscriptionSegment(segmentIndex, description ?: lastPartial)
+                    description?.takeIf(String::isNotBlank)?.let(descriptions::add)
+                    callbacks.publish(false)
+                    callbacks.onPublishedAt(nowMs())
                 }
-                // The transcriber always emits a terminal progress line (description or failure
-                // notice), so the thinking block never ends up empty. The description travels
-                // with the result row (segment.toolTranscription) so the API projection can
-                // inject it — the round-boundary path rebuild excludes the model message.
-                overlay.updateTranscriptionSegment(
-                    segmentIndex,
-                    description ?: lastPartial,
-                )
-                transcription = description
-                callbacks.publish(false)
-                callbacks.onPublishedAt(nowMs())
+                if (descriptions.size == result.images.size) {
+                    transcription = if (descriptions.size == 1) descriptions.single() else
+                        descriptions.mapIndexed { index, text -> "[Image ${index + 1}]\n$text" }
+                            .joinToString("\n\n")
+                }
             }
             val completed = overlay.complete(call, result, transcription = transcription)
             completedSegments += completed.segment

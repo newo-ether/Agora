@@ -49,6 +49,7 @@ interface ChatMediaReferencesDao {
         SELECT id, toolCallJson
         FROM messages
         WHERE (:afterId IS NULL OR id > :afterId)
+          AND (:pathToken IS NULL OR instr(toolCallJson, :pathToken) > 0)
           AND toolCallJson IS NOT NULL
           AND toolCallJson != ''
         ORDER BY id
@@ -58,6 +59,7 @@ interface ChatMediaReferencesDao {
     suspend fun getMessageToolMediaReferencesPage(
         afterId: String?,
         limit: Int,
+        pathToken: String? = null,
     ): List<MessageToolMediaReference>
 
     @Query(

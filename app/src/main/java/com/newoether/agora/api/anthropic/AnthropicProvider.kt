@@ -9,6 +9,7 @@ import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.ThinkingProviderFamily
 import com.newoether.agora.api.util.Base64FileRegistry
+import com.newoether.agora.api.util.imageArtifactsForSend
 import com.newoether.agora.api.util.buildToolCallId
 import com.newoether.agora.api.util.adaptToolRoundsForProvider
 import com.newoether.agora.api.util.resolvedThinking
@@ -635,15 +636,15 @@ class AnthropicProvider(
         base64Files: Base64FileRegistry,
     ): AnthropicMessage {
         val parts = mutableListOf<AnthropicContentPart>()
-        val imagePaths = if (msg.participant == Participant.USER) msg.images else emptyList()
-        for (imagePath in imagePaths) {
-            val placeholder = base64Files.register(imagePath) ?: continue
+        val images = if (msg.participant == Participant.USER) msg.imageArtifactsForSend() else emptyList()
+        for (artifact in images) {
+            val image = base64Files.register(artifact) ?: continue
             parts.add(
                 AnthropicContentPart(
                     type = "image",
                     source = AnthropicImageSource(
-                        mediaType = com.newoether.agora.api.util.imageMimeType(imagePath),
-                        data = placeholder,
+                        mediaType = image.mimeType,
+                        data = image.placeholder,
                     ),
                 ),
             )

@@ -64,6 +64,5 @@ object ContextTokenEstimator {
 
     internal fun estimateText(text: String): Int = default.estimateText(text)
 
-    internal fun estimateImageTokens(imageBytes: Long?): Long =
-        default.imageTokens(ImageDescriptor(byteSize = imageBytes))
+    internal fun estimateImageTokens(image: ImageDescriptor): Long = default.imageTokens(image)
 }

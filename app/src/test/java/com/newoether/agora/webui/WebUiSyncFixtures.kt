@@ -64,3 +64,13 @@ internal fun JsonObject.string(key: String): String = this[key]!!.jsonPrimitive.
 
 internal fun JsonObject.ids(): List<String> =
     this["messages"]!!.jsonArray.map { it.jsonObject.string("id") }
+
+/** Session imports produce real PNG bytes for the preview decoder. */
+internal fun webUiImageArtifact(path: String) = com.newoether.agora.model.ImageArtifact(
+    path = path,
+    mimeType = "image/png",
+    sizeBytes = java.io.File(path).length(),
+    width = 31,
+    height = 47,
+    policyVersion = 1,
+)

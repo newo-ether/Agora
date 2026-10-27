@@ -131,9 +131,15 @@ internal fun AttachmentPreviewRow(
             val isPdf = attachment.type == "pdf"
             val isFile = attachment.type == "file"
             val isReady = attachment.importState == AttachmentImportState.READY
+            val pdfPages = if (isPdf) attachment.preRenderedPaths.orEmpty().mapIndexed { index, path ->
+                path.takeUnless { attachment.imageArtifacts.getOrNull(index)?.unavailable == true } ?: ""
+            } else emptyList()
+            val firstPdfPage = pdfPages.indexOfFirst(String::isNotBlank)
+            val unavailable = if (isPdf && attachment.imageArtifacts.isNotEmpty()) firstPdfPage < 0
+                else attachment.unavailable
             val mediaIndex = mediaIndexById[attachment.localId]
             val mediaModel = when {
-                attachment.unavailable || !isReady -> null
+                unavailable || !isReady -> null
                 isVideo -> attachment.processedFrames?.firstOrNull()
                 isFile || isPdf -> null
                 else -> attachment.localPath ?: uriString
@@ -141,7 +147,7 @@ internal fun AttachmentPreviewRow(
             val mediaPainter = rememberAsyncImagePainter(model = mediaModel)
             val mediaLoadState = mediaPainter.state.toMediaLoadPresentation()
             val targetPresentation = attachmentPreviewPresentation(
-                unavailable = attachment.unavailable,
+                unavailable = unavailable,
                 importState = attachment.importState,
                 type = attachment.type,
                 hasVideoFrame = attachment.processedFrames?.isNotEmpty() == true,
@@ -169,7 +175,7 @@ internal fun AttachmentPreviewRow(
             ) {
                 Box {
                     val clickableModifier = when {
-                        attachment.unavailable || !isReady -> Modifier
+                        unavailable || !isReady -> Modifier
                         isFile -> {
                             if (!attachment.storage.canPreview || attachment.preparedText == null) {
                                 Modifier
@@ -185,9 +191,9 @@ internal fun AttachmentPreviewRow(
                             }
                         }
                         isPdf -> {
-                            if (onPdfPagesClick != null) {
+                            if (onPdfPagesClick != null && attachment.storage.canPreview && firstPdfPage >= 0) {
                                 Modifier.clickable {
-                                    onPdfPagesClick(attachment.preRenderedPaths.orEmpty(), 0)
+                                    onPdfPagesClick(pdfPages, firstPdfPage)
                                 }
                             } else {
                                 Modifier

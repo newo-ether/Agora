@@ -90,7 +90,7 @@ internal class ApprovedFeatureSourceContractTest : UiSourceContractFixture() {
     @Test
     fun toolResultImageContextRowKeepsANonProtocolIdPrefix() {
         val root = sourceRoot()
-        val toolMessages = source(root, "com/newoether/agora/api/util/ToolMessages.kt")
+        val toolMessages = source(root, "com/newoether/agora/api/util/ToolImageProjection.kt")
 
         // The API-only image-context row must never start with a protocol prefix: provider
         // serializers branch on tool_/result_ and would silently drop the row (view_image
@@ -139,12 +139,15 @@ internal class ApprovedFeatureSourceContractTest : UiSourceContractFixture() {
         val transcription = source(root, "com/newoether/agora/viewmodel/TranscriptionManager.kt")
         val contracts = source(root, "com/newoether/agora/viewmodel/GenerationContracts.kt")
 
-        // The tool declares intent via the result flag; the executor implements one generic
-        // rule with no tool-name routing; the transcriber travels the per-generation call
-        // chain; GenerationContext stays free of function fields.
+        // Every result image follows the generation's configured transcriber, independently
+        // of tool name or the legacy opt-in flag. A partial result cannot replace the batch.
+        // GenerationContext stays free of function fields.
         assertTrue(toolProvider.contains("val transcribeImages: Boolean = false"))
         assertTrue(shell.contains("transcribeImages = true"))
-        assertTrue(executor.contains("result.transcribeImages && toolImage != null && transcriber != null"))
+        assertTrue(executor.contains("result.images.isNotEmpty() && transcriber != null"))
+        assertTrue(executor.contains("for (toolImage in result.images)"))
+        assertTrue(executor.contains("descriptions.size == result.images.size"))
+        assertFalse(executor.contains("result.transcribeImages &&"))
         assertFalse(executor.contains("\"view_image\""))
         assertFalse(executor.contains("[Image description]"))
         assertTrue(executor.contains("appendTranscriptionSegment("))
@@ -153,18 +156,18 @@ internal class ApprovedFeatureSourceContractTest : UiSourceContractFixture() {
         assertTrue(manager.contains("transcriptionManager.describeImageWithProgress("))
         assertTrue(transcription.contains("suspend fun describeImageWithProgress("))
         assertFalse(contracts.contains("toolImageTranscriber"))
-        val toolMessages = source(root, "com/newoether/agora/api/util/ToolMessages.kt")
+        val toolMessages = source(root, "com/newoether/agora/api/util/ToolImageProjection.kt")
         assertTrue(toolMessages.contains("--- Image Transcription: file_view_image ---"))
         assertTrue(toolMessages.contains("transcriptionDescriptionsForBatch("))
-        // Defect pins (owner device reports): transcription-enabled models never receive raw
-        // images; the compact group title stays the transcription label while TOOL_CALLING;
-        // the thinking block always announces the transcribing state.
+        // The occurrence-aware projector removes only successfully described images. The
+        // request must retain every other image; presentation keeps its transcription state.
         val pathBuilder = source(root, "com/newoether/agora/viewmodel/GenerationApiPathBuilder.kt")
         val titles = source(
             root,
             "com/newoether/agora/ui/chat/message/ThinkingSegmentPresentation.kt",
         )
-        assertTrue(pathBuilder.contains("includeImages = !request.context.imageTranscriptionEnabled"))
+        assertTrue(pathBuilder.contains("includeImages = true"))
+        assertFalse(pathBuilder.contains("includeImages = !request.context.imageTranscriptionEnabled"))
         assertTrue(titles.contains("segs.any { it.type == \"transcription\" }"))
         assertTrue(transcription.contains("onProgress(context.getString(R.string.transcription_ellipsis_single))"))
     }

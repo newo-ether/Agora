@@ -88,14 +88,16 @@ class ChatViewModel(
     )
     internal val messagePayloadHydration =
         ConversationMessagePayloadHydration(convRepo, appContext)
+    private val attachmentProcessor = AttachmentImportProcessor(application)
     private val composerDrafts = ComposerDraftController(
         persistence = conversationWorkspaces,
         conversations = conversationRepository,
+        hydrateAttachment = attachmentProcessor::hydrateDraftAttachment,
     )
     internal val conversationComposer = ConversationComposerController(
         scope = viewModelScope,
         drafts = composerDrafts,
-        processor = AttachmentImportProcessor(application),
+        processor = attachmentProcessor,
         sandboxHomeDir = {
             sandboxFactory?.takeIf { it.isAvailable() }?.let {
                 File(application.filesDir, "sandbox-home")
@@ -503,6 +505,7 @@ class ChatViewModel(
     private val contextProjector by lazy {
         ConversationContextProjector(
             conversations = convRepo,
+            appContext = appContext,
             requestBuilder = chatRuntime.requestBuilder,
             generationManager = { generationManager },
             generationErrorFormatter = { raw ->

@@ -64,7 +64,8 @@ internal fun Resources.webToolDetail(segment: MessageSegment): WebToolDetail {
             })
         },
         images = segment.toolImages.mapIndexedNotNull { index, image ->
-            if (image.path.isBlank()) null else WebToolImage(index, image.width, image.height, image.sha256)
+            if (image.path.isBlank() && !image.unavailable) null
+            else WebToolImage(index, image.width, image.height, image.unavailable)
         },
         squareCrop = segment.isImageGenerationSegment(),
         imageLabel = getString(R.string.tool_view_image),
@@ -184,7 +185,9 @@ internal data class WebToolDiffLine(val kind: String, val text: String)
 @Serializable
 internal data class WebToolSearchResult(val title: String, val url: String?, val safeUrl: String?, val snippet: String?)
 @Serializable
-internal data class WebToolImage(val index: Int, val width: Int?, val height: Int?, val version: String)
+internal data class WebToolImage(
+    val index: Int, val width: Int?, val height: Int?, val unavailable: Boolean = false,
+)
 @Serializable
 internal data class WebToolDocument(
     val text: String? = null,

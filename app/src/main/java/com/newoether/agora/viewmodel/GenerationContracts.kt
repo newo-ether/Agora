@@ -150,6 +150,12 @@ internal data class AutomaticCompactConfig(
     /** Frozen API-only USER templates included in the exact Auto Compact threshold projection. */
     val userPrepend: String? = null,
     val userPostpend: String? = null,
+    val assistantPrepend: String? = null,
+    val assistantPostpend: String? = null,
+    /** Main-request templates resolve at the same accounting boundary, independently of Compact. */
+    val mainPromptTemplate: GenerationPromptTemplate? = null,
+    /** Main-request transcription policy. Compact's policy applies only to its summary request. */
+    val mainImageTranscriptionEnabled: Boolean = false,
     /** Filled by the effect owner that has the exact frozen tool-definition set. */
     val fixedTokenCost: Int = 0,
     /**

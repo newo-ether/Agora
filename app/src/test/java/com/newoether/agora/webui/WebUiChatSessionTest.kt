@@ -3,7 +3,6 @@ package com.newoether.agora.webui
 import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.ConversationSettingsTransferCoordinator
-import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ChatConversation
 import com.newoether.agora.data.local.ChatDao
 import com.newoether.agora.viewmodel.QueuedSend
@@ -27,6 +26,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.spyk
 import io.mockk.verify
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
@@ -65,6 +65,9 @@ import com.newoether.agora.model.AttachmentStorage
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.local.ChatEntity
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [35], application = Application::class)
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 class WebUiChatSessionTest {
     @get:Rule val temporary = TemporaryFolder()
     private val uploadDirectory by lazy { temporary.newFolder("private") }
@@ -91,40 +94,7 @@ class WebUiChatSessionTest {
     private val registry = mockk<ConversationStateRegistry> {
         every { getOrCreate(any()) } returns state
     }
-    private val settings = mockk<SettingsRepository> {
-        every { selectedModel } returns MutableStateFlow("default-model")
-        every { enabledModels } returns MutableStateFlow(setOf("default-model", "conversation-model"))
-        every { developerOptionsEnabled } returns MutableStateFlow(false)
-        every { debugModelEnabled } returns MutableStateFlow(false)
-        every { modelAliases } returns MutableStateFlow(emptyMap())
-        every { modelProviderNames } returns MutableStateFlow(emptyMap())
-        every { systemPrompts } returns MutableStateFlow(emptyList())
-        every { activeSystemPromptId } returns MutableStateFlow(null)
-        every { customProviders } returns MutableStateFlow(emptyList())
-        every { conversationSettings } returns MutableStateFlow(emptyMap())
-        every { codeExecutionEnabled } returns MutableStateFlow(false)
-        every { googleSearchEnabled } returns MutableStateFlow(false)
-        every { thinkingEnabled } returns MutableStateFlow(true)
-        every { thinkingLevel } returns MutableStateFlow("medium")
-        every { thinkingBudgetEnabled } returns MutableStateFlow(false)
-        every { thinkingBudgetTokens } returns MutableStateFlow(4096)
-        every { openAiServiceTierEnabled } returns MutableStateFlow(false)
-        every { openAiServiceTier } returns MutableStateFlow("auto")
-        every { openAiResponsesApiEnabled } returns MutableStateFlow(false)
-        every { webSearchEnabled } returns MutableStateFlow(true)
-        every { shellEnabled } returns MutableStateFlow(true)
-        every { localLowContextModeEnabled } returns MutableStateFlow(false)
-        every { maxContextWindow } returns MutableStateFlow(32768)
-        every { defaultTemperature } returns MutableStateFlow(null)
-        every { defaultMaxTokens } returns MutableStateFlow(null)
-        every { defaultTopP } returns MutableStateFlow(null)
-        every { defaultFrequencyPenalty } returns MutableStateFlow(null)
-        every { defaultPresencePenalty } returns MutableStateFlow(null)
-        every { contextCompactModel } returns MutableStateFlow(null)
-        every { contextCompactPrompt } returns MutableStateFlow("summary")
-        every { contextCompactRetainCount } returns MutableStateFlow(4)
-        coEvery { awaitInitialLoad() } just Runs
-    }
+    private val settings = webUiChatSessionSettings()
 
     /** Arguments of every send-target capture: owner, current id, New Chat mode, entry, model, workspace. */
     private val captures = CopyOnWriteArrayList<Capture>()
@@ -166,31 +136,30 @@ class WebUiChatSessionTest {
         executionCoordinator = ConversationExecutionCoordinator(),
         settings = settings,
         transfers = mockk<ConversationSettingsTransferCoordinator>(relaxed = true),
-        attachmentProcessor = AttachmentImportProcessor(
+        attachmentProcessor = spyk(AttachmentImportProcessor(
             mockk<Application> { every { filesDir } returns uploadDirectory },
             normalizeImage = { _, owner ->
                 imageAttempts++
                 imageOutput?.also { AttachmentFiles.retainLivePath(requireNotNull(owner), it) }
             },
             measurePixels = { null },
+            measureArtifact = ::webUiImageArtifact,
             readPdfPageCount = { 3 },
             renderAllPdfPages = { _, _, progress, owner ->
                 (0..2).map { index ->
                     File(uploadDirectory, "page-$index.jpg").also { file ->
                         AttachmentFiles.retainLivePath(requireNotNull(owner), file.absolutePath)
-                        file.writeText("page $index")
+                        file.writeBytes(webUiSameLengthPngs().let { if (index == 0) it.first else it.second })
                     }.absolutePath.also { progress?.invoke(index + 1, 3) }
                 }
             },
-            renderPdf = { _, pages, owner -> pages.orEmpty().sorted().map { index ->
-                File(uploadDirectory, "selected-$index.jpg").also {
-                    AttachmentFiles.retainLivePath(requireNotNull(owner), it.absolutePath)
-                    it.writeText("selected $index")
-                }.absolutePath
-            } },
+            renderPdf = { _, _, _ -> error("Completed PDF preview must be reused") },
             readVideoDurationMs = { 15_000L },
             extractVideoFrames = { _, config, _ -> videoConfigs += config; emptyList() },
-        ),
+        )).apply {
+            // This session fixture supplies completed imports; hydration is covered separately.
+            coEvery { hydrateDraftAttachment(any()) } answers { firstArg() }
+        },
         scope = scope,
         uploadDirectory = uploadDirectory,
         compactFailureMessage = { it.reason.name },
@@ -306,7 +275,7 @@ class WebUiChatSessionTest {
         session.start()
         session.upload(0, "photo.png", "image/png", null, 1, ByteReadChannel(byteArrayOf(1)))
         val failed = withTimeout(TIMEOUT_MS) { session.composerState.first { it.attachments.singleOrNull()?.importState == AttachmentImportState.FAILED } }.attachments.single()
-        imageOutput = File(uploadDirectory, "img_ready.jpg").apply { writeText("raster") }.absolutePath
+        imageOutput = File(uploadDirectory, "img_ready.jpg").apply { writeBytes(webUiSameLengthPngs().first) }.absolutePath
         session.attachmentCommand(WebSyncCommand("attachment_retry", seq = 1, attachmentId = failed.localId))
         session.attachmentCommand(WebSyncCommand("attachment_retry", attachmentId = "missing"))
         assertEquals(1, imageAttempts)
@@ -316,8 +285,8 @@ class WebUiChatSessionTest {
         assertEquals(2, imageAttempts)
         assertEquals(5L, ready.actionId)
         assertTrue(session.previewAttachment(0, failed.localId, "source", 0) { file, mime ->
-            assertEquals("raster", file.readText())
-            assertEquals("image/jpeg", mime)
+            org.junit.Assert.assertArrayEquals(webUiSameLengthPngs().first, file.readBytes())
+            assertEquals("image/png", mime)
         })
         File(imageOutput!!).delete()
         assertFalse(session.previewAttachment(0, failed.localId, "source", 0) { _, _ -> error("Missing artifact") })
@@ -333,7 +302,7 @@ class WebUiChatSessionTest {
         session.start()
         session.upload(0, "doc.pdf", "application/pdf", null, 1, ByteReadChannel(byteArrayOf(1)))
         val pdf = withTimeout(TIMEOUT_MS) { session.composerState.first { it.attachments.singleOrNull()?.preRenderedPaths?.size == 3 } }.attachments.single()
-        assertTrue(session.previewAttachment(0, pdf.localId, "page", 2) { file, _ -> assertEquals("page 2", file.readText()) })
+        assertTrue(session.previewAttachment(0, pdf.localId, "page", 2) { file, _ -> org.junit.Assert.assertArrayEquals(webUiSameLengthPngs().second, file.readBytes()) })
         assertFalse(session.previewAttachment(0, pdf.localId, "page", 3) { _, _ -> error("Out of range") })
         for (pages in listOf(emptyList(), listOf(-1), listOf(3))) {
             session.attachmentCommand(WebSyncCommand("attachment_pdf", attachmentId = pdf.localId, pages = pages))
@@ -342,7 +311,11 @@ class WebUiChatSessionTest {
         session.attachmentCommand(WebSyncCommand("attachment_pdf", attachmentId = pdf.localId, pages = listOf(2, 0, 2)))
         val configured = withTimeout(TIMEOUT_MS) { session.composerState.first { it.attachments.singleOrNull()?.importState == AttachmentImportState.READY } }.attachments.single()
         assertEquals(setOf(0, 1), configured.selectedPages)
-        assertEquals(listOf("selected 0", "selected 2"), configured.preRenderedPaths!!.map { File(it).readText() })
+        configured.preRenderedPaths!!.forEachIndexed { index, path ->
+            org.junit.Assert.assertArrayEquals(webUiSameLengthPngs().let { if (index == 0) it.first else it.second }, File(path).readBytes())
+        }
+        assertEquals(listOf(pdf.preRenderedPaths!![0], pdf.preRenderedPaths!![2]), configured.preRenderedPaths)
+        assertEquals(listOf(pdf.imageArtifacts[0], pdf.imageArtifacts[2]), configured.imageArtifacts)
         session.attachmentCommand(WebSyncCommand("attachment_pdf", attachmentId = pdf.localId, pages = listOf(1)))
         assertEquals(configured, session.composerState.first().attachments.single())
         session.upload(0, "clip.mp4", "video/mp4", "video", 1, ByteReadChannel(byteArrayOf(1)))
@@ -361,7 +334,7 @@ class WebUiChatSessionTest {
     @Test
     fun previewPinsTheExactArtifactAcrossRemovalAndPropagatesStreamFailures() = runBlocking {
         session.start()
-        imageOutput = File(uploadDirectory, "img_pin.jpg").apply { writeText("raster") }.absolutePath
+        imageOutput = File(uploadDirectory, "img_pin.jpg").apply { writeBytes(webUiSameLengthPngs().first) }.absolutePath
         session.upload(0, "photo.png", "image/png", null, 1, ByteReadChannel(byteArrayOf(1)))
         val attachment = withTimeout(TIMEOUT_MS) { session.composerState.first { it.attachments.singleOrNull()?.importState == AttachmentImportState.READY } }.attachments.single()
         for ((seq, kind, index) in listOf(Triple(1L, "source", 0), Triple(0L, "frame", 0), Triple(0L, "source", 1))) {
@@ -375,7 +348,7 @@ class WebUiChatSessionTest {
         val preview = async { session.previewAttachment(0, attachment.localId, "source", 0) { file, _ ->
             entered.complete(Unit)
             finish.await()
-            assertEquals("raster", file.readText())
+            org.junit.Assert.assertArrayEquals(webUiSameLengthPngs().first, file.readBytes())
         } }
         withTimeout(TIMEOUT_MS) { entered.await() }
         session.attachmentCommand(WebSyncCommand("attachment_remove", attachmentId = attachment.localId))
@@ -386,6 +359,32 @@ class WebUiChatSessionTest {
     }
 
     @Test
+    fun previewReadsSameLengthValidReplacementOfTheCompletedRaster() = runBlocking {
+        session.start()
+        val (original, replacement) = webUiSameLengthPngs()
+        val file = File(uploadDirectory, "img_identity.png").apply { writeBytes(original) }
+        imageOutput = file.absolutePath
+        session.upload(0, "photo.png", "image/png", null, 1, ByteReadChannel(byteArrayOf(1)))
+        val attachment = withTimeout(TIMEOUT_MS) {
+            session.composerState.first { it.attachments.singleOrNull()?.importState == AttachmentImportState.READY }
+        }.attachments.single()
+        val recorded = attachment.imageArtifacts.single()
+        assertTrue(session.previewAttachment(0, attachment.localId, "source", 0) { actual, _ ->
+            org.junit.Assert.assertArrayEquals(original, actual.readBytes())
+        })
+        val pixel = javax.imageio.ImageIO.read(file).getRGB(0, 0)
+        file.writeBytes(replacement)
+        assertEquals(recorded.sizeBytes, file.length())
+        assertFalse(pixel == javax.imageio.ImageIO.read(file).getRGB(0, 0))
+        assertTrue(session.previewAttachment(0, attachment.localId, "source", 0) { actual, _ ->
+            org.junit.Assert.assertArrayEquals(replacement, actual.readBytes())
+        })
+        assertFalse(AttachmentFiles.deleteIfUnowned(file))
+        session.attachmentCommand(WebSyncCommand("attachment_remove", attachmentId = attachment.localId))
+        assertTrue(AttachmentFiles.deleteIfUnowned(file))
+    }
+
+    @Test
     fun previewRejectsPrivateRootEscapeAndDisconnectCancelsAnAdmittedStream() = runBlocking {
         session.start()
         imageOutput = temporary.newFile("outside.jpg").apply { writeText("outside") }.absolutePath
@@ -393,7 +392,7 @@ class WebUiChatSessionTest {
         var attachment = withTimeout(TIMEOUT_MS) { session.composerState.first { it.attachments.singleOrNull()?.importState == AttachmentImportState.READY } }.attachments.single()
         assertFalse(session.previewAttachment(0, attachment.localId, "source", 0) { _, _ -> error("Escaped root") })
         session.attachmentCommand(WebSyncCommand("attachment_remove", attachmentId = attachment.localId))
-        imageOutput = File(uploadDirectory, "img_cancel.jpg").apply { writeText("raster") }.absolutePath
+        imageOutput = File(uploadDirectory, "img_cancel.jpg").apply { writeBytes(webUiSameLengthPngs().first) }.absolutePath
         session.upload(0, "photo.png", "image/png", null, 1, ByteReadChannel(byteArrayOf(1)))
         attachment = withTimeout(TIMEOUT_MS) { session.composerState.first { it.attachments.singleOrNull()?.importState == AttachmentImportState.READY } }.attachments.single()
         val entered = CompletableDeferred<Unit>()

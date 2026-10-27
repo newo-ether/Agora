@@ -67,6 +67,10 @@ execution. Independent completion and writer release require actual qualificatio
 
 Remote transport, saved connections and transient presentation are independent of Room,
 LlmProvider, GenerationManager and ordinary conversation drafts. Codex is durable truth.
+Remote image loading preserves the received image bytes, encoding and dimensions. It does not
+invoke Agora's model-input image processor or apply Generation image-quality settings. Bounded
+viewport decoding remains a display operation only. This owner clarification on 2026-10-27 is
+also scoped in [image-processing.md](image-processing.md).
 Only the selected session owns Remote history/subscription. Changing selection, connection,
 visibility or read generation cancels old reads and rejects late results. In-flight writes
 stay bound to their original owner. No automatic POST retry or input replay is allowed.

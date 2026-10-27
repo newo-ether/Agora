@@ -271,24 +271,16 @@ internal class NativeConversationGraphImporter(
             MessageStatus.SUCCESS
         }
         val oldToNewImageIndex = mutableMapOf<Int, Int>()
+        val legacyImagePaths = restoredMedia.legacyImagesByMessage[id].orEmpty().toSortedMap()
         val restoredImages = if (archiveVersion >= 4) {
-            buildList {
-                images.forEachIndexed { oldIndex, entry ->
-                    restoredMedia.archiveFiles[entry]?.uri?.let { uri ->
-                        oldToNewImageIndex[oldIndex] = size
-                        add(uri)
-                    }
-                }
+            images.mapIndexed { index, entry ->
+                oldToNewImageIndex[index] = index
+                restoredMedia.archiveFiles[entry]?.absolutePath.orEmpty()
             }
         } else {
-            buildList {
-                restoredMedia.legacyImagesByMessage[id]
-                    .orEmpty()
-                    .toSortedMap()
-                    .forEach { (oldIndex, uri) ->
-                        oldToNewImageIndex[oldIndex] = size
-                        add(uri)
-                    }
+            legacyImagePaths.entries.mapIndexed { index, (oldIndex, path) ->
+                oldToNewImageIndex[oldIndex] = index
+                path
             }
         }
         return MessageEntity(
@@ -336,6 +328,11 @@ internal class NativeConversationGraphImporter(
                 restoredUriForArchiveEntry = { entry ->
                     restoredMedia.archiveFiles[entry]?.uri
                 },
+                restoredPathForArchiveEntry = { entry ->
+                    restoredMedia.archiveFiles[entry]?.absolutePath
+                },
+                originalImageSources = images,
+                legacyImagePaths = legacyImagePaths,
             ),
             runId = assignment.runId,
             runSequence = assignment.runSequence,

@@ -3,6 +3,8 @@ package com.newoether.agora.viewmodel
 import androidx.room.withTransaction
 import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.ImageArtifact
+import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.util.AttachmentFiles
 import kotlinx.coroutines.yield
@@ -16,6 +18,7 @@ internal class AttachmentOrphanSweeper(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val chatDao = database.chatDao()
+    private val referenceJson = Json { ignoreUnknownKeys = true }
 
     suspend fun sweep() {
         val referenced = collectReferences()
@@ -57,6 +60,7 @@ internal class AttachmentOrphanSweeper(
 
     private suspend fun collectReferences(pathToken: String? = null): Set<String> = HashSet<String>().also { referenced ->
         collectMessageReferences(referenced, pathToken)
+        collectToolReferences(referenced, pathToken)
         collectDraftReferences(referenced, pathToken)
     }
 
@@ -69,17 +73,40 @@ internal class AttachmentOrphanSweeper(
                 pathToken = pathToken,
             )
             page.forEach { message ->
-                message.images.forEach { referenced.add(normalizePath(it)) }
+                message.images.forEach { referenced.addPath(it) }
                 message.attachmentMeta?.let { json ->
-                    runCatching { Json.decodeFromString<AttachmentMeta>(json) }.getOrElse {
+                    runCatching { referenceJson.decodeFromString<AttachmentMeta>(json) }.getOrElse {
                         if (pathToken != null) throw it
                         null
                     }
                         ?.items?.forEach { item ->
                             item.originalUri?.takeIf { it.startsWith("file://") }
-                                ?.let { referenced.add(normalizePath(it)) }
+                                ?.let { referenced.addPath(it) }
+                            referenced.addArtifacts(item.imageArtifacts)
                         }
                 }
+            }
+            afterMessageId = page.lastOrNull()?.id
+            if (page.size < DATABASE_SCAN_PAGE_SIZE) break
+            yield()
+        }
+    }
+
+    private suspend fun collectToolReferences(referenced: MutableSet<String>, pathToken: String?) {
+        var afterMessageId: String? = null
+        while (true) {
+            val page = chatDao.getMessageToolMediaReferencesPage(
+                afterId = afterMessageId,
+                limit = DATABASE_SCAN_PAGE_SIZE,
+                pathToken = pathToken,
+            )
+            page.forEach { message ->
+                runCatching {
+                    referenceJson.decodeFromString<List<MessageSegment>>(message.toolCallJson)
+                }.getOrElse {
+                    if (pathToken != null) throw it
+                    emptyList()
+                }.forEach { referenced.addArtifacts(it.toolImages) }
             }
             afterMessageId = page.lastOrNull()?.id
             if (page.size < DATABASE_SCAN_PAGE_SIZE) break
@@ -97,14 +124,12 @@ internal class AttachmentOrphanSweeper(
             )
             page.forEach { conversation ->
                 runCatching {
-                    Json.decodeFromString<List<SelectedAttachment>>(conversation.draftAttachments)
+                    referenceJson.decodeFromString<List<SelectedAttachment>>(conversation.draftAttachments)
                 }.getOrElse {
                     if (pathToken != null) throw it
                     null
                 }?.forEach { attachment ->
-                    attachment.localPath?.let { referenced.add(normalizePath(it)) }
-                    attachment.processedFrames?.forEach { referenced.add(normalizePath(it)) }
-                    attachment.preRenderedPaths?.forEach { referenced.add(normalizePath(it)) }
+                    referenced.addAttachment(attachment)
                 }
             }
             afterConversationId = page.lastOrNull()?.id
@@ -114,14 +139,12 @@ internal class AttachmentOrphanSweeper(
 
         chatDao.getNewChatDraftAttachmentReference(pathToken)?.let { newChat ->
             runCatching {
-                Json.decodeFromString<List<SelectedAttachment>>(newChat.draftAttachments)
+                referenceJson.decodeFromString<List<SelectedAttachment>>(newChat.draftAttachments)
             }.getOrElse {
                 if (pathToken != null) throw it
                 null
             }?.forEach { attachment ->
-                attachment.localPath?.let { referenced.add(normalizePath(it)) }
-                attachment.processedFrames?.forEach { referenced.add(normalizePath(it)) }
-                attachment.preRenderedPaths?.forEach { referenced.add(normalizePath(it)) }
+                referenced.addAttachment(attachment)
             }
         }
     }
@@ -151,8 +174,24 @@ internal class AttachmentOrphanSweeper(
         }
     }
 
+    private fun MutableSet<String>.addAttachment(attachment: SelectedAttachment) {
+        attachment.localPath?.let { addPath(it) }
+        attachment.processedFrames.orEmpty().forEach { addPath(it) }
+        attachment.preRenderedPaths.orEmpty().forEach { addPath(it) }
+        addArtifacts(attachment.imageArtifacts)
+    }
+
+    private fun MutableSet<String>.addArtifacts(artifacts: List<ImageArtifact>) {
+        artifacts.filterNot { it.unavailable }.forEach { addPath(it.path) }
+    }
+
+    private fun MutableSet<String>.addPath(path: String) {
+        if (path.isNotBlank()) normalizePath(path).takeIf(String::isNotBlank)?.let(::add)
+    }
+
     private fun normalizePath(path: String): String {
         val raw = path.removePrefix("file://")
+        if (raw.isBlank()) return ""
         return runCatching { File(raw).canonicalPath }.getOrElse { File(raw).absolutePath }
     }
 

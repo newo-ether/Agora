@@ -159,6 +159,7 @@ Never:
 | MCP fixed list/search/call tools, catalog discovery, target permission and cache-stable projection | [mcp-tools.md](mcp-tools.md) |
 | Persistent Skill files, Skill catalog prompt projection, Skill tools/settings, or Skill archive transport | [skills.md](skills.md) |
 | Application-level onboarding motion, settings category copy, or other non-message global UI behavior | [application-ui.md](application-ui.md) |
+| All Agora model-input images, shared processing, preview/dispatch identity and dimension-based image token estimation | [image-processing.md](image-processing.md) |
 | Native `.agora` archive categories, settings portability, import strategies, secrets, or backup compatibility | [import-export.md](import-export.md) |
 | Shared Settings page structure, interaction, copy, localization, or documentation entry points | [settings-ui-ux.md](settings-ui-ux.md) |
 | Phone Use device control tools, control lease, overlay, permissions and app access control | [phone-use.md](phone-use.md) |

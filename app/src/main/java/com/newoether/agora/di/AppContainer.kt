@@ -480,6 +480,7 @@ class AppContainer(
             shellConfirmation = shellConfirmationController,
             contextAccounting = com.newoether.agora.webui.WebUiContextAccounting(
                 conversations = conversationRepository,
+                appContext = appContext,
                 requestBuilder = chatRuntime.requestBuilder,
                 generationManager = { chatRuntime.generationManager },
                 generationErrorFormatter = { raw ->

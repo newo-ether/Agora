@@ -274,7 +274,8 @@ internal class WebUiServer(
                     val imageIndex = call.parameters["imageIndex"]?.toIntOrNull() ?: return@get call.respond(HttpStatusCode.NotFound)
                     val image = toolImages?.open(conversationId, messageId, detailIndex, imageIndex)
                         ?: return@get call.respond(HttpStatusCode.NotFound)
-                    if (!auth.isValidSession(call.request.cookies[SESSION_COOKIE])) {
+                    val token = call.request.cookies[SESSION_COOKIE]
+                    if (!auth.isValidSession(token)) {
                         return@get call.respond(HttpStatusCode.Forbidden)
                     }
                     call.respondOutputStream(ContentType.parse(image.mimeType), contentLength = image.size) {
@@ -286,8 +287,10 @@ internal class WebUiServer(
                                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                                 var remaining = image.size
                                 while (remaining > 0) {
+                                    currentCoroutineContext().ensureActive()
+                                    if (!auth.isValidSession(token)) throw kotlinx.coroutines.CancellationException("Session revoked")
                                     val count = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
-                                    if (count < 0) throw java.io.EOFException("Tool image ended before its recorded size")
+                                    if (count < 0) throw java.io.EOFException("Tool image ended early")
                                     write(buffer, 0, count)
                                     remaining -= count
                                 }

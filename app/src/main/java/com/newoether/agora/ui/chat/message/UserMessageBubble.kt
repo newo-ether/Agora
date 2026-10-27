@@ -36,6 +36,7 @@ import com.newoether.agora.R
 import com.newoether.agora.util.noOpBringIntoView
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSource
 import com.newoether.agora.model.subagentResultDisplay
 import com.newoether.agora.ui.chat.AttachmentThumbnailItem
@@ -64,17 +65,34 @@ internal data class StoredMediaOccurrenceProjection(
     val indexByDisplayItem: List<Int?>,
 )
 
+private fun storedMediaUnavailable(
+    imagePath: String,
+    item: AttachmentItem?,
+    imageArtifacts: Map<String, ImageArtifact>,
+): Boolean {
+    val occurrences = item?.imageArtifacts.orEmpty()
+    if (item?.type == "pdf" && occurrences.isNotEmpty()) {
+        return occurrences.all { it.unavailable || it.path.isBlank() }
+    }
+    if (item?.unavailable == true) return true
+    return if (occurrences.isNotEmpty()) {
+        occurrences.any(ImageArtifact::unavailable)
+    } else imageArtifacts[imagePath]?.unavailable == true
+}
+
 internal fun projectStoredMediaOccurrences(
     displayItems: List<Pair<String, AttachmentItem?>>,
+    imageArtifacts: Map<String, ImageArtifact> = emptyMap(),
 ): StoredMediaOccurrenceProjection {
     val urls = mutableListOf<String>()
     val indices = displayItems.map { (imagePath, item) ->
+        val unavailable = storedMediaUnavailable(imagePath, item, imageArtifacts)
         val url = when (resolveAttachmentType(imagePath, item)) {
             "image" -> imagePath.takeIf {
-                it.isNotEmpty() && item?.unavailable != true
+                it.isNotEmpty() && !unavailable
             }
             "video" -> item
-                ?.takeUnless(AttachmentItem::unavailable)
+                ?.takeUnless { unavailable }
                 ?.originalUri
                 ?.takeIf(String::isNotBlank)
             else -> null
@@ -245,11 +263,12 @@ internal fun UserMessageBubble(
                             metadataItems + legacyItems
                         }
 
-                        val mediaProjection = remember(displayItems) {
+                        val mediaProjection = remember(displayItems, message.imageArtifacts) {
                             projectStoredMediaOccurrences(
                                 displayItems.map { (_, imagePath, metaItem) ->
                                     imagePath to metaItem
                                 },
+                                message.imageArtifacts,
                             )
                         }
                         val allMediaUrls = mediaProjection.urls
@@ -269,7 +288,12 @@ internal fun UserMessageBubble(
                                     metaItem?.imageIndex?.let { start ->
                                         val count = metaItem.pageCount ?: 1
                                         val end = (start + count).coerceAtMost(message.images.size)
-                                        if (start in 0 until message.images.size) message.images.subList(start, end) else emptyList()
+                                        if (start in 0 until message.images.size) {
+                                            message.images.subList(start, end).mapIndexed { index, path ->
+                                                val artifact = metaItem.imageArtifacts.getOrNull(index) ?: message.imageArtifacts[path]
+                                                path.takeUnless { artifact?.unavailable == true } ?: ""
+                                            }
+                                        } else emptyList()
                                     } ?: emptyList()
                                 } else emptyList()
 
@@ -282,7 +306,9 @@ internal fun UserMessageBubble(
                                     fileName = fileName,
                                     originalUri = metaItem?.originalUri,
                                     textContent = metaItem?.textContent,
-                                    unavailable = metaItem?.unavailable == true,
+                                    unavailable = storedMediaUnavailable(
+                                        imagePath, metaItem, message.imageArtifacts,
+                                    ),
                                     pdfPages = pdfPages,
                                     allMediaUrls = allMediaUrls,
                                     mediaIndex = mediaIndex,

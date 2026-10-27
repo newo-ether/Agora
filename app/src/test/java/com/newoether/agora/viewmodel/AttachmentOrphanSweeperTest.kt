@@ -2,12 +2,15 @@ package com.newoether.agora.viewmodel
 
 import com.newoether.agora.data.local.ConversationDraftAttachmentReference
 import com.newoether.agora.data.local.MessageAttachmentReference
+import com.newoether.agora.data.local.MessageToolMediaReference
 import com.newoether.agora.data.local.NewChatDraftAttachmentReference
 import androidx.room.withTransaction
 import com.newoether.agora.data.local.ChatDao
 import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.ImageArtifact
+import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.util.AttachmentFiles
 import io.mockk.coEvery
@@ -49,6 +52,7 @@ class AttachmentOrphanSweeperTest {
             transaction.withLock { arg<suspend () -> Any?>(1).invoke() }
         }
         coEvery { conversations.getMessageAttachmentReferencesPage(any(), any(), any()) } returns emptyList()
+        coEvery { conversations.getMessageToolMediaReferencesPage(any(), any(), any()) } returns emptyList()
         coEvery { conversations.getConversationDraftAttachmentReferencesPage(any(), any(), any()) } returns emptyList()
         coEvery { conversations.getNewChatDraftAttachmentReference(any()) } returns null
     }
@@ -310,6 +314,83 @@ class AttachmentOrphanSweeperTest {
                 conversations.getNewChatDraftAttachmentReference()
             }
         }
+
+    @Test
+    fun `tool only fork file survives exact cleanup until its durable reference is removed`() = runTest {
+        val image = oldFile(File(temporaryFolder.root, "fork-attachments"), "tool_only.png")
+        val raw = Json.encodeToString(listOf(MessageSegment(type = "tool", toolImages = listOf(artifact(image.path)))))
+        coEvery { conversations.getMessageToolMediaReferencesPage(null, 64, image.name) } returns
+            listOf(MessageToolMediaReference("tool-row", raw))
+        val sweeper = AttachmentOrphanSweeper(database, temporaryFolder.root, now = { NOW })
+        sweeper.sweep()
+        assertTrue(image.exists())
+        coVerify { conversations.getMessageToolMediaReferencesPage(null, 64, image.name) }
+        coEvery { conversations.getMessageToolMediaReferencesPage(null, 64, image.name) } returns emptyList()
+        sweeper.deleteExact(image.path)
+        assertFalse(image.exists())
+    }
+
+    @Test
+    fun `artifact only metadata and both draft owners protect their private files`() = runTest {
+        val message = oldFile(temporaryFolder.root, "img_meta_only")
+        val draft = oldFile(temporaryFolder.root, "img_draft_artifact")
+        val newChat = oldFile(temporaryFolder.root, "img_new_chat_artifact")
+        coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, message.name) } returns listOf(
+            MessageAttachmentReference("message", emptyList(), Json.encodeToString(AttachmentMeta(listOf(
+                AttachmentItem(type = "image", imageArtifacts = listOf(artifact(message.path))),
+            )))),
+        )
+        fun draftJson(file: File) = Json.encodeToString(listOf(SelectedAttachment(
+            uri = "", type = "image", imageArtifacts = listOf(artifact(file.path)),
+        )))
+        coEvery { conversations.getConversationDraftAttachmentReferencesPage(null, 64, draft.name) } returns
+            listOf(ConversationDraftAttachmentReference("draft", draftJson(draft)))
+        coEvery { conversations.getNewChatDraftAttachmentReference(newChat.name) } returns
+            NewChatDraftAttachmentReference(draftJson(newChat))
+        val sweeper = AttachmentOrphanSweeper(database, temporaryFolder.root)
+        listOf(message, draft, newChat).forEach { sweeper.deleteExact(it.path); assertTrue(it.exists()) }
+    }
+
+    @Test
+    fun `unavailable artifact descriptors do not retain stale files`() = runTest {
+        val image = oldFile(File(temporaryFolder.root, "fork-attachments"), "unavailable.png")
+        val unavailable = artifact(image.path).copy(unavailable = true)
+        val raw = Json.encodeToString(listOf(MessageSegment(type = "tool", toolImages = listOf(
+            unavailable, unavailable.copy(path = ""),
+        ))))
+        coEvery { conversations.getMessageToolMediaReferencesPage(null, 64, image.name) } returns
+            listOf(MessageToolMediaReference("tool-row", raw))
+        AttachmentOrphanSweeper(database, temporaryFolder.root).deleteExact(image.path)
+        assertFalse(image.exists())
+    }
+
+    @Test
+    fun `malformed candidate tool payload fails closed`() = runTest {
+        val image = oldFile(temporaryFolder.root, "img_bad_tool")
+        coEvery { conversations.getMessageToolMediaReferencesPage(null, 64, image.name) } returns
+            listOf(MessageToolMediaReference("broken", "not-json:${image.name}"))
+        val result = runCatching { AttachmentOrphanSweeper(database, temporaryFolder.root).deleteExact(image.path) }
+        assertTrue(result.exceptionOrNull() is kotlinx.serialization.SerializationException)
+        assertTrue(image.exists())
+    }
+
+    @Test
+    fun `tool reference lookup pages by id and narrows every page to the candidate token`() = runTest {
+        val image = oldFile(temporaryFolder.root, "img_paged_tool")
+        coEvery { conversations.getMessageToolMediaReferencesPage(null, 64, image.name) } returns
+            (0 until 64).map { MessageToolMediaReference("row-$it", "[]") }
+        val raw = Json.encodeToString(listOf(MessageSegment(type = "tool", toolImages = listOf(artifact(image.path)))))
+        coEvery { conversations.getMessageToolMediaReferencesPage("row-63", 64, image.name) } returns
+            listOf(MessageToolMediaReference("row-last", raw))
+        AttachmentOrphanSweeper(database, temporaryFolder.root).deleteExact(image.path)
+        assertTrue(image.exists())
+        coVerify(exactly = 1) { conversations.getMessageToolMediaReferencesPage("row-63", 64, image.name) }
+        coVerify(exactly = 0) { conversations.getMessageToolMediaReferencesPage(any(), any(), null) }
+    }
+
+    private fun artifact(path: String) = ImageArtifact(
+        path = path, mimeType = "image/png", sizeBytes = 4, width = 40, height = 30,
+    )
 
     private fun oldFile(parent: File, name: String): File =
         file(parent, name, NOW - 2 * 60 * 60 * 1000L)

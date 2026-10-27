@@ -6,12 +6,15 @@ import com.newoether.agora.api.HttpClient
 import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.api.ProviderConfig
 import com.newoether.agora.api.StreamEvent
+import com.newoether.agora.api.util.imageArtifactOccurrences
 import com.newoether.agora.data.BuiltInPrompts
+import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.diagnostics.DeveloperDiagnostics
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
@@ -43,6 +46,7 @@ class TranscriptionManager(
 ) {
     private val contextLoader = DurableSelectedContextLoader(
         conversations = conversations,
+        appContext = context,
         generationErrorFormatter = { raw ->
             normalizePersistedGenerationErrorText(context, raw)
         },
@@ -51,93 +55,176 @@ class TranscriptionManager(
     data class TranscriptionTarget(
         val messageId: String,
         val imagePath: String,
-        val metaItemIndex: Int
+        val metaItemIndex: Int,
+        val imageArtifact: ImageArtifact? = null,
+        val sourceMessage: MessageEntity? = null,
+        val preparedMetadata: AttachmentMeta? = null,
+        val imageIndex: Int? = null,
     )
 
-    /**
-     * Collect all images in the message path that need transcription.
-     * User attachments in the latest user message are re-transcribed on every
-     * send; assistant-generated images are cached after the first transcription.
-     */
+    /** Latest USER images are refreshed; older USER and MODEL descriptions remain cached. */
     suspend fun collectTargets(
         conversationId: String,
         parentId: String?,
-    ): List<TranscriptionTarget> {
-        val pathMessages = contextLoader.load(
+    ): List<TranscriptionTarget> = collectTargets(
+        contextLoader.load(
             DurableSelectedContextRequest(
                 conversationId = conversationId,
                 anchorMessageId = parentId,
-                includeStoredTranscriptions = true,
+                includeStoredTranscriptions = false,
             ),
-        ).entities
-        val latestUserMsg = pathMessages.lastOrNull { it.participant == Participant.USER }
-        val targets = mutableListOf<TranscriptionTarget>()
-        for (msg in pathMessages) {
-            if (msg.images.isEmpty()) continue
+        ),
+    )
 
-            if (msg.participant == Participant.USER) {
-                val meta = msg.attachmentMeta?.let {
-                    try { Json.decodeFromString<AttachmentMeta>(it) } catch (_: Exception) { null }
-                } ?: continue
-                val isLatest = msg.id == latestUserMsg?.id
-                meta.items.forEachIndexed { index, item ->
-                    val imageIndex = item.imageIndex
-                    val imageType = item.type
-                    if (imageIndex == null || (imageType != "image" && imageType != "pdf" && imageType != "video")) return@forEachIndexed
-                    val count = when (imageType) {
-                        "pdf" -> item.pageCount ?: 1
-                        "video" -> item.pageCount ?: 1
-                        else -> 1
+    /** Collection is read-only; missing legacy metadata is committed with successful results. */
+    internal fun collectTargets(loaded: DurableSelectedContext): List<TranscriptionTarget> {
+        val mediaById = loaded.messages.associateBy(ChatMessage::id)
+        val latestUserId = loaded.entities.lastOrNull {
+            it.participant == Participant.USER && !it.id.startsWith(Constants.RESULT_MSG_PREFIX)
+        }?.id
+        return buildList {
+            for (message in loaded.entities) {
+                if (message.images.isEmpty() || message.participant !in setOf(Participant.USER, Participant.MODEL) ||
+                    message.id.startsWith(Constants.TOOL_MSG_PREFIX) || message.id.startsWith(Constants.RESULT_MSG_PREFIX)
+                ) continue
+                val media = checkNotNull(mediaById[message.id]) { "Transcription image projection is missing" }
+                check(media.images.size == message.images.size) { "Transcription image projection changed" }
+                val occurrences = media.imageArtifactOccurrences().mapIndexed { index, artifact ->
+                    artifact ?: ImageArtifact(
+                        path = media.images[index], mimeType = "application/octet-stream",
+                        sizeBytes = 0, unavailable = true,
+                    )
+                }
+                val items = decodeMetadata(message.attachmentMeta).items.toMutableList()
+                val owners = IntArray(message.images.size) { -1 }
+                items.forEachIndexed { itemIndex, item ->
+                    if (item.storage.isLocalSandbox || item.type !in setOf("image", "pdf", "video")) return@forEachIndexed
+                    val start = item.imageIndex ?: return@forEachIndexed
+                    val count = if (item.type == "image") 1 else {
+                        item.pageCount ?: item.imageArtifacts.size.takeIf { it > 0 } ?: 1
                     }
-                    for (i in 0 until count) {
-                        val offset = imageIndex + i
-                        if (offset !in msg.images.indices) break
-                        val imagePath = msg.images[offset]
-                        if (isLatest || item.transcription.isNullOrEmpty()) {
-                            targets.add(TranscriptionTarget(msg.id, imagePath, index))
-                        }
+                    check(start >= 0 && count > 0 && start.toLong() + count <= owners.size) {
+                        "Transcription image metadata has an invalid range"
+                    }
+                    repeat(count) { offset ->
+                        check(owners[start + offset] == -1) { "Transcription image metadata overlaps" }
+                        owners[start + offset] = itemIndex
                     }
                 }
-                continue
-            }
-
-            if (msg.participant == Participant.MODEL) {
-                val meta = msg.attachmentMeta?.let {
-                    try { Json.decodeFromString<AttachmentMeta>(it) } catch (_: Exception) { null }
-                } ?: AttachmentMeta()
-                val items = meta.items.toMutableList()
-                var changed = false
-                msg.images.forEachIndexed { imageIndex, imagePath ->
-                    val existingIndex = items.indexOfFirst { it.type == "image" && it.imageIndex == imageIndex }
-                    val itemIndex = if (existingIndex >= 0) {
-                        existingIndex
-                    } else {
-                        items.add(
-                            AttachmentItem(
-                                type = "image",
-                                fileName = File(imagePath).name,
-                                mimeType = com.newoether.agora.api.util.imageMimeType(imagePath),
-                                imageIndex = imageIndex
-                            )
-                        )
-                        changed = true
-                        items.lastIndex
-                    }
-                    if (items[itemIndex].transcription.isNullOrEmpty()) {
-                        targets.add(TranscriptionTarget(msg.id, imagePath, itemIndex))
-                    }
+                media.images.forEachIndexed { imageIndex, path ->
+                    if (owners[imageIndex] >= 0) return@forEachIndexed
+                    val artifact = occurrences[imageIndex]
+                    items += AttachmentItem(
+                        type = "image",
+                        fileName = File(path).name,
+                        mimeType = artifact.mimeType,
+                        imageIndex = imageIndex,
+                        pixelWidth = artifact.width,
+                        pixelHeight = artifact.height,
+                        fileSize = artifact.sizeBytes,
+                        imageArtifacts = listOf(artifact),
+                        unavailable = artifact.unavailable,
+                    )
+                    owners[imageIndex] = items.lastIndex
                 }
-                if (changed) {
-                    conversations.upsertMessage(msg.copy(
-                        attachmentMeta = Json.encodeToString(
-                            AttachmentMeta.serializer(),
-                            AttachmentMeta(items = items)
-                        )
-                    ))
+                val metadata = AttachmentMeta(items.mapIndexed { itemIndex, item ->
+                    val artifacts = media.images.indices.filter { owners[it] == itemIndex }.map { imageIndex ->
+                        occurrences[imageIndex]
+                    }
+                    if (artifacts.isEmpty()) item else item.copy(
+                        imageArtifacts = artifacts,
+                        unavailable = item.unavailable || artifacts.any(ImageArtifact::unavailable),
+                    )
+                })
+                media.images.forEachIndexed { imageIndex, path ->
+                    val itemIndex = owners[imageIndex]
+                    val item = items[itemIndex]
+                    val artifact = occurrences[imageIndex]
+                    if (path.isBlank() || artifact.unavailable || artifact.path != path) return@forEachIndexed
+                    if (message.id == latestUserId || item.transcription.isNullOrBlank()) {
+                        add(TranscriptionTarget(
+                            messageId = message.id,
+                            imagePath = path,
+                            metaItemIndex = itemIndex,
+                            imageArtifact = artifact,
+                            imageIndex = imageIndex,
+                            sourceMessage = message,
+                            preparedMetadata = metadata,
+                        ))
+                    }
                 }
             }
         }
-        return targets
+    }
+
+    private fun decodeMetadata(raw: String?): AttachmentMeta =
+        if (raw.isNullOrBlank()) AttachmentMeta() else Json.decodeFromString<AttachmentMeta>(raw)
+
+    /** The existing Room transaction fences every identity check and write, with no Provider IO. */
+    internal suspend fun persistTranscriptions(
+        conversationId: String,
+        results: List<Pair<TranscriptionTarget, String>>,
+    ) = conversations.withProviderContextSnapshot {
+        val replacements = results.groupBy { it.first.messageId }.map { (messageId, updates) ->
+            val current = checkNotNull(conversations.getMessage(messageId)) {
+                "Transcription source message was deleted"
+            }
+            check(current.id == messageId && current.conversationId == conversationId) {
+                "Transcription conversation changed"
+            }
+            val firstTarget = updates.first().first
+            val source = firstTarget.sourceMessage
+            if (source != null) {
+                check(source.id == messageId && source.conversationId == conversationId &&
+                    current.parentId == source.parentId && current.participant == source.participant &&
+                    current.timestamp == source.timestamp && current.runId == source.runId &&
+                    current.runSequence == source.runSequence && current.images == source.images &&
+                    current.attachmentMeta == source.attachmentMeta
+                ) { "Transcription image identity changed" }
+            }
+            val metadata = firstTarget.preparedMetadata ?: decodeMetadata(current.attachmentMeta)
+            check(updates.all { (target, _) ->
+                target.sourceMessage == source && target.preparedMetadata == firstTarget.preparedMetadata
+            }) { "Transcription targets have different source identities" }
+            val items = metadata.items.toMutableList()
+            updates.groupBy { it.first.metaItemIndex }.forEach { (index, descriptions) ->
+                check(index in items.indices) { "Transcription attachment metadata changed" }
+                val item = items[index]
+                val start = checkNotNull(item.imageIndex) { "Transcription image index is missing" }
+                val count = if (item.type == "image") 1 else {
+                    item.pageCount ?: item.imageArtifacts.size.takeIf { it > 0 } ?: 1
+                }
+                check(start >= 0 && count > 0 && start.toLong() + count <= current.images.size &&
+                    item.type in setOf("image", "pdf", "video")
+                ) { "Transcription image range changed" }
+                val offsets = (0 until count).filter { offset ->
+                    val artifact = item.imageArtifacts.getOrNull(offset)
+                    artifact?.unavailable != true &&
+                        (artifact?.path ?: current.images[start + offset]).isNotBlank() &&
+                        !(item.type == "image" && item.unavailable)
+                }
+                check(descriptions.size == offsets.size) { "Transcription image range changed" }
+                descriptions.zip(offsets).forEach { (description, offset) ->
+                    val (target, text) = description
+                    val artifact = target.imageArtifact
+                    check((target.imageIndex == null || target.imageIndex == start + offset) &&
+                        text.isNotBlank() && if (source != null) {
+                        artifact != null && artifact.path == target.imagePath && !artifact.unavailable &&
+                            (item.imageArtifacts.isEmpty() || item.imageArtifacts.getOrNull(offset) == artifact)
+                    } else current.images[start + offset] == target.imagePath) {
+                        "Transcription image artifact changed"
+                    }
+                }
+                val joined = if (count == 1) descriptions.single().second else {
+                    descriptions.zip(offsets).joinToString("\n\n") { (description, offset) ->
+                        "[Page ${offset + 1}]\n${description.second}"
+                    }
+                }
+                items[index] = item.copy(transcription = joined)
+            }
+            current.copy(attachmentMeta = Json.encodeToString(AttachmentMeta(items)))
+        }
+        replacements.forEach { conversations.upsertMessage(it) }
     }
 
     /**
@@ -159,9 +246,10 @@ class TranscriptionManager(
         modelMessageId: String,
         onProgress: suspend (String) -> Unit,
     ): String? {
-        // The block must never render as empty: announce the transcribing state immediately and
-        // always emit a terminal progress line, mirroring the main transcription stage. This
-        // flow transcribes exactly one image per slot, so the label is singular.
+        if (generationJob?.isCancelled == true || !currentCoroutineContext().isActive) {
+            throw CancellationException("Tool image transcription cancelled")
+        }
+        if (image.unavailable || image.path.isBlank()) return null
         onProgress(context.getString(R.string.transcription_ellipsis_single))
         val provider = providers[ctx.transcriptionProviderName]
         if (provider == null) {
@@ -191,6 +279,7 @@ class TranscriptionManager(
                     BuiltInPrompts.IMAGE_TRANSCRIPTION_USER
                 },
                 images = listOf(image.path),
+                imageArtifacts = mapOf(image.path to image),
                 participant = Participant.USER,
                 status = MessageStatus.SUCCESS,
             ),
@@ -282,6 +371,14 @@ class TranscriptionManager(
         anthropicCacheTtl: String = "1h",
         onProgress: suspend (ChatMessage) -> Unit
     ): Pair<List<MessageSegment>, String?> {
+        if (generationJob?.isCancelled == true || !currentCoroutineContext().isActive) {
+            throw CancellationException("Transcription cancelled")
+        }
+        val availableTargets = targets.filter { target ->
+            target.imagePath.isNotBlank() && target.imageArtifact?.unavailable != true &&
+                target.imageArtifact?.let { it.path == target.imagePath } != false
+        }
+        if (availableTargets.isEmpty()) return Pair(emptyList(), null)
         // Fail closed: a missing provider must never silently reroute the user's images
         // to an arbitrary other provider (wrong API key/model, and a privacy leak).
         val provider = providers[providerName]
@@ -300,12 +397,12 @@ class TranscriptionManager(
         )
         val placeholder = conversations.getMessage(modelMessageId)
         val parentId = placeholder?.parentId
-        val results = mutableMapOf<String, MutableList<Pair<Int, String>>>()
+        val results = mutableListOf<Pair<TranscriptionTarget, String>>()
         val transcriptionSegments = mutableListOf<MessageSegment>()
         var processed = 0
-        val total = targets.size
+        val total = availableTargets.size
 
-        for (target in targets) {
+        for (target in availableTargets) {
             if (generationJob?.isCancelled == true) throw CancellationException("Transcription cancelled")
             if (!currentCoroutineContext().isActive) throw CancellationException("Transcription cancelled")
 
@@ -331,6 +428,7 @@ class TranscriptionManager(
             val promptMessages = listOf(ChatMessage(
                 text = prompt.ifBlank { BuiltInPrompts.IMAGE_TRANSCRIPTION_USER },
                 images = listOf(target.imagePath),
+                imageArtifacts = target.imageArtifact?.let { mapOf(target.imagePath to it) }.orEmpty(),
                 participant = Participant.USER,
                 status = MessageStatus.SUCCESS
             ))
@@ -388,33 +486,16 @@ class TranscriptionManager(
             }
             if (streamError != null) return Pair(transcriptionSegments, streamError)
             val text = transcription.toString().trim()
+            if (text.isEmpty()) return Pair(transcriptionSegments, "The transcription stream produced no text.")
             transcriptionSegments[transcriptionSegments.lastIndex] = currentSegment.copy(content = text)
-            results.getOrPut(target.messageId) { mutableListOf() }
-                .add(target.metaItemIndex to text)
+            results += target to text
             processed++
         }
 
-        // Persist results back to message attachment metadata
-        for ((messageId, updates) in results) {
-            val entity = conversations.getMessage(messageId)
-            if (entity != null) {
-                val meta = entity.attachmentMeta?.let {
-                    try { Json.decodeFromString<AttachmentMeta>(it) } catch (_: Exception) { null }
-                } ?: AttachmentMeta()
-                val items = meta.items.toMutableList()
-                val grouped: Map<Int, List<String>> = updates.groupBy { it.first }.mapValues { e -> e.value.map { it.second } }
-                for ((index, texts) in grouped) {
-                    if (index in items.indices) {
-                        val joined = if (texts.size == 1) texts.first()
-                        else texts.mapIndexed { i, t -> "[Page ${i + 1}]\n$t" }.joinToString("\n\n")
-                        items[index] = items[index].copy(transcription = joined)
-                    }
-                }
-                conversations.upsertMessage(entity.copy(
-                    attachmentMeta = Json.encodeToString(AttachmentMeta.serializer(), AttachmentMeta(items = items))
-                ))
-            }
+        if (generationJob?.isCancelled == true || !currentCoroutineContext().isActive) {
+            throw CancellationException("Transcription cancelled")
         }
+        persistTranscriptions(conversationId, results)
         return Pair(transcriptionSegments, null)
     }
 }

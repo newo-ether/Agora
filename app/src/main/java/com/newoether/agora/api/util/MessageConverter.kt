@@ -139,13 +139,14 @@ internal fun convertToOpenAiMessages(
         }
 
         if (includeImages && msg.participant == Participant.USER) {
-            for (imagePath in msg.images) {
-                val placeholder = base64Files.register(imagePath) ?: continue
+            for (artifact in msg.imageArtifactsForSend()) {
+                val image = base64Files.register(artifact) ?: continue
                 parts.add(
                     OpenAiContentPart(
                         type = "image_url",
                         imageUrl = OpenAiImageUrl(
-                            url = "data:${imageMimeType(imagePath)};base64,$placeholder",
+                            url = "data:${image.mimeType};base64,${image.placeholder}",
+                            detail = "auto",
                         ),
                     ),
                 )
@@ -153,7 +154,7 @@ internal fun convertToOpenAiMessages(
         }
 
         if (parts.isEmpty()) {
-            parts.add(OpenAiContentPart(type = "text", text = "[Attachment unavailable]"))
+            parts.add(OpenAiContentPart(type = "text", text = "Continue"))
         }
 
         entries.add(OpenAiMessage(

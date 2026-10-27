@@ -387,7 +387,15 @@ class GenerationRequestBuilder(
                 shellDevices = context.shellDevices.toList(),
             ),
             providerInstances = providerInstances,
-            automaticCompact = automaticCompact,
+            automaticCompact = automaticCompact.copy(
+                mainModelId = ordinaryConfig.modelId,
+                mainImageTranscriptionEnabled = context.imageTranscriptionEnabled,
+                userPrepend = ordinaryConfig.userPrepend,
+                userPostpend = ordinaryConfig.userPostpend,
+                assistantPrepend = ordinaryConfig.assistantPrepend,
+                assistantPostpend = ordinaryConfig.assistantPostpend,
+                mainPromptTemplate = ordinaryConfig.promptTemplate,
+            ),
             titleGenerationEnabled = titleGenerationEnabled,
         )
     }
@@ -691,7 +699,12 @@ class GenerationRequestBuilder(
             assistantPostpend = resolved.assistantPostpend,
         )
         ProviderRequestInput(
-            messages = prepareMessages(projectedMessages, providerTokenBudget, costs = costs),
+            messages = prepareMessages(
+                projectedMessages,
+                providerTokenBudget,
+                includeAssistantReasoning = providerConfig.includeAssistantReasoning,
+                costs = costs,
+            ),
             systemPrompt = resolved.systemPrompt,
         )
     }

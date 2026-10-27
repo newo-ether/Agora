@@ -160,7 +160,7 @@ class McpToolPresentationTest {
     @Test
     fun `routed call replays resolved metadata without registry and keeps images errors and stop`() {
         val image = com.newoether.agora.model.ToolImageAttachment(
-            path = "/private/result.png", mimeType = "image/png", sizeBytes = 12, sha256 = "digest",
+            path = "/private/result.png", mimeType = "image/png", sizeBytes = 12,
         )
         val segment = MessageSegment(
             type = "tool",
