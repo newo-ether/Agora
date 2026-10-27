@@ -402,7 +402,8 @@ class GenerationRequestBuilderProviderDisplayTest {
         val unsaved = builder.buildEffectiveConversationSettings("unsaved-conversation")
         assertEquals(true, unsaved.webSearchEnabled)
         assertEquals(true, unsaved.shellEnabled)
-        assertEquals(true, unsaved.lowContextModeEnabled)
+        // Low Context stays unresolved here; its default depends on the provider.
+        assertNull(unsaved.lowContextModeEnabled)
     }
 
     @Test
