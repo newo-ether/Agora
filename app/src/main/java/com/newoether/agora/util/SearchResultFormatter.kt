@@ -108,23 +108,16 @@ object SearchResultFormatter {
         val modelRole = context.getString(R.string.search_role_model)
         val untitled = context.getString(R.string.search_untitled)
 
-        val hasDetails = results.any { result ->
-            result.jsonObject["messages"]?.jsonArray?.any { message ->
-                "thinking" in message.jsonObject || "tool_calls" in message.jsonObject
-            } == true
-        }
-        val visibleResults = if (hasDetails) results else results.take(5)
-        val body = visibleResults.joinToString("\n\n") { element ->
+        val body = results.take(5).joinToString("\n\n") { element ->
             val obj = element.jsonObject
             val title = (obj["title"] as? JsonPrimitive)?.content ?: untitled
             val messages = obj["messages"]?.jsonArray
-            val visibleMessages = if (hasDetails) messages else messages?.take(3)
-            val previews = visibleMessages?.joinToString("\n") { msg ->
+            val previews = messages?.take(3)?.joinToString("\n") { msg ->
                 val msgObj = msg.jsonObject
                 val participant = (msgObj["participant"] as? JsonPrimitive)?.content ?: ""
                 val role = if (participant == "USER") userRole else modelRole
                 val text = (msgObj["text"] as? JsonPrimitive)?.content?.lines()?.first()?.take(200) ?: ""
-                "$role: $text" + formatHistoryDetails(msgObj, context)
+                "$role: $text"
             } ?: ""
             "## $title\n$previews"
         }

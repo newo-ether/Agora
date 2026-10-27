@@ -17,7 +17,7 @@ import java.util.Locale
 
 private val historyJson = Json { ignoreUnknownKeys = true }
 
-/** Shared read-only projection for search windows and selected-branch history pages. */
+/** Read-only detail projection for conversation_read selected-branch pages. */
 internal suspend fun ConversationRepository.projectHistoryMessage(
     message: MessageEntity,
     showToolCalls: Boolean,

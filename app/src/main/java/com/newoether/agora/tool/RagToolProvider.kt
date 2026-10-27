@@ -43,12 +43,6 @@ class RagToolProvider(
 
     override fun definitions(ctx: GenerationContext): List<ToolDefinition> {
         if (!ctx.accessPastConversations) return emptyList()
-        val detailProperties = mapOf(
-            "show_tool_calls" to ToolProperty("boolean", "Include stored tool calls and results inside each message (default false). Does not change message pagination or search matching."),
-            "show_thinking" to ToolProperty("boolean", "Include stored readable thinking inside each message (default false). Does not change message pagination or search matching."),
-            "tool_offset" to ToolProperty("integer", "Tool calls to skip within each message when show_tool_calls=true (default 0). Separate from message offset."),
-            "tool_limit" to ToolProperty("integer", "Maximum tool calls per message (1-100, default 20). Follow tool_calls_next_offset to read more tools from the same message."),
-        )
         return listOf(
             ToolDefinition(function = ToolFunction(
                 name = "conversation_search",
@@ -57,7 +51,7 @@ class RagToolProvider(
                     properties = mapOf(
                         "query" to ToolProperty("string", "The search query to find relevant past conversations."),
                         "limit" to ToolProperty("integer", "Maximum number of results (1-20, default 10).")
-                    ) + detailProperties,
+                    ),
                     required = listOf("query")
                 )
             )),
@@ -81,8 +75,12 @@ class RagToolProvider(
                         "conversation_id" to ToolProperty("string", "The conversation ID to read (from conversation_list or conversation_search results)."),
                         "offset" to ToolProperty("integer", "Ordinary messages to skip (default 0); unaffected by detail flags. Prefer after_message_id when continuing a page."),
                         "after_message_id" to ToolProperty("string", "Continue after this message on the currently selected branch. Overrides offset. Use next_after_message_id from the previous page; an absent or deleted anchor returns cursor_not_found."),
-                        "limit" to ToolProperty("integer", "Maximum ordinary messages per page (1-100, default 50). Tool calls are nested and do not consume this limit.")
-                    ) + detailProperties,
+                        "limit" to ToolProperty("integer", "Maximum ordinary messages per page (1-100, default 50). Tool calls are nested and do not consume this limit."),
+                        "show_tool_calls" to ToolProperty("boolean", "Include stored tool calls and results inside each message (default false). Does not change message pagination."),
+                        "show_thinking" to ToolProperty("boolean", "Include stored readable thinking inside each message (default false). Does not change message pagination."),
+                        "tool_offset" to ToolProperty("integer", "Tool calls to skip within each message when show_tool_calls=true (default 0). Separate from message offset."),
+                        "tool_limit" to ToolProperty("integer", "Maximum tool calls per message (1-100, default 20). Follow tool_calls_next_offset to read more tools from the same message."),
+                    ),
                     required = listOf("conversation_id")
                 )
             ))
@@ -122,10 +120,6 @@ class RagToolProvider(
             ?: return buildJsonObject { put("type", "conversation_search"); put("error", "no_query") }.toString()
         val limit = ((args["limit"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: ctx.searchMatchLimit).coerceIn(1, 30)
         val n = ((args["context_window"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: ctx.searchContextWindow).coerceIn(4, 32)
-        val showToolCalls = (args["show_tool_calls"] as? JsonPrimitive)?.booleanOrNull == true
-        val showThinking = (args["show_thinking"] as? JsonPrimitive)?.booleanOrNull == true
-        val toolOffset = ((args["tool_offset"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0).coerceAtLeast(0)
-        val toolLimit = ((args["tool_limit"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 20).coerceIn(1, 100)
         val halfN = n / 2
         val maxWindowSize = n * 3
         val totalCap = 200
@@ -235,21 +229,25 @@ class RagToolProvider(
                 totalMessages += selectedIds.size
             }
 
-            // Step 6: Project optional details only after window membership is fixed.
-            val projectedMessages = finalWindows.map { window ->
-                window.messages.map { message ->
-                    conversations.projectHistoryMessage(message, showToolCalls, showThinking, toolOffset, toolLimit)
-                }
-            }
+            // Step 6: Return text and identity only; stored details belong to conversation_read.
+            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
             val resultArray = buildJsonArray {
-                for ((index, window) in finalWindows.withIndex()) {
+                for (window in finalWindows) {
                     add(buildJsonObject {
                         put("title", window.conversationTitle)
                         put("conversation_id", window.conversationId)
                         put("top_score", window.topScore)
                         put("match_count", window.matchCount)
                         putJsonArray("messages") {
-                            projectedMessages[index].forEach { add(it) }
+                            for (message in window.messages) add(buildJsonObject {
+                                put("message_id", message.id)
+                                put("participant", message.participant.name)
+                                put("text", message.text)
+                                put("status", message.status.name)
+                                put("run_id", message.runId)
+                                put("run_sequence", message.runSequence)
+                                put("timestamp", dateFormat.format(java.util.Date(message.timestamp)))
+                            })
                         }
                     })
                 }

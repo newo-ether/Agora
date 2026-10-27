@@ -145,23 +145,45 @@ class RagToolProviderDetailsTest {
         } catch (_: CancellationException) { }
     }
 
-    @Test fun searchKeepsBlankAssistantMembershipAndMatchingUnchangedAcrossFlags() = runTest {
+    @Test fun onlyReadExposesDetailFlagsAndToolPagination() {
+        val definitions = provider.definitions(context).associateBy { it.function.name }
+        assertEquals(setOf("query", "limit"), definitions.getValue("conversation_search")
+            .function.parameters.properties.keys)
+        assertEquals(setOf(
+            "conversation_id", "offset", "after_message_id", "limit",
+            "show_tool_calls", "show_thinking", "tool_offset", "tool_limit",
+        ), definitions.getValue("conversation_read").function.parameters.properties.keys)
+    }
+
+    @Test fun searchIgnoresFormerDetailArgumentsWithoutLoadingToolRounds() = runTest {
         val user = message("user", text = "target")
+        val round = message("tool_round", segments = listOf(tool("referenced")))
         val blank = message("blank", parent = user.id, text = "", segments = listOf(
             MessageSegment("thought", "stored reasoning"), tool("inline"),
-        ))
-        seed(listOf(user, blank))
+            MessageSegment("tool", toolCallId = "referenced", toolRoundId = round.id),
+        )).copy(thoughts = "legacy thought")
+        val malformed = message("malformed", parent = blank.id).copy(toolCallJson = "invalid json")
+        seed(listOf(user, blank, malformed), listOf(round))
         coEvery { repository.searchMessages("target", any()) } returns listOf(user)
         suspend fun search(flags: String): JsonObject = Json.parseToJsonElement(provider.execute(
             "conversation_search", """{"query":"target"$flags}""", context,
-        )).jsonObject.getValue("results").jsonArray.single().jsonObject
+        )).jsonObject
         val plain = search("")
-        val expanded = search(""", "show_thinking":true,"show_tool_calls":true""")
-        assertEquals(listOf(user.id, blank.id), ids(plain))
-        assertEquals(ids(plain), ids(expanded))
-        assertEquals(plain["match_count"], expanded["match_count"])
-        assertEquals(plain["top_score"], expanded["top_score"])
+        val formerArguments = search(""", "show_thinking":true,"show_tool_calls":true,"tool_offset":1,"tool_limit":1""")
+        assertEquals(plain, formerArguments)
+        val window = plain.getValue("results").jsonArray.single().jsonObject
+        assertEquals(listOf(user.id, blank.id, malformed.id), ids(window))
+        assertEquals("1", window.getValue("match_count").jsonPrimitive.content)
+        assertEquals("1.0", window.getValue("top_score").jsonPrimitive.content)
+        for (element in window.getValue("messages").jsonArray) {
+            assertEquals(setOf(
+                "message_id", "participant", "text", "status", "run_id", "run_sequence", "timestamp",
+            ), element.jsonObject.keys)
+        }
         coVerify(exactly = 2) { repository.searchMessages("target", any()) }
+        coVerify(exactly = 2) { repository.getMessagesByIds(listOf(user.id, blank.id, malformed.id)) }
+        coVerify(exactly = 2) { repository.getMessagesByIds(any()) }
+        coVerify(exactly = 0) { repository.getMessagesByIds(listOf(round.id)) }
     }
 
     @Test fun malformedSegmentsAreExplicitAndDoNotChangeMessagePagination() = runTest {

@@ -39,14 +39,20 @@ page plus the requested top candidates; corpus growth must not translate into An
 - Invalid dimensions, malformed byte lengths, and non-finite scores are skipped without aborting
   the remaining corpus and without logging message content.
 
-### History detail projection and pagination
+### History search previews and read details
 
-`conversation_search` and `conversation_read` accept `show_tool_calls` and `show_thinking`,
-both false by default. They project stored readable content inside the ordinary message object;
-they never add synthetic tool/result/Compact rows to the message list or broaden search matching.
-Window membership includes ordinary empty-text assistant checkpoints regardless of flags, so a
-thinking-only or tool-only reply keeps the same position when detail flags change. Search results
-include stable message IDs and the same identity/status fields as reads.
+`conversation_search` accepts query and limit and returns ordinary message text with stable message
+IDs, timestamps and identity/status fields. It does not expose or interpret `show_tool_calls`,
+`show_thinking`, `tool_offset` or `tool_limit`. Former detail arguments are ignored; search does not
+decode stored segments or hydrate referenced tool rounds. Its formatted preview remains bounded to
+five windows and three messages per window, including when displaying older saved search results
+that contain detail fields. Search matching, ranking and cache admission remain unchanged.
+
+Only `conversation_read` accepts `show_tool_calls` and `show_thinking`, both false by default.
+It projects stored readable content inside the ordinary message object; it never adds synthetic
+tool/result/Compact rows to the message list. Search windows and read pages include ordinary
+empty-text assistant checkpoints, so thinking-only or tool-only replies keep their existing positions.
+Use search to locate a conversation and message, then read to request its stored details.
 
 `conversation_read` counts ordinary selected-branch messages for offset, limit, total and next_offset.
 `after_message_id` overrides offset and continues after that identity on the currently selected
@@ -67,13 +73,14 @@ items or private image file bodies. Round timestamps are labeled `round_commit`,
 Thinking uses ordered readable thought segments, falling back to the legacy thoughts field without
 duplicating both. Malformed legacy segments report `details_error` on the ordinary message.
 
-The shared `ConversationHistoryProjection.kt` owns this read-only allowlist and tool-detail page
-hydration for both search and read. It does not own branch selection, search eligibility or mutation.
-Focused tests cover flag-independent message membership, bounded round hydration, legacy data,
-ownership failure, cursor deletion/branch changes, cancellation, and visible formatted details.
-Formatted search/read results retain readable structured results and image transcriptions without
-exact duplicate bodies, expose stored-detail parse failures, and identify tool_offset separately
-from message pagination when more tool calls remain.
+`ConversationHistoryProjection.kt` owns the read-only allowlist and tool-detail page hydration for
+`conversation_read`. It does not own search projection, branch selection, eligibility or mutation.
+Focused tests cover the read-only detail schema, search ignoring former detail arguments without
+round hydration, flag-independent read membership, bounded round hydration, legacy data, ownership
+failure, cursor deletion/branch changes, cancellation, and visible formatted read details.
+Formatted read results retain readable structured results and image transcriptions without exact
+duplicate bodies, expose stored-detail parse failures, and identify tool_offset separately from
+message pagination when more tool calls remain.
 
 ## 2. Bounded data flow
 
