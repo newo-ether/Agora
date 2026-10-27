@@ -20,6 +20,8 @@ class SearchResultFormatterTest {
         R.string.conversation_list_more -> "More conversations available"
         R.string.conversation_read_empty -> "No messages"
         R.string.conversation_read_more -> "More messages available"
+        R.string.conversation_tools_more -> "More tool calls for this message (tool_offset: ${args[0]})"
+        R.string.conversation_details_error -> "Could not read stored message details (${args[0]})"
         R.string.provider_no_keys -> "No API keys configured for ${args.getOrNull(0)}"
         R.string.search_error_format -> "Error: ${args.getOrNull(0) ?: "unknown"}"
         R.string.search_found_results -> "Found ${args[0]} results for '${args[1]}'"
@@ -149,6 +151,46 @@ class SearchResultFormatterTest {
         val formatted = SearchResultFormatter.format(raw, context)
         assertTrue(formatted.contains("Partial answer"))
         assertTrue(formatted.contains("Connection closed"))
+    }
+
+    @Test
+    fun format_historyIncludesOptInThinkingAndToolDetails() {
+        val message = """{"participant":"MODEL","text":"answer","thinking":[{"text":"saved thought"}],"tool_calls":[{"name":"shell_exec","arguments":"args","result":"output","state":"succeeded"}],"tool_calls_has_more":true,"tool_calls_next_offset":20}"""
+        for (formatted in formatHistoryBoth(message)) {
+            assertTrue(formatted.contains("saved thought"))
+            assertTrue(formatted.contains("shell_exec"))
+            assertTrue(formatted.contains("args"))
+            assertTrue(formatted.contains("output"))
+            assertTrue(formatted.contains("More tool calls for this message (tool_offset: 20)"))
+            assertFalse(formatted.contains("More messages available"))
+        }
+    }
+
+    @Test
+    fun format_historyKeepsStructuredAndImageDetailsAndFallsBackFromBlankText() {
+        val message = """{"participant":"MODEL","text":"answer","tool_calls":[{"name":"mcp","result_text":"summary","result":"protocol","structured_result":"structured payload","image_transcription":"image text"},{"name":"fallback","result_text":" ","result":"fallback output"},{"name":"dedup","result_text":"unique body","structured_result":"unique body","image_transcription":"unique body"}]}"""
+        for (formatted in formatHistoryBoth(message)) {
+            for (text in listOf("summary", "structured payload", "image text", "fallback output")) {
+                assertTrue(formatted, formatted.contains(text))
+            }
+            assertEquals(1, Regex("unique body").findAll(formatted).count())
+        }
+    }
+
+    @Test
+    fun format_historyReportsUnreadableStoredDetails() {
+        val message = """{"participant":"MODEL","text":"answer","thinking":[],"tool_calls":[],"details_error":"invalid_stored_segments"}"""
+        for (formatted in formatHistoryBoth(message)) {
+            assertTrue(formatted.contains("answer"))
+            assertTrue(formatted.contains("Could not read stored message details (invalid_stored_segments)"))
+        }
+    }
+
+    private fun formatHistoryBoth(message: String): List<String> {
+        val read = SearchResultFormatter.format("""{"type":"conversation_read","messages":[$message]}""", context)
+        val previews = (1..3).joinToString(",") { """{"participant":"USER","text":"preview $it"}""" }
+        val search = SearchResultFormatter.format("""{"type":"conversation_search","results":[{"messages":[$previews,$message]}]}""", context)
+        return listOf(read, search)
     }
 
     @Test

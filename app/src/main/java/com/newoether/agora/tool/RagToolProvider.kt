@@ -18,6 +18,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -40,6 +43,12 @@ class RagToolProvider(
 
     override fun definitions(ctx: GenerationContext): List<ToolDefinition> {
         if (!ctx.accessPastConversations) return emptyList()
+        val detailProperties = mapOf(
+            "show_tool_calls" to ToolProperty("boolean", "Include stored tool calls and results inside each message (default false). Does not change message pagination or search matching."),
+            "show_thinking" to ToolProperty("boolean", "Include stored readable thinking inside each message (default false). Does not change message pagination or search matching."),
+            "tool_offset" to ToolProperty("integer", "Tool calls to skip within each message when show_tool_calls=true (default 0). Separate from message offset."),
+            "tool_limit" to ToolProperty("integer", "Maximum tool calls per message (1-100, default 20). Follow tool_calls_next_offset to read more tools from the same message."),
+        )
         return listOf(
             ToolDefinition(function = ToolFunction(
                 name = "conversation_search",
@@ -48,7 +57,7 @@ class RagToolProvider(
                     properties = mapOf(
                         "query" to ToolProperty("string", "The search query to find relevant past conversations."),
                         "limit" to ToolProperty("integer", "Maximum number of results (1-20, default 10).")
-                    ),
+                    ) + detailProperties,
                     required = listOf("query")
                 )
             )),
@@ -70,9 +79,10 @@ class RagToolProvider(
                 parameters = ToolParameters(
                     properties = mapOf(
                         "conversation_id" to ToolProperty("string", "The conversation ID to read (from conversation_list or conversation_search results)."),
-                        "offset" to ToolProperty("integer", "Number of messages to skip for pagination (default 0)."),
-                        "limit" to ToolProperty("integer", "Maximum messages per page (1-100, default 50).")
-                    ),
+                        "offset" to ToolProperty("integer", "Ordinary messages to skip (default 0); unaffected by detail flags. Prefer after_message_id when continuing a page."),
+                        "after_message_id" to ToolProperty("string", "Continue after this message on the currently selected branch. Overrides offset. Use next_after_message_id from the previous page; an absent or deleted anchor returns cursor_not_found."),
+                        "limit" to ToolProperty("integer", "Maximum ordinary messages per page (1-100, default 50). Tool calls are nested and do not consume this limit.")
+                    ) + detailProperties,
                     required = listOf("conversation_id")
                 )
             ))
@@ -112,6 +122,10 @@ class RagToolProvider(
             ?: return buildJsonObject { put("type", "conversation_search"); put("error", "no_query") }.toString()
         val limit = ((args["limit"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: ctx.searchMatchLimit).coerceIn(1, 30)
         val n = ((args["context_window"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: ctx.searchContextWindow).coerceIn(4, 32)
+        val showToolCalls = (args["show_tool_calls"] as? JsonPrimitive)?.booleanOrNull == true
+        val showThinking = (args["show_thinking"] as? JsonPrimitive)?.booleanOrNull == true
+        val toolOffset = ((args["tool_offset"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0).coerceAtLeast(0)
+        val toolLimit = ((args["tool_limit"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 20).coerceIn(1, 100)
         val halfN = n / 2
         val maxWindowSize = n * 3
         val totalCap = 200
@@ -143,6 +157,7 @@ class RagToolProvider(
 
                 // Build selected branch as indexed list
                 val branch = buildSelectedTopologyBranch(topology, conversation.selectedBranchesJson)
+                    .filterNot { isSyntheticMessageId(it.id) }
                 val indexMap = branch.withIndex().associate { (i, m) -> m.id to i }
                 val branchMatchIds = matchIds.filter { it in indexMap }.toSet()
 
@@ -207,9 +222,7 @@ class RagToolProvider(
                 val available = totalCap - totalMessages
                 val selectedIds = window.messageIds.take(available)
                 val messagesById = conversations.getMessagesByIds(selectedIds).associateBy { it.id }
-                val hydratedMessages = selectedIds
-                    .mapNotNull(messagesById::get)
-                    .filter { it.text.isNotEmpty() }
+                val hydratedMessages = selectedIds.mapNotNull(messagesById::get)
                 finalWindows.add(
                     SearchWindow(
                         conversationId = window.conversationId,
@@ -222,23 +235,21 @@ class RagToolProvider(
                 totalMessages += selectedIds.size
             }
 
-            // Step 6: Format output
+            // Step 6: Project optional details only after window membership is fixed.
+            val projectedMessages = finalWindows.map { window ->
+                window.messages.map { message ->
+                    conversations.projectHistoryMessage(message, showToolCalls, showThinking, toolOffset, toolLimit)
+                }
+            }
             val resultArray = buildJsonArray {
-                for (window in finalWindows) {
+                for ((index, window) in finalWindows.withIndex()) {
                     add(buildJsonObject {
                         put("title", window.conversationTitle)
                         put("conversation_id", window.conversationId)
                         put("top_score", window.topScore)
                         put("match_count", window.matchCount)
                         putJsonArray("messages") {
-                            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
-                            for (msg in window.messages) {
-                                add(buildJsonObject {
-                                    put("participant", msg.participant.name)
-                                    put("text", msg.text)
-                                    put("timestamp", dateFormat.format(java.util.Date(msg.timestamp)))
-                                })
-                            }
+                            projectedMessages[index].forEach { add(it) }
                         }
                     })
                 }
@@ -316,7 +327,12 @@ class RagToolProvider(
             }.toString()
         }
         val limit = ((args["limit"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 50).coerceIn(1, 100)
-        val offset = ((args["offset"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0).coerceAtLeast(0)
+        val requestedOffset = ((args["offset"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0).coerceAtLeast(0)
+        val afterMessageId = (args["after_message_id"] as? JsonPrimitive)?.content?.trim()?.takeIf { it.isNotEmpty() }
+        val showToolCalls = (args["show_tool_calls"] as? JsonPrimitive)?.booleanOrNull == true
+        val showThinking = (args["show_thinking"] as? JsonPrimitive)?.booleanOrNull == true
+        val toolOffset = ((args["tool_offset"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0).coerceAtLeast(0)
+        val toolLimit = ((args["tool_limit"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 20).coerceIn(1, 100)
 
         return try {
             val conversation = conversations.getSearchableConversation(conversationId, ctx.conversationId)
@@ -331,15 +347,36 @@ class RagToolProvider(
             val branch = buildSelectedTopologyBranch(topology, conversation.selectedBranchesJson)
                 .filterNot { isSyntheticMessageId(it.id) }
             val totalMessages = branch.size
+            val offset = if (afterMessageId != null) {
+                val anchorIndex = branch.indexOfFirst { it.id == afterMessageId }
+                if (anchorIndex < 0) return buildJsonObject {
+                    put("type", "conversation_read")
+                    put("conversation_id", conversationId)
+                    put("error", "cursor_not_found")
+                    put("message", "The anchor is absent from the selected branch. Read again from offset 0.")
+                }.toString()
+                anchorIndex + 1
+            } else requestedOffset
+            val endOffset = offset.coerceAtMost(totalMessages) + minOf(limit, (totalMessages - offset).coerceAtLeast(0))
             val pageTopology = if (offset < totalMessages) {
-                branch.subList(offset, (offset + limit).coerceAtMost(totalMessages))
+                branch.subList(offset, endOffset)
             } else {
                 emptyList()
             }
             val pageIds = pageTopology.map { it.id }
             val pageById = conversations.getMessagesByIds(pageIds).associateBy { it.id }
-            val page = pageIds.mapNotNull(pageById::get)
-            val hasMore = offset + limit < totalMessages
+            // A concurrent deletion must not silently advance a cursor past missing content.
+            if (pageIds.any { it !in pageById }) return buildJsonObject {
+                put("type", "conversation_read")
+                put("conversation_id", conversationId)
+                put("error", "history_changed")
+                put("message", "Messages changed while reading this page. Retry from the same anchor or offset.")
+            }.toString()
+            val page = pageIds.map { pageById.getValue(it) }
+            val projectedMessages = page.map { message ->
+                conversations.projectHistoryMessage(message, showToolCalls, showThinking, toolOffset, toolLimit)
+            }
+            val hasMore = endOffset < totalMessages
 
             buildJsonObject {
                 put("type", "conversation_read")
@@ -349,31 +386,14 @@ class RagToolProvider(
                 put("offset", offset)
                 put("limit", limit)
                 put("has_more", hasMore)
+                if (hasMore) put("next_offset", endOffset) else put("next_offset", JsonNull)
+                put("next_after_message_id", page.lastOrNull()?.id ?: afterMessageId)
                 putJsonArray("messages") {
-                    val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
-                    for (msg in page) {
-                        add(buildJsonObject {
-                            put("participant", msg.participant.name)
-                            put("text", msg.text)
-                            put("message_id", msg.id)
-                            put("status", msg.status.name)
-                            put("run_id", msg.runId)
-                            put("run_sequence", msg.runSequence)
-                            val segments = msg.toolCallJson?.let { raw ->
-                                runCatching { Json.decodeFromString<List<com.newoether.agora.model.MessageSegment>>(raw) }
-                                    .getOrNull()
-                            }.orEmpty()
-                            com.newoether.agora.model.terminalErrorSegment(
-                                msg.status, msg.participant, msg.text, segments,
-                            )?.let { failure ->
-                                put("error", failure.content)
-                                failure.errorCode?.let { put("error_code", it) }
-                            }
-                            put("timestamp", dateFormat.format(java.util.Date(msg.timestamp)))
-                        })
-                    }
+                    projectedMessages.forEach { add(it) }
                 }
             }.toString()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             buildJsonObject {
                 put("type", "conversation_read")
@@ -405,6 +425,7 @@ class RagToolProvider(
                 )
             }
         val path = mutableListOf<MessageContextTopology>()
+        val visited = mutableSetOf<String>()
         var parentId: String? = null
         while (true) {
             val siblings = byParent[parentId] ?: break
@@ -418,6 +439,7 @@ class RagToolProvider(
             } else {
                 siblings.find { it.id == selectedId } ?: siblings.last()
             }
+            check(visited.add(chosen.id)) { "Selected message branch contains a cycle" }
             path.add(chosen)
             parentId = chosen.id
         }

@@ -189,6 +189,8 @@
     <string name="conversation_read_empty">所选分支中没有消息。</string>
     <string name="conversation_read_page">页面：消息 %1$d-%2$d</string>
     <string name="conversation_read_more">使用更高的 offset 查看更多消息。</string>
+    <string name="conversation_tools_more">此消息还有更多工具调用（tool_offset：%1$d）。</string>
+    <string name="conversation_details_error">无法读取已保存的消息详情（%1$s）。</string>
 
     <string name="tool_call_failed">工具调用失败</string>
     <string name="database_incompatible">数据库不兼容</string>

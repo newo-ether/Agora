@@ -271,6 +271,8 @@
     <string name="conversation_read_empty">Aucun message dans la branche sélectionnée.</string>
     <string name="conversation_read_page">Page : messages %1$d-%2$d</string>
     <string name="conversation_read_more">Utilisez un décalage plus élevé pour voir plus de messages.</string>
+    <string name="conversation_tools_more">D\'autres appels d\'outils sont disponibles pour ce message (tool_offset : %1$d).</string>
+    <string name="conversation_details_error">Impossible de lire les détails enregistrés du message (%1$s).</string>
 
     <!-- General -->
     <string name="back">Retour</string>

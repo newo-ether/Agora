@@ -39,6 +39,42 @@ page plus the requested top candidates; corpus growth must not translate into An
 - Invalid dimensions, malformed byte lengths, and non-finite scores are skipped without aborting
   the remaining corpus and without logging message content.
 
+### History detail projection and pagination
+
+`conversation_search` and `conversation_read` accept `show_tool_calls` and `show_thinking`,
+both false by default. They project stored readable content inside the ordinary message object;
+they never add synthetic tool/result/Compact rows to the message list or broaden search matching.
+Window membership includes ordinary empty-text assistant checkpoints regardless of flags, so a
+thinking-only or tool-only reply keeps the same position when detail flags change. Search results
+include stable message IDs and the same identity/status fields as reads.
+
+`conversation_read` counts ordinary selected-branch messages for offset, limit, total and next_offset.
+`after_message_id` overrides offset and continues after that identity on the currently selected
+branch. The returned `next_after_message_id` is the last returned ordinary message, even at the
+current end so later appends can be followed. Removing earlier messages cannot shift this anchor;
+a deleted or unselected anchor returns `cursor_not_found` instead of guessing. This is not a frozen
+snapshot: a branch change after a still-shared anchor follows the new selected suffix. Missing rows
+between topology and hydration return `history_changed` without advancing. Cancellation propagates.
+
+Tool details have an independent per-message `tool_offset` and `tool_limit` (default 20, maximum
+100). `tool_calls_total`, `tool_calls_has_more` and `tool_calls_next_offset` make continuation explicit.
+To continue one message, read the same message page with limit 1 and advance only tool_offset.
+Only referenced rounds for that tool page are hydrated. The existing reference resolver verifies
+conversation/Run/call ownership and committed status; missing, foreign or ambiguous bodies fail
+explicitly. Legacy inline segments remain readable. Tool call identity, arguments, result, state,
+readable metadata and round commit timestamps are returned without signatures, opaque continuation
+items or private image file bodies. Round timestamps are labeled `round_commit`, not injection time.
+Thinking uses ordered readable thought segments, falling back to the legacy thoughts field without
+duplicating both. Malformed legacy segments report `details_error` on the ordinary message.
+
+The shared `ConversationHistoryProjection.kt` owns this read-only allowlist and tool-detail page
+hydration for both search and read. It does not own branch selection, search eligibility or mutation.
+Focused tests cover flag-independent message membership, bounded round hydration, legacy data,
+ownership failure, cursor deletion/branch changes, cancellation, and visible formatted details.
+Formatted search/read results retain readable structured results and image transcriptions without
+exact duplicate bodies, expose stored-detail parse failures, and identify tool_offset separately
+from message pagination when more tool calls remain.
+
 ## 2. Bounded data flow
 
 1. ChatDao reads a minimal projection containing only embedding row id, message id, embedding

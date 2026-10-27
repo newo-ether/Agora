@@ -188,6 +188,8 @@
     <string name="conversation_read_empty">所選分支中沒有訊息。</string>
     <string name="conversation_read_page">頁面：訊息 %1$d-%2$d</string>
     <string name="conversation_read_more">使用更高的 offset 檢視更多訊息。</string>
+    <string name="conversation_tools_more">此訊息還有更多工具呼叫（tool_offset：%1$d）。</string>
+    <string name="conversation_details_error">無法讀取已儲存的訊息詳細資料（%1$s）。</string>
 
     <string name="tool_call_failed">工具呼叫失敗</string>
     <string name="database_incompatible">資料庫不相容</string>
