@@ -67,4 +67,6 @@
     <string name="phone_done_key">Tecla de navegação pressionada</string>
     <string name="phone_done_app_launch">Aplicativo aberto</string>
     <string name="phone_done_app_list">Aplicativos listados</string>
+    <string name="phone_write_settings_permission">Alterar configurações do sistema</string>
+    <string name="phone_write_settings_description">Durante o controle, aumenta temporariamente o tempo limite da tela para pelo menos 30 minutos e o restaura ao terminar, a menos que você o altere.</string>
 </resources>

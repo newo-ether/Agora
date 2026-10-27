@@ -45,6 +45,8 @@ internal class PhoneUseRuntime(
     var overlay: PhoneOverlay? = null
         private set
     private val images = ToolImageStore(context)
+    private val screenTimeout = PhoneScreenTimeout.process(context)
+    private var timeoutEpoch: Long? = null
     val provider = PhoneToolProvider(
         lease = lease,
         settings = { settings.phoneUse.value },
@@ -74,18 +76,43 @@ internal class PhoneUseRuntime(
             } finally { if (bitmap !== source) bitmap.recycle() }
         } },
         captured = { capture -> (overlay ?: throw PhoneFailure("overlay_unavailable")).capture(capture) },
-        showControl = { mode -> withContext(Dispatchers.Main.immediate) {
+        showControl = { mode ->
             val held = lease.held.value ?: throw PhoneFailure("not_claimed")
-            if (overlayEpoch != held.epoch) {
-                // Main-thread replacement is synchronous: an old exit never overlaps fresh windows.
-                if (overlayEpoch != null || exitingOverlay != null) clearResources(animate = false)
-                val next = PhoneOverlay(context.withAppLocale(settings.appLanguage.value), this@PhoneUseRuntime, held.epoch)
-                next.show(mode)
-                overlay = next
-                overlayEpoch = held.epoch
+            try {
+                withContext(Dispatchers.Main.immediate) { timeoutEpoch = held.epoch }
+                screenTimeout.acquire(held.epoch) { lease.held.value?.epoch == held.epoch }
+                withContext(Dispatchers.Main.immediate) {
+                    if (lease.held.value?.epoch != held.epoch) throw PhoneFailure("not_claimed")
+                    if (overlayEpoch != held.epoch) {
+                        // Main-thread replacement is synchronous: an old exit never overlaps fresh windows.
+                        if (overlayEpoch != null || exitingOverlay != null) clearResources(animate = false)
+                        val next = PhoneOverlay(context.withAppLocale(settings.appLanguage.value), this@PhoneUseRuntime, held.epoch)
+                        try { next.show(mode) } catch (error: Exception) { next.remove(); throw error }
+                        overlay = next
+                        overlayEpoch = held.epoch
+                    }
+                    ContextCompat.startForegroundService(context, Intent(context, PhoneControlService::class.java))
+                }
+            } catch (error: Exception) {
+                withContext(NonCancellable) {
+                    withContext(Dispatchers.Main.immediate) {
+                        if (timeoutEpoch == held.epoch) timeoutEpoch = null
+                        if (overlayEpoch == held.epoch) clearResources(animate = false)
+                    }
+                    screenTimeout.release(held.epoch)
+                }
+                throw error
             }
-            ContextCompat.startForegroundService(context, Intent(context, PhoneControlService::class.java))
-        } },
+        },
+        releaseControl = { epoch ->
+            withContext(NonCancellable) {
+                withContext(Dispatchers.Main.immediate) {
+                    if (timeoutEpoch == epoch) timeoutEpoch = null
+                    if (overlayEpoch == epoch) clearResources(animate = true)
+                }
+                screenTimeout.release(epoch)
+            }
+        },
         action = { name, x, y, endX, endY, duration ->
             cursor.value = PhoneCursor(name, x, y, endX, endY, duration, SystemClock.elapsedRealtime())
         },
@@ -111,6 +138,10 @@ internal class PhoneUseRuntime(
             lease.held.map { it?.epoch }.distinctUntilChanged().collect {
                 // StateFlow may conflate release/reclaim. Always compare the live epoch.
                 if (overlayEpoch != null && overlayEpoch != lease.held.value?.epoch) clearResources(animate = true)
+                timeoutEpoch?.takeIf { epoch -> epoch != lease.held.value?.epoch }?.let { epoch ->
+                    timeoutEpoch = null
+                    screenTimeout.release(epoch)
+                }
             }
         }
         lease.watchIdle(scope, SystemClock::elapsedRealtime)

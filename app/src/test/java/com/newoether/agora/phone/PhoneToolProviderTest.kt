@@ -9,6 +9,7 @@ import com.newoether.agora.viewmodel.GenerationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -25,6 +26,7 @@ class PhoneToolProviderTest {
     private var readiness: suspend () -> Boolean = { true }
     private var beforeOperation: suspend () -> Unit = {}
     private var statusUpdate: suspend (String?) -> Unit = {}
+    private var releaseControl: suspend (Long) -> Boolean = { true }
     private var operationStarts = 0
     private var operationEnds = 0
     private var foreground: suspend () -> String = { "allowed" }
@@ -53,6 +55,7 @@ class PhoneToolProviderTest {
         persist = { error("Unexpected persistence") }, captured = { error("Unexpected capture") },
         showControl = { platformEffects++ }, action = { _, _, _, _, _, _ -> platformEffects++ },
         status = { platformEffects++; statusUpdate(it) },
+        releaseControl = { releaseControl(it) },
         operating = { work ->
             operationStarts++
             try { beforeOperation(); work() } finally { operationEnds++ }
@@ -64,6 +67,30 @@ class PhoneToolProviderTest {
         assertTrue(result.text, result.text.contains("\"error\":\"$code\""))
     }
 
+    @Test fun explicitReleaseWaitsForPlatformRestorationAndReportsItsFailure() = runTest {
+        assertFalse(claim().isError)
+        val entered = CompletableDeferred<Long>()
+        val restored = CompletableDeferred<Boolean>()
+        releaseControl = { epoch -> entered.complete(epoch); restored.await() }
+        val epoch = lease.held.value!!.epoch
+        val released = async { provider.executeOneShotResult("phone_release", "{}", context) }
+        assertEquals(epoch, entered.await())
+        assertNull(lease.held.value)
+        assertFalse(released.isCompleted)
+        restored.complete(false)
+        assertError("screen_timeout_restore_failed", released.await())
+    }
+    @Test fun explicitReleaseReturnsSuccessOnlyAfterRestorationCompletes() = runTest {
+        assertFalse(claim().isError)
+        val restored = CompletableDeferred<Boolean>()
+        releaseControl = { restored.await() }
+        val released = async { provider.executeOneShotResult("phone_release", "{}", context) }
+        runCurrent()
+        assertFalse(released.isCompleted)
+        restored.complete(true)
+        assertFalse(released.await().isError)
+        assertNull(lease.held.value)
+    }
     @Test fun everyNonClaimToolWithoutLeaseHasNoEffectEvenWithMalformedArguments() = runTest {
         (PHONE_TOOL_NAMES - "phone_claim").forEach { name ->
             assertError("not_claimed", provider.executeOneShotResult(name, "malformed", context))

@@ -67,4 +67,6 @@
     <string name="phone_done_key">탐색 키 누름</string>
     <string name="phone_done_app_launch">앱 실행함</string>
     <string name="phone_done_app_list">앱 목록 조회함</string>
+    <string name="phone_write_settings_permission">시스템 설정 변경</string>
+    <string name="phone_write_settings_description">제어 중 화면 꺼짐 시간을 일시적으로 30분 이상으로 늘린 후 복원합니다. 도중에 직접 변경한 설정은 유지합니다.</string>
 </resources>

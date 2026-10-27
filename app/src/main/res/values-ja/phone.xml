@@ -67,4 +67,6 @@
     <string name="phone_done_key">ナビゲーションキーを押しました</string>
     <string name="phone_done_app_launch">アプリを起動しました</string>
     <string name="phone_done_app_list">アプリを一覧表示しました</string>
+    <string name="phone_write_settings_permission">システム設定の変更</string>
+    <string name="phone_write_settings_description">操作中は画面のタイムアウトを一時的に 30 分以上に延長し、終了後に元に戻します。途中で変更した設定は保持します。</string>
 </resources>

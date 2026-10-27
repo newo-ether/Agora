@@ -17,6 +17,7 @@ internal class PhonePermissions(private val context: Context, private val privil
         private set
     fun granted(mode: String, includeOverlay: Boolean = true): Map<String, Boolean> = buildMap {
         if (includeOverlay) put("overlay", Settings.canDrawOverlays(context))
+        put("write_settings", Settings.System.canWrite(context))
         put("notifications", NotificationManagerCompat.from(context).areNotificationsEnabled() &&
             (Build.VERSION.SDK_INT < 33 || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED))
         when (mode) {
@@ -51,6 +52,7 @@ internal class PhonePermissions(private val context: Context, private val privil
     fun open(key: String) {
         if (key == "shizuku_permission" && rikka.shizuku.Shizuku.pingBinder()) { privileged.request(); return }
         val intent = when (key) {
+            "write_settings" -> Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${context.packageName}"))
             "overlay" -> Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
             "notifications" -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
             // This platform action is hidden from the public SDK; OEMs may not expose it.

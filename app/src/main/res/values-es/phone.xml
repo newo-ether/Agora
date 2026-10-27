@@ -67,4 +67,6 @@
     <string name="phone_done_key">Tecla de navegación pulsada</string>
     <string name="phone_done_app_launch">Aplicación abierta</string>
     <string name="phone_done_app_list">Aplicaciones listadas</string>
+    <string name="phone_write_settings_permission">Modificar ajustes del sistema</string>
+    <string name="phone_write_settings_description">Amplía temporalmente el tiempo de espera de la pantalla a un mínimo de 30 minutos durante el control y lo restaura al terminar, salvo que lo cambies.</string>
 </resources>

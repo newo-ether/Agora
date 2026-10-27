@@ -42,7 +42,7 @@ Required permissions:
 
 | Mode | Permissions |
 |---|---|
-| All | Display over other apps (`SYSTEM_ALERT_WINDOW`); notifications (Android 13+) for the control foreground notification |
+| All | Display over other apps (`SYSTEM_ALERT_WINDOW`); modify system settings (`WRITE_SETTINGS`); notifications (Android 13+) for the control foreground notification |
 | Accessibility | Agora accessibility service enabled |
 | Shizuku | Shizuku installed, running, and permission granted to Agora |
 | Root | `su` grant confirmed by a probe command |
@@ -155,7 +155,31 @@ otherwise):
   safe combined-opacity budget before device work enables action-time pass-through. Focusable only
   while an ask text field is focused; device work excludes the entire window from input.
 
-Screen stays on through `FLAG_KEEP_SCREEN_ON` on the effect window; no WakeLock.
+Screen stays on through `FLAG_KEEP_SCREEN_ON` on the effect window; no WakeLock. In every mode,
+claim also temporarily writes `Settings.System.SCREEN_OFF_TIMEOUT` through the user-granted
+`WRITE_SETTINGS` access. The target is `max(original, 30 minutes)`; a longer existing value is never
+shortened. This does not require an Activity to remain in the foreground, does not inject touches,
+and cannot override the platform's device-administration timeout cap or manual screen locking.
+
+`PhoneScreenTimeout` owns only this system-setting rollback transaction. Before writing, it saves
+and verifies an atomic device-local journal under `noBackupFilesDir`; it never enters portable
+Settings or native archives. The original value is not recaptured on same-epoch renewal. Release,
+failed claim and cancellation restore only while the current value equals Agora's written target.
+A different current value is treated as a later user/platform setting and preserved. Android has no
+compare-and-set operation or writer identity for this setting: a change to the identical target or a
+concurrent write inside the final read/write interval cannot be distinguished.
+
+Explicit `phone_release` waits for the restoration attempt and reports `screen_timeout_restore_failed`
+if it fails, while still releasing control. Other lease release events schedule the same exact-epoch
+cleanup independently of the cosmetic overlay exit. A delayed old release cannot restore over a new
+active epoch. Permission loss, failed reads/writes and failed journal deletion preserve the recoverable
+record; a new claim must settle an outstanding rollback before making another change.
+
+Application startup and Activity resume each admit one bounded recovery attempt through the same
+process instance, with no polling. Recovery is independent of Room startup and never recreates a
+lease. It skips an active timeout owner; the next claim also retries pending recovery. Process death
+cannot execute instant cleanup: a killed/force-stopped app restores only when Android next runs it
+and the required permission is available. Clearing app data or uninstalling loses the local record.
 
 ### 4.1 Border
 
@@ -336,5 +360,11 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
   Accessibility replacement lifecycle, stale Shizuku disconnects, command/timeout non-release,
   bounded release history and later-result diagnostics. Idle tests cover completion resets, exact
   Run question pause/resume and stale deadlines after reclaim.
+- Screen timeout: durable-before-mutation journal, non-shortening/renewal, user changes,
+  stale epochs, concurrent release/reclaim, cancellation and failed claim rollback, permission loss,
+  restore/write/delete failures, restart/startup/resume recovery without polling, package-specific
+  `WRITE_SETTINGS` deep link and fallback, and explicit release waiting/error reporting. Runtime
+  callback regressions keep the lease held and use distinct caller/Main dispatchers to verify
+  cancelled release and failed-claim cleanup still reach timeout restoration in an active context.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.

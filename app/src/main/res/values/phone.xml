@@ -67,4 +67,6 @@
     <string name="phone_done_key">Pressed navigation key</string>
     <string name="phone_done_app_launch">Launched app</string>
     <string name="phone_done_app_list">Listed apps</string>
+    <string name="phone_write_settings_permission">Modify System Settings</string>
+    <string name="phone_write_settings_description">Temporarily extend the screen timeout to at least 30 minutes during control, then restore it unless you change it.</string>
 </resources>

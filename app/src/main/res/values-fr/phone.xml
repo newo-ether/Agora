@@ -67,4 +67,6 @@
     <string name="phone_done_key">Touche de navigation pressée</string>
     <string name="phone_done_app_launch">Application lancée</string>
     <string name="phone_done_app_list">Applications listées</string>
+    <string name="phone_write_settings_permission">Modifier les paramètres système</string>
+    <string name="phone_write_settings_description">Prolonge temporairement la mise en veille de l’écran à au moins 30 minutes pendant le contrôle, puis rétablit le réglage initial si vous ne le modifiez pas.</string>
 </resources>

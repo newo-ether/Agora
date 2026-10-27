@@ -1,6 +1,11 @@
 package com.newoether.agora.phone
 
 import android.app.Application
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import org.robolectric.Shadows.shadowOf
 import android.content.Context
 import android.content.ServiceConnection
 import android.os.ParcelFileDescriptor
@@ -20,15 +25,56 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadows.ShadowSettings
 import rikka.shizuku.Shizuku
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class)
+@Config(sdk = [35], application = Application::class, shadows = [PhonePermissionBackendTest.WritableSettingsShadow::class])
 class PhonePermissionBackendTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
-    @After fun tearDown() { Dispatchers.resetMain(); unmockkAll() }
+    @Before fun setUp() { WritableSettingsShadow.writable = false }
+    @After fun tearDown() {
+        WritableSettingsShadow.writable = false
+        Dispatchers.resetMain()
+        unmockkAll()
+    }
 
+    @Test fun systemSettingsGrantIsRequiredInEveryModeIncludingHeldEntries() {
+        val backend = mockk<PhonePrivilegedConnection>(relaxed = true)
+        val permissions = PhonePermissions(context, backend)
+        mockkStatic(Shizuku::class)
+        every { Shizuku.pingBinder() } returns false
+        WritableSettingsShadow.writable = false
+        for (mode in listOf("accessibility", "shizuku", "root")) {
+            assertFalse(permissions.granted(mode).getValue("write_settings"))
+            assertEquals("permission_lost:not_ready:write_settings", permissions.entryFailure(mode, false))
+        }
+        WritableSettingsShadow.writable = true
+        for (mode in listOf("accessibility", "shizuku", "root")) {
+            assertTrue(permissions.granted(mode, includeOverlay = false).getValue("write_settings"))
+        }
+    }
+    @Test fun modifySystemSettingsOpensThePackageSpecificPlatformPage() {
+        PhonePermissions(context, mockk(relaxed = true)).open("write_settings")
+        val intent = shadowOf(context as Application).nextStartedActivity
+        assertEquals(Settings.ACTION_MANAGE_WRITE_SETTINGS, intent.action)
+        assertEquals(Uri.parse("package:${context.packageName}"), intent.data)
+        assertTrue(intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
+    }
+    @Test fun unavailableModifySystemSettingsPageFallsBackToAppDetails() {
+        val launchContext = mockk<Context>()
+        every { launchContext.packageName } returns context.packageName
+        val intents = mutableListOf<Intent>()
+        every { launchContext.startActivity(capture(intents)) } answers {
+            if (firstArg<Intent>().action == Settings.ACTION_MANAGE_WRITE_SETTINGS) throw ActivityNotFoundException()
+        }
+        PhonePermissions(launchContext, mockk(relaxed = true)).open("write_settings")
+        assertEquals(listOf(Settings.ACTION_MANAGE_WRITE_SETTINGS, Settings.ACTION_APPLICATION_DETAILS_SETTINGS), intents.map { it.action })
+        assertEquals(Uri.parse("package:${context.packageName}"), intents.last().data)
+    }
     @Test fun rootSettingsProbeCannotOverwriteClaimAdmissionAndHeldEntrySkipsOverlay() = runTest {
         val backend = mockk<PhonePrivilegedConnection>()
         val permissions = PhonePermissions(context, backend)
@@ -126,5 +172,17 @@ class PhonePermissionBackendTest {
         assertNull(PhoneAccessibilityService.instance)
         assertEquals(1, disconnects)
         PhoneAccessibilityService.onDisconnected = null
+    }
+
+    /** Robolectric 4.16 does not provide a canWrite implementation in ShadowSystem. */
+    @Implements(Settings.System::class)
+    class WritableSettingsShadow : ShadowSettings.ShadowSystem() {
+        companion object {
+            var writable = false
+
+            @JvmStatic
+            @Implementation(minSdk = 23)
+            fun canWrite(@Suppress("UNUSED_PARAMETER") context: Context): Boolean = writable
+        }
     }
 }

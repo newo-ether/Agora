@@ -67,4 +67,6 @@
     <string name="phone_done_key">已按導覽鍵</string>
     <string name="phone_done_app_launch">已啟動應用程式</string>
     <string name="phone_done_app_list">已列出應用程式</string>
+    <string name="phone_write_settings_permission">修改系統設定</string>
+    <string name="phone_write_settings_description">接管期間暫時將螢幕逾時延長至至少 30 分鐘，結束後還原；保留你中途變更的設定。</string>
 </resources>

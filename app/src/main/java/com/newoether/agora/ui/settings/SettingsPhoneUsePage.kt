@@ -202,7 +202,7 @@ internal fun SettingsPhonePermissions(
             grants = grants + ("root" to granted)
         }
     }
-    val keys = listOf("overlay", "notifications") + when (mode) {
+    val keys = listOf("overlay", "write_settings", "notifications") + when (mode) {
         "shizuku" -> listOf("shizuku_installed", "shizuku_running", "shizuku_permission")
         "root" -> listOf("root")
         else -> listOf("accessibility")
@@ -211,7 +211,8 @@ internal fun SettingsPhonePermissions(
         key(mode, permission) {
             SettingsItem(
                 headlineContent = { Text(stringResource(phonePermissionLabel(permission))) },
-                supportingContent = { Text(stringResource(R.string.phone_permission_description)) },
+                supportingContent = { Text(stringResource(if (permission == "write_settings")
+                    R.string.phone_write_settings_description else R.string.phone_permission_description)) },
                 leadingContent = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary) },
                 trailingContent = {
                     Crossfade(grants[permission], Modifier.width(96.dp).padding(end = 4.dp),
@@ -235,6 +236,7 @@ internal fun SettingsPhonePermissions(
 }
 
 private fun phonePermissionLabel(key: String): Int = when (key) {
+    "write_settings" -> R.string.phone_write_settings_permission
     "overlay" -> R.string.phone_overlay_permission
     "notifications" -> R.string.phone_notifications_permission
     "accessibility" -> R.string.phone_accessibility

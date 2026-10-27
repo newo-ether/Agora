@@ -67,4 +67,6 @@
     <string name="phone_done_key">已按导航键</string>
     <string name="phone_done_app_launch">已启动应用</string>
     <string name="phone_done_app_list">已列出应用</string>
+    <string name="phone_write_settings_permission">修改系统设置</string>
+    <string name="phone_write_settings_description">接管期间临时将屏幕超时延长至至少 30 分钟，结束后恢复；保留你中途修改的设置。</string>
 </resources>

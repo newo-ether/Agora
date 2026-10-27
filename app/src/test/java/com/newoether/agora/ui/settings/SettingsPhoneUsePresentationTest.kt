@@ -153,32 +153,32 @@ class SettingsPhoneUsePresentationTest {
                 }
             }
         }
-        for (label in listOf(R.string.phone_shizuku_installed, R.string.phone_shizuku_running,
+        for (label in listOf(R.string.phone_write_settings_permission, R.string.phone_shizuku_installed, R.string.phone_shizuku_running,
             R.string.phone_shizuku_permission)) {
             compose.onNodeWithText(text(label)).performScrollTo().assertIsDisplayed()
         }
-        compose.onAllNodesWithText(text(R.string.about_checking), useUnmergedTree = true).assertCountEquals(5)
+        compose.onAllNodesWithText(text(R.string.about_checking), useUnmergedTree = true).assertCountEquals(6)
         compose.onNodeWithText(text(R.string.phone_missing)).assertDoesNotExist()
     }
 
     @Test fun pendingRootShowsCheckingWhileOtherRowsResolveAndDoesNotPoll() {
         val completion = CompletableDeferred<Boolean>()
         val permissions = mockk<PhonePermissions> {
-            every { granted("root", any()) } returns mapOf("overlay" to true, "notifications" to false, "root" to false)
+            every { granted("root", any()) } returns mapOf("overlay" to true, "write_settings" to true, "notifications" to false, "root" to false)
             coEvery { probeRoot() } coAnswers { completion.await() }
         }
         compose.setContent { MaterialTheme { SettingsPhonePermissions("root", 0, permissions, {}) } }
         val checking = compose.onNodeWithText(text(R.string.about_checking), useUnmergedTree = true)
         val before = checking.getUnclippedBoundsInRoot()
         assertEquals(TextAlign.End, layout(checking).layoutInput.style.textAlign)
-        compose.onAllNodesWithText(text(R.string.phone_granted), useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText(text(R.string.phone_granted), useUnmergedTree = true).assertCountEquals(2)
         compose.onAllNodesWithText(text(R.string.phone_missing), useUnmergedTree = true).assertCountEquals(1)
         compose.runOnIdle { completion.complete(true) }
         compose.waitForIdle()
         compose.onNodeWithText(text(R.string.about_checking)).assertDoesNotExist()
         val granted = compose.onAllNodesWithText(text(R.string.phone_granted), useUnmergedTree = true)
-        granted.assertCountEquals(2)
-        val after = granted[1].getUnclippedBoundsInRoot()
+        granted.assertCountEquals(3)
+        val after = granted[2].getUnclippedBoundsInRoot()
         assertEquals(before.left, after.left)
         assertEquals(before.right, after.right)
         compose.mainClock.advanceTimeBy(5000)
@@ -190,8 +190,8 @@ class SettingsPhoneUsePresentationTest {
         val completion = CompletableDeferred<Boolean>()
         var mode by mutableStateOf("root")
         val permissions = mockk<PhonePermissions> {
-            every { granted("root", any()) } returns mapOf("overlay" to true, "notifications" to true, "root" to false)
-            every { granted("shizuku", any()) } returns mapOf("overlay" to true, "notifications" to true,
+            every { granted("root", any()) } returns mapOf("overlay" to true, "write_settings" to true, "notifications" to true, "root" to false)
+            every { granted("shizuku", any()) } returns mapOf("overlay" to true, "write_settings" to true, "notifications" to true,
                 "shizuku_installed" to true, "shizuku_running" to true, "shizuku_permission" to true)
             coEvery { probeRoot() } coAnswers { withContext(NonCancellable) { completion.await() } }
         }
@@ -206,7 +206,7 @@ class SettingsPhoneUsePresentationTest {
         compose.runOnIdle { mode = "shizuku" }
         compose.waitForIdle()
         compose.onNodeWithText(text(R.string.phone_root)).assertDoesNotExist()
-        compose.onAllNodesWithText(text(R.string.phone_granted), useUnmergedTree = true).assertCountEquals(5)
+        compose.onAllNodesWithText(text(R.string.phone_granted), useUnmergedTree = true).assertCountEquals(6)
         compose.runOnIdle { completion.complete(false) }
         compose.waitForIdle()
         compose.onNodeWithText(text(R.string.phone_missing)).assertDoesNotExist()

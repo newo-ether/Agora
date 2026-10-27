@@ -67,4 +67,6 @@
     <string name="phone_done_key">تم ضغط مفتاح التنقل</string>
     <string name="phone_done_app_launch">تم تشغيل التطبيق</string>
     <string name="phone_done_app_list">تم عرض التطبيقات</string>
+    <string name="phone_write_settings_permission">تعديل إعدادات النظام</string>
+    <string name="phone_write_settings_description">تمديد مهلة الشاشة مؤقتًا إلى 30 دقيقة على الأقل أثناء التحكم، ثم استعادتها ما لم تغيّر الإعداد.</string>
 </resources>

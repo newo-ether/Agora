@@ -67,4 +67,6 @@
     <string name="phone_done_key">Клавиша навигации нажата</string>
     <string name="phone_done_app_launch">Приложение запущено</string>
     <string name="phone_done_app_list">Список приложений получен</string>
+    <string name="phone_write_settings_permission">Изменение системных настроек</string>
+    <string name="phone_write_settings_description">На время управления увеличивает время ожидания экрана минимум до 30 минут, затем восстанавливает его, если вы не изменили настройку.</string>
 </resources>

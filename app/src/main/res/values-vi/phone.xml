@@ -67,4 +67,6 @@
     <string name="phone_done_key">Đã nhấn phím điều hướng</string>
     <string name="phone_done_app_launch">Đã mở ứng dụng</string>
     <string name="phone_done_app_list">Đã liệt kê ứng dụng</string>
+    <string name="phone_write_settings_permission">Thay đổi cài đặt hệ thống</string>
+    <string name="phone_write_settings_description">Tạm tăng thời gian chờ màn hình lên ít nhất 30 phút trong khi điều khiển, sau đó khôi phục trừ khi bạn thay đổi cài đặt.</string>
 </resources>

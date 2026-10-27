@@ -28,6 +28,7 @@ internal class PhoneToolProvider(
     private val action: (String, Int, Int, Int, Int, Long) -> Unit,
     private val status: suspend (String?) -> Unit,
     private val operating: suspend (suspend () -> ToolExecutionResult) -> ToolExecutionResult = { it() },
+    private val releaseControl: suspend (Long) -> Boolean = { true },
 ) : ToolProvider {
     private var executionMode = "accessibility"
     private val executing = AtomicBoolean(false)
@@ -97,7 +98,9 @@ internal class PhoneToolProvider(
                 fence(authorized)
                 if (name == "phone_release") {
                     lease.release(authorized)?.let { throw PhoneFailure(it) }
-                    return@run success(buildJsonObject { put("status", "released") })
+                    val restored = releaseControl(authorized.epoch)
+                    return@run if (restored) success(buildJsonObject { put("status", "released") })
+                        else failure("screen_timeout_restore_failed")
                 }
                 status(name)
                 return@run operating {
