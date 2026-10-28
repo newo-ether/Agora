@@ -84,6 +84,10 @@ layout, states, density, or interaction design has been approved.
   leading icon, title, supporting description and displayed value, and uses the existing persisted
   slider feedback gate. A drag updates its local displayed value and commits once on release;
   stale persistence emissions do not interrupt the gesture or overwrite its pending final value.
+  Maximum Long Edge uses 24 discrete integer stops: 128, 256, 384, 512, 640, 768, 896,
+  1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096, 4608, 5120, 5632, 6144,
+  6656, 7168, 7680 and 8192 px. An existing off-stop integer remains displayed and persisted
+  unchanged until the user selects a stop. JPEG Quality retains its existing range and interaction.
 - Mode changes persist immediately, retain custom values and apply to newly processed images.
   There is no Save action or save-on-exit draft. The existing Generation scaffold/navigation and
   shared SettingsGroup own spacing and navigation. All supported locales define the complete copy.

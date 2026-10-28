@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +28,12 @@ import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import kotlin.math.roundToInt
+
+/** Denser at common small-image sizes; the processing policy still accepts legacy integer values. */
+private val imageLongEdgePresets = intArrayOf(
+    128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048,
+    2560, 3072, 3584, 4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680, 8192,
+)
 
 /** Immediate-save controls for the shared processing boundary, independent of image generation. */
 @Composable
@@ -97,6 +104,7 @@ internal fun SettingsImageQualityGroup(
                     ImageQualitySlider(
                         value = quality.customMaxLongEdge,
                         range = ImageQualitySettings.MIN_LONG_EDGE..ImageQualitySettings.MAX_LONG_EDGE,
+                        presets = imageLongEdgePresets,
                         title = R.string.image_quality_long_edge,
                         description = R.string.image_quality_long_edge_desc,
                         icon = Icons.Default.PhotoSizeSelectLarge,
@@ -132,14 +140,18 @@ private fun ImageQualitySlider(
     format: @Composable (Int) -> String,
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    presets: IntArray? = null,
 ) {
     val persisted = value.coerceIn(range)
-    val gate = remember(range) {
-        PersistedSliderFeedbackGate(initialPersisted = persisted, toDisplay = { it.toFloat() })
+    val gate = remember(range, presets) {
+        PersistedSliderFeedbackGate(initialPersisted = persisted, toDisplay = { it })
     }
     LaunchedEffect(persisted) { gate.reconcile(persisted) }
-    val selected = gate.displayed.roundToInt().coerceIn(range)
+    val selected = gate.displayed.coerceIn(range)
+    val sliderValue = presets?.indices?.minByOrNull { kotlin.math.abs(presets[it] - selected) }
+        ?.toFloat() ?: selected.toFloat()
     val titleText = stringResource(title)
+    val valueText = format(selected)
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
@@ -152,7 +164,7 @@ private fun ImageQualitySlider(
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        format(selected),
+                        valueText,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
@@ -165,20 +177,25 @@ private fun ImageQualitySlider(
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 Slider(
-                    value = selected.toFloat(),
-                    onValueChange = gate::updateFromGesture,
+                    value = sliderValue,
+                    onValueChange = { position ->
+                        gate.updateFromGesture(presets?.let { it[position.roundToInt().coerceIn(it.indices)] }
+                            ?: position.roundToInt().coerceIn(range))
+                    },
                     onValueChangeFinished = {
-                        val committed = gate.displayed.roundToInt().coerceIn(range)
+                        val committed = gate.displayed.coerceIn(range)
                         if (committed != persisted) {
-                            gate.expectPersisted(committed, committed.toFloat())
+                            gate.expectPersisted(committed)
                             onValueChange(committed)
                         } else {
                             gate.settleWithoutWrite(persisted)
                         }
                     },
-                    valueRange = range.first.toFloat()..range.last.toFloat(),
+                    valueRange = if (presets != null) 0f..presets.lastIndex.toFloat()
+                        else range.first.toFloat()..range.last.toFloat(),
+                    steps = presets?.let { it.size - 2 } ?: 0,
                     modifier = modifier.fillMaxWidth().padding(top = 8.dp)
-                        .semantics { contentDescription = titleText },
+                        .semantics { contentDescription = titleText; stateDescription = valueText },
                 )
             }
         }
