@@ -12,6 +12,7 @@ import com.newoether.agora.api.ollama.OllamaProvider
 import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.api.openai.DeepSeekProvider
 import com.newoether.agora.api.openai.GroqProvider
+import com.newoether.agora.api.openai.MunitoProvider
 import com.newoether.agora.api.openai.OpenAiProvider
 import com.newoether.agora.api.openai.OpenCodeGoProvider
 import com.newoether.agora.api.openai.OpenRouterProvider
@@ -143,6 +144,7 @@ class ProviderRegistry(
         Constants.PROVIDER_OLLAMA to OllamaProvider(),
         Constants.PROVIDER_OPEN_ROUTER to OpenRouterProvider(),
         Constants.PROVIDER_OPENCODE_GO to OpenCodeGoProvider(appVersion),
+        Constants.PROVIDER_MUNITO to MunitoProvider(),
         Constants.PROVIDER_LOCAL to localProvider
     )
 

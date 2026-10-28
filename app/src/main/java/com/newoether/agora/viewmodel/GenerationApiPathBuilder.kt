@@ -126,7 +126,8 @@ internal class GenerationApiPathBuilder(
                         config.promptCacheKeyEnabled
                     },
                     sessionId = request.conversationId.takeIf {
-                        config.providerName == Constants.PROVIDER_OPENCODE_GO
+                        config.providerName == Constants.PROVIDER_OPENCODE_GO ||
+                            config.providerName == Constants.PROVIDER_MUNITO
                     },
                     requestResolver = config.requestResolver,
                 ),

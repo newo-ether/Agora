@@ -43,6 +43,10 @@ class ContextCostModelsTest {
             ContextCostFamily.GENERIC,
             familyOf(Constants.PROVIDER_OPENCODE_GO, "opencode/sonic"),
         )
+        assertEquals(
+            ContextCostFamily.GENERIC,
+            familyOf(Constants.PROVIDER_MUNITO, "qwen/qwen3.8-27b"),
+        )
         assertEquals(ContextCostFamily.GENERIC, familyOf(Constants.PROVIDER_UNKNOWN, "mystery-v2"))
     }
 

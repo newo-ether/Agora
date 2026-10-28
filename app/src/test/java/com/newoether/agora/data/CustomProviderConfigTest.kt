@@ -1,5 +1,6 @@
 package com.newoether.agora.data
 
+import com.newoether.agora.util.Constants
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -53,6 +54,7 @@ class CustomProviderConfigTest {
             assertFalse(isAnthropicCacheEnabledForProvider(reference, true, providers))
         }
         assertTrue(isPromptCacheKeyEnabledForProvider("OpenAI", providers))
+        assertTrue(isPromptCacheKeyEnabledForProvider(Constants.PROVIDER_MUNITO, providers))
         assertTrue(supportsPromptCacheSetting("Claude relay", providers))
         assertFalse(isPromptCacheKeyEnabledForProvider("Claude relay", providers))
         assertFalse(supportsPromptCacheSetting("Gemini relay", providers))

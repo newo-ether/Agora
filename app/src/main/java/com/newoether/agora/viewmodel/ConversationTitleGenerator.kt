@@ -191,7 +191,10 @@ class ConversationTitleGenerator(
             maxContextWindow = com.newoether.agora.model.ContextBudget.MIN_TOKENS,
             thinkingEnabled = false,
             baseUrl = providers.getEffectiveBaseUrl(providerName),
-            sessionId = conversationId.takeIf { providerName == Constants.PROVIDER_OPENCODE_GO },
+            sessionId = conversationId.takeIf {
+                providerName == Constants.PROVIDER_OPENCODE_GO ||
+                    providerName == Constants.PROVIDER_MUNITO
+            },
         )
 
         val requestId = UUID.randomUUID().toString()

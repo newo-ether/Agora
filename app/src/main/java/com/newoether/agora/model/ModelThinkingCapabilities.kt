@@ -22,6 +22,7 @@ object ModelThinkingCapabilities {
         return when (providerName?.trim()?.lowercase()) {
             "anthropic" -> ThinkingProviderFamily.ANTHROPIC
             "openai" -> ThinkingProviderFamily.OPENAI
+            "munito" -> ThinkingProviderFamily.OPENAI
             "open router", "openrouter" -> ThinkingProviderFamily.OPENROUTER
             "deepseek" -> ThinkingProviderFamily.DEEPSEEK
             "qwen" -> ThinkingProviderFamily.QWEN

@@ -407,6 +407,29 @@ class GenerationApiPathBuilderTest {
         assertEquals(null, disabled.providerConfig.promptCacheKey)
     }
 
+    @Test
+    fun `Munito generation carries the conversation id as its session id`() = runTest {
+        val repository = mockk<ConversationRepository>(relaxed = true)
+        val builder = GenerationApiPathBuilder(
+            conversations = repository,
+            generationErrorFormatter = { it },
+            toolDefinitions = { emptyList() },
+        )
+        val message = message("user", null, 0, Participant.USER)
+        suspend fun sessionId(providerName: String) = builder.build(
+            GenerationApiPathRequest(
+                parentId = message.id,
+                conversationId = "conversation",
+                config = generationConfig(providerName),
+                context = GenerationContext(),
+                loadedMessages = listOf(message),
+            ),
+        ).providerConfig.sessionId
+
+        assertEquals("conversation", sessionId(Constants.PROVIDER_MUNITO))
+        assertEquals(null, sessionId(Constants.PROVIDER_OPENAI))
+    }
+
     private fun generationConfig(providerName: String = "provider") = GenerationConfig(
         providerName = providerName,
         modelId = "model-id",

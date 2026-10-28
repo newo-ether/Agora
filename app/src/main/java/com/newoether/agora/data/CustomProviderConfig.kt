@@ -101,15 +101,15 @@ fun supportsPromptCacheSetting(
 }
 
 /**
- * Whether OpenAI-protocol requests carry prompt_cache_key. Without it, OpenAI and relays such
- * as sub2api route identical prefixes to arbitrary cache shards, so hits become random.
- * The official provider always sends it; custom OpenAI endpoints follow their cache switch.
+ * Whether OpenAI-protocol requests carry prompt_cache_key. Without it, OpenAI, Munito and relays
+ * such as sub2api route identical prefixes to arbitrary cache shards, so hits become random.
+ * The official providers always send it; custom OpenAI endpoints follow their cache switch.
  */
 fun isPromptCacheKeyEnabledForProvider(
     providerName: String,
     customProviders: List<CustomProviderConfig>,
 ): Boolean = when (providerName) {
-    Constants.PROVIDER_OPENAI -> true
+    Constants.PROVIDER_OPENAI, Constants.PROVIDER_MUNITO -> true
     else -> customProviders.firstOrNull {
         it.name == providerName || it.ownsIdentity(providerName)
     }?.let { it.protocol == CustomEndpointProtocol.OPENAI && it.anthropicCacheEnabled } == true

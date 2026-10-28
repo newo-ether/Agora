@@ -15,6 +15,7 @@ import com.newoether.agora.model.ModelThinkingCapabilities
 import com.newoether.agora.model.Participant
 import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
+import com.sun.net.httpserver.Headers
 import com.sun.net.httpserver.HttpServer
 import io.mockk.every
 import io.mockk.mockk
@@ -282,6 +283,51 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
         }
     }
 
+    @Test
+    fun munitoSendsPromptCacheKeyAndSessionAffinity() = withServer { server ->
+        val body = server.capture(
+            MunitoProvider(),
+            config(server, "qwen/qwen3.8-27b").copy(
+                sessionId = "conversation-1",
+                promptCacheKey = "conversation-1",
+            ),
+        )
+
+        assertEquals("conversation-1", body["prompt_cache_key"]!!.jsonPrimitive.content)
+        val headers = server.singleHeaders()
+        assertEquals("conversation-1", headers.getFirst("x-session-affinity"))
+    }
+
+    @Test
+    fun munitoMapsThinkingEffortWithoutABudget() = withServer { server ->
+        val body = server.capture(
+            MunitoProvider(),
+            config(server, "qwen/qwen3.8-27b").copy(thinkingLevel = "low"),
+        )
+
+        assertEquals("low", body["reasoning_effort"]!!.jsonPrimitive.content)
+        assertFalse(body.containsKey("thinking_budget"))
+    }
+
+    @Test
+    fun munitoOmitsAffinityAndCacheKeyWithoutAConversation() = withServer { server ->
+        val body = server.capture(MunitoProvider(), config(server, "qwen/qwen3.8-27b"))
+
+        val headers = server.singleHeaders()
+        assertNull(headers.getFirst("x-session-affinity"))
+        assertFalse(body.containsKey("prompt_cache_key"))
+    }
+
+    @Test
+    fun munitoTurnsThinkingOffWithNone() = withServer { server ->
+        val body = server.capture(
+            MunitoProvider(),
+            config(server, "qwen/qwen3.8-27b").copy(thinkingEnabled = false),
+        )
+
+        assertEquals("none", body["reasoning_effort"]!!.jsonPrimitive.content)
+    }
+
     private fun assertStandardParameters(body: JsonObject) {
         assertEquals(0.7f, body["temperature"]!!.jsonPrimitive.float)
         assertEquals(777, body["max_tokens"]!!.jsonPrimitive.int)
@@ -357,11 +403,13 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
     private class RecordingServer : AutoCloseable {
         private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val bodies = CopyOnWriteArrayList<String>()
+        val requestHeaders = CopyOnWriteArrayList<Headers>()
         val baseUrl = "http://127.0.0.1:${server.address.port}/v1"
 
         init {
             server.createContext("/") { exchange ->
                 bodies += exchange.requestBody.bufferedReader().use { it.readText() }
+                requestHeaders += Headers().apply { putAll(exchange.requestHeaders) }
                 val response = (
                     "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
                         "data: [DONE]\n\n"
@@ -374,6 +422,8 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
         }
 
         fun singleBody() = Json.parseToJsonElement(bodies.single()).jsonObject
+
+        fun singleHeaders(): Headers = requestHeaders.single()
 
         override fun close() = server.stop(0)
     }

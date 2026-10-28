@@ -78,6 +78,39 @@ class TranscriptionManagerTest {
             Dispatchers.resetMain()
         }
     }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun bothTranscriptionPathsCarryTheSessionIdForMunito() = runTest {
+        val captured = mutableListOf<ProviderConfig>()
+        val provider = mockk<LlmProvider>()
+        every { provider.generateResponse(any(), capture(captured)) } returns flowOf(StreamEvent.TextChunk("Description"))
+        val providerName = Constants.PROVIDER_MUNITO
+        val manager = manager(mapOf(providerName to provider))
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        mockkStatic(Looper::class)
+        every { Looper.getMainLooper() } returns mockk(relaxed = true)
+        try {
+            manager.describeImageWithProgress(
+                image = image,
+                ctx = context(providerName),
+                generationJob = null, conversationId = "conversation", runId = "run",
+                pass = 0, modelMessageId = "assistant", onProgress = {},
+            )
+            manager.transcribe(
+                targets = listOf(TranscriptionManager.TranscriptionTarget("user", image.path, 0)),
+                conversationId = "conversation", runId = "run", pass = 0,
+                providerName = providerName, modelId = "vision-model", apiKey = "",
+                baseUrl = null, prompt = "Describe", generationJob = null,
+                modelMessageId = "assistant", startTime = 0L,
+                anthropicCacheEnabled = false, anthropicCacheTtl = "5m", onProgress = {},
+            )
+            assertEquals(listOf("conversation", "conversation"), captured.map { it.sessionId })
+        } finally {
+            unmockkStatic(Looper::class)
+            Dispatchers.resetMain()
+        }
+    }
     private val image = ToolImageAttachment(
         path = "/private/tool.png",
         mimeType = "image/png",

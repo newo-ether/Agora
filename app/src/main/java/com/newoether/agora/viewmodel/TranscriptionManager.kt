@@ -182,7 +182,8 @@ class TranscriptionManager(
             anthropicCacheEnabled = ctx.transcriptionAnthropicCacheEnabled,
             anthropicCacheTtl = ctx.transcriptionAnthropicCacheTtl,
             sessionId = conversationId.takeIf {
-                ctx.transcriptionProviderName == Constants.PROVIDER_OPENCODE_GO
+                ctx.transcriptionProviderName == Constants.PROVIDER_OPENCODE_GO ||
+                    ctx.transcriptionProviderName == Constants.PROVIDER_MUNITO
             },
         )
         val promptMessages = listOf(
@@ -295,7 +296,8 @@ class TranscriptionManager(
             anthropicCacheEnabled = anthropicCacheEnabled,
             anthropicCacheTtl = anthropicCacheTtl,
             sessionId = conversationId.takeIf {
-                providerName == Constants.PROVIDER_OPENCODE_GO
+                providerName == Constants.PROVIDER_OPENCODE_GO ||
+                    providerName == Constants.PROVIDER_MUNITO
             },
         )
         val placeholder = conversations.getMessage(modelMessageId)
