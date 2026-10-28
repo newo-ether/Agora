@@ -122,6 +122,51 @@ class McpNetworkRetryTest {
     }
 
     @Test
+    fun nextCallAfterResponseFailureDoesNotReplayOrRefreshTheCatalog() = runTest {
+        respond = { method, count, progress ->
+            if (method == "tools/call" && count == 1) {
+                progress!!.started = true
+                throw EOFException("unexpected end of stream")
+            }
+        }
+        client.listTools()
+        try { client.callTool("first", buildJsonObject {}); fail("Expected failure") }
+        catch (_: EOFException) { }
+        assertEquals(1, attempts["tools/call"])
+
+        client.callTool("next", buildJsonObject {})
+        assertEquals(2, attempts["tools/call"])
+        assertEquals(1, attempts["initialize"])
+        assertEquals(1, attempts["tools/list"])
+        io.mockk.verify(exactly = 0) { transport.resetSession() }
+    }
+
+    @Test
+    fun expiredToolSessionIsResetForTheNextCallWithoutReplayingTheFailedCall() = runTest {
+        var generation = 0L
+        coEvery { transport.ensureReady() } answers { generation }
+        every { transport.resetSession() } answers { generation++; Unit }
+        respond = { method, count, progress ->
+            if (method == "tools/call" && count == 1) {
+                progress!!.started = true
+                throw McpSessionExpiredException()
+            }
+        }
+        client.listTools()
+        try { client.callTool("first", buildJsonObject {}); fail("Expected expiry") }
+        catch (_: McpSessionExpiredException) { }
+        assertEquals(1, attempts["tools/call"])
+        assertEquals(1, attempts["initialize"])
+
+        client.callTool("next", buildJsonObject {})
+        assertEquals(2, attempts["tools/call"])
+        assertEquals(2, attempts["initialize"])
+        assertEquals(2, attempts["notifications/initialized"])
+        assertEquals(1, attempts["tools/list"])
+        io.mockk.verify(exactly = 1) { transport.resetSession() }
+    }
+
+    @Test
     fun cancellationDuringBackoffPreventsAnotherDispatch() = runTest {
         respond = { _, _, _ -> throw EOFException() }
         val job = async { client.listTools() }

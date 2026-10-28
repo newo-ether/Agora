@@ -20,6 +20,8 @@ import io.mockk.verify
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -126,22 +128,91 @@ class McpRegistryDispatchTest {
     }
 
     @Test
-    fun `failed connection keeps catalog but rejects another call while offline`() = runTest {
+    fun `failed invocation retains discovery and allows the next independent call`() = runTest {
+        val (registry) = connectedRegistry()
+        val connected = registry.snapshots.value[server.id]
+        var attempts = 0
+        coEvery { anyConstructed<McpProtocolClient>().callTool(any(), any()) } answers {
+            if (++attempts == 1) throw IOException("unexpected end of stream")
+            McpCallPayload(listOf("Recovered"), emptyList(), null, false)
+        }
+
+        val failure = registry.execute(publicName, "{}")
+        assertTrue(failure.isError)
+        assertTrue(failure.text.contains("unexpected end of stream"))
+        assertSame(connected, registry.snapshots.value[server.id])
+        assertEquals(publicName, registry.enabledTools().single().publicName)
+        assertFalse(registry.searchTools(query = publicName, serverId = server.id, limit = 1).isError)
+        runCurrent()
+        assertSame(connected, registry.snapshots.value[server.id])
+
+        val next = registry.execute(publicName, "{}")
+        assertFalse(next.isError)
+        assertEquals("Recovered", next.text)
+        coVerify(exactly = 2) { anyConstructed<McpProtocolClient>().callTool(any(), any()) }
+        coVerify(exactly = 1) { anyConstructed<McpProtocolClient>().listTools() }
+    }
+
+    @Test
+    fun `repeated invocation failures never reload the catalog or hide the actual error`() = runTest {
         val (registry) = connectedRegistry()
         coEvery { anyConstructed<McpProtocolClient>().callTool(any(), any()) } throws
             IOException("Fixture connection is offline")
 
-        val failure = registry.execute(publicName, "{}")
-        assertTrue(failure.isError)
-        assertTrue(failure.text.contains("Fixture connection is offline"))
-        assertEquals(McpConnectionStatus.ERROR, registry.snapshots.value[server.id]?.status)
-        assertEquals(publicName, registry.snapshots.value[server.id]?.tools?.single()?.publicName)
+        repeat(2) {
+            val failure = registry.execute(publicName, "{}")
+            assertTrue(failure.isError)
+            assertTrue(failure.text.contains("Fixture connection is offline"))
+            runCurrent()
+        }
+        assertEquals(McpConnectionStatus.CONNECTED, registry.snapshots.value[server.id]?.status)
+        coVerify(exactly = 2) { anyConstructed<McpProtocolClient>().callTool(any(), any()) }
+        coVerify(exactly = 1) { anyConstructed<McpProtocolClient>().listTools() }
+    }
 
-        // The retry is queued on the test dispatcher; dispatch must reject the retained descriptor.
-        val offline = registry.execute(publicName, "{}")
-        assertTrue(offline.isError)
-        assertTrue(offline.text.contains("Unknown, disabled or disconnected"))
-        coVerify(exactly = 1) { anyConstructed<McpProtocolClient>().callTool(any(), any()) }
+    @Test
+    fun `late invocation failure cannot replace the current connection snapshot`() = runTest {
+        val (registry, configs) = connectedRegistry()
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        coEvery { anyConstructed<McpProtocolClient>().callTool(any(), any()) } coAnswers {
+            started.complete(Unit)
+            release.await()
+            throw IOException("Old request failed")
+        }
+        val call = async { registry.execute(publicName, "{}") }
+        started.await()
+        configs.value = listOf(server.copy(url = "https://replacement-fixture.invalid/mcp"))
+        runCurrent()
+        val replacement = registry.snapshots.value[server.id]
+        assertEquals(McpConnectionStatus.CONNECTED, replacement?.status)
+        release.complete(Unit)
+        assertTrue(call.await().isError)
+        runCurrent()
+        assertSame(replacement, registry.snapshots.value[server.id])
+        coVerify(exactly = 2) { anyConstructed<McpProtocolClient>().listTools() }
+    }
+
+    @Test
+    fun `image persistence failure stays local to the invocation`() = runTest {
+        every {
+            anyConstructed<ToolImageStore>().persistBase64("aW1hZ2U=", "image/png", "mcp")
+        } throws IOException("Image could not be stored")
+        val (registry) = connectedRegistry()
+        val connected = registry.snapshots.value[server.id]
+        coEvery { anyConstructed<McpProtocolClient>().callTool(any(), any()) } returns McpCallPayload(
+            textParts = emptyList(), images = listOf(McpImagePayload("aW1hZ2U=", "image/png")),
+            structuredContent = null, isError = false,
+        )
+
+        val result = registry.execute(publicName, "{}")
+        assertTrue(result.isError)
+        assertTrue(result.text, result.text.contains("Image could not be stored"))
+        runCurrent()
+        assertSame(connected, registry.snapshots.value[server.id])
+        verify(exactly = 1) {
+            anyConstructed<ToolImageStore>().persistBase64("aW1hZ2U=", "image/png", "mcp")
+        }
         coVerify(exactly = 1) { anyConstructed<McpProtocolClient>().listTools() }
     }
 

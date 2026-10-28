@@ -330,8 +330,9 @@ class McpRegistry(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            markError(runtime, e)
-            scheduleRetry(runtime)
+            // A failed invocation does not invalidate the catalog or block independent calls.
+            // The protocol client owns session recovery; never replay an uncertain tool request.
+            DebugLog.e("McpRegistry", "MCP tool ${descriptor.remote.name} failed", e)
             ToolExecutionResult(
                 text = "MCP tool '${descriptor.remote.name}' failed: ${userMessage(e)}",
                 isError = true,
@@ -504,20 +505,6 @@ class McpRegistry(
                 delay(retryMs)
                 retryMs = min(MAX_RETRY_MS, retryMs * 2)
             }
-        }
-    }
-
-    private fun scheduleRetry(runtime: Runtime) {
-        scope.launch(workDispatcher) {
-            val retryJob = synchronized(lock) {
-                if (runtimes[runtime.config.id] !== runtime || runtime.connectionJob?.isActive == true) {
-                    return@launch
-                }
-                launchConnectionLoop(runtime, start = CoroutineStart.LAZY).also {
-                    runtime.connectionJob = it
-                }
-            }
-            retryJob.start()
         }
     }
 
