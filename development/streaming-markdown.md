@@ -418,8 +418,10 @@ history display without querying the live registry; protocol tool names and argu
 Failed and stopped tool-detail content inside the shared Thinking/Tool bottom-sheet path reuses the
 same neutral gray body-text terminal presentation as ordinary message content. Failed text remains
 selectable and full-width, but neither state may introduce a `Surface`, rounded background, card, or
-Thinking-specific typography. A failed MCP detail renders only that terminal failure; its raw text
-and structured result must not be rendered again beneath it. EMPTY/COMPLETED MCP details continue to
+Thinking-specific typography. A failed MCP detail keeps its terminal failure and exposes stored raw
+text/structured evidence through the shared supplemental JSON presentation defined in
+[tool-presentation.md](tool-presentation.md), without changing its lifecycle or duplicating the exact
+error text. Stopped MCP details remain stopped-only. EMPTY/COMPLETED MCP details continue to
 render their ordinary result content. Web Search follows this shared Tool terminal contract; only its
 EMPTY/COMPLETED result content uses the specialized search-result presentation. Message-level errors
 remain owned by the Assistant message and must not be copied into every Segment detail. Destructive

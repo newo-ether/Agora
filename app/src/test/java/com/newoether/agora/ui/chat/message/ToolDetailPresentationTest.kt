@@ -41,6 +41,16 @@ class ToolDetailPresentationTest {
         assertEquals(ToolDetailBody.Active(resources.toolSummary(background), "live"), body(background))
     }
 
+    @Test fun failedMcpRendersItsSavedPayloadBelowTheFailureLabel() {
+        val payload = """{"ok":true,"error":null,"data":{"locator":"dex_class:Lahw;"}}"""
+        val failed = segment("mcp_call_tool", payload, ToolExecutionStates.FAILED).copy(
+            toolStructuredResult = payload,
+        )
+        compose.setContent { MaterialTheme { ToolDetailContent(failed) { _, _ -> } } }
+        compose.onNodeWithText(resources.getString(R.string.tool_call_failed)).assertExists()
+        compose.onNodeWithText("dex_class:Lahw;", substring = true).assertExists()
+    }
+
     @Test fun shellKeepsCommandExitCodeAndCompletedOutputPriority() {
         val shell = segment("execute_shell_command", "{\"exit_code\":7,\"output\":\"done\"}").copy(
             toolTarget = "Device", toolProgress = "old",

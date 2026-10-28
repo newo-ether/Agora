@@ -5,8 +5,12 @@ This contract defines the user-visible title and summary semantics for every bui
 `ToolDetailPresentation` owns resource-backed detail content selection and result fields shared by
 Compose and the WebUI. It consumes `ToolPresentationResolver` rather than resolving another lifecycle.
 Compose retains layout, selection, prefix-aware JSON rendering, and local image loading; browser
-projection stays demand-driven within watched message payloads. Failed/stopped content does not
-replay completed MCP/search results, and shell exit codes remain command results rather than failures.
+projection stays demand-driven within watched message payloads. Failed/stopped content never becomes
+completed content, and shell exit codes remain command results rather than failures. Failed MCP
+details retain the error label and show their stored text/structured payload as supplemental JSON,
+without repeating text identical to the displayed error. This preserves diagnostic and historical
+result evidence without overriding a recorded failure or changing Room. Stopped calls keep their
+stopped-only presentation.
 
 ## Lifecycle
 
@@ -24,7 +28,7 @@ Display names use title case and contain no lifecycle state. Active summaries us
 
 Failed summaries show a concrete error reason directly whenever one is available. Remove generic `Error:` and tool-execution wrapper prefixes from the summary, capitalize the initial natural-language word, and preserve paths, identifiers and the original result/detail text. For example, `Error: command timeout` becomes `Command timeout`. Only failures without a concrete reason use a localized attempted-action fallback such as `Failed to read <path>`.
 
-Execution failure is declared by provider error metadata or a structured protocol error, never by the spelling of successful text. Active memory, saved memory files, and skill file bodies are arbitrary content, including bodies beginning with `Error` or containing JSON error fields. Stopped summaries use past tense. Background summaries state only that the job is running in the background and do not include its ID.
+Execution failure is declared by provider error metadata or a structured protocol error, never by the spelling of successful text. A JSON `error:null` is absent error evidence, not the string error code `"null"`; explicit provider errors and `failed:true` remain authoritative. Historical FAILED rows cannot be reclassified from `ok:true,error:null` alone because older persistence did not retain the provider error flag separately. Active memory, saved memory files, and skill file bodies are arbitrary content, including bodies beginning with `Error` or containing JSON error fields. Stopped summaries use past tense. Background summaries state only that the job is running in the background and do not include its ID.
 
 Reliable subjects and counts are shown. An unavailable count is not zero and must use a count-free default. Paths, commands, file names, IDs explicitly required by an action, and user input preserve their original case. Summary text describes lifecycle only. Result content and compact detail status must not replace it.
 

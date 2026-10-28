@@ -36,6 +36,20 @@ class WebUiToolDetailTest {
         }
     }
 
+    @Test fun failedMcpRetainsRawPayloadBesideItsFailureInBothLanguages() {
+        val payload = """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}"""
+        val segment = MessageSegment(type = "tool", toolName = "mcp_call_tool",
+            toolResult = payload, toolStructuredResult = payload, toolState = ToolExecutionStates.FAILED)
+        for (language in listOf("en", "zh")) {
+            val resources = resources(language)
+            val detail = resources.webToolDetail(segment)
+            assertEquals(WebToolBody.Failed(resources.getString(R.string.tool_call_failed), null), detail.body)
+            assertEquals(listOf(resources.webToolDocument(payload)), detail.supplemental)
+            assertEquals(ToolExecutionStates.FAILED, segment.toolState)
+            assertEquals(payload, segment.toolStructuredResult)
+        }
+    }
+
     @Test fun jsonPrefixesUseSharedGrammarWithoutInventedFieldsOrSyntax() {
         val prefix = webToolDocument("{\"key\":\"par")
         val root = prefix.roots.single() as WebToolNode.Object

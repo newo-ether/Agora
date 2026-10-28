@@ -88,8 +88,17 @@ internal fun Resources.toolDetailPresentation(segment: MessageSegment): ToolDeta
         resultLabel = getString(R.string.result_label),
         mcpDevice = presentation.device?.takeIf(String::isNotBlank),
         body = body,
+        supplemental = if (presentation.kind == ToolKind.MCP && presentation.state == ToolPresentationState.FAILED) {
+            mcpResultValues(presentation).filterNot { it == presentation.errorMessage }
+        } else emptyList(),
     )
 }
+
+/** Failed MCP calls retain their raw evidence without changing the recorded lifecycle. */
+private fun mcpResultValues(presentation: ToolPresentation): List<String> = listOfNotNull(
+    presentation.rawTextResult?.takeIf(String::isNotBlank),
+    presentation.rawStructuredResult?.takeIf(String::isNotBlank),
+).ifEmpty { listOfNotNull(presentation.rawResult?.takeIf(String::isNotBlank)) }
 
 /**
  * Shell commands and written file, memory or skill content read better as code than as an escaped
@@ -262,10 +271,7 @@ private fun Resources.completedToolDetailBody(presentation: ToolPresentation): T
             else ToolDetailBody.Search(results)
         }
         ToolKind.MCP -> {
-            val values = listOfNotNull(
-                presentation.rawTextResult?.takeIf(String::isNotBlank),
-                presentation.rawStructuredResult?.takeIf(String::isNotBlank),
-            )
+            val values = mcpResultValues(presentation)
             if (values.isEmpty()) rawToolDetailBody(presentation) else ToolDetailBody.JsonContent(values)
         }
         else -> rawToolDetailBody(presentation)
