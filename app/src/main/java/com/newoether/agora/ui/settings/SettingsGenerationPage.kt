@@ -151,13 +151,6 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     ),
                 )
 
-                SettingsImageQualityGroup(
-                    quality = imageQuality,
-                    onModeChange = { viewModel.settings.updateImageQuality(mode = it) },
-                    onMaxLongEdgeChange = { viewModel.settings.updateImageQuality(customMaxLongEdge = it) },
-                    onJpegQualityChange = { viewModel.settings.updateImageQuality(customJpegQuality = it) },
-                )
-
                 // ── Section 4: Generation Parameters ──
                 SettingsGroup(
                     title = stringResource(R.string.generation_params),
@@ -220,6 +213,13 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             )
                         }
                     )
+                )
+
+                SettingsImageQualityGroup(
+                    quality = imageQuality,
+                    onModeChange = { viewModel.settings.updateImageQuality(mode = it) },
+                    onMaxLongEdgeChange = { viewModel.settings.updateImageQuality(customMaxLongEdge = it) },
+                    onJpegQualityChange = { viewModel.settings.updateImageQuality(customJpegQuality = it) },
                 )
             }
 

@@ -75,8 +75,8 @@ layout, states, density, or interaction design has been approved.
   cache parameters. Provider settings must reach every applicable request caller.
 
 ## Generation image quality
-- Generation includes an immediate-save Image Quality group after the service-tier group and before
-  generation parameters. Its whole-row Quality Mode SettingsItem has a leading image icon, title,
+- Generation places its immediate-save Image Quality group last, after generation parameters.
+  Its whole-row Quality Mode SettingsItem has a leading image icon, title,
   effective longest-edge/JPEG description and a trailing selected value. It opens the shared
   Appearance-style dropdown with a selected-item checkmark and the existing menu surface treatment.
 - Modes are Light, Balanced, High and Custom. `image-processing.md` owns their numeric policy.
