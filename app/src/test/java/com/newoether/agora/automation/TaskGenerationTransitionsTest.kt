@@ -47,6 +47,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -109,7 +110,7 @@ class TaskGenerationTransitionsTest {
             fixture.state.finishRunHandoff(assistant.identity.ownerToken, queuedDrainOnly = true)
             assertEquals(0, fixture.finishes.count { it.token == assistant.identity.ownerToken })
             fixture.runTask()
-            withTimeout(5_000L) { task.join() }
+            fixture.awaitTask(task)
             assertTrue(task.isCancelled)
             assertTrue(assistant.job.isCancelled)
             assertTrue(assistant.job.isCompleted)
@@ -151,7 +152,7 @@ class TaskGenerationTransitionsTest {
 
             task.cancel(CancellationException("Task cancelled while awaiting durable settlement"))
             fixture.runTask()
-            withTimeout(5_000L) { task.join() }
+            fixture.awaitTask(task)
             assertTrue(task.isCancelled)
             val cleanup = withTimeout(5_000L) { fixture.assistantCleanup.await() }
             assertTrue(cleanup.jobCompleted)
@@ -199,7 +200,7 @@ class TaskGenerationTransitionsTest {
             withTimeout(5_000L) { fixture.drainProcessed.await() }
             assertFalse(fixture.assistantCleanup.isCompleted)
             fixture.runTask()
-            withTimeout(5_000L) { task.join() }
+            fixture.awaitTask(task)
             val token = requireNotNull(successorToken.get())
             assertTrue(assistant.job.isCompleted)
             assertTrue(assistant.job.isCancelled)
@@ -385,6 +386,15 @@ class TaskGenerationTransitionsTest {
 
         fun runTask() = taskScheduler.runCurrent()
 
+        suspend fun awaitTask(task: Job) = withTimeout(5_000L) {
+            // IO completion can enqueue Task cleanup after the previous runCurrent returns.
+            while (!task.isCompleted) {
+                runTask()
+                yield()
+            }
+            task.join()
+        }
+
         fun assertRetentionCleared(token: Long) {
             val count = finishes.size
             state.finishRunHandoff(token, queuedDrainOnly = true)
@@ -413,7 +423,7 @@ class TaskGenerationTransitionsTest {
                     runTask()
                     withTimeout(5_000L) { observedAssistant.get()?.job?.join() }
                     runTask()
-                    withTimeout(5_000L) { task?.join() }
+                    task?.let { awaitTask(it) }
                 } finally {
                     state.dispose()
                 }
