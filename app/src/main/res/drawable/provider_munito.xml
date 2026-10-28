@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <!-- Port of the munito.ai marks cube (16x16 pixel grid, shape-rendering: crispedges).
+         Single tint means faces are separated by alpha, darkest-to-lightest in brand order:
+         side #4a1fa8, eye #211629, front #702cf6, top #9a68fa, glint #ffffff (punched out). -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.35"
+        android:pathData="M4,0h12v1h-12zM3,1h12v1h-12zM2,2h12v1h-12zM1,3h12v1h-12z" />
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.95"
+        android:pathData="M15,1h1v1h-1zM14,2h2v1h-2zM13,3h3v1h-3zM12,4h4v1h-4zM12,5h4v1h-4zM12,6h4v1h-4zM12,7h4v1h-4zM12,8h4v1h-4zM12,9h4v1h-4zM12,10h4v1h-4zM12,11h4v1h-4zM12,12h3v1h-3zM12,13h2v1h-2zM12,14h1v1h-1z" />
+    <!-- evenOdd punches the eye sockets out of the front face so the eyes and glint sit in them. -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.65"
+        android:fillType="evenOdd"
+        android:pathData="M0,4h12v12h-12zM3,8h2v3h-2zM7,8h2v3h-2z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M4,8h1v1h-1zM8,8h1v1h-1zM3,9h2v1h-2zM7,9h2v1h-2zM3,10h2v1h-2zM7,10h2v1h-2z" />
+</vector>
