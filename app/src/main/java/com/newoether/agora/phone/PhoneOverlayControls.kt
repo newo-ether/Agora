@@ -213,7 +213,7 @@ internal fun PhoneControlStrip(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() }, indication = null,
                     enabled = enabled, role = Role.Button, onClick = onStop,
-                ), contentAlignment = Alignment.Center) {
+                ).phoneCapsuleCenter(roundedStart = false), contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Stop, stringResource(R.string.phone_stop), Modifier.size(24.dp))
             }
         }

@@ -21,7 +21,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
@@ -43,6 +45,7 @@ import org.robolectric.annotation.GraphicsMode
 class PhoneControlStripTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private var movement = Offset.Zero
+    private var direction by mutableStateOf(LayoutDirection.Ltr)
     private var stops = 0
     private var background by mutableStateOf(Color.Magenta)
     private var dark by mutableStateOf(false)
@@ -54,7 +57,10 @@ class PhoneControlStripTest {
     private fun start(reduced: Boolean = false) {
         compose.setContent {
             MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
-                CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduced)) {
+                CompositionLocalProvider(
+                    LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduced),
+                    LocalLayoutDirection provides direction,
+                ) {
                     baseColor = MaterialTheme.colorScheme.primaryContainer
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     Box(Modifier.size(360.dp, 240.dp).background(background)) {
@@ -109,6 +115,65 @@ class PhoneControlStripTest {
         val current = durationBounds()
         assertEquals(rest.width * scale, current.width, 0.3f)
         assertEquals(rest.height * scale, current.height, 0.3f)
+    }
+
+    @Test fun endpointContentTracksThePaintedCentroidInBothLayoutDirections() {
+        start(reduced = true)
+        for (layoutDirection in listOf(LayoutDirection.Ltr, LayoutDirection.Rtl)) {
+            compose.runOnIdle { direction = layoutDirection }
+            frames(48)
+            val duration = compose.onNodeWithText("0:00").fetchSemanticsNode().boundsInRoot
+            val stop = stopButton().fetchSemanticsNode().boundsInRoot
+            val icon = compose.onNodeWithContentDescription("Stop", useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            val view = compose.activity.window.decorView
+            val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+            try {
+                compose.runOnUiThread { view.draw(Canvas(bitmap)) }
+                val y = stop.center.y.toInt()
+                val end = if (layoutDirection == LayoutDirection.Ltr) stop.right.toInt() else view.width
+                val begin = if (layoutDirection == LayoutDirection.Ltr) 0 else stop.left.toInt()
+                val durationPixels = (begin until end).filter { x ->
+                    val onDurationSide = if (layoutDirection == LayoutDirection.Ltr) x < duration.center.x
+                        else x > duration.center.x
+                    onDurationSide && bitmap.getPixel(x, y) == baseColor.toArgb()
+                }
+                val outer = if (layoutDirection == LayoutDirection.Ltr) durationPixels.first().toFloat()
+                    else durationPixels.last() + 1f
+                // The settled duration is 48 dp tall and its width is its reserved text canvas + padding.
+                val right = if (layoutDirection == LayoutDirection.Ltr) {
+                    val x = duration.center.x.toInt()
+                    (x until stop.left.toInt()).first { bitmap.getPixel(it, y) == background.toArgb() }.toFloat()
+                } else outer
+                val left = if (layoutDirection == LayoutDirection.Ltr) outer else {
+                    val x = duration.center.x.toInt()
+                    (x downTo stop.right.toInt()).first { bitmap.getPixel(it, y) == background.toArgb() } + 1f
+                }
+                fun centroid(start: Float, finish: Float, roundedLeft: Boolean): Float {
+                    var total = 0.0
+                    var moment = 0.0
+                    val width = finish - start
+                    // Numerically integrate the actual 24/5 dp rounded shape, independently of production math.
+                    for (step in 0 until (width * 100).toInt()) {
+                        val x = (step + 0.5) / 100.0
+                        val l = if (roundedLeft) 24.0 else 5.0
+                        val r = if (roundedLeft) 5.0 else 24.0
+                        val h = when {
+                            x < l -> 48.0 - 2 * (l - kotlin.math.sqrt(l * l - (x - l) * (x - l)))
+                            x > width - r -> 48.0 - 2 * (r - kotlin.math.sqrt(r * r - (x - width + r) * (x - width + r)))
+                            else -> 48.0
+                        }
+                        total += h
+                        moment += h * x
+                    }
+                    return start + (moment / total).toFloat()
+                }
+                assertEquals(centroid(left, right, layoutDirection == LayoutDirection.Ltr), duration.center.x, 1f)
+                assertEquals(centroid(stop.left, stop.right, layoutDirection == LayoutDirection.Rtl), icon.center.x, 1f)
+                assertEquals(stop.center.y, icon.center.y, 0.5f)
+                assertTrue(stop.width >= 48f && stop.height >= 48f)
+            } finally { bitmap.recycle() }
+        }
     }
 
     @Test fun stopIsOneAccessibleIconButtonWithAtLeast48DpTarget() {

@@ -221,6 +221,11 @@ removed after the exit, or synchronously before a replacement epoch attaches. Ap
 keeps the fade and fixes scale at one; disabled system animations snap.
 Stop reuses the existing filled Stop icon at 24 dp,
 with the localized `phone_stop` content description and a click target of at least 48 x 48 dp.
+Duration text and the Stop glyph are centered on their respective rounded painted areas' geometric
+centroids, accounting for the 24 dp outer and 5 dp inner corners. The correction mirrors in RTL;
+Stop's rectangular hit bounds and the shared press/drag owners remain fixed. Duration keeps a
+minimum 48 dp width so the outer corners fit and centers each actual digit string in its stable
+format-width canvas; status retains its established padding.
 Duration/status and Stop share one strip-level press feedback: scale to 1.05 over 120 ms and
 blend the opaque theme primaryContainer toward onPrimaryContainer by six percent. Keep that
 feedback through dragging; release and pointer cancellation restore the resting scale/color.
@@ -234,7 +239,12 @@ Shizuku/Root overlay windows share the platform obscuring-opacity budget, normal
 For a platform maximum M, the unchanged effect window and the operating control window each use
 1 - sqrt(1 - M), with a small rounding margin; at M = 0.8 that is approximately 0.5527 per window,
 not 0.8 per window. Capsule paint is opaque before platform composition. Border drawing and its
-existing window opacity stay unchanged.
+existing window opacity stay unchanged. Root/Shizuku injection through `input` does not make the
+app-owned windows trusted: Android 15 InputDispatcher.canWindowReceiveMotionLocked checks target
+occlusion after injection permission checks. Setting a trusted overlay requires a window session
+with INTERNAL_SYSTEM_WINDOW permission; an ordinary app's session does not inherit its helper's
+identity. Do not remove the safe alpha solely because input runs as root or shell, or change global
+untrusted-touch policy. This constraint is separate from the requested capsule geometry.
 Dragging the duration/status area begins after platform touch slop and keeps the strip inside the
 available visible frame; Stop has its own click region.
 Status text: `Thinking` while the owning Run streams model output, the name of every tool while
