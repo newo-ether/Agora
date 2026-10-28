@@ -1,5 +1,10 @@
 package com.newoether.agora.phone
 
+import android.app.Application
+import androidx.test.core.app.ApplicationProvider
+import com.newoether.agora.R
+import com.newoether.agora.util.appLanguageResources
+import com.newoether.agora.ui.chat.message.toolDisplayName
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
@@ -10,9 +15,16 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = Application::class)
 class PhoneActionStatusTest {
+    private val app: Application get() = ApplicationProvider.getApplicationContext()
+    private val resources get() = app.appLanguageResources("en")
     private fun activity(name: String, id: String = name, running: Boolean = true) =
         PhoneActionStatus.Activity("run", id, name, name, running)
 
@@ -163,8 +175,8 @@ class PhoneActionStatusTest {
             segments = listOf(phone, MessageSegment("tool", toolName = "web_search", toolCallId = "other",
                 toolState = ToolExecutionStates.RUNNING), phone.copy(toolCallId = "queued",
                 toolState = ToolExecutionStates.CALLING)))
-        assertEquals("other", PhoneActionStatus.activity(message, "run")?.callId)
-        val selected = checkNotNull(PhoneActionStatus.activity(message, "run", "phone_tap"))
+        assertEquals("other", PhoneActionStatus.activity(message, "run", resources)?.callId)
+        val selected = checkNotNull(PhoneActionStatus.activity(message, "run", resources, "phone_tap"))
         assertEquals("phone", selected.callId)
         assertTrue(PhoneActionStatus.isRunning(message, selected))
         assertFalse(PhoneActionStatus.isRunning(message.copy(runId = "successor"), selected))
@@ -176,6 +188,58 @@ class PhoneActionStatusTest {
         )), selected))
     }
 
+    @Test fun capsuleUsesCardNamesInEveryAppLocaleAndRetainsTypingStatus() {
+        val names = listOf("shell_exec", "web_search", "memory_read", "openai_search",
+            "google_search", "code_execution", "mcp_server_read_document_a1b2c3", "unknown_action") + PHONE_TOOL_NAMES
+        for (locale in listOf("en", "ar", "de", "es", "fr", "ja", "ko", "pt-BR", "ru", "vi", "zh", "zh-TW")) {
+            val localized = app.appLanguageResources(locale)
+            for (name in names) {
+                val segment = MessageSegment("tool", toolName = name, toolCallId = "call",
+                    toolState = ToolExecutionStates.RUNNING)
+                val message = ChatMessage(id = "message", text = "", participant = Participant.MODEL,
+                    runId = "run", segments = listOf(segment))
+                val selected = checkNotNull(PhoneActionStatus.activity(message, "run", localized))
+                val expected = if (name == "phone_type") localized.getString(R.string.phone_typing)
+                    else localized.toolDisplayName(segment)
+                assertEquals("$locale $name", expected, selected.label)
+                assertEquals(name, selected.toolName)
+                assertTrue(PhoneActionStatus.isRunning(message, selected))
+            }
+        }
+        val shell = MessageSegment("tool", toolName = "shell_exec", toolCallId = "shell",
+            toolState = ToolExecutionStates.RUNNING, toolDisplayName = "shell_exec")
+        val message = ChatMessage(id = "message", text = "", participant = Participant.MODEL,
+            runId = "run", segments = listOf(shell))
+        assertEquals("Shell", PhoneActionStatus.activity(message, "run", app.appLanguageResources("en"))?.label)
+        assertEquals("终端", PhoneActionStatus.activity(message, "run", app.appLanguageResources("zh"))?.label)
+    }
+
+    @Test fun resolvedMcpNameChangesOnlyPresentationForTheSameCall() = runTest {
+        val segment = MessageSegment("tool", toolName = "mcp_call_tool", toolCallId = "call",
+            toolState = ToolExecutionStates.CALLING)
+        val message = ChatMessage(id = "message", text = "", participant = Participant.MODEL,
+            runId = "run", segments = listOf(segment))
+        val status = PhoneActionStatus(backgroundScope) { testScheduler.currentTime }
+        val initial = checkNotNull(PhoneActionStatus.activity(message, "run", resources))
+        status.present(initial)
+        assertEquals("MCP", status.name.value)
+        val resolved = checkNotNull(PhoneActionStatus.activity(message.copy(segments = listOf(
+            segment.copy(toolDisplayName = "read_document", toolState = ToolExecutionStates.RUNNING),
+        )), "run", resources))
+        assertTrue(initial.sameCall(resolved))
+        status.present(resolved)
+        assertEquals("Read Document", status.name.value)
+        advanceTimeBy(50)
+        val next = async { status.awaitVisible(activity("phone_tap")) }
+        runCurrent()
+        advanceTimeBy(149)
+        runCurrent()
+        assertFalse(next.isCompleted)
+        advanceTimeBy(1)
+        runCurrent()
+        next.await()
+    }
+
     @Test fun realSegmentsCoverGenericMcpAndHostedToolsWithExactRunIsolation() {
         fun tool(name: String, id: String, state: String = ToolExecutionStates.RUNNING, title: String? = null) =
             MessageSegment("tool", toolName = name, toolCallId = id, toolState = state, toolDisplayName = title)
@@ -183,18 +247,20 @@ class PhoneActionStatusTest {
             id = "message", text = "", participant = Participant.MODEL, runId = "run", segments = segments.toList(),
         )
         for (name in listOf("shell_exec", "web_search", "memory_read", "phone_tap", "openai_search", "google_search", "code_execution")) {
-            assertEquals(name, PhoneActionStatus.activity(message(tool(name, "call")), "run")?.label)
+            val segment = tool(name, "call")
+            assertEquals(resources.toolDisplayName(segment),
+                PhoneActionStatus.activity(message(segment), "run", resources)?.label)
         }
         val mcp = message(tool("mcp_call_tool", "mcp", title = "Read document"))
-        assertEquals("Read document", PhoneActionStatus.activity(mcp, "run")?.label)
-        assertNull(PhoneActionStatus.activity(mcp, "other-run"))
+        assertEquals("Read Document", PhoneActionStatus.activity(mcp, "run", resources)?.label)
+        assertNull(PhoneActionStatus.activity(mcp, "other-run", resources))
         val concurrent = message(tool("shell_exec", "first"), tool("web_search", "second"))
-        assertEquals("second", PhoneActionStatus.activity(concurrent, "run")?.callId)
+        assertEquals("second", PhoneActionStatus.activity(concurrent, "run", resources)?.callId)
         val queued = message(tool("phone_tap", "active"), tool("web_search", "queued", ToolExecutionStates.CALLING))
-        assertEquals("active", PhoneActionStatus.activity(queued, "run")?.callId)
+        assertEquals("active", PhoneActionStatus.activity(queued, "run", resources)?.callId)
         val remaining = message(tool("shell_exec", "first"), tool("web_search", "second", ToolExecutionStates.SUCCEEDED))
-        assertEquals("first", PhoneActionStatus.activity(remaining, "run")?.callId)
-        assertEquals(false, PhoneActionStatus.activity(message(tool("shell_exec", "bg", ToolExecutionStates.BACKGROUND_RUNNING)), "run")?.running)
-        assertNull(PhoneActionStatus.activity(message(MessageSegment("answer", "answer")), "run"))
+        assertEquals("first", PhoneActionStatus.activity(remaining, "run", resources)?.callId)
+        assertEquals(false, PhoneActionStatus.activity(message(tool("shell_exec", "bg", ToolExecutionStates.BACKGROUND_RUNNING)), "run", resources)?.running)
+        assertNull(PhoneActionStatus.activity(message(MessageSegment("answer", "answer")), "run", resources))
     }
 }

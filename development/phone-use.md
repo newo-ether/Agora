@@ -239,8 +239,12 @@ Dragging the duration/status area begins after platform touch slop and keeps the
 available visible frame; Stop has its own click region.
 Status text: `Thinking` while the owning Run streams model output, the name of every tool while
 it is active, and `Waiting for you` during ask_user. Phone tools keep their localized action labels
-(`Tap`, `Swipe`, `Typing`, ...); other built-in, MCP and provider-hosted tools use the existing
-segment display name or protocol name. The capsule reads the exact owner's ordinary streaming
+(`Tap`, `Swipe`, `Typing`, ...); other built-in, MCP and provider-hosted tools use the same
+app-locale `Resources.toolDisplayName(segment)` resolver as message cards. Protocol names are
+execution identity only, never a separate capsule label fallback. Resolved MCP metadata and legacy
+public-name fallback follow that shared renderer. A language change refreshes the active label
+without replacing its call identity or restarting its display deadline. The capsule reads the exact
+owner's ordinary streaming
 segments. Executing tools take priority over calls whose arguments are still streaming.
 One pending target coalesces rapid changes without a display-event queue. A shown call holds its
 status for at least 200 ms, including successive calls with identical names. Phone device effects

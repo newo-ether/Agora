@@ -13,9 +13,14 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.MessageSegment
+import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunEffectIdentity
+import com.newoether.agora.model.ToolExecutionStates
 import com.newoether.agora.ui.chat.interaction.QuestionBody
 import com.newoether.agora.ui.chat.interaction.QuestionDraft
+import com.newoether.agora.ui.chat.message.toolDisplayName
 import com.newoether.agora.ui.theme.AgoraTheme
 import com.newoether.agora.viewmodel.AskUserController
 import io.mockk.every
@@ -93,7 +98,7 @@ class PhoneOverlayControlsTest {
         assertTrue(pressedStop.right <= 348f && pressedStop.bottom <= 494f)
         compose.onNodeWithText("0:00").performTouchInput { cancel() }
         compose.waitForIdle()
-        compose.runOnIdle { frameWidth = 300.dp; frameHeight = 260.dp; action.value = "phone_swipe" }
+        compose.runOnIdle { frameWidth = 300.dp; frameHeight = 260.dp; action.value = "Swipe" }
         compose.waitForIdle()
         val resized = bounds.getValue("strip")
         assertTrue(resized.left >= 12f && resized.top >= 6f)
@@ -235,15 +240,21 @@ class PhoneOverlayControlsTest {
     }
 
     @Test fun everyToolActionUsesItsOwnLabelAndOnlyIdleShowsThinking() {
+        val resources = RuntimeEnvironment.getApplication().resources
+        fun resolved(name: String, title: String? = null) = checkNotNull(PhoneActionStatus.activity(
+            ChatMessage(id = "message", text = "", participant = Participant.MODEL, runId = "run",
+                segments = listOf(MessageSegment("tool", toolName = name, toolCallId = "call",
+                    toolState = ToolExecutionStates.RUNNING, toolDisplayName = title))),
+            "run", resources,
+        )).label
         start()
         compose.onNodeWithText(text(R.string.phone_thinking)).assertExists()
-        listOf("shell_exec", "web_search", "Custom tool display").forEach { name ->
+        listOf(resolved("shell_exec"), resolved("web_search"), "Custom tool display").forEach { name ->
             compose.runOnIdle { action.value = name }
             compose.onNodeWithText(name).assertExists()
             compose.onNodeWithText(text(R.string.phone_thinking)).assertDoesNotExist()
-            assertNull(phoneActionLabel(name))
         }
-        compose.runOnIdle { action.value = "phone_type" }
+        compose.runOnIdle { action.value = resolved("phone_type") }
         compose.onNodeWithText(text(R.string.phone_typing)).assertExists()
         compose.onNodeWithText("phone_type").assertDoesNotExist()
         compose.runOnIdle { action.value = null }

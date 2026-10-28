@@ -44,7 +44,7 @@ import org.robolectric.annotation.GraphicsMode
 class PhoneOverlayMotionTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val lease = PhoneControlLease { 0L }
-    private val action = MutableStateFlow<String?>("phone_swipe")
+    private val action = MutableStateFlow<String?>("Swipe")
     private val questions = AskUserController()
     private val runtime = mockk<PhoneUseRuntime>(relaxed = true) {
         every { lease } returns this@PhoneOverlayMotionTest.lease
@@ -224,7 +224,7 @@ class PhoneOverlayMotionTest {
         assertTrue("text range $samples", samples.all { it in 49..206 })
         assertTrue(samples.min() <= 56)
         assertTrue(samples.max() >= 198)
-        compose.runOnIdle { action.value = "phone_tap" }
+        compose.runOnIdle { action.value = "Tap" }
         frames(480)
         val tap = compose.onNodeWithText("Tap").fetchSemanticsNode().boundsInRoot
         assertEquals(0, redMinimum(tap))
@@ -256,7 +256,7 @@ class PhoneOverlayMotionTest {
         compose.runOnIdle {
             questions.submitAll(questions.requests.value.map { it.id to AskUserController.Answer.Unanswered })
             lease.claim(RunEffectIdentity("b", 2, "next", 0, "batch"), "B")
-            action.value = "phone_tap"
+            action.value = "Tap"
             Snapshot.sendApplyNotifications()
         }
         frames(64)

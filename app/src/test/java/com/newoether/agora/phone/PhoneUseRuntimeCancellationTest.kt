@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
+import com.newoether.agora.util.appLanguageResources
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
@@ -74,6 +75,7 @@ class PhoneUseRuntimeCancellationTest {
     private fun TestScope.runtime(): PhoneUseRuntime {
         val settings = mockk<SettingsRepository>()
         every { settings.phoneUse } returns MutableStateFlow(PhoneUseSettings(enabled = true))
+        every { settings.appLanguage } returns MutableStateFlow("en")
         val lease = PhoneControlLease { SystemClock.elapsedRealtime() }
         val claim = lease.claim(identity, "Title") as PhoneControlLease.Decision.Granted
         // Keep the real collector running with a held, paused lease so it cannot restore for us.
@@ -120,11 +122,15 @@ class PhoneUseRuntimeCancellationTest {
             toolState = ToolExecutionStates.RUNNING)),
     )
 
-    private fun TestScope.statusRuntime(messages: StateFlow<ChatMessage?>): PhoneUseRuntime {
+    private fun TestScope.statusRuntime(
+        messages: StateFlow<ChatMessage?>,
+        language: MutableStateFlow<String> = MutableStateFlow("en"),
+    ): PhoneUseRuntime {
         mockkStatic(SystemClock::class)
         every { SystemClock.elapsedRealtime() } answers { testScheduler.currentTime }
         val settings = mockk<SettingsRepository>()
         every { settings.phoneUse } returns MutableStateFlow(PhoneUseSettings(enabled = true))
+        every { settings.appLanguage } returns language
         val state = mockk<ConversationGenerationState>()
         every { state.streamingMessage } returns messages
         every { state.generating } returns MutableStateFlow(true)
@@ -151,6 +157,26 @@ class PhoneUseRuntimeCancellationTest {
         })
     }
 
+    @Test fun collectorAndSynchronousStatusUseTheLiveAppLanguage() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler, "runtime-main"))
+        val language = MutableStateFlow("en")
+        val messages = MutableStateFlow<ChatMessage?>(message("shell_exec"))
+        val runtime = statusRuntime(messages, language)
+        runCurrent()
+        assertEquals("Shell", runtime.actionName.value)
+        language.value = "zh"
+        runCurrent()
+        assertEquals("终端", runtime.actionName.value)
+        messages.value = message("phone_type")
+        val waiting = async { status(runtime)("phone_type") }
+        runCurrent()
+        advanceTimeBy(200)
+        runCurrent()
+        waiting.await()
+        val expected = context.appLanguageResources("zh").getString(com.newoether.agora.R.string.phone_typing)
+        assertEquals(expected, runtime.actionName.value)
+    }
+
     @Test fun synchronousSuccessorStatusSurvivesLateCollectorAndOldOverlayCleanup() = runTest {
         val main = StandardTestDispatcher(testScheduler, "runtime-main")
         Dispatchers.setMain(main)
@@ -170,7 +196,7 @@ class PhoneUseRuntimeCancellationTest {
         val first = async(start = CoroutineStart.UNDISPATCHED) {
             runCatching { status("phone_tap") }.exceptionOrNull()
         }
-        assertEquals("phone_tap", runtime.actionName.value)
+        assertEquals("Tap", runtime.actionName.value)
         messages.value = message("phone_swipe", runId = successor.runId)
         val waiting = async(start = CoroutineStart.UNDISPATCHED) {
             runCatching { status("phone_swipe") }.exceptionOrNull()
@@ -187,12 +213,12 @@ class PhoneUseRuntimeCancellationTest {
         assertFalse(waiting.isCompleted)
         advanceTimeBy(199)
         runCurrent()
-        assertEquals("phone_tap", runtime.actionName.value)
+        assertEquals("Tap", runtime.actionName.value)
         assertFalse(waiting.isCompleted)
         advanceTimeBy(1)
         runCurrent()
         assertNull(waiting.await())
-        assertEquals("phone_swipe", runtime.actionName.value)
+        assertEquals("Swipe", runtime.actionName.value)
     }
 
     @Test fun delayedCollectorNotificationCannotReplaceTheLivePhoneTarget() = runTest {
@@ -225,11 +251,11 @@ class PhoneUseRuntimeCancellationTest {
         assertFalse(waiting.isCompleted)
         advanceTimeBy(149)
         runCurrent()
-        assertEquals("shell_exec", runtime.actionName.value)
+        assertEquals("Shell", runtime.actionName.value)
         advanceTimeBy(1)
         runCurrent()
         assertNull(waiting.await())
-        assertEquals("phone_tap", runtime.actionName.value)
+        assertEquals("Tap", runtime.actionName.value)
         emitLive.complete(Unit)
         runCurrent()
     }

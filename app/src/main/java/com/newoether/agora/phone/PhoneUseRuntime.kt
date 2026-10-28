@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.tool.ToolImageStore
+import com.newoether.agora.util.appLanguageResources
 import com.newoether.agora.util.withAppLocale
 import com.newoether.agora.viewmodel.AskUserController
 import com.newoether.agora.viewmodel.ConversationStateRegistry
@@ -113,7 +114,10 @@ internal class PhoneUseRuntime(
             if (name != null) withContext(Dispatchers.Main.immediate) {
                 val (epoch, owner) = syncActionStatus() ?: throw PhoneFailure("not_claimed")
                 val state = registry.get(owner.conversationId) ?: throw PhoneFailure("stale_identity")
-                val activity = PhoneActionStatus.activity(state.streamingMessage.value, owner.runId, name)
+                val activity = PhoneActionStatus.activity(
+                    state.streamingMessage.value, owner.runId,
+                    context.appLanguageResources(settings.appLanguage.value), name,
+                )
                     ?.takeIf { it.running }
                     ?: throw PhoneFailure("stale_identity")
                 actionStatus.awaitVisible(activity) {
@@ -143,10 +147,13 @@ internal class PhoneUseRuntime(
                     val (_, owner) = ownership ?: return@collectLatest
                     val state = registry.get(owner.conversationId) ?: return@collectLatest
                     // Notifications may contain old values; only live snapshots own the display.
-                    combine(state.streamingMessage, state.generating) { _, _ -> Unit }.collect {
+                    combine(state.streamingMessage, state.generating, settings.appLanguage) { _, _, _ -> Unit }.collect {
                         if (syncActionStatus() == ownership) {
                             actionStatus.present(if (state.generating.value) {
-                                PhoneActionStatus.activity(state.streamingMessage.value, owner.runId)
+                                PhoneActionStatus.activity(
+                                    state.streamingMessage.value, owner.runId,
+                                    context.appLanguageResources(settings.appLanguage.value),
+                                )
                             } else null)
                         }
                     }

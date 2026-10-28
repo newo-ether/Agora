@@ -1,8 +1,11 @@
 package com.newoether.agora.phone
 
+import android.content.res.Resources
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.ToolExecutionStates
+import com.newoether.agora.R
+import com.newoether.agora.ui.chat.message.toolDisplayName
 import com.newoether.agora.tool.BuiltInToolNames
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -108,7 +111,12 @@ internal class PhoneActionStatus(
 
     companion object {
         /** All client, MCP and provider-hosted tools share the ordinary streaming segment owner. */
-        fun activity(message: ChatMessage?, runId: String, toolName: String? = null): Activity? {
+        fun activity(
+            message: ChatMessage?,
+            runId: String,
+            resources: Resources,
+            toolName: String? = null,
+        ): Activity? {
             if (message?.runId != runId) return null
             val tools = message.segments.orEmpty().withIndex().filter {
                 it.value.type == "tool" && !it.value.toolName.isNullOrBlank() &&
@@ -123,7 +131,8 @@ internal class PhoneActionStatus(
                 runId = runId,
                 callId = segment.toolCallId ?: "${message.id}:${selected.index}",
                 toolName = name,
-                label = segment.toolDisplayName?.takeIf(String::isNotBlank) ?: name,
+                label = if (name == "phone_type") resources.getString(R.string.phone_typing)
+                    else resources.toolDisplayName(segment),
                 running = segment.isRunning(),
             )
         }

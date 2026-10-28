@@ -100,8 +100,7 @@ internal fun PhoneControls(
     if (questions.isNotEmpty()) SideEffect { exitingQuestions = questions }
     val contentQuestions = questions.ifEmpty { exitingQuestions }
     val label = if (questions.isNotEmpty()) stringResource(R.string.phone_waiting)
-        else if (displayedAction == "phone_type") stringResource(R.string.phone_typing)
-        else phoneActionLabel(displayedAction)?.let { stringResource(it) } ?: displayedAction.orEmpty()
+        else displayedAction ?: stringResource(R.string.phone_thinking)
     val reduce = motion.reduceMotion
     BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
         var position by remember(owner.epoch) { mutableStateOf(Offset.Zero) }
