@@ -29,11 +29,8 @@ import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import kotlin.math.roundToInt
 
-/** Denser at common small-image sizes; the processing policy still accepts legacy integer values. */
-private val imageLongEdgePresets = intArrayOf(
-    128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048,
-    2560, 3072, 3584, 4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680, 8192,
-)
+/** The four selected UI stops; the processing policy still accepts legacy integer values. */
+private val imageLongEdgePresets = intArrayOf(1024, 2048, 4096, 8192)
 
 /** Immediate-save controls for the shared processing boundary, independent of image generation. */
 @Composable

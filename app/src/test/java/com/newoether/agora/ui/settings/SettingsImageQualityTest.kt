@@ -57,8 +57,8 @@ class SettingsImageQualityTest {
         listOf("Light", "High", "Custom").forEach { compose.onNodeWithText(it).assertExists() }
         compose.onNodeWithText("Custom").performClick()
         compose.onNodeWithTag("image-quality-long-edge").performScrollTo().assertIsEnabled()
-            .assert(range(11f, 0f..23f, 22))
-            .performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(13f)) }
+            .assert(range(1f, 0f..3f, 2))
+            .performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(2f)) }
         compose.onNodeWithTag("image-quality-jpeg").performScrollTo()
             .performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(92f)) }
         compose.onNodeWithTag("image-quality-mode").performScrollTo().performClick()
@@ -66,12 +66,12 @@ class SettingsImageQualityTest {
         compose.onNodeWithTag("image-quality-long-edge").assertDoesNotExist()
         compose.onNodeWithTag("image-quality-mode").performClick()
         compose.onNodeWithText("Custom").performClick()
-        compose.onNodeWithTag("image-quality-long-edge").performScrollTo().assert(range(13f, 0f..23f, 22))
+        compose.onNodeWithTag("image-quality-long-edge").performScrollTo().assert(range(2f, 0f..3f, 2))
         compose.onNodeWithTag("image-quality-jpeg").assert(range(92f, 1f..100f))
         compose.onNodeWithText("Save").assertDoesNotExist()
         compose.runOnIdle {
             assertEquals(listOf("custom", "high", "custom"), modes)
-            assertEquals(listOf(3072), edges)
+            assertEquals(listOf(4096), edges)
             assertEquals(listOf(92), jpegs)
         }
     }
@@ -89,21 +89,21 @@ class SettingsImageQualityTest {
             assertTrue(edges.isEmpty())
             quality = quality.copy(customMaxLongEdge = 3000)
         }
-        slider.assert(range(23f, 0f..23f, 22))
+        slider.assert(range(3f, 0f..3f, 2))
         slider.performTouchInput { up() }
         compose.runOnIdle { assertEquals(listOf(8192), edges) }
         compose.runOnIdle { quality = quality.copy(customMaxLongEdge = 4000) }
-        slider.assert(range(23f, 0f..23f, 22))
+        slider.assert(range(3f, 0f..3f, 2))
         compose.runOnIdle { quality = quality.copy(customMaxLongEdge = 8192) }
-        slider.assert(range(23f, 0f..23f, 22))
+        slider.assert(range(3f, 0f..3f, 2))
         compose.runOnIdle { quality = quality.copy(customMaxLongEdge = 128) }
-        slider.assert(range(0f, 0f..23f, 22))
+        slider.assert(range(0f, 0f..3f, 2))
         compose.runOnIdle { assertEquals(listOf(8192), edges) }
     }
 
     @Test
     fun unchangedAccessibleValuesDoNotWriteAndJpegEndpointsAreReachable() {
-        quality = ImageQualitySettings("custom", 128, 1)
+        quality = ImageQualitySettings("custom", 1024, 1)
         showGroup()
         compose.onNodeWithTag("image-quality-long-edge").performScrollTo()
             .performSemanticsAction(SemanticsActions.SetProgress) { assertFalse(it(0f)) }
@@ -120,20 +120,21 @@ class SettingsImageQualityTest {
         quality = ImageQualitySettings("custom", 1500, 80)
         showGroup()
         val slider = compose.onNodeWithTag("image-quality-long-edge").performScrollTo()
-        slider.assert(range(9f, 0f..23f, 22))
+        slider.assert(range(0f, 0f..3f, 2))
         compose.onNodeWithText("1500 px").assertExists()
         compose.runOnIdle { assertTrue(edges.isEmpty()); assertEquals(1500, quality.customMaxLongEdge) }
-        val expected = listOf(128, 256, 384, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048,
-            2560, 3072, 3584, 4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680, 8192)
-        expected.forEachIndexed { index, edge ->
+        val expected = listOf(1024, 2048, 4096, 8192)
+        val selectedIndices = listOf(1, 2, 3, 0)
+        selectedIndices.forEach { index ->
+            val edge = expected[index]
             slider.performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(index.toFloat())) }
             slider.assert(SemanticsMatcher("integer stop $index") { node ->
                 val info = node.config[SemanticsProperties.ProgressBarRangeInfo]
-                kotlin.math.abs(info.current - index) < 0.001f && info.range == 0f..23f && info.steps == 22
+                kotlin.math.abs(info.current - index) < 0.001f && info.range == 0f..3f && info.steps == 2
             }).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "$edge px"))
             compose.onNodeWithText("$edge px").assertExists()
         }
-        compose.runOnIdle { assertEquals(expected, edges) }
+        compose.runOnIdle { assertEquals(selectedIndices.map(expected::get), edges) }
     }
 
     private fun range(value: Float, range: ClosedFloatingPointRange<Float>, steps: Int = 0) = SemanticsMatcher.expectValue(
