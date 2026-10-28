@@ -2007,7 +2007,7 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .dropdown-item:not([data-pending="true"]):disabled .tool-switch[data-checked="true"]::after { background: var(--md-surface); }
 .dropdown-item:disabled[data-pending="true"], .tool-split[data-pending="true"] { color: var(--md-on-surface); }
 .dropdown-item:disabled[data-pending="true"] svg { fill: var(--md-on-surface-variant); }
-.tool-settings { padding: 16px 16px calc(40px + env(safe-area-inset-bottom)); font-size: 13px; line-height: 19px; }
+.tool-settings { padding: 16px 16px calc(40px + env(safe-area-inset-bottom)); font-size: 13px; line-height: 19px; letter-spacing: .25px; }
 .settings-sheet { max-height: 100dvh; }
 .settings-sheet .detail-sheet-handle { height: 48px; }
 .settings-sheet .detail-sheet-handle span { width: 32px; height: 4px; background: var(--md-on-surface-variant); }
@@ -2017,14 +2017,20 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .tool-settings p { margin: 4px 0 0; color: var(--md-on-surface-variant); }
 .tool-setting-header > div > p { margin-top: 2px; }
 .tool-setting-header > div > .budget-note { margin-top: 4px; }
-.tool-setting-title { display: flex; gap: 16px; justify-content: space-between; align-items: center; }
-.tool-setting-title > span { flex: none; color: var(--md-primary); font-size: 13px; line-height: 18px; font-weight: 700; }
+.tool-setting-title { display: flex; gap: 0; justify-content: space-between; align-items: center; }
+.tool-setting-title > strong { flex: 1; min-width: 0; }
+.tool-setting-title > span { flex: none; color: var(--md-primary); font-size: 13px; line-height: 18px; letter-spacing: .1px; font-weight: 700; }
 .tool-setting-body { position: relative; margin: 0 0 8px 40px; }
 .tool-setting-body > svg { position: absolute; top: 2px; left: -40px; width: 24px; height: 24px; fill: var(--md-primary); }
-.tool-setting-header .tool-switch { --switch-scale: 1; border-radius: 16px; margin: 8px 4px; }
-.tool-settings strong { font-size: 16px; line-height: 23px; font-weight: 500; }
+.tool-setting-header .tool-switch { --switch-scale: 1; border-radius: 16px; margin: 8px 0; }
+.tool-settings strong { font-size: 16px; line-height: 23px; letter-spacing: .5px; font-weight: 500; }
 .tool-settings [data-disabled="true"] { opacity: 0.38; }
-.tool-settings input[type="range"] { width: 100%; margin: 8px 0 0; }
+.tool-settings input[type="range"] { width: 100%; height: 48px; margin: 8px 0 0; }
+.tool-settings input[type="range"]:disabled[data-pending="true"] {
+  --range-active: var(--md-primary); --range-inactive: var(--md-secondary-container);
+  --range-handle: var(--md-primary); --range-stop-on-active: var(--md-secondary-container);
+  --range-stop-on-inactive: var(--md-primary);
+}
 /* Shared outlined fields keep one paint clock in every centered dialog. */
 .attachment-editor {
   /* Samples of Material3 1.4.0 FastEffects (3800, 1) and FastSpatial (1400, .9). */
@@ -2096,14 +2102,14 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .editor-dropdown-icon.open { transform: rotate(180deg); }
 .editor-dropdown-icon svg { width: 24px; height: 24px; fill: var(--md-on-surface-variant); }
 .conversation-editor p.conversation-editor-error { color: var(--md-error); }
-.tool-advanced { display: flex; align-items: center; gap: 4px; border: 0; border-radius: 20px; background: transparent; color: var(--md-primary); min-height: 40px; padding: 0 12px; font: 500 13px/18px var(--app-font, inherit); cursor: pointer; }
+.tool-advanced { display: flex; align-items: center; gap: 4px; border: 0; border-radius: 20px; background: transparent; color: var(--md-primary); min-height: 48px; padding: 0 12px; font: 500 13px/18px var(--app-font, inherit); letter-spacing: .1px; cursor: pointer; }
 .tool-advanced svg { width: 18px; height: 18px; fill: currentColor; transition: transform 400ms cubic-bezier(.4, 0, .2, 1); }
 .tool-advanced[aria-expanded="true"] svg { transform: rotate(180deg); }
 .tool-budget-section { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows 400ms cubic-bezier(.4, 0, .2, 1), opacity 400ms cubic-bezier(.4, 0, .2, 1), visibility 400ms; }
 .tool-budget-section[data-visible="true"] { grid-template-rows: 1fr; opacity: 1; visibility: visible; }
 .tool-budget-section > div { overflow: hidden; min-height: 0; }
 .tool-budget-section .tool-setting-header { margin: 8px 0 0; }
-.tool-budget-slider { padding-top: 32px; }
+.tool-budget-slider { padding-top: 32px; margin-bottom: 0; }
 .tool-budget-slider > svg { top: 34px; }
 .tool-tier-note { padding-top: 12px; font-size: 12px; }
 .provider-badge { font-size: 9px; border-radius: 4px; padding: 1px 4px; background: color-mix(in srgb, var(--md-on-surface-variant) 10%, transparent); }

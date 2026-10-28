@@ -16,7 +16,7 @@ import { t } from "./i18n.js";
 import { sync } from "./sync.js";
 import { DetailSheet, CardIcon, InfoItem, useCardTitle, canOpenSheetItem } from "./detail-sheet.js";
 import { attachScrollbar } from "./material/scrollbar.js";
-import { AttachmentViewer } from "./composer.js";
+import { AttachmentViewer } from "./attachments.js";
 import { bindTailScrollInput, createStreamingTailFollow, coalescedScrollStep } from "./tail-follow.js";
 
 

@@ -4,7 +4,7 @@ import { html, runSpring } from "./html.js";
 import { Spinner } from "./material/progress.js";
 import { attachScrollbar } from "./material/scrollbar.js";
 import { Markdown, fadeStreamingText } from "./markdown.js";
-import { AttachmentViewer } from "./composer.js";
+import { AttachmentViewer } from "./attachments.js";
 import { icon, ICON_ACCOUNT_TREE, ICON_BROKEN_IMAGE, ICON_BUILD, ICON_CHECKLIST, ICON_CHEVRON_RIGHT, ICON_IMAGE, ICON_MOBILE_HAND, ICON_NEUROLOGY } from "./icons.js";
 const SHEET_BACK_PATH = "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z";
 // Material Icons.Default.Close, centred on (12, 12). The previous path was offset to the left,

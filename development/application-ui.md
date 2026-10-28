@@ -1441,7 +1441,9 @@ Browser Select Text opens the existing shared DetailSheet after its source menu 
 localized title and exact displayed user text, no Markdown parsing or attachments. Its selectable
 plain body is 14px/24.2px with 12px top, 24px sides and 32px bottom padding. The bubble is not
 selected automatically; sheet motion, input exclusion and close/focus remain with the shared owner.
-Composer presentation lives in composer.js; shell.js remains the chat frame and popup presenter.
+Composer owns the chat input and tools menu in composer.js; composer-settings.js owns the shared
+Thinking/Service Tier panel presentation, attachments.js owns attachment tiles/editors/viewers,
+and conversation-editor.js owns the conversation editor. shell.js remains the chat frame and popup presenter.
 Effective tool controls use the same pure Compose projection of global preferences, provider
 availability and per-conversation overrides. Existing-conversation edits transform the canonical
 SettingsRepository value instead of replacing unrelated fields; New Chat overrides remain in the
@@ -1461,6 +1463,11 @@ Settings entry/anchor motion uses DefaultSpatial (700, 0.9); exit uses FastEffec
 translating the full measured surface rather than clipping its height. Reduced Motion snaps travel.
 The body uses 16px insets and a 24px trailing spacer; panel text and rows follow the native
 ThinkingControlPanel/OpenAiServiceTierControlPanel, including 32px header-to-slider spacing.
+The chat Thinking editor always retains its Advanced entry and Budget switch. Unsupported model
+budgets remain visible but disabled, without changing saved choices or request capability policy.
+Both clients use the same nearest budget preset for the slider value label, keep the effective
+budget in the summary, commit only changed slider values on release, and keep the Thinking editor
+entry available while an unrelated command is pending. Pending commands still fence mutations.
 Context composition retains its header spacing and uses 16px from the bar to the legend, with
 6px between legend rows. Advanced parameter columns have no extra inter-row grid gap, use 6px
 vertical padding and the native labelMedium/labelSmall header geometry.
