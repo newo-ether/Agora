@@ -1,5 +1,6 @@
 package com.newoether.agora.api
 
+import com.newoether.agora.util.AppUserAgent
 import com.newoether.agora.util.executeWithNetworkRetry
 
 import okhttp3.FormBody
@@ -69,7 +70,9 @@ class DuckDuckGoScraper(
 
     companion object {
         private const val BASE_URL = "https://lite.duckduckgo.com/lite/"
-        private const val USER_AGENT = "Mozilla/5.0 (compatible; Agora/1.0)"
+        // Browser-compatible prefix is required (DDG lite serves bot traffic differently), but
+        // the Agora token must stay the shared identity rather than a frozen version string.
+        private val USER_AGENT: String get() = "Mozilla/5.0 (compatible; ${AppUserAgent.token})"
         private const val DEFAULT_MAX_RESULTS = 5
         private const val PAGE_SIZE = 10
         private const val MAX_PAGES = 5

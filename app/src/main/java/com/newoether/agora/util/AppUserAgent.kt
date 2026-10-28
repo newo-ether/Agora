@@ -21,6 +21,9 @@ object AppUserAgent {
         headerValue = "Agora/" + (versionName?.takeIf { it.isNotBlank() } ?: "?")
     }
 
+    /** Identity token (`Agora/<version>`) for User-Agents that must embed it in a larger string. */
+    val token: String get() = headerValue
+
     /**
      * Adds the Agora identity only when the call did not set its own User-Agent: `web_fetch`,
      * the DuckDuckGo scraper and provider-specific code must be able to present a different
