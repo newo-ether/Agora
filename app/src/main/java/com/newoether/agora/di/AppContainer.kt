@@ -60,13 +60,6 @@ class AppContainer(
 ) {
     private val application = appContext.applicationContext as Application
 
-    private fun currentAppVersion(): String =
-        try {
-            appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName ?: "?"
-        } catch (_: Exception) {
-            "?"
-        }
-
     init {
         LocalModelRuntime.initialize(application.applicationInfo.nativeLibraryDir)
     }
@@ -198,7 +191,6 @@ class AppContainer(
             conversationRepository,
             localProvider,
             appScope,
-            currentAppVersion(),
         )
     }
 
