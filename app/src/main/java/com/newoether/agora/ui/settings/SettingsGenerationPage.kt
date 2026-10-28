@@ -50,6 +50,7 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val openAiServiceTierEnabled by
         viewModel.settings.openAiServiceTierEnabled.collectAsState()
     val openAiServiceTier by viewModel.settings.openAiServiceTier.collectAsState()
+    val imageQuality by viewModel.settings.imageQuality.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
 
     CollapsingSettingsScaffold(
@@ -148,6 +149,13 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             )
                         },
                     ),
+                )
+
+                SettingsImageQualityGroup(
+                    quality = imageQuality,
+                    onModeChange = { viewModel.settings.updateImageQuality(mode = it) },
+                    onMaxLongEdgeChange = { viewModel.settings.updateImageQuality(customMaxLongEdge = it) },
+                    onJpegQualityChange = { viewModel.settings.updateImageQuality(customJpegQuality = it) },
                 )
 
                 // ── Section 4: Generation Parameters ──

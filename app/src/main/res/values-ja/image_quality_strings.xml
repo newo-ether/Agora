@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="image_quality_title">画質</string>
+    <string name="image_quality_mode">画質モード</string>
+    <string name="image_quality_mode_desc">新しい画像：長辺は最大 %1$d px、JPEG 品質は %2$d。既存の添付画像は変更されません。</string>
+    <string name="image_quality_light">軽量</string>
+    <string name="image_quality_balanced">バランス</string>
+    <string name="image_quality_high">高画質</string>
+    <string name="image_quality_custom">カスタム</string>
+    <string name="image_quality_long_edge">長辺の上限</string>
+    <string name="image_quality_long_edge_desc">新しい画像、スクリーンショット、PDF ページ、動画フレームの画素数上限です。小さい画像は拡大しません。</string>
+    <string name="image_quality_jpeg">JPEG 品質</string>
+    <string name="image_quality_jpeg_desc">値が高いほど細部が保持されます。透明画像には PNG を使用します。</string>
+    <string name="image_quality_pixels">%1$d px</string>
+</resources>

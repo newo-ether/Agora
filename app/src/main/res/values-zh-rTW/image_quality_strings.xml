@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="image_quality_title">影像品質</string>
+    <string name="image_quality_mode">品質模式</string>
+    <string name="image_quality_mode_desc">新影像最長邊 %1$d 像素，JPEG 品質 %2$d。既有附件維持不變。</string>
+    <string name="image_quality_light">輕量</string>
+    <string name="image_quality_balanced">均衡</string>
+    <string name="image_quality_high">高畫質</string>
+    <string name="image_quality_custom">自訂</string>
+    <string name="image_quality_long_edge">最長邊上限</string>
+    <string name="image_quality_long_edge_desc">新影像、螢幕截圖、PDF 頁面及影片影格的像素上限，不放大小圖。</string>
+    <string name="image_quality_jpeg">JPEG 品質</string>
+    <string name="image_quality_jpeg_desc">數值越高保留的細節越多。透明影像使用 PNG。</string>
+    <string name="image_quality_pixels">%1$d 像素</string>
+</resources>

@@ -30,13 +30,14 @@ internal fun imageSampleSizeForBounds(
 
 class ImageProcessor(
     private val app: Application,
-    private val artifacts: ImageArtifactProcessor = ImageArtifactProcessor(app),
+    private val artifacts: ImageArtifactProcessor? = null,
 ) {
     suspend fun normalizeImage(source: String, outputOwner: Any? = null): String? = withContext(Dispatchers.IO) {
         var output: String? = null
         try {
             coroutineContext.ensureActive()
-            output = artifacts.fromSource(source, app.filesDir, "img", outputOwner).path
+            val processor = artifacts ?: ImageArtifactProcessor.configured(app)
+            output = processor.fromSource(source, app.filesDir, "img", outputOwner).path
             coroutineContext.ensureActive()
             output
         } catch (cancelled: CancellationException) {
@@ -49,7 +50,7 @@ class ImageProcessor(
     }
 
     suspend fun measureArtifact(source: String): ImageArtifact = withContext(Dispatchers.IO) {
-        artifacts.inspect(source, ImageArtifactProcessor.POLICY_VERSION)
+        (artifacts ?: ImageArtifactProcessor(app)).inspect(source, ImageArtifactProcessor.POLICY_VERSION)
     }
 
     /** Legacy callers may still request only bounds; new imports retain the complete descriptor. */
@@ -76,6 +77,7 @@ class ImageProcessor(
         val paths = mutableListOf<String>()
         val retriever = MediaMetadataRetriever()
         try {
+            val processor = artifacts ?: ImageArtifactProcessor.configured(app)
             setRetrieverSource(retriever, source)
             val frameCount = config.frameCount.coerceAtLeast(1)
             var timeUs = 0L
@@ -84,7 +86,7 @@ class ImageProcessor(
                 val bitmap = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST)
                 if (bitmap != null) {
                     try {
-                        val artifact = artifacts.fromBitmap(bitmap, app.filesDir, "vid_$index", outputOwner)
+                        val artifact = processor.fromBitmap(bitmap, app.filesDir, "vid_$index", outputOwner)
                         paths += artifact.path
                         coroutineContext.ensureActive()
                     } finally {

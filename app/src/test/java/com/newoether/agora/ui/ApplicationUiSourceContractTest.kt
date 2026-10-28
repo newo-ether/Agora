@@ -142,7 +142,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
                     "PdfRenderer\\.Page\\.RENDER_MODE_FOR_DISPLAY\\)",
             ).findAll(source).count(),
         )
-        assertTrue(source.contains("val processor = ImageArtifactProcessor(context)"))
+        assertTrue(source.contains("val processor = ImageArtifactProcessor.configured(context)"))
         assertTrue(source.contains("processor.maxLongEdge.toDouble() / maxOf(page.width, page.height)"))
         assertTrue(source.contains("processor.fromBitmap(bitmap, context.filesDir,"))
         assertTrue(source.contains("onProgress?.invoke(position + 1, indices.size)"))

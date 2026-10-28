@@ -6,6 +6,7 @@ import android.util.Base64
 import android.util.Base64InputStream
 import com.newoether.agora.model.ToolImageAttachment
 import com.newoether.agora.util.ImageArtifactProcessor
+import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
@@ -18,8 +19,9 @@ class ToolImageStore(
     private val directory: File = File(context.applicationContext.filesDir, "tool-media"),
     /** Remote viewing displays another session's bytes and must not prepare model input. */
     private val prepareForModel: Boolean = true,
-    private val processor: ImageArtifactProcessor = ImageArtifactProcessor(context),
+    private val processor: ImageArtifactProcessor? = null,
 ) {
+    private val context = context.applicationContext
     companion object {
         const val MAX_IMAGE_BYTES = 20L * 1024L * 1024L
     }
@@ -29,6 +31,10 @@ class ToolImageStore(
         mimeType: String,
         filePrefix: String = "tool",
     ): ToolImageAttachment {
+        // This synchronous ingress API is called on IO by tool and Remote owners.
+        // Read the durable value once; a long-lived store must not retain an old preset.
+        val processor = if (prepareForModel) configuredProcessor()
+            else processor ?: ImageArtifactProcessor(context)
         val mime = mimeType.substringBefore(';').trim().lowercase()
         if (!mime.startsWith("image/")) throw IOException("Unsupported tool image type")
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException("Could not create tool media directory")
@@ -118,7 +124,11 @@ class ToolImageStore(
     /** Phone and other bitmap producers share the same sizing and encoding without a byte array. */
     fun persistBitmap(bitmap: Bitmap, filePrefix: String = "tool"): ToolImageAttachment {
         check(prepareForModel) { "Display-only stores do not prepare model bitmaps" }
-        return processor.fromBitmap(bitmap, directory, safePrefix(filePrefix), maxBytes = MAX_IMAGE_BYTES)
+        return configuredProcessor().fromBitmap(bitmap, directory, safePrefix(filePrefix), maxBytes = MAX_IMAGE_BYTES)
+    }
+
+    private fun configuredProcessor(): ImageArtifactProcessor = processor ?: runBlocking {
+        ImageArtifactProcessor.configured(context)
     }
 
     private fun safePrefix(filePrefix: String): String = filePrefix

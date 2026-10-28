@@ -5,7 +5,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
+import com.newoether.agora.data.ImageQualitySettings
+import com.newoether.agora.data.ImageQualitySettingsStore
+import com.newoether.agora.data.dataStore
 import com.newoether.agora.model.ImageArtifact
+import kotlinx.coroutines.flow.first
 import java.io.File
 import java.io.IOException
 import java.util.UUID
@@ -128,10 +132,10 @@ class ImageArtifactProcessor(
         )
     }
 
-    /** Reuse outputs whose current measured properties still match the processing policy. */
+    /** Completed artifacts remain valid when the settings for new images change. */
     fun isValid(artifact: ImageArtifact, maxBytes: Long = AttachmentFiles.MAX_ATTACHMENT_BYTES): Boolean {
         if (artifact.unavailable || artifact.policyVersion != POLICY_VERSION || artifact.sizeBytes !in 1..maxBytes ||
-            (artifact.width ?: 0) !in 1..maxLongEdge || (artifact.height ?: 0) !in 1..maxLongEdge ||
+            (artifact.width ?: 0) <= 0 || (artifact.height ?: 0) <= 0 ||
             artifact.mimeType !in setOf("image/jpeg", "image/png")
         ) return false
         return runCatching {
@@ -216,9 +220,15 @@ class ImageArtifactProcessor(
     }
 
     companion object {
-        const val DEFAULT_LONG_EDGE = 2048
-        const val DEFAULT_JPEG_QUALITY = 80
+        const val DEFAULT_LONG_EDGE = ImageQualitySettings.DEFAULT_MAX_LONG_EDGE
+        const val DEFAULT_JPEG_QUALITY = ImageQualitySettings.DEFAULT_JPEG_QUALITY
         const val POLICY_VERSION = 1
+
+        /** Freeze one durable settings snapshot for a new image or an entire raster batch. */
+        suspend fun configured(context: Context): ImageArtifactProcessor {
+            val quality = ImageQualitySettingsStore(context.applicationContext.dataStore).settings.first()
+            return ImageArtifactProcessor(context, quality.maxLongEdge, quality.jpegQuality)
+        }
 
         internal fun sampleSizeForBounds(width: Int, height: Int, maxLongEdge: Int): Int {
             require(width > 0 && height > 0 && maxLongEdge > 0)

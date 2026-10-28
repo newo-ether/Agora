@@ -74,6 +74,20 @@ layout, states, density, or interaction design has been approved.
   relay-owned caching, negotiate relay policy, add block-level breakpoints, or retry with altered
   cache parameters. Provider settings must reach every applicable request caller.
 
+## Generation image quality
+- Generation includes an immediate-save Image Quality group after the service-tier group and before
+  generation parameters. Its whole-row Quality Mode SettingsItem has a leading image icon, title,
+  effective longest-edge/JPEG description and a trailing selected value. It opens the shared
+  Appearance-style dropdown with a selected-item checkmark and the existing menu surface treatment.
+- Modes are Light, Balanced, High and Custom. `image-processing.md` owns their numeric policy.
+  Only Custom shows the two controls Maximum Long Edge and JPEG Quality. Each control retains a
+  leading icon, title, supporting description and displayed value, and uses the existing persisted
+  slider feedback gate. A drag updates its local displayed value and commits once on release;
+  stale persistence emissions do not interrupt the gesture or overwrite its pending final value.
+- Mode changes persist immediately, retain custom values and apply to newly processed images.
+  There is no Save action or save-on-exit draft. The existing Generation scaffold/navigation and
+  shared SettingsGroup own spacing and navigation. All supported locales define the complete copy.
+
 ## Appearance defaults
 
 - When no appearance preference has been persisted, the app uses the Forest color scheme with the

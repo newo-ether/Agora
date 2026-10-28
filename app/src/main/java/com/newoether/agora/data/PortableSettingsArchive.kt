@@ -99,6 +99,10 @@ internal object PortableSettingsArchive {
         put("webSearchProvider", JsonPrimitive(sm.webSearchProvider.first()))
         put("webSearchNumResults", JsonPrimitive(sm.webSearchNumResults.first()))
         put("webSearchBaseUrl", JsonPrimitive(sm.webSearchBaseUrl.first()))
+        val imageQuality = sm.imageQuality.settings.first()
+        put("imageQualityMode", JsonPrimitive(imageQuality.mode))
+        put("imageQualityMaxLongEdge", JsonPrimitive(imageQuality.customMaxLongEdge))
+        put("imageQualityJpegQuality", JsonPrimitive(imageQuality.customJpegQuality))
         put("imageGenEnabled", JsonPrimitive(sm.imageGenEnabled.first()))
         putNullableString("imageGenModel", sm.imageGenModel.first())
         put("imageGenSize", JsonPrimitive(sm.imageGenSize.first()))
@@ -219,6 +223,16 @@ internal object PortableSettingsArchive {
             record["anthropicCacheEnabled"]?.let { value ->
                 require(value is JsonPrimitive && !value.isString && value.booleanOrNull != null) {
                     "Invalid Anthropic cache switch"
+                }
+            }
+        }
+        obj["imageQualityMode"]?.let { value ->
+            require(value is JsonPrimitive && value.isString) { "Invalid image quality mode" }
+        }
+        listOf("imageQualityMaxLongEdge", "imageQualityJpegQuality").forEach { key ->
+            obj[key]?.let { value ->
+                require(value is JsonPrimitive && !value.isString && value.intOrNull != null) {
+                    "Invalid image quality integer"
                 }
             }
         }
@@ -390,6 +404,11 @@ internal object PortableSettingsArchive {
         obj.string("webSearchProvider")?.let { sm.saveWebSearchProvider(it) }
         obj.int("webSearchNumResults")?.let { sm.saveWebSearchNumResults(it) }
         obj.string("webSearchBaseUrl")?.let { sm.saveWebSearchBaseUrl(it) }
+        sm.imageQuality.update(
+            mode = obj.string("imageQualityMode"),
+            customMaxLongEdge = obj.int("imageQualityMaxLongEdge"),
+            customJpegQuality = obj.int("imageQualityJpegQuality"),
+        )
         obj.boolean("imageGenEnabled")?.let { sm.saveImageGenEnabled(it) }
         if (obj.containsKey("imageGenModel")) {
             sm.saveImageGenModel(obj.nullableString("imageGenModel")?.let(::remapModel))

@@ -53,12 +53,22 @@ processing must not publish partial output or replace a valid previous artifact.
 and cleanup must follow the owning attachment contract; this contract does not authorize a
 new permanent-original archive or broader deletion.
 
-Quality choices and numeric defaults belong to the shared processing policy. They must not be
-duplicated as source-specific constants. The owner's proposed Generation / Image Quality
-category is under design discussion; no preset values or new settings UI are approved by this
-document alone. Until that discussion is settled, the shared processor keeps the existing
-2048 px long-edge bound and JPEG quality 80, preserves alpha with PNG, normalizes orientation,
-and never enlarges an existing raster. PDF points are rendered at the shared raster bound.
+Quality choices and numeric defaults belong to `ImageQualitySettings`; source owners do not
+maintain their own quality constants. Settings / Generation / Image Quality saves immediately.
+Light uses a 1024 px longest edge and JPEG quality 75, Balanced uses 2048/80 and is the default,
+and High uses 4096/95. Custom retains an independent longest-edge value in 128..8192 px and
+JPEG quality in 1..100, initially 2048/80. Switching presets preserves the retained custom values.
+Unknown stored or imported modes normalize to Balanced; integers clamp to their valid ranges.
+
+Each new image operation reads one durable settings snapshot. An entire PDF-page or video-frame
+batch uses its initial snapshot even when preferences change during processing. A later operation
+uses the new values. Completed artifacts, including previewed attachments, accepted/queued requests,
+history and retries, keep their existing bytes and dimensions when quality settings change.
+Validation checks measured artifact metadata and readability independently of the current preset.
+The processor preserves alpha with PNG, normalizes orientation and never enlarges an existing
+raster. JPEG quality applies only to opaque JPEG output. PDF points are rendered at the selected
+raster bound. Settings changes do not create a permanent original archive, trigger global migration
+or introduce hidden request-time re-encoding. Portable fields follow `import-export.md`.
 
 `ImageArtifactProcessor` is the shared pixel/encoding implementation. `ImageArtifact` carries
 its result through attachment metadata and tool image slots. `ImageArtifactHydration` resolves

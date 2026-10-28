@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="image_quality_title">Качество изображений</string>
+    <string name="image_quality_mode">Режим качества</string>
+    <string name="image_quality_mode_desc">Новые изображения: до %1$d пикс., JPEG %2$d. Существующие вложения не изменяются.</string>
+    <string name="image_quality_light">Экономный</string>
+    <string name="image_quality_balanced">Сбалансированный</string>
+    <string name="image_quality_high">Высокое</string>
+    <string name="image_quality_custom">Свой</string>
+    <string name="image_quality_long_edge">Максимальная длинная сторона</string>
+    <string name="image_quality_long_edge_desc">Предел в пикселях для новых изображений, снимков экрана, страниц PDF и кадров видео. Маленькие изображения не увеличиваются.</string>
+    <string name="image_quality_jpeg">Качество JPEG</string>
+    <string name="image_quality_jpeg_desc">Высокие значения сохраняют больше деталей. Прозрачные изображения используют PNG.</string>
+    <string name="image_quality_pixels">%1$d пикс.</string>
+</resources>

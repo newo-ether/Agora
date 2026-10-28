@@ -57,11 +57,11 @@ object PdfPageRenderer {
         onProgress: (suspend (current: Int, total: Int) -> Unit)? = null,
         select: (Int) -> List<Int>,
     ): List<String> {
+        val processor = ImageArtifactProcessor.configured(context)
         val descriptor = openDescriptor(context, source) ?: return emptyList()
         val renderer = runCatching { PdfRenderer(descriptor) }
             .onFailure { runCatching { descriptor.close() } }.getOrThrow()
         val paths = mutableListOf<String>()
-        val processor = ImageArtifactProcessor(context)
         try {
             val indices = select(renderer.pageCount)
             for ((position, index) in indices.withIndex()) {

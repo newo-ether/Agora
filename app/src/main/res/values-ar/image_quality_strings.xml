@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="image_quality_title">جودة الصور</string>
+    <string name="image_quality_mode">وضع الجودة</string>
+    <string name="image_quality_mode_desc">الصور الجديدة: حتى %1$d بكسل، وجودة JPEG ‏%2$d. تبقى المرفقات الحالية دون تغيير.</string>
+    <string name="image_quality_light">خفيف</string>
+    <string name="image_quality_balanced">متوازن</string>
+    <string name="image_quality_high">عالية</string>
+    <string name="image_quality_custom">مخصص</string>
+    <string name="image_quality_long_edge">الحد الأقصى للضلع الطويل</string>
+    <string name="image_quality_long_edge_desc">حد البكسل للصور الجديدة ولقطات الشاشة وصفحات PDF وإطارات الفيديو. لا يتم تكبير الصور الصغيرة.</string>
+    <string name="image_quality_jpeg">جودة JPEG</string>
+    <string name="image_quality_jpeg_desc">تحافظ القيم الأعلى على تفاصيل أكثر. تستخدم الصور الشفافة تنسيق PNG.</string>
+    <string name="image_quality_pixels">%1$d بكسل</string>
+</resources>

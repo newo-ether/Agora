@@ -161,6 +161,10 @@ class SettingsRepository(
     val webSearchApiKeys: StateFlow<Map<String, String>> = publication.hot(settingsManager.webSearchApiKeys, emptyMap())
     val webSearchNumResults: StateFlow<Int> = publication.hot(settingsManager.webSearchNumResults, 5)
     val webSearchBaseUrl: StateFlow<String> = publication.hot(settingsManager.webSearchBaseUrl, "")
+    val imageQuality = publication.hot(settingsManager.imageQuality.settings, com.newoether.agora.data.ImageQualitySettings())
+    fun updateImageQuality(mode: String? = null, customMaxLongEdge: Int? = null, customJpegQuality: Int? = null) = scope.launch {
+        settingsManager.imageQuality.update(mode, customMaxLongEdge, customJpegQuality)
+    }
     val imageGenEnabled: StateFlow<Boolean> = publication.hot(settingsManager.imageGenEnabled, false)
     val imageGenModel: StateFlow<String?> = publication.hot(settingsManager.imageGenModel, null)
     val imageGenSize: StateFlow<String> = publication.hot(settingsManager.imageGenSize, "1024x1024")

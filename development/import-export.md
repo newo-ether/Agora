@@ -186,6 +186,7 @@ The following JSON field names are the complete current portable allowlist.
 | Interaction | `askUserEnabled`, `askUserTimeoutMinutes` |
 | Search and embedding | `ragSearchEnabled`, `modelSearchMethod`, `manualSearchMethod`, `remoteEmbeddingModels`, `activeRemoteEmbeddingModelId`, `searchContextWindow`, `searchMatchLimit`, `ragThreshold`, `autoCacheEnabled`, `showUncachedNotification` |
 | Language, Web Search, and image generation | `appLanguage`, `webSearchEnabled`, `webSearchProvider`, `webSearchNumResults`, `webSearchBaseUrl`, `imageGenEnabled`, `imageGenModel`, `imageGenSize`, `autoUpdateCheck` |
+| Image quality | `imageQualityMode`, `imageQualityMaxLongEdge`, `imageQualityJpegQuality` |
 | Image transcription | `imageTranscriptionEnabled`, `imageTranscriptionEnabledModels`, `imageTranscriptionModel`, `imageTranscriptionBatchSize`, `imageTranscriptionPrompt` |
 | Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, secret-free `mcpServers` |
 | Proxy | `proxyEnabled`, `proxyType`, `proxyHost`, `proxyPort`, `proxyUsername`, `proxyBypass` |
@@ -203,6 +204,17 @@ the existing record replacement and stable-identity remapping rules. Missing cus
 on/1h defaults, including when an imported record replaces a matching local record. Explicit invalid
 cache values are rejected before any Settings reset or restore write. These fields contain no
 secrets; their request and UI semantics are owned by `settings-ui-ux.md`.
+
+`imageQualityMode` is a string normalized to `light`, `balanced`, `high` or `custom`; unknown
+strings resolve to `balanced`. `imageQualityMaxLongEdge` and `imageQualityJpegQuality` are
+non-string JSON integers storing retained custom values, even while a preset is active. They
+clamp to 128..8192 and 1..100 respectively, with defaults 2048 and 80. Export reads one settings
+snapshot and writes all three fields. MERGE preserves each absent field; a partial import patches
+only present fields together in one DataStore edit. REPLACE clears all three keys before restore,
+so older archives use Balanced and the default custom values. Explicit wrong JSON types are
+rejected before any reset or restore write. These settings contain no secrets or paths and never
+reprocess existing artifacts. Runtime/UI behavior is owned by `image-processing.md` and
+`settings-ui-ux.md`.
 
 `modelProviderNames` maps complete model IDs to booleans independently of aliases. False explicitly
 hides the Provider suffix; absent model IDs default to true. Export preserves both values. Import

@@ -147,6 +147,7 @@ class SettingsManager(private val context: Context) {
     val webSearchBaseUrl: Flow<String> = context.dataStore.data.map { it[WEB_SEARCH_BASE_URL] ?: "" }
 
     // ── Image generation ──────────────────────────────────────
+    val imageQuality = ImageQualitySettingsStore(context.dataStore)
     val imageGenEnabled: Flow<Boolean> = context.dataStore.data.map { it[IMAGE_GEN_ENABLED] ?: false }
     // Selected image model "Provider:modelId" (null = none chosen). Creds reused from that provider.
     val imageGenModel: Flow<String?> = context.dataStore.data.map { it[IMAGE_GEN_MODEL] }
