@@ -267,7 +267,7 @@ class PhoneToolProviderTest {
         assertFalse(claim().isError)
         assertEquals(1, probes)
         beforeOperation = { readiness = { false } }
-        assertFalse(provider.executeOneShotResult("phone_app_list", "{}", context).isError)
+        assertFalse(provider.executeOneShotResult("phone_ui_tree", "{}", context).isError)
         assertEquals(2, probes)
         assertNotNull(lease.held.value)
         time = 30_000
@@ -317,10 +317,90 @@ class PhoneToolProviderTest {
     @Test fun settingsChangeDuringSuspensionIsFencedWithoutAnotherPermissionProbe() = runTest {
         assertFalse(claim().isError)
         beforeOperation = { config = config.copy(enabled = false) }
-        assertError("permission_lost:disabled", provider.executeOneShotResult("phone_app_list", "{}", context))
+        assertError("permission_lost:disabled", provider.executeOneShotResult("phone_ui_tree", "{}", context))
         assertNull(lease.held.value)
         assertEquals(2, probes)
     }
+    @Test fun appMetadataDoesNotEnterTheWindowBoundaryButEveryUiToolDoes() = runTest {
+        assertFalse(claim().isError)
+        beforeOperation = { throw PhoneFailure("visibility_marker") }
+        repeat(2) {
+            val result = provider.executeOneShotResult("phone_app_list", "{}", context)
+            assertFalse(result.text, result.isError)
+        }
+        assertEquals(0, operationStarts)
+        assertEquals(0, operationEnds)
+        val uiTools = listOf("phone_tap", "phone_long_press", "phone_swipe", "phone_type",
+            "phone_key", "phone_app_launch", "phone_screenshot", "phone_ui_tree")
+        uiTools.forEach { name ->
+            assertError("visibility_marker", provider.executeOneShotResult(name, "{}", context))
+        }
+        assertEquals(uiTools.size, operationStarts)
+        assertEquals(uiTools.size, operationEnds)
+        assertTrue(keys.isEmpty())
+        assertTrue(taps.isEmpty())
+        assertFalse(provider.executeOneShotResult("phone_release", "{}", context).isError)
+        assertEquals(uiTools.size, operationStarts)
+    }
+
+    @Test fun blockedAppMetadataNavigatesOnlyInsideTheWindowBoundary() = runTest {
+        assertFalse(claim().isError)
+        config = config.copy(accessMode = "blocklist", blocklist = setOf("private"))
+        foreground = { "private" }
+        var navigationAdmitted = false
+        beforeOperation = {
+            assertTrue(keys.isEmpty())
+            navigationAdmitted = true
+        }
+        assertError("app_blocked", provider.executeOneShotResult("phone_app_list", "{}", context))
+        assertTrue(navigationAdmitted)
+        assertEquals(listOf("back", "home"), keys)
+        assertEquals(1, operationStarts)
+        assertEquals(1, operationEnds)
+    }
+
+    @Test fun metadataFallbackRechecksRevocationAfterTheWindowWait() = runTest {
+        assertFalse(claim().isError)
+        config = config.copy(accessMode = "blocklist", blocklist = setOf("private"))
+        foreground = { "private" }
+        val entered = CompletableDeferred<Unit>()
+        val resume = CompletableDeferred<Unit>()
+        beforeOperation = { entered.complete(Unit); resume.await() }
+        val pending = async { provider.executeOneShotResult("phone_app_list", "{}", context) }
+        entered.await()
+        lease.held.value!!.let { lease.revokeByUser(it.owner, it.epoch) }
+        resume.complete(Unit)
+        assertError("released_by_user", pending.await())
+        assertTrue(keys.isEmpty())
+        assertEquals(1, operationStarts)
+        assertEquals(1, operationEnds)
+    }
+
+    @Test fun metadataReadsStillFenceSettingsAndRestoreAfterCancellationWithoutWindowChanges() = runTest {
+        assertFalse(claim().isError)
+        val entered = CompletableDeferred<Unit>()
+        val resume = CompletableDeferred<Unit>()
+        foreground = { entered.complete(Unit); resume.await(); "allowed" }
+        val changed = async { provider.executeOneShotResult("phone_app_list", "{}", context) }
+        entered.await()
+        config = config.copy(enabled = false)
+        resume.complete(Unit)
+        assertError("permission_lost:disabled", changed.await())
+        assertNull(lease.held.value)
+        config = config.copy(enabled = true)
+        assertFalse(claim().isError)
+        val reading = CompletableDeferred<Unit>()
+        foreground = { reading.complete(Unit); kotlinx.coroutines.awaitCancellation() }
+        val cancelled = async { provider.executeOneShotResult("phone_app_list", "{}", context) }
+        reading.await()
+        cancelled.cancel(); cancelled.join()
+        foreground = { "allowed" }
+        assertFalse(provider.executeOneShotResult("phone_app_list", "{}", context).isError)
+        assertEquals(0, operationStarts)
+        assertEquals(0, operationEnds)
+        assertTrue(keys.isEmpty())
+    }
+
     @Test fun targetDefinitionsExplainNodePriority() {
         for (name in listOf("phone_tap", "phone_long_press")) {
             val definition = provider.definitions(context).single { it.function.name == name }

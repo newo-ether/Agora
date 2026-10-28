@@ -6,6 +6,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -40,7 +41,12 @@ internal fun PhoneOverlayTheme(settings: SettingsRepository, content: @Composabl
         colorSchemePreset = runCatching { ColorSchemePreset.valueOf(preset) }.getOrDefault(ColorSchemePreset.FOREST),
         schemeStyle = runCatching { SchemeStyle.valueOf(style) }.getOrDefault(SchemeStyle.TONAL_SPOT),
         dynamicColor = dynamic, amoledEnabled = amoled, fontPreference = font, customFontPath = fontPath,
-    ) { ProvideAgoraMotionPolicy(reduce) { content() } }
+    ) {
+        // Match the activity root Surface without painting over the underlying application.
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+            ProvideAgoraMotionPolicy(reduce) { content() }
+        }
+    }
 }
 
 @Composable

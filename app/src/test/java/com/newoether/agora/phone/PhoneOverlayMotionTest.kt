@@ -250,7 +250,7 @@ class PhoneOverlayMotionTest {
     @Test fun outgoingQuestionIsFrozenAndDisabledWhileReplacementEpochGetsFreshContent() {
         start(pendingQuestion = true)
         frames(336)
-        compose.onNodeWithText("Waiting for you").assertExists()
+        compose.onAllNodesWithText("Ask User").assertCountEquals(2)
         compose.onNodeWithText("Keep this question?").assertExists()
         release()
         compose.runOnIdle {
@@ -260,7 +260,8 @@ class PhoneOverlayMotionTest {
             Snapshot.sendApplyNotifications()
         }
         frames(64)
-        compose.onNodeWithText("Waiting for you").assertExists()
+        // The inactive deck hides its header semantics; the retained status capsule stays exposed.
+        compose.onNodeWithText("Ask User").assertExists()
         compose.onNodeWithText("Keep this question?", useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Yes", useUnmergedTree = true).onParent().assertIsNotEnabled()
         compose.onNodeWithText("Send", useUnmergedTree = true).onParent().assertIsNotEnabled()

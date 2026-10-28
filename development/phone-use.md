@@ -248,7 +248,7 @@ untrusted-touch policy. This constraint is separate from the requested capsule g
 Dragging the duration/status area begins after platform touch slop and keeps the strip inside the
 available visible frame; Stop has its own click region.
 Status text: `Thinking` while the owning Run streams model output, the name of every tool while
-it is active, and `Waiting for you` during ask_user. Phone tools keep their localized action labels
+it is active, and `Ask User` during ask_user. Phone tools keep their localized action labels
 (`Tap`, `Swipe`, `Typing`, ...); other built-in, MCP and provider-hosted tools use the same
 app-locale `Resources.toolDisplayName(segment)` resolver as message cards. Protocol names are
 execution identity only, never a separate capsule label fallback. Resolved MCP metadata and legacy
@@ -273,7 +273,13 @@ including `phone_claim`, returns `released_by_user` with no side effect. A later
 conversation may claim again. User touches on the screen do not interrupt control.
 
 ### 4.3 Action visibility and duration
-Before tap, long press, swipe, type, key, app launch, screenshot and UI tree work, fade the control
+Only device UI tools enter the control-window opacity/input-exclusion boundary: tap, long press,
+swipe, type, key, app launch, screenshot and UI tree. App-list metadata reads keep the control
+window opaque and interactive; claim, release and non-Phone tools do not enter this boundary.
+Tool-name presentation alone never changes window opacity or touchability. If an app-list access
+check must leave a blocked foreground app, its actual Back/Home navigation enters the same boundary
+and revalidates the exact permit before input; ordinary allowed metadata reads never do.
+Before admitted UI work, fade the control
 window's LayoutParams.alpha from its current value to the safe operation alpha over 180 ms with
 FastOutSlowIn easing. Stop and dragging remain available during that fade. Once safe alpha is reached,
 publish FLAG_NOT_TOUCHABLE and NOT_FOCUSABLE on the whole control window, then wait two frames and
@@ -304,7 +310,12 @@ Reduced Motion snaps spatial changes; only status retains the label fade.
 ### 4.4 Ask card
 
 `ask_user` uses the same `InteractionDeck`, `MorphingInteractionCard`, question bodies and actions
-as the native chat interaction bar. While the caller holds the lease, its pending question set is
+as the native chat interaction bar. The pending-question status capsule uses the same localized
+Ask User title as that card. Both overlay windows request hardware acceleration before attachment,
+including the native Material ripple rendering path. The transparent overlay theme provides
+`onSurface` as its default content color, matching the activity root Surface without drawing an
+extra background. Option indications retain the shared row's color, shape and press/release owner.
+While the caller holds the lease, its pending question set is
 presented centered horizontally below the capsules, with the native header, page count, single or
 multiple choices, custom-answer field, Back/Next, whole-set Send/Skip and fold/expand behavior.
 Drafts remain keyed by request id across paging and newly arriving questions. Folding never answers

@@ -99,7 +99,7 @@ internal fun PhoneControls(
     var exitingQuestions by remember(owner.epoch) { mutableStateOf(emptyList<AskUserController.Request>()) }
     if (questions.isNotEmpty()) SideEffect { exitingQuestions = questions }
     val contentQuestions = questions.ifEmpty { exitingQuestions }
-    val label = if (questions.isNotEmpty()) stringResource(R.string.phone_waiting)
+    val label = if (questions.isNotEmpty()) stringResource(R.string.interaction_ask_user)
         else displayedAction ?: stringResource(R.string.phone_thinking)
     val reduce = motion.reduceMotion
     BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {

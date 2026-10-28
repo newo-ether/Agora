@@ -116,7 +116,8 @@ class PhoneOverlayControlsTest {
         }
         try {
             start()
-            compose.onNodeWithText("Ask User").assertExists()
+            compose.onAllNodesWithText("Ask User").assertCountEquals(2)
+            compose.onNodeWithText("Waiting for you").assertDoesNotExist()
             compose.onNodeWithText("1 / 2").assertExists()
             compose.onNodeWithText("A").performClick()
             compose.onNodeWithText("B").performClick()

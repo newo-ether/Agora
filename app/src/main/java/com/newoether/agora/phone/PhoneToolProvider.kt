@@ -103,11 +103,11 @@ internal class PhoneToolProvider(
                         else failure("screen_timeout_restore_failed")
                 }
                 status(name)
-                return@run operating {
+                val work: suspend () -> ToolExecutionResult = {
                     // Status pacing and visibility may suspend; revalidate before any device effect.
                     fence(authorized)
                     val backend = device(ctx.phoneMode)
-                    checkApp(backend, authorized)
+                    checkApp(backend, authorized, withinOperation = name != "phone_app_list")
                     val body = buildJsonObject {
                         put("status", "ok")
                         when (name) {
@@ -173,6 +173,7 @@ internal class PhoneToolProvider(
                     lease.complete(authorized)?.let { throw PhoneFailure(it) }
                     diagnostics(result)
                 }
+                if (name == "phone_app_list") work() else operating(work)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 val code = when (error) {
@@ -201,15 +202,24 @@ internal class PhoneToolProvider(
     private fun allowed(pkg: String): Boolean = settings().let {
         phoneAppAllowed(pkg, ownPackage, it.accessMode, it.packages, launcher())
     }
-    private suspend fun checkApp(backend: PhoneDevice, permit: PhoneControlLease.Permit) {
+    private suspend fun checkApp(
+        backend: PhoneDevice,
+        permit: PhoneControlLease.Permit,
+        withinOperation: Boolean = true,
+    ) {
         fence(permit)
         val pkg = backend.foreground()
         fence(permit)
         if (allowed(pkg)) return
-        backend.key("back")
-        delay(150); fence(permit)
-        if (!allowed(backend.foreground())) { fence(permit); backend.key("home") }
-        throw PhoneFailure("app_blocked", pkg)
+        val leaveBlockedApp: suspend () -> ToolExecutionResult = {
+            // Metadata reads need no window change, but their privacy fallback injects UI input.
+            fence(permit)
+            backend.key("back")
+            delay(150); fence(permit)
+            if (!allowed(backend.foreground())) { fence(permit); backend.key("home") }
+            throw PhoneFailure("app_blocked", pkg)
+        }
+        if (withinOperation) leaveBlockedApp() else operating(leaveBlockedApp)
     }
     private suspend fun point(args: JsonObject, permit: PhoneControlLease.Permit, backend: PhoneDevice): Pair<Int, Int> {
         val node = args["node"]?.jsonPrimitive?.intOrNull

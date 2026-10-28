@@ -1,15 +1,20 @@
 package com.newoether.agora.phone
 
 import android.app.Application
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Looper
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
+import com.newoether.agora.data.repository.SettingsRepository
+import com.newoether.agora.viewmodel.AskUserController
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -59,6 +64,40 @@ class PhoneOverlayLifecycleTest {
     @After fun cleanup() {
         overlay.remove()
         Dispatchers.resetMain()
+    }
+
+    @Test fun actualWindowAttachmentRequestsHardwareRenderingAndPreservesInputFlags() = runTest(dispatcher) {
+        val attached = mutableListOf<WindowManager.LayoutParams>()
+        val settings = mockk<SettingsRepository> {
+            every { appLanguage } returns MutableStateFlow("system")
+        }
+        every { runtime.settings } returns settings
+        every { runtime.lease } returns PhoneControlLease { 0L }
+        every { runtime.askUser } returns AskUserController()
+        every { manager.addView(any(), any()) } answers {
+            attached += WindowManager.LayoutParams().apply { copyFrom(secondArg()) }
+        }
+        val host = object : ContextWrapper(context) {
+            override fun getSystemService(name: String): Any? =
+                if (name == Context.WINDOW_SERVICE) manager else super.getSystemService(name)
+        }
+        val actual = PhoneOverlay(host, runtime, 2)
+        try {
+            actual.show("root")
+            runCurrent()
+            assertEquals(2, attached.size)
+            attached.forEach { params ->
+                assertTrue(params.flags and WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED != 0)
+                assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0)
+                assertEquals(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, params.type)
+            }
+            assertTrue(attached.first().flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+            assertEquals(0, attached.last().flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+            assertTrue(attached.last().flags and WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL != 0)
+            assertEquals(1f, attached.last().alpha)
+        } finally {
+            actual.remove()
+        }
     }
 
     @Test fun hideImmediatelyClosesInputButRetainsBothViewsForTheExit() = runTest(dispatcher) {
