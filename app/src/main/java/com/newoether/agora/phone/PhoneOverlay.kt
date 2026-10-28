@@ -201,11 +201,10 @@ internal class PhoneOverlay(
     fun afterOperation() { controlWindow?.afterOperation() }
     suspend fun capture(block: suspend () -> android.graphics.Bitmap): android.graphics.Bitmap =
         withContext(Dispatchers.Main.immediate) {
-            beforeOperation()
             val window = controlWindow ?: throw PhoneFailure("overlay_unavailable")
-            capturing.value = true
             try {
-                window.capture(true)
+                window.beforeCapture()
+                capturing.value = true
                 window.awaitCaptureHidden()
                 frame()
                 frame()

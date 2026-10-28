@@ -107,7 +107,7 @@ internal class PhoneToolProvider(
                     // Status pacing and visibility may suspend; revalidate before any device effect.
                     fence(authorized)
                     val backend = device(ctx.phoneMode)
-                    checkApp(backend, authorized, withinOperation = name != "phone_app_list")
+                    checkApp(backend, authorized, withinOperation = name in ACTIONS)
                     val body = buildJsonObject {
                         put("status", "ok")
                         when (name) {
@@ -116,7 +116,7 @@ internal class PhoneToolProvider(
                                 val dimensions = backend.dimensions()
                                 val nodes = backend.nodes()
                                 fence(authorized)
-                                checkApp(backend, authorized)
+                                checkApp(backend, authorized, withinOperation = name in ACTIONS)
                                 treePackage = backend.foreground()
                                 tree = Triple(authorized.epoch, dimensions, nodes)
                                 put("nodes", JsonArray(nodes.map { node -> buildJsonObject {
@@ -156,11 +156,22 @@ internal class PhoneToolProvider(
                     val wantsScreenshot = name == "phone_screenshot" || (name in ACTIONS && args["screenshot"]?.jsonPrimitive?.booleanOrNull != false)
                     val result = if (wantsScreenshot) {
                         if (name in ACTIONS) delay(180)
-                        checkApp(backend, authorized)
-                        val bitmap = captured { fence(authorized); checkApp(backend, authorized); backend.screenshot() }
+                        checkApp(backend, authorized, withinOperation = name in ACTIONS)
+                        val bitmap = try {
+                            captured {
+                                // Leave capture-only hiding before any privacy fallback injects input.
+                                checkApp(backend, authorized, withinOperation = name in ACTIONS, navigate = false)
+                                backend.screenshot()
+                            }
+                        } catch (error: PhoneFailure) {
+                            if (error.code == "app_blocked") {
+                                checkApp(backend, authorized, withinOperation = name in ACTIONS)
+                            }
+                            throw error
+                        }
                         try {
                             fence(authorized)
-                            checkApp(backend, authorized)
+                            checkApp(backend, authorized, withinOperation = name in ACTIONS)
                             val dimensions = backend.dimensions()
                             val image = persist(bitmap)
                             fence(authorized)
@@ -173,7 +184,7 @@ internal class PhoneToolProvider(
                     lease.complete(authorized)?.let { throw PhoneFailure(it) }
                     diagnostics(result)
                 }
-                if (name == "phone_app_list") work() else operating(work)
+                if (name in ACTIONS) operating(work) else work()
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 val code = when (error) {
@@ -205,14 +216,16 @@ internal class PhoneToolProvider(
     private suspend fun checkApp(
         backend: PhoneDevice,
         permit: PhoneControlLease.Permit,
-        withinOperation: Boolean = true,
+        withinOperation: Boolean,
+        navigate: Boolean = true,
     ) {
         fence(permit)
         val pkg = backend.foreground()
         fence(permit)
         if (allowed(pkg)) return
+        if (!navigate) throw PhoneFailure("app_blocked", pkg)
         val leaveBlockedApp: suspend () -> ToolExecutionResult = {
-            // Metadata reads need no window change, but their privacy fallback injects UI input.
+            // Read-only tools need no window change, but their privacy fallback injects UI input.
             fence(permit)
             backend.key("back")
             delay(150); fence(permit)

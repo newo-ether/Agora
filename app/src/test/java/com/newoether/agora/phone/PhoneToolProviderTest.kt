@@ -5,6 +5,7 @@ import android.graphics.Rect
 import io.mockk.every
 import io.mockk.mockk
 import com.newoether.agora.model.RunEffectIdentity
+import com.newoether.agora.model.ToolImageAttachment
 import com.newoether.agora.viewmodel.GenerationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -34,10 +35,19 @@ class PhoneToolProviderTest {
     private val taps = mutableListOf<Triple<Int, Int, Long>>()
     private var nodes = emptyList<PhoneNode>()
     private var dimensions = Triple(1080, 2400, 0)
+    private val bitmap = mockk<Bitmap>(relaxed = true)
+    private var screenshots = 0
+    private var persisted = 0
+    private var captureStarts = 0
+    private var captureEnds = 0
+    private var captureActive = false
+    private var beforeCapture: suspend () -> Unit = {}
+    private var afterCapture: suspend () -> Unit = {}
+    private var afterNodes: suspend () -> Unit = {}
     private val backend = object : PhoneDevice {
         override suspend fun foreground(): String { platformEffects++; return foreground.invoke() }
-        override suspend fun screenshot(): Bitmap = error("Unexpected capture")
-        override suspend fun nodes(): List<PhoneNode> { platformEffects++; return nodes }
+        override suspend fun screenshot(): Bitmap { platformEffects++; screenshots++; return bitmap }
+        override suspend fun nodes(): List<PhoneNode> { platformEffects++; afterNodes(); return nodes }
         override suspend fun tap(x: Int, y: Int, durationMs: Long) { platformEffects++; taps += Triple(x, y, durationMs) }
         override suspend fun swipe(x: Int, y: Int, endX: Int, endY: Int, durationMs: Long) { platformEffects++ }
         override suspend fun type(text: String) { platformEffects++ }
@@ -52,12 +62,25 @@ class PhoneToolProviderTest {
             probes++; if (readiness()) null else "permission_lost:not_ready:notifications"
         }, locked = { isLocked },
         device = { platformEffects++; backend }, ownPackage = "agora", launcher = { "launcher" },
-        persist = { error("Unexpected persistence") }, captured = { error("Unexpected capture") },
+        persist = {
+            persisted++
+            ToolImageAttachment("fixture.png", "image/png", 100, 1080, 2400)
+        },
+        captured = { work ->
+            captureStarts++
+            captureActive = true
+            try { beforeCapture(); work() } finally {
+                captureActive = false
+                captureEnds++
+                afterCapture()
+            }
+        },
         showControl = { platformEffects++ }, action = { _, _, _, _, _, _ -> platformEffects++ },
         status = { platformEffects++; statusUpdate(it) },
         releaseControl = { releaseControl(it) },
         operating = { work ->
             operationStarts++
+            assertFalse("Operation admission must follow capture cleanup", captureActive)
             try { beforeOperation(); work() } finally { operationEnds++ }
         },
     )
@@ -253,11 +276,11 @@ class PhoneToolProviderTest {
         assertFalse(claim().isError)
         assertEquals(0, operationStarts)
         foreground = { throw PhoneFailure("device_failure") }
-        assertError("device_failure", provider.executeOneShotResult("phone_ui_tree", "{}", context))
+        assertError("device_failure", provider.executeOneShotResult("phone_key", """{"key":"back","screenshot":false}""", context))
         assertEquals(1, operationEnds)
         val entered = CompletableDeferred<Unit>()
         beforeOperation = { entered.complete(Unit); kotlinx.coroutines.awaitCancellation() }
-        val pending = async { provider.executeOneShotResult("phone_screenshot", "{}", context) }
+        val pending = async { provider.executeOneShotResult("phone_key", """{"key":"home","screenshot":false}""", context) }
         entered.await(); pending.cancel(); pending.join()
         assertEquals(2, operationEnds)
         assertFalse(provider.executeOneShotResult("phone_release", "{}", context).isError)
@@ -267,7 +290,7 @@ class PhoneToolProviderTest {
         assertFalse(claim().isError)
         assertEquals(1, probes)
         beforeOperation = { readiness = { false } }
-        assertFalse(provider.executeOneShotResult("phone_ui_tree", "{}", context).isError)
+        assertFalse(provider.executeOneShotResult("phone_key", """{"key":"back","screenshot":false}""", context).isError)
         assertEquals(2, probes)
         assertNotNull(lease.held.value)
         time = 30_000
@@ -317,46 +340,154 @@ class PhoneToolProviderTest {
     @Test fun settingsChangeDuringSuspensionIsFencedWithoutAnotherPermissionProbe() = runTest {
         assertFalse(claim().isError)
         beforeOperation = { config = config.copy(enabled = false) }
-        assertError("permission_lost:disabled", provider.executeOneShotResult("phone_ui_tree", "{}", context))
+        assertError("permission_lost:disabled", provider.executeOneShotResult("phone_key", """{"key":"back","screenshot":false}""", context))
         assertNull(lease.held.value)
         assertEquals(2, probes)
     }
-    @Test fun appMetadataDoesNotEnterTheWindowBoundaryButEveryUiToolDoes() = runTest {
+    @Test fun onlyInputAndNavigationEnterTheOperationBoundary() = runTest {
         assertFalse(claim().isError)
         beforeOperation = { throw PhoneFailure("visibility_marker") }
-        repeat(2) {
-            val result = provider.executeOneShotResult("phone_app_list", "{}", context)
+        for (name in listOf("phone_app_list", "phone_ui_tree", "phone_screenshot")) {
+            val result = provider.executeOneShotResult(name, "{}", context)
             assertFalse(result.text, result.isError)
         }
         assertEquals(0, operationStarts)
         assertEquals(0, operationEnds)
-        val uiTools = listOf("phone_tap", "phone_long_press", "phone_swipe", "phone_type",
-            "phone_key", "phone_app_launch", "phone_screenshot", "phone_ui_tree")
-        uiTools.forEach { name ->
+        assertEquals(1, captureStarts)
+        assertEquals(1, captureEnds)
+        assertEquals(1, screenshots)
+        assertEquals(1, persisted)
+        val actions = listOf("phone_tap", "phone_long_press", "phone_swipe", "phone_type",
+            "phone_key", "phone_app_launch")
+        actions.forEach { name ->
             assertError("visibility_marker", provider.executeOneShotResult(name, "{}", context))
         }
-        assertEquals(uiTools.size, operationStarts)
-        assertEquals(uiTools.size, operationEnds)
+        assertEquals(actions.size, operationStarts)
+        assertEquals(actions.size, operationEnds)
         assertTrue(keys.isEmpty())
         assertTrue(taps.isEmpty())
         assertFalse(provider.executeOneShotResult("phone_release", "{}", context).isError)
-        assertEquals(uiTools.size, operationStarts)
+        assertEquals(actions.size, operationStarts)
     }
 
-    @Test fun blockedAppMetadataNavigatesOnlyInsideTheWindowBoundary() = runTest {
+    @Test fun blockedReadOnlyToolsNavigateOnlyInsideTheOperationBoundary() = runTest {
         assertFalse(claim().isError)
         config = config.copy(accessMode = "blocklist", blocklist = setOf("private"))
         foreground = { "private" }
-        var navigationAdmitted = false
+        var navigationAdmissions = 0
         beforeOperation = {
             assertTrue(keys.isEmpty())
-            navigationAdmitted = true
+            navigationAdmissions++
         }
-        assertError("app_blocked", provider.executeOneShotResult("phone_app_list", "{}", context))
-        assertTrue(navigationAdmitted)
+        for (name in listOf("phone_app_list", "phone_ui_tree", "phone_screenshot")) {
+            keys.clear()
+            assertError("app_blocked", provider.executeOneShotResult(name, "{}", context))
+            assertEquals(listOf("back", "home"), keys)
+        }
+        assertEquals(3, navigationAdmissions)
+        assertEquals(3, operationStarts)
+        assertEquals(3, operationEnds)
+        assertEquals(0, captureStarts)
+        assertEquals(0, screenshots)
+    }
+
+    @Test fun blockedAppAfterNodeReadDoesNotReturnTheTreeAndAdmitsNavigation() = runTest {
+        assertFalse(claim().isError)
+        config = config.copy(accessMode = "blocklist", blocklist = setOf("private"))
+        afterNodes = { foreground = { "private" } }
+        val result = provider.executeOneShotResult("phone_ui_tree", "{}", context)
+        assertError("app_blocked", result)
+        assertFalse(result.text.contains("\"nodes\""))
         assertEquals(listOf("back", "home"), keys)
         assertEquals(1, operationStarts)
         assertEquals(1, operationEnds)
+    }
+
+    @Test fun capturePrivacyChecksFinishHidingBeforeFallbackAndNeverPublishBlockedImages() = runTest {
+        assertFalse(claim().isError)
+        config = config.copy(accessMode = "blocklist", blocklist = setOf("private"))
+        for (blockedAt in 2..4) {
+            keys.clear()
+            var checks = 0
+            foreground = { if (++checks >= blockedAt) "private" else "allowed" }
+            val result = provider.executeOneShotResult("phone_screenshot", "{}", context)
+            assertError("app_blocked", result)
+            assertTrue(result.images.isEmpty())
+            assertEquals(listOf("back", "home"), keys)
+            assertEquals(blockedAt - 1, operationStarts)
+            assertEquals(operationStarts, operationEnds)
+            assertEquals(0, persisted)
+            assertFalse(captureActive)
+        }
+        assertEquals(2, captureStarts)
+        assertEquals(2, captureEnds)
+        assertEquals(1, screenshots)
+        io.mockk.verify(exactly = 1) { bitmap.recycle() }
+    }
+
+    @Test fun captureFallbackRechecksRevocationAfterItsOperationWait() = runTest {
+        assertFalse(claim().isError)
+        config = config.copy(accessMode = "blocklist", blocklist = setOf("private"))
+        beforeCapture = { foreground = { "private" } }
+        beforeOperation = {
+            assertEquals(1, captureEnds)
+            lease.held.value!!.let { lease.revokeByUser(it.owner, it.epoch) }
+        }
+        assertError("released_by_user", provider.executeOneShotResult("phone_screenshot", "{}", context))
+        assertTrue(keys.isEmpty())
+        assertEquals(0, screenshots)
+        assertEquals(0, persisted)
+        assertEquals(1, operationStarts)
+        assertEquals(1, operationEnds)
+    }
+
+    @Test fun actionScreenshotKeepsOneOperationScopeIncludingPrivacyFallback() = runTest {
+        assertFalse(claim().isError)
+        config = config.copy(accessMode = "blocklist", blocklist = setOf("private"))
+        beforeCapture = { foreground = { "private" } }
+        assertError("app_blocked", provider.executeOneShotResult("phone_key", """{"key":"back"}""", context))
+        assertEquals(listOf("back", "back", "home"), keys)
+        assertEquals(1, operationStarts)
+        assertEquals(1, operationEnds)
+        assertEquals(1, captureEnds)
+        assertEquals(0, screenshots)
+        assertEquals(0, persisted)
+    }
+
+    @Test fun cancellationDuringStandaloneCaptureRestoresWithoutOperationAdmission() = runTest {
+        assertFalse(claim().isError)
+        val entered = CompletableDeferred<Unit>()
+        beforeCapture = { entered.complete(Unit); kotlinx.coroutines.awaitCancellation() }
+        val capture = async { provider.executeOneShotResult("phone_screenshot", "{}", context) }
+        entered.await()
+        capture.cancel(); capture.join()
+        assertEquals(1, captureEnds)
+        assertFalse(captureActive)
+        assertEquals(0, operationStarts)
+        assertEquals(0, screenshots)
+        beforeCapture = {}
+        assertFalse(provider.executeOneShotResult("phone_ui_tree", "{}", context).isError)
+    }
+
+    @Test fun settingsChangeWhileCaptureWaitsPreventsCaptureAndPersistence() = runTest {
+        assertFalse(claim().isError)
+        beforeCapture = { config = config.copy(enabled = false) }
+        assertError("permission_lost:disabled", provider.executeOneShotResult("phone_screenshot", "{}", context))
+        assertEquals(1, captureEnds)
+        assertEquals(0, operationStarts)
+        assertEquals(0, screenshots)
+        assertEquals(0, persisted)
+        assertNull(lease.held.value)
+    }
+
+    @Test fun captureCompletionStillFencesRevocationBeforePersistence() = runTest {
+        assertFalse(claim().isError)
+        afterCapture = { lease.held.value!!.let { lease.revokeByUser(it.owner, it.epoch) } }
+        assertError("released_by_user", provider.executeOneShotResult("phone_screenshot", "{}", context))
+        assertEquals(1, screenshots)
+        assertEquals(0, persisted)
+        assertEquals(0, operationStarts)
+        io.mockk.verify(exactly = 1) { bitmap.recycle() }
     }
 
     @Test fun metadataFallbackRechecksRevocationAfterTheWindowWait() = runTest {

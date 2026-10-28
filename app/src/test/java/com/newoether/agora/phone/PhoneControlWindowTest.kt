@@ -249,27 +249,84 @@ class PhoneControlWindowTest {
 
     @Test fun captureWaitsForRealFadeOutAndRestoresFromZeroWithoutVisibilitySwitches() = runTest {
         val window = window()
-        val operation = async { window.beforeOperation() }
-        runCurrent(); frames(); runCurrent(); operation.await()
-        window.capture(true)
+        window.beforeCapture()
         val capture = async { window.awaitCaptureHidden() }
         runCurrent()
+        assertFalse(window.readyToOperate)
+        assertFalse(window.touchable)
+        assertEquals(1f, params.alpha)
         assertFalse(capture.isCompleted)
         frames(80); runCurrent()
-        assertTrue(params.alpha > 0f && params.alpha < safeAlpha)
+        assertTrue(params.alpha > 0f && params.alpha < 1f)
         assertFalse(capture.isCompleted)
         assertFalse(window.touchable)
         assertEquals(View.VISIBLE, view.visibility)
         frames(); runCurrent(); capture.await()
         assertEquals(0f, params.alpha)
         window.capture(false)
-        window.afterOperation()
         assertTrue(window.touchable)
+        assertFalse(window.readyToOperate)
         assertEquals(0f, params.alpha)
         frames(80)
         assertTrue(params.alpha > 0f && params.alpha < 1f)
         frames()
         assertEquals(1f, params.alpha)
+        window.close()
+    }
+
+    @Test fun standaloneCaptureWaitsForQuestionThenHidesWithoutOperationAdmission() = runTest {
+        val window = window()
+        window.showForUser(true)
+        val capture = async { window.beforeCapture(); window.awaitCaptureHidden() }
+        runCurrent(); frames(); runCurrent()
+        assertFalse(capture.isCompleted)
+        assertTrue(window.touchable)
+        assertEquals(1f, params.alpha)
+        assertFalse(window.readyToOperate)
+        window.showForUser(false)
+        runCurrent()
+        assertFalse(window.touchable)
+        assertEquals(1f, params.alpha)
+        frames(); runCurrent(); capture.await()
+        assertEquals(0f, params.alpha)
+        assertFalse(window.readyToOperate)
+        window.showForUser(true)
+        assertFalse(window.touchable)
+        window.capture(false)
+        assertTrue(window.touchable)
+        frames()
+        assertEquals(1f, params.alpha)
+        window.close()
+    }
+
+    @Test fun closeWakesCaptureWaitingForQuestionWithoutLaterWrites() = runTest {
+        val window = window()
+        window.showForUser(true)
+        val capture = async { runCatching { window.beforeCapture() }.exceptionOrNull() }
+        runCurrent()
+        assertFalse(capture.isCompleted)
+        window.close()
+        var writes = 0
+        every { manager.updateViewLayout(any(), any()) } answers { writes++ }
+        runCurrent()
+        assertTrue(capture.await() is PhoneFailure)
+        window.capture(false)
+        frames()
+        assertEquals(0, writes)
+        assertFalse(window.touchable)
+    }
+
+    @Test fun cancellingCaptureWaitingForQuestionKeepsItOpaqueAndInteractive() = runTest {
+        val window = window()
+        window.showForUser(true)
+        val capture = async { window.beforeCapture() }
+        runCurrent()
+        capture.cancel(); runCurrent(); capture.join()
+        window.showForUser(false)
+        frames()
+        assertTrue(window.touchable)
+        assertEquals(1f, params.alpha)
+        assertFalse(window.readyToOperate)
         window.close()
     }
 

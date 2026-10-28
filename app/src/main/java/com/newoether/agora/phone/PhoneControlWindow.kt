@@ -18,7 +18,7 @@ internal class PhoneControlWindow(
 ) {
     private val operationReady = MutableStateFlow(false)
     private val captureReady = MutableStateFlow(false)
-    private var userPriority = false
+    private val userPriority = MutableStateFlow(false)
     private var operating = false
     private var closed = false
     private var capturing = false
@@ -43,9 +43,16 @@ internal class PhoneControlWindow(
     }
 
     fun showForUser(show: Boolean) {
-        if (closed || userPriority == show) return
-        userPriority = show
+        if (closed || userPriority.value == show) return
+        userPriority.value = show
         refresh()
+    }
+
+    suspend fun beforeCapture() {
+        if (closed) throw PhoneFailure("overlay_unavailable")
+        userPriority.first { !it }
+        if (closed) throw PhoneFailure("overlay_unavailable")
+        capture(true)
     }
 
     fun capture(active: Boolean) {
@@ -67,12 +74,13 @@ internal class PhoneControlWindow(
         // Wake an old waiter so it fails instead of waiting on a removed window.
         operationReady.value = true
         captureReady.value = true
+        userPriority.value = false
     }
 
     private fun refresh() {
         val target = when {
             capturing -> 0f
-            operating && !userPriority -> operationAlpha
+            operating && !userPriority.value -> operationAlpha
             else -> 1f
         }
         publish()
@@ -113,14 +121,14 @@ internal class PhoneControlWindow(
     }
 
     private fun publish() {
-        val passThrough = capturing || (operating && !userPriority)
+        val passThrough = capturing || (operating && !userPriority.value)
         touchable = !closed && !capturing && (!passThrough || params.alpha > operationAlpha)
         params.flags = if (touchable) params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
         else params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         manager.updateViewLayout(view, params)
         view.requestLayout()
         captureReady.value = !closed && capturing && params.alpha == 0f && animator == null
-        operationReady.value = !closed && operating && !userPriority && !capturing &&
+        operationReady.value = !closed && operating && !userPriority.value && !capturing &&
             !touchable && params.alpha <= operationAlpha
     }
 }

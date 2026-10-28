@@ -170,7 +170,7 @@ class PhoneOverlayLifecycleTest {
         assertEquals("capture failed", capture.await()?.message)
         assertEquals(1, captures)
         assertFalse(overlay.capturing.value)
-        window.afterOperation()
+        assertFalse(window.readyToOperate)
         assertTrue(window.touchable)
         frames()
         assertEquals(1f, params.alpha)
@@ -185,11 +185,45 @@ class PhoneOverlayLifecycleTest {
         runCurrent()
         capture.join()
         assertFalse(overlay.capturing.value)
-        window.afterOperation()
+        assertFalse(window.readyToOperate)
         frames()
         assertEquals(0, captures)
         assertEquals(1f, params.alpha)
         assertTrue(window.touchable)
+    }
+
+    @Test fun cancellingCaptureWhileQuestionWaitsNeverHidesOrBlocksItsInput() = runTest(dispatcher) {
+        window.showForUser(true)
+        var captures = 0
+        val capture = launch { overlay.capture { captures++; error("unexpected") } }
+        runCurrent(); frames()
+        assertFalse(capture.isCompleted)
+        assertFalse(overlay.capturing.value)
+        assertEquals(1f, params.alpha)
+        assertTrue(window.touchable)
+        capture.cancel(); runCurrent(); capture.join()
+        window.showForUser(false)
+        frames()
+        assertEquals(0, captures)
+        assertEquals(1f, params.alpha)
+        assertTrue(window.touchable)
+        assertFalse(window.readyToOperate)
+    }
+
+    @Test fun removingCaptureWaitingForQuestionRejectsWithoutLaterWrites() = runTest(dispatcher) {
+        window.showForUser(true)
+        var captures = 0
+        val capture = async { runCatching { overlay.capture { captures++; error("unexpected") } }.exceptionOrNull() }
+        runCurrent()
+        assertFalse(overlay.capturing.value)
+        overlay.remove()
+        val writesAfterRemove = writes
+        runCurrent()
+        assertTrue(capture.await() is PhoneFailure)
+        frames()
+        assertEquals(0, captures)
+        assertEquals(writesAfterRemove, writes)
+        assertFalse(overlay.capturing.value)
     }
 
     @Test fun removingDuringCaptureFadeRejectsOldWorkWithoutLaterWindowWrites() = runTest(dispatcher) {

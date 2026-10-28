@@ -273,19 +273,20 @@ including `phone_claim`, returns `released_by_user` with no side effect. A later
 conversation may claim again. User touches on the screen do not interrupt control.
 
 ### 4.3 Action visibility and duration
-Only device UI tools enter the control-window opacity/input-exclusion boundary: tap, long press,
-swipe, type, key, app launch, screenshot and UI tree. App-list metadata reads keep the control
-window opaque and interactive; claim, release and non-Phone tools do not enter this boundary.
-Tool-name presentation alone never changes window opacity or touchability. If an app-list access
-check must leave a blocked foreground app, its actual Back/Home navigation enters the same boundary
-and revalidates the exact permit before input; ordinary allowed metadata reads never do.
-Before admitted UI work, fade the control
+Only tools that inject input or navigate enter the control-window operation opacity/input-exclusion
+boundary: tap, long press, swipe, type, key and app launch. Screenshot, UI tree and app-list reads
+never enter that boundary; UI tree and app list keep the control window opaque and interactive.
+Screenshot has its separate capture-only hiding boundary in section 4.6. Claim, release and non-Phone
+tools do not enter the operation boundary. Tool-name presentation alone never changes opacity or
+touchability. If a read-only tool's access check must leave a blocked foreground app, its actual
+Back/Home navigation enters the same operation boundary and revalidates the exact permit before input.
+Before admitted input or navigation, fade the control
 window's LayoutParams.alpha from its current value to the safe operation alpha over 180 ms with
 FastOutSlowIn easing. Stop and dragging remain available during that fade. Once safe alpha is reached,
 publish FLAG_NOT_TOUCHABLE and NOT_FOCUSABLE on the whole control window, then wait two frames and
 recheck the window's operation-ready state before device effects. Revalidate the exact lease/Run
 and enabled/mode settings after this suspension, without another platform permission probe. The view stays visible and its own alpha remains one; the
-effect window and border remain unchanged. App-list privacy fallback navigation shares this boundary.
+effect window and border remain unchanged. Read-only privacy fallback navigation shares this boundary.
 On success, error or cancellation, restore input immediately in the operation finally boundary and
 fade back to alpha one over 180 ms, without delaying input restoration. A new action or question
 retargets the current alpha without jumping to an old endpoint. Removed/replaced overlays cancel
@@ -341,13 +342,19 @@ A solid circle drawn on the effect window at each action point, theme colored.
 
 ### 4.6 Screenshot hygiene
 
-Before capture, recheck question priority and input exclusion, then hide the cursor and fade the
-control window's platform alpha from its current value to zero over 180 ms FastOutSlowIn. Keep the
-view attached and visible. Wait for actual zero alpha and two committed frames before bitmap capture.
-In finally, clear capture-only state and fade from the current alpha back to the current question or
-operation target; the outer operation boundary restores input and retargets alpha one. Cancellation
-and errors restore through the same owner. Close/removal rejects hidden-state waiters and prevents
-late alpha/input writes. Reduced Motion retains this fade; disabled system animations snap.
+Before capture, wait for any pending question without entering operation mode, then hide the cursor
+and fade the control window's platform alpha directly from its current value to zero over 180 ms
+FastOutSlowIn. There is no preceding safe-operation-alpha phase for a standalone screenshot.
+Keep the view attached and visible, with input excluded during capture. Wait for actual zero alpha
+and two committed frames before bitmap capture. In finally, clear capture-only state and fade from
+the current alpha back to the current question or operation target. A standalone screenshot restores
+input immediately and retargets alpha one without needing an outer operation cleanup; an action's
+optional screenshot remains within that action's existing operation scope. Cancellation and errors
+restore through the same owner. Close/removal wakes question/hidden-state waiters and prevents
+late alpha/input writes. A blocked-app check inside capture first unwinds capture hiding, then admits
+its Back/Home fallback through the operation boundary and revalidates the permit; it never waits for
+operation admission while capture is active. No blocked image is published. Reduced Motion retains
+this fade; disabled system animations snap.
 A question arriving during capture remains input-excluded until capture cleanup, then fades in.
 The border stays visible and tool descriptions tell the model a thin
 colored border is Agora's control indicator.
