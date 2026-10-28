@@ -773,20 +773,20 @@ class SharedToolsOwnerReplacementTest {
         val bounds = node.boundsInRoot
         if (bounds.width <= 0f || bounds.height <= 0f) return 0
         val host = compose.onNodeWithTag("replacement-host").fetchSemanticsNode().boundsInRoot
-        val bitmap = Bitmap.createBitmap(ceil(host.width).toInt(), ceil(host.height).toInt(),
-            Bitmap.Config.ARGB_8888)
+        val left = floor(bounds.left - host.left).toInt().coerceIn(0, ceil(host.width).toInt())
+        val right = ceil(bounds.right - host.left).toInt().coerceIn(left, ceil(host.width).toInt())
+        val top = floor(bounds.top - host.top).toInt().coerceIn(0, ceil(host.height).toInt())
+        val bottom = ceil(bounds.bottom - host.top).toInt().coerceIn(top, ceil(host.height).toInt())
+        if (right == left || bottom == top) return 0
+        val bitmap = Bitmap.createBitmap(right - left, bottom - top, Bitmap.Config.ARGB_8888)
         try {
             compose.runOnUiThread {
                 val canvas = Canvas(bitmap)
-                canvas.translate(-host.left, -host.top)
+                canvas.translate(-host.left - left, -host.top - top)
                 drawingView.draw(canvas)
             }
-            val left = floor(bounds.left - host.left).toInt().coerceIn(0, bitmap.width)
-            val right = ceil(bounds.right - host.left).toInt().coerceIn(left, bitmap.width)
-            val top = floor(bounds.top - host.top).toInt().coerceIn(0, bitmap.height)
-            val bottom = ceil(bounds.bottom - host.top).toInt().coerceIn(top, bitmap.height)
             var count = 0
-            for (y in top until bottom) for (x in left until right) {
+            for (y in 0 until bitmap.height) for (x in 0 until bitmap.width) {
                 val pixel = Color(bitmap.getPixel(x, y))
                 if (strongest) count = maxOf(count, ((pixel.red - pixel.green) * 255f).toInt())
                 else if (pixel.red - pixel.green > 0.08f && pixel.red - pixel.blue > 0.08f) count++
