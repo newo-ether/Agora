@@ -306,7 +306,7 @@ class SemanticIndexMutationSourceContractTest {
             "semanticDao.getReconcileMessageIdsPage(",
             "afterMessageId = messageIds.last()",
             "semanticDao.getReconcileMessagesByIds(",
-            "semanticSourceFingerprint(row.text)",
+            "semanticSourceFingerprint(text)",
             "!embedCandidates(",
             "yield()",
         )

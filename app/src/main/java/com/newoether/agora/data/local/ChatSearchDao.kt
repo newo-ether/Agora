@@ -1,11 +1,55 @@
 package com.newoether.agora.data.local
 
 import androidx.room.Query
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.yield
 
 data class EmbeddingModelCount(
     val modelId: String,
     val count: Int,
 )
+
+data class EmbeddingCacheCounts(
+    val total: Int,
+    val cachedByModel: Map<String, Int>,
+) {
+    init {
+        require(total >= 0 && cachedByModel.values.all { it in 0..total })
+    }
+}
+
+data class EmbeddingCacheCountRow(
+    val messageId: String,
+    val eligible: Boolean,
+    val modelId: String?,
+)
+
+internal const val CACHE_COUNT_PAGE_SIZE = 128
+private const val CACHE_COUNT_ELIGIBILITY = """
+    c.id IS NOT NULL AND c.taskId IS NULL AND m.participant IN ('USER', 'MODEL')
+    AND LENGTH(CAST(m.text AS BLOB)) > 0
+    AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%' AND m.id NOT LIKE 'compact_%'
+"""
+// LIMIT precedes qualification; hidden identities still advance the page cursor.
+private const val CACHE_COUNT_PROJECTION = """
+    SELECT page.id AS messageId, CASE WHEN $CACHE_COUNT_ELIGIBILITY THEN 1 ELSE 0 END AS eligible,
+           e.modelId
+    FROM (
+"""
+private const val CACHE_COUNT_JOINS = """
+    ) page CROSS JOIN messages m ON m.id = page.id
+    LEFT JOIN conversations c ON c.id = m.conversationId
+    LEFT JOIN embeddings e ON e.messageId = m.id AND e.modelId IN (:modelIds)
+        AND $CACHE_COUNT_ELIGIBILITY
+    ORDER BY page.id
+"""
+internal const val CACHE_COUNT_FIRST_PAGE = CACHE_COUNT_PROJECTION + """
+        SELECT id FROM messages ORDER BY id LIMIT :limit
+""" + CACHE_COUNT_JOINS
+internal const val CACHE_COUNT_NEXT_PAGE = CACHE_COUNT_PROJECTION + """
+        SELECT id FROM messages WHERE id > :afterId ORDER BY id LIMIT :limit
+""" + CACHE_COUNT_JOINS
 
 internal const val CITATION_MESSAGE_PAGE_QUERY = """
     SELECT m.*
@@ -95,52 +139,95 @@ interface ChatSearchDao {
         pageSize: Int,
     ): List<MessageEntity>
 
-    @Query(
-        """
-        SELECT e.id, e.messageId, e.embedding, e.dimension
-        FROM embeddings e
-        CROSS JOIN messages m
-        CROSS JOIN conversations c
-        WHERE e.messageId = m.id
-          AND m.conversationId = c.id
-          AND e.modelId = :modelId
-          AND e.id > :afterId
-          AND $HISTORY_MESSAGE_ELIGIBILITY
-          AND LENGTH(m.text) >= :minimumTextLength
-        ORDER BY e.id
-        LIMIT :limit
-        """
-    )
     suspend fun getEmbeddingSearchPage(
         modelId: String,
         afterId: Long,
         minimumTextLength: Int,
         limit: Int,
-    ): List<EmbeddingSearchRow>
+    ): List<EmbeddingSearchRow> {
+        require(limit > 0)
+        val result = ArrayList<EmbeddingSearchRow>()
+        val physicalPageSize = minOf(limit, 256)
+        var cursor = afterId
+        while (result.size < limit) {
+            currentCoroutineContext().ensureActive()
+            val ids = getEmbeddingSearchIdsPage(modelId, cursor, physicalPageSize)
+            currentCoroutineContext().ensureActive()
+            if (ids.isEmpty()) break
+            val page = getEmbeddingSearchRowsForIds(modelId, ids, minimumTextLength)
+            result += page.take(limit - result.size)
+            cursor = ids.last()
+            yield()
+        }
+        return result
+    }
 
-    @Query("SELECT COUNT(*) FROM embeddings e INNER JOIN messages m ON e.messageId = m.id INNER JOIN conversations c ON m.conversationId = c.id WHERE e.modelId = :modelId AND c.taskId IS NULL AND m.participant IN ('USER', 'MODEL') AND m.text != '' AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%' AND m.id NOT LIKE 'compact_%'")
-    suspend fun getEmbeddingCountByModel(modelId: String): Int
+    @Query("SELECT id FROM embeddings WHERE modelId = :modelId AND id > :afterId ORDER BY id LIMIT :limit")
+    suspend fun getEmbeddingSearchIdsPage(modelId: String, afterId: Long, limit: Int): List<Long>
 
     @Query(
         """
-        SELECT e.modelId AS modelId, COUNT(*) AS count
+        SELECT e.id, e.messageId, e.embedding, e.dimension
         FROM embeddings e
-        INNER JOIN messages m ON e.messageId = m.id
-        INNER JOIN conversations c ON m.conversationId = c.id
-        WHERE e.modelId IN (:modelIds)
-          AND c.taskId IS NULL
-          AND m.participant IN ('USER', 'MODEL')
-          AND m.text != ''
-          AND m.id NOT LIKE 'tool_%'
-          AND m.id NOT LIKE 'result_%'
-          AND m.id NOT LIKE 'compact_%'
-        GROUP BY e.modelId
-        """
+        CROSS JOIN messages m ON e.messageId = m.id
+        CROSS JOIN conversations c ON m.conversationId = c.id
+        WHERE e.id IN (:ids) AND e.modelId = :modelId
+          AND $HISTORY_MESSAGE_ELIGIBILITY
+          AND LENGTH(m.text) >= :minimumTextLength
+        ORDER BY e.id
+        """,
     )
-    suspend fun getEmbeddingCountsByModels(modelIds: List<String>): List<EmbeddingModelCount>
+    suspend fun getEmbeddingSearchRowsForIds(
+        modelId: String,
+        ids: List<Long>,
+        minimumTextLength: Int,
+    ): List<EmbeddingSearchRow>
 
-    @Query("SELECT COUNT(*) FROM messages m INNER JOIN conversations c ON m.conversationId = c.id WHERE c.taskId IS NULL AND m.participant IN ('USER', 'MODEL') AND m.text != '' AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%' AND m.id NOT LIKE 'compact_%'")
-    suspend fun getIndexableMessageCount(): Int
+    suspend fun getEmbeddingCountByModel(modelId: String): Int =
+        getEmbeddingCacheCounts(listOf(modelId)).cachedByModel.getValue(modelId)
+
+    suspend fun getEmbeddingCountsByModels(modelIds: List<String>): List<EmbeddingModelCount> =
+        if (modelIds.isEmpty()) emptyList() else getEmbeddingCacheCounts(modelIds).cachedByModel
+            .filterValues { it > 0 }.map { (id, count) -> EmbeddingModelCount(id, count) }
+
+    suspend fun getIndexableMessageCount(): Int = getEmbeddingCacheCounts(emptyList()).total
+
+    suspend fun getEmbeddingCacheCounts(modelIds: List<String>): EmbeddingCacheCounts {
+        val requestedIds = modelIds.distinct()
+        val counts = requestedIds.associateWith { 0 }.toMutableMap()
+        var total = 0
+        var afterId: String? = null
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val cursor = afterId
+            val page = if (cursor == null) {
+                getFirstEmbeddingCacheCountPage(requestedIds, CACHE_COUNT_PAGE_SIZE)
+            } else {
+                getEmbeddingCacheCountPage(requestedIds, cursor, CACHE_COUNT_PAGE_SIZE)
+            }
+            currentCoroutineContext().ensureActive()
+            if (page.isEmpty()) break
+            val eligibleIds = HashSet<String>()
+            page.forEach { row ->
+                if (row.eligible) eligibleIds += row.messageId
+                row.modelId?.let { id -> counts[id] = Math.addExact(counts.getValue(id), 1) }
+            }
+            total = Math.addExact(total, eligibleIds.size)
+            afterId = page.last().messageId
+            yield()
+        }
+        return EmbeddingCacheCounts(total, counts)
+    }
+
+    @Query(CACHE_COUNT_FIRST_PAGE)
+    suspend fun getFirstEmbeddingCacheCountPage(
+        modelIds: List<String>, limit: Int,
+    ): List<EmbeddingCacheCountRow>
+
+    @Query(CACHE_COUNT_NEXT_PAGE)
+    suspend fun getEmbeddingCacheCountPage(
+        modelIds: List<String>, afterId: String, limit: Int,
+    ): List<EmbeddingCacheCountRow>
 
     @Query(
         """

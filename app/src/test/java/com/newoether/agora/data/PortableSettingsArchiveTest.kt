@@ -376,6 +376,7 @@ class PortableSettingsArchiveTest {
 
         assertFalse(startup.contains("handleUncachedMessages"))
         assertFalse(startup.contains("getIndexableMessageCount"))
+        assertFalse(startup.contains("getEmbeddingCacheCounts"))
         assertFalse(startup.contains("getEmbeddingCountByModel"))
 
         val modelSwitchPolicy = rag

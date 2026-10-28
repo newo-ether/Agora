@@ -30,6 +30,8 @@ import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -51,7 +53,7 @@ internal fun shouldReuseReconciledEmbedding(
     expectedFingerprint: String,
 ): Boolean {
     val validShape =
-        dimension != null && dimension > 0 && embeddingBytes == dimension * Float.SIZE_BYTES
+        dimension != null && dimension > 0 && dimension.toLong() * Float.SIZE_BYTES == embeddingBytes?.toLong()
     return embeddingId != null && validShape &&
         (existingFingerprint == null || existingFingerprint == expectedFingerprint)
 }
@@ -180,6 +182,7 @@ class EmbeddingCacheWorker(
             ),
         )
         while (processed < workTotal) {
+            currentCoroutineContext().ensureActive()
             val page = semanticDao.getWorkPage(
                 modelId = model.id,
                 maxSourceRevision = admittedRevision,
@@ -192,6 +195,7 @@ class EmbeddingCacheWorker(
             afterMessageId = page.last().messageId
             val candidates = mutableListOf<EmbeddingCandidate>()
             page.forEach { work ->
+                currentCoroutineContext().ensureActive()
                 if (work.sourceFingerprint == null) {
                     semanticDao.completeExactWork(work, System.currentTimeMillis())
                 } else {
@@ -249,6 +253,7 @@ class EmbeddingCacheWorker(
         var complete = true
         val embeddingBatchSize = model.batchSize.coerceIn(1, MAX_BATCH_SIZE)
         while (true) {
+            currentCoroutineContext().ensureActive()
             if (semanticDao.getLedger(model.id)?.reconcileRevision != expectedReconcileRevision) {
                 return false
             }
@@ -275,7 +280,9 @@ class EmbeddingCacheWorker(
             )
             val candidates = mutableListOf<EmbeddingCandidate>()
             page.forEach { row ->
-                val fingerprint = semanticSourceFingerprint(row.text)
+                currentCoroutineContext().ensureActive()
+                val text = row.text
+                val fingerprint = semanticSourceFingerprint(text)
                 // An extant legacy row is already source-safe: all semantic source mutations
                 // delete its embedding transactionally before enqueuing work. Rewriting a nullable
                 // fingerprint into every pre-v30 row would rewrite gigabytes of BLOB-bearing rows.
@@ -286,7 +293,7 @@ class EmbeddingCacheWorker(
                     existingFingerprint = row.embeddingFingerprint,
                     expectedFingerprint = fingerprint,
                 )
-                if (!reusable) candidates += row.toCandidate(fingerprint)
+                if (!reusable) candidates += row.toCandidate(fingerprint, text)
             }
             if (candidates.isNotEmpty() && !embeddingConfigResolved) {
                 remoteConfig = resolveEmbeddingConfig(model, settingsManager)
@@ -350,8 +357,14 @@ class EmbeddingCacheWorker(
             )
         }
         if (embeddings.size != candidates.size) return false
+        var complete = true
         candidates.forEachIndexed { index, candidate ->
-            val embedding = embeddings[index] ?: return false
+            currentCoroutineContext().ensureActive()
+            val embedding = embeddings[index]
+            if (embedding == null || embedding.isEmpty() || embedding.any { !it.isFinite() }) {
+                complete = false
+                return@forEachIndexed
+            }
             database.commitSemanticEmbedding(
                 embedding = EmbeddingEntity(
                     id = candidate.existingEmbeddingId ?: 0L,
@@ -371,11 +384,12 @@ class EmbeddingCacheWorker(
             // A false commit means the source/work/reconcile generation was superseded. It is not
             // an embedding failure; the ledger already owns the newer work and this worker loops.
         }
-        return true
+        return complete
     }
 
     private fun ReconcileIndexableMessage.toCandidate(
         fingerprint: String,
+        text: String,
     ): EmbeddingCandidate = EmbeddingCandidate(
         workRevision = null,
         fingerprint = fingerprint,

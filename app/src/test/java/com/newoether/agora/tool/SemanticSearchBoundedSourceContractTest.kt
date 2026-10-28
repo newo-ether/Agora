@@ -30,13 +30,15 @@ class SemanticSearchBoundedSourceContractTest {
         assertFalse(provider.contains("getEmbeddingsByModel("))
         assertFalse(repository.contains("fun getEmbeddingsByModel("))
         assertFalse(daoOwners.contains("fun getEmbeddingsByModel("))
+        assertTrue(dao.contains("getEmbeddingSearchIdsPage(modelId, cursor"))
+        assertTrue(dao.contains("WHERE e.id IN (:ids) AND e.modelId = :modelId"))
         assertTrue(dao.contains("fun getEmbeddingSearchPage("))
         assertTrue(dao.contains("ORDER BY e.id"))
         assertTrue(dao.contains("LIMIT :limit"))
         assertTrue(
             dao.contains(
-                "FROM embeddings e\n        CROSS JOIN messages m\n" +
-                    "        CROSS JOIN conversations c",
+                "FROM embeddings e\n        CROSS JOIN messages m ON e.messageId = m.id\n" +
+                    "        CROSS JOIN conversations c ON m.conversationId = c.id",
             ),
         )
         assertTrue(provider.contains("BoundedSemanticEmbeddingSelector"))

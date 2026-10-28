@@ -194,23 +194,20 @@ class RagManager(
             clearPendingReminder(requestedModelIds)
             return
         }
-        val (total, cachedByModel, ledgers) = coroutineScope {
-            val totalDeferred = async { conversations.getIndexableMessageCount() }
-            val countsDeferred = async {
-                conversations.getEmbeddingCountsByModels(configuredIds.toList())
-                    .associate { it.modelId to it.count }
-            }
+        val (snapshot, ledgers) = coroutineScope {
+            val countsDeferred = async { conversations.getEmbeddingCacheCounts(configuredIds.toList()) }
             val ledgersDeferred = async {
                 conversations.getSemanticLedgers(configuredIds.toList())
                     .associate { it.modelId to it.state }
             }
-            Triple(totalDeferred.await(), countsDeferred.await(), ledgersDeferred.await())
+            countsDeferred.await() to ledgersDeferred.await()
         }
+        val total = snapshot.total
         val stillConfigured = settings.embeddingModels.value
             .mapTo(linkedSetOf(), EmbeddingModelConfig::id)
             .intersect(configuredIds)
         val counts = stillConfigured.associateWith { modelId ->
-            (cachedByModel[modelId] ?: 0) to total
+            snapshot.cachedByModel.getValue(modelId) to total
         }
         check(total >= 0 && counts.values.all { it.first in 0..total })
         _cacheRows.update { current ->

@@ -86,8 +86,12 @@ message pagination when more tool calls remain.
 
 1. ChatDao reads a minimal projection containing only embedding row id, message id, embedding
    bytes, and declared dimension.
-2. The DAO uses stable keyset pagination (id > afterId, ORDER BY id, bounded LIMIT). It never
-   materializes the complete model corpus for semantic search.
+2. The DAO first seeks at most 256 model embedding identities through the model-leading index,
+   then applies visibility and source-length checks only to those identities. Filtered physical pages
+   advance and yield before continuing to fill the bounded eligible page. Physical reads keep their
+   fixed page bound even when only one eligible result remains; surplus eligible rows are picked up
+   by the next caller page through its last returned identity. Each SQL statement releases
+   its connection; there is no whole-search transaction or corpus-sized filtered statement.
 3. The selector scores one page at a time directly from the durable BIG_ENDIAN bytes and does not
    allocate a decoded FloatArray for every row.
 4. A bounded worst-first top-K heap retains at most the requested result count across all pages.
@@ -172,10 +176,18 @@ the conversation list has been published or the Settings page explicitly request
 never delay list publication. Duplicate page requests share an active refresh; worker completion or
 a configured-model-set change during counting requests at most one successor for the latest set.
 A failed initial snapshot is not automatically retried by background work observations; explicit
-page entry owns restarting that load. One bounded DAO aggregate
-returns cached counts grouped by configured model id while the indexable-message total is read
-independently. No query returns message text or embedding blobs, and page entry must not issue N+1
-model counts.
+page entry owns restarting that load. `ChatSearchDao` accumulates counts from fixed 128-identity
+keyset pages. One message-primary-key pass projects source eligibility and membership in all requested
+models in the same statement; the identity LIMIT precedes eligibility joins and model fanout. Hidden
+identities still advance. Kotlin counts each eligible identity once and includes explicit zeros for
+requested models without rows. Per-page numerator and denominator observe the same rows, so a completed
+refresh always satisfies cached <= total without clamping or separate corpus scans. Page reads release
+their connection before the next page, check coroutine cancellation, and yield; no whole-count transaction
+is allowed. Eligibility uses
+stored BLOB byte length for the nonempty-text test, avoiding full text or embedding materialization.
+This preserves embedded NUL and whitespace eligibility. Counts are a completed observational refresh,
+not an atomic corpus snapshot across concurrent mutations. No query returns message text or embedding
+blobs, and page entry must not issue N+1 model counts.
 
 Each model keeps its last complete count snapshot. Here `cached` is the exact number of eligible
 messages that currently have a stored embedding for that model. The known cached count versus the
@@ -209,8 +221,10 @@ One lightweight ledger row per Embedding model stores whether that model is comp
 pending work, or requires bounded reconciliation/initial backfill. Searchable-message admission,
 text or eligibility changes, deletion, conversation deletion, fork/import, embedding success, and
 embedding invalidation update the semantic ledger and exact work identity in the same durable
-transaction as the owning mutation. Each work item is uniquely identified by model and message and
-includes the current source fingerprint or revision, so duplicate events coalesce and an embedding
+transaction as the owning mutation. Run-only Stop/Stopped/Failed status and conversation-watermark
+updates use an ordinary atomic Room transaction; they do not change source text or eligibility and
+must not invalidate the index or request full reconciliation. Each work item is uniquely identified by
+model and message and includes the current source fingerprint or revision, so duplicate events coalesce and an embedding
 for older text cannot satisfy current content. Inactive models may retain one `needsReconcile` state
 instead of multiplying per-message work; activating a new or stale model admits one bounded keyset
 reconciliation. Database migration marks affected models for reconciliation without scanning message
@@ -233,7 +247,15 @@ observation never hold the model write mutex.
 
 The worker consumes bounded exact-work pages or bounded full-reconcile pages, limits embedding batch
 size, yields between pages, and commits only when both the database source fingerprint and durable
-work revision still match its admitted candidate. Reconciliation first seeks a fixed page of message
+work revision still match its admitted candidate. Remote responses map explicit indices back to input
+order. A provider omitting every index retains ordered compatibility; mixed, duplicate, missing or
+out-of-range indices, wrong cardinality, empty/non-finite vectors and inconsistent batch dimensions
+fail the batch without misbinding vectors. Cancellation propagates and closes the active remote Call.
+A failed vector cannot prevent other valid vectors in an already-generated worker batch from committing;
+unsatisfied work remains durable. Source fingerprints retain SHA-256 over the existing UTF-16 prefix.
+Ranking checks cancellation within every page and yields between pages; double-precision cosine
+accumulation avoids overflow for finite Float vectors while preserving the Float score API.
+Reconciliation first seeks a fixed page of message
 IDs through the covering primary-key index, then hydrates eligible rows only for those IDs. The first
 page has no lower bound so legacy empty IDs remain included; later cursors and validation retain
 SQLite BINARY UTF-8 byte order, including supplementary characters. Filtering must not prevent cursor

@@ -12,7 +12,7 @@ import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.EmbeddingModelType
 import com.newoether.agora.data.EmbeddingCacheLocks
 import com.google.common.util.concurrent.SettableFuture
-import com.newoether.agora.data.local.EmbeddingModelCount
+import com.newoether.agora.data.local.EmbeddingCacheCounts
 import com.newoether.agora.data.local.SemanticIndexLedgerEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
@@ -69,9 +69,8 @@ class RagManagerTest {
         every { settings.embeddingModels } returns models
         every { settings.activeEmbeddingModelId } returns MutableStateFlow(model.id)
         coEvery { settings.awaitInitialLoad() } returns Unit
-        coEvery { repository.getIndexableMessageCount() } returns 10
-        coEvery { repository.getEmbeddingCountsByModels(any()) } answers {
-            firstArg<List<String>>().map { EmbeddingModelCount(it, 4) }
+        coEvery { repository.getEmbeddingCacheCounts(any()) } answers {
+            counts(firstArg())
         }
         coEvery { repository.getSemanticLedgers(any()) } returns listOf(
             SemanticIndexLedgerEntity(model.id, state = SemanticIndexLedgerEntity.STATE_CURRENT, updatedAt = 0),
@@ -88,12 +87,12 @@ class RagManagerTest {
     @Test
     fun constructorDoesNotCountAndLoadingIsOwnedByAnActiveQuery() = runBlocking {
         assertTrue(manager.cacheRows.value.isEmpty())
-        coVerify(exactly = 0) { repository.getIndexableMessageCount() }
+        coVerify(exactly = 0) { repository.getEmbeddingCacheCounts(any()) }
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Int>()
-        coEvery { repository.getIndexableMessageCount() } coAnswers {
+        coEvery { repository.getEmbeddingCacheCounts(any()) } coAnswers {
             entered.complete(Unit)
-            release.await()
+            counts(firstArg(), total = release.await())
         }
         manager.loadCacheCounts()
         withTimeout(5_000) { entered.await() }
@@ -140,7 +139,7 @@ class RagManagerTest {
     @Test
     fun firstFailureHasOneReplacementAndExplicitPageEntryCanTryAgain() = runBlocking {
         val calls = AtomicInteger()
-        coEvery { repository.getIndexableMessageCount() } answers {
+        coEvery { repository.getEmbeddingCacheCounts(any()) } answers {
             calls.incrementAndGet()
             error("count unavailable")
         }
@@ -149,7 +148,7 @@ class RagManagerTest {
         assertEquals(2, calls.get())
         assertNull(failed.phase)
         assertNull(failed.cached)
-        coEvery { repository.getIndexableMessageCount() } returns 10
+        coEvery { repository.getEmbeddingCacheCounts(any()) } answers { counts(firstArg()) }
         manager.loadCacheCounts()
         assertEquals(EmbeddingCacheRowPhase.CACHE, awaitRow { it.cached == 4 }.phase)
     }
@@ -157,9 +156,9 @@ class RagManagerTest {
     @Test
     fun replacementCanSucceedWithoutPublishingZero() = runBlocking {
         val calls = AtomicInteger()
-        coEvery { repository.getIndexableMessageCount() } answers {
+        coEvery { repository.getEmbeddingCacheCounts(any()) } answers {
             if (calls.incrementAndGet() == 1) error("first count unavailable")
-            10
+            counts(firstArg())
         }
         manager.loadCacheCounts()
         assertEquals(4, awaitRow { it.cached != null }.cached)
@@ -171,7 +170,7 @@ class RagManagerTest {
         manager.loadCacheCounts()
         awaitRow { it.cached == 4 }
         val calls = AtomicInteger()
-        coEvery { repository.getIndexableMessageCount() } answers {
+        coEvery { repository.getEmbeddingCacheCounts(any()) } answers {
             calls.incrementAndGet()
             error("count unavailable")
         }
@@ -186,14 +185,16 @@ class RagManagerTest {
     @Test
     fun countFinishingDuringRunningWorkCannotReplaceProgress() = runBlocking {
         val release = CompletableDeferred<Int>()
-        coEvery { repository.getIndexableMessageCount() } coAnswers { release.await() }
+        coEvery { repository.getEmbeddingCacheCounts(any()) } coAnswers {
+            counts(firstArg(), total = release.await())
+        }
         manager.loadCacheCounts()
         awaitRow { it.countLoading }
         work.value = listOf(info(WorkInfo.State.RUNNING))
         awaitRow { it.workActive }
         release.complete(10)
         assertEquals(EmbeddingCacheRowPhase.CACHING, awaitRow { it.cached == 4 }.phase)
-        coEvery { repository.getEmbeddingCountsByModels(any()) } returns listOf(EmbeddingModelCount(model.id, 10))
+        coEvery { repository.getEmbeddingCacheCounts(any()) } answers { counts(firstArg(), cached = 10) }
         work.value = listOf(info(WorkInfo.State.SUCCEEDED))
         assertEquals(EmbeddingCacheRowPhase.RECACHE, awaitRow { it.cached == 10 }.phase)
     }
@@ -202,9 +203,9 @@ class RagManagerTest {
     fun removedModelsCannotBeRepopulatedByAnOldCountResult() = runBlocking {
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Int>()
-        coEvery { repository.getIndexableMessageCount() } coAnswers {
+        coEvery { repository.getEmbeddingCacheCounts(any()) } coAnswers {
             entered.complete(Unit)
-            release.await()
+            counts(firstArg(), total = release.await())
         }
         manager.loadCacheCounts()
         withTimeout(5_000) { entered.await() }
@@ -222,7 +223,7 @@ class RagManagerTest {
     @Test
     fun cancellingTheOwnerStopsLoadingWithoutFailureOrReplacement() = runBlocking {
         val entered = CompletableDeferred<Unit>()
-        coEvery { repository.getIndexableMessageCount() } coAnswers {
+        coEvery { repository.getEmbeddingCacheCounts(any()) } coAnswers {
             entered.complete(Unit)
             awaitCancellation()
         }
@@ -232,7 +233,7 @@ class RagManagerTest {
         assertFalse(row().countLoading)
         assertFalse(row().countFailed)
         assertNull(row().phase)
-        coVerify(exactly = 1) { repository.getIndexableMessageCount() }
+        coVerify(exactly = 1) { repository.getEmbeddingCacheCounts(any()) }
     }
 
     private fun row() = checkNotNull(manager.cacheRows.value[model.id])
@@ -244,8 +245,8 @@ class RagManagerTest {
         coEvery { EmbeddingCacheWorker.repairLegacyChain(any(), any()) } coAnswers { loaded.send(Unit) }
         val release = CompletableDeferred<Int>()
         val calls = AtomicInteger()
-        coEvery { repository.getIndexableMessageCount() } coAnswers {
-            if (calls.incrementAndGet() == 1) release.await() else 10
+        coEvery { repository.getEmbeddingCacheCounts(any()) } coAnswers {
+            counts(firstArg(), total = if (calls.incrementAndGet() == 1) release.await() else 10)
         }
         manager.loadCacheCounts()
         awaitRow { it.countLoading }
@@ -274,8 +275,8 @@ class RagManagerTest {
         coEvery { EmbeddingCacheWorker.repairLegacyChain(any(), any()) } coAnswers { loaded.send(Unit) }
         val release = CompletableDeferred<Int>()
         val calls = AtomicInteger()
-        coEvery { repository.getIndexableMessageCount() } coAnswers {
-            if (calls.incrementAndGet() == 1) release.await() else 10
+        coEvery { repository.getEmbeddingCacheCounts(any()) } coAnswers {
+            counts(firstArg(), total = if (calls.incrementAndGet() == 1) release.await() else 10)
         }
         manager.loadCacheCounts()
         awaitRow { it.countLoading }
@@ -292,7 +293,7 @@ class RagManagerTest {
     @Test
     fun backgroundWorkTransitionsDoNotRestartAnExhaustedInitialCount() = runBlocking {
         val calls = AtomicInteger()
-        coEvery { repository.getIndexableMessageCount() } answers {
+        coEvery { repository.getEmbeddingCacheCounts(any()) } answers {
             calls.incrementAndGet()
             error("count unavailable")
         }
@@ -339,7 +340,7 @@ class RagManagerTest {
         assertTrue(manager.cacheRows.value.isEmpty())
         assertTrue((field("scheduledCacheWorkIds") as Map<*, *>).isEmpty())
         coVerify(exactly = 1) { repository.getOrAdmitSemanticLedgerState(model.id) }
-        coVerify(exactly = 0) { repository.getIndexableMessageCount() }
+        coVerify(exactly = 0) { repository.getEmbeddingCacheCounts(any()) }
     }
 
     @Test
@@ -355,7 +356,7 @@ class RagManagerTest {
         manager.startPostList()
         withTimeout(5_000) { scheduled.await() }
         withTimeout(5_000) { EmbeddingCacheLocks.forModel(model.id).withLock {} }
-        coVerify(exactly = 0) { repository.getIndexableMessageCount() }
+        coVerify(exactly = 0) { repository.getEmbeddingCacheCounts(any()) }
     }
 
     @Test
@@ -398,13 +399,16 @@ class RagManagerTest {
 
     @Test
     fun invalidAggregateCannotBecomeACompleteSnapshot() = runBlocking {
-        coEvery { repository.getEmbeddingCountsByModels(any()) } returns listOf(EmbeddingModelCount(model.id, 11))
+        coEvery { repository.getEmbeddingCacheCounts(any()) } answers { counts(firstArg(), cached = 11) }
         manager.loadCacheCounts()
         val failed = awaitRow { it.countFailed }
         assertNull(failed.cached)
         assertNull(failed.phase)
-        coVerify(exactly = 2) { repository.getIndexableMessageCount() }
+        coVerify(exactly = 2) { repository.getEmbeddingCacheCounts(any()) }
     }
+
+    private fun counts(ids: List<String>, total: Int = 10, cached: Int = 4) =
+        EmbeddingCacheCounts(total, ids.associateWith { cached })
 
     private fun field(name: String): Any? = manager.javaClass.getDeclaredField(name).apply {
         isAccessible = true

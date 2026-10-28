@@ -2,6 +2,9 @@ package com.newoether.agora.tool
 
 import com.newoether.agora.data.local.EmbeddingSearchRow
 import java.util.PriorityQueue
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.yield
 
 internal data class SemanticEmbeddingCandidate(
     val rowId: Long,
@@ -36,7 +39,10 @@ internal class BoundedSemanticEmbeddingSelector(
         limit: Int,
         loadPage: suspend (afterId: Long, limit: Int) -> List<EmbeddingSearchRow>,
     ): BoundedSemanticEmbeddingSelection {
-        if (queryEmbedding.isEmpty() || limit <= 0) {
+        val context = currentCoroutineContext()
+        context.ensureActive()
+        if (queryEmbedding.isEmpty() || queryEmbedding.any { !it.isFinite() } ||
+            threshold.isNaN() || limit <= 0) {
             return BoundedSemanticEmbeddingSelection(
                 candidates = emptyList(),
                 scannedRows = 0,
@@ -57,12 +63,14 @@ internal class BoundedSemanticEmbeddingSelector(
         var maxRetainedCandidates = 0
 
         while (true) {
+            context.ensureActive()
             val page = loadPage(afterId, pageSize)
             require(page.size <= pageSize) { "Embedding page exceeded the requested bound" }
             if (page.isEmpty()) break
 
             var previousId = afterId
             page.forEach { row ->
+                context.ensureActive()
                 require(row.id > previousId) {
                     "Embedding keyset page must be strictly ordered after id $afterId"
                 }
@@ -78,8 +86,8 @@ internal class BoundedSemanticEmbeddingSelector(
                     skippedInvalidRows += 1
                     return@forEach
                 }
-                val score = runCatching { scorer.score(row.embedding) }.getOrNull()
-                if (score == null || !score.isFinite()) {
+                val score = scorer.score(row.embedding)
+                if (!score.isFinite()) {
                     skippedInvalidRows += 1
                     return@forEach
                 }
@@ -106,6 +114,7 @@ internal class BoundedSemanticEmbeddingSelector(
 
             afterId = page.last().id
             if (page.size < pageSize) break
+            yield()
         }
 
         return BoundedSemanticEmbeddingSelection(
@@ -124,15 +133,15 @@ internal class BoundedSemanticEmbeddingSelector(
         private val query: FloatArray,
     ) {
         private val queryMagnitude = run {
-            var norm = 0f
-            query.forEach { value -> norm += value * value }
+            var norm = 0.0
+            query.forEach { value -> norm += value.toDouble() * value }
             kotlin.math.sqrt(norm)
         }
 
         fun score(bytes: ByteArray): Float {
             require(bytes.size == query.size * Float.SIZE_BYTES)
-            var dot = 0f
-            var normB = 0f
+            var dot = 0.0
+            var normB = 0.0
             query.indices.forEach { index ->
                 val offset = index * Float.SIZE_BYTES
                 val bits =
@@ -141,11 +150,11 @@ internal class BoundedSemanticEmbeddingSelector(
                         ((bytes[offset + 2].toInt() and 0xff) shl 8) or
                         (bytes[offset + 3].toInt() and 0xff)
                 val valueB = Float.fromBits(bits)
-                dot += query[index] * valueB
-                normB += valueB * valueB
+                dot += query[index].toDouble() * valueB
+                normB += valueB.toDouble() * valueB
             }
             val denominator = queryMagnitude * kotlin.math.sqrt(normB)
-            return if (denominator == 0f) 0f else dot / denominator
+            return if (denominator == 0.0) 0f else (dot / denominator).toFloat()
         }
     }
 

@@ -92,10 +92,15 @@ private fun requireSemanticModelId(modelId: String) {
 // Any partial UTF-8 sequence at the byte boundary is beyond the fingerprinted prefix.
 internal const val SEMANTIC_SOURCE_PREFIX_BYTES = Constants.MAX_EMBEDDING_TEXT_LENGTH * 4
 
-internal fun semanticSourceFingerprint(text: String): String =
-    MessageDigest.getInstance("SHA-256")
+internal fun semanticSourceFingerprint(text: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
         .digest(text.take(Constants.MAX_EMBEDDING_TEXT_LENGTH).toByteArray(Charsets.UTF_8))
-        .joinToString("") { byte -> "%02x".format(byte) }
+    val hex = "0123456789abcdef"
+    return CharArray(digest.size * 2) { index ->
+        val value = digest[index / 2].toInt() and 0xff
+        hex[if (index % 2 == 0) value ushr 4 else value and 0x0f]
+    }.concatToString()
+}
 
 internal typealias SemanticModelSnapshot = Pair<String?, Set<String>>
 

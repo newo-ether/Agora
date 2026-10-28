@@ -266,6 +266,16 @@ class SemanticIndexDaoTest {
         updatedAt = updatedAt,
     )
 
+    @Test
+    fun fingerprintMatchesDurableSha256IncludingSignedBytesAndUtf16PrefixBoundary() {
+        val inputs = listOf("", "abc", "\u0000中文\uD83D\uDE00", "a".repeat(7_999) + "\uD83D\uDE00tail")
+        inputs.forEach { text ->
+            val expected = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(text.take(8_000).toByteArray(Charsets.UTF_8)))
+            assertEquals(expected, semanticSourceFingerprint(text))
+        }
+    }
+
     private fun work(fingerprint: String?, revision: Long, updatedAt: Long) =
         workFor(MESSAGE_ID, fingerprint, revision, updatedAt)
 

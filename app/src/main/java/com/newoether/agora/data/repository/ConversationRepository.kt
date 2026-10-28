@@ -10,7 +10,7 @@ import com.newoether.agora.data.local.ConversationSettingsTransferEntity
 import com.newoether.agora.data.local.EmbeddingEntity
 import com.newoether.agora.data.local.EmbeddingModelCount
 import com.newoether.agora.data.local.EmbeddingSearchRow
-import com.newoether.agora.data.local.IndexableMessage
+import com.newoether.agora.data.local.EmbeddingCacheCounts
 import com.newoether.agora.data.local.MaintenanceDebtDao
 import com.newoether.agora.data.local.MaintenanceDebtEntity
 import com.newoether.agora.data.local.MessageAttachmentReference
@@ -79,7 +79,7 @@ class ConversationRepository(
 
     suspend fun upsertNewChatPersist(entity: NewChatPersistEntity) {
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             val previousRaw = chatDao.getNewChatPersist()?.draftAttachments
             val previous = previousRaw.decodeSelectedAttachments()
             val replacement = entity.draftAttachments.decodeSelectedAttachments()
@@ -97,7 +97,7 @@ class ConversationRepository(
     suspend fun deleteNewChatPersist(reclaimAttachments: Boolean = true): Boolean {
         var deleted = false
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             val previousRaw = chatDao.getNewChatPersist()?.draftAttachments
             val previous = previousRaw.decodeSelectedAttachments()
             deleted = chatDao.deleteNewChatPersist() > 0
@@ -404,8 +404,8 @@ class ConversationRepository(
         chatDao.getLiveRun(conversationId)
 
     suspend fun requestRunStop(runId: String, at: Long = System.currentTimeMillis()): Boolean =
-        withSemanticTransaction(updatedAt = at) {
-            val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+        withDatabaseTransaction {
+            val run = chatDao.getRun(runId) ?: return@withDatabaseTransaction false
             val changed = chatDao.markRunStopping(runId, at) == 1
             if (changed) check(chatDao.touchConversationData(run.conversationId, at) == 1)
             changed
@@ -415,16 +415,16 @@ class ConversationRepository(
         runId: String,
         reason: RunEndReason = RunEndReason.USER_STOPPED,
         at: Long = System.currentTimeMillis(),
-    ): Boolean = withSemanticTransaction(updatedAt = at) {
-        val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+    ): Boolean = withDatabaseTransaction {
+        val run = chatDao.getRun(runId) ?: return@withDatabaseTransaction false
         val changed = chatDao.terminalizeLiveRun(runId, RunStatus.STOPPED, reason, at) == 1
         if (changed) check(chatDao.touchConversationData(run.conversationId, at) == 1)
         changed
     }
 
     suspend fun failRun(runId: String, at: Long = System.currentTimeMillis()): Boolean =
-        withSemanticTransaction(updatedAt = at) {
-            val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+        withDatabaseTransaction {
+            val run = chatDao.getRun(runId) ?: return@withDatabaseTransaction false
             val changed = chatDao.terminalizeLiveRun(
                 runId,
                 RunStatus.FAILED,
@@ -535,7 +535,7 @@ class ConversationRepository(
     suspend fun removeContextCompact(messageId: String): Boolean {
         var removed = false
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             val message = chatDao.getMessage(messageId)
             removed = chatDao.removeContextCompact(messageId)
             if (removed && message != null) {
@@ -649,12 +649,8 @@ class ConversationRepository(
     suspend fun getIndexableMessageCount(): Int =
         chatDao.getIndexableMessageCount()
 
-    suspend fun getUnembeddedMessagesPage(
-        modelId: String,
-        afterId: String?,
-        limit: Int,
-    ): List<IndexableMessage> =
-        chatDao.getUnembeddedMessagesPage(modelId, afterId, limit)
+    suspend fun getEmbeddingCacheCounts(modelIds: List<String>): EmbeddingCacheCounts =
+        chatDao.getEmbeddingCacheCounts(modelIds)
 
     // ── Search ────────────────────────────────────────────────
 
@@ -688,7 +684,7 @@ class ConversationRepository(
         reclaimRemovedAttachments: Boolean = true,
     ) {
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             val previousRaw = chatDao.getConversation(conversationId)?.draftAttachments
             val previous = previousRaw.decodeSelectedAttachments()
             val replacement = draftAttachments.decodeSelectedAttachments()
@@ -717,7 +713,7 @@ class ConversationRepository(
         attachments: List<SelectedAttachment>,
     ) {
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             scheduled = enqueueAttachmentDebt(attachments.reclaimablePaths())
         }
         if (scheduled) scheduleMaintenance()
@@ -746,7 +742,7 @@ class ConversationRepository(
         }
     }
 
-    private suspend fun <T> withMaintenanceTransaction(block: suspend () -> T): T =
+    private suspend fun <T> withDatabaseTransaction(block: suspend () -> T): T =
         database?.withTransaction { block() } ?: block()
 
     internal suspend fun enqueueAttachmentDebt(paths: Collection<String>): Boolean =
