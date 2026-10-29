@@ -1,6 +1,7 @@
 #pragma once
 
 #include "llama_chat_callbacks.h"
+#include "llama_chat_handle.h"
 #include "llama_chat_template.h"
 #include "nlohmann/json.hpp"
 
@@ -12,21 +13,21 @@ struct NativeChatParser {
     std::string generated_text;
     std::string initialization_error;
 
-    explicit NativeChatParser(const TemplateSamplingMetadata & metadata) {
+    NativeChatParser(const TemplateSamplingMetadata & metadata, ChatHandle & handle) {
         params.format = metadata.format;
-        params.generation_prompt = metadata.generation_prompt;
-        params.parse_tool_calls = true;
+        params.generation_prompt = common_chat_input(metadata.generation_prompt);
         if (metadata.parser.empty()) {
             if (metadata.format != COMMON_CHAT_FORMAT_CONTENT_ONLY) {
                 initialization_error = "Chat template parser metadata is missing";
             }
             return;
         }
-        try {
-            params.parser.load(metadata.parser);
-        } catch (const std::exception & exception) {
-            initialization_error = exception.what();
+        const auto parser = handle.find_parser(metadata.parser);
+        if (!parser) {
+            initialization_error = "Chat template parser has expired; apply the template again";
+            return;
         }
+        params.parser = *parser;
     }
 
     bool update(
@@ -44,7 +45,9 @@ struct NativeChatParser {
         }
         generated_text.append(data, length);
         try {
-            common_chat_msg next = common_chat_parse(generated_text, is_partial, params);
+            common_chat_msg next = common_chat_parse(
+                common_chat_input(generated_text), is_partial, params
+            );
             if (next.empty()) {
                 if (!is_partial) message = {};
                 return true;
