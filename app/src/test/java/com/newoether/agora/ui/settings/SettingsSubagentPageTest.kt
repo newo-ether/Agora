@@ -255,6 +255,7 @@ class SettingsSubagentPageTest {
         every { settings.blurEffectsEnabled } returns MutableStateFlow(false)
         every { settings.reduceMotion } returns MutableStateFlow(true)
         every { settings.stickToBottom } returns MutableStateFlow(true)
+        every { settings.showGenerationSpeed } returns MutableStateFlow(false)
         every { settings.parseInlineDollarMath } returns MutableStateFlow(false)
         every { settings.autoWrapCodeBlocks } returns MutableStateFlow(false)
         every { settings.hapticsEnabled } returns MutableStateFlow(false)

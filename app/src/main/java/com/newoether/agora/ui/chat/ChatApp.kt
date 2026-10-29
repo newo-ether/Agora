@@ -174,6 +174,7 @@ fun ChatApp(
     val contextUsage = contextProjection.usage ?: com.newoether.agora.api.util.ContextWindowUsage(0, conversationControls.contextWindow, 0, false)
     val blurEffectsEnabled by viewModel.settings.blurEffectsEnabled.collectAsState()
     val stickToBottom by viewModel.settings.stickToBottom.collectAsState()
+    val showGenerationSpeed by viewModel.settings.showGenerationSpeed.collectAsState()
     val reduceMotion = motionPolicy.reduceMotion
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
     val haptics = rememberAgoraHaptics(hapticsEnabled && topLevelPresentation == TopLevelPresentation.CHAT)
@@ -510,6 +511,7 @@ fun ChatApp(
                                 autoExpandActiveGroup = autoExpandActiveGroup,
                                 parseInlineDollarMath = parseInlineDollarMath,
                                 autoWrapCodeBlocks = autoWrapCodeBlocks,
+                                showGenerationSpeed = showGenerationSpeed,
                                 contextRetainedMessageIds = contextProjection.retainedMessageIds.orEmpty(),
                                 modelAliases = StableModelAliases(modelAliases, modelProviderNames),
                                 customProviders = customProviders,

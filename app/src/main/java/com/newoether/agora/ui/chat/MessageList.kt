@@ -99,6 +99,7 @@ internal fun MessageList(
     autoExpandActiveGroup: Boolean = true,
     parseInlineDollarMath: Boolean = false,
     autoWrapCodeBlocks: Boolean = true,
+    showGenerationSpeed: Boolean = false,
     contextRetainedMessageIds: Set<String> = emptySet(),
     modelAliases: StableModelAliases = StableModelAliases(),
     customProviders: List<com.newoether.agora.data.CustomProviderConfig> = emptyList(),
@@ -585,6 +586,7 @@ internal fun MessageList(
 
             parseInlineDollarMath = parseInlineDollarMath,
             autoWrapCodeBlocks = autoWrapCodeBlocks,
+            showGenerationSpeed = showGenerationSpeed,
             groupedSegmentAutoExpansionController =
                 groupedSegmentAutoExpansionController,
             onStartEdit = {
