@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="html_preview_run">Exécuter</string>
+    <string name="html_preview_source">Source</string>
+    <string name="html_preview_preview">@string/template_preview</string>
+    <string name="html_preview_reload">Recharger</string>
+    <string name="html_preview_fullscreen">Plein écran</string>
+    <string name="html_preview_save">Enregistrer le HTML</string>
+    <string name="html_preview_share">Partager le HTML</string>
+    <string name="html_preview_failed">Aperçu indisponible</string>
+    <string name="html_preview_loading">Chargement de l’aperçu</string>
+    <string name="html_preview_insert">Ajouter les consignes d’aperçu HTML</string>
+    <string name="html_preview_export_failed">Échec de l’exportation HTML</string>
+    <string name="html_preview_webview_required">Mettez à jour Android System WebView pour exécuter les aperçus HTML</string>
+</resources>

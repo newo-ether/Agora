@@ -156,6 +156,7 @@ Never:
 | External agent devices, existing sessions, independent Remote transport and shared chat presentation | [remote-sessions.md](remote-sessions.md) |
 | Conch/Filo encrypted network requests and client read limits | [encrypted-agent-transport.md](encrypted-agent-transport.md) |
 | Message generation, Run lifecycle, queue, tools, Compact, Regenerate, message actions/status, or Provider context | [message-generation.md](message-generation.md) |
+| Native sandboxed HTML code-fence previews, static image capabilities and transparent template guidance | [interactive-html.md](interactive-html.md) |
 | Shared streaming Markdown, timeline/detail rendering, selection, media loading, and generation motion | [streaming-markdown.md](streaming-markdown.md) |
 | Provider-hosted output, OpenAI-compatible request controls, thinking, service tier, and hosted tools | [provider-output.md](provider-output.md) |
 | Embedded llama.cpp FIFO admission, Chat/Embedding residency, identity switching, Stop, or idle offload | [local-model-runtime.md](local-model-runtime.md) |

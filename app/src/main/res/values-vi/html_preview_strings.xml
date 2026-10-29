@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="html_preview_run">Chạy</string>
+    <string name="html_preview_source">Mã nguồn</string>
+    <string name="html_preview_preview">@string/template_preview</string>
+    <string name="html_preview_reload">Tải lại</string>
+    <string name="html_preview_fullscreen">Toàn màn hình</string>
+    <string name="html_preview_save">Lưu HTML</string>
+    <string name="html_preview_share">Chia sẻ HTML</string>
+    <string name="html_preview_failed">Không thể xem trước</string>
+    <string name="html_preview_loading">Đang tải bản xem trước</string>
+    <string name="html_preview_insert">Thêm hướng dẫn xem trước HTML</string>
+    <string name="html_preview_export_failed">Không thể xuất HTML</string>
+    <string name="html_preview_webview_required">Cập nhật Android System WebView để chạy bản xem trước HTML</string>
+</resources>

@@ -30,6 +30,7 @@ internal fun migrateUnmodifiedBuiltInDefault(
                 assistantItems = currentDefault.resolvedAssistantItems,
                 userPrependItems = emptyList(),
                 userPostpendItems = emptyList(),
+                builtInMigrationVersion = DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION,
             )
         } else {
             entry

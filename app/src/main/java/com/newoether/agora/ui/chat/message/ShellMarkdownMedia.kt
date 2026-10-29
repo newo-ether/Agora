@@ -69,6 +69,18 @@ internal class ShellMarkdownMedia(
         }
     }
 
+    /** Explicit preview capabilities share the display cache without reading Compose slot state. */
+    suspend fun previewImage(link: String): ToolImageAttachment? {
+        val target = parseShellMediaLink(link) ?: return null
+        return try {
+            cache.load(target.key) { fetch(target) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private suspend fun fetch(target: ShellMediaLink): ToolImageAttachment {
         if (target.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
             if (!sandboxEnabled()) throw IOException("Local Sandbox is disabled")

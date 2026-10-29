@@ -838,9 +838,10 @@ prompt without a construction-layer fallback.
 The shipped default begins with one custom text item containing Response, Tools, Memory, Skills,
 Past conversations, Web, Devices, Subagents and automation, and Asking the user in that order.
 These sections are static, including when their tools are disabled or Compact preserves the ordinary
-system prompt. The explicit Skill catalog block follows, then Active Memory with their existing
-variables and surrounding text. Tool availability never trims these sections or injects them into
-custom templates. Custom text and whitespace remain verbatim.
+system prompt. A normal editable HTML preview guidance text item follows that first item, as specified
+by [interactive-html.md](interactive-html.md). The explicit Skill catalog block follows, then Active
+Memory with their existing variables and surrounding text. Tool availability never trims these
+sections or injects them into custom templates. Custom text and whitespace remain verbatim.
 `GenerationPromptRendering` compiles request and preview values without changing stored items.
 `GenerationContextAccounting` uses the dispatch tool-definition source for fixed cost/composition
 and Compact accounting. Preview compilation occurs once in its captured snapshot; it does not need

@@ -77,6 +77,8 @@ data class SystemPromptEntry(
     // Legacy fields retained only so prompts saved before structured message templates deserialize.
     val userPrependItems: List<PromptTemplateItem> = emptyList(),
     val userPostpendItems: List<PromptTemplateItem> = emptyList(),
+    /** Completed built-in migration revision; absent legacy JSON starts at zero. Never prompt text. */
+    val builtInMigrationVersion: Int = 0,
 ) {
     val resolvedSystemItems: List<PromptTemplateItem>
         get() = if (systemItems.isNotEmpty()) systemItems

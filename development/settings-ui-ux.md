@@ -492,6 +492,9 @@ in the existing editor. Source links retain the established external-link icon a
   remain removable rows with the existing localized Unknown label and technical key underneath;
   preview compilation contributes no text for them. Opening or leaving the editor never deletes
   or rewrites those saved items. Save and unsaved Back behavior stay unchanged.
+- The explicit-save editor also offers an HTML Preview Guidance insertion as an ordinary CUSTOM text
+  item, following [interactive-html.md](interactive-html.md). It edits only the draft and remains fully
+  editable/removable; it is not a predefined tool variable or runtime prompt injection.
 - The existing variable picker keeps its title, SettingsItem rows, spacing and scroll behavior.
   Selection changes the draft only. Default copy describes response rules, tool guidance, the Skill
   catalog and Active Memory. Exact template ordering, migration and ownership follow

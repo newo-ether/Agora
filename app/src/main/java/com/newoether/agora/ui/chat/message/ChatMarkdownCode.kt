@@ -177,8 +177,12 @@ internal fun SearchHighlightedMarkdownCode(
         }
     }
     val block: @Composable (String, String?, TextStyle) -> Unit = { code, language, style ->
+        val previewEligible = fenced && htmlPreviewLanguage(language) &&
+            LocalShellMarkdownMedia.current != null &&
+            completedHtmlFence(model.content, model.node, LocalHtmlPreviewStreaming.current)
         SearchHighlightedMarkdownCodeText(
             code = code,
+            previewEligible = previewEligible,
             language = language,
             style = style,
             spec = spec,
@@ -199,6 +203,7 @@ internal fun SearchHighlightedMarkdownCode(
 @Composable
 private fun SearchHighlightedMarkdownCodeText(
     code: String,
+    previewEligible: Boolean,
     language: String?,
     style: TextStyle,
     spec: SearchHighlightSpec?,
@@ -278,16 +283,22 @@ private fun SearchHighlightedMarkdownCodeText(
         code = code,
     ) {
         Column {
-            ChatCodeBlockHeader(language = language, code = code)
-            MarkdownBasicText(
-                text = renderedText,
-                style = if (autoWrap) style.copy(lineBreak = LineBreak.Simple) else style,
-                modifier = Modifier
-                    .then(if (autoWrap) Modifier else Modifier.horizontalScroll(horizontalScrollState))
-                    .padding(LocalMarkdownPadding.current.codeBlock)
-                    .onGloballyPositioned { coordinates = it },
-                onTextLayout = { layoutResult = it },
-            )
+            HtmlPreviewCodeContent(
+                code = code,
+                language = language,
+                eligible = previewEligible,
+                searching = spec != null,
+            ) {
+                MarkdownBasicText(
+                    text = renderedText,
+                    style = if (autoWrap) style.copy(lineBreak = LineBreak.Simple) else style,
+                    modifier = Modifier
+                        .then(if (autoWrap) Modifier else Modifier.horizontalScroll(horizontalScrollState))
+                        .padding(LocalMarkdownPadding.current.codeBlock)
+                        .onGloballyPositioned { coordinates = it },
+                    onTextLayout = { layoutResult = it },
+                )
+            }
         }
     }
 }
@@ -300,12 +311,13 @@ private fun SearchHighlightedMarkdownCodeText(
  * content slot while its built-in header stays disabled.
  */
 @Composable
-private fun ChatCodeBlockHeader(
+internal fun ChatCodeBlockHeader(
     language: String?,
     code: String,
     enabled: Boolean = true,
     canCopy: () -> Boolean = { true },
     copyModifier: Modifier = Modifier,
+    actions: @Composable () -> Unit = {},
 ) {
     val clipboardManager = LocalClipboardManager.current
     val textColor = LocalMarkdownColors.current.text
@@ -327,22 +339,25 @@ private fun ChatCodeBlockHeader(
                 ),
             )
         }
-        Box(
-            modifier = copyModifier
-                .size(24.dp)
-                .clip(CircleShape)
-                .semantics { role = Role.Button }
-                .clickable(enabled = enabled, onClickLabel = copyLabel) {
-                    if (canCopy()) clipboardManager.setText(AnnotatedString(code))
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = copyLabel,
-                modifier = Modifier.size(14.dp),
-                tint = textColor.copy(alpha = 0.6f),
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            actions()
+            Box(
+                modifier = copyModifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .semantics { role = Role.Button }
+                    .clickable(enabled = enabled, onClickLabel = copyLabel) {
+                        if (canCopy()) clipboardManager.setText(AnnotatedString(code))
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = copyLabel,
+                    modifier = Modifier.size(14.dp),
+                    tint = textColor.copy(alpha = 0.6f),
+                )
+            }
         }
     }
     HorizontalDivider(

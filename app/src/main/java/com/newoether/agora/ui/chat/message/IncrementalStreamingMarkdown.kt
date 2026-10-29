@@ -630,6 +630,7 @@ internal fun IncrementalStreamingMarkdownContent(
     }
     androidx.compose.runtime.CompositionLocalProvider(
         LocalStreamingMarkdownInteractionController provides state,
+        LocalHtmlPreviewStreaming provides isStreaming,
     ) {
         MarkdownSelectionHost(selectionEnabled) {
             Column(modifier = modifier) {
@@ -639,6 +640,7 @@ internal fun IncrementalStreamingMarkdownContent(
                         // block) keeps aging its tail instead of snapping to solid.
                         androidx.compose.runtime.CompositionLocalProvider(
                             LocalStreamingGlyphFadeSpec provides blockFadeSpecs.getOrNull(index),
+                            LocalHtmlPreviewStreaming provides false,
                         ) {
                             StableMarkdownBlockContent(
                                 block, renderContext, referenceHandler,

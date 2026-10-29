@@ -37,6 +37,9 @@ one formula node and cannot duplicate surrounding prose or emit HTML attribute f
 `ChatMarkdownCodeBlock` also renders standalone raw code with the same code background, padding,
 typography and wrapping. Its copy header stays enabled by default. A host that already owns a guarded
 copy action may omit that header without changing other consumers or duplicating the code renderer.
+Completed native HTML fences additionally follow [interactive-html.md](interactive-html.md). The shared
+code leaf retains source/search/copy ownership; preview admission uses the existing AST and explicit
+streaming state. Standalone raw-code components, Remote and WebUI remain source-only.
 
 Native release builds must preserve JLaTeXMath's `NewCommandMacro` class, public zero-argument
 constructor and `executeMacro(TeXParser, String[])` method. Environment expansion, including
