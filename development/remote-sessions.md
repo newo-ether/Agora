@@ -563,6 +563,11 @@ confirmed native value, settles the original panel feedback gate, and reports th
 Snackbar. A stale failure cannot roll back a newer choice or affect a different selected owner.
 For Claude Mod, releasing the native settings submission barrier permits the next Send while
 request confirmation remains pending, because that next turn supplies the required evidence.
+The Thinking panel retains the accepted pending choice for its exact granted access binding;
+this presentation never replaces the actual runtime effort. Confirmed or failed request evidence
+settles the choice back to actual native values. An exact Claude effort-only grant remains usable
+when fresh registration or native resume leaves runtime status unknown; it neither fabricates
+an idle state nor grants model changes, Stop or control on another source.
 The composer never renders native settings pending/confirmed/failed labels, request receipts,
 raw mismatch values, or other diagnostic markers. Confirmation remains internal; setting failures
 use the existing Snackbar. Other sources keep Send behind outstanding native application.
