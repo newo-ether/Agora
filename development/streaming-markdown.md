@@ -450,3 +450,16 @@ and the existing fading circular overlay. Load local attachments as files.
 Regression coverage must decode real images and compare the entire message and
 both image rectangles before, between and after asynchronous loads at phone density
 and narrow large-font width; failed placeholders alone do not qualify this behavior.
+
+Agora-owned answers may reference device images as `shell://<server>/<absolute path>`
+(owner request 2026-10-29). Server and path are percent-decoded as UTF-8; a path
+starting with a drive (`F:/…`) stays a Windows path, anything else is rooted at `/`.
+`Local Sandbox` reads the host file through the sandbox path resolver and its mount
+rules; any other name selects a configured Conch device and uses `/file/image`
+(images only, 20 MB). SSH devices, videos and plain local paths are not resolved.
+`ShellMarkdownMedia` (ViewModel-owned, provided only around native chat) loads a slot
+when it is rendered, into a bounded disposable cache under `cacheDir/markdown-media`
+without model preparation. The bytes never enter Provider context, Room or the message
+graph; Remote sessions do not receive the provider and keep their own images. Slots
+reuse the viewport above; a failed slot keeps its failed state while a later composition
+retries. Tapping a loaded image opens the existing full-screen media viewer.

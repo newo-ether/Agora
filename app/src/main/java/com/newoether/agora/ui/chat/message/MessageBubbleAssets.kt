@@ -403,12 +403,14 @@ internal fun rememberChatMarkdownAssets(
     val thoughtMarkdownComponents = customMarkdownComponents
 
     val latexTextSize = with(LocalDensity.current) { 20.sp.toPx() }
-    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick, latexTextSize) {
+    val shellMedia = LocalShellMarkdownMedia.current
+    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick, latexTextSize, shellMedia) {
         LatexImageTransformer(
             textSize = latexTextSize,
             color = textColor.toArgb(),
             inlineImages = inlineImages,
             onMediaClick = onMediaClick,
+            shellMedia = shellMedia,
         )
     }
     val markdownFlavour = remember { GFMFlavourDescriptor() }

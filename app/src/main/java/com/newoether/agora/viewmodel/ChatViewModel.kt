@@ -88,6 +88,13 @@ class ChatViewModel(
     )
     internal val messagePayloadHydration =
         ConversationMessagePayloadHydration(convRepo, appContext)
+    /** Display-only `shell://` Markdown images for native chat, read from the live device settings. */
+    internal val shellMarkdownMedia = com.newoether.agora.ui.chat.message.ShellMarkdownMedia(
+        context = appContext,
+        devices = { settingsRepository.shellDevices.value },
+        sandboxEnabled = { settingsRepository.sandboxEnabled.value },
+        sandbox = { sandboxFactory?.takeIf { it.isAvailable() }?.create() },
+    )
     private val attachmentProcessor = AttachmentImportProcessor(application)
     private val composerDrafts = ComposerDraftController(
         persistence = conversationWorkspaces,

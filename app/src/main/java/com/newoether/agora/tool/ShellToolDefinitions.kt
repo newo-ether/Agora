@@ -44,7 +44,10 @@ internal object ShellToolDefinitions {
         val shellTools = buildList {
             add(ToolDefinition(function = ToolFunction(
                 name = "shell_list",
-                description = "List configured shell servers including the local sandbox (if enabled).",
+                description = "List configured shell servers including the local sandbox (if enabled). " +
+                    "To show the user an image file from Local Sandbox or a Conch server inline in your reply, " +
+                    "write Markdown ![alt](shell://<server>/<absolute path>) with spaces percent-encoded as %20, " +
+                    "e.g. ![plot](shell://Local%20Sandbox/home/agora/plot.png) or ![render](shell://Workstation/C:/out/render.png).",
                 parameters = ToolParameters(properties = emptyMap(), required = emptyList())
             )))
             add(ToolDefinition(function = ToolFunction(
