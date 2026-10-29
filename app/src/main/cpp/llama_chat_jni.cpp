@@ -506,8 +506,9 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerateWithImages(
     }
 
     // --- Tokenize prompt with image markers ---
-    mtmd_input_text text_input;
+    mtmd_input_text text_input{};
     text_input.text         = prompt_text.c_str();
+    text_input.text_len     = prompt_text.size();
     text_input.add_special  = true;
     text_input.parse_special = true;
 
