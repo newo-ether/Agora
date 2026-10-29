@@ -232,7 +232,7 @@ class LocalLlamaOwnershipSourceContractTest {
         assertTrue(parser.contains("nlohmann::ordered_json::parse("))
         assertTrue(parser.contains("if (!arguments.is_object())"))
         assertTrue(parser.contains("report_tool_calls_complete(env, callback, methods)"))
-        assertEquals(2, Regex("NativeChatParser parser\\(metadata\\)")
+        assertEquals(2, Regex("NativeChatParser parser\\(metadata, \\*handle\\)")
             .findAll(native).count())
         assertEquals(2, Regex("std::strcmp\\(stop_reason, \\\"cancelled\\\"\\) != 0")
             .findAll(native).count())
