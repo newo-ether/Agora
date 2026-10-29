@@ -28,6 +28,7 @@ class SettingsManager(private val context: Context) {
     internal val shellDeviceStore = SettingsShellDeviceStore(context.dataStore, json)
     internal val providerListStore = ProviderListStore(context.dataStore, json)
     internal val providerEditorStore = ProviderEditorStore(context.dataStore, json, providerListStore)
+    internal val displayPreferenceStore = SettingsDisplayPreferenceStore(context.dataStore)
 
     companion object {
         const val DEFAULT_PROXY_HOST = "127.0.0.1"
