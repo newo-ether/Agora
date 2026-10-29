@@ -1,6 +1,7 @@
 package com.newoether.agora.data.local
 
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.yield
@@ -13,43 +14,12 @@ data class EmbeddingModelCount(
 data class EmbeddingCacheCounts(
     val total: Int,
     val cachedByModel: Map<String, Int>,
+    val complete: Boolean = true,
 ) {
     init {
         require(total >= 0 && cachedByModel.values.all { it in 0..total })
     }
 }
-
-data class EmbeddingCacheCountRow(
-    val messageId: String,
-    val eligible: Boolean,
-    val modelId: String?,
-)
-
-internal const val CACHE_COUNT_PAGE_SIZE = 128
-private const val CACHE_COUNT_ELIGIBILITY = """
-    c.id IS NOT NULL AND c.taskId IS NULL AND m.participant IN ('USER', 'MODEL')
-    AND LENGTH(CAST(m.text AS BLOB)) > 0
-    AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%' AND m.id NOT LIKE 'compact_%'
-"""
-// LIMIT precedes qualification; hidden identities still advance the page cursor.
-private const val CACHE_COUNT_PROJECTION = """
-    SELECT page.id AS messageId, CASE WHEN $CACHE_COUNT_ELIGIBILITY THEN 1 ELSE 0 END AS eligible,
-           e.modelId
-    FROM (
-"""
-private const val CACHE_COUNT_JOINS = """
-    ) page CROSS JOIN messages m ON m.id = page.id
-    LEFT JOIN conversations c ON c.id = m.conversationId
-    LEFT JOIN embeddings e ON e.messageId = m.id AND e.modelId IN (:modelIds)
-        AND $CACHE_COUNT_ELIGIBILITY
-    ORDER BY page.id
-"""
-internal const val CACHE_COUNT_FIRST_PAGE = CACHE_COUNT_PROJECTION + """
-        SELECT id FROM messages ORDER BY id LIMIT :limit
-""" + CACHE_COUNT_JOINS
-internal const val CACHE_COUNT_NEXT_PAGE = CACHE_COUNT_PROJECTION + """
-        SELECT id FROM messages WHERE id > :afterId ORDER BY id LIMIT :limit
-""" + CACHE_COUNT_JOINS
 
 internal const val CITATION_MESSAGE_PAGE_QUERY = """
     SELECT m.*
@@ -115,7 +85,7 @@ internal const val KEYWORD_MESSAGE_NEXT_PAGE = KEYWORD_MESSAGE_PROJECTION + """
 """
 
 /** Search eligibility and bounded projections inherited by the sole [ChatDao]. */
-interface ChatSearchDao {
+interface ChatSearchDao : SemanticMetadataDao {
     @Query(KEYWORD_MESSAGE_FIRST_PAGE)
     suspend fun getKeywordSearchFirstPage(
         query: String,
@@ -147,6 +117,7 @@ interface ChatSearchDao {
     ): List<EmbeddingSearchRow> {
         require(limit > 0)
         val result = ArrayList<EmbeddingSearchRow>()
+        val legacyPending = !ensureMetadataState().complete
         val physicalPageSize = minOf(limit, 256)
         var cursor = afterId
         while (result.size < limit) {
@@ -154,7 +125,11 @@ interface ChatSearchDao {
             val ids = getEmbeddingSearchIdsPage(modelId, cursor, physicalPageSize)
             currentCoroutineContext().ensureActive()
             if (ids.isEmpty()) break
-            val page = getEmbeddingSearchRowsForIds(modelId, ids, minimumTextLength)
+            val page = if (legacyPending) {
+                getLegacyEmbeddingSearchRowsForIds(modelId, ids, minimumTextLength)
+            } else {
+                getEmbeddingSearchRowsForIds(modelId, ids, minimumTextLength)
+            }
             result += page.take(limit - result.size)
             cursor = ids.last()
             yield()
@@ -169,15 +144,38 @@ interface ChatSearchDao {
         """
         SELECT e.id, e.messageId, e.embedding, e.dimension
         FROM embeddings e
-        CROSS JOIN messages m ON e.messageId = m.id
-        CROSS JOIN conversations c ON m.conversationId = c.id
+        CROSS JOIN semantic_sources s ON e.messageId = s.messageId
+        CROSS JOIN conversations c ON s.conversationId = c.id
         WHERE e.id IN (:ids) AND e.modelId = :modelId
-          AND $HISTORY_MESSAGE_ELIGIBILITY
-          AND LENGTH(m.text) >= :minimumTextLength
+          AND c.taskId IS NULL AND c.parentConversationId IS NULL
+          AND s.historyEligible = 1 AND s.searchLength >= :minimumTextLength
         ORDER BY e.id
         """,
     )
     suspend fun getEmbeddingSearchRowsForIds(
+        modelId: String,
+        ids: List<Long>,
+        minimumTextLength: Int,
+    ): List<EmbeddingSearchRow>
+
+    // During the one-time upgrade, explicit searches retain legacy results. Only missing
+    // metadata uses original eligibility, and only for the already bounded embedding IDs.
+    @Query(
+        """
+        SELECT e.id, e.messageId, e.embedding, e.dimension
+        FROM embeddings e
+        LEFT JOIN semantic_sources s ON s.messageId = e.messageId
+        LEFT JOIN messages m ON s.messageId IS NULL AND m.id = e.messageId
+        CROSS JOIN conversations c ON c.id = COALESCE(s.conversationId, m.conversationId)
+        WHERE e.id IN (:ids) AND e.modelId = :modelId
+          AND c.taskId IS NULL AND c.parentConversationId IS NULL
+          AND CASE WHEN s.messageId IS NOT NULL
+              THEN s.historyEligible = 1 AND s.searchLength >= :minimumTextLength
+              ELSE ($HISTORY_MESSAGE_ELIGIBILITY) AND LENGTH(m.text) >= :minimumTextLength END
+        ORDER BY e.id
+        """,
+    )
+    suspend fun getLegacyEmbeddingSearchRowsForIds(
         modelId: String,
         ids: List<Long>,
         minimumTextLength: Int,
@@ -192,42 +190,21 @@ interface ChatSearchDao {
 
     suspend fun getIndexableMessageCount(): Int = getEmbeddingCacheCounts(emptyList()).total
 
+    @Query("SELECT COALESCE(SUM(eligibleCount), 0) FROM semantic_conversations WHERE cacheEligible = 1")
+    suspend fun getSemanticEligibleTotal(): Int
+
+    @Query("SELECT m.modelId, SUM(m.cachedCount) AS count FROM semantic_model_conversations m JOIN semantic_conversations c ON c.conversationId = m.conversationId WHERE c.cacheEligible = 1 AND m.modelId IN (:modelIds) GROUP BY m.modelId")
+    suspend fun getSemanticCachedTotals(modelIds: List<String>): List<EmbeddingModelCount>
+
+    /** Only compact conversation summaries are read; no source identities or text are visited. */
+    @Transaction
     suspend fun getEmbeddingCacheCounts(modelIds: List<String>): EmbeddingCacheCounts {
+        val state = ensureMetadataState()
         val requestedIds = modelIds.distinct()
-        val counts = requestedIds.associateWith { 0 }.toMutableMap()
-        var total = 0
-        var afterId: String? = null
-        while (true) {
-            currentCoroutineContext().ensureActive()
-            val cursor = afterId
-            val page = if (cursor == null) {
-                getFirstEmbeddingCacheCountPage(requestedIds, CACHE_COUNT_PAGE_SIZE)
-            } else {
-                getEmbeddingCacheCountPage(requestedIds, cursor, CACHE_COUNT_PAGE_SIZE)
-            }
-            currentCoroutineContext().ensureActive()
-            if (page.isEmpty()) break
-            val eligibleIds = HashSet<String>()
-            page.forEach { row ->
-                if (row.eligible) eligibleIds += row.messageId
-                row.modelId?.let { id -> counts[id] = Math.addExact(counts.getValue(id), 1) }
-            }
-            total = Math.addExact(total, eligibleIds.size)
-            afterId = page.last().messageId
-            yield()
-        }
-        return EmbeddingCacheCounts(total, counts)
+        if (!state.complete) return EmbeddingCacheCounts(0, requestedIds.associateWith { 0 }, complete = false)
+        val cached = getSemanticCachedTotals(requestedIds).associate { it.modelId to it.count }
+        return EmbeddingCacheCounts(getSemanticEligibleTotal(), requestedIds.associateWith { cached[it] ?: 0 })
     }
-
-    @Query(CACHE_COUNT_FIRST_PAGE)
-    suspend fun getFirstEmbeddingCacheCountPage(
-        modelIds: List<String>, limit: Int,
-    ): List<EmbeddingCacheCountRow>
-
-    @Query(CACHE_COUNT_NEXT_PAGE)
-    suspend fun getEmbeddingCacheCountPage(
-        modelIds: List<String>, afterId: String, limit: Int,
-    ): List<EmbeddingCacheCountRow>
 
     @Query(
         """

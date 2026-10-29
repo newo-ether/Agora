@@ -70,7 +70,7 @@ class Migration40To41Test {
                     val columns = buildList { while (cursor.moveToNext()) add(cursor.getString(2)) }
                     assertEquals(listOf("timestamp", "id"), columns)
                 }
-                assertEquals(41, db.version)
+                assertEquals(ChatDatabase.CURRENT_VERSION, db.version)
                 assertEquals("中文 payload", database.chatDao().getMessage("message")?.text)
                 assertEquals("Keep draft", database.chatDao().getConversation("root")?.draftText)
                 assertNotNull(database.chatDao().getRun("run"))

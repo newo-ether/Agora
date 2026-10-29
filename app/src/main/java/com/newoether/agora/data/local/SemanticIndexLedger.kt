@@ -113,7 +113,7 @@ internal fun semanticModelSnapshot(
 }
 
 @Dao
-interface SemanticIndexDao {
+interface SemanticIndexDao : SemanticEmbeddingDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertLedger(ledger: SemanticIndexLedgerEntity): Long
 
@@ -196,25 +196,20 @@ interface SemanticIndexDao {
 
     @Query(
         """
-        SELECT m.id,
-               SUBSTR(CAST(m.text AS BLOB), 1, :sourcePrefixBytes) AS sourcePrefix,
+        SELECT s.messageId AS id,
+               SUBSTR(s.sourcePrefix, 1, :sourcePrefixBytes) AS sourcePrefix,
                e.id AS embeddingId,
                e.sourceFingerprint AS embeddingFingerprint,
                e.dimension AS dimension,
                LENGTH(e.embedding) AS embeddingBytes
-        FROM messages m
-        CROSS JOIN conversations c ON m.conversationId = c.id
-        LEFT JOIN embeddings e ON e.messageId = m.id AND e.modelId = :modelId
-        LEFT JOIN semantic_index_work w ON w.messageId = m.id AND w.modelId = :modelId
-        WHERE m.id IN (:messageIds)
-          AND c.taskId IS NULL
-          AND m.participant IN ('USER', 'MODEL')
-          AND m.text != ''
-          AND m.id NOT LIKE 'tool_%'
-          AND m.id NOT LIKE 'result_%'
-          AND m.id NOT LIKE 'compact_%'
+        FROM semantic_sources s
+        JOIN semantic_conversations c ON s.conversationId = c.conversationId
+        LEFT JOIN embeddings e ON e.messageId = s.messageId AND e.modelId = :modelId
+        LEFT JOIN semantic_index_work w ON w.messageId = s.messageId AND w.modelId = :modelId
+        WHERE s.messageId IN (:messageIds)
+          AND c.cacheEligible = 1 AND s.eligible = 1
           AND (w.sourceRevision IS NULL OR w.sourceRevision <= :maxWorkRevision)
-        ORDER BY m.id
+        ORDER BY s.messageId
         """,
     )
     suspend fun getReconcileMessagesByIds(
@@ -226,34 +221,19 @@ interface SemanticIndexDao {
 
     @Query(
         """
-        SELECT SUBSTR(CAST(m.text AS BLOB), 1, $SEMANTIC_SOURCE_PREFIX_BYTES)
-        FROM messages m
-        INNER JOIN conversations c ON m.conversationId = c.id
-        WHERE m.id = :messageId
-          AND c.taskId IS NULL
-          AND m.participant IN ('USER', 'MODEL')
-          AND m.text != ''
-          AND m.id NOT LIKE 'tool_%'
-          AND m.id NOT LIKE 'result_%'
-          AND m.id NOT LIKE 'compact_%'
+        SELECT s.sourcePrefix
+        FROM semantic_sources s
+        JOIN semantic_conversations c ON s.conversationId = c.conversationId
+        WHERE s.messageId = :messageId AND c.cacheEligible = 1 AND s.eligible = 1
         """,
     )
     suspend fun getSearchableMessageSource(messageId: String): ByteArray?
 
+    @Query("SELECT s.sourceFingerprint FROM semantic_sources s JOIN semantic_conversations c ON s.conversationId = c.conversationId WHERE s.messageId = :messageId AND c.cacheEligible = 1 AND s.eligible = 1")
+    suspend fun getSearchableMessageFingerprint(messageId: String): String?
+
     suspend fun getSearchableMessageText(messageId: String): String? =
         getSearchableMessageSource(messageId)?.toString(Charsets.UTF_8)
-
-    @Upsert
-    suspend fun upsertEmbedding(embedding: EmbeddingEntity)
-
-    @Query("DELETE FROM embeddings WHERE messageId IN (:messageIds)")
-    suspend fun deleteEmbeddingsForMessages(messageIds: List<String>): Int
-
-    @Query("DELETE FROM embeddings WHERE modelId = :modelId")
-    suspend fun deleteEmbeddingsForModel(modelId: String): Int
-
-    @Query("DELETE FROM embeddings")
-    suspend fun deleteAllEmbeddings(): Int
 
     @Query("DELETE FROM semantic_index_work WHERE modelId = :modelId")
     suspend fun deleteWorkForModel(modelId: String): Int
@@ -285,6 +265,12 @@ interface SemanticIndexDao {
           AND NOT EXISTS (
               SELECT 1 FROM semantic_index_work WHERE modelId = :modelId
           )
+          AND NOT EXISTS (
+              SELECT 1 FROM semantic_conversations c
+              LEFT JOIN semantic_model_conversations m ON m.conversationId = c.conversationId AND m.modelId = :modelId
+              WHERE m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision
+          )
+          AND EXISTS (SELECT 1 FROM semantic_metadata_state WHERE id = 0 AND complete = 1)
         """,
     )
     suspend fun markCurrentAfterExactWork(
@@ -296,18 +282,16 @@ interface SemanticIndexDao {
     @Query(
         """
         UPDATE semantic_index_ledger
-        SET state = CASE
-                WHEN sourceRevision = :expectedReconcileRevision
-                  AND NOT EXISTS (
-                      SELECT 1 FROM semantic_index_work WHERE modelId = :modelId
-                  )
-                THEN 'CURRENT'
-                ELSE 'PENDING'
-            END,
-            completedRevision = :expectedReconcileRevision,
-            updatedAt = :updatedAt
-        WHERE modelId = :modelId AND state = 'NEEDS_RECONCILE'
+        SET state = 'CURRENT', completedRevision = sourceRevision, updatedAt = :updatedAt
+        WHERE modelId = :modelId
           AND reconcileRevision = :expectedReconcileRevision
+          AND NOT EXISTS (SELECT 1 FROM semantic_index_work WHERE modelId = :modelId)
+          AND NOT EXISTS (
+              SELECT 1 FROM semantic_conversations c
+              LEFT JOIN semantic_model_conversations m ON m.conversationId = c.conversationId AND m.modelId = :modelId
+              WHERE m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision
+          )
+          AND EXISTS (SELECT 1 FROM semantic_metadata_state WHERE id = 0 AND complete = 1)
         """,
     )
     suspend fun markAfterReconcile(
@@ -316,8 +300,15 @@ interface SemanticIndexDao {
         updatedAt: Long,
     ): Int
 
+    @Transaction
+    suspend fun deleteModel(modelId: String): Int {
+        deleteWorkForModel(modelId)
+        deleteSemanticModelConversations(modelId)
+        return deleteModelRow(modelId)
+    }
+
     @Query("DELETE FROM semantic_index_ledger WHERE modelId = :modelId")
-    suspend fun deleteModel(modelId: String): Int
+    suspend fun deleteModelRow(modelId: String): Int
 
     @Transaction
     suspend fun admitModel(modelId: String, updatedAt: Long): SemanticIndexLedgerEntity {
@@ -339,7 +330,7 @@ interface SemanticIndexDao {
         check(advanceForReconcile(modelId, updatedAt) == 1) {
             "Semantic index ledger disappeared during reconcile invalidation"
         }
-        deleteWorkForModel(modelId)
+        invalidateSemanticConversations(modelId)
         return checkNotNull(getLedger(modelId)) {
             "Semantic index ledger was not readable after reconcile invalidation"
         }
@@ -419,17 +410,12 @@ private suspend fun SemanticIndexDao.invalidateSemanticSources(
     sources: Map<String, String?>,
     updatedAt: Long,
 ) {
-    if (sources.isEmpty()) return
-    deleteEmbeddingsForMessages(sources.keys.toList())
-    val activeModelId = snapshot.first
-    if (activeModelId != null) {
+    // DAO writes already removed stale vectors and dirtied only the affected conversation.
+    snapshot.first?.let { modelId ->
         sources.forEach { (messageId, fingerprint) ->
-            enqueueExactWork(activeModelId, messageId, fingerprint, updatedAt)
+            enqueueExactWork(modelId, messageId, fingerprint, updatedAt)
         }
     }
-    snapshot.second.asSequence()
-        .filter { it != activeModelId }
-        .forEach { modelId -> requestReconcile(modelId, updatedAt) }
 }
 
 internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(
@@ -439,20 +425,19 @@ internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(
     block: suspend () -> T,
 ): T = withTransaction {
     val semanticDao = semanticIndexDao()
+    snapshot.second.forEach { semanticDao.admitModel(it, updatedAt) }
     val ids = messageIds.filterTo(linkedSetOf(), String::isNotBlank)
-    val before = ids.associateWith { messageId ->
-        semanticDao.getSearchableMessageText(messageId)?.let(::semanticSourceFingerprint)
-    }
+    val before = ids.associateWith { semanticDao.getSearchableMessageFingerprint(it) }
     val result = block()
     val changed = ids.mapNotNull { messageId ->
-        val fingerprint = semanticDao.getSearchableMessageText(messageId)
-            ?.let(::semanticSourceFingerprint)
+        val fingerprint = semanticDao.getSearchableMessageFingerprint(messageId)
         if (before[messageId] == fingerprint) null else messageId to fingerprint
     }.toMap()
     semanticDao.invalidateSemanticSources(snapshot, changed, updatedAt)
     result
 }
 
+@Suppress("UNUSED_PARAMETER")
 internal suspend fun <T> ChatDatabase.withSemanticGraphMutation(
     snapshot: SemanticModelSnapshot,
     clearMessageIds: Collection<String> = emptyList(),
@@ -460,33 +445,20 @@ internal suspend fun <T> ChatDatabase.withSemanticGraphMutation(
     updatedAt: Long,
     block: suspend () -> T,
 ): T = withTransaction {
-    val result = block()
-    val semanticDao = semanticIndexDao()
-    if (clearAllEmbeddings) {
-        semanticDao.deleteAllEmbeddings()
-    } else {
-        clearMessageIds.filterTo(linkedSetOf(), String::isNotBlank)
-            .takeIf { it.isNotEmpty() }
-            ?.let { semanticDao.deleteEmbeddingsForMessages(it.toList()) }
-    }
-    semanticDao.requestSemanticReconcile(snapshot, updatedAt)
-    result
+    snapshot.second.forEach { semanticIndexDao().admitModel(it, updatedAt) }
+    // Public graph writes maintain metadata themselves, including cloned vectors and MERGE skips.
+    block()
 }
 
+@Suppress("UNUSED_PARAMETER")
 internal suspend fun <T> ChatDatabase.withSemanticEligibilityMutation(
     snapshot: SemanticModelSnapshot,
     conversationId: String,
     updatedAt: Long,
     block: suspend () -> T,
 ): T = withTransaction {
-    val before = chatDao().getConversation(conversationId)?.let { it.taskId == null }
-    val result = block()
-    val after = chatDao().getConversation(conversationId)?.let { it.taskId == null }
-    if (before != null && after != null && before != after) {
-        if (!after) chatDao().deleteEmbeddingsByConversation(conversationId)
-        semanticIndexDao().requestSemanticReconcile(snapshot, updatedAt)
-    }
-    result
+    snapshot.second.forEach { semanticIndexDao().admitModel(it, updatedAt) }
+    block()
 }
 
 internal suspend fun ChatDatabase.commitSemanticEmbedding(
@@ -505,8 +477,7 @@ internal suspend fun ChatDatabase.commitSemanticEmbedding(
     ) {
         return@withTransaction false
     }
-    val currentFingerprint = semanticDao.getSearchableMessageText(embedding.messageId)
-        ?.let(::semanticSourceFingerprint)
+    val currentFingerprint = semanticDao.getSearchableMessageFingerprint(embedding.messageId)
     if (currentFingerprint != expectedFingerprint) return@withTransaction false
     val work = if (completePendingWork) {
         semanticDao.getWork(embedding.modelId, embedding.messageId)

@@ -37,6 +37,10 @@ class RunStatusSemanticIsolationTest {
                     participant = Participant.USER, timestamp = 1L, runId = "$id-run"))
             }
             semantic.admitModel("current", 1L)
+            semantic.getDirtyConversations("current", null, 10).forEach { owner ->
+                assertTrue(semantic.markConversationIndexed("current", owner.conversationId,
+                    owner.sourceRevision, 0L))
+            }
             assertTrue(semantic.completeReconcile("current", 0L, 1L))
             semantic.enqueueExactWork("pending", "stop-message", semanticSourceFingerprint("source"), 1L)
             dao.insertEmbeddings(listOf(EmbeddingEntity(id = 1L, messageId = "stop-message", modelId = "current",

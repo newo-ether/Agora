@@ -47,7 +47,7 @@ import kotlinx.serialization.json.Json
 class ConversationRepository(
     internal val chatDao: ChatDao,
     /** Non-null in production; null is an explicit DAO-isolated unit-test seam. */
-    private val database: ChatDatabase?,
+    internal val database: ChatDatabase?,
     internal val scheduleMaintenance: () -> Unit = { MaintenanceDebtWorker.schedule() },
     private val maintenanceDebtDao: MaintenanceDebtDao? = database?.maintenanceDebtDao(),
     internal val generationErrorFormatter: (String) -> String = { it.ifBlank { "Failed to generate" } },

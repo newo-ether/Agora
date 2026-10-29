@@ -50,7 +50,9 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val cacheRows by viewModel.ragManager.cacheRows.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val embeddingModelIds = remember(embeddingModels) { embeddingModels.map(EmbeddingModelConfig::id) }
-    LaunchedEffect(embeddingModelIds) { viewModel.ragManager.loadCacheCounts() }
+    LaunchedEffect(viewModel.ragManager, embeddingModelIds) {
+        viewModel.ragManager.observeCachePresentation()
+    }
 
     var editorRoute by remember { mutableStateOf<EmbeddingEditorRoute?>(null) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }

@@ -10,73 +10,84 @@ import org.junit.Test
 
 class SemanticIndexMutationSourceContractTest {
     @Test
-    fun sourceEligibilityAndGraphChangesShareTheOwningRoomTransaction() {
-        val ledger = source(
-            "app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt",
-        )
-        val repository = source(
-            "app/src/main/java/com/newoether/agora/data/repository/ConversationRepository.kt",
-        )
+    fun sourceMetadataAndAffectedConversationCountsShareTheOwningRoomTransaction() {
+        val ledger = source("app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt")
+        val mutations = source("app/src/main/java/com/newoether/agora/data/local/SemanticMutationDao.kt")
+        val metadata = source("app/src/main/java/com/newoether/agora/data/local/SemanticMetadataDao.kt")
+        val repository = source("app/src/main/java/com/newoether/agora/data/repository/ConversationRepository.kt")
 
-        val sourceMutation = ledger.section(
-            "internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(",
-            "internal suspend fun <T> ChatDatabase.withSemanticGraphMutation(",
-        )
+        listOf("insertMessage", "upsertMessage").forEach { operation ->
+            assertTrue(mutations.contains("@Transaction\n    suspend fun $operation("))
+            val write = mutations.substringAfter("suspend fun $operation(").substringBefore("\n    @")
+            assertOrdered(write, "ensureMetadataState()", "${operation}Row(message)",
+                "maintainSemanticSource(semanticSource(")
+        }
+        val checkpoint = mutations.section("suspend fun updateMessageCheckpoint(",
+            "suspend fun deleteMessageRowsByIds(")
+        assertOrdered(checkpoint, "getSemanticMessageIdentity(checkpoint.id)",
+            "updateMessageCheckpointRow(checkpoint)", "if (changed == 1) maintainSemanticSource(")
+        listOf("deleteMessagesByIds", "deleteRun").forEach { operation ->
+            assertTrue(mutations.contains("@Transaction\n    suspend fun $operation("))
+            val deletion = mutations.substringAfter("suspend fun $operation(").substringBefore("\n    @")
+            assertOrdered(deletion, "removeSemanticSource(it)", when (operation) {
+                "deleteMessagesByIds" -> "deleteMessageRowsByIds(ids)"
+                else -> "deleteRunRow(runId)"
+            })
+        }
+        assertTrue(mutations.contains("@Transaction\n    suspend fun deleteMessagesByConversation("))
+        val ownerDeletion = mutations.section("suspend fun deleteMessagesByConversation(",
+            "suspend fun getRunCascadeMessageIds(")
+        assertOrdered(ownerDeletion, "getSemanticConversation(conversationId)",
+            "deleteEmbeddingsByConversation(conversationId)", "deleteConversationSemanticSources(conversationId)",
+            "advanceSemanticConversation(conversationId, -owner.eligibleCount)",
+            "deleteMessageRowsByConversation(conversationId)")
+        assertFalse(ownerDeletion.contains("removeSemanticSource("))
+        assertFalse(ownerDeletion.contains("getSemanticConversationMessageIds("))
+        assertTrue(mutations.queryFor("deleteConversationSemanticSources")
+            .contains("DELETE FROM semantic_sources WHERE conversationId = :conversationId"))
+        val maintain = metadata.section("suspend fun maintainSemanticSource(",
+            "suspend fun removeSemanticSource(")
+        assertTrue(metadata.contains("@Transaction\n    suspend fun maintainSemanticSource("))
+        assertTrue(maintain.contains("previous?.sourceFingerprint != source.sourceFingerprint"))
+        assertTrue(maintain.contains("previous?.eligible != source.eligible"))
+        assertTrue(maintain.contains("val semanticChanged = changed && (previous?.eligible == true || source.eligible)"))
+        assertOrdered(maintain, "getSemanticSource(source.messageId)",
+            "if (semanticChanged)", "adjustSourceEmbeddingCounts(previous, -1)",
+            "advanceSemanticConversation(previous.conversationId,",
+            "advanceSemanticConversation(source.conversationId,",
+            "if (changed && !legacy) deleteSourceEmbeddingRows(source.messageId)",
+            "putSemanticSource(source)", "adjustSourceEmbeddingCounts(source, 1)")
+        val sourceMutation = ledger.section("internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(",
+            "internal suspend fun <T> ChatDatabase.withSemanticGraphMutation(")
         assertTrue(sourceMutation.contains("): T = withTransaction {"))
-        assertOrdered(
-            sourceMutation,
-            "val before =",
-            "val result = block()",
-            "val changed =",
-            "semanticDao.invalidateSemanticSources(snapshot, changed, updatedAt)",
-        )
-        val invalidation = ledger.section(
-            "private suspend fun SemanticIndexDao.invalidateSemanticSources(",
-            "internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(",
-        )
-        assertOrdered(
-            invalidation,
-            "deleteEmbeddingsForMessages(sources.keys.toList())",
-            "enqueueExactWork(activeModelId, messageId, fingerprint, updatedAt)",
-            ".filter { it != activeModelId }",
-            "requestReconcile(modelId, updatedAt)",
-        )
+        assertOrdered(sourceMutation, "val before =", "getSearchableMessageFingerprint(it)",
+            "val result = block()", "val changed =", "getSearchableMessageFingerprint(messageId)",
+            "semanticDao.invalidateSemanticSources(snapshot, changed, updatedAt)")
+        val invalidation = ledger.section("private suspend fun SemanticIndexDao.invalidateSemanticSources(",
+            "internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(")
+        assertTrue(invalidation.contains("enqueueExactWork(modelId, messageId, fingerprint, updatedAt)"))
+        assertFalse(invalidation.contains("requestReconcile("))
+        assertFalse(invalidation.contains("snapshot.second"))
+        val mutationBoundaries = ledger.section("private suspend fun SemanticIndexDao.invalidateSemanticSources(",
+            "internal suspend fun ChatDatabase.commitSemanticEmbedding(")
+        assertFalse(mutationBoundaries.contains("getSearchableMessageText("))
+        assertFalse(mutationBoundaries.contains("getLegacySource("))
+        assertFalse(mutationBoundaries.contains("requestSemanticReconcile("))
+        assertFalse(maintain.contains("requestReconcile("))
 
-        val eligibilityMutation = ledger.section(
-            "internal suspend fun <T> ChatDatabase.withSemanticEligibilityMutation(",
-            "internal suspend fun ChatDatabase.commitSemanticEmbedding(",
-        )
-        assertTrue(eligibilityMutation.contains("): T = withTransaction {"))
-        assertOrdered(
-            eligibilityMutation,
-            "val before =",
-            "val result = block()",
-            "val after =",
-            "if (before != null && after != null && before != after)",
-            "requestSemanticReconcile(snapshot, updatedAt)",
-        )
-        assertTrue(eligibilityMutation.contains("deleteEmbeddingsByConversation(conversationId)"))
-
-        val graphMutation = ledger.section(
-            "internal suspend fun <T> ChatDatabase.withSemanticGraphMutation(",
-            "internal suspend fun <T> ChatDatabase.withSemanticEligibilityMutation(",
-        )
-        assertTrue(graphMutation.contains("): T = withTransaction {"))
-        assertOrdered(
-            graphMutation,
-            "val result = block()",
-            "if (clearAllEmbeddings)",
-            "semanticDao.requestSemanticReconcile(snapshot, updatedAt)",
-        )
-
+        val eligibility = mutations.section("suspend fun upsertConversation(", "suspend fun upsertMessageRow(")
+        assertOrdered(eligibility, "upsertConversationRow(conversation)",
+            "val eligible = conversation.taskId == null", "before.cacheEligible != eligible",
+            "setSemanticConversationEligibility(conversation.id, eligible)",
+            "advanceSemanticConversation(conversation.id, 0)")
+        assertFalse(eligibility.contains("parentConversationId"))
+        listOf("withSemanticGraphMutation", "withSemanticEligibilityMutation").forEach { boundary ->
+            assertTrue(ledger.substringAfter("ChatDatabase.$boundary(")
+                .substringBefore("\n}").contains("): T = withTransaction {"))
+        }
         assertTrue(repository.contains("withSemanticTransaction(listOf(entity.id))"))
         assertTrue(repository.contains("withSemanticTransaction(staleMessageIds, at)"))
         assertTrue(repository.contains("withSemanticTransaction(ids) { chatDao.deleteMessagesByIds(ids) }"))
-        assertTrue(repository.contains("suspend fun upsertConversation(entity: ChatEntity) = withSemanticTransaction("))
-        assertTrue(repository.contains("conversationId = entity.id"))
-        assertTrue(repository.contains("suspend fun deleteConversation(id: String)"))
-        assertTrue(repository.contains("suspend fun createForkGraph("))
-        assertTrue(repository.contains(") = withSemanticTransaction {"))
         assertTrue(repository.contains("room.withSemanticSourceMutation"))
         assertTrue(repository.contains("room.withSemanticEligibilityMutation"))
         assertTrue(repository.contains("room.withSemanticGraphMutation"))
@@ -127,11 +138,26 @@ class SemanticIndexMutationSourceContractTest {
         assertTrue(deletion.contains("withTransaction {"))
         assertOrdered(deletion, "deleteEmbeddingsForModel(modelId)", "deleteModel(modelId)")
 
-        assertFalse(chatDao.contains("suspend fun upsertEmbedding("))
+        val membership = source("app/src/main/java/com/newoether/agora/data/local/SemanticEmbeddingDao.kt")
+        assertTrue(membership.contains("@Transaction\n    suspend fun upsertEmbedding("))
+        val countedCommit = membership.section("suspend fun upsertEmbedding(", "suspend fun insertEmbeddings(")
+        assertOrdered(countedCommit, "findEmbeddingIdentities(", "upsertEmbeddingRow(embedding)",
+            "adjustEmbeddingMembership(it, -1)", "adjustEmbeddingMembership(SemanticEmbeddingIdentity(")
+        assertFalse(commit.contains("getSearchableMessageText("))
+        assertFalse(commit.contains("getLegacySource("))
         assertFalse(chatDao.contains("suspend fun deleteEmbedding("))
         assertFalse(chatDao.contains("suspend fun deleteEmbeddingsByModel("))
         assertFalse(chatDao.contains("suspend fun upsertEmbeddingIfSearchable("))
-        assertTrue(chatDao.contains("suspend fun insertEmbeddings("))
+        assertTrue(membership.contains("suspend fun insertEmbeddings("))
+        assertTrue(membership.contains("@Transaction\n    suspend fun deleteEmbeddingsByConversation("))
+        val ownerDeletion = membership.section("suspend fun deleteEmbeddingsByConversation(",
+            "suspend fun deleteEmbeddingsByMessageIds(")
+        assertOrdered(ownerDeletion, "deleteConversationEmbeddingRows(conversationId)",
+            "clearSemanticConversationCounts(conversationId)")
+        assertFalse(ownerDeletion.contains("getSemanticConversationMessageIds("))
+        assertFalse(ownerDeletion.contains("forEach"))
+        assertTrue(membership.queryFor("deleteConversationEmbeddingRows")
+            .contains("messageId IN (SELECT id FROM messages WHERE conversationId = :conversationId)"))
     }
 
     @Test
@@ -212,7 +238,7 @@ class SemanticIndexMutationSourceContractTest {
         assertFalse(rag.contains("indexMessageForRagNow("))
         assertFalse(rag.contains("runCacheLoop("))
         assertTrue(rag.contains("val pending = takePendingRefresh(refreshJob)"))
-        assertTrue(rag.contains("if (pending != null && active)"))
+        assertTrue(rag.contains("pending != null && scope.isActive && cachePresentationSubscribers.isNotEmpty()"))
         assertTrue(locks.contains("EmbeddingCacheWorker] is the only embedding generator"))
         assertFalse(locks.contains("Two runners exist"))
         assertFalse(locks.contains("fun remove("))
@@ -220,12 +246,13 @@ class SemanticIndexMutationSourceContractTest {
             "private suspend fun emitUncachedReminder(",
             "// -- Embedding-model CRUD",
         )
-        assertOrdered(
-            reminder,
-            "EmbeddingCacheLocks.forModel(modelId).withLock",
-            "settings.embeddingModels.value.none { it.id == modelId }",
-            "emitSnackbar(",
-        )
+        assertOrdered(reminder, "val shouldNotify = EmbeddingCacheLocks.forModel(modelId).withLock",
+            "settings.embeddingModels.value.any { it.id == modelId }",
+            "ledgerState != SemanticIndexLedgerEntity.STATE_CURRENT", "if (shouldNotify) {", "emitSnackbar(")
+        assertTrue(reminder.contains("\n        }\n        if (shouldNotify) {"))
+        assertFalse(reminder.contains("getEmbeddingCacheCounts("))
+        assertFalse(reminder.contains("requestCacheCountRefresh("))
+        assertFalse(reminder.contains("cachedByModel"))
         val manualCache = rag.section(
             "fun cacheMessagesForModel(",
             "private suspend fun admitActiveModel(",
@@ -257,21 +284,17 @@ class SemanticIndexMutationSourceContractTest {
     }
 
     @Test
-    fun canonicalWorkerConsumesBoundedLedgerWorkAndFullReconcilePages() {
-        val worker = source(
-            "app/src/main/java/com/newoether/agora/service/EmbeddingCacheWorker.kt",
-        )
-        val ledger = source(
-            "app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt",
-        )
+    fun canonicalWorkerConsumesExactWorkThenOnlyDirtyConversationSourcePages() {
+        val worker = source("app/src/main/java/com/newoether/agora/service/EmbeddingCacheWorker.kt")
+        val ledger = source("app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt")
+        val metadata = source("app/src/main/java/com/newoether/agora/data/local/SemanticMetadataDao.kt")
 
-        assertFalse(worker.contains("getIndexableMessageCount("))
-        assertFalse(worker.contains("getEmbeddingCountByModel("))
-        assertFalse(worker.contains("lastProgressPermille"))
-        assertFalse(worker.contains("getUnembeddedMessagesPage("))
-        assertFalse(worker.contains("EmbeddingCacheLocks.forModel(modelId).withLock"))
-        assertTrue(worker.contains("SemanticIndexLedgerEntity.STATE_PENDING"))
-        assertTrue(worker.contains("SemanticIndexLedgerEntity.STATE_NEEDS_RECONCILE"))
+        listOf("getIndexableMessageCount(", "getEmbeddingCountByModel(", "getUnembeddedMessagesPage(",
+            "getFirstReconcileMessageIdsPage(", "getReconcileMessageIdsPage(", "getLegacySource(",
+            "lastProgressPermille", "EmbeddingCacheLocks.forModel(modelId).withLock").forEach {
+            assertFalse("Embedding work must not use $it", worker.contains(it))
+        }
+        assertTrue(worker.contains("ensureMetadataState().complete"))
         assertTrue(worker.contains("limit = model.batchSize.coerceIn(1, MAX_BATCH_SIZE)"))
         assertTrue(worker.contains("limit = RECONCILE_SCAN_PAGE_SIZE"))
         assertTrue(worker.contains("candidates.chunked(embeddingBatchSize)"))
@@ -279,92 +302,103 @@ class SemanticIndexMutationSourceContractTest {
         assertFalse(ledger.contains("updateEmbeddingFingerprint"))
         assertTrue(worker.countToken("yield()") >= 2)
 
-        val exact = worker.section(
-            "private suspend fun consumeExactWork(",
-            "private suspend fun reconcileModel(",
-        )
-        assertOrdered(
-            exact,
-            "semanticDao.getWorkCountThroughRevision(",
-            "publishProgress(",
-            "semanticDao.getWorkPage(",
-            "work.sourceFingerprint == null",
-            "semanticDao.completeExactWork(work",
+        val exact = worker.section("private suspend fun consumeExactWork(", "private suspend fun reconcileModel(")
+        assertOrdered(exact, "semanticDao.getWorkCountThroughRevision(", "publishProgress(",
+            "semanticDao.getWorkPage(", "work.sourceFingerprint == null", "semanticDao.completeExactWork(work",
             "semanticDao.getSearchableMessageText(work.messageId)",
-            "semanticSourceFingerprint(text) == work.sourceFingerprint",
-            "embedCandidates(model, remoteConfig, candidates, database)",
-        )
-        val reconcile = worker.section(
-            "private suspend fun reconcileModel(",
-            "private suspend fun embedCandidates(",
-        )
-        assertOrdered(
-            reconcile,
-            "while (true)",
-            "semanticDao.getLedger(model.id)?.reconcileRevision",
-            "semanticDao.getFirstReconcileMessageIdsPage(",
-            "semanticDao.getReconcileMessageIdsPage(",
-            "afterMessageId = messageIds.last()",
-            "semanticDao.getReconcileMessagesByIds(",
-            "semanticSourceFingerprint(text)",
-            "!embedCandidates(",
-            "yield()",
-        )
+            "semanticSourceFingerprint(text) == work.sourceFingerprint", "!embedCandidates(")
+        val reconcile = worker.section("private suspend fun reconcileModel(", "private suspend fun embedCandidates(")
+        assertOrdered(reconcile, "while (true)", "semanticDao.getLedger(model.id)?.reconcileRevision",
+            "metadataDao.getDirtyConversations(", "pageLedger.sourceRevision != admittedRevision",
+            "afterConversationId = conversations.last().conversationId", "for (conversation in conversations)",
+            "var afterMessageId: String? = null", "metadataDao.getConversationSourceIds(",
+            "afterMessageId = messageIds.last()", "semanticDao.getReconcileMessagesByIds(",
+            "semanticSourceFingerprint(text)", "!embedCandidates(", "yield()",
+            "metadataDao.markConversationIndexed(", "sourceRevision = conversation.sourceRevision",
+            "expectedReconcileRevision = expectedReconcileRevision", "semanticDao.completeReconcile(")
         assertFalse(reconcile.contains("getReconcileMessageCount"))
         assertFalse(reconcile.contains("publishProgress("))
-        assertTrue(
-            reconcile.substringAfter("while (true)")
-                .contains("return semanticDao.completeReconcile("),
-        )
-        val commit = worker.section(
-            "private suspend fun embedCandidates(",
-            "private suspend fun resolveEmbeddingConfig(",
-        )
-        assertOrdered(
-            commit,
-            "database.commitSemanticEmbedding(",
-            "expectedFingerprint = candidate.fingerprint",
+        assertTrue(reconcile.contains("conversation.cacheEligible && conversation.eligibleCount > 0"))
+        assertTrue(reconcile.contains("if (!conversationComplete) complete = false"))
+        val commit = worker.section("private suspend fun embedCandidates(", "private suspend fun resolveEmbeddingConfig(")
+        assertOrdered(commit, "database.commitSemanticEmbedding(", "expectedFingerprint = candidate.fingerprint",
             "expectedWorkRevision = candidate.workRevision",
             "expectedReconcileRevision = expectedReconcileRevision",
-            "completePendingWork = candidate.workRevision != null",
-        )
+            "completePendingWork = candidate.workRevision != null")
         assertTrue(worker.contains("ExistingWorkPolicy.APPEND_OR_REPLACE"))
         assertTrue(worker.contains("workNameFor(modelId)"))
 
-        val workPage = ledger.substringBefore("suspend fun getWorkPage(")
-            .substringAfterLast("@Query(")
-        assertTrue(workPage.contains("sourceRevision <= :maxSourceRevision"))
-        assertTrue(workPage.contains("sourceRevision > :afterSourceRevision"))
-        assertTrue(workPage.contains("sourceRevision = :afterSourceRevision"))
-        assertTrue(workPage.contains("messageId > :afterMessageId"))
-        assertTrue(workPage.contains("ORDER BY sourceRevision, messageId"))
-        assertTrue(workPage.contains("LIMIT :limit"))
-
-        assertTrue(reconcile.contains("var afterMessageId: String? = null"))
-        val firstIdentityPage = ledger.substringBefore("suspend fun getFirstReconcileMessageIdsPage(")
-            .substringAfterLast("@Query(")
-        assertTrue(firstIdentityPage.contains("SELECT id FROM messages ORDER BY id LIMIT :limit"))
-        val identityPage = ledger.substringBefore("suspend fun getReconcileMessageIdsPage(")
-            .substringAfterLast("@Query(")
-        assertTrue(identityPage.contains("SELECT id FROM messages WHERE id > :afterId"))
-        assertTrue(identityPage.contains("ORDER BY id LIMIT :limit"))
-        assertFalse(identityPage.contains("text"))
-        val searchablePage = ledger.substringBefore("suspend fun getReconcileMessagesByIds(")
-            .substringAfterLast("@Query(")
-        assertTrue(searchablePage.contains("SUBSTR(CAST(m.text AS BLOB)"))
-        assertTrue(searchablePage.contains("AS sourcePrefix"))
-        assertFalse(searchablePage.contains("AS TEXT"))
+        val workPage = ledger.queryFor("getWorkPage")
+        listOf("sourceRevision <= :maxSourceRevision", "sourceRevision > :afterSourceRevision",
+            "sourceRevision = :afterSourceRevision", "messageId > :afterMessageId",
+            "ORDER BY sourceRevision, messageId", "LIMIT :limit").forEach {
+            assertTrue(workPage.contains(it))
+        }
+        val dirty = metadata.queryFor("getDirtyConversations")
+        assertTrue(dirty.contains("m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision"))
+        assertTrue(dirty.contains("ORDER BY c.conversationId LIMIT :limit"))
+        val identities = metadata.queryFor("getConversationSourceIds")
+        assertTrue(identities.contains("FROM semantic_sources WHERE conversationId = :conversationId"))
+        assertTrue(identities.contains(":afterMessageId IS NULL OR messageId > :afterMessageId"))
+        assertTrue(identities.contains("ORDER BY messageId LIMIT :limit"))
+        assertFalse(identities.contains("sourcePrefix"))
+        val searchablePage = ledger.queryFor("getReconcileMessagesByIds")
+        assertTrue(searchablePage.contains("SUBSTR(s.sourcePrefix,"))
         assertTrue(searchablePage.contains("LEFT JOIN embeddings"))
         assertTrue(searchablePage.contains("LEFT JOIN semantic_index_work"))
-        assertTrue(
-            searchablePage.contains(
-                "w.sourceRevision IS NULL OR w.sourceRevision <= :maxWorkRevision",
-            ),
-        )
-        assertTrue(searchablePage.contains("m.id IN (:messageIds)"))
-        assertTrue(searchablePage.contains("ORDER BY m.id"))
-        assertFalse(searchablePage.contains(":afterId"))
-        assertFalse(searchablePage.contains("NOT EXISTS"))
+        assertTrue(searchablePage.contains("w.sourceRevision IS NULL OR w.sourceRevision <= :maxWorkRevision"))
+        assertTrue(searchablePage.contains("s.messageId IN (:messageIds)"))
+        assertTrue(searchablePage.contains("ORDER BY s.messageId"))
+        listOf(searchablePage, ledger.queryFor("getSearchableMessageSource"),
+            ledger.queryFor("getSearchableMessageFingerprint")).forEach { query ->
+            assertFalse(query.contains("FROM messages"))
+            assertFalse(query.contains("CAST("))
+            assertFalse(query.contains("m.text"))
+        }
+        val conversationFence = metadata.queryFor("finishSemanticConversation")
+        assertTrue(conversationFence.contains("sourceRevision = :sourceRevision"))
+        assertTrue(conversationFence.contains("reconcileRevision = :expectedReconcileRevision"))
+        listOf("markCurrentAfterExactWork", "markAfterReconcile").forEach { operation ->
+            val completion = ledger.queryFor(operation)
+            assertTrue(completion.contains("m.indexedRevision != c.sourceRevision"))
+            assertTrue(completion.contains("semantic_metadata_state WHERE id = 0 AND complete = 1"))
+        }
+    }
+
+    @Test
+    fun additiveMigrationAndIndependentBootstrapKeepLegacyBodiesOffHotPaths() {
+        val migration = source("app/src/main/java/com/newoether/agora/data/local/migration/Migration41To42.kt")
+        val worker = source("app/src/main/java/com/newoether/agora/service/SemanticMetadataWorker.kt")
+        val metadata = source("app/src/main/java/com/newoether/agora/data/local/SemanticMetadataDao.kt")
+        val sourceMetadata = source("app/src/main/java/com/newoether/agora/data/local/SemanticSourceMetadata.kt")
+        listOf("semantic_sources", "semantic_conversations", "semantic_model_conversations",
+            "semantic_metadata_state").forEach {
+            assertTrue(migration.contains("CREATE TABLE IF NOT EXISTS $it"))
+        }
+        assertFalse(Regex("\\b(?:SELECT|DELETE\\s+FROM|DROP\\s+TABLE)\\b", RegexOption.IGNORE_CASE)
+            .containsMatchIn(migration))
+        assertTrue(migration.contains("VALUES(0, 0, NULL)"))
+        assertTrue(worker.contains("ExistingWorkPolicy.KEEP"))
+        assertTrue(worker.contains("internal const val PAGE_SIZE = 16"))
+        assertFalse(worker.contains("withTransaction"))
+        assertFalse(worker.contains("getEmbeddingCacheCounts("))
+        assertOrdered(worker, "val state = metadata.ensureMetadataState()", "if (state.complete) return",
+            "metadata.getLegacyMessageIds(state.afterMessageId, PAGE_SIZE)",
+            "if (metadata.getSemanticSource(messageId) == null)", "metadata.getLegacySource(messageId)",
+            "metadata.commitLegacyPage(", "expectedAfterId = state.afterMessageId")
+        assertTrue(worker.contains("catch (cancelled: CancellationException) {\n            throw cancelled"))
+        val pageCommit = metadata.substringAfter("suspend fun commitLegacyPage(")
+        assertOrdered(pageCommit, "state.afterMessageId != expectedAfterId",
+            "getSemanticSource(source.messageId) == null", "getSemanticMessageIdentity(source.messageId) != null",
+            "maintainSemanticSource(source, legacy = true)", "advanceLegacyMetadata(")
+        assertTrue(sourceMetadata.contains("text.take(Constants.MAX_EMBEDDING_TEXT_LENGTH + 1)"))
+        val providerInput = source("app/src/main/java/com/newoether/agora/service/EmbeddingCacheWorker.kt")
+            .section("private suspend fun embedCandidates(", "private fun ReconcileIndexableMessage.toCandidate(")
+        assertTrue(providerInput.contains("candidate.message.text.take(Constants.MAX_EMBEDDING_TEXT_LENGTH)"))
+        val fingerprint = source("app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt")
+            .section("internal fun semanticSourceFingerprint(", "internal typealias SemanticModelSnapshot")
+        assertTrue(fingerprint.contains("MessageDigest.getInstance(\"SHA-256\")"))
+        assertTrue(fingerprint.contains("text.take(Constants.MAX_EMBEDDING_TEXT_LENGTH).toByteArray(Charsets.UTF_8)"))
     }
 
     @Test
@@ -444,9 +478,10 @@ class SemanticIndexMutationSourceContractTest {
             "app/src/main/java/com/newoether/agora/automation/TaskExecutionEngine.kt",
         )
         val generationManager = engine.section(
-            "private val generationManager = GenerationManager(",
+            "private val generationManager",
             "/**\n     * Injects [userText]",
         )
+        assertTrue(generationManager.contains("GenerationManager("))
         assertTrue(
             generationManager.contains(
                 "it.onMessagePersisted = ragManager::indexMessageForRag",
@@ -468,13 +503,26 @@ class SemanticIndexMutationSourceContractTest {
 
     private fun String.countToken(token: String): Int = split(token).size - 1
 
-    private fun String.section(start: String, end: String): String =
-        substringAfter(start).substringBefore(end)
+    private fun String.section(start: String, end: String): String {
+        val startIndex = indexOf(start)
+        assertTrue("Missing source boundary: $start", startIndex >= 0)
+        val endIndex = indexOf(end, startIndex + start.length)
+        assertTrue("Missing source boundary after $start: $end", endIndex > startIndex)
+        return substring(startIndex + start.length, endIndex)
+    }
+
+    private fun String.queryFor(method: String): String {
+        val methodIndex = indexOf("suspend fun $method(")
+        assertTrue("Missing DAO operation: $method", methodIndex >= 0)
+        val queryIndex = lastIndexOf("@Query(", methodIndex)
+        assertTrue("Missing query for $method", queryIndex >= 0)
+        return substring(queryIndex, methodIndex)
+    }
 
     private fun assertOrdered(source: String, vararg values: String) {
         var previous = -1
         values.forEach { value ->
-            val current = source.indexOf(value)
+            val current = source.indexOf(value, previous + 1)
             assertTrue("Missing or out-of-order source token: $value", current > previous)
             previous = current
         }

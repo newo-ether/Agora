@@ -8,13 +8,12 @@ import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunStatus
 import java.util.Collections
 import java.util.concurrent.Executor
-import java.util.concurrent.atomic.AtomicReference
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -29,33 +28,29 @@ import org.robolectric.annotation.SQLiteMode
 class SemanticCacheCountPagingTest {
     private lateinit var database: ChatDatabase
     private lateinit var dao: ChatDao
-    private val selects = Collections.synchronizedList(mutableListOf<Pair<String, List<Any?>>>())
-    private val cancelOnCount = AtomicReference<Job?>()
+    private val queries = Collections.synchronizedList(mutableListOf<Pair<String, List<Any?>>>())
 
     @Before
     fun setUp() = runBlocking<Unit> {
         database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext<Application>(), ChatDatabase::class.java,
         ).allowMainThreadQueries().setQueryCallback({ sql, args ->
-            if (sql.trimStart().startsWith("SELECT", ignoreCase = true)) {
-                selects.add(sql to args.toList())
-                if ("AS messageId, CASE WHEN" in sql) cancelOnCount.getAndSet(null)?.cancel()
-            }
+            queries.add(sql to args.toList())
         }, Executor { it.run() }).build()
         dao = database.chatDao()
         owner("root")
         owner("child", parent = "root")
         owner("task", task = "scheduled")
-        selects.clear()
+        queries.clear()
     }
 
     @After
     fun tearDown() = database.close()
 
     @Test
-    fun hiddenPagesAdvanceAndOnePassCountsAllRequestedModels() = runBlocking {
+    fun repeatedCountsUseOnlyConversationSummariesForAllRequestedModels() = runBlocking {
         database.withTransaction {
-            repeat(CACHE_COUNT_PAGE_SIZE * 2) { add("a-hidden-%03d".format(it), owner = "task") }
+            repeat(260) { add("a-hidden-%03d".format(it), owner = "task") }
             add("compact_summary")
             add("tool_call")
             add("result_reply")
@@ -70,93 +65,134 @@ class SemanticCacheCountPagingTest {
             embedding("z-child", "second", 1000L)
             embedding("z-root", "unrequested", 1001L)
         }
-        selects.clear()
-        assertEquals(
-            EmbeddingCacheCounts(4, mapOf("first" to 2, "second" to 1, "missing" to 0)),
-            dao.getEmbeddingCacheCounts(listOf("first", "second", "missing", "first")),
-        )
-        val pages = selects.filter { "SELECT id FROM messages" in it.first }
-        assertEquals(4, pages.size)
-        assertTrue(pages.all { (sql, args) ->
-            "LIMIT" in sql && args.filterIsInstance<Number>().single().toInt() == CACHE_COUNT_PAGE_SIZE
-        })
-        assertTrue(selects.none { "COUNT(*)" in it.first || "e.embedding" in it.first })
-        assertFalse(database.inTransaction())
+        queries.clear()
+        repeat(3) {
+            assertEquals(
+                EmbeddingCacheCounts(4, mapOf("first" to 2, "second" to 1, "missing" to 0)),
+                dao.getEmbeddingCacheCounts(listOf("first", "second", "missing", "first")),
+            )
+        }
         assertEquals(4, dao.getIndexableMessageCount())
         assertEquals(2, dao.getEmbeddingCountByModel("first"))
         assertEquals(0, dao.getEmbeddingCountByModel("missing"))
         assertEquals(listOf(EmbeddingModelCount("second", 1)),
             dao.getEmbeddingCountsByModels(listOf("second", "missing")))
+        assertSummaryOnlyReads()
+        assertFalse(database.inTransaction())
     }
 
     @Test
-    fun emptyLegacyIdUnicodeAndEmbeddedNulRemainNonemptyWithoutPayloadHydration() = runBlocking {
+    fun emptyLegacyIdUnicodeEmbeddedNulAndLargeBodiesKeepTheirCacheEligibility() = runBlocking {
+        val largeText = "x".repeat(3 * 1024 * 1024)
         database.withTransaction {
             add("", text = "legacy")
             add("\uE000", text = "\u0000")
             add("\uD800\uDC00", text = "nonempty")
-            add("large", text = "x".repeat(3 * 1024 * 1024))
+            add("large", text = largeText)
             embedding("", "first", -1L)
             embedding("\uE000", "first", 1L)
             embedding("large", "first", 2L)
         }
-        selects.clear()
-        assertEquals(EmbeddingCacheCounts(4, mapOf("first" to 3)),
-            dao.getEmbeddingCacheCounts(listOf("first")))
-        assertTrue(selects.none { (sql, _) ->
-            "SELECT m.*" in sql || "SELECT m.text" in sql || "SELECT e.embedding" in sql
-        })
+        queries.clear()
+        repeat(3) {
+            assertEquals(EmbeddingCacheCounts(4, mapOf("first" to 3)),
+                dao.getEmbeddingCacheCounts(listOf("first")))
+        }
+        assertSummaryOnlyReads()
+        val metadata = database.semanticMetadataDao()
+        assertEquals(0, metadata.getSemanticSource("\uE000")?.searchLength)
+        assertEquals(8001, metadata.getSemanticSource("large")?.sourcePrefix?.size)
+        // Verify exact preservation without projecting the body into CursorWindow.
         database.openHelper.readableDatabase.query(
-            "SELECT LENGTH(CAST(text AS BLOB)) FROM messages WHERE id = 'large'",
+            "SELECT text = ? FROM messages WHERE id = ?", arrayOf(largeText, "large"),
         ).use { cursor ->
             assertTrue(cursor.moveToFirst())
-            assertEquals(3 * 1024 * 1024, cursor.getInt(0))
+            assertEquals(1, cursor.getInt(0))
+            assertFalse(cursor.moveToNext())
         }
     }
 
     @Test
-    fun cancellationStopsBeforeAnotherPageAndLeavesForegroundReadsAndWritesAvailable() = runBlocking {
-        database.withTransaction {
-            repeat(CACHE_COUNT_PAGE_SIZE * 3) { add("row-%04d".format(it)) }
+    fun incompleteBootstrapReturnsUnknownWithoutScanningSourcesOrPublishingSummaryCounts() = runBlocking {
+        add("existing")
+        embedding("existing", "first", 1L)
+        val metadata = database.semanticMetadataDao()
+        metadata.advanceLegacyMetadata(null, exhausted = false)
+        queries.clear()
+        repeat(2) {
+            assertEquals(EmbeddingCacheCounts(0, mapOf("first" to 0, "missing" to 0), complete = false),
+                dao.getEmbeddingCacheCounts(listOf("first", "missing")))
         }
-        selects.clear()
-        var completed = false
-        val counting = launch {
-            dao.getEmbeddingCacheCounts(listOf("first"))
-            completed = true
-        }
-        cancelOnCount.set(counting)
-        counting.join()
-        assertTrue(counting.isCancelled)
-        assertFalse(completed)
-        assertEquals(1, selects.count { "SELECT id FROM messages" in it.first })
-        assertFalse(database.inTransaction())
-        add("foreground")
-        assertEquals("ordinary", dao.getMessage("foreground")?.text)
-        assertEquals(1, dao.getAllConversationsList().count { it.id == "root" })
+        assertNoSourceReads()
+        assertTrue(querySnapshot().none { (sql, _) ->
+            Regex("\\bFROM\\s+semantic_(?:model_)?conversations\\b", RegexOption.IGNORE_CASE)
+                .containsMatchIn(sql)
+        })
+        metadata.advanceLegacyMetadata(null, exhausted = true)
+        queries.clear()
+        assertEquals(EmbeddingCacheCounts(1, mapOf("first" to 1)),
+            dao.getEmbeddingCacheCounts(listOf("first")))
+        assertSummaryOnlyReads()
     }
 
     @Test
-    fun physicalPageLimitPrecedesModelFanoutAndDeletionDoesNotLeaveCachedRows() = runBlocking {
-        database.withTransaction {
-            repeat(CACHE_COUNT_PAGE_SIZE + 1) { index ->
-                val id = "row-%04d".format(index)
-                add(id)
-                embedding(id, "first", index * 2L + 1)
-                embedding(id, "second", index * 2L + 2)
+    fun owningTransactionRollbackRestoresSourcesEmbeddingsAndCountsTogether() = runBlocking {
+        add("edited")
+        add("deleted")
+        embedding("edited", "first", 1L)
+        embedding("deleted", "first", 2L)
+        val before = database.semanticMetadataDao().getSemanticConversation("root")
+        val abort = IllegalStateException("rollback fixture")
+        try {
+            database.withTransaction {
+                dao.upsertMessage(requireNotNull(dao.getMessage("edited")).copy(text = "changed source"))
+                dao.deleteMessagesByIds(listOf("deleted"))
+                add("new")
+                embedding("new", "first", 3L)
+                throw abort
             }
+        } catch (error: IllegalStateException) {
+            assertTrue("Expected the intentional rollback, got $error",
+                generateSequence<Throwable>(error) { it.cause }.any { it === abort })
         }
-        val first = dao.getFirstEmbeddingCacheCountPage(listOf("first", "second"), CACHE_COUNT_PAGE_SIZE)
-        assertEquals(CACHE_COUNT_PAGE_SIZE * 2, first.size)
-        assertEquals(CACHE_COUNT_PAGE_SIZE, first.map { it.messageId }.distinct().size)
-        assertEquals("row-0127", first.last().messageId)
-        database.openHelper.writableDatabase.execSQL("DELETE FROM messages WHERE id = 'row-0128'")
-        assertTrue(dao.getEmbeddingCacheCountPage(listOf("first", "second"), first.last().messageId,
-            CACHE_COUNT_PAGE_SIZE).isEmpty())
-        assertEquals(EmbeddingCacheCounts(128, mapOf("first" to 128, "second" to 128)),
+        assertEquals("ordinary", dao.getMessage("edited")?.text)
+        assertNotNull(dao.getMessage("deleted"))
+        assertNull(dao.getMessage("new"))
+        assertEquals(before, database.semanticMetadataDao().getSemanticConversation("root"))
+        assertEquals(listOf("deleted", "edited"),
+            dao.getEmbeddingSearchPage("first", 0L, 1, 10).map { it.messageId }.sorted())
+        queries.clear()
+        assertEquals(EmbeddingCacheCounts(2, mapOf("first" to 2)),
+            dao.getEmbeddingCacheCounts(listOf("first")))
+        assertSummaryOnlyReads()
+    }
+
+    @Test
+    fun productionMessageRunAndConversationDeletesMaintainSummaryMembership() = runBlocking {
+        add("root-first")
+        add("root-second")
+        add("child-first", owner = "child")
+        embedding("root-first", "first", 1L)
+        embedding("root-first", "second", 2L)
+        embedding("root-second", "first", 3L)
+        embedding("child-first", "second", 4L)
+        dao.deleteMessagesByIds(listOf("root-first", "root-first"))
+        assertEquals(EmbeddingCacheCounts(2, mapOf("first" to 1, "second" to 1)),
             dao.getEmbeddingCacheCounts(listOf("first", "second")))
-        assertEquals(128, dao.getEmbeddingCacheCounts(emptyList()).total)
+        dao.deleteRun("root-run")
+        assertEquals(EmbeddingCacheCounts(1, mapOf("first" to 0, "second" to 1)),
+            dao.getEmbeddingCacheCounts(listOf("first", "second")))
+        dao.deleteConversation("child")
+        queries.clear()
+        assertEquals(EmbeddingCacheCounts(0, mapOf("first" to 0, "second" to 0)),
+            dao.getEmbeddingCacheCounts(listOf("first", "second")))
+        assertEquals(0, dao.getEmbeddingCacheCounts(emptyList()).total)
         assertEquals(emptyList<EmbeddingModelCount>(), dao.getEmbeddingCountsByModels(emptyList()))
+        assertSummaryOnlyReads()
+        assertNull(database.semanticMetadataDao().getSemanticConversation("child"))
+        assertNull(dao.getMessage("root-first"))
+        assertNull(dao.getMessage("root-second"))
+        assertNull(dao.getMessage("child-first"))
     }
 
     @Test
@@ -170,12 +206,13 @@ class SemanticCacheCountPagingTest {
             add("visible", text = "searchable source")
             embedding("visible", "first", 258L)
         }
-        selects.clear()
+        queries.clear()
         assertEquals(listOf("visible"), dao.getEmbeddingSearchPage("first", 0L, 1, 2).map { it.messageId })
-        val physical = selects.filter { "SELECT id FROM embeddings WHERE" in it.first }
+        val statements = querySnapshot()
+        val physical = statements.filter { "SELECT id FROM embeddings WHERE" in it.first }
         assertTrue(physical.size > 128)
         assertTrue(physical.all { (_, args) -> (args.last() as Number).toInt() <= 2 })
-        assertTrue(selects.filter { "SELECT e.id, e.messageId, e.embedding" in it.first }.all {
+        assertTrue(statements.filter { "SELECT e.id, e.messageId, e.embedding" in it.first }.all {
             "e.id IN (" in it.first
         })
         assertFalse(database.inTransaction())
@@ -196,15 +233,36 @@ class SemanticCacheCountPagingTest {
             embedding("visible-next", "first", 260L)
             embedding("visible-overflow", "first", 261L)
         }
-        selects.clear()
+        queries.clear()
         val page = dao.getEmbeddingSearchPage("first", 0L, 1, 3)
         assertEquals(listOf(1L, 260L, 261L), page.map { it.id })
-        val physical = selects.filter { "SELECT id FROM embeddings WHERE" in it.first }
+        val physical = querySnapshot().filter { "SELECT id FROM embeddings WHERE" in it.first }
         assertEquals(87, physical.size)
         assertTrue(physical.all { (_, args) -> (args.last() as Number).toInt() == 3 })
         val first = dao.getEmbeddingSearchPage("first", 0L, 1, 2)
         assertEquals(listOf(1L, 260L), first.map { it.id })
         assertEquals(listOf(261L), dao.getEmbeddingSearchPage("first", first.last().id, 1, 2).map { it.id })
+    }
+
+    private fun querySnapshot(): List<Pair<String, List<Any?>>> = synchronized(queries) {
+        queries.toList()
+    }
+
+    private fun assertSummaryOnlyReads() {
+        val statements = querySnapshot()
+        assertNoSourceReads(statements)
+        assertTrue(statements.any { (sql, _) -> "SUM(eligibleCount)" in sql })
+        assertTrue(statements.any { (sql, _) -> "SUM(m.cachedCount)" in sql })
+    }
+
+    private fun assertNoSourceReads(statements: List<Pair<String, List<Any?>>> = querySnapshot()) {
+        // Include INSERT ... SELECT and nested subqueries; a SELECT-only callback misses them.
+        val forbiddenTables = Regex(
+            "\\b(?:FROM|JOIN)\\s+[`\\\"]?(?:messages|semantic_sources|embeddings)\\b",
+            RegexOption.IGNORE_CASE,
+        )
+        assertEquals("Count refresh must not visit message, source or embedding rows", emptyList<String>(),
+            statements.map { it.first }.filter(forbiddenTables::containsMatchIn))
     }
 
     private suspend fun owner(id: String, task: String? = null, parent: String? = null) {

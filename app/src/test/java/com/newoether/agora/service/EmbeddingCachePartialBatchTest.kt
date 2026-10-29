@@ -88,6 +88,9 @@ class EmbeddingCachePartialBatchTest {
     @Test
     fun exactWorkRetainsFailedIdentitiesAndReplayDoesNotRegenerateCommittedVector() = runBlocking {
         val dao = database.semanticIndexDao()
+        dao.getDirtyConversations(model.id, null, 10).forEach { owner ->
+            assertTrue(dao.markConversationIndexed(model.id, owner.conversationId, owner.sourceRevision, 0))
+        }
         assertTrue(dao.completeReconcile(model.id, 0, 2))
         repeat(4) { index ->
             dao.enqueueExactWork(model.id, "message-$index",

@@ -109,38 +109,32 @@ class EmbeddingCacheWorker(
 
         return try {
             val ledger = semanticDao.getLedger(modelId) ?: return Result.success()
-            val completed = when (ledger.state) {
-                SemanticIndexLedgerEntity.STATE_CURRENT -> true
-                SemanticIndexLedgerEntity.STATE_PENDING ->
-                    consumeExactWork(
-                        model = model,
-                        settingsManager = settingsManager,
-                        admittedRevision = ledger.sourceRevision,
-                        database = database,
-                    )
-
-                SemanticIndexLedgerEntity.STATE_NEEDS_RECONCILE ->
-                    reconcileModel(
-                        model = model,
-                        settingsManager = settingsManager,
-                        expectedReconcileRevision = ledger.reconcileRevision,
-                        database = database,
-                    )
-
-                else -> true
+            if (!database.semanticMetadataDao().ensureMetadataState().complete) return Result.retry()
+            val completed = if (ledger.state == SemanticIndexLedgerEntity.STATE_CURRENT) {
+                true
+            } else {
+                val exactWorkCompleted = consumeExactWork(
+                    model = model,
+                    settingsManager = settingsManager,
+                    admittedRevision = ledger.sourceRevision,
+                    expectedReconcileRevision = ledger.reconcileRevision,
+                    database = database,
+                )
+                exactWorkCompleted && reconcileModel(
+                    model = model,
+                    settingsManager = settingsManager,
+                    admittedRevision = ledger.sourceRevision,
+                    expectedReconcileRevision = ledger.reconcileRevision,
+                    database = database,
+                )
             }
             if (completed) {
                 Result.success(workDataOf(KEY_FAILED to 0))
             } else {
                 val latest = semanticDao.getLedger(modelId)
-                val generationWasSuperseded = when (ledger.state) {
-                    SemanticIndexLedgerEntity.STATE_PENDING ->
-                        latest?.sourceRevision != ledger.sourceRevision
-                    SemanticIndexLedgerEntity.STATE_NEEDS_RECONCILE ->
-                        latest?.reconcileRevision != ledger.reconcileRevision
-                    else -> false
-                }
-                if (generationWasSuperseded) {
+                val generationWasSuperseded = latest == null ||
+                    latest.reconcileRevision != ledger.reconcileRevision
+                if (latest?.state == SemanticIndexLedgerEntity.STATE_CURRENT || generationWasSuperseded) {
                     Result.success(workDataOf(KEY_FAILED to 0))
                 } else {
                     Result.retry()
@@ -162,27 +156,32 @@ class EmbeddingCacheWorker(
         model: EmbeddingModelConfig,
         settingsManager: SettingsManager,
         admittedRevision: Long,
+        expectedReconcileRevision: Long,
         database: ChatDatabase,
     ): Boolean {
         val semanticDao = database.semanticIndexDao()
         val workTotal = semanticDao.getWorkCountThroughRevision(model.id, admittedRevision)
-        if (workTotal == 0) return true
         var processed = 0
         var afterRevision = 0L
         var afterMessageId = ""
         var embeddingConfigResolved = false
         var remoteConfig: Pair<String, String>? = null
         var complete = true
-        publishProgress(
-            EmbeddingCacheProgress(
-                generationRevision = admittedRevision,
-                kind = EmbeddingCacheWorkKind.EXACT,
-                processed = processed,
-                total = workTotal,
-            ),
-        )
+        if (workTotal > 0) {
+            publishProgress(
+                EmbeddingCacheProgress(
+                    generationRevision = admittedRevision,
+                    kind = EmbeddingCacheWorkKind.EXACT,
+                    processed = processed,
+                    total = workTotal,
+                ),
+            )
+        }
         while (processed < workTotal) {
             currentCoroutineContext().ensureActive()
+            if (semanticDao.getLedger(model.id)?.reconcileRevision != expectedReconcileRevision) {
+                return false
+            }
             val page = semanticDao.getWorkPage(
                 modelId = model.id,
                 maxSourceRevision = admittedRevision,
@@ -217,7 +216,17 @@ class EmbeddingCacheWorker(
                 remoteConfig = resolveEmbeddingConfig(model, settingsManager)
                 embeddingConfigResolved = true
             }
-            if (!embedCandidates(model, remoteConfig, candidates, database)) complete = false
+            if (
+                !embedCandidates(
+                    model = model,
+                    remoteConfig = remoteConfig,
+                    candidates = candidates,
+                    database = database,
+                    expectedReconcileRevision = expectedReconcileRevision,
+                )
+            ) {
+                complete = false
+            }
             processed += page.size
             publishProgress(
                 EmbeddingCacheProgress(
@@ -230,6 +239,7 @@ class EmbeddingCacheWorker(
             yield()
         }
         val latest = semanticDao.getLedger(model.id) ?: return true
+        if (latest.reconcileRevision != expectedReconcileRevision) return false
         if (latest.state == SemanticIndexLedgerEntity.STATE_PENDING) {
             semanticDao.markCurrentAfterExactWork(
                 modelId = model.id,
@@ -243,11 +253,13 @@ class EmbeddingCacheWorker(
     private suspend fun reconcileModel(
         model: EmbeddingModelConfig,
         settingsManager: SettingsManager,
+        admittedRevision: Long,
         expectedReconcileRevision: Long,
         database: ChatDatabase,
     ): Boolean {
         val semanticDao = database.semanticIndexDao()
-        var afterMessageId: String? = null
+        val metadataDao = database.semanticMetadataDao()
+        var afterConversationId: String? = null
         var embeddingConfigResolved = false
         var remoteConfig: Pair<String, String>? = null
         var complete = true
@@ -257,69 +269,125 @@ class EmbeddingCacheWorker(
             if (semanticDao.getLedger(model.id)?.reconcileRevision != expectedReconcileRevision) {
                 return false
             }
-            val cursor = afterMessageId
-            val messageIds = if (cursor == null) {
-                semanticDao.getFirstReconcileMessageIdsPage(limit = RECONCILE_SCAN_PAGE_SIZE)
-            } else {
-                semanticDao.getReconcileMessageIdsPage(
-                    afterId = cursor,
-                    limit = RECONCILE_SCAN_PAGE_SIZE,
-                )
-            }
-            if (messageIds.isEmpty()) break
-            check((cursor == null || messageIds.first().isAfterSqliteId(cursor)) &&
-                messageIds.zipWithNext().all { (previous, next) -> next.isAfterSqliteId(previous) }) {
-                "Semantic reconciliation cursor did not advance"
-            }
-            afterMessageId = messageIds.last()
-            val page = semanticDao.getReconcileMessagesByIds(
+            val conversationCursor = afterConversationId
+            val conversations = metadataDao.getDirtyConversations(
                 modelId = model.id,
-                maxWorkRevision = expectedReconcileRevision,
-                messageIds = messageIds,
-                sourcePrefixBytes = SEMANTIC_SOURCE_PREFIX_BYTES,
+                afterConversationId = conversationCursor,
+                limit = RECONCILE_CONVERSATION_PAGE_SIZE,
             )
-            val candidates = mutableListOf<EmbeddingCandidate>()
-            page.forEach { row ->
+            // The work-revision filter can hide newer exact rows. Admit these conversation
+            // snapshots only before such work exists; later source changes fail their own fence.
+            val pageLedger = semanticDao.getLedger(model.id) ?: return false
+            if (pageLedger.reconcileRevision != expectedReconcileRevision ||
+                pageLedger.sourceRevision != admittedRevision
+            ) {
+                return false
+            }
+            if (conversations.isEmpty()) break
+            check((conversationCursor == null ||
+                conversations.first().conversationId.isAfterSqliteId(conversationCursor)) &&
+                conversations.zipWithNext().all { (previous, next) ->
+                    next.conversationId.isAfterSqliteId(previous.conversationId)
+                }) {
+                "Semantic conversation reconciliation cursor did not advance"
+            }
+            afterConversationId = conversations.last().conversationId
+            for (conversation in conversations) {
                 currentCoroutineContext().ensureActive()
-                val text = row.text
-                val fingerprint = semanticSourceFingerprint(text)
-                // An extant legacy row is already source-safe: all semantic source mutations
-                // delete its embedding transactionally before enqueuing work. Rewriting a nullable
-                // fingerprint into every pre-v30 row would rewrite gigabytes of BLOB-bearing rows.
-                val reusable = shouldReuseReconciledEmbedding(
-                    embeddingId = row.embeddingId,
-                    dimension = row.dimension,
-                    embeddingBytes = row.embeddingBytes,
-                    existingFingerprint = row.embeddingFingerprint,
-                    expectedFingerprint = fingerprint,
-                )
-                if (!reusable) candidates += row.toCandidate(fingerprint, text)
-            }
-            if (candidates.isNotEmpty() && !embeddingConfigResolved) {
-                remoteConfig = resolveEmbeddingConfig(model, settingsManager)
-                embeddingConfigResolved = true
-            }
-            candidates.chunked(embeddingBatchSize).forEach { batch ->
-                if (
-                    !embedCandidates(
-                        model = model,
-                        remoteConfig = remoteConfig,
-                        candidates = batch,
-                        database = database,
+                if (semanticDao.getLedger(model.id)?.reconcileRevision != expectedReconcileRevision) {
+                    return false
+                }
+                var afterMessageId: String? = null
+                var conversationComplete = true
+                while (conversation.cacheEligible && conversation.eligibleCount > 0) {
+                    currentCoroutineContext().ensureActive()
+                    if (semanticDao.getLedger(model.id)?.reconcileRevision != expectedReconcileRevision) {
+                        return false
+                    }
+                    val messageCursor = afterMessageId
+                    val messageIds = metadataDao.getConversationSourceIds(
+                        conversationId = conversation.conversationId,
+                        afterMessageId = messageCursor,
+                        limit = RECONCILE_SCAN_PAGE_SIZE,
+                    )
+                    if (messageIds.isEmpty()) break
+                    check((messageCursor == null || messageIds.first().isAfterSqliteId(messageCursor)) &&
+                        messageIds.zipWithNext().all { (previous, next) -> next.isAfterSqliteId(previous) }) {
+                        "Semantic reconciliation cursor did not advance"
+                    }
+                    afterMessageId = messageIds.last()
+                    val page = semanticDao.getReconcileMessagesByIds(
+                        modelId = model.id,
+                        maxWorkRevision = admittedRevision,
+                        messageIds = messageIds,
+                        sourcePrefixBytes = SEMANTIC_SOURCE_PREFIX_BYTES,
+                    )
+                    val candidates = mutableListOf<EmbeddingCandidate>()
+                    page.forEach { row ->
+                        currentCoroutineContext().ensureActive()
+                        val text = row.text
+                        val fingerprint = semanticSourceFingerprint(text)
+                        // Source mutations remove old embeddings transactionally. Reusing a valid
+                        // legacy row avoids rewriting its BLOB just to fill a nullable fingerprint.
+                        val reusable = shouldReuseReconciledEmbedding(
+                            embeddingId = row.embeddingId,
+                            dimension = row.dimension,
+                            embeddingBytes = row.embeddingBytes,
+                            existingFingerprint = row.embeddingFingerprint,
+                            expectedFingerprint = fingerprint,
+                        )
+                        if (!reusable) candidates += row.toCandidate(fingerprint, text)
+                    }
+                    if (candidates.isNotEmpty() && !embeddingConfigResolved) {
+                        remoteConfig = resolveEmbeddingConfig(model, settingsManager)
+                        embeddingConfigResolved = true
+                    }
+                    for (batch in candidates.chunked(embeddingBatchSize)) {
+                        currentCoroutineContext().ensureActive()
+                        if (semanticDao.getLedger(model.id)?.reconcileRevision != expectedReconcileRevision) {
+                            return false
+                        }
+                        if (
+                            !embedCandidates(
+                                model = model,
+                                remoteConfig = remoteConfig,
+                                candidates = batch,
+                                database = database,
+                                expectedReconcileRevision = expectedReconcileRevision,
+                            )
+                        ) {
+                            conversationComplete = false
+                        }
+                    }
+                    yield()
+                }
+                if (conversationComplete) {
+                    // Persist each completed conversation before advancing. A retry then reads only
+                    // dirty owners; concurrent mutations and re-cache requests fail this atomic fence.
+                    conversationComplete = metadataDao.markConversationIndexed(
+                        modelId = model.id,
+                        conversationId = conversation.conversationId,
+                        sourceRevision = conversation.sourceRevision,
                         expectedReconcileRevision = expectedReconcileRevision,
                     )
-                ) {
-                    complete = false
                 }
+                if (!conversationComplete) complete = false
+                yield()
             }
-            yield()
         }
         if (!complete) return false
-        return semanticDao.completeReconcile(
-            modelId = model.id,
-            expectedReconcileRevision = expectedReconcileRevision,
-            updatedAt = System.currentTimeMillis(),
-        )
+        if (
+            !semanticDao.completeReconcile(
+                modelId = model.id,
+                expectedReconcileRevision = expectedReconcileRevision,
+                updatedAt = System.currentTimeMillis(),
+            )
+        ) {
+            return false
+        }
+        val latest = semanticDao.getLedger(model.id) ?: return true
+        return latest.state == SemanticIndexLedgerEntity.STATE_CURRENT &&
+            latest.reconcileRevision == expectedReconcileRevision
     }
 
     // SQLite's BINARY text collation compares unsigned UTF-8 bytes, not UTF-16 chars.
@@ -444,6 +512,7 @@ class EmbeddingCacheWorker(
         const val KEY_ERROR = "error"
         const val TAG = "EmbeddingCache"
         private const val MAX_BATCH_SIZE = 32
+        private const val RECONCILE_CONVERSATION_PAGE_SIZE = 16
         private const val RECONCILE_SCAN_PAGE_SIZE = 128
         private val schedulingLock = Mutex()
 

@@ -65,7 +65,7 @@ class SemanticIndexDaoTest {
     }
 
     @Test
-    fun reconcileInvalidationAdvancesRevisionAndClearsExactWork() = runTest {
+    fun reconcileInvalidationAdvancesRevisionWithoutDiscardingExactWork() = runTest {
         val dao = mockk<SemanticIndexDao>()
         val admission = needsReconcile(revision = 0, updatedAt = 20)
         val current = current(revision = 4, updatedAt = 10)
@@ -75,7 +75,7 @@ class SemanticIndexDaoTest {
         coEvery { dao.insertLedger(admission) } returns -1L
         coEvery { dao.getLedger(MODEL_ID) } returnsMany listOf(current, invalidated)
         coEvery { dao.advanceForReconcile(MODEL_ID, 20) } returns 1
-        coEvery { dao.deleteWorkForModel(MODEL_ID) } returns 3
+        coEvery { dao.invalidateSemanticConversations(MODEL_ID) } returns Unit
 
         assertEquals(invalidated, dao.requestReconcile(MODEL_ID, updatedAt = 20))
 
@@ -83,7 +83,7 @@ class SemanticIndexDaoTest {
             dao.insertLedger(admission)
             dao.getLedger(MODEL_ID)
             dao.advanceForReconcile(MODEL_ID, 20)
-            dao.deleteWorkForModel(MODEL_ID)
+            dao.invalidateSemanticConversations(MODEL_ID)
             dao.getLedger(MODEL_ID)
         }
     }
@@ -225,11 +225,11 @@ class SemanticIndexDaoTest {
         assertTrue(exactCurrent.contains("state = 'PENDING'"))
         assertTrue(exactCurrent.contains("sourceRevision = :sourceRevision"))
         assertTrue(exactCurrent.contains("NOT EXISTS"))
-        assertTrue(reconcileCurrent.contains("state = 'NEEDS_RECONCILE'"))
-        assertTrue(
-            reconcileCurrent.contains("reconcileRevision = :expectedReconcileRevision"),
-        )
-        assertTrue(reconcileCurrent.contains("sourceRevision = :expectedReconcileRevision"))
+        assertTrue(reconcileCurrent.contains("SET state = 'CURRENT'"))
+        assertTrue(reconcileCurrent.contains("reconcileRevision = :expectedReconcileRevision"))
+        assertTrue(reconcileCurrent.contains("completedRevision = sourceRevision"))
+        assertTrue(reconcileCurrent.contains("m.indexedRevision != c.sourceRevision"))
+        assertTrue(reconcileCurrent.contains("semantic_metadata_state"))
         assertTrue(reconcileCurrent.contains("NOT EXISTS"))
     }
 

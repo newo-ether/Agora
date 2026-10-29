@@ -209,8 +209,16 @@ class DrawerGeneratingConversationIdsTest {
             foreground.value = emptySet()
             states.expect(emptySet())
             val reads = applicationReads()
-            assertTrue(reads.isNotEmpty())
-            assertTrue("Unexpected reads: $reads", reads.all {
+            val metadataStateRead = "SELECT * FROM semantic_metadata_state WHERE id = 0"
+            val conversationSummaryRead = "SELECT * FROM semantic_conversations WHERE conversationId = ?"
+            // Each public write maintains its scalar summary in the same recorded SQL stream.
+            assertEquals(2, reads.count { it.trim() == metadataStateRead })
+            assertEquals(2, reads.count { it.trim() == conversationSummaryRead })
+            val membershipReads = reads.filterNot {
+                it.trim() == metadataStateRead || it.trim() == conversationSummaryRead
+            }
+            assertTrue(membershipReads.isNotEmpty())
+            assertTrue("Unexpected observer reads: $membershipReads", membershipReads.all {
                 it.contains("SELECT DISTINCT parentConversationId") && it.contains("id IN (")
             })
             assertFalse(reads.any { it.contains("messages") || it.contains("runs") || it.contains("draft") })

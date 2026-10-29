@@ -74,10 +74,16 @@ conversation rows, message graphs, Composer drafts, attachment JSON, branch or R
 media, or any other conversation-owned payload. It must not enumerate conversation owners to decide
 whether validation or recovery work exists, validate files or durable references, create per-owner
 runtime or Composer sessions, or resume conversation-owned jobs. After that list is visibly available,
-the sole automatic data-maintenance exception is the semantic-index ledger check defined in
-[semantic-search.md](semantic-search.md): it reads only one lightweight row for the active Embedding
-model and may admit one bounded low-priority cache worker. It never authorizes a startup message,
-conversation, embedding, attachment, Run, or owner scan.
+automatic semantic maintenance is limited to two admissions defined in [semantic-search.md](semantic-search.md):
+read the active Embedding model's lightweight ledger row and the durable metadata completion row;
+schedule at most one bounded cache worker per model and one unique legacy metadata worker when needed.
+The once-only metadata worker may read legacy message identities and source input in small, resumable
+background pages to build durable metadata. It runs independently of Auto Cache and makes no Embedding
+API or local-model calls; only enabled Auto Cache or an explicit cache action admits vector generation.
+Neither admission delays list publication, executes aggregate counts, scans source bodies itself,
+instantiates conversation runtime state, or authorizes unrelated validation/recovery work. Completed
+metadata is reused on later launches; ordinary writes maintain only their affected sources and
+conversation summaries.
 
 Explicitly opening one conversation is the admission boundary for its state. That action may load,
 deserialize, validate, and recover the selected owner. It also admits ordinary validation of all indexed

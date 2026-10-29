@@ -97,8 +97,6 @@ interface ChatDao :
     )
     suspend fun stopStuckMessagesForConversation(conversationId: String): Int
 
-    @Upsert
-    suspend fun upsertConversation(conversation: ChatEntity)
     @Query("UPDATE conversations SET modelId = :modelId, dataChangedAt = MAX(dataChangedAt + 1, :at) WHERE id = :conversationId")
     suspend fun updateConversationModel(conversationId: String, modelId: String?, at: Long): Int
     @Query("UPDATE conversations SET systemPromptId = :promptId, dataChangedAt = MAX(dataChangedAt + 1, :at) WHERE id = :conversationId")
@@ -202,9 +200,6 @@ interface ChatDao :
         newTitle: String,
         at: Long,
     ): Int
-
-    @Upsert
-    suspend fun upsertMessage(message: MessageEntity)
 
     // Runs
     @Upsert
@@ -623,23 +618,8 @@ interface ChatDao :
         return updated
     }
 
-    @Update(entity = MessageEntity::class)
-    suspend fun updateMessageCheckpoint(checkpoint: MessageStreamCheckpoint): Int
-
-    @Query("DELETE FROM conversations WHERE id = :conversationId")
-    suspend fun deleteConversation(conversationId: String)
-
-    @Query("DELETE FROM messages WHERE conversationId = :conversationId")
-    suspend fun deleteMessagesByConversation(conversationId: String)
-
     @Query("UPDATE runs SET parentRunId = :newParentRunId WHERE id = :runId")
     suspend fun updateRunParent(runId: String, newParentRunId: String?): Int
-
-    @Query("DELETE FROM embeddings WHERE messageId IN (SELECT id FROM messages WHERE conversationId = :conversationId)")
-    suspend fun deleteEmbeddingsByConversation(conversationId: String)
-
-    @Query("DELETE FROM embeddings WHERE messageId LIKE 'compact_%' OR NOT EXISTS (SELECT 1 FROM messages WHERE messages.id = embeddings.messageId)")
-    suspend fun deleteOrphanedEmbeddings()
 
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastMessageForConversation(conversationId: String): MessageEntity?
@@ -657,9 +637,6 @@ interface ChatDao :
     fun observeExecutionMessagesForTask(taskId: String): Flow<List<ExecutionMessageSummaryRow>>
 
     // Embeddings
-    @Insert
-    suspend fun insertEmbeddings(embeddings: List<EmbeddingEntity>): LongArray
-
     @Query("SELECT * FROM embeddings WHERE messageId IN (:messageIds)")
     suspend fun getEmbeddingsByMessageIds(messageIds: List<String>): List<EmbeddingEntity>
 
@@ -719,9 +696,6 @@ interface ChatDao :
         afterId: String?,
         limit: Int,
     ): List<MessageEntity>
-
-    @Query("DELETE FROM conversations")
-    suspend fun deleteAllConversations()
 
     @Query("SELECT id FROM messages WHERE id IN (:ids)")
     suspend fun findExistingMessageIds(ids: List<String>): List<String>

@@ -1,6 +1,6 @@
 # Semantic Search Architecture Contract
 
-Status: authoritative development contract, 2026-09-15.
+Status: authoritative development contract, updated 2026-10-29.
 
 This document is required context for changes to embedding-cache reads, semantic conversation search,
 RAG ranking, or the search eligibility query. Semantic search must remain bounded by one database
@@ -10,8 +10,13 @@ page plus the requested top candidates; corpus growth must not translate into An
 
 - Query embedding generation, model selection, API-key resolution, and user-visible tool behavior
   remain owned by the existing RAG/provider path.
-- Searchable sources exclude Task conversations, non-USER/non-MODEL rows, blank or short source
-  text, and synthetic tool/result/Compact rows.
+- Semantic history ranking excludes Task and child conversations, non-USER/non-MODEL rows,
+  empty or below-minimum source text, and synthetic tool/result/Compact rows. Source length follows
+  SQLite `LENGTH(TEXT)` character counting, including its first-NUL boundary.
+- Cache admission and counts have a separate eligibility rule: any nonempty USER/MODEL source in a
+  non-Task conversation is eligible, including short text, whitespace, embedded NUL and children.
+  Synthetic tool/result/Compact identities remain excluded. Empty legacy message IDs remain valid
+  source identities. History visibility or its minimum length must not narrow cache eligibility.
 - Literal search, expanded search context and conversation_read also exclude synthetic Compact
   summaries. Branch traversal may cross these rows but must not return their bodies as messages.
 - Global history tools and drawer search exclude child conversations through root-only database
@@ -87,11 +92,14 @@ message pagination when more tool calls remain.
 1. ChatDao reads a minimal projection containing only embedding row id, message id, embedding
    bytes, and declared dimension.
 2. The DAO first seeks at most 256 model embedding identities through the model-leading index,
-   then applies visibility and source-length checks only to those identities. Filtered physical pages
-   advance and yield before continuing to fill the bounded eligible page. Physical reads keep their
-   fixed page bound even when only one eligible result remains; surplus eligible rows are picked up
-   by the next caller page through its last returned identity. Each SQL statement releases
-   its connection; there is no whole-search transaction or corpus-sized filtered statement.
+   then applies visibility and source-length checks from durable `semantic_sources` metadata to
+   those identities. After metadata completion, ranking pages never reopen original message bodies
+   or source prefixes. During the once-only bootstrap, explicit search may use the bounded compatibility
+   path below. Filtered physical pages advance and yield before continuing to fill the bounded eligible
+   page. Physical reads keep their fixed page bound even when only one eligible result remains; surplus
+   eligible rows are picked up by the next caller page through its last returned identity. Each SQL
+   statement releases its connection; there is no whole-search transaction or corpus-sized filtered
+   statement.
 3. The selector scores one page at a time directly from the durable BIG_ENDIAN bytes and does not
    allocate a decoded FloatArray for every row.
 4. A bounded worst-first top-K heap retains at most the requested result count across all pages.
@@ -101,6 +109,15 @@ message pagination when more tool calls remain.
 Peak application memory is therefore proportional to one configured page, the cached query vector, the
 bounded top-K heap, and the final bounded message set. It is not proportional to embedding-row
 count or total cached text.
+
+While legacy metadata is incomplete, explicit semantic ranking keeps old vectors searchable. For
+only the at-most-256 embedding identities already selected, a separate read joins original messages
+only where the metadata row is missing and applies the original history eligibility and
+`LENGTH(text)` minimum. Existing metadata stays authoritative, including ineligible rows; a fallback
+must not override it. The query returns only vector identities, bytes and dimensions, never source
+bodies or prefixes. It does not run during counts, startup admission, or embedding reconciliation.
+Completed metadata selects the metadata-only query. A legacy length check may still evaluate a large
+source inside SQLite; the identity cap bounds work per statement, not the size of each source.
 
 ### Literal history search
 
@@ -130,8 +147,13 @@ index once during migration; migration cost is separate from ongoing query laten
 
 | Owner | Responsibility | Prohibited responsibility |
 |---|---|---|
-| ChatSearchDao inherited by the sole ChatDao | Eligibility join, minimal projection, deterministic keyset page. | Full-corpus semantic list or score/ranking policy. |
-| ConversationRepository | Pass through the bounded page contract. | Reassembling pages into one collection. |
+| ChatSearchDao inherited by the sole ChatDao | History eligibility, minimal ranking pages with an incomplete-metadata compatibility path for explicit search, atomic reads of count summaries. | Message/source scans for count presentation, full-corpus semantic list, or ranking policy. |
+| SemanticMutationDao and SemanticEmbeddingDao | Maintain derived sources, conversation revisions and cached membership in the owning Room write transaction. | Raw message or embedding writes that bypass summary maintenance. |
+| SemanticMetadataDao | Durable source input, per-conversation and per-model summaries, revision guards, legacy cursor commits. | Provider calls or full-body reads during ordinary maintenance. |
+| SemanticMetadataWorker | Once-only, resumable legacy metadata bootstrap, independent of model and page lifetime. | Embedding generation, count presentation, or reopening already-derived sources. |
+| EmbeddingCacheWorker | Exact work and dirty-conversation reconciliation; bounded provider batches and guarded commits. | Whole-corpus source reconciliation after ordinary message changes, or long provider calls inside Room transactions. |
+| RagManager | Post-list admission, durable scheduling, page-demand count lifecycle and ledger-only reminders. | Embedding generation, page-off count refresh, or counts as ledger freshness evidence. |
+| ConversationRepository | Forward bounded reads and preserve canonical mutation transactions. | Reassembling pages into one corpus collection. |
 | BoundedSemanticEmbeddingSelector | Vector validation, page-by-page scoring, strict threshold, bounded top-K, stable ranking. | Room access, Provider calls, message visibility policy, or cache mutation. |
 | RagToolProvider | Query embedding, selector orchestration, final bounded message expansion, tool result projection. | Full-corpus materialization or a second ranking implementation. |
 
@@ -171,23 +193,35 @@ fail without a previous snapshot, report a page-level error and suspend the affe
 and action projection while no cache worker runs. An explicit page entry may load again; there is
 no automatic polling, fabricated Loading, or model-row Failed/Retry action in this case.
 
-`RagManager` must not start an aggregate refresh from its constructor. A refresh begins only after
-the conversation list has been published or the Settings page explicitly requests it, and it must
-never delay list publication. Duplicate page requests share an active refresh; worker completion or
-a configured-model-set change during counting requests at most one successor for the latest set.
-A failed initial snapshot is not automatically retried by background work observations; explicit
-page entry owns restarting that load. `ChatSearchDao` accumulates counts from fixed 128-identity
-keyset pages. One message-primary-key pass projects source eligibility and membership in all requested
-models in the same statement; the identity LIMIT precedes eligibility joins and model fanout. Hidden
-identities still advance. Kotlin counts each eligible identity once and includes explicit zeros for
-requested models without rows. Per-page numerator and denominator observe the same rows, so a completed
-refresh always satisfies cached <= total without clamping or separate corpus scans. Page reads release
-their connection before the next page, check coroutine cancellation, and yield; no whole-count transaction
-is allowed. Eligibility uses
-stored BLOB byte length for the nonempty-text test, avoiding full text or embedding materialization.
-This preserves embedded NUL and whitespace eligibility. Counts are a completed observational refresh,
-not an atomic corpus snapshot across concurrent mutations. No query returns message text or embedding
-blobs, and page entry must not issue N+1 model counts.
+`SettingsSearchPage` holds `RagManager.observeCachePresentation()` in its page coroutine. Counts
+and WorkManager presentation observers exist only while at least one page subscriber needs them.
+The last subscriber leaving cancels the active count or metadata-readiness wait, cancels work
+observation and discards the queued successor. Last complete row snapshots remain available. Page
+exit never cancels durable metadata or embedding work. The constructor and post-list startup path
+must not request counts.
+
+Duplicate page requests share an active refresh. Model-set changes or newly completed work request
+at most one successor for the latest configured set. Work observations defer refresh while any
+observed cache chain is unfinished; a predecessor finishing with an enqueued or blocked follower
+must not launch another count. Once the chain is idle, one refresh satisfies the accumulated demand.
+A failed first snapshot is not retried merely because work observations repeat; explicit page entry
+owns restarting a failed load.
+
+`ChatSearchDao.getEmbeddingCacheCounts` reads the durable metadata completion row, then sums only
+`semantic_conversations.eligibleCount` and the requested models' `semantic_model_conversations.cachedCount`.
+The numerator and denominator share one short Room transaction. This visits at most small scalar
+summary data proportional to conversations times requested models, O(conversations * models), rather
+than messages, source prefixes or embedding rows. Repeated refreshes reuse unchanged summaries.
+Requested duplicate models coalesce; models without rows receive explicit zeros. There is no
+message/source identity pagination, body-length expression, embedding BLOB read, per-model N+1 count
+loop, or count-triggered reconciliation. `cached <= total` follows from transactional membership
+maintenance rather than clamping independently scanned results.
+
+Until legacy bootstrap completes, the DAO returns `complete = false`. Its placeholder numbers are
+unknown and must not become a visible zero snapshot. The page schedules the unique metadata worker,
+retains the last complete counts if present, and waits for the one durable readiness transition
+before re-reading summaries. This wait keeps count loading active and remains cancellable on page
+exit; it does not poll, scan messages, or tie the durable worker to the page lifetime.
 
 Each model keeps its last complete count snapshot. Here `cached` is the exact number of eligible
 messages that currently have a stored embedding for that model. The known cached count versus the
@@ -218,24 +252,47 @@ messages. Semantic cache completeness is maintained durably rather than rediscov
 message and embedding tables at every launch.
 
 One lightweight ledger row per Embedding model stores whether that model is complete, has exact
-pending work, or requires bounded reconciliation/initial backfill. Searchable-message admission,
-text or eligibility changes, deletion, conversation deletion, fork/import, embedding success, and
-embedding invalidation update the semantic ledger and exact work identity in the same durable
-transaction as the owning mutation. Run-only Stop/Stopped/Failed status and conversation-watermark
-updates use an ordinary atomic Room transaction; they do not change source text or eligibility and
-must not invalidate the index or request full reconciliation. Each work item is uniquely identified by
-model and message and includes the current source fingerprint or revision, so duplicate events coalesce and an embedding
-for older text cannot satisfy current content. Inactive models may retain one `needsReconcile` state
-instead of multiplying per-message work; activating a new or stale model admits one bounded keyset
-reconciliation. Database migration marks affected models for reconciliation without scanning message
-content during application entry.
+pending work, or needs reconciliation. Durable `semantic_sources` rows store bounded source input,
+fingerprint, cache eligibility, history eligibility and history length. Each `semantic_conversations`
+row owns that conversation's eligible-message total and source revision. Each model/conversation row
+owns cached membership and the last successfully indexed conversation revision.
 
-Interactive App startup first publishes the conversation-list projection. Only after that list is
-visibly available may `RagManager` admit the active model by reading its single ledger row. This O(1)
-check must not execute aggregate counts, enumerate conversations or owners, load message text or
-embedding blobs, or instantiate conversation runtime state. Model switching, enabling Auto Cache,
-new model admission, manual Cache, and manual Re-cache use the same ledger admission path. Re-cache
-invalidates that model under the shared model mutex before scheduling durable work.
+Public message/checkpoint, graph/import/fork, deletion and embedding DAO writes maintain these rows
+in the same transaction as the owning mutation. Eligible source changes remove stale vectors, adjust
+cached membership and eligible totals, and advance only the affected conversation's source revision.
+Moving a source affects its old and new conversations. Changing Task eligibility advances only that
+conversation. Run status, title, pin, unread state and backup-watermark-only changes do not dirty
+semantic input. History-only changes outside the embedding prefix may update history metadata without
+invalidating the embedding. Rollback restores original data, metadata, revisions and counts together.
+Whole-conversation message or vector deletion uses owner-scoped bulk SQL and summary changes in that
+same transaction; it must not enumerate every message to issue per-message metadata queries.
+
+The active model may also receive exact work identified by model, message, source fingerprint and
+revision, so duplicate changes coalesce and old results cannot satisfy new content. Inactive models
+become pending and retain their existing per-conversation indexed revisions; ordinary message changes
+must not request whole-model reconciliation or dirty untouched conversations. Activation visits only
+conversations whose source revision differs from that model's indexed revision. A newly admitted
+model has no such completed revisions. Explicit Re-cache or a semantic model change may deliberately
+invalidate all of that model's conversation revisions.
+
+Schema 42 adds empty source, conversation and model/conversation tables plus a metadata state table,
+without copying message bodies or vectors during migration. It seeds a pending state row and marks existing
+models for reconciliation. No destructive recreation or synchronous corpus backfill is allowed.
+`SemanticMetadataWorker` independently fills legacy metadata with unique KEEP work and a durable
+message-ID cursor. It reads at most 16 legacy identities per page, skips sources already maintained
+by current writes, reads each missing source outside a write transaction, and commits missing-only
+metadata plus the expected cursor in one short transaction. A concurrent update or deletion wins
+over the stale bootstrap candidate. Cancellation or process death resumes from the committed cursor;
+a superseded cursor reloads durable state. Completion is persistent and ordinary writes do not reset it.
+
+Interactive startup first publishes the conversation-list projection. Only after that list is
+visibly available may `RagManager` read the metadata completion row and active model's single ledger
+row. These admissions do not enumerate owners, load payloads or count the corpus. Incomplete metadata
+admits the one independent bootstrap worker even when Auto Cache is off; that worker makes no
+Embedding API or local-model calls. Its completion may wake the active pending cache model only when
+Auto Cache is enabled. Model switching, enabling Auto Cache, new model admission, manual Cache and
+manual Re-cache share the ledger scheduling path. Re-cache invalidates the model under its shared
+mutex before scheduling durable work.
 
 `EmbeddingCacheWorker` is the only cache embedding generator. `RagManager` owns ledger admission,
 unique durable scheduling, worker observation, model lifecycle, reminder delivery, and retained
@@ -245,46 +302,53 @@ A wakeup that arrives while the current worker is running appends one `APPEND_OR
 newly admitted work is not lost behind a stale unique-work KEEP decision. Scheduling and worker-state
 observation never hold the model write mutex.
 
-The worker consumes bounded exact-work pages or bounded full-reconcile pages, limits embedding batch
-size, yields between pages, and commits only when both the database source fingerprint and durable
-work revision still match its admitted candidate. Remote responses map explicit indices back to input
-order. A provider omitting every index retains ordered compatibility; mixed, duplicate, missing or
-out-of-range indices, wrong cardinality, empty/non-finite vectors and inconsistent batch dimensions
-fail the batch without misbinding vectors. Cancellation propagates and closes the active remote Call.
-A failed vector cannot prevent other valid vectors in an already-generated worker batch from committing;
-unsatisfied work remains durable. Source fingerprints retain SHA-256 over the existing UTF-16 prefix.
-Ranking checks cancellation within every page and yields between pages; double-precision cosine
-accumulation avoids overflow for finite Float vectors while preserving the Float score API.
-Reconciliation first seeks a fixed page of message
-IDs through the covering primary-key index, then hydrates eligible rows only for those IDs. The first
-page has no lower bound so legacy empty IDs remain included; later cursors and validation retain
-SQLite BINARY UTF-8 byte order, including supplementary characters. Filtering must not prevent cursor
-advancement or turn an empty eligible page into corpus exhaustion. Neither eligibility joins nor
-sorting may precede the identity-page limit. Semantic-source reads return at most four UTF-8 bytes
-per existing 8,000-UTF-16-unit embedding prefix as a BLOB, preserving embedded NULs. Kotlin decodes
-the bounded bytes so a partial UTF-8 tail cannot invalidate a CursorWindow string conversion.
-Fingerprinting and embedding keep their existing Kotlin `take` semantics; complete
-message bodies remain stored unchanged. No semantic maintenance read may materialize an unbounded
-source text in CursorWindow. Failed or superseded items remain durable work for
-a later pass. Worker activity is observed from unique WorkManager state; completion may refresh
-presentation but aggregate equality cannot mark the ledger current.
+The worker consumes bounded exact-work pages, then reconciles only dirty conversations. It pages
+conversation summaries, then source identities within each dirty conversation, with embedding input
+read from durable bounded prefixes. Neither phase reopens original message bodies. It limits provider
+batch size, yields between pages, and performs network/JNI work outside Room transactions. A vector
+commit requires the current source fingerprint, exact-work revision when present, and model reconcile
+revision to match. Remote responses map explicit indices back to input order. A provider omitting
+every index retains ordered compatibility; mixed, duplicate, missing or out-of-range indices, wrong
+cardinality, empty/non-finite vectors and inconsistent dimensions fail the batch without misbinding.
+Cancellation propagates and closes the remote Call. One failed vector does not prevent other valid
+vectors in that generated batch from committing; unsatisfied work remains durable.
 
-Full reconciliation starts without a full-corpus pre-count and advances until its keyset page is
-empty. Completion also requires successful processing and the admitted reconciliation revision to
-match. A superseding revision stops the obsolete pass; newer exact work remains pending. Inspection
-counts are not published as numeric cache progress, avoiding per-page WorkManager progress writes.
+Source fingerprints retain SHA-256 over UTF-8 encoding of Kotlin `text.take(8000)`, where the bound
+is UTF-16 units. Persisted input keeps up to 8001 UTF-16 units before UTF-8 encoding, so a surrogate
+pair crossing the 8000-unit boundary survives storage; provider input and fingerprints still take
+exactly the historical 8000-unit prefix. Full message bodies remain unchanged. Legacy metadata
+bootstrap reads original sources once to derive metadata, returning a bounded BLOB prefix and scalar
+history length. The separate explicit-search compatibility path may evaluate original eligibility
+and length only for missing metadata within its bounded identity page until bootstrap completes.
+`SUBSTR(CAST(text AS BLOB), ...)` and `LENGTH(CAST(text AS BLOB))` can materialize the complete
+value inside SQLite; bounded output is not proof of bounded internal evaluation. Legacy bootstrap
+payload reads therefore stay in the independent cancellable worker, one source at a time outside
+write transactions, and never return an unbounded body into CursorWindow. Counts, completed-metadata
+ranking pages, fingerprint checks and reconciliation must use derived metadata instead.
+
+The first source-ID page has a null cursor so empty legacy IDs remain included. Subsequent cursors
+and their validation follow SQLite BINARY unsigned UTF-8 byte order, including supplementary
+characters. Filtering must not stop physical cursor advancement or make an empty eligible page look
+like corpus exhaustion. Reconciliation has no message-corpus pre-count. Each completed conversation
+persists its indexed revision only if both its source revision and the model reconcile revision
+still match. Retries skip completed unchanged conversations. A changed source leaves its owner dirty;
+a superseding model revision stops the obsolete pass. The ledger becomes current only after metadata
+bootstrap, exact work and dirty conversations are all complete. Aggregate equality cannot establish
+freshness. Reconciliation inspection counts never become numeric cache progress or per-page
+WorkManager progress writes. Ranking continues to check cancellation within and between pages;
+double-precision cosine accumulation avoids overflow for finite Float vectors.
 
 The worker emits no uncached, caching, success, completion, partial-failure, or setup-failure
 Snackbar. Manual cache and recache actions retain their existing feedback. Deleting a model cancels
 its unique work and performs model deletion under the same process-wide model mutex; the mutex entry
 is retained so existing and future waiters cannot become concurrent writers.
 
-`Show Uncached Notification` is a separate default-on portable setting. It is consulted only while
-Auto Cache is disabled. After the conversation list is visible, the same one-row ledger check may
-request a background aggregate refresh for exact reminder copy. The reminder may be emitted only by
-a refresh that includes the target model, and it must not treat a count as freshness evidence.
-Disabling the setting leaves work pending and emits no reminder. The Settings row is placed directly
-below Auto Cache and is not shown while Auto Cache is enabled.
+`Show Uncached Notification` is a separate default-on portable setting consulted only while Auto Cache
+is disabled. After the list is visible, the active model's ledger state may emit the generic uncached
+reminder directly. It must not request aggregate counts, enumerate sources, or depend on a Settings
+page subscriber. The model mutex protects only the bounded eligibility decision; snackbar delivery
+occurs after releasing it. Disabling the setting leaves durable work pending and emits no reminder.
+The Settings row stays directly below Auto Cache and is hidden while Auto Cache is enabled.
 
 ## 7. Required verification
 
@@ -295,9 +359,28 @@ known `cached < total` while no cache worker runs; Progress only while the cache
 must reject visible Failed/Retry/Queued/Finalizing states, prove that enqueued or completed work does
 not extend Progress, retain the last complete snapshot across count failure, prevent synthetic zero,
 and prove that reconciliation inspection counts do not mutate or impersonate cached counts. It must
-also cover aggregate count mapping, configured models with no rows, coalesced refresh, the
-model-leading migration/index, and absence of page-owned N+1 count loops. Semantic-search
-verification must still cover multiple pages, ranking across page boundaries, strict threshold
-exclusion, bounded retained candidates, deterministic equal-score ordering, empty results,
-dimension/byte-shape corruption, non-finite vectors, and a source/DAO contract preventing the
-unbounded full-list hot path from returning.
+also cover aggregate count mapping, duplicate models and configured models with no rows, shared page
+demand, final-page-exit cancellation, follower-chain coalescing and absence of page-owned N+1 count
+loops. Query callbacks must inspect all SQL, including nested `INSERT ... SELECT`, and prove repeated
+complete and incomplete count reads visit zero message, source or embedding rows. Count mutation and
+rollback tests must use production DAO boundaries rather than raw SQL that bypasses metadata.
+
+Migration/bootstrap coverage must preserve old messages and vectors, show no body copy during schema
+migration, resume a committed cursor after cancellation, include empty/Unicode IDs, and preserve new
+writes and deletes racing a stale bootstrap page. Metadata completion must unblock exactly one
+summary reload; page exit must cancel that wait without cancelling durable work. Test prefix-boundary
+surrogates, NUL and whitespace, short cache sources, children and Tasks separately from history minimum
+length. Per-conversation worker tests must prove unchanged owners are skipped, inactive models do not
+trigger full source rescans, and source/model revision guards reject stale completion. Production
+worker concurrency tests must keep foreground reads and writes progressing during a suspended
+provider call, cancellation and later resumption without data loss. While bootstrap is incomplete,
+explicit search must retain eligible legacy vectors, use original checks only for missing metadata,
+preserve root/Task/minimum-length exclusions, and keep the 256-ID physical bound. Completed ranking
+must perform no original-message eligibility or length read before final hydration. Neither path may
+introduce fallback reads into counts. No original-body count query may return through a
+source-contract regression.
+
+Semantic-search verification must still cover the model-leading migration/index, multiple pages,
+ranking across page boundaries, strict threshold exclusion, bounded retained candidates, deterministic
+equal-score ordering, empty results, dimension/byte-shape corruption, non-finite vectors, and a
+source/DAO contract preventing the unbounded full-list hot path from returning.

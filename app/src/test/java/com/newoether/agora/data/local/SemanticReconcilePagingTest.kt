@@ -138,7 +138,7 @@ class SemanticReconcilePagingTest {
         }
         val ids = semanticDao.getFirstReconcileMessageIdsPage(PAGE_SIZE)
         chatDao.upsertConversation(chatDao.getConversation("changing")!!.copy(taskId = "scheduled"))
-        database.openHelper.writableDatabase.execSQL("DELETE FROM messages WHERE id = 'deleted'")
+        chatDao.deleteMessagesByIds(listOf("deleted"))
 
         val rows = hydrate(ids.reversed())
         assertEquals(listOf("at-revision", "child-visible", "other-model-work", "plain"), rows.map { it.id })
@@ -238,7 +238,7 @@ class SemanticReconcilePagingTest {
         selects.clear()
         val row = hydrate(listOf("giant")).single()
         val hydrationQuery = recordedSelect { "embeddingId" in it }
-        assertEquals(source.take(PREFIX_BYTES), row.text)
+        assertEquals(source.take(Constants.MAX_EMBEDDING_TEXT_LENGTH + 1), row.text)
         assertEquals(81L, row.embeddingId)
         assertEquals(embedding.size / 4, row.dimension)
         assertEquals(embedding.size, row.embeddingBytes)
@@ -247,7 +247,7 @@ class SemanticReconcilePagingTest {
 
         selects.clear()
         val exactText = requireNotNull(semanticDao.getSearchableMessageText("giant"))
-        val exactQuery = recordedSelect { "FROM messages m" in it }
+        val exactQuery = recordedSelect { "FROM semantic_sources s" in it }
         assertEquals(row.text, exactText)
         assertFitsNativeWindow(exactQuery, textColumn = 0, expected = exactText)
 

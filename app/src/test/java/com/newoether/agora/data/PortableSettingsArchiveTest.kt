@@ -388,10 +388,20 @@ class PortableSettingsArchiveTest {
 
         val admissionPolicy = rag
             .substringAfter("private suspend fun admitActiveModel(")
-            .substringBefore("/**")
+            .substringBefore("private suspend fun schedulePendingMetadata(")
         assertTrue(admissionPolicy.contains("settings.getAutoCacheEnabled()"))
         assertTrue(admissionPolicy.contains("scheduleCacheWork(modelId)"))
-        assertTrue(admissionPolicy.contains("settings.getShowUncachedNotification()"))
+        assertTrue(admissionPolicy.contains("emitUncachedReminder(modelId, it)"))
+        val reminderPolicy = rag
+            .substringAfter("private suspend fun emitUncachedReminder(")
+            .substringBefore("// -- Embedding-model CRUD")
+        assertTrue(reminderPolicy.contains("settings.getShowUncachedNotification()"))
+        assertTrue(reminderPolicy.contains("!settings.getAutoCacheEnabled()"))
+        assertTrue(reminderPolicy.contains("STATE_CURRENT"))
+        assertTrue(reminderPolicy.contains("if (shouldNotify)"))
+        assertTrue(reminderPolicy.contains("emitSnackbar("))
+        assertFalse((admissionPolicy + reminderPolicy).contains("getEmbeddingCacheCounts"))
+        assertFalse((admissionPolicy + reminderPolicy).contains("requestCacheCountRefresh"))
 
         val resourceRoot = locateDirectory("app/src/main/res", "src/main/res")
         listOf(
