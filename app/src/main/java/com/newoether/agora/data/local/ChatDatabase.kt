@@ -27,10 +27,11 @@ import com.newoether.agora.data.local.migration.MIGRATION_34_35
 import com.newoether.agora.data.local.migration.MIGRATION_39_40
 import com.newoether.agora.data.local.migration.MIGRATION_40_41
 import com.newoether.agora.data.local.migration.MIGRATION_41_42
+import com.newoether.agora.data.local.migration.MIGRATION_42_43
+import com.newoether.agora.data.local.migration.MIGRATION_43_44
 import com.newoether.agora.data.local.migration.MIGRATION_44_45
 import com.newoether.agora.data.local.migration.MIGRATION_45_46
-import com.newoether.agora.data.local.migration.MIGRATION_43_44
-import com.newoether.agora.data.local.migration.MIGRATION_42_43
+import com.newoether.agora.data.local.migration.MIGRATION_46_47
 import com.newoether.agora.data.local.migration.installAttachmentReferenceTriggers
 import java.util.concurrent.Executor
 
@@ -66,7 +67,7 @@ abstract class ChatDatabase : RoomDatabase() {
     abstract fun semanticMetadataDao(): SemanticMetadataDao
 
     companion object {
-        const val CURRENT_VERSION = 46
+        const val CURRENT_VERSION = 47
         const val DB_NAME = "agora_db"
 
         val ALL_MIGRATIONS = listOf(
@@ -255,6 +256,7 @@ abstract class ChatDatabase : RoomDatabase() {
             MIGRATION_43_44,
             MIGRATION_44_45,
             MIGRATION_45_46,
+            MIGRATION_46_47,
         )
 
         fun inspectCompatibility(context: Context): DatabaseCompatibility {

@@ -113,6 +113,8 @@ internal fun projectProviderMessages(
                 outputTokenCount = entity.outputTokenCount,
                 reasoningTokenCount = entity.reasoningTokenCount,
                 generationDurationMs = entity.generationDurationMs,
+                timeToFirstTokenMs = entity.timeToFirstTokenMs,
+                totalGenerationMs = entity.totalGenerationMs,
             ),
             status = entity.status,
             participant = entity.participant,

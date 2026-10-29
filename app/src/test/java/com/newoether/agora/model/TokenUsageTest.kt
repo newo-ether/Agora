@@ -44,7 +44,8 @@ class TokenUsageTest {
 
     @Test
     fun everyReportedCategoryAddsAcrossToolCallProviderRequests() {
-        val accumulator = RequestTokenUsageAccumulator()
+        var clockMs = 0L
+        val accumulator = RequestTokenUsageAccumulator { clockMs * 1_000_000L }
 
         accumulator.beginRequest()
         accumulator.observeRequestSnapshot(
@@ -69,7 +70,9 @@ class TokenUsageTest {
                 reasoningTokenCount = 5,
             ),
         )
+        clockMs = 2_500L
         accumulator.finishRequest()
+        clockMs = 2_500L
         accumulator.beginRequest()
         accumulator.observeRequestSnapshot(
             TokenUsage(
@@ -82,6 +85,7 @@ class TokenUsageTest {
                 reasoningTokenCount = 1,
             ),
         )
+        clockMs = 4_000L
         accumulator.finishRequest()
 
         assertEquals(
@@ -93,6 +97,7 @@ class TokenUsageTest {
                 uncachedInputTokenCount = 21,
                 outputTokenCount = 17,
                 reasoningTokenCount = 6,
+                totalGenerationMs = 4_000L,
             ),
             accumulator.snapshot(),
         )
@@ -131,7 +136,7 @@ class TokenUsageTest {
         accumulator.observeGenerationContent()
         accumulator.observeRequestSnapshot(completed)
         accumulator.finishRequest()
-        val baseline = completed.copy(generationDurationMs = 100L)
+        val baseline = completed.copy(generationDurationMs = 100L, totalGenerationMs = 100L)
         assertEquals(baseline, accumulator.snapshot())
 
         accumulator.beginRequest()
@@ -159,14 +164,21 @@ class TokenUsageTest {
         accumulator.observeRequestSnapshot(replacement)
         accumulator.finishRequest()
         assertEquals(
-            baseline.plusRequest(replacement.copy(generationDurationMs = 50L)),
+            baseline.plusRequest(
+                replacement.copy(
+                    generationDurationMs = 50L,
+                    timeToFirstTokenMs = 7_500L,
+                    totalGenerationMs = 7_550L,
+                ),
+            ),
             accumulator.snapshot(),
         )
     }
 
     @Test
     fun resetCurrentAttemptWithoutReplacementUsageCannotCommitAFailedSnapshot() {
-        val accumulator = RequestTokenUsageAccumulator()
+        var clockMs = 0L
+        val accumulator = RequestTokenUsageAccumulator { clockMs * 1_000_000L }
         accumulator.beginRequest()
         accumulator.observeRequestSnapshot(
             usage(total = 90, input = 60, output = 30).copy(generationDurationMs = 1_000L),
@@ -177,11 +189,13 @@ class TokenUsageTest {
         assertNull(accumulator.snapshot())
         accumulator.finishRequest()
         assertNull(accumulator.snapshot())
+        clockMs = 1_000L
         accumulator.beginRequest()
         val nextRequest = usage(total = 8, input = 6, output = 2)
         accumulator.observeRequestSnapshot(nextRequest)
+        clockMs = 3_500L
         accumulator.finishRequest()
-        assertEquals(nextRequest, accumulator.snapshot())
+        assertEquals(nextRequest.copy(totalGenerationMs = 2_500L), accumulator.snapshot())
     }
 
     @Test
@@ -206,7 +220,10 @@ class TokenUsageTest {
         val replacement = usage(total = 10, input = 6, output = 4)
         accumulator.observeRequestSnapshot(replacement)
         accumulator.finishRequest()
-        assertEquals(replacement, accumulator.snapshot())
+        assertEquals(
+            replacement.copy(timeToFirstTokenMs = 8_500L, totalGenerationMs = 8_500L),
+            accumulator.snapshot(),
+        )
         assertNull(accumulator.snapshot()?.generationDurationMs)
     }
 
