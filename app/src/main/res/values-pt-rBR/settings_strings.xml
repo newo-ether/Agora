@@ -207,6 +207,8 @@
     <string name="auto_expand_active_group_desc">Expande automaticamente o grupo atual de raciocínio e ferramentas e o recolhe quando o modelo avança.</string>
     <string name="tool_call_display_mode_compact_desc">Agrupa blocos de raciocínio e ferramentas acima da resposta</string>
     <string name="interaction_feedback">Feedback de interação</string>
+    <string name="show_generation_speed">Velocidade de geração</string>
+    <string name="show_generation_speed_desc">Mostra a média de tokens por segundo e o tempo total de geração de cada resposta concluída ao lado dos ícones de ação.</string>
     <string name="stick_to_bottom">Manter no final</string>
     <string name="stick_to_bottom_desc">Acompanhe automaticamente o novo conteúdo enquanto uma resposta é gerada.</string>
     <string name="haptic_feedback">Feedback tátil</string>

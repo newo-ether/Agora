@@ -216,10 +216,11 @@ class SettingsRepository(
     val blurEffectsEnabled: StateFlow<Boolean> = publication.hot(settingsManager.blurEffectsEnabled, true)
     val reduceMotion: StateFlow<Boolean> = publication.hot(settingsManager.reduceMotion, false)
     val stickToBottom: StateFlow<Boolean> = publication.hot(settingsManager.stickToBottom, true)
+    val showGenerationSpeed: StateFlow<Boolean> =
+        publication.hot(settingsManager.displayPreferenceStore.showGenerationSpeed, false)
     val parseInlineDollarMath: StateFlow<Boolean> = publication.hot(settingsManager.parseInlineDollarMath, false)
     val autoWrapCodeBlocks: StateFlow<Boolean> = publication.hot(settingsManager.autoWrapCodeBlocks, true)
     val hapticsEnabled: StateFlow<Boolean> = publication.hot(settingsManager.hapticsEnabled, true)
-    val detailedTokenUsage: StateFlow<Boolean> = publication.hot(settingsManager.detailedTokenUsage, false)
     val toolCallDisplayMode: StateFlow<String> = publication.hot(settingsManager.toolCallDisplayMode, ToolCallDisplayModes.DEFAULT)
     val thinkingSegmentDisplayMode: StateFlow<String> = publication.hot(
         settingsManager.thinkingSegmentDisplayMode,
@@ -679,12 +680,11 @@ class SettingsRepository(
     fun setBlurEffectsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveBlurEffectsEnabled(enabled) }
     fun setReduceMotion(enabled: Boolean) = scope.launch { settingsManager.saveReduceMotion(enabled) }
     fun setStickToBottom(enabled: Boolean) = scope.launch { settingsManager.saveStickToBottom(enabled) }
+    fun setShowGenerationSpeed(enabled: Boolean) = scope.launch { settingsManager.displayPreferenceStore.saveShowGenerationSpeed(enabled) }
     fun setParseInlineDollarMath(enabled: Boolean) =
         scope.launch { settingsManager.saveParseInlineDollarMath(enabled) }
     fun setAutoWrapCodeBlocks(enabled: Boolean) = scope.launch { settingsManager.saveAutoWrapCodeBlocks(enabled) }
     fun setHapticsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveHapticsEnabled(enabled) }
-    fun setDetailedTokenUsage(enabled: Boolean) =
-        scope.launch { settingsManager.saveDetailedTokenUsage(enabled) }
     fun setToolCallDisplayMode(mode: String) = scope.launch { settingsManager.saveToolCallDisplayMode(mode) }
     fun setThinkingSegmentDisplayMode(mode: String) =
         scope.launch { settingsManager.saveThinkingSegmentDisplayMode(mode) }

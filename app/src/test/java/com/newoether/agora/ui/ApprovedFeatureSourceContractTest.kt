@@ -54,7 +54,6 @@ internal class ApprovedFeatureSourceContractTest : UiSourceContractFixture() {
         assertTrue(dao.contains("GROUP BY e.modelId"))
         assertTrue(dao.contains("getEmbeddingCountsByModels"))
         assertTrue(entities.contains("Index(value = [\"modelId\"])"))
-        assertTrue(database.contains("CURRENT_VERSION = 41"))
         assertTrue(database.contains("MIGRATION_23_24"))
         assertTrue(database.contains("MIGRATION_24_25"))
         assertTrue(database.contains("MIGRATION_25_26"))

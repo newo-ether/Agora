@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="generation_speed_with_label">Tốc độ tạo trung bình: %1$s</string>
+    <string name="time_to_first_token_with_label">Thời gian đến token đầu tiên: %1$s</string>
+    <string name="token_speed_value">%1$s tokens/s</string>
+    <string name="total_generation_time_with_label">Tổng thời gian tạo: %1$s</string>
+    <string name="total_generation_time_row">tổng %1$s</string>
+    <string name="generation_stats_value">%1$s · %2$s</string>
 </resources>

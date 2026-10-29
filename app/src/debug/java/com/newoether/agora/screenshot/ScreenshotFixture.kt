@@ -143,6 +143,8 @@ object ScreenshotFixture {
             outputTokenCount = 265,
             reasoningTokenCount = 48,
             generationDurationMs = 4_800,
+            timeToFirstTokenMs = 720,
+            totalGenerationMs = 5_520,
             status = MessageStatus.SUCCESS,
             participant = Participant.MODEL,
             timestamp = BASE_TIME + 1_000,

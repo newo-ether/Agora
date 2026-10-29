@@ -439,6 +439,8 @@
     <string name="reduce_motion">Giảm chuyển động</string>
     <string name="reduce_motion_desc">Giảm chuyển động liên tục và dịch chuyển không gian lớn, đồng thời giữ hiệu ứng mờ dần, cử chỉ trực tiếp và phản hồi trạng thái hữu ích.</string>
     <string name="interaction_feedback">Phản hồi tương tác</string>
+    <string name="show_generation_speed">Tốc độ tạo</string>
+    <string name="show_generation_speed_desc">Hiển thị số token trung bình mỗi giây và tổng thời gian tạo của mỗi phản hồi đã hoàn tất bên cạnh các biểu tượng thao tác.</string>
     <string name="stick_to_bottom">Bám sát cuối cuộc trò chuyện</string>
     <string name="stick_to_bottom_desc">Tự động theo dõi nội dung mới trong khi phản hồi đang được tạo.</string>
     <string name="haptic_feedback">Phản hồi xúc giác (Haptic)</string>

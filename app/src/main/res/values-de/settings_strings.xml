@@ -207,6 +207,8 @@
     <string name="auto_expand_active_group_desc">Erweitert die aktuelle Denk- und Werkzeuggruppe automatisch und klappt sie ein, sobald das Modell fortfährt.</string>
     <string name="tool_call_display_mode_compact_desc">Nachdenk- und Werkzeugblöcke oberhalb der Antwort gruppieren</string>
     <string name="interaction_feedback">Interaktionsfeedback</string>
+    <string name="show_generation_speed">Generierungsgeschwindigkeit</string>
+    <string name="show_generation_speed_desc">Zeigt bei jeder abgeschlossenen Antwort die durchschnittlichen Token pro Sekunde und die gesamte Generierungszeit neben den Aktionssymbolen.</string>
     <string name="stick_to_bottom">Am unteren Rand bleiben</string>
     <string name="stick_to_bottom_desc">Neuen Inhalten automatisch folgen, während eine Antwort generiert wird.</string>
     <string name="haptic_feedback">Haptisches Feedback</string>

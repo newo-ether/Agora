@@ -91,6 +91,7 @@ internal fun clearPortableSettings(prefs: MutablePreferences) {
     prefs.remove(BLUR_EFFECTS_ENABLED)
     prefs.remove(REDUCE_MOTION)
     prefs.remove(STICK_TO_BOTTOM)
+    prefs.remove(SHOW_GENERATION_SPEED)
     prefs.remove(PARSE_INLINE_DOLLAR_MATH)
     prefs.remove(AUTO_WRAP_CODE_BLOCKS)
     prefs.remove(HAPTICS_ENABLED)

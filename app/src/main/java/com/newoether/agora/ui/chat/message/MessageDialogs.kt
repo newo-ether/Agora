@@ -52,9 +52,10 @@ internal fun MessageInfoDialog(
         )
         else -> stringResource(R.string.token_count, tokenUsage.input)
     }
-    val generationSpeed = tokenUsage.generationTokensPerSecond?.let {
-        String.format(Locale.getDefault(), "~%.1f token/s", it)
-    } ?: "—"
+    val generationSpeed = tokenUsage.generationTokensPerSecond
+        ?.let { tokenRateText(it) } ?: "—"
+    val timeToFirstToken = tokenUsage.timeToFirstTokenMs?.let(::formatLatency) ?: "—"
+    val totalGenerationTime = tokenUsage.totalGenerationMs?.let(::formatLatency) ?: "—"
     val outputTokens = tokenUsage.output?.let {
         stringResource(R.string.token_count, it)
     } ?: "—"
@@ -95,6 +96,28 @@ internal fun MessageInfoDialog(
                     Text(
                         stringResource(R.string.generation_speed_with_label, generationSpeed),
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        stringResource(
+                            R.string.time_to_first_token_with_label,
+                            timeToFirstToken,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                        ),
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        stringResource(
+                            R.string.total_generation_time_with_label,
+                            totalGenerationTime,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                        ),
                     )
                 }
             }

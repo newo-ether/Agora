@@ -34,7 +34,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
 import com.newoether.agora.util.noOpBringIntoView
@@ -77,6 +79,7 @@ internal fun AssistantMessageContent(
     isRegenerationExiting: Boolean,
     isEditingAllowed: Boolean,
     showActions: Boolean,
+    showGenerationSpeed: Boolean,
     includeOuterSpacing: Boolean = true,
     actionCopyText: String?,
     showBranchSelector: Boolean,
@@ -106,6 +109,13 @@ internal fun AssistantMessageContent(
     val clipboardManager = LocalClipboardManager.current
     val haptics = LocalAgoraHaptics.current
     val uriHandler = LocalUriHandler.current
+    val generationUsage = remember(message.tokenUsage) {
+        tokenUsagePresentation(message.tokenUsage)
+    }
+    val generationStats = generationStatsText(
+        generationUsage.generationTokensPerSecond,
+        generationUsage.totalGenerationMs,
+    )
     val citations = remember(message.text, message.segments) {
         message.citationRecords()
     }
@@ -699,6 +709,24 @@ internal fun AssistantMessageContent(
                                 isEditingAllowed = isEditingAllowed,
                                 onSwitchBranch = onSwitchBranch,
                             )
+                        }
+                        if (showGenerationSpeed) {
+                            generationStats?.let { stats ->
+                                Text(
+                                    text = stats,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontSize = 11.sp,
+                                        lineHeight = 14.sp,
+                                    ),
+                                    color = enabledActionTint,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .weight(1f, fill = false)
+                                        .graphicsLayer { alpha = informationActionsAlpha },
+                                )
+                            }
                         }
                     }
                     Box(

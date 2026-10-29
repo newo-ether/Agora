@@ -444,6 +444,8 @@
     <string name="auto_expand_active_group_desc">自動展開目前的思考與工具群組，並在模型進入下一階段時收合。</string>
     <string name="tool_call_display_mode_compact_desc">將思考和工具區塊聚合顯示在回答上方</string>
     <string name="interaction_feedback">互動回饋</string>
+    <string name="show_generation_speed">生成速度</string>
+    <string name="show_generation_speed_desc">在已完成回覆的操作圖示旁顯示平均每秒 Token 數和總生成時間。</string>
     <string name="stick_to_bottom">始終貼底</string>
     <string name="stick_to_bottom_desc">回覆生成期間自動跟隨新增內容。</string>
     <string name="haptic_feedback">觸覺回饋</string>

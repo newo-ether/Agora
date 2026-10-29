@@ -445,7 +445,14 @@ internal fun ChatMessage.toWeb(presentation: WebPresentation?, modelDisplay: Str
     },
     usage = tokenUsage?.let {
         val view = tokenUsagePresentation(it)
-        WebTokenUsage(view.input, view.cachedInput, view.output, view.generationTokensPerSecond)
+        WebTokenUsage(
+            view.input,
+            view.cachedInput,
+            view.output,
+            view.generationTokensPerSecond,
+            view.timeToFirstTokenMs,
+            view.totalGenerationMs,
+        )
     },
     attachments = images.mapIndexed { index, path ->
         val meta = findMetaForIndex(attachmentMeta, index)

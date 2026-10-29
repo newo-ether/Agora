@@ -207,6 +207,8 @@
     <string name="auto_expand_active_group_desc">Développe automatiquement le groupe de réflexion et d’outils actuel, puis le réduit lorsque le modèle poursuit.</string>
     <string name="tool_call_display_mode_compact_desc">Regrouper les blocs de réflexion et d\'outils au-dessus de la réponse</string>
     <string name="interaction_feedback">Retour d\'interaction</string>
+    <string name="show_generation_speed">Vitesse de génération</string>
+    <string name="show_generation_speed_desc">Affiche la moyenne de tokens par seconde et le temps total de génération de chaque réponse terminée à côté de ses icônes d\'action.</string>
     <string name="stick_to_bottom">Rester en bas</string>
     <string name="stick_to_bottom_desc">Suivre automatiquement le nouveau contenu pendant la génération de la réponse.</string>
     <string name="haptic_feedback">Retour haptique</string>

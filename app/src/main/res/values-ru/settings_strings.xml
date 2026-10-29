@@ -207,6 +207,8 @@
     <string name="auto_expand_active_group_desc">Автоматически раскрывает текущую группу размышлений и инструментов и сворачивает её, когда модель продолжает.</string>
     <string name="tool_call_display_mode_compact_desc">Группировать блоки размышлений и инструментов над ответом</string>
     <string name="interaction_feedback">Обратная связь взаимодействия</string>
+    <string name="show_generation_speed">Скорость генерации</string>
+    <string name="show_generation_speed_desc">Показывает среднее число токенов в секунду и общее время генерации для каждого завершённого ответа рядом со значками действий.</string>
     <string name="stick_to_bottom">Оставаться внизу</string>
     <string name="stick_to_bottom_desc">Автоматически следить за новым содержимым во время создания ответа.</string>
     <string name="haptic_feedback">Тактильная отдача</string>

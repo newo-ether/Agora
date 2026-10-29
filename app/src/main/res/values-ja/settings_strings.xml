@@ -207,6 +207,8 @@
     <string name="auto_expand_active_group_desc">現在の思考・ツールグループを自動で展開し、モデルが次へ進むと折りたたみます。</string>
     <string name="tool_call_display_mode_compact_desc">思考とツールブロックを回答の上にまとめて表示します</string>
     <string name="interaction_feedback">操作フィードバック</string>
+    <string name="show_generation_speed">生成速度</string>
+    <string name="show_generation_speed_desc">完了した返信の平均トークン/秒と合計生成時間を操作アイコンの横に表示します。</string>
     <string name="stick_to_bottom">下端に固定</string>
     <string name="stick_to_bottom_desc">応答の生成中、新しい内容を自動的に追従します。</string>
     <string name="haptic_feedback">触覚フィードバック</string>

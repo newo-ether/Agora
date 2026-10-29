@@ -8,6 +8,7 @@ import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
+import com.newoether.agora.model.TokenUsage
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.ui.chat.message.toolSummary
 import com.newoether.agora.util.appLanguageResources
@@ -67,6 +68,29 @@ class WebUiMessagePresentationTest {
             status = status,
             segments = segments.toList(),
         )
+
+    @Test
+    fun webInfoCarriesTheSameGenerationFiguresAsThePhone() {
+        val message = ChatMessage(
+            id = "m",
+            text = "answer",
+            participant = Participant.MODEL,
+            status = MessageStatus.SUCCESS,
+            tokenUsage = TokenUsage(
+                totalTokenCount = 42,
+                inputTokenCount = 30,
+                outputTokenCount = 12,
+                generationDurationMs = 1_500L,
+                timeToFirstTokenMs = 620L,
+                totalGenerationMs = 2_120L,
+            ),
+        )
+        val usage = message.toWeb(null).usage!!
+        assertEquals(12, usage.output)
+        assertEquals(8.0, usage.tokensPerSecond!!, 0.001)
+        assertEquals(620L, usage.timeToFirstTokenMs)
+        assertEquals(2_120L, usage.totalGenerationMs)
+    }
 
     @Test
     fun phoneStickToBottomSettingIsAlwaysPublishedIncludingItsDefault() {

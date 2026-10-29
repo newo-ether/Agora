@@ -207,6 +207,8 @@
     <string name="auto_expand_active_group_desc">현재 사고 및 도구 그룹을 자동으로 펼치고 모델이 다음 단계로 진행하면 접습니다.</string>
     <string name="tool_call_display_mode_compact_desc">사고와 도구 블록을 답변 위에 모아 표시합니다</string>
     <string name="interaction_feedback">상호작용 피드백</string>
+    <string name="show_generation_speed">생성 속도</string>
+    <string name="show_generation_speed_desc">완료된 응답의 평균 초당 토큰 수와 총 생성 시간을 작업 아이콘 옆에 표시합니다.</string>
     <string name="stick_to_bottom">하단에 고정</string>
     <string name="stick_to_bottom_desc">응답을 생성하는 동안 새 콘텐츠를 자동으로 따라갑니다.</string>
     <string name="haptic_feedback">햅틱 피드백</string>

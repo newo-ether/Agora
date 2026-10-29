@@ -456,6 +456,8 @@
     <string name="reduce_motion">Reduce Motion</string>
     <string name="reduce_motion_desc">Reduce continuous and large spatial motion while keeping fades, direct gestures, and useful state feedback.</string>
     <string name="interaction_feedback">Interaction Feedback</string>
+    <string name="show_generation_speed">Generation Speed</string>
+    <string name="show_generation_speed_desc">Print each finished reply\'s average tokens per second and total generation time beside its action icons.</string>
     <string name="stick_to_bottom">Stick to Bottom</string>
     <string name="stick_to_bottom_desc">Automatically follow new content while a response is generating.</string>
     <string name="haptic_feedback">Haptic Feedback</string>

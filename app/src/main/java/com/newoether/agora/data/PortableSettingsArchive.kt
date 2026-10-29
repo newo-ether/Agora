@@ -156,6 +156,7 @@ internal object PortableSettingsArchive {
         put("blurEffectsEnabled", JsonPrimitive(sm.blurEffectsEnabled.first()))
         put("reduceMotion", JsonPrimitive(sm.reduceMotion.first()))
         put("stickToBottom", JsonPrimitive(sm.stickToBottom.first()))
+        put("showGenerationSpeed", JsonPrimitive(sm.displayPreferenceStore.showGenerationSpeed.first()))
         put("parseInlineDollarMath", JsonPrimitive(sm.parseInlineDollarMath.first()))
         put("autoWrapCodeBlocks", JsonPrimitive(sm.autoWrapCodeBlocks.first()))
         put("hapticsEnabled", JsonPrimitive(sm.hapticsEnabled.first()))
@@ -514,6 +515,7 @@ internal object PortableSettingsArchive {
         obj.boolean("blurEffectsEnabled")?.let { sm.saveBlurEffectsEnabled(it) }
         obj.boolean("reduceMotion")?.let { sm.saveReduceMotion(it) }
         obj.boolean("stickToBottom")?.let { sm.saveStickToBottom(it) }
+        obj.boolean("showGenerationSpeed")?.let { sm.displayPreferenceStore.saveShowGenerationSpeed(it) }
         obj.boolean("parseInlineDollarMath")?.let { sm.saveParseInlineDollarMath(it) }
         obj.boolean("autoWrapCodeBlocks")?.let { sm.saveAutoWrapCodeBlocks(it) }
         obj.boolean("hapticsEnabled")?.let { sm.saveHapticsEnabled(it) }
