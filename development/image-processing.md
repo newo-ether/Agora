@@ -34,15 +34,27 @@ invalidate only changed message/draft owners with fresh tokens; inserts, imports
 cascading deletes share those triggers. Schema upgrade creates empty index tables without reading
 message bodies. Admitted maintenance seeds legacy identities with indexed continuation pages,
 reads and decodes one owner's payload outside write transactions, and publishes references only
-if that owner's token still matches. Completion/cursors survive cancellation and process death.
+if that owner's token still matches. Payload cursors read at most 64 KiB of one primary-key-selected
+field at a time; UTF-8 decoding crosses slices without truncating content. The original serializers,
+legacy image-list fallback and all metadata/tool/draft artifact paths remain authoritative.
+SQLite may materialize the selected field internally, and a single decoded owner may still be large;
+this is not a constant-memory or constant-I/O claim. Such reads never hold the writer.
+
+Reference replacement deletes and inserts at most 64 derived rows per transaction. Dirty stays set
+until every batch commits with the same source token; cancellation or a source mutation cannot
+publish a partial index. A rebuild atomically claims a fresh token after parsing; competing rebuilds
+and source writes invalidate older batch publishers. No lock spans payload reads or the whole rebuild.
+Restart rebuilds any unfinished owner from its current source. Completion/cursors survive cancellation and process death.
 
 Exact reclamation waits for complete legacy coverage and no dirty owners. Its short write
 transaction checks the source revision, looks up the canonical path index, and performs the
 existing live-owner check and unlink under the attachment ownership lock. A concurrent source
 change defers the debt; a durable or live reference protects the file. A sweep with any deferred
 candidate remains retryable, so completing other files never discards unfinished reclamation debt. Malformed candidate metadata
-retains the existing fail-closed behavior. Repeated checks reuse the completed index and never
-search every message's JSON for a path token. Files, drafts, and messages remain authoritative;
+retains the existing fail-closed behavior. Invalid-owner checks first test the candidate token in
+each exact owner/field, decoding only matching fields; an unrelated malformed payload does not block
+cleanup. Invalid-owner checks can still read those invalid fields and do not claim zero payload I/O.
+Repeated checks reuse the completed index and never search every message's JSON for a path token. Files, drafts, and messages remain authoritative;
 this index owns no independent attachment lifetime or new startup admission.
 
 Trigger invalidation must remain correct under Room's outer conflict policies, including the

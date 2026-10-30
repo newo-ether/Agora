@@ -1,7 +1,6 @@
 package com.newoether.agora.viewmodel
 
 import android.app.Application
-import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.data.local.*
@@ -10,7 +9,6 @@ import com.newoether.agora.util.AttachmentFiles
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.*
@@ -34,14 +32,16 @@ class AttachmentOrphanSweeperTest {
     private lateinit var dao: ChatDao
     private val statements = CopyOnWriteArrayList<String>()
     private var beforePayload: (() -> Unit)? = null
+    private var beforeStatement: ((String) -> Unit)? = null
 
     @Before fun setUp() = runBlocking {
-        database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ChatDatabase::class.java)
-            .allowMainThreadQueries()
-            .setQueryCallback({ sql, _ ->
-                statements += sql
-                if (sql.startsWith("SELECT images, attachmentMeta, toolCallJson")) beforePayload?.invoke()
-            }, Executor { it.run() }).build()
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        database = ChatDatabase.build(context, queryCallback = { sql, _ ->
+            statements += sql
+            beforeStatement?.invoke(sql)
+            if (sql.startsWith("SELECT SUBSTR(CAST(")) beforePayload?.invoke()
+        })
         dao = database.chatDao()
         dao.upsertConversation(ChatEntity("owner", "owner", lastUpdated = 1))
         dao.insertRun(RunEntity("run", "owner", parentRunId = null, status = RunStatus.COMPLETED, activeSlot = null,
@@ -132,8 +132,11 @@ class AttachmentOrphanSweeperTest {
         dao.insertMessage(message("m").copy(toolCallJson = "bad-json:${held.name}"))
         assertTrue(runCatching { sweeper().deleteExact(held.path) }.exceptionOrNull() is kotlinx.serialization.SerializationException)
         assertTrue(held.exists())
+        statements.clear()
         assertTrue(sweeper().deleteExact(orphan.path))
         assertFalse(orphan.exists())
+        assertFalse("Unrelated invalid fields must not be transferred and parsed again",
+            statements.any { it.startsWith("SELECT SUBSTR(CAST(") })
     }
 
     @Test fun sourceMutationAndDeleteRecreateRejectPreviouslyPreparedCheck() = runBlocking {
@@ -215,7 +218,7 @@ class AttachmentOrphanSweeperTest {
         statements.clear()
         val orphan = oldFile("img_exact")
         assertTrue(sweeper().deleteExact(orphan.path))
-        assertFalse(statements.any { it.startsWith("SELECT images,") || it.contains("instr(") })
+        assertFalse(statements.any { it.startsWith("SELECT SUBSTR(CAST(") || it.contains("instr(") })
         val plan = database.openHelper.readableDatabase.query(
             "EXPLAIN QUERY PLAN SELECT 1 FROM attachment_references WHERE path = ? LIMIT 1", arrayOf(orphan.path),
         ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(3)) } }
@@ -237,6 +240,186 @@ class AttachmentOrphanSweeperTest {
         assertTrue(runCatching {
             AttachmentOrphanSweeper(database, File(files.root, "private")).deleteExact(held.path)
         }.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test fun discardedQueueSchedulesDebtWithoutUnlinkingAnotherMessagesAttachment() = runBlocking {
+        val image = oldFile("img_discarded_queue")
+        val attachment = SelectedAttachment(uri = "file://${image.path}", type = "image", localPath = image.path)
+        val discarded = mutableListOf<SelectedAttachment>()
+        val reclamations = mutableListOf<Job>()
+        var scheduled = 0
+        val repository = com.newoether.agora.data.repository.ConversationRepository(
+            dao, database, scheduleMaintenance = { scheduled++ },
+        )
+        val registry = ConversationStateRegistry { attachments ->
+            discarded += attachments
+            reclamations += launch { repository.deleteUnreferencedDraftAttachmentFiles(attachments) }
+        }
+        try {
+            val state = registry.getOrCreate("queued-owner")
+            state.enqueueSend(QueuedSend("queued", "text", "model", listOf(attachment), "queued-run"))
+            dao.insertMessage(message("sent", listOf(image.path)))
+            registry.remove("queued-owner")
+            assertTrue("Queue disposal must not directly unlink", image.exists())
+            assertEquals(listOf(attachment), discarded)
+            reclamations.forEach { it.join() }
+            assertEquals(1, scheduled)
+            val debt = database.maintenanceDebtDao()
+            val pending = requireNotNull(debt.getDebt(MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS, image.path))
+            assertTrue(sweeper().deleteExact(pending.identity))
+            assertTrue(image.exists())
+            dao.deleteMessagesByIds(listOf("sent"))
+            assertTrue(sweeper().deleteExact(image.path))
+            assertFalse(image.exists())
+        } finally { registry.cancelAll() }
+    }
+
+    @Test fun artifactOnlyMetadataAndBothDraftsProtectFilesUntilTheirOwnersReleaseThem() = runBlocking {
+        val metadata = oldFile("img_metadata_artifact_only")
+        val draft = oldFile("img_draft_artifact_only")
+        val freshDraft = oldFile("img_new_draft_artifact_only")
+        val tool = oldFile("fork-attachments/tool_only.png")
+        fun artifactDraft(file: File) = Json.encodeToString(listOf(SelectedAttachment(
+            uri = "", type = "image", imageArtifacts = listOf(artifact(file.path)),
+        )))
+        dao.insertMessage(message("artifact-owner").copy(
+            attachmentMeta = Json.encodeToString(AttachmentMeta(listOf(AttachmentItem(
+                type = "image", imageArtifacts = listOf(artifact(metadata.path)),
+            )))),
+            toolCallJson = Json.encodeToString(listOf(MessageSegment(
+                type = "tool", toolImages = listOf(artifact(tool.path)),
+            ))),
+        ))
+        dao.updateDraft("owner", "", artifactDraft(draft), 1)
+        dao.upsertNewChatPersist(NewChatPersistEntity(draftAttachments = artifactDraft(freshDraft)))
+        val candidates = listOf(metadata, draft, freshDraft, tool)
+        candidates.forEach { assertTrue(sweeper().deleteExact(it.path)); assertTrue(it.exists()) }
+        dao.deleteMessagesByIds(listOf("artifact-owner"))
+        dao.updateDraft("owner", "", null, 2)
+        dao.upsertNewChatPersist(NewChatPersistEntity(draftAttachments = null))
+        candidates.forEach { assertTrue(sweeper().deleteExact(it.path)); assertFalse(it.exists()) }
+    }
+
+    @Test fun draftFrameAndRenderedPathsAreIndependentDurableReferences() = runBlocking {
+        val frame = oldFile("vid_frame")
+        val rendered = oldFile("pdf_rendered")
+        dao.updateDraft("owner", "", Json.encodeToString(listOf(SelectedAttachment(
+            uri = "", type = "video", processedFrames = listOf(frame.path),
+            preRenderedPaths = listOf(rendered.path),
+        ))), 1)
+        listOf(frame, rendered).forEach { assertTrue(sweeper().deleteExact(it.path)); assertTrue(it.exists()) }
+        dao.updateDraft("owner", "", null, 2)
+        listOf(frame, rendered).forEach { assertTrue(sweeper().deleteExact(it.path)); assertFalse(it.exists()) }
+    }
+
+    @Test fun largeToolPayloadAndMalformedLegacyPayloadDoNotOverflowTheCursorWindow() = runBlocking {
+        val held = oldFile("img_large_tool")
+        val other = oldFile("img_large_unrelated")
+        val payload = Json.encodeToString(listOf(MessageSegment(
+            type = "tool", toolResult = "x".repeat(3 * 1024 * 1024),
+            toolImages = listOf(artifact(held.path)),
+        )))
+        dao.insertMessage(message("large-tool").copy(toolCallJson = payload))
+        assertTrue(sweeper().deleteExact(held.path))
+        assertTrue(held.exists())
+        assertTrue(sweeper().deleteExact(other.path))
+        assertFalse(other.exists())
+        dao.insertMessage(message("large-malformed").copy(toolCallJson = payload.dropLast(1)))
+        assertTrue(runCatching { sweeper().deleteExact(held.path) }.isFailure)
+        assertTrue(held.exists())
+    }
+
+    @Test fun interruptedReferenceBatchesStayDirtyAndResumeAfterDatabaseReopen() = runBlocking {
+        val paths = (0 until 150).map { File(files.root, "img_batch_$it").canonicalPath }
+        dao.insertMessage(message("many-paths", paths))
+        val refresh = async(Dispatchers.IO, start = CoroutineStart.LAZY) { AttachmentReferenceIndex(database).refresh() }
+        var inserts = 0
+        beforeStatement = { sql ->
+            if (sql.startsWith("INSERT OR IGNORE INTO attachment_references VALUES") && ++inserts == 65) {
+                refresh.cancel(CancellationException("interrupt second reference batch"))
+            }
+        }
+        refresh.start()
+        assertTrue(runCatching { refresh.await() }.exceptionOrNull() is CancellationException)
+        beforeStatement = null
+        database.openHelper.readableDatabase.query(
+            "SELECT dirty FROM attachment_reference_owners WHERE kind = 0 AND ownerId = 'many-paths'",
+        ).use { assertTrue(it.moveToFirst()); assertEquals(1, it.getInt(0)) }
+        database.openHelper.readableDatabase.query(
+            "SELECT COUNT(*) FROM attachment_references WHERE kind = 0 AND ownerId = 'many-paths'",
+        ).use { assertTrue(it.moveToFirst()); assertTrue(it.getInt(0) in 64..128) }
+        database.close()
+        database = ChatDatabase.build(ApplicationProvider.getApplicationContext<Application>())
+        dao = database.chatDao()
+        val reopened = AttachmentReferenceIndex(database)
+        database.withTransaction { assertFalse(reopened.isCurrent(0)) }
+        reopened.refresh()
+        paths.forEach { assertTrue(reopened.contains(it)) }
+        // Replacing a large owner exercises bounded deletion of its previous derived references.
+        dao.upsertMessage(message("many-paths", listOf(paths.last())))
+        reopened.refresh()
+        assertFalse(reopened.contains(paths.first()))
+        assertTrue(reopened.contains(paths.last()))
+    }
+
+    @Test fun ownerMutationDuringChunkReadCannotPublishThePreviousToken() = runBlocking {
+        val previous = oldFile("img_previous")
+        val current = oldFile("img_current")
+        dao.insertMessage(message("changing", listOf(previous.path)))
+        val once = AtomicBoolean()
+        beforePayload = {
+            if (once.compareAndSet(false, true)) {
+                assertFalse(database.inTransaction())
+                database.openHelper.writableDatabase.execSQL(
+                    "UPDATE messages SET images = ? WHERE id = 'changing'",
+                    arrayOf(Json.encodeToString(listOf(current.path))),
+                )
+            }
+        }
+        val index = AttachmentReferenceIndex(database)
+        index.refresh()
+        assertFalse(index.contains(previous.path))
+        assertTrue(index.contains(current.path))
+        assertTrue(sweeper().deleteExact(current.path))
+        assertTrue(current.exists())
+    }
+
+    @Test fun stalledRebuildDoesNotSerializeAnotherRebuildOrPublishObsoleteReferences() = runBlocking {
+        val paths = (0 until 150).map { File(files.root, "img_concurrent_$it").canonicalPath }
+        dao.insertMessage(message("concurrent", paths))
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val once = AtomicBoolean()
+        beforePayload = {
+            if (once.compareAndSet(false, true)) {
+                entered.countDown()
+                check(release.await(10, TimeUnit.SECONDS))
+            }
+        }
+        val first = async(Dispatchers.IO) { AttachmentReferenceIndex(database).refresh() }
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS))
+            withTimeout(5_000) { AttachmentReferenceIndex(database).refresh() }
+        } finally { release.countDown() }
+        first.await()
+        val index = AttachmentReferenceIndex(database)
+        paths.forEach { assertTrue(index.contains(it)) }
+        val revision = index.prepareCheck(paths.first())
+        database.withTransaction { assertTrue(index.isCurrent(revision)) }
+    }
+
+    @Test fun utf8ChunkBoundariesAndLargeDraftMetadataKeepExactPaths() = runBlocking {
+        val image = oldFile("img_unicode")
+        val payload = Json.encodeToString(listOf(SelectedAttachment(
+            uri = "文😀".repeat(500_000), type = "image",
+            imageArtifacts = listOf(artifact(image.path)),
+        )))
+        dao.updateDraft("owner", "", payload, 1)
+        assertTrue(sweeper().deleteExact(image.path))
+        assertTrue(image.exists())
+        dao.updateDraft("owner", "", null, 2)
+        assertTrue(sweeper().deleteExact(image.path))
+        assertFalse(image.exists())
     }
 
     private fun sweeper() = AttachmentOrphanSweeper(database, files.root, now = { NOW })

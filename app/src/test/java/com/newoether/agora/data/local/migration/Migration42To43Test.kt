@@ -1,7 +1,6 @@
 package com.newoether.agora.data.local.migration
 
 import android.app.Application
-import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -10,7 +9,6 @@ import com.newoether.agora.data.local.AttachmentReferenceIndex
 import com.newoether.agora.data.local.ChatDatabase
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.Executor
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
@@ -24,14 +22,14 @@ import org.robolectric.annotation.SQLiteMode
 @Config(sdk = [35], application = Application::class)
 @SQLiteMode(SQLiteMode.Mode.NATIVE)
 class Migration42To43Test {
-    @Test fun upgradeDoesNotScanSourcesAndReferencesPersistAcrossReopen() = runBlocking {
+    @Test fun upgradePreservesLegacyDataWithoutPayloadDecodingAndReferencesPersistAcrossReopen() = runBlocking {
         var root = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         while (!File(root, "app/schemas").isDirectory) root = requireNotNull(root.parentFile)
         val schema = Json.parseToJsonElement(File(root,
             "app/schemas/com.newoether.agora.data.local.ChatDatabase/42.json").readText())
             .jsonObject.getValue("database").jsonObject
         val context = ApplicationProvider.getApplicationContext<Application>()
-        val name = "attachment-upgrade"
+        val name = ChatDatabase.DB_NAME
         val original = "x".repeat(3 * 1024 * 1024)
         val path = File(context.filesDir, "img_legacy").canonicalPath
         context.deleteDatabase(name)
@@ -64,14 +62,13 @@ class Migration42To43Test {
                 }).build(),
         )
         val sql = CopyOnWriteArrayList<String>()
-        fun open() = Room.databaseBuilder(context, ChatDatabase::class.java, name)
-            .addMigrations(*ChatDatabase.ALL_MIGRATIONS.toTypedArray()).allowMainThreadQueries()
-            .setQueryCallback({ query, _ -> sql += query }, Executor { it.run() }).build()
+        fun open() = ChatDatabase.build(context, queryCallback = { query, _ -> sql += query })
         try {
             helper.use { it.writableDatabase }
             var database = open()
             try {
                 assertEquals(ChatDatabase.CURRENT_VERSION, database.openHelper.writableDatabase.version)
+                // Schema 44 still builds indexes over existing rows; this checks explicit payload reads only.
                 assertFalse(sql.any { it.trimStart().startsWith("SELECT", true) &&
                     ("FROM messages" in it || "FROM conversations" in it) })
                 database.openHelper.readableDatabase.query("SELECT text = ? FROM messages WHERE id = 'legacy'", arrayOf(original)).use {
@@ -94,7 +91,7 @@ class Migration42To43Test {
                 val references = AttachmentReferenceIndex(database)
                 references.refresh()
                 assertTrue(references.contains(path))
-                assertFalse(sql.any { it.startsWith("SELECT images,") })
+                assertFalse(sql.any { it.startsWith("SELECT SUBSTR(CAST(") })
                 database.openHelper.writableDatabase.execSQL("UPDATE messages SET images = '[]' WHERE id = 'legacy'")
                 references.refresh()
                 assertFalse(references.contains(path))

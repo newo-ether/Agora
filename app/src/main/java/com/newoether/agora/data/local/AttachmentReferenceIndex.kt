@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package com.newoether.agora.data.local
 
 import androidx.room.withTransaction
@@ -7,6 +9,8 @@ import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.SelectedAttachment
 import java.io.File
+import java.io.InputStream
+import kotlinx.serialization.json.decodeFromStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -36,24 +40,68 @@ internal class AttachmentReferenceIndex(private val database: ChatDatabase) {
         while (true) {
             currentCoroutineContext().ensureActive()
             val seeded = database.withTransaction { seedPage() }
-            for (item in 0 until PAGE_SIZE) {
-                currentCoroutineContext().ensureActive()
-                val owner = firstDirty() ?: break
-                val parsed = parse(owner)
-                database.withTransaction {
-                    if (token(owner) == owner.token) {
-                        db.execSQL("DELETE FROM attachment_references WHERE kind = ? AND ownerId = ?", arrayOf<Any>(owner.kind, owner.id))
-                        parsed.paths.forEach { path ->
-                            db.execSQL("INSERT OR IGNORE INTO attachment_references VALUES(?, ?, ?)", arrayOf<Any>(owner.kind, owner.id, path))
-                        }
-                        db.execSQL("UPDATE attachment_reference_owners SET dirty = 0, invalid = ? WHERE kind = ? AND ownerId = ?",
-                            arrayOf<Any>(if (parsed.invalid) 1 else 0, owner.kind, owner.id))
-                    }
+            val owners = db.query(
+                "SELECT kind, ownerId, token FROM attachment_reference_owners WHERE dirty = 1 ORDER BY kind, ownerId LIMIT ?",
+                arrayOf<Any>(PAGE_SIZE),
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) add(Owner(cursor.getInt(0), cursor.getString(1), cursor.getString(2)))
                 }
+            }
+            for (owner in owners) {
+                currentCoroutineContext().ensureActive()
+                val parsed = parse(owner)
+                claim(owner)?.let { publish(it, parsed) }
                 yield()
             }
             if (!seeded && firstDirty() == null) return@withContext
             yield()
+        }
+    }
+
+    /** A fresh token fences competing rebuilds without a lock spanning payload reads or batches. */
+    private suspend fun claim(owner: Owner): Owner? = database.withTransaction {
+        db.execSQL(
+            "UPDATE attachment_reference_owners SET token = lower(hex(randomblob(16))) WHERE kind = ? AND ownerId = ? AND token = ? AND dirty = 1",
+            arrayOf<Any>(owner.kind, owner.id, owner.token),
+        )
+        val accepted = db.query("SELECT changes()").use { check(it.moveToFirst()); it.getInt(0) == 1 }
+        if (accepted) owner.copy(token = checkNotNull(token(owner))) else null
+    }
+
+    /** Dirty stays set across bounded commits, so cancellation cannot expose a partial index. */
+    private suspend fun publish(owner: Owner, parsed: Parsed) {
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val removed = database.withTransaction {
+                if (token(owner) != owner.token) return@withTransaction -1
+                db.execSQL(
+                    "DELETE FROM attachment_references WHERE rowid IN (SELECT rowid FROM attachment_references WHERE kind = ? AND ownerId = ? LIMIT ?)",
+                    arrayOf<Any>(owner.kind, owner.id, REFERENCE_PAGE_SIZE),
+                )
+                db.query("SELECT changes()").use { check(it.moveToFirst()); it.getInt(0) }
+            }
+            if (removed < 0) return
+            if (removed < REFERENCE_PAGE_SIZE) break
+            yield()
+        }
+        for (paths in parsed.paths.chunked(REFERENCE_PAGE_SIZE)) {
+            currentCoroutineContext().ensureActive()
+            val accepted = database.withTransaction {
+                if (token(owner) != owner.token) return@withTransaction false
+                paths.forEach { path ->
+                    db.execSQL("INSERT OR IGNORE INTO attachment_references VALUES(?, ?, ?)", arrayOf<Any>(owner.kind, owner.id, path))
+                }
+                true
+            }
+            if (!accepted) return
+            yield()
+        }
+        database.withTransaction {
+            if (token(owner) == owner.token) {
+                db.execSQL("UPDATE attachment_reference_owners SET dirty = 0, invalid = ? WHERE kind = ? AND ownerId = ?",
+                    arrayOf<Any>(if (parsed.invalid) 1 else 0, owner.kind, owner.id))
+            }
         }
     }
 
@@ -126,7 +174,9 @@ internal class AttachmentReferenceIndex(private val database: ChatDatabase) {
     }
 
     /** Retains the original exact-token fail-closed rule for malformed legacy JSON. */
-    private fun parse(owner: Owner, candidateToken: String? = null): Parsed {
+    private suspend fun parse(owner: Owner, candidateToken: String? = null): Parsed {
+        val context = currentCoroutineContext()
+        val table = TABLES[owner.kind]
         val paths = linkedSetOf<String>()
         var invalid = false
         fun path(raw: String) {
@@ -135,44 +185,51 @@ internal class AttachmentReferenceIndex(private val database: ChatDatabase) {
         fun artifacts(values: List<ImageArtifact>) {
             values.filterNot { it.unavailable }.forEach { path(it.path) }
         }
-        fun decode(raw: String?, block: (String) -> Unit) {
-            if (raw.isNullOrEmpty()) return
-            try {
-                block(raw)
-            } catch (error: SerializationException) {
-                invalid = true
-                if (candidateToken != null && raw.contains(candidateToken)) throw error
-            } catch (error: IllegalArgumentException) {
-                invalid = true
-                if (candidateToken != null && raw.contains(candidateToken)) throw error
+        fun hasCandidate(column: String): Boolean = db.query(
+            "SELECT 1 FROM $table WHERE id = ? AND instr($column, ?) > 0",
+            arrayOf<Any>(owner.id, requireNotNull(candidateToken)),
+        ).use { it.moveToFirst() }
+        fun payload(column: String) = AttachmentReferencePayload(db, table, column, owner.id, context)
+        fun decode(column: String, block: (InputStream) -> Unit) {
+            // Invalid owners need inspection only when this exact field contains the original token.
+            if (candidateToken != null && !hasCandidate(column)) return
+            payload(column).buffered().use { input ->
+                input.mark(1)
+                if (input.read() == -1) return
+                input.reset()
+                try {
+                    block(input)
+                } catch (error: SerializationException) {
+                    invalid = true
+                    if (candidateToken != null) throw error
+                } catch (error: IllegalArgumentException) {
+                    invalid = true
+                    if (candidateToken != null) throw error
+                }
             }
         }
         if (owner.kind == 0) {
-            db.query("SELECT images, attachmentMeta, toolCallJson FROM messages WHERE id = ?", arrayOf<Any>(owner.id)).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    MessageConverters().toStringList(cursor.getString(0)).forEach(::path)
-                    decode(if (cursor.isNull(1)) null else cursor.getString(1)) { raw ->
-                        json.decodeFromString<AttachmentMeta>(raw).items.forEach { item ->
-                            item.originalUri?.takeIf { it.startsWith("file://") }?.let(::path)
-                            artifacts(item.imageArtifacts)
-                        }
-                    }
-                    decode(if (cursor.isNull(2)) null else cursor.getString(2)) { raw ->
-                        json.decodeFromString<List<MessageSegment>>(raw).forEach { artifacts(it.toolImages) }
-                    }
+            if (candidateToken == null) {
+                payload("images").reader(Charsets.UTF_8).use {
+                    MessageConverters().toStringList(it.readText()).forEach(::path)
                 }
             }
+            decode("attachmentMeta") { input ->
+                json.decodeFromStream<AttachmentMeta>(input).items.forEach { item ->
+                    item.originalUri?.takeIf { it.startsWith("file://") }?.let(::path)
+                    artifacts(item.imageArtifacts)
+                }
+            }
+            decode("toolCallJson") { input ->
+                json.decodeFromStream<List<MessageSegment>>(input).forEach { artifacts(it.toolImages) }
+            }
         } else {
-            db.query("SELECT draftAttachments FROM ${TABLES[owner.kind]} WHERE id = ?", arrayOf<Any>(owner.id)).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    decode(if (cursor.isNull(0)) null else cursor.getString(0)) { raw ->
-                        json.decodeFromString<List<SelectedAttachment>>(raw).forEach { attachment ->
-                            attachment.localPath?.let(::path)
-                            attachment.processedFrames.orEmpty().forEach(::path)
-                            attachment.preRenderedPaths.orEmpty().forEach(::path)
-                            artifacts(attachment.imageArtifacts)
-                        }
-                    }
+            decode("draftAttachments") { input ->
+                json.decodeFromStream<List<SelectedAttachment>>(input).forEach { attachment ->
+                    attachment.localPath?.let(::path)
+                    attachment.processedFrames.orEmpty().forEach(::path)
+                    attachment.preRenderedPaths.orEmpty().forEach(::path)
+                    artifacts(attachment.imageArtifacts)
                 }
             }
         }
@@ -181,6 +238,7 @@ internal class AttachmentReferenceIndex(private val database: ChatDatabase) {
 
     companion object {
         private const val PAGE_SIZE = 16
+        private const val REFERENCE_PAGE_SIZE = 64
         private val TABLES = listOf("messages", "conversations", "new_chat_persist")
         fun normalizePath(path: String): String {
             val raw = path.removePrefix("file://")
