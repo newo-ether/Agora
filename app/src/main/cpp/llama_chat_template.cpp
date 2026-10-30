@@ -252,8 +252,10 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatApplyTemplate(
     inputs.tool_choice = COMMON_CHAT_TOOL_CHOICE_AUTO;
     inputs.parallel_tool_calls = true;
     inputs.use_jinja = true;
-    // Separate reasoning from the answer; with NONE the think tags stay in the content.
-    inputs.reasoning_format = COMMON_REASONING_FORMAT_DEEPSEEK;
+    // Separate reasoning from the answer; with NONE it stays in the content. Each template
+    // handler supplies its own markers (<think>, Gemma 4's <|channel>thought, ...); any value
+    // other than NONE only switches extraction on, and AUTO is the one llama.cpp recommends.
+    inputs.reasoning_format = COMMON_REASONING_FORMAT_AUTO;
     bool has_tool_history = false;
 
     for (jint i = 0; i < message_count; ++i) {
