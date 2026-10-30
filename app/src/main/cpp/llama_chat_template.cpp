@@ -28,7 +28,8 @@ static jobject make_template_result(
     JNIEnv * env,
     ChatHandle & handle,
     const common_chat_params & params,
-    bool supports_tools
+    bool supports_tools,
+    std::string fallback_prefix = {}
 ) {
     jclass trigger_class = env->FindClass(
         "com/newoether/agora/api/ChatTemplateGrammarTrigger"
@@ -81,7 +82,9 @@ static jobject make_template_result(
     jstring generation_prompt = utf8_to_jstring(
         env, params.generation_prompt.data(), params.generation_prompt.size()
     );
-    const std::string parser_key = handle.store_parser(params.parser);
+    const std::string parser_key = handle.prefix_cache_dir.empty()
+        ? handle.store_parser(params.parser)
+        : handle.store_parser(params.parser, params.message_delimiters, std::move(fallback_prefix));
     jstring parser = utf8_to_jstring(env, parser_key.data(), parser_key.size());
     jobject result = env->NewObject(
         result_class, result_ctor,
@@ -338,7 +341,15 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatApplyTemplate(
         const common_chat_params params = common_chat_templates_apply(
             handle->chat_templates.get(), inputs
         );
-        return make_template_result(env, *handle, params, supports_tools);
+        std::string fallback_prefix;
+        if (!handle->prefix_cache_dir.empty() && params.message_delimiters.delimiters.empty()) {
+            fallback_prefix = agora::prefix_cache::probe_static_prefix(
+                handle->chat_templates.get(), inputs, params.prompt.str()
+            );
+        }
+        return make_template_result(
+            env, *handle, params, supports_tools, std::move(fallback_prefix)
+        );
     } catch (const std::exception &) {
         LOGE("Failed to apply model chat template");
         return nullptr;

@@ -27,6 +27,10 @@ using agora::chat::CALLBACK_TOKEN_BATCH;
 using agora::chat::CALLBACK_BYTE_BATCH;
 using agora::chat::clear_text_cache;
 using agora::chat::prepare_text_cache;
+using agora::chat::PromptCachePlan;
+using agora::chat::restore_prompt_cache;
+using agora::chat::prompt_cache_segment_end;
+using agora::chat::record_prompt_cache;
 using agora::chat::token_to_piece;
 using agora::chat::init_chat_sampler;
 using agora::chat::is_preserved_token;
@@ -61,6 +65,7 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatLoadModel(
     llama_model_params model_params = llama_model_default_params();
     const auto model_started = std::chrono::steady_clock::now();
     handle->model = llama_model_load_from_file(path_str.c_str(), model_params);
+    handle->path = path_str;  // keys the prompt-prefix snapshots
     const auto model_finished = std::chrono::steady_clock::now();
 
     if (!handle->model) {
@@ -190,17 +195,20 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerate(
         return report_error(env, callback, callbacks, message, 0, 0);
     }
 
-    const int32_t cached_tokens = static_cast<int32_t>(prepare_text_cache(handle, tokens));
+    int32_t cached_tokens = static_cast<int32_t>(prepare_text_cache(handle, tokens));
+    PromptCachePlan cache_plan = restore_prompt_cache(handle, metadata.parser, tokens, cached_tokens);
     const int32_t n_batch = static_cast<int32_t>(llama_n_batch(handle->ctx));
     int32_t input_tokens = cached_tokens;
     const auto prefill_started = std::chrono::steady_clock::now();
-    for (int32_t off = cached_tokens; off < n_tokens; off += n_batch) {
+    for (int32_t off = cached_tokens; off < n_tokens;) {
         if (handle->cancelled.load(std::memory_order_relaxed)) {
             LOGD("Cancelled during prefill at %d/%d tokens", off, n_tokens);
             common_sampler_free(smpl);
             return report_done(env, callback, callbacks, "cancelled", input_tokens, 0);
         }
-        const int32_t chunk = std::min(n_batch, n_tokens - off);
+        const int32_t chunk = std::min(
+            n_batch, prompt_cache_segment_end(cache_plan, off, n_tokens) - off
+        );
         llama_batch batch = llama_batch_get_one(tokens.data() + off, chunk);
         const int32_t decode_result = llama_decode(handle->ctx, batch);
         if (decode_result != 0) {
@@ -223,6 +231,8 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerate(
             handle->decoded_tokens.end(), tokens.begin() + off, tokens.begin() + off + chunk
         );
         input_tokens += chunk;
+        off += chunk;
+        record_prompt_cache(handle, cache_plan, tokens, off);
     }
     const auto prefill_finished = std::chrono::steady_clock::now();
     const auto prefill_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -766,6 +776,41 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatCancel(
     ChatHandle * handle = reinterpret_cast<ChatHandle *>(handle_ptr);
     handle->cancelled.store(true, std::memory_order_relaxed);
     LOGD("Cancellation requested");
+}
+
+JNIEXPORT void JNICALL
+Java_com_newoether_agora_api_LlamaChatEngine_nativeChatSetPrefixCacheDir(
+    JNIEnv * env, jclass /*clazz*/, jlong handle_ptr, jstring directory, jlong max_bytes) {
+
+    if (!handle_ptr) return;
+    ChatHandle * handle = reinterpret_cast<ChatHandle *>(handle_ptr);
+    std::string path;
+    if (!read_java_string(env, directory, path)) return;
+    handle->prefix_cache_dir = path;
+    if (max_bytes > 0) handle->prefix_cache_max_bytes = static_cast<uint64_t>(max_bytes);
+    // Apply a lowered budget right away, not only after the next save.
+    agora::prefix_cache::evict(path, handle->prefix_cache_max_bytes);
+}
+
+JNIEXPORT void JNICALL
+Java_com_newoether_agora_api_LlamaChatEngine_nativeChatSetMemoryCheckpointBudget(
+    JNIEnv * /*env*/, jclass /*clazz*/, jlong handle_ptr, jlong per_checkpoint, jlong total) {
+
+    if (!handle_ptr) return;
+    ChatHandle * handle = reinterpret_cast<ChatHandle *>(handle_ptr);
+    if (per_checkpoint >= 0) handle->memory_checkpoint_max_bytes = static_cast<size_t>(per_checkpoint);
+    if (total >= 0) handle->memory_total_max_bytes = static_cast<size_t>(total);
+}
+
+// Frees the RAM checkpoints; the disk snapshots stay. Called under memory pressure.
+JNIEXPORT void JNICALL
+Java_com_newoether_agora_api_LlamaChatEngine_nativeChatDropMemoryCheckpoints(
+    JNIEnv * /*env*/, jclass /*clazz*/, jlong handle_ptr) {
+
+    if (!handle_ptr) return;
+    ChatHandle * handle = reinterpret_cast<ChatHandle *>(handle_ptr);
+    handle->memory_turns.clear();
+    handle->memory_prefix = {};
 }
 
 } // extern "C"

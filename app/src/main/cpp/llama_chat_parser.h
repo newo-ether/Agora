@@ -24,12 +24,12 @@ struct NativeChatParser {
             }
             return;
         }
-        const auto parser = handle.find_parser(metadata.parser);
-        if (!parser) {
+        ChatHandle::CachedTemplate cached;
+        if (!handle.find_template(metadata.parser, cached)) {
             initialization_error = "Chat template parser has expired; apply the template again";
             return;
         }
-        params.parser = *parser;
+        if (cached.parser) params.parser = *cached.parser;
     }
 
     void add_token(const std::string & piece, llama_token token) {
