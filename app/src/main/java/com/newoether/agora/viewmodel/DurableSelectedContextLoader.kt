@@ -51,20 +51,20 @@ internal class DurableSelectedContextLoader(
     ) : this(conversations, generationErrorFormatter, null)
 
     suspend fun load(request: DurableSelectedContextRequest): DurableSelectedContext {
-        val rows = conversations.withProviderContextSnapshot {
-            val snapshot = conversations.getProviderContextTopologySnapshot(request.conversationId)
-                ?: return@withProviderContextSnapshot emptyList<InterruptedToolRounds.Row>()
+        val rows = conversations.withReadSnapshot { reader ->
+            val snapshot = reader.getProviderContextTopologySnapshot(request.conversationId)
+                ?: return@withReadSnapshot emptyList<InterruptedToolRounds.Row>()
             val plannedRows = ProviderContextTopologyPlanner.plan(
                 snapshot = snapshot,
                 anchorMessageId = request.anchorMessageId,
                 followSelectedBranch = request.followSelectedBranch,
             )
             if (plannedRows.isEmpty()) {
-                return@withProviderContextSnapshot emptyList<InterruptedToolRounds.Row>()
+                return@withReadSnapshot emptyList<InterruptedToolRounds.Row>()
             }
 
             val ids = plannedRows.map { it.row.id }
-            val fetched = conversations.getContextMessagesByIds(ids).associateBy(MessageEntity::id)
+            val fetched = ids.chunked(500).flatMap { reader.getMessagesByIds(it) }.associateBy(MessageEntity::id)
             if (fetched.size != ids.size) {
                 throw DurableContextLoadException(
                     "Provider context changed while loading message rows",

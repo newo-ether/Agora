@@ -95,6 +95,7 @@ class AppContainer(
         ConversationRepository(
             chatDao = chatDao,
             database = database,
+            snapshotContext = appContext,
             subagentGenerationIds = conversationExecutionCoordinator.admittedGenerationIds,
             generationErrorFormatter = { raw ->
                 com.newoether.agora.viewmodel.normalizePersistedGenerationErrorText(

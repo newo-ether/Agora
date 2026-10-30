@@ -27,7 +27,7 @@ class DatabaseStartupSafetySourceContractTest {
         assertEquals(
             setOf(
                 "com/newoether/agora/AgoraApplication.kt",
-                "com/newoether/agora/data/ConversationExportSnapshotReader.kt",
+                "com/newoether/agora/data/ChatDatabaseReadSnapshot.kt",
             ),
             directBuilders,
         )

@@ -29,7 +29,7 @@ class ProviderContextSnapshotWiringTest {
         assertTrue("@Transaction must protect the topology snapshot", "@Transaction" in dao)
         assertTrue(
             "the repository must keep topology and payload reads in one Room transaction",
-            "database?.withTransaction { block() } ?: block()" in repository,
+            "withReadSnapshot(block: suspend (ChatDao) -> T): T = readSnapshot(block)" in repository,
         )
         assertTrue(
             "production dependency wiring must supply the database",
@@ -39,7 +39,7 @@ class ProviderContextSnapshotWiringTest {
         )
         assertTrue(
             "the loader must enter the repository snapshot before reading topology",
-            "conversations.withProviderContextSnapshot {" in loader,
+            "conversations.withReadSnapshot { reader ->" in loader,
         )
         assertTrue(
             "topology planning must reuse the canonical protocol assembler",

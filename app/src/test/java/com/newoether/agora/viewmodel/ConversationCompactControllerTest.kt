@@ -46,7 +46,7 @@ class ConversationCompactControllerTest {
         )
         coVerify(exactly = 0) {
             conversations.getProviderContextTopologySnapshot(any())
-            conversations.getContextMessagesByIds(any())
+            conversations.withReadSnapshot<Any?>(any())
         }
     }
 

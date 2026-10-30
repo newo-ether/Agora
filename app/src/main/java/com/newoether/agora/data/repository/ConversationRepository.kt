@@ -1,5 +1,6 @@
 package com.newoether.agora.data.repository
 
+import android.content.Context
 import androidx.room.withTransaction
 import com.newoether.agora.data.local.ChatDao
 import com.newoether.agora.data.local.ChatDatabase
@@ -54,6 +55,7 @@ class ConversationRepository(
     private val semanticModelSnapshotProvider: suspend () -> SemanticModelSnapshot = {
         semanticModelSnapshot("", emptyList())
     },
+    internal val snapshotContext: Context? = null,
     internal val subagentGenerationIds: kotlinx.coroutines.flow.StateFlow<Set<String>> = kotlinx.coroutines.flow.MutableStateFlow(emptySet()),
 ) {
     private val branchSelections = ConversationBranchSelections(chatDao)
@@ -210,15 +212,15 @@ class ConversationRepository(
     ): ProviderContextTopologySnapshot? =
         chatDao.getProviderContextTopologySnapshot(conversationId)
 
-    /** Keeps topology and every selected payload row on one immutable Room read snapshot. */
+    /** Production reads use an independent pool. Null context is a DAO/in-memory test seam. */
+    suspend fun <T> withReadSnapshot(block: suspend (ChatDao) -> T): T = readSnapshot(block)
+
+    /** Atomic read/modify/write boundary for recovery, queue ownership, and child state. */
     suspend fun <T> withProviderContextSnapshot(block: suspend () -> T): T =
-        database?.withTransaction { block() } ?: block()
+        if (database == null) block() else database.withTransaction { block() }
 
     suspend fun getMessage(messageId: String): MessageEntity? =
         chatDao.getMessage(messageId)
-
-    suspend fun getContextMessagesByIds(ids: List<String>): List<MessageEntity> =
-        getMessagesByIds(ids)
 
     suspend fun getLastMessageForConversation(conversationId: String): MessageEntity? =
         chatDao.getLastMessageForConversation(conversationId)
@@ -608,6 +610,7 @@ class ConversationRepository(
     suspend fun deleteSemanticModel(modelId: String) {
         checkNotNull(database) { "Semantic model deletion requires the production database" }
             .deleteSemanticModel(modelId)
+        scheduleMaintenance()
     }
     suspend fun invalidateSemanticModel(
         modelId: String,
@@ -615,6 +618,7 @@ class ConversationRepository(
     ) {
         checkNotNull(database) { "Semantic model invalidation requires the production database" }
             .invalidateSemanticModel(modelId, updatedAt)
+        scheduleMaintenance()
     }
 
     suspend fun commitSemanticEmbedding(
@@ -743,7 +747,7 @@ class ConversationRepository(
     }
 
     private suspend fun <T> withDatabaseTransaction(block: suspend () -> T): T =
-        database?.withTransaction { block() } ?: block()
+        if (database == null) block() else database.withTransaction { block() }
 
     internal suspend fun enqueueAttachmentDebt(paths: Collection<String>): Boolean =
         enqueueDebt(MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS, paths)
