@@ -378,6 +378,12 @@ selection serialization before taking the Room writer. Prepared messages are str
 private temporary application-cache file, with bounded object retention, then replayed in batches
 inside the existing single atomic graph transaction. The file is deleted on success, failure and
 cancellation; it is an internal transient representation, never an accepted external archive format.
+The prepared file uses one locked channel. Android unlinks the open file immediately, so process death
+also releases its storage; hosts that cannot unlink open files retain the lock and reclaim abandoned
+unlocked prepared files at the next import. Concurrent active imports and unrelated cache files are
+excluded from that cleanup. Object serialization resets its handle table after each message, and
+archive JSON/media decoding stays outside the writer. Prepared-file reads and typed-object replay
+remain inside the atomic transaction, whose total cost scales with the imported graph.
 The final transaction still checks MERGE identities and commits graphs, settings-transfer records
 and maintenance debt together. A late batch failure rolls back earlier batches and REPLACE deletions.
 This removes archive/media preparation from writer occupancy without introducing partial imports.

@@ -1,7 +1,6 @@
 package com.newoether.agora.data
 
 import android.app.Application
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.data.local.ChatEntity
@@ -37,14 +36,14 @@ class NativeImportWriteBoundaryTest {
     private val media = NativeConversationMediaRestorer.RestoredMedia(emptyMap(), emptyMap(), emptyMap(), emptyList())
 
     @Before fun open() = runBlocking {
-        context.deleteDatabase("import-boundary")
-        db = Room.databaseBuilder(context, ChatDatabase::class.java, "import-boundary").build()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        db = ChatDatabase.build(context)
         db.chatDao().upsertConversation(ChatEntity("original", "Keep until commit"))
     }
 
     @After fun close() {
         db.close()
-        context.deleteDatabase("import-boundary")
+        context.deleteDatabase(ChatDatabase.DB_NAME)
     }
 
     @Test fun archivePreparationDoesNotHoldWriterAndPreparedImportRemainsAtomic() = runBlocking {
@@ -74,10 +73,10 @@ class NativeImportWriteBoundaryTest {
     @Test fun rejectedFinalCommitRestoresOriginalGraphAndDeletesPreparedSpool() = runBlocking {
         db.openHelper.writableDatabase.execSQL("""
             CREATE TRIGGER reject_import BEFORE INSERT ON messages
-            WHEN NEW.id = 'message' BEGIN SELECT RAISE(ABORT, 'test rejection'); END
+            WHEN NEW.id = 'message-129' BEGIN SELECT RAISE(ABORT, 'test rejection'); END
         """)
         try {
-            import(entries { assertFalse(db.inTransaction()) })
+            import(entries(count = 130) { assertFalse(db.inTransaction()) })
             fail("Expected the imported message to be rejected")
         } catch (_: android.database.sqlite.SQLiteException) { }
         assertEquals("Keep until commit", db.chatDao().getConversation("original")?.title)
@@ -106,25 +105,102 @@ class NativeImportWriteBoundaryTest {
         assertNoPreparedFiles()
     }
 
-    private suspend fun import(entries: NativeGraphEntrySource) {
+    @Test fun multiPageMergeKeepsExistingLocalMessageAndItsVector() = runBlocking {
+        import(entries(count = 130) {})
+        val dao = db.chatDao()
+        dao.upsertMessage(requireNotNull(dao.getMessage("message")).copy(text = "local edit"))
+        dao.upsertEmbedding(com.newoether.agora.data.local.EmbeddingEntity(
+            messageId = "message", modelId = "model", embedding = ByteArray(4),
+            dimension = 1, chunkText = "local edit",
+        ))
+        val before = dao.getEmbedding("message")
+        import(entries(count = 131) {}, DataImporter.ImportStrategy.MERGE)
+        assertEquals("local edit", dao.getMessage("message")?.text)
+        assertEquals(before, dao.getEmbedding("message"))
+        assertEquals("payload", dao.getMessage("message-130")?.text)
+        assertNoPreparedFiles()
+    }
+
+    @Test fun preparationIoFailureKeepsOriginalGraphAndCleansItsPartialSpool() = runBlocking {
+        var opens = 0
+        try {
+            import(entries(count = 130) {
+                if (++opens == 3) throw java.io.IOException("simulated storage failure")
+            })
+            fail("Expected preparation failure")
+        } catch (failure: java.io.IOException) {
+            assertEquals("simulated storage failure", failure.message)
+        }
+        assertEquals("Keep until commit", db.chatDao().getConversation("original")?.title)
+        assertNull(db.chatDao().getConversation("imported"))
+        assertNoPreparedFiles()
+    }
+
+    @Test fun abandonedPreparedFilesAreReclaimedButActiveImportsAndUnrelatedFilesArePreserved() = runBlocking {
+        val abandoned = java.io.File(context.cacheDir, "agora-import-messages-abandoned.bin").apply { writeText("partial") }
+        val unrelated = java.io.File(context.cacheDir, "keep-import-notes.bin").apply { writeText("keep") }
+        val locked = java.io.File(context.cacheDir, "agora-import-messages-active.bin").apply { writeText("active") }
+        java.io.RandomAccessFile(locked, "rw").use { owner ->
+            owner.channel.lock().use {
+                import(entries {})
+                assertFalse(abandoned.exists())
+                assertTrue(locked.exists())
+                owner.seek(0)
+                val contents = ByteArray(6).also { owner.readFully(it) }
+                assertEquals("active", contents.decodeToString())
+                assertEquals("keep", unrelated.readText())
+            }
+        }
+        // The next admission sees the same unlocked file state left after a process exits.
+        import(entries {})
+        assertFalse(locked.exists())
+        assertEquals("keep", unrelated.readText())
+        unrelated.delete()
+        assertNoPreparedFiles()
+    }
+
+    @Test fun nestedPreparationCannotDeleteTheOuterImportsPreparedMessages() = runBlocking {
+        NativeConversationGraphSource.open(entries {}, 4, context.cacheDir).use { outer ->
+            outer.withPreparedMessages(
+                prepare = { write ->
+                    write(MessageEntity("outer", "c", text = "outer payload", participant = Participant.USER,
+                        timestamp = 1, runId = "r"))
+                    NativeConversationGraphSource.open(entries {}, 4, context.cacheDir).use { inner ->
+                        inner.withPreparedMessages(
+                            prepare = { innerWrite -> innerWrite(MessageEntity("inner", "c", text = "inner payload",
+                                participant = Participant.USER, timestamp = 1, runId = "r")) },
+                            commit = { assertEquals("inner", it.single().id) },
+                        )
+                    }
+                },
+                commit = { assertEquals("outer payload", it.single().text) },
+            )
+        }
+        assertNoPreparedFiles()
+    }
+
+    private suspend fun import(entries: NativeGraphEntrySource, strategy: DataImporter.ImportStrategy = DataImporter.ImportStrategy.REPLACE) {
         val importer = NativeConversationGraphImporter(db, db.chatDao(), json,
             NativeConversationMediaRestorer(context, json), scheduleMaintenance = {})
         NativeConversationGraphSource.open(entries, 4, context.cacheDir).use { graph ->
             val headers = graph.open().use {
-                importer.readConversationGraphHeaders(it, DataImporter.ImportStrategy.REPLACE, media) { id -> id }
+                importer.readConversationGraphHeaders(it, strategy, media) { id -> id }
             }
-            importer.importConversationGraph(graph, DataImporter.ImportStrategy.REPLACE, headers, media, 4,
+            importer.importConversationGraph(graph, strategy, headers, media, 4,
                 semanticModelSnapshot("", emptyList()))
         }
     }
 
-    private fun entries(onOpen: () -> Unit): NativeGraphEntrySource {
+    private fun entries(count: Int = 1, onOpen: () -> Unit): NativeGraphEntrySource {
         val payload = NativeConversationPayload(
             conversations = listOf(NativeExportChatEntity("imported", "Imported", 1)),
             runs = listOf(NativeExportRunEntity("run", "imported", startedAt = 1,
                 lastCheckpointAt = 1, endedAt = 1, endReason = "MODEL_COMPLETED")),
-            messages = listOf(NativeExportMessageEntity("message", "imported", text = "payload",
-                participant = "USER", timestamp = 1, runId = "run", runSequence = 0)),
+            messages = (0 until count).map { index ->
+                NativeExportMessageEntity(if (index == 0) "message" else "message-$index",
+                    "imported", text = "payload", participant = "USER", timestamp = index.toLong() + 1,
+                    runId = "run", runSequence = index.toLong())
+            },
             loops = emptyList(),
         )
         val bytes = json.encodeToString(payload).toByteArray()

@@ -11,6 +11,11 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+import java.io.FilterInputStream
+import java.io.FilterOutputStream
+import java.io.RandomAccessFile
+import java.nio.channels.Channels
+import java.nio.channels.OverlappingFileLockException
 import com.newoether.agora.data.local.MessageEntity
 import java.io.SequenceInputStream
 import java.nio.file.Files
@@ -49,16 +54,28 @@ internal class NativeConversationGraphSource private constructor(
         prepare: suspend ((MessageEntity) -> Unit) -> Unit,
         commit: suspend (Sequence<MessageEntity>) -> T,
     ): T {
-        val file = File.createTempFile("agora-import-messages-", ".bin", cacheDir)
+        val (file, access) = openPreparedFile(cacheDir)
         try {
-            ObjectOutputStream(file.outputStream().buffered()).use { output ->
+            // On Android an unlinked open file survives only until its last handle closes,
+            // including process death. Hosts that cannot unlink open files use the lock recovery below.
+            file.delete()
+            val channel = access.channel
+            val outputStream = object : FilterOutputStream(Channels.newOutputStream(channel)) {
+                override fun write(bytes: ByteArray, offset: Int, length: Int) = out.write(bytes, offset, length)
+                override fun close() = flush()
+            }
+            ObjectOutputStream(outputStream.buffered()).use { output ->
                 prepare { message ->
                     output.writeObject(message)
                     output.reset()
                 }
                 output.writeObject(null)
             }
-            return ObjectInputStream(file.inputStream().buffered()).use { input ->
+            channel.position(0)
+            val inputStream = object : FilterInputStream(Channels.newInputStream(channel)) {
+                override fun close() = Unit
+            }
+            return ObjectInputStream(inputStream.buffered()).use { input ->
                 commit(sequence {
                     while (true) {
                         val message = input.readObject() ?: break
@@ -67,7 +84,7 @@ internal class NativeConversationGraphSource private constructor(
                 })
             }
         } finally {
-            file.delete()
+            try { access.close() } finally { file.delete() }
         }
     }
 
@@ -105,6 +122,36 @@ internal class NativeConversationGraphSource private constructor(
     }
 
     companion object {
+        private val preparedFileGuard = Any()
+        private const val PREPARED_PREFIX = "agora-import-messages-"
+
+        /** Only our unlocked temporary files are disposable; another active import keeps its lock. */
+        private fun openPreparedFile(cacheDir: File): Pair<File, RandomAccessFile> = synchronized(preparedFileGuard) {
+            cacheDir.listFiles { file ->
+                file.isFile && file.name.startsWith(PREPARED_PREFIX) && file.name.endsWith(".bin") &&
+                    !Files.isSymbolicLink(file.toPath())
+            }.orEmpty().forEach { stale ->
+                val unused = runCatching {
+                    RandomAccessFile(stale, "rw").use { access ->
+                        val lock = try { access.channel.tryLock() } catch (_: OverlappingFileLockException) { null }
+                        if (lock == null) false else { lock.release(); true }
+                    }
+                }.getOrDefault(false)
+                if (unused) stale.delete()
+            }
+            val file = File.createTempFile(PREPARED_PREFIX, ".bin", cacheDir)
+            var access: RandomAccessFile? = null
+            try {
+                access = RandomAccessFile(file, "rw")
+                access.channel.lock()
+                file to access
+            } catch (error: Throwable) {
+                access?.close()
+                file.delete()
+                throw error
+            }
+        }
+
         fun open(archive: NativeGraphEntrySource, version: Int, cacheDir: File): NativeConversationGraphSource {
             if (version < 5) {
                 require(archive.has(NativeBackupFormat.CONVERSATIONS_ENTRY))
