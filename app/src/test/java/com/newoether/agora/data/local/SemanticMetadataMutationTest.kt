@@ -1,13 +1,11 @@
 package com.newoether.agora.data.local
 
 import android.app.Application
-import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunStatus
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.Executor
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -29,8 +27,9 @@ class SemanticMetadataMutationTest {
 
     @Before
     fun setUp() = runBlocking<Unit> {
-        database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ChatDatabase::class.java)
-            .allowMainThreadQueries().setQueryCallback({ sql, _ -> statements += sql }, Executor { it.run() }).build()
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        database = ChatDatabase.build(context, queryCallback = { sql, _ -> statements += sql })
         dao = database.chatDao()
         semantic = database.semanticIndexDao()
         owner("a")

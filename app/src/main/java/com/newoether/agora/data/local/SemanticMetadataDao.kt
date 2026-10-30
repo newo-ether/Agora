@@ -7,6 +7,9 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.yield
 
 /** Transactional derived data shared by message writes, cache commits and legacy bootstrap. */
 @Dao
@@ -118,15 +121,38 @@ interface SemanticMetadataDao {
         deleteSourceEmbeddingRows(messageId)
     }
 
-    @Query("SELECT c.* FROM semantic_conversations c LEFT JOIN semantic_model_conversations m ON m.conversationId = c.conversationId AND m.modelId = :modelId WHERE (m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision) ORDER BY c.conversationId LIMIT :limit")
-    suspend fun getFirstDirtyConversations(modelId: String, limit: Int): List<SemanticConversationEntity>
+    @Query("SELECT conversationId FROM semantic_conversations ORDER BY conversationId LIMIT :limit")
+    suspend fun getFirstSemanticConversationIds(limit: Int): List<String>
 
-    @Query("SELECT c.* FROM semantic_conversations c LEFT JOIN semantic_model_conversations m ON m.conversationId = c.conversationId AND m.modelId = :modelId WHERE c.conversationId > :afterConversationId AND (m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision) ORDER BY c.conversationId LIMIT :limit")
-    suspend fun getNextDirtyConversations(modelId: String, afterConversationId: String, limit: Int): List<SemanticConversationEntity>
+    @Query("SELECT conversationId FROM semantic_conversations WHERE conversationId > :afterId ORDER BY conversationId LIMIT :limit")
+    suspend fun getNextSemanticConversationIds(afterId: String, limit: Int): List<String>
 
-    suspend fun getDirtyConversations(modelId: String, afterConversationId: String?, limit: Int): List<SemanticConversationEntity> =
-        if (afterConversationId == null) getFirstDirtyConversations(modelId, limit)
-        else getNextDirtyConversations(modelId, afterConversationId, limit)
+    @Query("SELECT c.* FROM semantic_conversations c LEFT JOIN semantic_model_conversations m ON m.conversationId = c.conversationId AND m.modelId = :modelId WHERE c.conversationId IN (:ids) AND (m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision) ORDER BY c.conversationId")
+    suspend fun getDirtyConversationsByIds(modelId: String, ids: List<String>): List<SemanticConversationEntity>
+
+    /** Bound physical candidates before filtering; clean pages must still advance and yield. */
+    suspend fun getDirtyConversations(
+        modelId: String,
+        afterConversationId: String?,
+        limit: Int,
+    ): List<SemanticConversationEntity> {
+        require(limit > 0)
+        val result = ArrayList<SemanticConversationEntity>()
+        var cursor = afterConversationId
+        val pageSize = 64
+        while (result.size < limit) {
+            currentCoroutineContext().ensureActive()
+            val ids = if (cursor == null) getFirstSemanticConversationIds(pageSize)
+                else getNextSemanticConversationIds(cursor, pageSize)
+            if (ids.isEmpty()) break
+            currentCoroutineContext().ensureActive()
+            result += getDirtyConversationsByIds(modelId, ids).take(limit - result.size)
+            cursor = ids.last()
+            yield()
+            if (ids.size < pageSize) break
+        }
+        return result
+    }
 
     @Query("SELECT messageId FROM semantic_sources WHERE conversationId = :conversationId ORDER BY messageId LIMIT :limit")
     suspend fun getFirstConversationSourceIds(conversationId: String, limit: Int): List<String>

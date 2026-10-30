@@ -352,6 +352,14 @@ First-page and continuation SQL are separate: the initial page has no cursor pre
 continuation uses a direct indexed greater-than predicate rather than a nullable-OR expression.
 This applies to legacy message identities, source identities within an owner, and dirty-owner
 summaries; a row-count limit alone does not prove that SQLite can seek past prior pages.
+Dirty-owner discovery first seeks at most 64 physical conversation IDs, then joins revision summaries
+only for those IDs. It advances across clean/empty result pages, checks cancellation, and yields
+between pages until the requested dirty-result count or physical end is reached. LIMIT after a dirty
+predicate is insufficient: a sparse result could otherwise inspect every clean owner in one SQL call.
+The external cursor remains the last returned dirty ID, so eligible rows beyond the requested result
+count remain discoverable. Compact summary exhaustion and exact aggregate/freshness checks can still
+visit all relevant summaries; message bodies are not reopened and no outer write transaction wraps
+discovery.
 The first source-ID page has a null cursor so empty legacy IDs remain included. Subsequent cursors
 and their validation follow SQLite BINARY unsigned UTF-8 byte order, including supplementary
 characters. Filtering must not stop physical cursor advancement or make an empty eligible page look

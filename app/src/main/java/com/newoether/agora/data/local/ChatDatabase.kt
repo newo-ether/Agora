@@ -281,6 +281,7 @@ abstract class ChatDatabase : RoomDatabase() {
             context: Context,
             queryExecutor: Executor? = null,
             transactionExecutor: Executor? = null,
+            queryCallback: QueryCallback? = null,
         ): ChatDatabase {
             val compatibility = inspectCompatibility(context)
             check(compatibility.canOpen) {
@@ -298,6 +299,9 @@ abstract class ChatDatabase : RoomDatabase() {
                         installAttachmentReferenceTriggers(db)
                     }
                 })
+            queryCallback?.let { callback ->
+                builder.setQueryCallback(callback, queryExecutor ?: Executor { it.run() })
+            }
             queryExecutor?.let { builder.setQueryExecutor(it) }
             transactionExecutor?.let { builder.setTransactionExecutor(it) }
             val database = builder.build()

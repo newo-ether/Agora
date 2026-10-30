@@ -338,9 +338,13 @@ class SemanticIndexMutationSourceContractTest {
             "ORDER BY sourceRevision, messageId", "LIMIT :limit").forEach {
             assertTrue(workPage.contains(it))
         }
-        val dirty = metadata.queryFor("getNextDirtyConversations")
+        val dirty = metadata.queryFor("getDirtyConversationsByIds")
         assertTrue(dirty.contains("m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision"))
-        assertTrue(dirty.contains("ORDER BY c.conversationId LIMIT :limit"))
+        assertTrue(dirty.contains("c.conversationId IN (:ids)"))
+        val owners = metadata.queryFor("getNextSemanticConversationIds")
+        assertTrue(owners.contains("conversationId > :afterId"))
+        assertTrue(owners.contains("ORDER BY conversationId LIMIT :limit"))
+        assertFalse(owners.contains("JOIN"))
         val identities = metadata.queryFor("getNextConversationSourceIds")
         assertTrue(identities.contains("FROM semantic_sources WHERE conversationId = :conversationId"))
         assertTrue(identities.contains("messageId > :afterMessageId"))

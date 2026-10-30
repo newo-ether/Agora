@@ -1,14 +1,12 @@
 package com.newoether.agora.data.local
 
 import android.app.Application
-import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunEndReason
 import com.newoether.agora.model.RunStatus
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.Executor
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -31,13 +29,11 @@ class ScopedDatabaseQueryPlanTest {
 
     @Before
     fun setUp() = runBlocking<Unit> {
-        database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext(), ChatDatabase::class.java,
-        ).allowMainThreadQueries()
-            .setQueryCallback({ sql, arguments ->
-                statements += Statement(sql, arguments.toList())
-            }, Executor { it.run() })
-            .build()
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        database = ChatDatabase.build(context, queryCallback = { sql, arguments ->
+            statements += Statement(sql, arguments.toList())
+        })
         dao = database.chatDao()
         dao.upsertConversation(ChatEntity("target", "target", lastUpdated = 1))
         dao.upsertConversation(ChatEntity("other", "other", lastUpdated = 1))

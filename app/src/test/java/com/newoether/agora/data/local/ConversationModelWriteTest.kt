@@ -1,7 +1,6 @@
 package com.newoether.agora.data.local
 
 import android.content.Context
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.updateConversationModel
@@ -17,9 +16,9 @@ import org.robolectric.RobolectricTestRunner
 class ConversationModelWriteTest {
     @Test
     fun compactNeverEntersCacheAndLegacyCacheIsReclaimed() = runTest {
-        val database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext<Context>(), ChatDatabase::class.java,
-        ).allowMainThreadQueries().build()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        val database = ChatDatabase.build(context)
         try {
             val dao = database.chatDao()
             val semantic = database.semanticIndexDao()
@@ -66,9 +65,9 @@ class ConversationModelWriteTest {
 
     @Test
     fun modelWriteKeepsEveryOtherFieldAndNeverRecreatesADeletedOwner() = runTest {
-        val database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext<Context>(), ChatDatabase::class.java,
-        ).allowMainThreadQueries().build()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        val database = ChatDatabase.build(context)
         try {
             val dao = database.chatDao()
             val repository = ConversationRepository(dao, database)
