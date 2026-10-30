@@ -252,6 +252,8 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatApplyTemplate(
     inputs.tool_choice = COMMON_CHAT_TOOL_CHOICE_AUTO;
     inputs.parallel_tool_calls = true;
     inputs.use_jinja = true;
+    // Separate reasoning from the answer; with NONE the think tags stay in the content.
+    inputs.reasoning_format = COMMON_REASONING_FORMAT_DEEPSEEK;
     bool has_tool_history = false;
 
     for (jint i = 0; i < message_count; ++i) {

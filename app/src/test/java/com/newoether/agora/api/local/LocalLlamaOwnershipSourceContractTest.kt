@@ -223,9 +223,9 @@ class LocalLlamaOwnershipSourceContractTest {
         assertFalse(engine.contains("fun onToken("))
 
         assertTrue(parser.contains("params.format = metadata.format"))
-        assertTrue(parser.contains("params.generation_prompt = common_chat_input(metadata.generation_prompt)"))
+        assertTrue(parser.contains("params.generation_prompt = common_chat_input_tokenize(handle.vocab, metadata.generation_prompt)"))
         assertTrue(parser.contains("handle.find_parser(metadata.parser)"))
-        assertTrue(parser.contains("common_chat_input(generated_text), is_partial, params"))
+        assertTrue(parser.contains("common_chat_parse(generated, is_partial, params)"))
         assertTrue(parser.contains("common_chat_msg_diff::compute_diffs(message, next)"))
         assertTrue(parser.contains("message.tool_calls[diff.tool_call_index]"))
         assertTrue(parser.contains("if (!is_partial) message = {}"))

@@ -291,6 +291,7 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerate(
         }
         handle->decoded_tokens.push_back(new_token_id);
         generated++;
+        parser.add_token(piece, new_token_id);
 
         utf8_pending.append(piece);
         const size_t complete_len = utf8_complete_prefix_len(utf8_pending);
@@ -637,6 +638,7 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerateWithImages(
             break;
         }
         generated++;
+        parser.add_token(piece, new_token_id);
 
         utf8_pending.append(piece);
         const size_t complete_len = utf8_complete_prefix_len(utf8_pending);
