@@ -1,5 +1,6 @@
 package com.newoether.agora.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -24,10 +25,11 @@ data class SemanticIndexLedgerEntity(
     /** Revision of the newest full-reconcile request; exact work does not advance it. */
     val reconcileRevision: Long = 0L,
     val updatedAt: Long,
+    @ColumnInfo(defaultValue = "0") val generation: Long = 0L,
 ) {
     init {
         require(modelId.isNotBlank())
-        require(state == STATE_NEEDS_RECONCILE || state == STATE_PENDING || state == STATE_CURRENT)
+        require(state in setOf(STATE_NEEDS_RECONCILE, STATE_PENDING, STATE_CURRENT, STATE_DELETED))
         require(sourceRevision >= 0L)
         require(completedRevision in 0L..sourceRevision)
         require(reconcileRevision in 0L..sourceRevision)
@@ -38,6 +40,7 @@ data class SemanticIndexLedgerEntity(
         const val STATE_NEEDS_RECONCILE = "NEEDS_RECONCILE"
         const val STATE_PENDING = "PENDING"
         const val STATE_CURRENT = "CURRENT"
+        const val STATE_DELETED = "DELETED"
     }
 }
 
@@ -117,10 +120,10 @@ interface SemanticIndexDao : SemanticEmbeddingDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertLedger(ledger: SemanticIndexLedgerEntity): Long
 
-    @Query("SELECT * FROM semantic_index_ledger WHERE modelId = :modelId")
+    @Query("SELECT * FROM semantic_index_ledger WHERE modelId = :modelId AND state != 'DELETED'")
     suspend fun getLedger(modelId: String): SemanticIndexLedgerEntity?
 
-    @Query("SELECT * FROM semantic_index_ledger WHERE modelId IN (:modelIds)")
+    @Query("SELECT * FROM semantic_index_ledger WHERE modelId IN (:modelIds) AND state != 'DELETED'")
     suspend fun getLedgers(modelIds: List<String>): List<SemanticIndexLedgerEntity>
 
     @Query(
@@ -204,7 +207,7 @@ interface SemanticIndexDao : SemanticEmbeddingDao {
                LENGTH(e.embedding) AS embeddingBytes
         FROM semantic_sources s
         JOIN semantic_conversations c ON s.conversationId = c.conversationId
-        LEFT JOIN embeddings e ON e.messageId = s.messageId AND e.modelId = :modelId
+        LEFT JOIN embeddings e ON e.messageId = s.messageId AND e.modelId = :modelId AND $CURRENT_EMBEDDING
         LEFT JOIN semantic_index_work w ON w.messageId = s.messageId AND w.modelId = :modelId
         WHERE s.messageId IN (:messageIds)
           AND c.cacheEligible = 1 AND s.eligible = 1
@@ -307,8 +310,14 @@ interface SemanticIndexDao : SemanticEmbeddingDao {
         return deleteModelRow(modelId)
     }
 
-    @Query("DELETE FROM semantic_index_ledger WHERE modelId = :modelId")
+    @Query("UPDATE semantic_index_ledger SET state = 'DELETED', sourceRevision = sourceRevision + 1, reconcileRevision = sourceRevision + 1, generation = generation + 1 WHERE modelId = :modelId")
     suspend fun deleteModelRow(modelId: String): Int
+
+    @Query("UPDATE semantic_index_ledger SET state = 'NEEDS_RECONCILE', updatedAt = :at WHERE modelId = :modelId AND state = 'DELETED'")
+    suspend fun reviveModel(modelId: String, at: Long)
+
+    @Query("UPDATE semantic_index_ledger SET generation = generation + 1 WHERE modelId = :modelId")
+    suspend fun advanceEmbeddingGeneration(modelId: String)
 
     @Transaction
     suspend fun admitModel(modelId: String, updatedAt: Long): SemanticIndexLedgerEntity {
@@ -319,6 +328,7 @@ interface SemanticIndexDao : SemanticEmbeddingDao {
                 updatedAt = updatedAt,
             ),
         )
+        reviveModel(modelId, updatedAt)
         return checkNotNull(getLedger(modelId)) {
             "Semantic index ledger was not readable after admission"
         }
@@ -412,6 +422,7 @@ private suspend fun SemanticIndexDao.invalidateSemanticSources(
 ) {
     // DAO writes already removed stale vectors and dirtied only the affected conversation.
     snapshot.first?.let { modelId ->
+        if (getLedger(modelId) == null) return@let
         sources.forEach { (messageId, fingerprint) ->
             enqueueExactWork(modelId, messageId, fingerprint, updatedAt)
         }
@@ -425,7 +436,7 @@ internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(
     block: suspend () -> T,
 ): T = withTransaction {
     val semanticDao = semanticIndexDao()
-    snapshot.second.forEach { semanticDao.admitModel(it, updatedAt) }
+    snapshot.second.forEach { semanticDao.insertLedger(SemanticIndexLedgerEntity(it, updatedAt = updatedAt)) }
     val ids = messageIds.filterTo(linkedSetOf(), String::isNotBlank)
     val before = ids.associateWith { semanticDao.getSearchableMessageFingerprint(it) }
     val result = block()
@@ -445,7 +456,7 @@ internal suspend fun <T> ChatDatabase.withSemanticGraphMutation(
     updatedAt: Long,
     block: suspend () -> T,
 ): T = withTransaction {
-    snapshot.second.forEach { semanticIndexDao().admitModel(it, updatedAt) }
+    snapshot.second.forEach { semanticIndexDao().insertLedger(SemanticIndexLedgerEntity(it, updatedAt = updatedAt)) }
     // Public graph writes maintain metadata themselves, including cloned vectors and MERGE skips.
     block()
 }
@@ -457,7 +468,7 @@ internal suspend fun <T> ChatDatabase.withSemanticEligibilityMutation(
     updatedAt: Long,
     block: suspend () -> T,
 ): T = withTransaction {
-    snapshot.second.forEach { semanticIndexDao().admitModel(it, updatedAt) }
+    snapshot.second.forEach { semanticIndexDao().insertLedger(SemanticIndexLedgerEntity(it, updatedAt = updatedAt)) }
     block()
 }
 
@@ -498,14 +509,18 @@ internal suspend fun ChatDatabase.commitSemanticEmbedding(
 
 internal suspend fun ChatDatabase.invalidateSemanticModel(modelId: String, updatedAt: Long) {
     withTransaction {
-        semanticIndexDao().deleteEmbeddingsForModel(modelId)
         semanticIndexDao().requestReconcile(modelId, updatedAt)
+        semanticIndexDao().advanceEmbeddingGeneration(modelId)
+        semanticIndexDao().clearSemanticModelCounts(modelId)
+        maintenanceDebtDao().enqueue(MaintenanceDebtEntity.KIND_STALE_EMBEDDINGS, modelId, updatedAt)
     }
 }
 
 internal suspend fun ChatDatabase.deleteSemanticModel(modelId: String) {
     withTransaction {
-        semanticIndexDao().deleteEmbeddingsForModel(modelId)
+        // Retain the tombstone and monotonic revisions so deletion/recreation cannot accept old work.
+        semanticIndexDao().admitModel(modelId, System.currentTimeMillis())
         semanticIndexDao().deleteModel(modelId)
+        maintenanceDebtDao().enqueue(MaintenanceDebtEntity.KIND_STALE_EMBEDDINGS, modelId, System.currentTimeMillis())
     }
 }

@@ -53,6 +53,7 @@ class SemanticIndexDaoTest {
         val dao = mockk<SemanticIndexDao>()
         val ledger = needsReconcile(revision = 0, updatedAt = 10)
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery { dao.insertLedger(ledger) } returns 1L
         coEvery { dao.getLedger(MODEL_ID) } returns ledger
 
@@ -72,6 +73,7 @@ class SemanticIndexDaoTest {
         val invalidated = needsReconcile(revision = 5, completedRevision = 4, updatedAt = 20)
         coEvery { dao.requestReconcile(any(), any()) } coAnswers { callOriginal() }
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery { dao.insertLedger(admission) } returns -1L
         coEvery { dao.getLedger(MODEL_ID) } returnsMany listOf(current, invalidated)
         coEvery { dao.advanceForReconcile(MODEL_ID, 20) } returns 1
@@ -101,6 +103,7 @@ class SemanticIndexDaoTest {
         val work = work("fingerprint", revision = 3, updatedAt = 20)
         coEvery { dao.enqueueExactWork(any(), any(), any(), any()) } coAnswers { callOriginal() }
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery {
             dao.insertLedger(needsReconcile(revision = 0, updatedAt = 20))
         } returns -1L
@@ -126,6 +129,7 @@ class SemanticIndexDaoTest {
         val tombstone = work(null, revision = 6, updatedAt = 21)
         coEvery { dao.enqueueExactWork(any(), any(), any(), any()) } coAnswers { callOriginal() }
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery { dao.insertLedger(any()) } returns -1L
         coEvery { dao.getLedger(MODEL_ID) } returnsMany listOf(
             current,
@@ -194,6 +198,7 @@ class SemanticIndexDaoTest {
     fun invalidArgumentsFailBeforeDatabaseAccess() = runTest {
         val dao = mockk<SemanticIndexDao>()
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery { dao.enqueueExactWork(any(), any(), any(), any()) } coAnswers { callOriginal() }
         coEvery { dao.completeReconcile(any(), any(), any()) } coAnswers { callOriginal() }
 

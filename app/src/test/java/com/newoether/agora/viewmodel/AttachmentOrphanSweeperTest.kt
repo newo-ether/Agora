@@ -99,6 +99,21 @@ class AttachmentOrphanSweeperTest {
         listOf(fresh, unrelated, thumbnail).forEach { assertTrue(it.exists()) }
     }
 
+    @Test fun unfinishedSweepRemainsRetryableAndReclaimsAfterLiveRelease() = runBlocking {
+        val image = oldFile("img_pending_sweep")
+        val live = Any()
+        val sweeper = sweeper()
+        try {
+            AttachmentFiles.retainLivePath(live, image.path)
+            assertFalse(sweeper.sweep())
+            assertTrue(image.exists())
+            AttachmentFiles.releaseLivePaths(live)
+            assertTrue(sweeper.sweep())
+            assertFalse(image.exists())
+            assertTrue(sweeper.sweep())
+        } finally { AttachmentFiles.releaseLivePaths(live) }
+    }
+
     @Test fun equalBasenamesAndUnavailableToolArtifactsRetainOriginalMeaning() = runBlocking {
         val held = oldFile("images/img_same")
         val orphan = oldFile("run-inputs/img_same")

@@ -9,6 +9,9 @@ import java.io.File
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
+import com.newoether.agora.data.local.MessageEntity
 import java.io.SequenceInputStream
 import java.nio.file.Files
 import java.util.Collections
@@ -25,6 +28,7 @@ internal class NativeConversationGraphSource private constructor(
     private val archive: NativeGraphEntrySource,
     private val legacyEntry: String?,
     private val spool: Spool?,
+    private val cacheDir: File,
 ) : Closeable {
     private val handedOut = mutableListOf<InputStream>()
 
@@ -34,6 +38,37 @@ internal class NativeConversationGraphSource private constructor(
         } ?: checkNotNull(spool).open()
         synchronized(handedOut) { handedOut += stream }
         return stream
+    }
+
+    /**
+     * Decode and restore archive records before acquiring the writer. This private, transient
+     * stream contains only objects written by this process; it is never an archive input format.
+     * reset() prevents the serialization handle table retaining the entire imported history.
+     */
+    suspend fun <T> withPreparedMessages(
+        prepare: suspend ((MessageEntity) -> Unit) -> Unit,
+        commit: suspend (Sequence<MessageEntity>) -> T,
+    ): T {
+        val file = File.createTempFile("agora-import-messages-", ".bin", cacheDir)
+        try {
+            ObjectOutputStream(file.outputStream().buffered()).use { output ->
+                prepare { message ->
+                    output.writeObject(message)
+                    output.reset()
+                }
+                output.writeObject(null)
+            }
+            return ObjectInputStream(file.inputStream().buffered()).use { input ->
+                commit(sequence {
+                    while (true) {
+                        val message = input.readObject() ?: break
+                        yield(message as MessageEntity)
+                    }
+                })
+            }
+        } finally {
+            file.delete()
+        }
     }
 
     override fun close() {
@@ -74,7 +109,7 @@ internal class NativeConversationGraphSource private constructor(
             if (version < 5) {
                 require(archive.has(NativeBackupFormat.CONVERSATIONS_ENTRY))
                 return NativeConversationGraphSource(
-                    archive, NativeBackupFormat.CONVERSATIONS_ENTRY, null,
+                    archive, NativeBackupFormat.CONVERSATIONS_ENTRY, null, cacheDir,
                 )
             }
             val index = archive.bytes(NativeBackupFormat.CONVERSATION_INDEX_ENTRY)
@@ -107,7 +142,7 @@ internal class NativeConversationGraphSource private constructor(
                 GRAPH_FIELDS.forEach { field ->
                     writers.remove(field)!!.apply { endArray() }.close()
                 }
-                return NativeConversationGraphSource(archive, null, spool)
+                return NativeConversationGraphSource(archive, null, spool, cacheDir)
             } catch (error: Throwable) {
                 writers.values.forEach { runCatching { it.close() } }
                 spool.delete()

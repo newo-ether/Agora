@@ -100,7 +100,7 @@ data class ConversationSettingsImportTransferEntity(
     }
 }
 
-@Entity(tableName = "conversations", indices = [Index(value = ["taskId"]), Index(value = ["parentConversationId"])])
+@Entity(tableName = "conversations", indices = [Index(value = ["taskId"]), Index(value = ["parentConversationId"]), Index(value = ["modelId"])])
 data class ChatEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -214,13 +214,14 @@ data class EmbeddingEntity(
     val dimension: Int,
     /** Canonical embedded-source fingerprint; null only for embeddings created before schema v30. */
     val sourceFingerprint: String? = null,
+    @ColumnInfo(defaultValue = "0") val generation: Long = 0L,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is EmbeddingEntity) return false
         return id == other.id && messageId == other.messageId && modelId == other.modelId
             && embedding.contentEquals(other.embedding) && chunkText == other.chunkText &&
-            dimension == other.dimension && sourceFingerprint == other.sourceFingerprint
+            dimension == other.dimension && sourceFingerprint == other.sourceFingerprint && generation == other.generation
     }
 
     override fun hashCode(): Int {
@@ -231,6 +232,7 @@ data class EmbeddingEntity(
         result = 31 * result + chunkText.hashCode()
         result = 31 * result + dimension
         result = 31 * result + (sourceFingerprint?.hashCode() ?: 0)
+        result = 31 * result + generation.hashCode()
         return result
     }
 }
@@ -240,6 +242,9 @@ data class EmbeddingEntity(
     indices = [
         Index(value = ["conversationId"]),
         Index(value = ["runId"]),
+        Index(value = ["runId", "runSequence"]),
+        Index(value = ["conversationId", "id"]),
+        Index(value = ["modelName", "id", "conversationId"]),
         Index(value = ["parentId"]),
         Index(value = ["id", "images", "attachmentMeta"]),
         Index(value = ["timestamp", "id"]),
@@ -288,7 +293,7 @@ data class MessageEntity(
     val consumedAtPass: Int? = null,
     /** [com.newoether.agora.model.MessageSource] JSON; non-null only for automatic user input. */
     val sourceJson: String? = null,
-) {
+) : java.io.Serializable {
     companion object {
         const val UNASSIGNED_RUN_SEQUENCE = -1L
     }

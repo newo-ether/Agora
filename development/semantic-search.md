@@ -279,6 +279,24 @@ conversations whose source revision differs from that model's indexed revision. 
 model has no such completed revisions. Explicit Re-cache or a semantic model change may deliberately
 invalidate all of that model's conversation revisions.
 
+Schema 45 gives each model ledger and vector a generation, initially zero for legacy rows.
+Re-cache advances the ledger generation and reconcile revision and clears only compact membership
+summaries in one short transaction. Search, reuse, fork and membership maintenance recognize only
+vectors of the current generation. Model deletion retains a hidden ledger tombstone with monotonic
+revisions; re-admission cannot accept responses captured before deletion. A stale configured-model
+snapshot from an ordinary message/graph mutation must not revive that tombstone.
+The existing maintenance-debt worker physically deletes stale rows through model-leading indexed
+identity pages of at most 64 rows, checking the current generation again at DELETE time. Replacing a
+vector after a page was read protects that new vector from the old cleanup. Re-cache and deletion
+do not synchronously scan or delete vector payloads. Cancellation and process death preserve debt;
+retry and duplicate cleanup are safe. Model changes imported through Settings schedule the same debt.
+
+Whole-owner deletion retains one canonical owner-scoped vector deletion and foreign-key cascade;
+it must not repeat vector/message deletes or materialize unrelated conversation payloads.
+Fork remains atomic and reads/clones vectors in batches of 64 source identities, preserving content,
+model generation and new row identities. Large explicit imports, forks and whole-owner deletions
+necessarily write their selected target set; these operations are not constant-time transactions.
+
 Schema 42 adds empty source, conversation and model/conversation tables plus a metadata state table,
 without copying message bodies or vectors during migration. It seeds a pending state row and marks existing
 models for reconciliation. No destructive recreation or synchronous corpus backfill is allowed.

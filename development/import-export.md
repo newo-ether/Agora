@@ -373,6 +373,23 @@ and expose no cancel action. Preview-loading state is distinct from actual impor
 on success, invalid or empty archives, failure, and cancellation. Third-party Claude/GPT imports
 retain their determinate percentage presentation.
 
+Native graph import finishes archive decoding, media-reference restoration, graph validation and
+selection serialization before taking the Room writer. Prepared messages are streamed through a
+private temporary application-cache file, with bounded object retention, then replayed in batches
+inside the existing single atomic graph transaction. The file is deleted on success, failure and
+cancellation; it is an internal transient representation, never an accepted external archive format.
+The final transaction still checks MERGE identities and commits graphs, settings-transfer records
+and maintenance debt together. A late batch failure rolls back earlier batches and REPLACE deletions.
+This removes archive/media preparation from writer occupancy without introducing partial imports.
+
+Legacy custom-Provider normalization preserves physical stable-ID remapping and the existing
+`legacyNames` resume marker. Conversation and historical message references are found through
+model-leading indexes and rewritten in transactions of at most 64 rows; each message batch updates
+only its affected backup watermarks. The marker is cleared only after all batches and remaining
+configuration references finish. Cancellation may leave completed batches and retains the marker
+for retry. Provider deletion, name reuse and import mapping keep their existing identity meaning;
+permanent name aliases are not introduced.
+
 ## 7. Legacy compatibility and failure behavior
 
 - Unknown JSON fields are ignored; known fields are normalized and validated by their current owner.

@@ -768,6 +768,16 @@ reachable safe prefix. It must never jump to a Compact on another branch.
 ### 9.1 Immutable materialization and single rollout ownership
 
 The Room read side may optimize payload materialization, but it may not select a different context.
+An independent Room pool and executor own a DEFERRED WAL read snapshot; context, title input,
+and task-recovery reads never enter the foreground write transaction lane. Export reuses that same
+read boundary with background priority. Actual read/modify/write recovery and queue decisions retain
+their atomic write boundary. Database open/close also run off the main thread, and the snapshot
+remains attached to its caller's cancellation. Nullable transaction results never replay the operation.
+Tool-round sequence allocation retains the canonical per-Run MAX-plus-one rule in the same write
+transaction. Schema 44 adds a covering (runId, runSequence) index, so allocation reads indexed metadata
+without visiting message bodies or adding a second sequence authority. The same migration adds
+owner/id and Provider/model indexes for direct continuation and identity lookup; building these
+indexes has a one-time upgrade cost proportional to indexed rows, with no content rewrite.
 One immutable read transaction captures the selected-branch state, payload-free message topology,
 and every full row reachable from the requested parent or selected visible path. The transaction
 walks the same durable parent chain, applies the nearest-SUCCESS-Compact boundary regardless of

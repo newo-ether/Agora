@@ -45,7 +45,7 @@ interface SemanticMetadataDao {
     @Query("UPDATE semantic_conversations SET cacheEligible = :eligible WHERE conversationId = :conversationId")
     suspend fun setSemanticConversationEligibility(conversationId: String, eligible: Boolean)
 
-    @Query("UPDATE semantic_index_ledger SET state = CASE WHEN state = 'NEEDS_RECONCILE' THEN state ELSE 'PENDING' END, sourceRevision = sourceRevision + 1, updatedAt = :at")
+    @Query("UPDATE semantic_index_ledger SET state = CASE WHEN state = 'NEEDS_RECONCILE' THEN state ELSE 'PENDING' END, sourceRevision = sourceRevision + 1, updatedAt = :at WHERE state != 'DELETED'")
     suspend fun markSemanticModelsPending(at: Long)
 
     @Upsert
@@ -54,7 +54,7 @@ interface SemanticMetadataDao {
     @Query("DELETE FROM semantic_sources WHERE messageId = :messageId")
     suspend fun removeSemanticSourceRow(messageId: String)
 
-    @Query("SELECT messageId, modelId FROM embeddings WHERE messageId = :messageId")
+    @Query("SELECT e.messageId, e.modelId FROM embeddings e WHERE e.messageId = :messageId AND $CURRENT_EMBEDDING")
     suspend fun getSourceEmbeddingIdentities(messageId: String): List<SemanticEmbeddingIdentity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)

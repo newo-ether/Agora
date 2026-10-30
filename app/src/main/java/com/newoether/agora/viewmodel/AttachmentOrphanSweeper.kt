@@ -17,8 +17,9 @@ internal class AttachmentOrphanSweeper(
 ) {
     private val references = AttachmentReferenceIndex(database)
 
-    suspend fun sweep() {
+    suspend fun sweep(): Boolean {
         references.refresh()
+        var completed = true
         val cutoffNow = now()
         val prefixes = arrayOf("att_", "vid_", "img_", "pdf_")
         val candidates = sequence {
@@ -35,10 +36,11 @@ internal class AttachmentOrphanSweeper(
         for (file in candidates) {
             currentCoroutineContext().ensureActive()
             if (cutoffNow - file.lastModified() > MINIMUM_FILE_AGE_MS) {
-                deleteExact(file.absolutePath)
+                completed = deleteExact(file.absolutePath) && completed
             }
             yield()
         }
+        return completed
     }
 
     suspend fun deleteExact(path: String): Boolean {

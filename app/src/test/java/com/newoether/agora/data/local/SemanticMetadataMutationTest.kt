@@ -181,6 +181,37 @@ class SemanticMetadataMutationTest {
         assertEquals(listOf("retained"), dao.getAllEmbeddings().map { it.messageId })
     }
 
+    @Test
+    fun multiPageForkBoundsVectorReadsAndRollsBackEveryEarlierBatchOnFailure() = runBlocking {
+        val sources = (0 until 130).map { message("a", "source-%03d".format(it), "source $it") }
+        sources.forEach { dao.insertMessage(it); cached(it.id) }
+        val ids = sources.associate { it.id to "fork-${it.id}" }
+        val copied = sources.map { it.copy(id = ids.getValue(it.id), conversationId = "fork", runId = "fork-run") }
+        database.openHelper.writableDatabase.execSQL("""
+            CREATE TRIGGER reject_last_fork BEFORE INSERT ON embeddings
+            WHEN NEW.messageId = 'fork-source-129' BEGIN SELECT RAISE(ABORT, 'reject last batch'); END
+        """)
+        try {
+            dao.createForkGraph(ChatEntity("fork", "fork"), listOf(run("fork-run", "fork")), copied, ids)
+            fail("Expected the last vector batch to fail")
+        } catch (_: android.database.sqlite.SQLiteException) { }
+        assertNull(dao.getConversation("fork"))
+        assertNull(dao.getSemanticConversation("fork"))
+        assertNull(dao.getEmbedding("fork-source-000"))
+        assertEquals(130, dao.getEmbeddingCountByModel("model"))
+        database.openHelper.writableDatabase.execSQL("DROP TRIGGER reject_last_fork")
+        statements.clear()
+        dao.createForkGraph(ChatEntity("fork", "fork"), listOf(run("fork-run", "fork")), copied, ids)
+        val vectorReads = statements.filter { "SELECT e.* FROM embeddings" in it }
+        assertEquals(3, vectorReads.size)
+        assertTrue(vectorReads.all { query -> query.count { it == '?' } <= 64 })
+        assertEquals(260, dao.getEmbeddingCountByModel("model"))
+        assertNotEquals(dao.getEmbedding("source-129")?.id, dao.getEmbedding("fork-source-129")?.id)
+        dao.deleteConversation("fork")
+        assertEquals(130, dao.getEmbeddingCountByModel("model"))
+        assertNotNull(dao.getMessage("source-129"))
+    }
+
     private suspend fun finishOwners() {
         val ledger = requireNotNull(semantic.getLedger("model"))
         dao.getDirtyConversations("model", null, 100).forEach {

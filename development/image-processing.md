@@ -39,7 +39,8 @@ if that owner's token still matches. Completion/cursors survive cancellation and
 Exact reclamation waits for complete legacy coverage and no dirty owners. Its short write
 transaction checks the source revision, looks up the canonical path index, and performs the
 existing live-owner check and unlink under the attachment ownership lock. A concurrent source
-change defers the debt; a durable or live reference protects the file. Malformed candidate metadata
+change defers the debt; a durable or live reference protects the file. A sweep with any deferred
+candidate remains retryable, so completing other files never discards unfinished reclamation debt. Malformed candidate metadata
 retains the existing fail-closed behavior. Repeated checks reuse the completed index and never
 search every message's JSON for a path token. Files, drafts, and messages remain authoritative;
 this index owns no independent attachment lifetime or new startup admission.

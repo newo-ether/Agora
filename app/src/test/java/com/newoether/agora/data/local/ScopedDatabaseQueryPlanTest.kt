@@ -117,6 +117,62 @@ class ScopedDatabaseQueryPlanTest {
         assertEquals(listOf("\uE000", "\uD800\uDC00"), metadata.getLegacyMessageIds("z", 2))
     }
 
+    @Test
+    fun runSequenceAndOwnerPagesUseCoveringAndCompositeIndexes() = runBlocking {
+        dao.insertMessage(message("first", "target", "root").copy(runSequence = 17))
+        dao.insertMessage(message("last", "target", "root").copy(runSequence = 3))
+        statements.clear()
+        assertEquals(18L, dao.nextRunSequence("root"))
+        val sequence = statements.last { "MAX(runSequence)" in it.sql }
+        assertTrue(explain(sequence).toString(), explain(sequence).any {
+            "COVERING INDEX index_messages_runId_runSequence" in it
+        })
+        assertEquals(listOf("last"), dao.getConversationMessagesPage("target", "first", 2).map { it.id })
+        val page = statements.last { "FROM messages" in it.sql && "id >" in it.sql }
+        assertTrue(explain(page).toString(), explain(page).any {
+            "index_messages_conversationId_id" in it && "id>?" in it
+        })
+        assertEquals(0L, dao.nextRunSequence("child"))
+    }
+
+    @Test
+    fun providerMigrationCommitsBoundedIndexedPagesAndResumesWithoutChangingNeighborReferences() = runBlocking {
+        val legacy = "旧供应商😀"
+        val replacement = "stable-provider-id"
+        dao.upsertConversation(requireNotNull(dao.getConversation("target")).copy(modelId = "$legacy:model"))
+        repeat(130) { i ->
+            dao.insertMessage(message("legacy-%03d".format(i), "target", "root").copy(modelName = "$legacy:model:$i"))
+        }
+        dao.insertMessage(message("neighbor", "other", "other-run").copy(modelName = "${legacy}x:model"))
+        statements.clear()
+        assertTrue(dao.renameProviderReferencePage(legacy, replacement))
+        assertTrue(dao.renameProviderReferencePage(legacy, replacement))
+        assertEquals(66, dao.getProviderMessageReferences(legacy, 200).size)
+        val identityQueries = statements.filter {
+            it.sql.trimStart().startsWith("SELECT") && ("modelName >=" in it.sql || "modelId >=" in it.sql)
+        }
+        assertTrue(identityQueries.isNotEmpty())
+        identityQueries.forEach { query ->
+            assertTrue(explain(query).toString(), explain(query).any { "SEARCH" in it && "INDEX" in it })
+        }
+        assertFalse(statements.any { "SELECT * FROM messages" in it.sql })
+        try {
+            database.withTransaction {
+                dao.renameProviderReferencePage(legacy, replacement)
+                error("rollback")
+            }
+            fail("Expected rollback")
+        } catch (_: IllegalStateException) { }
+        assertEquals(66, dao.getProviderMessageReferences(legacy, 200).size)
+        dao.renameConfiguredProviderModelReferences(legacy, replacement)
+        dao.renameConfiguredProviderModelReferences(legacy, replacement)
+        assertTrue(dao.getProviderMessageReferences(legacy, 1).isEmpty())
+        assertEquals(130, dao.getProviderMessageReferences(replacement, 200).size)
+        assertEquals("$replacement:model", dao.getConversation("target")?.modelId)
+        assertEquals("${legacy}x:model", dao.getMessage("neighbor")?.modelName)
+        assertEquals("$replacement:model:0", dao.getMessage("legacy-000")?.modelName)
+    }
+
     private fun explain(statement: Statement): List<String> =
         database.openHelper.readableDatabase.query(
             "EXPLAIN QUERY PLAN " + statement.sql,

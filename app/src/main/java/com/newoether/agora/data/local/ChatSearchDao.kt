@@ -146,7 +146,7 @@ interface ChatSearchDao : SemanticMetadataDao {
         FROM embeddings e
         CROSS JOIN semantic_sources s ON e.messageId = s.messageId
         CROSS JOIN conversations c ON s.conversationId = c.id
-        WHERE e.id IN (:ids) AND e.modelId = :modelId
+        WHERE e.id IN (:ids) AND e.modelId = :modelId AND $CURRENT_EMBEDDING
           AND c.taskId IS NULL AND c.parentConversationId IS NULL
           AND s.historyEligible = 1 AND s.searchLength >= :minimumTextLength
         ORDER BY e.id
@@ -167,7 +167,7 @@ interface ChatSearchDao : SemanticMetadataDao {
         LEFT JOIN semantic_sources s ON s.messageId = e.messageId
         LEFT JOIN messages m ON s.messageId IS NULL AND m.id = e.messageId
         CROSS JOIN conversations c ON c.id = COALESCE(s.conversationId, m.conversationId)
-        WHERE e.id IN (:ids) AND e.modelId = :modelId
+        WHERE e.id IN (:ids) AND e.modelId = :modelId AND $CURRENT_EMBEDDING
           AND c.taskId IS NULL AND c.parentConversationId IS NULL
           AND CASE WHEN s.messageId IS NOT NULL
               THEN s.historyEligible = 1 AND s.searchLength >= :minimumTextLength
@@ -205,42 +205,6 @@ interface ChatSearchDao : SemanticMetadataDao {
         val cached = getSemanticCachedTotals(requestedIds).associate { it.modelId to it.count }
         return EmbeddingCacheCounts(getSemanticEligibleTotal(), requestedIds.associateWith { cached[it] ?: 0 })
     }
-
-    @Query(
-        """
-        SELECT m.id, m.text FROM messages m INNER JOIN conversations c ON m.conversationId = c.id
-        WHERE c.taskId IS NULL AND m.participant IN ('USER', 'MODEL') AND m.text != ''
-          AND m.id NOT LIKE 'tool_%' AND m.id NOT LIKE 'result_%' AND m.id NOT LIKE 'compact_%'
-          AND (:afterId IS NULL OR m.id > :afterId)
-        ORDER BY m.id LIMIT :limit
-        """,
-    )
-    suspend fun getSearchableMessagesPage(afterId: String?, limit: Int): List<IndexableMessage>
-
-    @Query(
-        """
-        SELECT m.id, m.text
-        FROM messages m
-        INNER JOIN conversations c ON m.conversationId = c.id
-        WHERE c.taskId IS NULL
-          AND m.participant IN ('USER', 'MODEL')
-          AND m.text != ''
-          AND m.id NOT LIKE 'tool_%'
-          AND m.id NOT LIKE 'result_%' AND m.id NOT LIKE 'compact_%'
-          AND NOT EXISTS (
-              SELECT 1 FROM embeddings e
-              WHERE e.messageId = m.id AND e.modelId = :modelId
-          )
-          AND (:afterId IS NULL OR m.id > :afterId)
-        ORDER BY m.id
-        LIMIT :limit
-        """
-    )
-    suspend fun getUnembeddedMessagesPage(
-        modelId: String,
-        afterId: String?,
-        limit: Int,
-    ): List<IndexableMessage>
 
     @Query("SELECT m.* FROM messages m INNER JOIN conversations c ON m.conversationId = c.id WHERE m.id IN (:ids) AND $HISTORY_MESSAGE_ELIGIBILITY")
     suspend fun getSearchableMessagesByIds(ids: List<String>): List<MessageEntity>

@@ -57,6 +57,8 @@ class Migration42To43Test {
                             (id,conversationId,text,images,tokenCount,status,participant,timestamp,runId,runSequence)
                             VALUES ('legacy','owner',?, ?,0,'SUCCESS','USER',1,'run',0)""",
                             arrayOf(original, "[\"${path.replace("\\", "\\\\")}\"]"))
+                        db.execSQL("""INSERT INTO embeddings(messageId, modelId, embedding, chunkText, dimension)
+                            VALUES ('legacy','model',?,'source',1)""", arrayOf(byteArrayOf(1, 2, 3, 4)))
                     }
                     override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
                 }).build(),
@@ -69,12 +71,15 @@ class Migration42To43Test {
             helper.use { it.writableDatabase }
             var database = open()
             try {
-                assertEquals(43, database.openHelper.writableDatabase.version)
+                assertEquals(ChatDatabase.CURRENT_VERSION, database.openHelper.writableDatabase.version)
                 assertFalse(sql.any { it.trimStart().startsWith("SELECT", true) &&
                     ("FROM messages" in it || "FROM conversations" in it) })
                 database.openHelper.readableDatabase.query("SELECT text = ? FROM messages WHERE id = 'legacy'", arrayOf(original)).use {
                     assertTrue(it.moveToFirst()); assertEquals(1, it.getInt(0))
                 }
+                val legacyVector = requireNotNull(database.chatDao().getEmbedding("legacy"))
+                assertEquals(0L, legacyVector.generation)
+                assertArrayEquals(byteArrayOf(1, 2, 3, 4), legacyVector.embedding)
                 val references = AttachmentReferenceIndex(database)
                 references.refresh()
                 assertTrue(references.contains(path))
@@ -83,6 +88,9 @@ class Migration42To43Test {
             sql.clear()
             database = open()
             try {
+                val legacyVector = requireNotNull(database.chatDao().getEmbedding("legacy"))
+                assertEquals(0L, legacyVector.generation)
+                assertArrayEquals(byteArrayOf(1, 2, 3, 4), legacyVector.embedding)
                 val references = AttachmentReferenceIndex(database)
                 references.refresh()
                 assertTrue(references.contains(path))

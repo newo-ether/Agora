@@ -129,19 +129,23 @@ class SemanticIndexMutationSourceContractTest {
         assertTrue(invalidation.contains("withTransaction {"))
         assertOrdered(
             invalidation,
-            "deleteEmbeddingsForModel(modelId)",
             "requestReconcile(modelId, updatedAt)",
+            "advanceEmbeddingGeneration(modelId)",
+            "clearSemanticModelCounts(modelId)",
+            "KIND_STALE_EMBEDDINGS",
         )
         val deletion = ledger.substringAfter(
             "internal suspend fun ChatDatabase.deleteSemanticModel(",
         )
         assertTrue(deletion.contains("withTransaction {"))
-        assertOrdered(deletion, "deleteEmbeddingsForModel(modelId)", "deleteModel(modelId)")
+        assertFalse(invalidation.contains("deleteEmbeddingsForModel("))
+        assertFalse(deletion.contains("deleteEmbeddingsForModel("))
+        assertOrdered(deletion, "deleteModel(modelId)", "KIND_STALE_EMBEDDINGS")
 
         val membership = source("app/src/main/java/com/newoether/agora/data/local/SemanticEmbeddingDao.kt")
         assertTrue(membership.contains("@Transaction\n    suspend fun upsertEmbedding("))
         val countedCommit = membership.section("suspend fun upsertEmbedding(", "suspend fun insertEmbeddings(")
-        assertOrdered(countedCommit, "findEmbeddingIdentities(", "upsertEmbeddingRow(embedding)",
+        assertOrdered(countedCommit, "findEmbeddingIdentities(", "upsertEmbeddingRow(embedding.copy(",
             "adjustEmbeddingMembership(it, -1)", "adjustEmbeddingMembership(SemanticEmbeddingIdentity(")
         assertFalse(commit.contains("getSearchableMessageText("))
         assertFalse(commit.contains("getLegacySource("))
@@ -455,7 +459,8 @@ class SemanticIndexMutationSourceContractTest {
             "val importedModelIds = settingsManager.embeddingModels.first()",
             "EmbeddingCacheLocks.forModel(modelId).withLock",
             "val current = settingsManager.embeddingModels.first()",
-            "current == null -> database.deleteSemanticModel(modelId)",
+            "current == null ->",
+            "database.deleteSemanticModel(modelId)",
             "embeddingModelSemanticsChanged(previous, current)",
             "database.invalidateSemanticModel(modelId, updatedAt)",
         )

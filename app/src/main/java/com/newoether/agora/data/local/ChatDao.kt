@@ -32,7 +32,7 @@ data class DrawerConversationRow(
 
 @Dao
 interface ChatDao :
-    ChatAutomationDao,
+    ChatProviderIdentityDao,
     ChatContextCompactDao,
     ChatProviderContextDao,
     ChatSearchDao,
@@ -467,16 +467,19 @@ interface ChatDao :
         require(sourceToForkMessageIds.keys.intersect(messageIds).isEmpty()) {
             "Forked messages must not reuse source message identities"
         }
-        val clonedEmbeddings = ForkEmbeddingClonePolicy.cloneAll(
-            sourceEmbeddings = getEmbeddingsByMessageIds(sourceToForkMessageIds.keys.toList()),
-            sourceToForkMessageIds = sourceToForkMessageIds,
-        )
         upsertConversation(conversation)
         importRunGraph(runs, messages)
-        if (clonedEmbeddings.isNotEmpty()) {
-            val insertedIds = insertEmbeddings(clonedEmbeddings)
-            check(insertedIds.size == clonedEmbeddings.size && insertedIds.all { it > 0L }) {
-                "Every forked embedding must be inserted as a new database row"
+        // The fork is still atomic; bound vector materialization and SQLite bind parameters.
+        for (sourceIds in sourceToForkMessageIds.keys.chunked(64)) {
+            val clonedEmbeddings = ForkEmbeddingClonePolicy.cloneAll(
+                sourceEmbeddings = getEmbeddingsByMessageIds(sourceIds),
+                sourceToForkMessageIds = sourceToForkMessageIds,
+            )
+            if (clonedEmbeddings.isNotEmpty()) {
+                val insertedIds = insertEmbeddings(clonedEmbeddings)
+                check(insertedIds.size == clonedEmbeddings.size && insertedIds.all { it > 0L }) {
+                    "Every forked embedding must be inserted as a new database row"
+                }
             }
         }
     }
@@ -637,13 +640,13 @@ interface ChatDao :
     fun observeExecutionMessagesForTask(taskId: String): Flow<List<ExecutionMessageSummaryRow>>
 
     // Embeddings
-    @Query("SELECT * FROM embeddings WHERE messageId IN (:messageIds)")
+    @Query("SELECT e.* FROM embeddings e WHERE e.messageId IN (:messageIds) AND $CURRENT_EMBEDDING")
     suspend fun getEmbeddingsByMessageIds(messageIds: List<String>): List<EmbeddingEntity>
 
-    @Query("SELECT * FROM embeddings WHERE messageId = :messageId LIMIT 1")
+    @Query("SELECT e.* FROM embeddings e WHERE e.messageId = :messageId AND $CURRENT_EMBEDDING LIMIT 1")
     suspend fun getEmbedding(messageId: String): EmbeddingEntity?
 
-    @Query("SELECT * FROM embeddings")
+    @Query("SELECT e.* FROM embeddings e WHERE $CURRENT_EMBEDDING")
     suspend fun getAllEmbeddings(): List<EmbeddingEntity>
 
     @Query("SELECT * FROM messages WHERE id IN (:ids)")
@@ -679,23 +682,15 @@ interface ChatDao :
     @Query("SELECT id FROM tasks")
     suspend fun getAllTaskIds(): List<String>
 
-    @Query(
-        """
-        SELECT *
-        FROM messages
-        WHERE (:afterId IS NULL OR id > :afterId)
-        ORDER BY id
-        LIMIT :limit
-        """
-    )
-    suspend fun getMessagesPage(afterId: String?, limit: Int): List<MessageEntity>
-    @Query("SELECT * FROM messages WHERE conversationId = :conversationId " +
-        "AND (:afterId IS NULL OR id > :afterId) ORDER BY id LIMIT :limit")
-    suspend fun getConversationMessagesPage(
-        conversationId: String,
-        afterId: String?,
-        limit: Int,
-    ): List<MessageEntity>
+    @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY id LIMIT :limit")
+    suspend fun getConversationMessagesFirstPage(conversationId: String, limit: Int): List<MessageEntity>
+
+    @Query("SELECT * FROM messages WHERE conversationId = :conversationId AND id > :afterId ORDER BY id LIMIT :limit")
+    suspend fun getConversationMessagesNextPage(conversationId: String, afterId: String, limit: Int): List<MessageEntity>
+
+    suspend fun getConversationMessagesPage(conversationId: String, afterId: String?, limit: Int): List<MessageEntity> =
+        if (afterId == null) getConversationMessagesFirstPage(conversationId, limit)
+        else getConversationMessagesNextPage(conversationId, afterId, limit)
 
     @Query("SELECT id FROM messages WHERE id IN (:ids)")
     suspend fun findExistingMessageIds(ids: List<String>): List<String>
@@ -711,64 +706,4 @@ interface ChatDao :
         replaceTaskModelReferences(oldModelId, newModelId)
     }
 
-    @Query(
-        """
-        UPDATE conversations
-        SET modelId = :newProvider || substr(modelId, length(:oldProvider) + 1),
-            dataChangedAt = MAX(dataChangedAt + 1, :at)
-        WHERE substr(modelId, 1, length(:oldProvider) + 1) = :oldProvider || ':'
-        """
-    )
-    suspend fun renameConversationProviderModelReferences(
-        oldProvider: String,
-        newProvider: String,
-        at: Long,
-    ): Int
-    /** Marks conversations whose messages name [oldProvider] before those names are rewritten. */
-    @Query(
-        """
-        UPDATE conversations
-        SET dataChangedAt = MAX(dataChangedAt + 1, :at)
-        WHERE id IN (
-            SELECT conversationId FROM messages
-            WHERE substr(modelName, 1, length(:oldProvider) + 1) = :oldProvider || ':'
-        )
-        """
-    )
-    suspend fun touchConversationsWithMessageProvider(oldProvider: String, at: Long): Int
-
-    @Query(
-        """
-        UPDATE new_chat_persist
-        SET modelId = :newProvider || substr(modelId, length(:oldProvider) + 1)
-        WHERE id = 0
-          AND substr(modelId, 1, length(:oldProvider) + 1) = :oldProvider || ':'
-        """
-    )
-    suspend fun renameNewChatProviderModelReference(
-        oldProvider: String,
-        newProvider: String,
-    ): Int
-
-    @Query(
-        """
-        UPDATE messages
-        SET modelName = :newProvider || substr(modelName, length(:oldProvider) + 1)
-        WHERE substr(modelName, 1, length(:oldProvider) + 1) = :oldProvider || ':'
-        """
-    )
-    suspend fun renameMessageProviderModelReferences(
-        oldProvider: String,
-        newProvider: String,
-    ): Int
-
-    @Transaction
-    suspend fun renameConfiguredProviderModelReferences(oldProvider: String, newProvider: String) {
-        val at = System.currentTimeMillis()
-        renameConversationProviderModelReferences(oldProvider, newProvider, at)
-        renameNewChatProviderModelReference(oldProvider, newProvider)
-        renameTaskProviderModelReferences(oldProvider, newProvider)
-        touchConversationsWithMessageProvider(oldProvider, at)
-        renameMessageProviderModelReferences(oldProvider, newProvider)
-    }
 }

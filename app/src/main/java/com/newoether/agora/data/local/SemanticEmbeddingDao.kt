@@ -7,8 +7,14 @@ import androidx.room.Upsert
 
 /** Embedding membership and its per-conversation count always change in the same transaction. */
 interface SemanticEmbeddingDao : SemanticMetadataDao {
-    @Query("SELECT messageId, modelId FROM embeddings WHERE id = :id OR (messageId = :messageId AND modelId = :modelId)")
+    @Query("SELECT e.messageId, e.modelId FROM embeddings e WHERE (e.id = :id OR (e.messageId = :messageId AND e.modelId = :modelId)) AND $CURRENT_EMBEDDING")
     suspend fun findEmbeddingIdentities(id: Long, messageId: String, modelId: String): List<SemanticEmbeddingIdentity>
+
+    @Query("SELECT id FROM embeddings WHERE messageId = :messageId AND modelId = :modelId LIMIT 1")
+    suspend fun findStoredEmbeddingId(messageId: String, modelId: String): Long?
+
+    @Query("SELECT generation FROM semantic_index_ledger WHERE modelId = :modelId")
+    suspend fun getStoredEmbeddingGeneration(modelId: String): Long?
 
     @Upsert
     suspend fun upsertEmbeddingRow(embedding: EmbeddingEntity)
@@ -24,14 +30,16 @@ interface SemanticEmbeddingDao : SemanticMetadataDao {
     @Transaction
     suspend fun upsertEmbedding(embedding: EmbeddingEntity) {
         val previous = findEmbeddingIdentities(embedding.id, embedding.messageId, embedding.modelId)
-        upsertEmbeddingRow(embedding)
+        val id = if (embedding.id != 0L) embedding.id else findStoredEmbeddingId(embedding.messageId, embedding.modelId) ?: 0L
+        upsertEmbeddingRow(embedding.copy(id = id, generation = getStoredEmbeddingGeneration(embedding.modelId) ?: 0L))
         previous.forEach { adjustEmbeddingMembership(it, -1) }
         adjustEmbeddingMembership(SemanticEmbeddingIdentity(embedding.messageId, embedding.modelId), 1)
     }
 
     @Transaction
     suspend fun insertEmbeddings(embeddings: List<EmbeddingEntity>): LongArray {
-        val ids = insertEmbeddingRows(embeddings)
+        val generations = embeddings.map { it.modelId }.distinct().associateWith { getStoredEmbeddingGeneration(it) ?: 0L }
+        val ids = insertEmbeddingRows(embeddings.map { it.copy(generation = generations.getValue(it.modelId)) })
         embeddings.forEach { adjustEmbeddingMembership(SemanticEmbeddingIdentity(it.messageId, it.modelId), 1) }
         return ids
     }
@@ -46,18 +54,8 @@ interface SemanticEmbeddingDao : SemanticMetadataDao {
         return count
     }
 
-    @Query("DELETE FROM embeddings WHERE modelId = :modelId")
-    suspend fun deleteEmbeddingRowsForModel(modelId: String): Int
-
     @Query("UPDATE semantic_model_conversations SET cachedCount = 0, indexedRevision = -1 WHERE modelId = :modelId")
     suspend fun clearSemanticModelCounts(modelId: String)
-
-    @Transaction
-    suspend fun deleteEmbeddingsForModel(modelId: String): Int {
-        val count = deleteEmbeddingRowsForModel(modelId)
-        clearSemanticModelCounts(modelId)
-        return count
-    }
 
     @Query("DELETE FROM embeddings")
     suspend fun deleteAllEmbeddingRows(): Int
@@ -71,9 +69,6 @@ interface SemanticEmbeddingDao : SemanticMetadataDao {
         clearAllSemanticModelCounts()
         return count
     }
-
-    @Query("SELECT id FROM messages WHERE conversationId = :conversationId")
-    suspend fun getSemanticConversationMessageIds(conversationId: String): List<String>
 
     @Query("DELETE FROM embeddings WHERE messageId IN (SELECT id FROM messages WHERE conversationId = :conversationId)")
     suspend fun deleteConversationEmbeddingRows(conversationId: String)
@@ -92,7 +87,4 @@ interface SemanticEmbeddingDao : SemanticMetadataDao {
         deleteEmbeddingsForMessages(messageIds)
     }
 
-    // Orphans and synthetic Compact rows never contribute to source summaries.
-    @Query("DELETE FROM embeddings WHERE messageId LIKE 'compact_%' OR NOT EXISTS (SELECT 1 FROM messages WHERE messages.id = embeddings.messageId)")
-    suspend fun deleteOrphanedEmbeddings()
 }

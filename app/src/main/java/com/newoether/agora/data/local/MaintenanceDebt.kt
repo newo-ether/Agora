@@ -49,6 +49,7 @@ data class MaintenanceDebtEntity(
 
         const val KIND_ATTACHMENT_ORPHANS = "ATTACHMENT_ORPHANS"
         const val KIND_EMBEDDING_ORPHANS = "EMBEDDING_ORPHANS"
+        const val KIND_STALE_EMBEDDINGS = "STALE_EMBEDDINGS"
         const val KIND_RUN_BRANCHES = "RUN_BRANCHES"
 
         val RECONCILE_KINDS = listOf(
@@ -111,6 +112,16 @@ interface MaintenanceDebtDao {
         staleBefore: Long,
     ): Int
 
+    @Query("SELECT id FROM embeddings WHERE modelId = :modelId AND id > :afterId ORDER BY id LIMIT :limit")
+    suspend fun getModelEmbeddingIdsPage(modelId: String, afterId: Long, limit: Int): List<Long>
+
+    @Query("""
+        DELETE FROM embeddings WHERE id IN (:ids)
+        AND generation != COALESCE((SELECT generation FROM semantic_index_ledger
+            WHERE modelId = embeddings.modelId), 0)
+    """)
+    suspend fun deleteStaleEmbeddingIds(ids: List<Long>): Int
+
     @Query("SELECT EXISTS(SELECT 1 FROM maintenance_debt LIMIT 1)")
     suspend fun hasDebt(): Boolean
 
@@ -119,14 +130,11 @@ interface MaintenanceDebtDao {
         SELECT id
         FROM embeddings
         WHERE id > :afterId
-          AND (messageId LIKE 'compact_%' OR NOT EXISTS (
-              SELECT 1 FROM messages WHERE messages.id = embeddings.messageId
-          ))
         ORDER BY id
         LIMIT :limit
         """,
     )
-    suspend fun getOrphanEmbeddingIdsPage(afterId: Long, limit: Int): List<Long>
+    suspend fun getEmbeddingMaintenanceIdsPage(afterId: Long, limit: Int): List<Long>
 
     @Query(
         """
@@ -148,20 +156,18 @@ interface MaintenanceDebtDao {
     )
     suspend fun deleteOrphanEmbeddingsByIds(ids: List<Long>): Int
 
-    @Query(
-        """
-        SELECT id
-        FROM conversations
-        WHERE selectedRunBranchesJson IS NOT NULL
-          AND (:afterId IS NULL OR id > :afterId)
-        ORDER BY id
-        LIMIT :limit
-        """,
-    )
-    suspend fun getRunBranchConversationIdsPage(afterId: String?, limit: Int): List<String>
+    @Query("SELECT id FROM conversations ORDER BY id LIMIT :limit")
+    suspend fun getFirstRunBranchConversationIds(limit: Int): List<String>
 
-    @Query("SELECT * FROM conversations WHERE id = :conversationId")
-    suspend fun getMaintenanceConversation(conversationId: String): ChatEntity?
+    @Query("SELECT id FROM conversations WHERE id > :afterId ORDER BY id LIMIT :limit")
+    suspend fun getNextRunBranchConversationIds(afterId: String, limit: Int): List<String>
+
+    suspend fun getRunBranchConversationIdsPage(afterId: String?, limit: Int): List<String> =
+        if (afterId == null) getFirstRunBranchConversationIds(limit)
+        else getNextRunBranchConversationIds(afterId, limit)
+
+    @Query("SELECT selectedRunBranchesJson FROM conversations WHERE id = :conversationId")
+    suspend fun getMaintenanceRunSelections(conversationId: String): String?
 
     @Query("SELECT * FROM runs WHERE conversationId = :conversationId")
     suspend fun getMaintenanceRuns(conversationId: String): List<RunEntity>
@@ -273,8 +279,7 @@ interface MaintenanceDebtDao {
     @Transaction
     suspend fun repairRunBranches(conversationId: String): Boolean {
         require(conversationId.isNotBlank())
-        val conversation = getMaintenanceConversation(conversationId) ?: return false
-        val raw = conversation.selectedRunBranchesJson ?: return false
+        val raw = getMaintenanceRunSelections(conversationId) ?: return false
         val decoded = decodeMaintenanceRunSelections(raw)
         val repaired = decoded?.let { selections ->
             RunBranchSelectionIntegrity.retainValidEdges(
