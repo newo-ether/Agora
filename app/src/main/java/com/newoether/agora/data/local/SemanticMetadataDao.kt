@@ -118,11 +118,25 @@ interface SemanticMetadataDao {
         deleteSourceEmbeddingRows(messageId)
     }
 
-    @Query("SELECT c.* FROM semantic_conversations c LEFT JOIN semantic_model_conversations m ON m.conversationId = c.conversationId AND m.modelId = :modelId WHERE (m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision) AND (:afterConversationId IS NULL OR c.conversationId > :afterConversationId) ORDER BY c.conversationId LIMIT :limit")
-    suspend fun getDirtyConversations(modelId: String, afterConversationId: String?, limit: Int): List<SemanticConversationEntity>
+    @Query("SELECT c.* FROM semantic_conversations c LEFT JOIN semantic_model_conversations m ON m.conversationId = c.conversationId AND m.modelId = :modelId WHERE (m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision) ORDER BY c.conversationId LIMIT :limit")
+    suspend fun getFirstDirtyConversations(modelId: String, limit: Int): List<SemanticConversationEntity>
 
-    @Query("SELECT messageId FROM semantic_sources WHERE conversationId = :conversationId AND (:afterMessageId IS NULL OR messageId > :afterMessageId) ORDER BY messageId LIMIT :limit")
-    suspend fun getConversationSourceIds(conversationId: String, afterMessageId: String?, limit: Int): List<String>
+    @Query("SELECT c.* FROM semantic_conversations c LEFT JOIN semantic_model_conversations m ON m.conversationId = c.conversationId AND m.modelId = :modelId WHERE c.conversationId > :afterConversationId AND (m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision) ORDER BY c.conversationId LIMIT :limit")
+    suspend fun getNextDirtyConversations(modelId: String, afterConversationId: String, limit: Int): List<SemanticConversationEntity>
+
+    suspend fun getDirtyConversations(modelId: String, afterConversationId: String?, limit: Int): List<SemanticConversationEntity> =
+        if (afterConversationId == null) getFirstDirtyConversations(modelId, limit)
+        else getNextDirtyConversations(modelId, afterConversationId, limit)
+
+    @Query("SELECT messageId FROM semantic_sources WHERE conversationId = :conversationId ORDER BY messageId LIMIT :limit")
+    suspend fun getFirstConversationSourceIds(conversationId: String, limit: Int): List<String>
+
+    @Query("SELECT messageId FROM semantic_sources WHERE conversationId = :conversationId AND messageId > :afterMessageId ORDER BY messageId LIMIT :limit")
+    suspend fun getNextConversationSourceIds(conversationId: String, afterMessageId: String, limit: Int): List<String>
+
+    suspend fun getConversationSourceIds(conversationId: String, afterMessageId: String?, limit: Int): List<String> =
+        if (afterMessageId == null) getFirstConversationSourceIds(conversationId, limit)
+        else getNextConversationSourceIds(conversationId, afterMessageId, limit)
 
     @Query("UPDATE semantic_model_conversations SET indexedRevision = :sourceRevision WHERE modelId = :modelId AND conversationId = :conversationId AND EXISTS(SELECT 1 FROM semantic_conversations WHERE conversationId = :conversationId AND sourceRevision = :sourceRevision) AND EXISTS(SELECT 1 FROM semantic_index_ledger WHERE modelId = :modelId AND reconcileRevision = :expectedReconcileRevision)")
     suspend fun finishSemanticConversation(modelId: String, conversationId: String, sourceRevision: Long, expectedReconcileRevision: Long): Int
@@ -140,8 +154,15 @@ interface SemanticMetadataDao {
     @Query("DELETE FROM semantic_model_conversations WHERE modelId = :modelId")
     suspend fun deleteSemanticModelConversations(modelId: String)
 
-    @Query("SELECT id FROM messages WHERE (:afterMessageId IS NULL OR id > :afterMessageId) ORDER BY id LIMIT :limit")
-    suspend fun getLegacyMessageIds(afterMessageId: String?, limit: Int): List<String>
+    @Query("SELECT id FROM messages ORDER BY id LIMIT :limit")
+    suspend fun getFirstLegacyMessageIds(limit: Int): List<String>
+
+    @Query("SELECT id FROM messages WHERE id > :afterMessageId ORDER BY id LIMIT :limit")
+    suspend fun getNextLegacyMessageIds(afterMessageId: String, limit: Int): List<String>
+
+    suspend fun getLegacyMessageIds(afterMessageId: String?, limit: Int): List<String> =
+        if (afterMessageId == null) getFirstLegacyMessageIds(limit)
+        else getNextLegacyMessageIds(afterMessageId, limit)
 
     // The sole legacy payload read: bounded output outside a write transaction, once per old row.
     // Empty BLOB projections can become null in Android cursors; nonempty distinguishes the sentinel.

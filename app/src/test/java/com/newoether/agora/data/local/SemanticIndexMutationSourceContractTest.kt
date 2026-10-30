@@ -334,12 +334,14 @@ class SemanticIndexMutationSourceContractTest {
             "ORDER BY sourceRevision, messageId", "LIMIT :limit").forEach {
             assertTrue(workPage.contains(it))
         }
-        val dirty = metadata.queryFor("getDirtyConversations")
+        val dirty = metadata.queryFor("getNextDirtyConversations")
         assertTrue(dirty.contains("m.indexedRevision IS NULL OR m.indexedRevision != c.sourceRevision"))
         assertTrue(dirty.contains("ORDER BY c.conversationId LIMIT :limit"))
-        val identities = metadata.queryFor("getConversationSourceIds")
+        val identities = metadata.queryFor("getNextConversationSourceIds")
         assertTrue(identities.contains("FROM semantic_sources WHERE conversationId = :conversationId"))
-        assertTrue(identities.contains(":afterMessageId IS NULL OR messageId > :afterMessageId"))
+        assertTrue(identities.contains("messageId > :afterMessageId"))
+        assertFalse(identities.contains(":afterMessageId IS NULL"))
+        assertFalse(metadata.queryFor("getNextLegacyMessageIds").contains(":afterMessageId IS NULL"))
         assertTrue(identities.contains("ORDER BY messageId LIMIT :limit"))
         assertFalse(identities.contains("sourcePrefix"))
         val searchablePage = ledger.queryFor("getReconcileMessagesByIds")

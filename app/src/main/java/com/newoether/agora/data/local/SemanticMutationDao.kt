@@ -87,7 +87,7 @@ interface SemanticMutationDao : SemanticEmbeddingDao {
         deleteMessageRowsByConversation(conversationId)
     }
 
-    @Query("WITH RECURSIVE removed(id) AS (SELECT id FROM runs WHERE id = :runId UNION SELECT r.id FROM runs r JOIN removed ON r.parentRunId = removed.id) SELECT m.id FROM messages m JOIN removed ON m.runId = removed.id")
+    @Query("WITH RECURSIVE removed(id) AS (SELECT id FROM runs WHERE id = :runId UNION SELECT r.id FROM runs r JOIN removed ON r.parentRunId = removed.id) SELECT m.id FROM messages m WHERE m.runId IN (SELECT id FROM removed)")
     suspend fun getRunCascadeMessageIds(runId: String): List<String>
 
     @Query("DELETE FROM runs WHERE id = :runId")

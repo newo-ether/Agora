@@ -260,6 +260,10 @@ owns cached membership and the last successfully indexed conversation revision.
 Public message/checkpoint, graph/import/fork, deletion and embedding DAO writes maintain these rows
 in the same transaction as the owning mutation. Eligible source changes remove stale vectors, adjust
 cached membership and eligible totals, and advance only the affected conversation's source revision.
+Run-cascade deletion enumerates descendant Run identities first and seeks messages through the existing
+Run-leading index with an IN subquery. It must never join a recursive Run relation by scanning the
+entire message table, even when the deleted Run is empty. Production DAO query-plan tests cover
+large unrelated payloads, recursive membership, rollback and unrelated-owner preservation.
 Moving a source affects its old and new conversations. Changing Task eligibility advances only that
 conversation. Run status, title, pin, unread state and backup-watermark-only changes do not dirty
 semantic input. History-only changes outside the embedding prefix may update history metadata without
@@ -326,6 +330,10 @@ payload reads therefore stay in the independent cancellable worker, one source a
 write transactions, and never return an unbounded body into CursorWindow. Counts, completed-metadata
 ranking pages, fingerprint checks and reconciliation must use derived metadata instead.
 
+First-page and continuation SQL are separate: the initial page has no cursor predicate, and every
+continuation uses a direct indexed greater-than predicate rather than a nullable-OR expression.
+This applies to legacy message identities, source identities within an owner, and dirty-owner
+summaries; a row-count limit alone does not prove that SQLite can seek past prior pages.
 The first source-ID page has a null cursor so empty legacy IDs remain included. Subsequent cursors
 and their validation follow SQLite BINARY unsigned UTF-8 byte order, including supplementary
 characters. Filtering must not stop physical cursor advancement or make an empty eligible page look
