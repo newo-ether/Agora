@@ -331,23 +331,6 @@ data class MessageAttachmentReference(
     val attachmentMeta: String? = null,
 )
 
-/** Tool-payload-only projection used to archive generated image files without loading messages. */
-data class MessageToolMediaReference(
-    val id: String,
-    val toolCallJson: String,
-)
-
-/** Draft-only projection used by the orphaned attachment sweep. */
-data class ConversationDraftAttachmentReference(
-    val id: String,
-    val draftAttachments: String,
-)
-
-/** Singleton New Chat draft reference used by attachment reclamation. */
-data class NewChatDraftAttachmentReference(
-    val draftAttachments: String,
-)
-
 /** Minimal payload needed to generate an embedding. */
 data class IndexableMessage(
     val id: String,

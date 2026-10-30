@@ -27,6 +27,8 @@ import com.newoether.agora.data.local.migration.MIGRATION_34_35
 import com.newoether.agora.data.local.migration.MIGRATION_39_40
 import com.newoether.agora.data.local.migration.MIGRATION_40_41
 import com.newoether.agora.data.local.migration.MIGRATION_41_42
+import com.newoether.agora.data.local.migration.MIGRATION_42_43
+import com.newoether.agora.data.local.migration.installAttachmentReferenceTriggers
 import java.util.concurrent.Executor
 
 @Database(
@@ -47,6 +49,9 @@ import java.util.concurrent.Executor
         SemanticConversationEntity::class,
         SemanticModelConversationEntity::class,
         SemanticMetadataStateEntity::class,
+        AttachmentReferenceOwner::class,
+        AttachmentReference::class,
+        AttachmentReferenceState::class,
     ],
     version = ChatDatabase.CURRENT_VERSION,
     exportSchema = true
@@ -58,7 +63,7 @@ abstract class ChatDatabase : RoomDatabase() {
     abstract fun semanticMetadataDao(): SemanticMetadataDao
 
     companion object {
-        const val CURRENT_VERSION = 42
+        const val CURRENT_VERSION = 43
         const val DB_NAME = "agora_db"
 
         val ALL_MIGRATIONS = listOf(
@@ -243,6 +248,7 @@ abstract class ChatDatabase : RoomDatabase() {
             MIGRATION_39_40,
             MIGRATION_40_41,
             MIGRATION_41_42,
+            MIGRATION_42_43,
         )
 
         fun inspectCompatibility(context: Context): DatabaseCompatibility {
@@ -281,6 +287,11 @@ abstract class ChatDatabase : RoomDatabase() {
                 ChatDatabase::class.java,
                 DB_NAME,
             ).addMigrations(*ALL_MIGRATIONS.toTypedArray())
+                .addCallback(object : Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        installAttachmentReferenceTriggers(db)
+                    }
+                })
             queryExecutor?.let { builder.setQueryExecutor(it) }
             transactionExecutor?.let { builder.setTransactionExecutor(it) }
             val database = builder.build()

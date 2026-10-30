@@ -27,6 +27,23 @@ rewriting the stored or received image. Filo's cross-server raw attachment uploa
 existing transfer checksum protocol; removing Agora's local image digests does not change that
 external protocol or general transport authentication.
 
+## Durable reference reclamation
+
+`AttachmentOrphanSweeper` uses the derived Room attachment-reference index. Source transactions
+invalidate only changed message/draft owners with fresh tokens; inserts, imports, updates, and
+cascading deletes share those triggers. Schema upgrade creates empty index tables without reading
+message bodies. Admitted maintenance seeds legacy identities with indexed continuation pages,
+reads and decodes one owner's payload outside write transactions, and publishes references only
+if that owner's token still matches. Completion/cursors survive cancellation and process death.
+
+Exact reclamation waits for complete legacy coverage and no dirty owners. Its short write
+transaction checks the source revision, looks up the canonical path index, and performs the
+existing live-owner check and unlink under the attachment ownership lock. A concurrent source
+change defers the debt; a durable or live reference protects the file. Malformed candidate metadata
+retains the existing fail-closed behavior. Repeated checks reuse the completed index and never
+search every message's JSON for a path token. Files, drafts, and messages remain authoritative;
+this index owns no independent attachment lifetime or new startup admission.
+
 ## Processing and artifact ownership
 
 The shared image processor owns dimensions, orientation, resizing, encoding and validation of
