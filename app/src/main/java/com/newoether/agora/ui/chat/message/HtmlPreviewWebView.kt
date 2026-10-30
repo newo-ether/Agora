@@ -30,9 +30,13 @@ internal class HtmlPreviewWebView(
     private val resources: HtmlPreviewResources,
     private val onFailure: () -> Unit,
     private val onUnsupported: () -> Unit,
+    backgroundColor: Int,
+    private val onReady: () -> Unit,
 ) : WebView(context) {
     private var released = false
     private var admitted = false
+    private var visualStateRequested = false
+    private var ready = false
     private val probeUrl = "${document.origin}/probe.html"
     private val probeTimeout = Runnable {
         if (!released && !admitted) {
@@ -48,6 +52,9 @@ internal class HtmlPreviewWebView(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT,
         )
+        // Keep the trusted probe and incomplete document out of the fading loading overlay.
+        visibility = View.INVISIBLE
+        setBackgroundColor(backgroundColor)
         settings.apply {
             javaScriptEnabled = true
             allowFileAccess = false
@@ -88,6 +95,28 @@ internal class HtmlPreviewWebView(
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
                 }
                 return true
+            }
+
+            override fun onPageFinished(view: WebView, url: String?) {
+                if (released || !admitted || visualStateRequested || url != document.rootUrl || view.url != url) return
+                visualStateRequested = true
+                // Page load completion alone does not guarantee the sandbox's pixels are ready.
+                view.postVisualStateCallback(0, object : VisualStateCallback() {
+                    override fun onComplete(requestId: Long) {
+                        if (released || ready || view.url != document.rootUrl) return
+                        ready = true
+                        // INVISIBLE WebViews must become VISIBLE inside this callback for the
+                        // first-frame guarantee. Compose then fades the covering overlay away.
+                        view.visibility = View.VISIBLE
+                        onReady()
+                    }
+                })
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                if (released || !request.isForMainFrame) return
+                release()
+                onFailure()
             }
 
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {

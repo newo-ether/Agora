@@ -3,6 +3,9 @@ package com.newoether.agora.ui.chat.message
 import android.app.Application
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +33,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -46,6 +50,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -67,12 +73,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadow.api.Shadow
 import org.robolectric.shadows.ShadowDialog
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, qualifiers = "en-w400dp-h900dp-mdpi")
+@Config(sdk = [35], application = Application::class, qualifiers = "en-w400dp-h900dp-mdpi",
+    shadows = [HtmlPreviewVisualStateShadow::class])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Suppress("DEPRECATION")
 class HtmlPreviewCodeContentTest {
@@ -488,6 +496,97 @@ class HtmlPreviewCodeContentTest {
         compose.onNodeWithText(code.value).assertIsDisplayed()
     }
 
+    @Test
+    fun loadingOverlayCoversTheCanvasUntilVisualReadyThenFadesAndReloadResetsIt() {
+        code.value = "<h1>Visible preview</h1>"
+        host()
+        val browser = awaitBrowser()
+        compose.onNodeWithTag(LOADING).assertIsDisplayed().assertHeightIsEqualTo(360.dp)
+        compose.runOnIdle {
+            assertEquals(View.INVISIBLE, browser.visibility)
+            val shadow = shadowOf(browser)
+            shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
+            requireNotNull(shadow.lastEvaluatedJavascriptCallback).onReceiveValue(HtmlPreviewProbe.ACCEPTED_RESULT)
+            shadow.webViewClient.onPageFinished(browser, browser.url)
+        }
+        compose.onNodeWithTag(LOADING).assertIsDisplayed()
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { Shadow.extract<HtmlPreviewVisualStateShadow>(browser).complete() }
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeBy(64)
+        compose.onNodeWithTag(LOADING).assertExists()
+        compose.runOnIdle { assertEquals(View.VISIBLE, browser.visibility) }
+        compose.mainClock.advanceTimeBy(240)
+        compose.onNodeWithTag(LOADING).assertDoesNotExist()
+        compose.mainClock.autoAdvance = true
+
+        compose.onNodeWithContentDescription(moreLabel).performClick()
+        compose.onNodeWithText(context.getString(R.string.html_preview_reload)).performClick()
+        val reloaded = awaitBrowser()
+        assertNotSame(browser, reloaded)
+        compose.onNodeWithTag(LOADING).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(View.INVISIBLE, reloaded.visibility) }
+    }
+
+    @Test
+    fun loadingOverlayFadesBothDirectionsWithoutChangingCanvasBounds() {
+        val loading = mutableStateOf(true)
+        var clicks = 0
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            drawingView = LocalView.current
+            MaterialTheme(colorScheme = androidx.compose.material3.darkColorScheme(surface = Color.Black)) {
+                CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                    Box(Modifier.width(180.dp).height(180.dp).background(Color.Red).testTag("canvas")) {
+                        Box(Modifier.matchParentSize().clickable { clicks++ })
+                        HtmlPreviewLoadingOverlay(loading.value)
+                    }
+                }
+            }
+        }
+        fun red(): Float {
+            compose.waitForIdle()
+            val bounds = compose.onNodeWithTag("canvas").fetchSemanticsNode().boundsInRoot
+            val bitmap = android.graphics.Bitmap.createBitmap(180, 180, android.graphics.Bitmap.Config.ARGB_8888)
+            return try {
+                compose.runOnUiThread {
+                    // SDK 35 PixelCopy's redraw fence is unsupported by Robolectric.
+                    val canvas = android.graphics.Canvas(bitmap)
+                    canvas.translate(-bounds.left, -bounds.top)
+                    drawingView.draw(canvas)
+                }
+                android.graphics.Color.red(bitmap.getPixel(4, 4)) / 255f
+            } finally { bitmap.recycle() }
+        }
+        fun frame() {
+            androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+        }
+        assertEquals(1f, red(), 0.02f)
+        frame()
+        compose.mainClock.advanceTimeBy(64)
+        val entering = red()
+        assertTrue("Entry must render intermediate opacity: $entering", entering > 0.02f && entering < 0.98f)
+        compose.onNodeWithTag("canvas").performTouchInput { click() }
+        assertEquals(0, clicks)
+        compose.mainClock.advanceTimeBy(240)
+        assertEquals(0f, red(), 0.02f)
+        compose.onNodeWithTag(LOADING).assertWidthIsEqualTo(180.dp).assertHeightIsEqualTo(180.dp)
+        compose.runOnIdle { loading.value = false }
+        frame()
+        compose.mainClock.advanceTimeBy(64)
+        val exiting = red()
+        assertTrue("Exit must render intermediate opacity: $exiting", exiting > 0.02f && exiting < 0.98f)
+        compose.onNodeWithTag("canvas").performTouchInput { click() }
+        assertEquals(0, clicks)
+        compose.mainClock.advanceTimeBy(240)
+        assertEquals(1f, red(), 0.02f)
+        compose.onNodeWithTag(LOADING).assertDoesNotExist()
+        compose.onNodeWithTag("canvas").performTouchInput { click() }
+        assertEquals(1, clicks)
+    }
+
     private fun host(
         markdown: Boolean = false,
         container: @Composable (@Composable () -> Unit) -> Unit = { content ->
@@ -556,5 +655,6 @@ class HtmlPreviewCodeContentTest {
     private companion object {
         val MaterialThemeDefaultLabelFont = androidx.compose.material3.Typography().labelMedium.fontFamily
         const val SOURCE = "html-preview-test-source"
+        const val LOADING = "html-preview-loading-overlay"
     }
 }

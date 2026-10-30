@@ -18,6 +18,15 @@ fullscreen fills the safe window inside an 8 dp inset using the same rounded she
 layouts. The native WebView has explicit MATCH_PARENT width and height layout parameters before
 attachment. Compose's measured viewport alone is insufficient: its default WRAP_CONTENT parameters
 make Chromium force the document layout height to zero and collapse the full-height sandbox frame.
+A theme-surface loading overlay covers the entire canvas during image preparation, trusted admission
+and document loading. It fades in and out over 180 ms without changing viewport geometry. The native
+WebView starts INVISIBLE with the same theme background; only the admitted root's onPageFinished
+followed by postVisualStateCallback may reveal it and dismiss the overlay. Probe completion alone
+never reveals content. Released or stale visual callbacks are ignored. The overlay blocks canvas
+pointer input until its exit completes, without consuming ancestor scrolling, while source/export
+controls remain available. Reduced motion uses the shared stationary progress indicator and retains
+opacity feedback. Main-frame load errors and unsupported providers leave the existing localized
+fallback instead of a permanent loading layer.
 Offscreen, background and disposed cards release their WebView and cancel resource work.
 Reload, re-entry, fullscreen transitions and process death reset interaction state. There is no
 Room or localStorage persistence. Export uses CreateDocument or the existing FileProvider shared

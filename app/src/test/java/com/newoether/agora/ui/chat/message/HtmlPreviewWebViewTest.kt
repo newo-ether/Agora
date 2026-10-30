@@ -3,6 +3,7 @@ package com.newoether.agora.ui.chat.message
 import android.app.Activity
 import android.app.Application
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Looper
 import android.os.Message
@@ -15,6 +16,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
+import android.webkit.WebView
 import android.widget.FrameLayout
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
@@ -32,10 +34,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.shadows.ShadowWebView
 import org.robolectric.annotation.LooperMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class)
+@Config(sdk = [35], application = Application::class, shadows = [HtmlPreviewVisualStateShadow::class])
 @LooperMode(LooperMode.Mode.PAUSED)
 @Suppress("DEPRECATION")
 class HtmlPreviewWebViewTest {
@@ -264,15 +270,85 @@ class HtmlPreviewWebViewTest {
         assertEquals(0, fixture.unsupported.get())
     }
 
+    @Test
+    fun loadingKeepsTheBrowserHiddenUntilTheAdmittedDocumentCanDraw() {
+        val fixture = fixture()
+        val browser = fixture.browser
+        val shadow = shadowOf(browser)
+        val visual = Shadow.extract<HtmlPreviewVisualStateShadow>(browser)
+        assertEquals(View.INVISIBLE, browser.visibility)
+        assertEquals(Color.BLACK, shadow.backgroundColor)
+        shadow.webViewClient.onPageFinished(browser, browser.url)
+        assertTrue(visual.callbacks.isEmpty())
+
+        admit(fixture)
+        shadow.webViewClient.onPageFinished(browser, "${fixture.document.origin}/probe.html")
+        shadow.webViewClient.onPageFinished(browser, fixture.document.frameUrl)
+        assertTrue(visual.callbacks.isEmpty())
+        shadow.webViewClient.onPageFinished(browser, fixture.document.rootUrl)
+        shadow.webViewClient.onPageFinished(browser, fixture.document.rootUrl)
+        assertEquals(1, visual.callbacks.size)
+        assertEquals(View.INVISIBLE, browser.visibility)
+        assertEquals(0, fixture.ready.get())
+
+        visual.complete()
+        visual.complete()
+        assertEquals(View.VISIBLE, browser.visibility)
+        assertEquals(1, fixture.ready.get())
+        assertEquals(0, fixture.failures.get())
+    }
+
+    @Test
+    fun visualCompletionAfterReleaseOrNavigationCannotRevealTheBrowser() {
+        listOf(false, true).forEach { release ->
+            val fixture = fixture()
+            admit(fixture)
+            val browser = fixture.browser
+            shadowOf(browser).webViewClient.onPageFinished(browser, fixture.document.rootUrl)
+            if (release) browser.release() else browser.loadUrl("${fixture.document.origin}/other.html")
+            Shadow.extract<HtmlPreviewVisualStateShadow>(browser).complete()
+            assertEquals(0, fixture.ready.get())
+            assertEquals(View.INVISIBLE, browser.visibility)
+        }
+    }
+
+    @Test
+    fun mainFrameLoadFailureReleasesTheBrowserWithoutAReadySignal() {
+        val fixture = fixture()
+        admit(fixture)
+        val browser = fixture.browser
+        val client = shadowOf(browser).webViewClient
+        val error = io.mockk.mockk<android.webkit.WebResourceError>()
+        io.mockk.every { error.errorCode } returns android.webkit.WebViewClient.ERROR_UNKNOWN
+        io.mockk.every { error.description } returns "Failed"
+        client.onReceivedError(browser, request(fixture.document.frameUrl), error)
+        assertEquals(0, fixture.failures.get())
+        client.onPageFinished(browser, fixture.document.rootUrl)
+        client.onReceivedError(browser, request(fixture.document.rootUrl, mainFrame = true), error)
+        client.onReceivedError(browser, request(fixture.document.rootUrl, mainFrame = true), error)
+        Shadow.extract<HtmlPreviewVisualStateShadow>(browser).complete()
+        assertEquals(1, fixture.failures.get())
+        assertEquals(0, fixture.ready.get())
+        assertTrue(shadowOf(browser).wasDestroyCalled())
+    }
+
+    private fun admit(fixture: Fixture) {
+        val shadow = shadowOf(fixture.browser)
+        shadow.webChromeClient.onReceivedTitle(fixture.browser, HtmlPreviewProbe.COMPLETE_TITLE)
+        requireNotNull(shadow.lastEvaluatedJavascriptCallback).onReceiveValue(HtmlPreviewProbe.ACCEPTED_RESULT)
+    }
+
     private fun fixture(): Fixture {
         val document = HtmlPreviewDocument("<p>Generated content</p>")
         val resources = HtmlPreviewResources(document, emptyMap(), "#000000", "#FFFFFF")
         val failures = AtomicInteger()
         val unsupported = AtomicInteger()
+        val ready = AtomicInteger()
         val browser = HtmlPreviewWebView(controller.get(), document, resources,
-            onFailure = { failures.incrementAndGet() }, onUnsupported = { unsupported.incrementAndGet() })
+            onFailure = { failures.incrementAndGet() }, onUnsupported = { unsupported.incrementAndGet() },
+            backgroundColor = Color.BLACK, onReady = { ready.incrementAndGet() })
         parent.addView(browser)
-        return Fixture(document, resources, browser, failures, unsupported).also { fixtures += it }
+        return Fixture(document, resources, browser, failures, unsupported, ready).also { fixtures += it }
     }
 
     private fun request(
@@ -294,5 +370,22 @@ class HtmlPreviewWebViewTest {
         val browser: HtmlPreviewWebView,
         val failures: AtomicInteger,
         val unsupported: AtomicInteger,
+        val ready: AtomicInteger,
     )
+}
+
+/** Hold only the platform visual callback; production admission and visibility code still execute. */
+@Implements(WebView::class)
+class HtmlPreviewVisualStateShadow : ShadowWebView() {
+    val callbacks = mutableListOf<Pair<Long, WebView.VisualStateCallback>>()
+
+    @Implementation
+    protected fun postVisualStateCallback(requestId: Long, callback: WebView.VisualStateCallback) {
+        callbacks += requestId to callback
+    }
+
+    fun complete() {
+        val (requestId, callback) = callbacks.single()
+        callback.onComplete(requestId)
+    }
 }
