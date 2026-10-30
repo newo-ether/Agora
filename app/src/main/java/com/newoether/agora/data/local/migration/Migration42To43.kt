@@ -32,9 +32,16 @@ internal fun installAttachmentReferenceTriggers(db: SupportSQLiteDatabase) {
     )
     tables.forEachIndexed { kind, (table, columns) ->
         val changed = columns.joinToString(" OR ") { "OLD.$it IS NOT NEW.$it" }
+        // Room's outer UPDATE OR ABORT overrides a trigger's INSERT OR REPLACE policy.
+        // Update existing owners, then insert only missing ones: neither statement can conflict.
         val mark = """
-            INSERT OR REPLACE INTO attachment_reference_owners(kind, ownerId, token, dirty, invalid)
-            VALUES($kind, CAST(NEW.id AS TEXT), lower(hex(randomblob(16))), 1, 0);
+            UPDATE attachment_reference_owners
+            SET token = lower(hex(randomblob(16))), dirty = 1, invalid = 0
+            WHERE kind = $kind AND ownerId = CAST(NEW.id AS TEXT);
+            INSERT INTO attachment_reference_owners(kind, ownerId, token, dirty, invalid)
+            SELECT $kind, CAST(NEW.id AS TEXT), lower(hex(randomblob(16))), 1, 0
+            WHERE NOT EXISTS (SELECT 1 FROM attachment_reference_owners
+                WHERE kind = $kind AND ownerId = CAST(NEW.id AS TEXT));
             UPDATE attachment_reference_state SET revision = revision + 1 WHERE id = 0;
         """
         db.execSQL("""CREATE TRIGGER IF NOT EXISTS attachment_refs_${table}_insert

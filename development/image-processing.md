@@ -45,6 +45,13 @@ retains the existing fail-closed behavior. Repeated checks reuse the completed i
 search every message's JSON for a path token. Files, drafts, and messages remain authoritative;
 this index owns no independent attachment lifetime or new startup admission.
 
+Trigger invalidation must remain correct under Room's outer conflict policies, including the
+checkpoint adapter's UPDATE OR ABORT. Existing owners are updated and missing owners are inserted
+with an explicit absence predicate; trigger bodies must not depend on INSERT OR REPLACE to override
+the caller. Schema 46 replaces the released trigger bodies atomically, preserving reference rows,
+bootstrap cursors, source revisions and user data. Production-builder tests must cover repeated
+checkpoint writes, rollback, deletion, all owner kinds and upgrade of an existing version-45 database.
+
 ## Processing and artifact ownership
 
 The shared image processor owns dimensions, orientation, resizing, encoding and validation of
