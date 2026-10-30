@@ -694,7 +694,7 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertTrue(codeBlock.contains("CompositionLocalProvider("))
         assertTrue(codeBlock.contains("LocalMarkdownColors provides assets.renderContext.colors"))
         assertTrue(codeBlock.contains("LocalMarkdownDimens provides markdownDimens()"))
-        assertTrue(codeBlock.contains("MarkdownCodeBackground("))
+        assertTrue(codeBlock.contains("ChatCodeBlockSurface("))
     }
 
     @Test

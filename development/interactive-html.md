@@ -7,10 +7,18 @@ terminal messages use their existing AST fence-end token. Search retains the ori
 source offsets. Raw HTML outside fences is still literal Markdown text. Remote sessions and browser
 WebUI do not enable this renderer. No second Markdown parser or generation lifecycle is introduced.
 
-Cards reuse the code block surface and header, expose Source/Preview, Reload, Full Screen,
-Save HTML and Share, and retain Copy. The inline viewport is 360 dp with internal scrolling;
-fullscreen fills the available safe window. The fixed viewport avoids positive feedback for `vh`
-layouts. Offscreen, background and disposed cards release their WebView and cancel resource work.
+Cards reuse the shared Material 3 Expressive code shell, header and actions defined in
+[streaming-markdown.md](streaming-markdown.md), retaining Source/Preview and Copy. Both inline and
+fullscreen headers expose Save HTML directly as a download icon. In reading order, inline actions
+are Source/Run, Copy, Save HTML, More; fullscreen actions are Source, Reload, Copy, Save HTML, Close.
+More and Close stay last, including when whole actions wrap at narrow widths.
+The overflow menu contains Reload, Full Screen and Share HTML with 24 dp leading icons; it does not duplicate Save HTML.
+The inline viewport is 360 dp with internal scrolling;
+fullscreen fills the safe window inside an 8 dp inset using the same rounded shell. The fixed viewport avoids positive feedback for `vh`
+layouts. The native WebView has explicit MATCH_PARENT width and height layout parameters before
+attachment. Compose's measured viewport alone is insufficient: its default WRAP_CONTENT parameters
+make Chromium force the document layout height to zero and collapse the full-height sandbox frame.
+Offscreen, background and disposed cards release their WebView and cancel resource work.
 Reload, re-entry, fullscreen transitions and process death reset interaction state. There is no
 Room or localStorage persistence. Export uses CreateDocument or the existing FileProvider shared
 cache, with no shared-storage permission. Original source is exported unchanged.

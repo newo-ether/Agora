@@ -13,6 +13,7 @@
   --md-surface: #f7fbf1;
   --md-on-surface: #181d17;
   --md-on-surface-variant: #424940;
+  --md-surface-container-low: #f1f5eb;
   --md-surface-container: #ebefe6;
   --md-surface-container-high: #e5e9e0;
   --md-surface-variant: #dee5d8;
@@ -37,6 +38,7 @@
     --md-surface: #10140f;
     --md-on-surface: #e0e4db;
     --md-on-surface-variant: #c2c9bd;
+    --md-surface-container-low: #181d17;
     --md-surface-container: #1c211b;
     --md-surface-container-high: #272b25;
     --md-surface-variant: #424940;
@@ -1382,7 +1384,7 @@ input, textarea { user-select: text; }
  */
 .markdown {
   --md-block: 8px;
-  --code-background: color-mix(in srgb, var(--md-on-background) 10%, var(--md-surface));
+  --code-background: var(--md-surface-container-low);
   font-size: 16px;
   line-height: 26.4px;
   overflow-wrap: anywhere;
@@ -1435,13 +1437,13 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
   background: currentColor;
 }
 .markdown hr { height: 1px; margin: 0; border: 0; background: var(--md-outline-variant); }
-/* MarkdownTable: 8 dp corners on the faint table background, 16 dp cells at least 160 dp wide. */
+/* Markdown tables share code shells' 24 dp corners; cell geometry and scrolling stay unchanged. */
 .markdown table {
   display: block;
   max-width: 100%;
   overflow-x: auto;
   border-collapse: collapse;
-  border-radius: 8px;
+  border-radius: 24px;
   background: color-mix(in srgb, var(--md-on-background) 2%, transparent);
 }
 /* Owner asked for no row rules in markdown tables: the faint surface alone separates the rows. */
@@ -1453,35 +1455,43 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 }
 /* Display math scrolls sideways instead of widening the message. */
 .markdown .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; }
-/* Fenced code: 8 dp above and below, codeBackground with 8 dp corners, 8 dp code padding. */
-.code-block { margin: 8px 0; border-radius: 8px; background: var(--code-background); }
+/* Shared native/WebUI code shell: tonal surface, compact header and uncontained actions. */
+.code-block { margin: 8px 0; border-radius: 24px; overflow: hidden; background: var(--code-background); }
 .code-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
-  border-bottom: 0.5px solid color-mix(in srgb, var(--md-outline-variant) 30%, transparent);
+  padding: 0 8px;
+  background: var(--md-surface-container-high);
 }
-/* The language tag uses the platform monospace at 10 sp and 60 % of the text color. */
 .code-language {
-  font-family: monospace;
-  font-size: 10px;
-  line-height: normal;
-  color: color-mix(in srgb, currentColor 60%, transparent);
+  min-width: 0;
+  padding-inline: 8px 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--app-font);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: .5px;
+  color: var(--md-on-surface-variant);
 }
 .code-copy {
   display: grid;
+  flex: none;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 40px;
+  height: 40px;
+  margin-inline-start: auto;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: color-mix(in srgb, currentColor 60%, transparent);
+  color: var(--md-on-surface-variant);
   cursor: pointer;
 }
-.code-copy svg { width: 14px; height: 14px; fill: currentColor; }
+.code-copy svg { width: 16px; height: 16px; fill: currentColor; }
 .code-block pre { margin: 0; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .nowrap .code-block pre { white-space: pre; overflow-wrap: normal; overflow-x: auto; }
 .branch-selector { display: flex; align-items: center; width: max-content; padding: 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--md-surface-variant) 50%, transparent); font-size: 11px; line-height: 15px; font-weight: 500; }
@@ -2112,7 +2122,11 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .tool-budget-slider { padding-top: 32px; margin-bottom: 0; }
 .tool-budget-slider > svg { top: 34px; }
 .tool-tier-note { padding-top: 12px; font-size: 12px; }
-.provider-badge { font-size: 9px; border-radius: 4px; padding: 1px 4px; background: color-mix(in srgb, var(--md-on-surface-variant) 10%, transparent); }
+/* Provider capability icons sit in the native menu's text slot and inherit its enabled/disabled color. */
+.dropdown-item.provider-capability > svg,
+.dropdown-item.provider-capability:disabled > svg { fill: currentColor; }
+/* ProviderBadge uses the theme's paired container roles in both native and WebUI menus. */
+.provider-badge { flex: none; font-size: 9px; border-radius: 4px; padding: 1px 4px; background: var(--md-primary-container); color: var(--md-on-primary-container); }
 .shell[data-reduce-motion="true"] .tool-switch::after { transition-property: background; }
 .shell[data-reduce-motion="true"] .tool-advanced svg { transition: none; }
 .shell[data-reduce-motion="true"] .tool-budget-section { transition: opacity 400ms, visibility 400ms; }

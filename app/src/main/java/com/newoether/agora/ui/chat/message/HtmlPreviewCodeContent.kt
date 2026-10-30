@@ -6,16 +6,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,30 +65,39 @@ internal fun HtmlPreviewCodeContent(
     }
     val showingPreview = preview && !searching
     ChatCodeBlockHeader(language = language, code = code, actions = {
-        val toggleLabel = stringResource(if (showingPreview) R.string.html_preview_source else R.string.html_preview_run)
-        IconButton(onClick = { preview = !showingPreview }, enabled = !searching, modifier = Modifier.size(32.dp)) {
-            Icon(if (showingPreview) Icons.Default.Code else Icons.Default.PlayArrow,
-                toggleLabel, Modifier.size(18.dp))
-        }
+        ChatCodeBlockAction(
+            icon = if (showingPreview) Icons.Default.Code else Icons.Default.PlayArrow,
+            label = stringResource(if (showingPreview) R.string.html_preview_source else R.string.html_preview_run),
+            onClick = { preview = !showingPreview },
+            enabled = !searching,
+            emphasized = true,
+        )
+    }, trailingActions = {
+        ChatCodeBlockAction(
+            icon = Icons.Default.Download,
+            label = stringResource(R.string.html_preview_save),
+            onClick = { export(false) },
+        )
         Box {
-            IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.MoreVert, stringResource(R.string.more), Modifier.size(18.dp))
-            }
+            ChatCodeBlockAction(
+                icon = Icons.Default.MoreVert,
+                label = stringResource(R.string.more),
+                onClick = { menu = true },
+            )
             AgoraDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_reload)) },
+                    leadingIcon = { Icon(Icons.Default.Refresh, null, Modifier.size(24.dp)) },
                     onClick = { menu = false; preview = true; revision++ }, enabled = !searching,
                 )
                 AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_fullscreen)) },
+                    leadingIcon = { Icon(Icons.Default.Fullscreen, null, Modifier.size(24.dp)) },
                     onClick = { menu = false; fullScreen = true }, enabled = !searching,
                 )
                 AgoraDropdownMenuItem(
-                    text = { Text(stringResource(R.string.html_preview_save)) },
-                    onClick = { menu = false; export(false) },
-                )
-                AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_share)) },
+                    leadingIcon = { Icon(Icons.Default.Share, null, Modifier.size(24.dp)) },
                     onClick = { menu = false; export(true) },
                 )
             }
@@ -104,19 +116,36 @@ internal fun HtmlPreviewCodeContent(
             DialogWindowEdgeToEdge()
             DialogWindowNoSystemDim()
             Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
-                Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                    ChatCodeBlockHeader(language = language, code = code, actions = {
-                        IconButton(onClick = { fullScreen = false; preview = false }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Code, stringResource(R.string.html_preview_source), Modifier.size(18.dp))
+                Column(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
+                    ChatCodeBlockSurface(modifier = Modifier.weight(1f)) {
+                        ChatCodeBlockHeader(language = language, code = code, actions = {
+                            ChatCodeBlockAction(
+                                icon = Icons.Default.Code,
+                                label = stringResource(R.string.html_preview_source),
+                                onClick = { fullScreen = false; preview = false },
+                                emphasized = true,
+                            )
+                            ChatCodeBlockAction(
+                                icon = Icons.Default.Refresh,
+                                label = stringResource(R.string.html_preview_reload),
+                                onClick = { revision++ },
+                            )
+                        }, trailingActions = {
+                            ChatCodeBlockAction(
+                                icon = Icons.Default.Download,
+                                label = stringResource(R.string.html_preview_save),
+                                onClick = { export(false) },
+                            )
+                            ChatCodeBlockAction(
+                                icon = Icons.Default.Close,
+                                label = stringResource(R.string.provider_close),
+                                onClick = { fullScreen = false },
+                            )
+                        })
+                        key(revision) {
+                            HtmlPreviewBrowser(code, Modifier.weight(1f).fillMaxWidth(), fullScreen = true)
                         }
-                        IconButton(onClick = { revision++ }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Refresh, stringResource(R.string.html_preview_reload), Modifier.size(18.dp))
-                        }
-                        IconButton(onClick = { fullScreen = false }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Close, stringResource(R.string.provider_close), Modifier.size(18.dp))
-                        }
-                    })
-                    key(revision) { HtmlPreviewBrowser(code, Modifier.weight(1f).fillMaxWidth(), fullScreen = true) }
+                    }
                 }
             }
         }

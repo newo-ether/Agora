@@ -42,6 +42,12 @@ internal class HtmlPreviewWebView(
     }
 
     init {
+        // Compose's holder otherwise supplies WRAP_CONTENT. WebView then forces Blink's
+        // layout height to zero, collapsing the full-height sandbox iframe despite measurement.
+        layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+        )
         settings.apply {
             javaScriptEnabled = true
             allowFileAccess = false

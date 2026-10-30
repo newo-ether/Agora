@@ -37,6 +37,21 @@ one formula node and cannot duplicate surrounding prose or emit HTML attribute f
 `ChatMarkdownCodeBlock` also renders standalone raw code with the same code background, padding,
 typography and wrapping. Its copy header stays enabled by default. A host that already owns a guarded
 copy action may omit that header without changing other consumers or duplicating the code renderer.
+Native fenced and standalone code share `ChatCodeBlockSurface`, `ChatCodeBlockHeader` and
+`ChatCodeBlockAction` in ChatMarkdownCode. This Material 3 Expressive presentation uses a 24 dp
+rounded surfaceContainerLow shell, a surfaceContainerHigh header and no legacy hairline divider.
+The language uses theme labelMedium with the app's default font and single-line ellipsis; it
+yields width to the end-aligned actions. Single-row headers are 40 dp high with no vertical
+padding. Uncontained IconButtons occupy independent 40 dp squares with 16 dp glyphs and the
+standard Material indication. Secondary actions use onSurfaceVariant; Source/Run uses primary.
+At narrow widths whole actions wrap without overlapping or shrinking their layout bounds.
+The same shared shell/header/actions surround fullscreen HTML. Existing code typography, content
+padding, search/source offsets, horizontal scrolling, selection and copy guards stay authoritative.
+The shared native renderers carry this styling into their current callers, including source-only
+Remote and detail views. Browser WebUI uses the same tonal roles, 24 px code shell, default-font
+language label, 40 px header/copy control and 16 px icon. Its code body remains monospace and
+retains exact copy and optional horizontal scrolling. Both native Markdown table paths and WebUI
+tables use 24 dp/px rounded backgrounds without changing cells, search or scrolling.
 Completed native HTML fences additionally follow [interactive-html.md](interactive-html.md). The shared
 code leaf retains source/search/copy ownership; preview admission uses the existing AST and explicit
 streaming state. Standalone raw-code components, Remote and WebUI remain source-only.

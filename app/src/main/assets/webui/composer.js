@@ -698,7 +698,7 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
             onClick=${() => sync.setting("thinkingEnabled", !controls.displayedThinkingEnabled)}></button>
         </div>
         ${controls?.isGemini && [["codeExecutionEnabled", t.codeExecution, ICON_TERMINAL], ["googleSearchEnabled", t.googleSearch, ICON_GOOGLE]].map(([key, label, path]) => html`
-          <button class="dropdown-item" role="menuitemcheckbox" aria-checked=${controls[key]} data-pending=${capabilityAvailable && !!state.pendingAction} disabled=${!capabilityEnabled} onClick=${() => sync.setting(key, !controls[key])}>
+          <button class="dropdown-item provider-capability" role="menuitemcheckbox" aria-checked=${controls[key]} data-pending=${capabilityAvailable && !!state.pendingAction} disabled=${!capabilityEnabled} onClick=${() => sync.setting(key, !controls[key])}>
             ${icon(path)}<span class="tool-label">${label}</span><small class="provider-badge">Gemini</small><span class="tool-switch" data-checked=${controls[key]}></span></button>`)}
         ${controls?.openAiServiceTierAvailable && state.composer.modelValid && html`<div class="dropdown-item tool-split" data-disabled=${!capabilityAvailable} data-pending=${capabilityAvailable && !!state.pendingAction}>
           ${icon(ICON_SPEED)}<button class="tool-label" role="menuitem" disabled=${!capabilityEnabled} onClick=${() => openTool("tier")}>
@@ -708,8 +708,8 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
         </div>`}
         ${[["openAiWebSearchAvailable", "openAiWebSearchEnabled", t.openAiSearch, ICON_OPENAI], ["webSearchAvailable", "webSearchEnabled", t.webSearch, ICON_LANGUAGE], ["shellAvailable", "shellEnabled", t.shell, ICON_TERMINAL]]
           .filter(([available]) => controls?.[available] && (available !== "openAiWebSearchAvailable" || state.composer.modelValid)).map(([, key, label, path]) => html`
-          <button class="dropdown-item" role="menuitemcheckbox" aria-checked=${controls[key]} data-pending=${capabilityAvailable && !!state.pendingAction} disabled=${!capabilityEnabled} onClick=${() => sync.setting(key, !controls[key])}>
-            ${icon(path)}<span class="tool-label">${label}</span><span class="tool-switch" data-checked=${controls[key]}></span></button>`)}
+          <button class=${`dropdown-item${key === "openAiWebSearchEnabled" ? " provider-capability" : ""}`} role="menuitemcheckbox" aria-checked=${controls[key]} data-pending=${capabilityAvailable && !!state.pendingAction} disabled=${!capabilityEnabled} onClick=${() => sync.setting(key, !controls[key])}>
+            ${icon(path)}<span class="tool-label">${label}</span>${key === "openAiWebSearchEnabled" && html`<small class="provider-badge">OpenAI</small>`}<span class="tool-switch" data-checked=${controls[key]}></span></button>`)}
         <button class="dropdown-item" role="menuitem" disabled=${!compactAvailable} onClick=${() => openEditor("compact")}>${icon(ICON_COMPRESS)}<span>${t.compact}</span></button>
         <button class="dropdown-item" role="menuitem" disabled=${!settingsAvailable || !state.composer.advanced} onClick=${() => openEditor("advanced")}>${icon(ICON_TUNE)}<span>${t.advanced}</span></button>
       </${MoreMenu}>`}

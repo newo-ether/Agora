@@ -101,6 +101,11 @@ The monochrome Google Search and OpenAI Search provider icons inherit the dropdo
 content color. They therefore remain legible across light and dark themes and retain inherited
 disabled-state alpha; neither row hard-codes a light or dark tint. Provider artwork, icon size,
 spacing, labels, badges, switches, availability, ordering, and interaction remain unchanged.
+WebUI mirrors the native text-slot color for the Code Execution, Google Search and OpenAI Search
+leading glyphs, including disabled and pending states. Their provider badges use primaryContainer
+with onPrimaryContainer in both light and dark themes. Code Execution and Google Search show Gemini;
+OpenAI Search shows OpenAI. These labels identify the Provider and do not indicate toggle state.
+The WebUI fix changes presentation only, without changing capability availability or setting writes.
 
 ## 5. Chat bottom-bar answer fade
 

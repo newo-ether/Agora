@@ -49,6 +49,7 @@ import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.MarkdownColors
+import com.mikepenz.markdown.model.MarkdownDimens
 import com.mikepenz.markdown.model.MarkdownPadding
 import com.mikepenz.markdown.model.MarkdownTypography
 import com.mikepenz.markdown.compose.MarkdownElement
@@ -194,18 +195,8 @@ internal fun rememberChatMarkdownAssets(
         textLink = linkTextStyles,
         table = thoughtMarkdownBodyStyle,
     )
-    val fg = MaterialTheme.colorScheme.onBackground
-    val bg = MaterialTheme.colorScheme.surface
-    // Composite fg at 0.1 alpha over bg to produce the exact opaque equivalent
-    val codeBg = remember(fg, bg) {
-        Color(
-            red   = fg.red   * 0.1f + bg.red   * 0.9f,
-            green = fg.green * 0.1f + bg.green * 0.9f,
-            blue  = fg.blue  * 0.1f + bg.blue  * 0.9f,
-        )
-    }
     val customMarkdownColors = markdownColor(
-        codeBackground = codeBg,
+        codeBackground = MaterialTheme.colorScheme.surfaceContainerLow,
         inlineCodeBackground = Color.Transparent,
     )
     val customMarkdownPadding = markdownPadding(block = 8.dp)
@@ -493,6 +484,7 @@ internal fun rememberChatMarkdownAssets(
  * MarkdownTable draws the GFM delimiter row as a MarkdownDivider using dividerColor. A 0dp
  * thickness would still render as a hairline, so the divider is made transparent instead.
  * Table cells only hold inline content, so no other divider lives inside this scope.
+ * Both table paths retain their existing layout and share the code shell's 24 dp corners.
  */
 @Composable
 private fun WithoutTableHeaderDivider(content: @Composable () -> Unit) {
@@ -502,7 +494,17 @@ private fun WithoutTableHeaderDivider(content: @Composable () -> Unit) {
             override val dividerColor: Color = Color.Transparent
         }
     }
-    CompositionLocalProvider(LocalMarkdownColors provides colors, content = content)
+    val baseDimens = LocalMarkdownDimens.current
+    val dimens = remember(baseDimens) {
+        object : MarkdownDimens by baseDimens {
+            override val tableCornerSize = 24.dp
+        }
+    }
+    CompositionLocalProvider(
+        LocalMarkdownColors provides colors,
+        LocalMarkdownDimens provides dimens,
+        content = content,
+    )
 }
 
 @Composable
