@@ -80,6 +80,53 @@ class ConversationReadSnapshotTest {
         assertEquals("after", database.chatDao().getMessage("m")?.text)
     }
 
+    @Test fun readerOpenedAfterAnActiveWriterSeesCommittedDataWithoutWaitingForThatWriter() = runBlocking {
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val writer = async(Dispatchers.IO) {
+            database.withTransaction {
+                database.chatDao().updateConversationTitle("owner", "Uncommitted", 2)
+                entered.complete(Unit)
+                release.await()
+            }
+        }
+        try {
+            withTimeout(10_000) { entered.await() }
+            val before = withTimeout(5_000) {
+                repository.withReadSnapshot { it.getConversation("owner")?.title }
+            }
+            assertEquals("Before", before)
+        } finally { release.complete(Unit) }
+        writer.await()
+        assertEquals("Uncommitted", database.chatDao().getConversation("owner")?.title)
+    }
+
+    @Test fun concurrentReadersHaveIndependentSnapshotsAndCancellationDoesNotCloseOtherReaders() = runBlocking {
+        val entered = List(8) { CompletableDeferred<Unit>() }
+        val releases = List(8) { CompletableDeferred<Unit>() }
+        val readers = entered.indices.map { index ->
+            async(Dispatchers.IO) {
+                repository.withReadSnapshot { dao ->
+                    dao.getConversation("owner")
+                    entered[index].complete(Unit)
+                    releases[index].await()
+                    dao.getConversation("owner")?.title
+                }
+            }
+        }
+        try {
+            withTimeout(15_000) { entered.forEach { it.await() } }
+            withTimeout(5_000) { repository.updateConversationTitle("owner", "After concurrent capture") }
+            readers.take(4).forEach { it.cancelAndJoin() }
+            releases.drop(4).forEach { it.complete(Unit) }
+            readers.drop(4).forEach { assertEquals("Before", it.await()) }
+        } finally {
+            releases.forEach { it.complete(Unit) }
+            readers.forEach { it.cancelAndJoin() }
+        }
+        assertEquals("After concurrent capture", repository.withReadSnapshot { it.getConversation("owner")?.title })
+    }
+
     @Test fun cancellationReleasesReaderAndNullResultsNeverReplayTheBlock() = runBlocking {
         val captured = CompletableDeferred<Unit>()
         val read = async(Dispatchers.IO) {

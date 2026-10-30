@@ -773,6 +773,10 @@ and task-recovery reads never enter the foreground write transaction lane. Expor
 read boundary with background priority. Actual read/modify/write recovery and queue decisions retain
 their atomic write boundary. Database open/close also run off the main thread, and the snapshot
 remains attached to its caller's cancellation. Nullable transaction results never replay the operation.
+Each invocation owns and finally closes its database and executors; concurrent readers do not queue
+behind another snapshot's long read transaction. Tests cover opening after a foreground writer has
+started, multiple simultaneous readers, and cancellation of only some readers. Per-call connection
+and executor construction has a resource cost; this isolation does not imply a shared reusable pool.
 Tool-round sequence allocation retains the canonical per-Run MAX-plus-one rule in the same write
 transaction. Schema 44 adds a covering (runId, runSequence) index, so allocation reads indexed metadata
 without visiting message bodies or adding a second sequence authority. The same migration adds

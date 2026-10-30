@@ -1,13 +1,11 @@
 package com.newoether.agora.data.local
 
 import android.app.Application
-import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunStatus
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.Executor
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -30,8 +28,9 @@ class SemanticEmbeddingGenerationTest {
         timestamp = 1, runId = "run", runSequence = 0)
 
     @Before fun open() = runBlocking {
-        db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ChatDatabase::class.java)
-            .allowMainThreadQueries().setQueryCallback({ query, _ -> sql += query }, Executor { it.run() }).build()
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        db = ChatDatabase.build(context, queryCallback = { query, _ -> sql += query })
         dao = db.chatDao()
         ledger = db.semanticIndexDao()
         dao.upsertConversation(ChatEntity("owner", "Owner"))
