@@ -1,0 +1,343 @@
+/* The shell's single combined measurement includes the shared tools row. */
+.scroll-bottom-slot { position: absolute; bottom: calc(var(--chat-bottom-inset) - var(--chat-tools-message-inset, 0px) + var(--chat-tools-lift, 0px) + 8px); left: 0; right: 0; width: 48px; height: 48px; margin: 0 auto; display: grid; place-items: center; z-index: 1; }
+.scroll-bottom-button { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--tonal-4); color: var(--md-on-surface); opacity: 0; transform: scale(.6); cursor: pointer; }
+.scroll-bottom-button svg { width: 24px; height: 24px; fill: currentColor; }
+/* ChatComposerSurface: 12 dp above, 8 dp around, content at most 840 dp. */
+/* The shared track is the only horizontal scroll owner, outside the timeline's layout. */
+.tools-row { position: absolute; bottom: calc(100% - 12px); left: 0; right: 0; width: min(calc(100% - 8px), 832px); margin: 0 auto; pointer-events: none; }
+.tools-scroll { overflow-x: auto; overflow-y: hidden; padding: 0 12px; height: 0; box-sizing: border-box; scrollbar-width: none; overflow-anchor: none; overscroll-behavior-x: contain; pointer-events: auto; }
+.tools-scroll::-webkit-scrollbar { display: none; }
+@property --tools-edge-left { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --tools-edge-right { syntax: "<number>"; inherits: false; initial-value: 0; }
+.tools-scroll {
+  mask-mode: alpha;
+  mask-image: linear-gradient(to right,
+    rgb(0 0 0 / calc(1 - var(--tools-edge-left))) 0,
+    black min(40px, 50%), black calc(100% - min(40px, 50%)),
+    rgb(0 0 0 / calc(1 - var(--tools-edge-right))) 100%);
+  transition: --tools-edge-left 200ms cubic-bezier(.4, 0, .2, 1), --tools-edge-right 200ms cubic-bezier(.4, 0, .2, 1);
+}
+.tools-track { position: relative; display: flex; align-items: flex-end; gap: 8px; width: max-content; min-width: 100%; height: 100%; box-sizing: border-box; padding: 8px 0; justify-content: center; }
+.tools-item { position: relative; display: flex; align-items: flex-end; flex: none; width: max-content; height: 0; }
+.tools-item[inert] { pointer-events: none; }
+.tools-item-visual { flex: none; transform-origin: 50% 100%; }
+.tools-scroll-range { position: absolute; inset-inline-start: 0; bottom: 0; height: 1px; pointer-events: none; }
+.interaction-host { max-width: var(--tools-viewport-width, 816px); }
+.interaction-card { position: relative; flex: none; width: var(--tools-viewport-width, 816px); box-sizing: border-box; border-radius: 24px; overflow: hidden; background: var(--md-surface-container-high); color: var(--md-on-surface); transform-origin: 50% 100%; box-shadow: var(--shadow-4); pointer-events: auto; }
+.interaction-full { position: relative; padding: 14px 16px; box-sizing: border-box; }
+/* CapsuleLabel: 18 dp primary icon, titleSmall bold onSurface, 10 dp, 18 dp onSurfaceVariant expand icon. */
+.interaction-capsule { position: absolute; top: 0; left: 0; height: 48px; width: max-content; display: flex; align-items: center; gap: 8px; padding: 0 16px; border: 0; border-radius: 24px; background: transparent; color: var(--md-on-surface); font: inherit; font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: 0.1px; opacity: 0; }
+.interaction-capsule > svg:first-child { color: var(--md-primary); }
+.interaction-capsule > svg:last-child { margin-left: 2px; color: var(--md-on-surface-variant); }
+.interaction-card:not(.folded) .interaction-capsule { pointer-events: none; }
+/* CardHeader: 18 dp primary icon, 8 dp, titleSmall bold; 40 dp end padding clears the minimize button. */
+.interaction-header { display: flex; align-items: center; gap: 8px; min-height: 20px; padding-inline-end: 40px; font-size: 14px; line-height: 20px; }
+.interaction-header strong { font-weight: 700; letter-spacing: 0.1px; }
+.interaction-header > svg, .interaction-capsule > svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.interaction-header > svg { color: var(--md-primary); }
+.interaction-server { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--md-on-surface-variant); }
+.interaction-position { margin-inline-start: auto; white-space: nowrap; color: var(--md-on-surface-variant); font-size: 12px; line-height: 16px; font-weight: 500; }
+/* IconButton (48 dp) at the content box's top end with 4 dp end padding; 20 dp collapse_content. */
+.interaction-header .interaction-minimize { position: absolute; top: 0; inset-inline-end: 4px; margin: 0; width: 48px; height: 48px; flex: none; color: var(--md-on-surface-variant); }
+.interaction-header .interaction-minimize svg { width: 20px; height: 20px; }
+.interaction-pages { position: relative; overflow: hidden; margin-top: 10px; }
+.interaction-body { width: 100%; box-sizing: border-box; }
+.interaction-outgoing { position: absolute; top: 0; left: 0; pointer-events: none; }
+.interaction-question { font-size: 14px; line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 10px; user-select: text; }
+.interaction-body:has(.interaction-question) { max-height: 200px; overflow-y: auto; }
+.interaction-options { display: flex; flex-direction: column; }
+.interaction-answer { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 180ms cubic-bezier(.4,0,.2,1), opacity 180ms cubic-bezier(.4,0,.2,1); }
+.interaction-answer.open { grid-template-rows: 1fr; opacity: 1; }
+.interaction-answer > div { min-height: 0; overflow: hidden; }
+.shell[data-reduce-motion="true"] .interaction-answer { transition: none; }
+/* OptionRow: clip(OptionShape) + clickable, 8 dp side padding, a 20 dp control in its 2 dp
+   padding, 12 dp, bodyMedium text with 8 dp vertical padding. The selection shows only in the
+   control; the row itself has no selected fill. */
+.interaction-option { display: flex; align-items: center; gap: 12px; padding: 0 8px; box-sizing: border-box; border-radius: 24px; overflow: hidden; cursor: pointer; font-size: 14px; line-height: 20px; letter-spacing: 0.25px; }
+.interaction-card .interaction-option input { margin: 2px; }
+.interaction-option span { overflow-wrap: anywhere; min-width: 0; padding: 8px 0; }
+/* OutlinedTextField: 10 dp above, bodyMedium, 16 dp padding, 56 dp min height, shape 16, maxLines 4. */
+.interaction-body textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 10px; min-height: 56px; max-height: 114px; field-sizing: content; border: 1px solid var(--md-outline); border-radius: 16px; padding: 16px; color: inherit; background: transparent; font: inherit; font-size: 14px; line-height: 20px; letter-spacing: 0.25px; resize: none; outline: none; }
+.interaction-body textarea:focus { border-color: var(--md-primary); box-shadow: inset 0 0 0 1px var(--md-primary); }
+.interaction-body pre { max-height: 200px; overflow: auto; padding: 12px; margin: 0; border-radius: 8px; background: var(--md-surface-container-high); font-size: 13px; }
+.interaction-body pre.wrapped { white-space: pre-wrap; overflow-wrap: anywhere; }
+.interaction-trust { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 8px; font-size: 14px; }
+.interaction-card input { accent-color: var(--md-primary); flex: none; width: 18px; height: 18px; }
+.interaction-actions { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+/* TextButton 12 dp / Button 24 dp horizontal padding, 40 dp tall, labelLarge. Disabled: content
+   onSurface 38 %, a filled container onSurface 12 %. */
+.interaction-actions button { min-height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--md-primary); border-radius: 20px; font: inherit; font-size: 14px; line-height: 20px; font-weight: 500; letter-spacing: 0.1px; cursor: pointer; }
+.interaction-actions .filled-button { padding: 0 24px; background: var(--md-primary); color: var(--md-on-primary); }
+.interaction-actions .deny { color: var(--md-error); }
+.interaction-actions button:disabled { cursor: default; color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.interaction-actions .filled-button:disabled { background: color-mix(in srgb, var(--md-on-surface) 12%, transparent); }
+.interaction-action-space { flex: 1; }
+.tools-track > .detail-sheet-layer { pointer-events: auto; }
+.todo-capsule { display: flex; align-items: center; gap: 8px; height: 48px; max-width: 816px; padding: 0 16px; border: 0; border-radius: 24px; background: var(--md-surface-container-high); color: var(--md-on-surface); box-shadow: var(--shadow-4); font: inherit; cursor: pointer; pointer-events: auto; transform-origin: 50% 100%; }
+.todo-capsule:disabled { pointer-events: none; }
+.todo-capsule > svg { width: 18px; height: 18px; flex: none; fill: currentColor; color: var(--md-primary); }
+.todo-capsule strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: 0; }
+.todo-capsule > span { flex: none; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--md-on-surface-variant); }
+.subagent-capsule { display: flex; align-items: center; gap: 8px; height: 48px; max-width: min(240px, var(--tools-viewport-width, 816px)); flex: none; padding: 0 16px; border: 0; border-radius: 24px; background: var(--md-surface-container-high); color: var(--md-on-surface); --md-component-transition: background-color 250ms linear, color 250ms linear; transition: var(--md-component-transition); box-shadow: var(--shadow-4); font: inherit; cursor: pointer; }
+.subagent-capsule[aria-current="page"] { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+.subagent-status { position: relative; width: 18px; height: 18px; flex: none; }
+.subagent-status > span { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; }
+.subagent-status svg { width: 18px; height: 18px; fill: currentColor; }
+.subagent-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.subagent-text > small { font-size: 10px; line-height: 12px; font-weight: 500; color: var(--md-on-surface-variant); transition: color 250ms linear; }
+.subagent-title { display: grid; max-width: 100%; font-size: 14px; line-height: 20px; font-weight: 700; }
+.subagent-title > span { grid-area: 1 / 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0; }
+.subagent-choices { padding: 4px 24px calc(32px + env(safe-area-inset-bottom)); }
+.subagent-choice { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; border: 0; border-radius: 24px; background: transparent; color: var(--md-on-surface); font: inherit; text-align: start; cursor: pointer; }
+.subagent-choice[aria-current="page"] { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+.subagent-choice-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.subagent-choice-text > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; line-height: 24px; font-weight: 600; }
+.subagent-choice-text > small { font-size: 12px; line-height: 16px; color: var(--md-on-surface-variant); }
+.subagent-choice[aria-current="page"] .subagent-choice-text > small { color: inherit; }
+.subagent-capsule[aria-current="page"] .subagent-text > small { color: inherit; }
+.todo-list { padding: 4px 24px calc(32px + env(safe-area-inset-bottom)); }
+.todo-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; font-size: 14px; line-height: 20px; font-weight: 400; }
+.todo-status { width: 20px; height: 20px; flex: none; color: var(--md-on-surface-variant); }
+.todo-status svg { width: 20px; height: 20px; fill: currentColor; }
+.todo-item[data-status="in_progress"] .todo-status { color: var(--md-primary); }
+.todo-content { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.composer-host {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  padding: 12px 8px calc(8px + env(safe-area-inset-bottom));
+}
+.composer-host:not(.composer-expanded) { pointer-events: none; }
+.composer-host:not(.composer-expanded) > .composer { pointer-events: auto; }
+/* Input content, queue status and controls have separate size ownership. */
+.composer-input-clip { flex: none; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; border-radius: 20px 20px 0 0; background: var(--tonal-2); }
+.composer-input-content { flex: none; width: 100%; }
+.composer { position: relative; }
+.composer-outer-spacer { flex: none; height: 0; }
+.composer-header-spacer { flex: none; height: 0; }
+.composer-controls, .queue-status { flex: none; }
+/* Surface at 2 dp tonal elevation, 8 dp shadow, 28 dp corners. The 840 dp host includes 8 dp sides. */
+.composer {
+  display: flex;
+  flex-direction: column;
+  max-width: 824px;
+  margin: 0 auto;
+  padding: 8px 4px 10px;
+  border-radius: 28px;
+  background: var(--tonal-2);
+  box-shadow: var(--shadow-8);
+}
+.composer-field { position: relative; }
+/* ChatType.input 16/23; text starts 18 dp in and 16 dp down, ends 22 dp above the controls. */
+.composer-field textarea {
+  display: block;
+  width: 100%;
+  max-height: calc(6 * 23px + 24px);
+  padding: 8px 16px 16px 14px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--md-on-surface);
+  font: inherit;
+  font-size: 16px;
+  line-height: 23px;
+  letter-spacing: 0.5px;
+  caret-color: var(--md-primary);
+}
+.composer-field textarea::placeholder {
+  color: color-mix(in srgb, var(--md-on-surface-variant) 60%, transparent);
+  opacity: 1;
+}
+/* 40 dp expand button whose 20 dp icon sits 18 dp from the card's top and end. */
+.expand-button {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  --md-component-background: radial-gradient(
+    circle,
+    var(--tonal-2) 0%,
+    color-mix(in srgb, var(--tonal-2) 50%, transparent) 50%,
+    transparent 100%
+  );
+  background: var(--md-component-background);
+  color: color-mix(in srgb, var(--md-primary) 90%, transparent);
+}
+.expand-button svg { width: 20px; height: 20px; fill: currentColor; }
+.expand-button:disabled { color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.composer-expanded {
+  position: absolute;
+  inset: var(--chat-top-inset) 0 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
+}
+.composer-expanded > .tools-row { bottom: calc(var(--composer-collapsed-height) - 12px); }
+.composer-expanded-backdrop { display: none; }
+.composer-expanded > .composer-expanded-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(transparent min(20px, 12%), var(--md-background) calc(min(20px, 12%) + min(40px, 24%)));
+}
+.composer-expanded .composer { flex: 1; min-height: 0; width: 100%; justify-content: flex-end; }
+.composer-expanded .composer-input-clip { flex: 1; }
+.composer-expanded .composer-input-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.composer-expanded .attachment-row { flex: none; }
+.composer-expanded .composer-field { flex: 1; min-height: 0; }
+.composer-expanded .composer-field textarea { height: 100%; max-height: none; }
+.collapse-button { top: 12px; right: 8px; z-index: 2; }
+.expand-button[inert] { pointer-events: none; }
+/* The messages' negative bottom margin is what lets the last row scroll out from under the collapsed
+   bar while the mask fades it there. In the expanded state the bar covers the whole frame, so that
+   margin has to go with the mask: leaving it in place made the scrollport taller than the frame by the
+   height of the expanded bar, and the browser clamped the pinned position to the new maximum - the
+   "scroll jumps up a little when the composer opens" the owner filed. */
+.chat-composer-expanded .messages { mask-image: none; margin-bottom: 0; }
+/* Controls row: 6 dp above, 10 dp from the card sides. The 14 dp gap is COMPOSER_SEND_BUTTON_GAP,
+   the Spacer the phone emits after the controls group, so the group can never grow into the send
+   button and its own room stays what the row leaves it (weight(1f, fill = false)). */
+.composer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 6px 6px 0;
+}
+/* ComposerControlGroup: 48 dp capsule at 8 dp tonal elevation, 8 dp side padding. It takes its
+   width from its content and may shrink to nothing, exactly as a weighted non-filling Row child. */
+.control-group {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  height: 48px;
+  padding: 0 8px;
+  border-radius: 24px;
+  background: var(--tonal-8);
+}
+/* The three end buttons of ComposerControlGroup are IconButton(size 32.dp) with an 18 dp icon
+   tinted onSurfaceVariant; only the model selector is 38 dp tall, and the Row centers it. */
+.control-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--md-on-surface-variant);
+}
+.control-icon svg { width: 18px; height: 18px; fill: currentColor; }
+.control-icon:disabled { color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+/* ComposerModelSelector: a start-anchored clip moves over the whole button, ripple included, at the
+   animated identity width; the button itself keeps its measured target width and each label keeps
+   its own width inside, fading through the moving edge. 38 dp tall, 8 dp padding, labelMedium 13 sp;
+   an unset model reads at 50 %. */
+.model-selector {
+  /* A <button> does not inherit the page font; without this the label fell back to system-ui. */
+  font: inherit;
+  flex: none;
+  position: relative;
+  width: 0;
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--md-on-surface) 50%, transparent);
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 19px;
+}
+.model-button {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 38px;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  /* labelMedium.copy(fontSize = 13.sp): Medium, lineHeight 15 sp, letterSpacing 0.5 sp. */
+  font-size: 13px;
+  line-height: 15px;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+  text-align: start;
+  cursor: pointer;
+}
+.model-selector:disabled { cursor: default; }
+.model-label {
+  /* wrapContentWidth(unbounded = true).widthIn(max = labelMaxWidth): the label takes the intrinsic
+     width of its own text, is capped only by the room the group leaves, and ellipsizes at that cap.
+     --model-label-room is the measured room the script hands down, never a second width owner. */
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 8px;
+  width: max-content;
+  max-width: var(--model-label-room, 100%);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* ComposerSendButton: 48 dp circle; surfaceVariant with a 24 dp arrow while it cannot send. */
+.send-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--md-surface-variant);
+  color: var(--md-on-surface-variant);
+}
+.send-button svg { width: 24px; height: 24px; fill: currentColor; }
+.send-icon-slot { display: grid; place-items: center; width: 24px; height: 24px; }
+.send-icon { grid-area: 1 / 1; display: grid; place-items: center; pointer-events: none; }
+.detail-sheet-select-text {
+  padding: 12px 24px 32px; font-size: 14px; line-height: 24.2px;
+  white-space: pre-wrap; overflow-wrap: anywhere; user-select: text;
+}
+/* transition is one property, so the state layer rides along with the send phase colors. */
+.send-button { flex: none; --md-component-transition: background-color 400ms, color 400ms; }
+.send-button:not(:disabled) { background: var(--md-primary); color: var(--md-on-primary); }
+.chat-snackbar-host {
+  position: absolute; z-index: 2;
+  bottom: calc(var(--chat-bottom-inset) + 2px); left: 0; right: 0;
+  display: flex; justify-content: center; padding: 10px 12px;
+  pointer-events: none;
+}
+.chat-snackbar {
+  display: flex; align-items: center; width: min(632px, 100%); min-height: 48px;
+  padding: 0 8px 0 16px; border-radius: 12px;
+  background: var(--md-surface-container-high); color: var(--md-on-surface);
+  box-shadow: 0 3px 8px rgb(0 0 0 / .25);
+  font-size: 13px; line-height: 19px; font-weight: 400; letter-spacing: .25px;
+  transform-origin: center; pointer-events: auto;
+}
+.chat-snackbar-text { flex: 1; min-width: 0; padding: 6px 8px 6px 0; overflow-wrap: anywhere; }
+.chat-snackbar-close {
+  flex: none; display: grid; place-items: center; width: 28px; height: 28px;
+  padding: 0; border: 0; border-radius: 50%; background: transparent;
+  color: var(--md-on-surface-variant); cursor: pointer;
+}
+.chat-snackbar-close svg { width: 18px; height: 18px; fill: currentColor; }
+.model-selector[data-valid="true"] { color: var(--md-primary); }
+.composer-menu { max-height: min(480px, 50dvh); overflow-y: auto; }
+.composer-menu .dropdown-item { height: auto; min-height: 48px; white-space: normal; overflow-wrap: anywhere; }
+.composer-menu .dropdown-item > span:last-child { min-width: 0; }

@@ -99,22 +99,6 @@ import kotlinx.coroutines.launch
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 
-internal enum class DrawerConversationIndicator {
-    NONE,
-    GENERATING,
-    UNREAD,
-}
-
-internal fun resolveDrawerConversationIndicator(
-    isGenerating: Boolean,
-    isSelected: Boolean,
-    hasUnreadGeneration: Boolean,
-): DrawerConversationIndicator = when {
-    isGenerating -> DrawerConversationIndicator.GENERATING
-    hasUnreadGeneration && !isSelected -> DrawerConversationIndicator.UNREAD
-    else -> DrawerConversationIndicator.NONE
-}
-
 internal val DrawerEdgeFadeTolerance = 2.dp
 
 internal fun drawerConversationKeys(conversations: List<ChatConversation>): List<String> {
@@ -189,6 +173,7 @@ internal fun ChatDrawerContent(
         ?.parentConversationId ?: currentConversationId
     val isSwitching by viewModel.isSwitching.collectAsState()
     val generatingConversationIds by viewModel.generatingConversationIds.collectAsState()
+    val drawerInteractions by viewModel.drawerInteractions.collectAsState()
     val customProviders by viewModel.settings.customProviders.collectAsState()
     val search = rememberDrawerSearchState(viewModel)
 
@@ -433,12 +418,11 @@ internal fun ChatDrawerContent(
                                         isGenerating = isGenerating,
                                         isSelected = isSelected,
                                         hasUnreadGeneration = conversation.hasUnreadGeneration,
+                                        interaction = drawerInteractions.drawerInteraction(conversation.id),
                                     )
                                     val menuEnabled = !isSwitching
                                     val deleteEnabled = menuEnabled &&
                                         conversation.id !in submittingConversationIds
-                                    val unreadDescription =
-                                        stringResource(R.string.conversation_unread_generation)
                                     var showMenu by remember { mutableStateOf(false) }
                                     var pressOffset by remember { mutableStateOf(DpOffset.Zero) }
                                     var lastPosition by remember {
@@ -559,39 +543,7 @@ internal fun ChatDrawerContent(
                                                     modifier = Modifier.size(18.dp),
                                                     contentAlignment = Alignment.Center,
                                                 ) {
-                                                    androidx.compose.animation.AnimatedVisibility(
-                                                        visible =
-                                                            indicator ==
-                                                                DrawerConversationIndicator.GENERATING,
-                                                        enter = fadeIn(tween(200)),
-                                                        exit = fadeOut(tween(200)),
-                                                    ) {
-                                                        CircularProgressIndicator(
-                                                            modifier = Modifier.size(18.dp),
-                                                            strokeWidth = 2.dp,
-                                                            color = selectionIndicatorColor,
-                                                        )
-                                                    }
-                                                    androidx.compose.animation.AnimatedVisibility(
-                                                        visible =
-                                                            indicator ==
-                                                                DrawerConversationIndicator.UNREAD,
-                                                        enter = fadeIn(tween(200)),
-                                                        exit = fadeOut(tween(200)),
-                                                    ) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(8.dp)
-                                                                .background(
-                                                                    MaterialTheme.colorScheme.primary,
-                                                                    CircleShape,
-                                                                )
-                                                                .semantics {
-                                                                    contentDescription =
-                                                                        unreadDescription
-                                                                },
-                                                        )
-                                                    }
+                                                    DrawerStatus(indicator, selectionIndicatorColor)
                                                 }
                                             }
                                         }

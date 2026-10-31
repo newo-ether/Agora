@@ -316,7 +316,14 @@ The drawer's first-list state is not a second conversation authority or a new se
 The native and WebUI drawers' ordinary conversation rows show their existing generation indicator while that
 conversation generates or any linked Subagent is running. The parent remains active until both its
 own generation and all child activity end, including when only one of several children finishes.
-The existing indicator appearance, unread priority and child-row visibility remain unchanged.
+Pending interactions take priority over generation in that same 18 dp slot on Compose and WebUI:
+Ask User and approval both use the standalone QuestionMark icon, without the Help circle or the
+interaction-kind icon (owner request 2026-10-30). Accessibility labels still identify the request kind.
+Approval wins when both kinds are pending. Indicators include nonblocking questions after generation ends, clear when answered,
+expired or cancelled, and surface a child's request on its visible parent. Process controller flows
+remain authoritative; only pending owner/parent metadata is observed, never unopened message payloads.
+Unowned prompts follow the interaction bar's all-conversation visibility. Existing unread behavior
+resumes when no interaction or generation is pending.
 `ChatViewModel.generatingConversationIds` and `WebUiSync` consume the same repository presentation-only union of
 foreground generation, automation and registered delegation Jobs, including each active child's
 parent ID. Parent membership is observed in one narrow Room query restricted to those active IDs;
@@ -1081,8 +1088,8 @@ Sign Out). The drawer is `ChatDrawerContent`: `min(width, 360 dp)`, `1 dp` tonal
 corners, `16 x 20 dp` padding, the Agora title (`25/32` bold) and trailing expandable search
 in the same first row as defined in section 16, the `42 dp` New Chat button and the list below. The
 search capsule uses the same `56 dp` height and full-row width. Browser conversation rows omit the indicator container
-and its 8px gap when neither generation nor unread is visible. A visible indicator keeps its 18px
-slot and 8px gap; generation takes priority and unread is hidden for the selected conversation.
+and its 8px gap when no interaction, generation or unread is visible. A visible indicator keeps its 18px
+slot and 8px gap; interaction takes priority as defined in section 16, then generation, and unread is hidden for the selected conversation.
 This is a WebUI-only exception; native Compose retains its empty indicator reservation.
 The browser's trailing details button keeps its
 32px circular hit region centered in the 44px row slot. It is inset exactly 4px from the 40px capsule's
@@ -1630,6 +1637,11 @@ with and quotes the Material 3 1.4.0 token each came from, `progress.js` exports
 `material.css` owns the matching CSS. `index.html` loads `material.css` after `style.css` and before
 `theme.css`, so a theme override still wins. Duplicated spinner markup, hand-painted arcs and per-call-site
 slider math are gone, and a call site restates no Material number.
+Circular progress uses `primary` by default, including inline Tool/Markdown images, full-screen
+media and HTML preview loading. Image previews use the native shared 3 dp/px stroke: Tool/Markdown
+thumbnails keep a 28 dp/px ring, and full-screen media keeps the default 40 dp/px ring. Explicit
+foreground overrides are limited to the corresponding Compose control's content color, such as
+Composer buttons, selected drawer rows and Compact; a black media backdrop does not imply white.
 Circular progress has one owner for both states: a determinate ring paints a `SecondaryContainer` track
 under its arc and an indeterminate ring paints no track, matching `CircularProgressIndicatorTokens`. The
 indeterminate ring is one global `6000 ms` linear turn, a `90°` linear step over `300 ms` every

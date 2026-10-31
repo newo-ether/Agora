@@ -1,0 +1,155 @@
+/* ---- The animated scrollbar ----------------------------------------------------------------- */
+/* The floating bar owns input as well as paint; it never reserves content width. */
+.scrollbar-overlay {
+  --scrollbar-size: 4px;
+  position: absolute; right: 0; top: 0; height: 0; width: 12px; z-index: 2;
+  pointer-events: none; opacity: 0; transition: opacity 200ms linear;
+}
+.scrollbar-overlay.scrollable:is(.hover, .dragging) { opacity: 1; pointer-events: auto; touch-action: none; }
+.tools-row:has(.tools-scroll[data-tools-expanded="true"]) .tools-scrollbar { opacity: 0; pointer-events: none; }
+.chat:has(.conversation-loading-cover) > .scrollbar-overlay,
+.chat:has(.conversation-loading-cover) .tools-scrollbar { visibility: hidden; }
+.scrollbar-overlay > span {
+  position: absolute; left: calc(6px - var(--scrollbar-size) / 2); width: var(--scrollbar-size);
+  border-radius: 999px; background: color-mix(in srgb, var(--md-outline) 42%, transparent);
+  transition: width 150ms cubic-bezier(.2, 0, 0, 1), left 150ms cubic-bezier(.2, 0, 0, 1), background-color 150ms linear;
+}
+.scrollbar-overlay.scrollbar-horizontal { width: 0; height: 12px; }
+.scrollbar-overlay.scrollbar-horizontal > span {
+  top: calc(6px - var(--scrollbar-size) / 2); left: 0; width: 0; height: var(--scrollbar-size);
+  transition: height 150ms cubic-bezier(.2, 0, 0, 1), top 150ms cubic-bezier(.2, 0, 0, 1), background-color 150ms linear;
+}
+:is(.scrollbar-overlay.hover, .scrollbar-overlay.dragging) { --scrollbar-size: 7px; }
+.scrollbar-overlay.hover > span {
+  background: color-mix(in srgb, var(--md-outline) 68%, transparent);
+}
+.scrollbar-overlay.dragging > span { background: color-mix(in srgb, var(--md-outline) 92%, transparent); }
+@media (pointer: coarse) {
+  .scrollbar-overlay.scrollable > span { pointer-events: auto; touch-action: none; }
+  .scrollbar-overlay > span::after { content: ""; position: absolute; inset: -8px -10px -8px -18px; }
+  * { scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  .scrollbar-overlay.drawer-scrollbar, .scrollbar-overlay.tools-scrollbar { display: none; }
+}
+.shell[data-reduce-motion="true"] .scrollbar-overlay > span { transition: none; }
+/* Native scrollbar visibility must not resize the content under the floating owner. */
+.messages, .drawer-list, .detail-sheet-content, .scrollbar-host { scrollbar-width: none; scrollbar-gutter: auto; }
+:is(.messages, .drawer-list, .detail-sheet-content, .scrollbar-host)::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/* ---- Row furniture: source label, action line, compact pill --------------------------------- */
+/* MessageSourceLabel: a 14 dp icon and labelSmall 4 dp above an automatic user bubble. */
+.message-source {
+  display: flex; align-items: center; gap: 4px; padding: 0 4px 4px 0;
+  color: var(--md-on-surface-variant); font-size: 11px; line-height: 16px; letter-spacing: 0.5px;
+}
+.message-source svg { flex: none; width: 14px; height: 14px; fill: currentColor; }
+/* AskUserAnswerBlocks: questions read one size below the 15 sp body at 60 %, answers at the body. */
+/* Each question is its own 14/20 block; the space above it and below its last line is padded back
+   to what a 24.2 px body line reserves ((24.2 - 20) / 2), and pairs are one empty body line apart. */
+.ask-user-question { display: block; font-size: 14px; line-height: 20px; padding: 2.1px 0; color: color-mix(in srgb, currentColor 60%, transparent); }
+.ask-user-answer { display: block; }
+.ask-user-answer + .ask-user-question { margin-top: 24.2px; }
+.ask-user-answer.unanswered { color: color-mix(in srgb, currentColor 60%, transparent); }
+/* Completion receipts keep the existing bubble and match the native compact text tiers. */
+.subagent-result { display: flex; flex-direction: column; gap: 4px; }
+.subagent-result-name {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.subagent-result-name { color: inherit; font-size: 14px; line-height: 20px; font-weight: 600; }
+.subagent-result-status { color: inherit; font-size: 12px; line-height: 16px; font-weight: 500; }
+/* AssistantMessageContent's action Box: 44 dp with 12 dp of top padding and 2 dp between icons. */
+.message-action-slot { position: relative; min-height: 44px; }
+.message-information { opacity: 1; transition: opacity 320ms linear; }
+.message-information[data-visible="false"] { opacity: 0; transition-duration: 220ms; }
+.message-actions {
+  display: flex; align-items: center; gap: 2px; height: 44px; padding-top: 12px; box-sizing: border-box;
+}
+.message-actions.answer-tail { position: absolute; inset: 0; }
+.citation-inline, .citation-summary {
+  border: 0; border-radius: 999px; background: var(--tonal-2);
+  color: color-mix(in srgb, var(--md-primary) 70%, transparent); font-family: inherit; cursor: pointer;
+}
+.citation-inline {
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; margin: 0 2px; padding: 0 7px;
+  max-width: calc(100% - 4px); vertical-align: middle; font-size: 11px; line-height: 12px; font-weight: 600;
+  animation: card-enter-alpha 320ms linear both; user-select: text;
+}
+.citation-primary { min-width: 0; max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: none; }
+.citation-alternate { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.citation-suffix { flex: none; white-space: nowrap; user-select: none; }
+.citation-summary { display: flex; align-items: center; gap: 8px; width: fit-content; min-height: 36px; margin: 12px 0 0 -4px; padding: 8px 16px; font-size: 13px; line-height: 18px; font-weight: 600; }
+.citation-summary svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.citation-sources { padding: 8px 16px 32px; }
+.citation-source { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; border-radius: 999px; background: transparent; color: var(--md-on-surface); padding: 12px; font: inherit; text-align: start; cursor: pointer; animation: card-enter-alpha 320ms linear both; }
+.citation-number { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: color-mix(in srgb, var(--md-on-surface-variant) 12%, transparent); color: color-mix(in srgb, var(--md-on-surface-variant) 80%, transparent); font-size: 12px; }
+.citation-source-content { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.citation-source-title { font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.citation-source-meta { color: var(--md-on-surface-variant); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+.citation-detail { padding: 12px 24px 32px; user-select: text; }
+.citation-detail p { margin: 0 0 12px; font: inherit; color: inherit; overflow-wrap: anywhere; }
+@keyframes message-actions-in { from { opacity: 0; } }
+.row-action {
+  position: relative; flex: none; width: 32px; height: 32px; display: grid; place-content: center;
+  border: 0; padding: 0; border-radius: 50%; background: transparent; cursor: pointer;
+  color: color-mix(in srgb, var(--md-on-surface-variant) 60%, transparent);
+  --md-component-transition: color 120ms linear;
+}
+.row-action svg { width: var(--row-icon, 18px); height: var(--row-icon, 18px); fill: currentColor; }
+.row-action:disabled { cursor: default; color: color-mix(in srgb, var(--md-on-surface-variant) 30%, transparent); }
+.shell[data-reduce-motion="true"] .row-action { transition: none; }
+.dropdown-item.destructive, .dropdown-item.destructive svg { color: var(--md-error); fill: var(--md-error); }
+/* A disabled Delete keeps its error colour at the disabled 38 % alpha, as on the phone; only the
+   alpha says it cannot be pressed. */
+.dropdown-item.destructive:disabled, .dropdown-item.destructive:disabled svg {
+  color: color-mix(in srgb, var(--md-error) 38%, transparent); fill: currentColor;
+}
+.page-dialog footer button.destructive { color: var(--md-error); }
+/* ChatRenameDialog's OutlinedTextField and ChatDeleteConfirmDialog's failure line. */
+.page-dialog .rename-field { width: 100%; margin: 0; padding: 12px 16px; border-radius: 16px; background: transparent; color: var(--md-on-surface); font: inherit; font-size: 16px; line-height: 23px; }
+.page-dialog .dialog-failure { color: var(--md-error); }
+/* ContextCompactPill: MessageItem centres the pill in the row. The Surface owns the click, so the
+   whole pill is the ripple host and its wave is cut by the pill radius; the trailing IconButton keeps
+   Compose's 32 dp box with an 18 dp icon and rides the Surface content colour, never primary. */
+.compact-row { display: flex; justify-content: center; }
+.compact-pill-box {
+  position: relative; display: inline-flex;
+  --compact-on: var(--md-on-secondary-container);
+}
+.compact-pill-box.error { --compact-on: color-mix(in srgb, var(--md-on-surface-variant) 80%, transparent); }
+.compact-pill {
+  display: flex; align-items: center; gap: 7px; min-height: 42px;
+  /* 7 dp leading, the 32 dp mark, 7 dp, the label, then the 7 dp gap plus the 32 dp detail slot. */
+  padding: 0 46px 0 7px; border: 0; border-radius: 100px; cursor: pointer; text-align: start;
+  font: inherit;
+  background: var(--md-secondary-container); color: var(--compact-on);
+  transition: background-color 240ms linear, color 240ms linear;
+}
+.compact-pill.error { background: color-mix(in srgb, var(--md-surface-variant) 40%, transparent); }
+.compact-mark { flex: none; width: 32px; height: 32px; display: grid; place-content: center; }
+.compact-mark svg { width: 18px; height: 18px; fill: currentColor; }
+.compact-label {
+  /* MaterialTheme.typography.labelLarge in Type.kt: Medium 13 sp / 18 sp, letterSpacing 0.1 sp. */
+  font-size: 13px; line-height: 18px; letter-spacing: 0.1px; font-weight: 500; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.compact-detail { position: absolute; top: 50%; right: 7px; transform: translateY(-50%); }
+.compact-detail .row-action { color: var(--compact-on); }
+.compact-detail .row-action:disabled { color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.shell[data-reduce-motion="true"] .compact-pill { transition: none; }
+/* MessageInfoDialog and the inline editor read as the phone's dialog body. */
+.message-info-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.message-info-list li { font-size: 14px; line-height: 20px; color: var(--md-on-surface-variant); overflow-wrap: anywhere; }
+.message-edit {
+  display: block;
+  width: 100%; box-sizing: border-box; min-height: 120px; max-height: 40dvh; margin: 0;
+  padding: 16px; border: 1px solid var(--md-outline); border-radius: 16px; background: transparent;
+  color: var(--md-on-surface); font: inherit; resize: vertical;
+
+}
+
+button.info-item:focus-visible { outline: none; }
+
+/* No text field on the phone carries a native resize handle, and the ones that grow do so with their
+ * content. The affordance is dropped for the whole frame rather than field by field, so a control
+ * cannot gain one by being added later. */
+:is(.shell, dialog) textarea { resize: none; }

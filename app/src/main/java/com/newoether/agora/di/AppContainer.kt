@@ -435,11 +435,22 @@ class AppContainer(
             toolImages = com.newoether.agora.webui.WebUiToolImages(
                 directory = java.io.File(appContext.filesDir, "tool-media"),
                 attachmentDirectory = appContext.filesDir,
+                markdownImage = com.newoether.agora.ui.chat.message.ShellMarkdownMedia(
+                    context = appContext,
+                    devices = { settingsRepository.shellDevices.value },
+                    sandboxEnabled = { settingsRepository.sandboxEnabled.value },
+                    sandbox = { sandboxManagerFactory?.takeIf { it.isAvailable() }?.create() },
+                )::previewImage,
                 loadMessage = { conversationId, messageId ->
-                    com.newoether.agora.viewmodel.ConversationMessagePayloadHydration(
-                        conversations = conversationRepository,
-                        appContext = appContext,
-                    ).loadMessages(conversationId, listOf(messageId)).singleOrNull()
+                    val persisted = conversationRepository.getMessagesByIds(listOf(messageId))
+                        .any { it.id == messageId && it.conversationId == conversationId }
+                    if (persisted) conversationStateRegistry.get(conversationId)?.generationSnapshot?.value
+                        ?.streamingMessage?.takeIf { it.id == messageId }
+                        ?: com.newoether.agora.viewmodel.ConversationMessagePayloadHydration(
+                            conversations = conversationRepository,
+                            appContext = appContext,
+                        ).loadMessages(conversationId, listOf(messageId)).singleOrNull()
+                    else null
                 },
             ),
         )

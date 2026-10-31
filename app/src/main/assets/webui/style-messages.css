@@ -1,0 +1,344 @@
+/* The two insets the chat measures on .chat (composer top edge, capsule bottom edge). Registered
+   with a zero initial value so a calc() that uses them is always valid: unregistered, the first
+   paint and any failed measurement drop the whole declaration, which takes the message column's
+   bottom padding, the mask and the loading cover with it. */
+@property --chat-bottom-inset { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --chat-top-inset { syntax: "<length>"; inherits: true; initial-value: 0px; }
+/* One foreground viewport fades into the measured composer host; the background stays untouched. */
+.messages {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: calc(var(--chat-tools-message-inset, 0px) - var(--chat-bottom-inset));
+  overflow-y: auto;
+  mask-image: linear-gradient(to bottom,
+    #000 calc(100% - var(--chat-bottom-inset) + var(--chat-tools-message-inset, 0px)),
+    transparent calc(100% - var(--chat-bottom-inset) + var(--chat-tools-message-inset, 0px) + 40px));
+  mask-mode: alpha;
+}
+/* ChatSwitchingOverlay: full body barrier, indicator in the measured top/composer range. */
+.conversation-loading-cover {
+  position: absolute;
+  inset: 0;
+  background: var(--md-background);
+  opacity: 0;
+  touch-action: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+.conversation-loading-range {
+  position: absolute;
+  inset: var(--chat-top-inset) 0 var(--chat-bottom-inset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+/* MessageList: at most 840 dp wide, 8 dp sides, 140 dp above (under the top bar), 8 dp below. */
+.message-column {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 140px 8px calc(8px + var(--chat-bottom-inset));
+}
+/* MessageItem: 8 dp above and below each message. */
+.message-row { padding: 8px 0; }
+/* MESSAGE_ENTER_DURATION_MS: a new row's draw layer fades in linearly over 320 ms at its final size;
+   a row holding a tool segment is forceOpaque. */
+.message-entering { animation: card-enter-alpha 320ms linear both; }
+.message-entering:has(.has-tool) { animation: none; }
+/* The tail minimum (calculateTailHolderMinHeightPx); messages.js sets its height. */
+.message-tail-minimum { height: 0; pointer-events: none; }
+/* ChatWelcomeContent: mark above product name, centred in the visible range. The phone puts the
+   centre at (window + topBar / 2 - bottomBar) / 2, which is this box shrunk from the bottom by the
+   composer and lifted from the top by half the top bar. */
+.chat-welcome {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  box-sizing: border-box;
+  gap: 16px;
+  padding-bottom: calc(var(--chat-bottom-inset) - var(--chat-top-inset) / 2);
+  color: var(--md-on-background);
+}
+/* ChatWelcomeContent replaces the list on the phone and sits in no scroll container. */
+.messages:has(> .chat-welcome) { overflow: hidden; overscroll-behavior: none; }
+/* The launcher mark. The phone's ChatWelcomeContent has no mark at all, so this is the WebUI's own
+ * brand block and its size is the owner's call: 112 dp, up from the 72 dp that read as too small
+ * beside the 28 sp wordmark. */
+.welcome-mark { flex: none; width: 112px; height: 112px; }
+.welcome-mark svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+/* headlineMedium (28 sp / 35 sp) at FontWeight.Bold. */
+.welcome-text { font-size: 28px; line-height: 35px; font-weight: 700; white-space: pre-wrap; }
+/* chatMainContentTransition: entering New Chat is fadeIn(tween(500)) together with
+ * scaleIn(0.6, tween(700, 0.2 / 0.8 / 0.2 / 1)) and it plays on every entry, because the AnimatedContent
+ * transition owns it. Only the typewriter belongs to newChatMotionPolicy, so the two are separate
+ * classes here: gating the whole entrance on the typing pass was what left a later switch to New Chat
+ * with no animation at all. The paired 300 ms fades (the frame being replaced, and the plain fade that
+ * brings an existing conversation back) are driven by messages.js with the Web Animations API, because
+ * they run once per transition and not once per mount. */
+.welcome-enters {
+  transform-origin: 50% 50%;
+  animation: welcome-fade 500ms cubic-bezier(0.4, 0, 0.2, 1) both, welcome-scale 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes welcome-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes welcome-scale { from { transform: scale(0.6); } to { transform: scale(1); } }
+/* typingGlyphAlpha: nothing before a glyph's reveal, 0.16 at the reveal, solid 420 ms later. */
+.welcome-typing .welcome-glyph { animation: welcome-glyph 420ms linear both; }
+@keyframes welcome-glyph { 0% { opacity: 0; } 0.02% { opacity: 0.16; } 100% { opacity: 1; } }
+/* The frame the transition is replacing, pinned over the thread it is leaving. */
+.chat-frame-exits { position: absolute; left: 0; right: 0; pointer-events: none; }
+/* AllowSpatialTransitions off keeps the fade and drops the scale, exactly as the composable does. */
+.shell[data-reduce-motion="true"] .welcome-enters { animation: welcome-fade 500ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+.shell[data-reduce-motion="true"] .welcome-typing .welcome-glyph { animation: none; }
+/* Layout only: an unloaded row keeps a one-line height so only rows near the screen are watched. */
+/* No estimated rows: a page is drawn once its bodies have arrived, so a body-less row only exists
+   for the instant a conversation opens behind its cover. */
+.row-placeholder { min-height: 0; }
+/* UserMessageBubble: at the end, UserBubbleShape (27 dp corners, a 6 dp bottom-end tail). */
+.user-row { display: flex; flex-direction: column; align-items: flex-end; }
+.user-message-content { position: relative; display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; align-items: flex-end; max-width: 100%; }
+.user-hover-actions { flex: none; display: flex; opacity: 0; pointer-events: none; transition: opacity 150ms linear; }
+.user-message-content:is(:hover, :focus-within) .user-hover-actions { opacity: 1; pointer-events: auto; }
+@media (hover: none) {
+  .user-message-content { flex-direction: column; flex-wrap: nowrap; align-items: flex-end; }
+  .user-hover-actions { order: 1; opacity: 1; pointer-events: auto; }
+}
+.user-bubble {
+  flex: none;
+  width: max-content;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 54px;
+  max-width: min(300px, 100%);
+  padding: 15px;
+  border-radius: 27px;
+  border-end-end-radius: 6px;
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+}
+/* ChatType.userBody 15/24.2 plain text; text narrower than the bubble's minimum sits centered. */
+/* Box(contentAlignment = Alignment.Center) around the content column: text shorter than the 54 dp
+   minimum is centred; with attachments the column is as wide as they are and the text keeps start. */
+.user-bubble:not(:has(.user-attachments)) .user-text { align-self: center; max-width: 100%; }
+.user-text {
+  min-width: 0;
+  font-size: 15px;
+  line-height: 24.2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.user-attachments { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; }
+.user-attachments[data-body-gap="true"] { margin-bottom: 8px; }
+.user-attachment { flex: none; width: 120px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: start; }
+/* Only the visual thumbnail owns indication; a caption remains outside its rounded hit box. */
+.user-attachment { height: 90px; border-radius: 15px; }
+.user-attachment-media { flex: none; }
+.user-attachment-column { flex: none; display: flex; flex-direction: column; align-items: center; width: 72px; }
+.user-attachment.captioned-thumbnail { width: 64px; height: 64px; }
+.user-attachment img, .attachment-missing { display: block; width: 120px; height: 90px; border-radius: 15px; object-fit: cover; background: var(--md-secondary-container); }
+.user-attachment.captioned-thumbnail :is(img, .attachment-missing) { width: 64px; height: 64px; }
+.user-attachment-name { display: block; max-width: 72px; padding-top: 2px; font-size: 11px; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-missing { display: grid; place-items: center; }
+.attachment-missing svg { width: 24px; height: 24px; fill: currentColor; }
+.user-attachment:disabled { cursor: default; }
+/* Assistant content: 8 dp in from the list edges, onSurface on the background. */
+.model-message { padding: 0 8px; color: var(--md-on-surface); }
+/* AssistantInlineActivity owns one 24 px slot under the turn so nothing jumps when the phone
+ * switches between the breathing dot, the retry line and the terminal text. The dot is
+ * GenerationActivityDot: 11 dp of onBackground breathing 0.55-1.30 every second and back. */
+.generation-activity {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  font-size: 16px;
+  line-height: 24px;
+  color: color-mix(in srgb, var(--md-on-surface-variant) 55%, transparent);
+}
+.generation-activity.generation-terminal { padding: 8px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.generation-inline-terminal[data-failed="true"], .generation-terminal:not(.stopped-bar), .tool-terminal:not(.stopped) { user-select: text; }
+.stopped-bar, .generation-inline-terminal:not([data-failed="true"]), .tool-terminal.stopped { user-select: none; }
+.generation-inline-slot { position: relative; min-height: 24px; }
+.generation-inline-slot.after-card { margin-top: 12px; }
+.generation-inline-draw { position: absolute; inset: 0; opacity: 1; transition: opacity 180ms linear; }
+.generation-inline-draw[data-hidden="true"] { opacity: 0; }
+.generation-inline-draw[data-stopping="true"] { transition: none; }
+.generation-inline-terminal { white-space: pre-wrap; overflow-wrap: anywhere; animation: message-actions-in 180ms linear; }
+/* Native terminal bars: 8 dp (12 dp after a card) above, 180 ms fade in. */
+.generation-activity.terminal-bar { padding: 8px 0 0; animation: message-actions-in 180ms linear; }
+.generation-activity.terminal-bar.after-card { padding-top: 12px; }
+.generation-dot {
+  flex: none;
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--md-on-background);
+  animation: generation-dot-breathe 1000ms cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+@keyframes generation-dot-breathe { from { transform: scale(0.55); } to { transform: scale(1.3); } }
+.generation-retry { position: relative; display: inline-block; }
+.generation-retry-dot { position: absolute; top: 6.5px; left: 8px; }
+.shell[data-reduce-motion="true"] .generation-dot { animation: none; }
+/* Cards extend past the assistant's 8 px inset and the list's 8 px inset to a 4 px edge. */
+/* AUXILIARY_CARD_START_EXTENSION_DP: offset(x = -4.dp) and width = maxWidth + 2 x 4 dp, measured
+   from the assistant text column the card sits in (owner screenshot: the card started 12 px out). */
+.info-group, .info-card { width: calc(100% + 8px); margin-left: -4px; }
+.info-group { padding: 8px 0 10px; }
+.info-group.after-answer, .info-card.after-answer { padding-top: 16px; }
+.info-group-surface {
+  position: relative;
+  isolation: isolate;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--tonal-2);
+  transition: width 400ms cubic-bezier(0, 0, 0.2, 1);
+}
+/* generationLifecycleAppearanceModifier owns the first appearance: the draw layer's alpha rides the
+   raw linear progress over SEGMENT_ENTER_DURATION_MS (420) while the scale runs that same progress
+   through LinearOutSlowInEasing from SEGMENT_ENTER_INITIAL_SCALE (0.90), so one `linear` shorthand
+   cannot serve both halves. A tool card is forceOpaque: it scales without ever going transparent. */
+.info-group.entering .info-group-surface,
+.info-card.entering .info-card-surface {
+  animation: card-enter-alpha 420ms linear both, card-enter-scale 420ms cubic-bezier(0, 0, 0.2, 1) both;
+}
+.info-card.has-tool.entering .info-card-surface { animation: card-enter-scale 420ms cubic-bezier(0, 0, 0.2, 1) both; }
+.segment-appearance { transform-origin: center; }
+.segment-appearance.entering { animation: card-enter-alpha 420ms linear both, card-enter-scale 420ms cubic-bezier(0, 0, 0.2, 1) both; }
+.segment-appearance.entering.opaque { animation: card-enter-scale 420ms cubic-bezier(0, 0, 0.2, 1) both; }
+.shell[data-reduce-motion="true"] .segment-appearance.entering { animation: card-enter-alpha 420ms linear both; }
+.shell[data-reduce-motion="true"] .segment-appearance.entering.opaque { animation: none; }
+@keyframes card-enter-alpha { from { opacity: 0; } to { opacity: 1; } }
+@keyframes card-enter-scale { from { transform: scale(0.9); } to { transform: scale(1); } }
+.info-group.expanded .info-group-surface { width: 100%; }
+.info-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: var(--card-content-width, 100%);
+  /* 10 + 18 + 10: the 13/22 title has no LineHeightStyle, so Compose applies the default
+     Trim.Both and a single line is only as tall as its glyphs; the 18 dp icon sets the row. */
+  min-height: 38px;
+  padding: 10px 34px 10px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: color-mix(in srgb, var(--md-primary) 70%, transparent);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.info-group-header:disabled { cursor: default; }
+.info-header-icon { flex: none; display: grid; place-items: center; width: 18px; height: 18px; }
+.info-header-icon > svg { width: 18px; height: 18px; fill: currentColor; }
+.info-title-stack { position: relative; flex: 1; min-width: 0; }
+.info-title-stack .info-header-title { display: block; }
+.title-outgoing { position: absolute; inset: 0; pointer-events: none; }
+.info-header-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.info-disclosure {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: color-mix(in srgb, var(--md-on-surface-variant) 50%, transparent);
+}
+.info-disclosure svg { width: 18px; height: 18px; fill: currentColor; transition: transform 400ms cubic-bezier(0, 0, 0.2, 1); }
+.info-group.expanded .info-disclosure svg { transform: rotate(180deg); }
+.info-group.sheet-mode .info-disclosure svg { transform: rotate(-90deg); }
+.info-group-reveal { display: grid; align-content: end; overflow: hidden; width: var(--card-expanded-width, 100%); grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 400ms cubic-bezier(0.4, 0, 0.2, 1), opacity 400ms cubic-bezier(0.4, 0, 0.2, 1); }
+.info-group.expanded .info-group-reveal { grid-template-rows: 1fr; opacity: 1; }
+/* Groups with tool rows fade the same way (owner decision 2026-10-13), so no has-tool override. */
+/* The expanded column carries no padding of its own. Compose puts a 2 dp Spacer above the segments
+ * and every segment then owns its own 10 / 8 dp padding inside its 18 dp clip, so a container pad
+ * here only ever doubled what the segment already supplies. */
+/* expandVertically / shrinkVertically default to expandFrom = shrinkTowards = Alignment.Bottom: the
+ * column is laid out bottom-aligned inside the growing clip, so the whole segment list slides down
+ * into view (and back up on collapse) instead of being revealed in place by a top-anchored clip. */
+/* The 2 dp Spacer is content, not padding: padding would keep a 2 px strip under a collapsed card
+ * that the 0fr track cannot remove (Compose drops the whole column when collapsed). */
+.info-group-items { min-width: 0; min-height: 0; overflow: visible; display: flex; flex-direction: column; justify-content: flex-end; }
+.info-group-items > .segment-appearance { flex: none; }
+.info-group-items::before { content: ""; flex: none; height: 2px; }
+/* CompactSegmentBlock clips each full-width option to 18 dp before its 10 / 8 dp padding. */
+.info-group :is(.timeline-item, .compact-item) {
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+.info-item { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.info-item-text { flex: 1; min-width: 0; }
+.info-item-title {
+  display: block;
+  overflow: hidden;
+  color: var(--md-on-surface-variant);
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.info-summary-stack { position: relative; display: block; min-width: 0; }
+.summary-outgoing { position: absolute; inset: 0; pointer-events: none; }
+.info-item-summary {
+  display: block;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--md-on-surface-variant) 60%, transparent);
+  font-size: 12px;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compact-item { padding: 8px 0; }
+/* HorizontalDivider(Modifier.padding(vertical = 2.dp)): 1 dp transparent line + 2 x 2 dp. */
+.compact-item + .compact-item { margin-top: 5px; }
+.info-card { padding-top: 8px; padding-bottom: 6px; }
+.info-card.first, .info-card.middle { padding-bottom: 0; }
+.info-card.middle, .info-card.last { padding-top: 2px; }
+.info-card-surface {
+  border-radius: 24px;
+  background: var(--tonal-2);
+  transition: border-radius 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.info-card.first .info-card-surface { border-radius: 24px 24px 5px 5px; }
+.info-card.middle .info-card-surface { border-radius: 5px; }
+.info-card.last .info-card-surface { border-radius: 5px 5px 24px 24px; }
+.info-card .timeline-item { width: 100%; padding: 10px; border-radius: inherit; overflow: hidden; }
+.info-item-icon, .info-item-arrow { flex: none; display: grid; place-items: center; width: 16px; height: 16px; }
+.info-item-icon { color: color-mix(in srgb, var(--md-primary) 70%, transparent); }
+.info-item-arrow { color: color-mix(in srgb, var(--md-on-surface-variant) 50%, transparent); }
+.info-item-icon svg, .info-item-arrow svg { width: 16px; height: 16px; fill: currentColor; }
+.shell[data-reduce-motion="true"] :is(.info-group-surface, .info-disclosure svg, .info-card-surface) {
+  transition: none !important;
+  animation: none !important;
+}
+/* AllowSpatialTransitions=false removes only the scale half of a first appearance: the draw layer
+   still fades in over SEGMENT_ENTER_DURATION_MS, as generationLifecycleAppearanceModifier does. */
+.shell[data-reduce-motion="true"] :is(.info-group.entering .info-group-surface, .info-card.entering .info-card-surface) {
+  animation: card-enter-alpha 420ms linear both !important;
+}
+.shell[data-reduce-motion="true"] .info-group-reveal { transition: opacity 400ms; }

@@ -1,0 +1,495 @@
+@property --drawer-progress { syntax: "<number>"; inherits: true; initial-value: 0; }
+.shell {
+  --drawer-width: min(100vw, 360px);
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--md-background);
+  /* Compose text blocks own selection: a drag started inside the chat can never paint chrome
+     (the title bar, the composer, the drawer) blue, only the message and sheet text below. */
+  user-select: none;
+}
+.markdown, .user-text, .detail-sheet-markdown, .welcome-text, .chat-snackbar { user-select: text; }
+.shell input, .shell textarea { user-select: text; }
+button, [role="menu"], .tool-settings, .context-menu, .detail-sheet-header,
+.attachment-editor h2, .attachment-editor label, .prompt-option { user-select: none; }
+input, textarea { user-select: text; }
+.chat {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Side-by-side drawer (wider than 960 px): the chat narrows beside the open drawer. */
+.side-by-side .chat { left: calc(var(--drawer-width) * var(--drawer-progress)); }
+/* The top backdrop covers messages, never composer controls or the top-bar capsules. */
+.chat-top-blur {
+  position: absolute; inset: 0 0 auto; height: 180px; z-index: 0; pointer-events: none;
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--md-background) 98%, transparent) 0%,
+    color-mix(in srgb, var(--md-background) 80%, transparent) 60%, transparent 100%);
+}
+.chat-top-blur span { position: absolute; inset: 0 0 auto; pointer-events: none; mask-image: linear-gradient(#000 0%, #000 50%, transparent 100%); }
+.chat-top-blur span:nth-child(1) { height: 150px; backdrop-filter: blur(1px); }
+.chat-top-blur span:nth-child(2) { height: 112px; backdrop-filter: blur(2px); }
+.chat-top-blur span:nth-child(3) { height: 75px; backdrop-filter: blur(3px); }
+.chat-top-blur span:nth-child(4) { height: 38px; backdrop-filter: blur(5px); }
+.shell:not([data-blur-effects="true"]) .chat-top-blur span { display: none; }
+/* ModalDrawerSheet: surface at 1 dp tonal elevation, 24 dp end corners, 16 x 20 dp padding. */
+.drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  width: var(--drawer-width);
+  padding: calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 0 24px 24px 0;
+  background: var(--tonal-1);
+  color: var(--md-on-surface);
+  transform: translateX(calc((var(--drawer-progress) - 1) * 100%));
+  visibility: hidden;
+}
+.drawer-open .drawer {
+  visibility: visible;
+}
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgb(0 0 0 / 0.32);
+  opacity: var(--drawer-progress);
+  pointer-events: none;
+}
+.modal.drawer-open .scrim { pointer-events: auto; }
+.side-by-side .scrim { display: none; }
+/* ChatType.conversationsTitle 25/32 bold. */
+.drawer-header { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; height: 56px; margin-bottom: 12px; }
+.drawer-title { position: absolute; inset-inline-start: 0; max-width: calc(100% - 64px); min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 25px; line-height: 32px; font-weight: 700; opacity: 1; transition: opacity 180ms linear; }
+.drawer-header[data-search-expanded="true"] .drawer-title { opacity: 0; pointer-events: none; }
+.shell[data-reduce-motion="true"] .drawer-title { transition: none; }
+/* DrawerSearchBar owns one end-anchored width transition, including interrupted reversal. */
+.drawer-search {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: transparent;
+  transition: width 400ms cubic-bezier(0, 0, .2, 1);
+}
+.drawer-search[data-expanded="true"] { width: 100%; padding-inline-end: 14px; background: var(--tonal-8); }
+.shell[data-reduce-motion="true"] .drawer-search { transition: none; }
+.drawer-search-toggle { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border: 0; padding: 0; border-radius: 50%; background: transparent; color: var(--md-on-surface-variant); cursor: pointer; }
+.drawer-search-toggle svg { width: 24px; height: 24px; fill: currentColor; }
+.drawer-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--md-on-surface);
+  font: inherit;
+  font-size: 16px;
+  line-height: 23px;
+}
+.drawer-search input::placeholder {
+  color: color-mix(in srgb, var(--md-on-surface-variant) 60%, transparent);
+  opacity: 1;
+}
+/* Drawer buttons: 20 dp icon, 8 dp gap, ChatType.drawerButton 14/20 medium. */
+.drawer-button {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.drawer-button svg { width: 20px; height: 20px; fill: currentColor; }
+.drawer-button.new-chat {
+  height: 42px;
+  margin-bottom: 16px;
+  border-radius: 21px;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+}
+.drawer-button:disabled {
+  cursor: default;
+  background: color-mix(in srgb, var(--md-on-surface) 12%, transparent);
+  color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
+}
+/* A flex column, so the rows' 2 dp margins add up instead of collapsing. */
+/* Compose verticalEdgeFade: weight animates paint, never list or scrollbar geometry. */
+@property --drawer-edge-top { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --drawer-edge-bottom { syntax: "<number>"; inherits: false; initial-value: 0; }
+.drawer-list {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto;
+  mask-image: linear-gradient(to bottom,
+    rgb(0 0 0 / calc(1 - var(--drawer-edge-top))) 0,
+    black min(40px, 50%), black calc(100% - min(40px, 50%)),
+    rgb(0 0 0 / calc(1 - var(--drawer-edge-bottom))) 100%);
+  transition: --drawer-edge-top 200ms cubic-bezier(.4, 0, .2, 1), --drawer-edge-bottom 200ms cubic-bezier(.4, 0, .2, 1);
+}
+.drawer-list-window { position: relative; flex: none; overflow-anchor: none; }
+.drawer-list-position { position: absolute; width: 100%; }
+.drawer-section { margin: 0; padding: 8px 16px 4px; font-size: 14px; line-height: 24px; font-weight: 500; color: var(--md-on-surface-variant); }
+.drawer-list-progress { display: grid; place-items: center; min-height: 56px; flex: none; }
+/* Edge loading is paint-only; appearing and disappearing never moves the reader's rows. */
+.message-page-progress { position: relative; height: 0; opacity: 0; visibility: hidden; pointer-events: none; }
+.message-page-progress > span { position: absolute; inset-inline: 0; top: 0; height: 56px; display: grid; place-items: center; }
+.message-page-progress.older > span { top: -56px; }
+.message-page-progress[data-loading="false"] :is(svg, g, circle) { animation-play-state: paused; }
+.message-page-exits { position: absolute; inset-inline: 0; overflow: hidden; pointer-events: none; }
+.message-page-snapshot { position: absolute; box-sizing: border-box; padding: 8px 0; pointer-events: none; }
+/* DrawerSearchBar trailing Box(size 28): spinner and clear IconButton overlap at one centre. */
+.drawer-search-trailing { position: relative; flex: none; width: 28px; height: 28px; }
+.drawer-search-progress, .drawer-search-clear { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transition: opacity 180ms linear; }
+.drawer-search-progress { pointer-events: none; }
+.drawer-search-progress[data-active="true"], .drawer-search-clear[data-active="true"] { opacity: 1; }
+.drawer-search-clear { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--md-on-surface-variant); cursor: pointer; }
+.drawer-search-clear:disabled { pointer-events: none; }
+.drawer-search .drawer-search-clear svg { width: 18px; height: 18px; fill: currentColor; }
+.drawer-search-result { flex: none; width: 100%; border: 0; border-radius: 12px; margin: 2px 0; padding: 8px 12px; background: transparent; color: var(--md-on-surface); text-align: left; font: inherit; cursor: pointer; }
+.drawer-search-result-heading { display: flex; align-items: center; gap: 8px; font-size: 16px; line-height: 24px; font-weight: 500; }
+.drawer-search-result-heading > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-search-score { flex: none; color: var(--md-primary); font-size: 11px; line-height: 16px; }
+.drawer-search-snippet { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 12px; line-height: 16px; color: var(--md-on-surface-variant); }
+.drawer-search-result mark { background: color-mix(in srgb, var(--md-primary) 20%, transparent); color: inherit; font-weight: bold; }
+.drawer-search-empty { text-align: center; margin: 24px 0; font-size: 14px; color: var(--md-on-surface-variant); }
+/* flow-root: the row's 2 px top margin otherwise collapses through the slot, which put the row at
+   0-40 inside a 44 px slot and the trailing button 2 px below the row's centre. */
+.conversation-slot { position: relative; display: flow-root; height: 44px; }
+/* The row's detail action: no plate, vertically centred in the 44 dp slot, fading in over short2. */
+/* The action is equally inset from the capsule's top, bottom and logical end. */
+.conversation-more { position: absolute; inset-inline-end: 4px; top: 6px; margin: 0; padding: 0; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; opacity: 0; --md-component-transition: opacity 200ms linear; }
+.conversation-more svg { width: 20px; height: 20px; fill: currentColor; }
+.conversation-slot:hover .conversation-more, .conversation-slot:focus-within .conversation-more { opacity: 1; }
+.conversation-slot:hover .conversation-row, .conversation-slot:focus-within .conversation-row { padding-right: 48px; }
+.conversation-indicator .circular-progress { color: inherit; }
+.conversation-interaction, .conversation-interaction svg { display: block; width: 18px; height: 18px; fill: currentColor; }
+/*
+ * Drawer conversation row: a 40 dp capsule in a 44 dp slot, 16 dp sides, the title in bodyLarge,
+ * then 8 dp and an 18 dp slot for the generating spinner or the unread dot. Selection fades to
+ * secondaryContainer over 250 ms.
+ */
+.conversation-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  margin: 2px 0;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: var(--md-on-surface);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.5px;
+  text-align: start;
+  cursor: pointer;
+  /* Hover fades this row's trailing action in over 200 ms and the row gives it room at the same
+   * moment; a padding change that snaps on the same hover reads wrong next to a fade. */
+  --md-component-transition: background-color 250ms, color 250ms, padding-right 200ms cubic-bezier(.4, 0, .2, 1);
+}
+.conversation-row.selected {
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+}
+.conversation-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The spinner follows the row (primary, or onSecondaryContainer when selected); the dot is primary. */
+.conversation-indicator {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--md-primary);
+  transition: color 250ms;
+}
+.conversation-row.selected .conversation-indicator { color: var(--md-on-secondary-container); }
+.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--md-primary); }
+/* ChatTopBar: 52 dp row, 12 dp sides, 8 dp above and below, over a fading background. */
+/* The bar sits above the composer's layer: an expanded composer fills the screen and paints a
+ * background gradient over the whole chat (ChatComposerSurface's fill on the phone,
+ * .composer-expanded below), and the Scaffold draws that fill after the bar. Everything the drawer
+ * and the popups stack by moves up one step with it, so their order against each other is unchanged. */
+.top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 180px;
+  padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+  pointer-events: none;
+}
+.conversation-search-bar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 52px;
+  gap: 0;
+  padding: 0 5px;
+}
+.top-bar-outgoing { pointer-events: none; }
+.top-bar-outgoing * { pointer-events: none !important; }
+/* ChatTopBar search: bodyLarge 16/23 +0.5 field, onSurfaceVariant 60% hint, labelMedium counter. */
+.conversation-search-bar input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--md-on-surface);
+  font: inherit;
+  font-size: 16px;
+  line-height: 23px;
+  letter-spacing: .5px;
+  outline: none;
+  appearance: none;
+}
+.conversation-search-bar input::placeholder {
+  color: color-mix(in srgb, var(--md-on-surface-variant) 60%, transparent);
+  opacity: 1;
+}
+/* BasicTextField draws no native search decoration or clear control. */
+.conversation-search-bar input::-webkit-search-decoration,
+.conversation-search-bar input::-webkit-search-cancel-button { appearance: none; display: none; }
+.conversation-search-count {
+  flex: none;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 500;
+  letter-spacing: .5px;
+  color: var(--md-on-surface-variant);
+}
+/* Back is a 44 dp IconButton; previous/next are 38 dp. Every icon is the default 24 dp. */
+.conversation-search-bar .bar-button svg { width: 24px; height: 24px; }
+.conversation-search-bar .bar-button:not(:first-child) {
+  width: 38px;
+  height: 38px;
+}
+.search-previous svg { transform: rotate(180deg); }
+::highlight(agora-search) { background-color: #ffd54f; color: #241a00; }
+::highlight(agora-search-active) { background-color: #ffa000; color: #241a00; }
+/* ChatTopBarCapsule: full capsule at 4 dp tonal elevation with a 4 dp shadow. */
+.capsule {
+  display: flex;
+  align-items: center;
+  height: 52px;
+  border-radius: 26px;
+  background: var(--tonal-4);
+  box-shadow: var(--shadow-4);
+  pointer-events: auto;
+}
+@property --title-clip-width { syntax: "<length>"; inherits: true; initial-value: 260px; }
+.title-capsule {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 0;
+  max-width: 260px;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+/* One draw boundary owns the surface/shadow silhouette and content clip, never text layout. */
+.title-canvas {
+  --title-clip-width: 260px;
+  position: relative;
+  width: 100%;
+  height: 52px;
+  pointer-events: none;
+}
+.title-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: min(100%, var(--title-clip-width));
+  border-radius: 26px;
+  background: var(--tonal-4);
+  box-shadow: var(--shadow-4);
+}
+.title-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 5px;
+  clip-path: inset(0 max(0px, calc(100% - var(--title-clip-width))) 0 0 round 26px);
+  pointer-events: auto;
+}
+.title-labels {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 180px;
+  height: 100%;
+  margin: 0 20px 0 5px;
+}
+.title-content > .bar-button { pointer-events: auto; }
+.title-content > .bar-button svg { transform: translateX(-1px); }
+.actions-capsule { flex: none; width: 98px; padding: 0 5px; }
+.menu-anchor { position: relative; }
+/* IconButton: 44 dp; Menu and More icons 26 dp, New Chat 30 dp. */
+.bar-button {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--md-on-surface);
+  cursor: pointer;
+}
+.bar-button svg { width: 26px; height: 26px; fill: currentColor; }
+.bar-button.add svg { width: 30px; height: 30px; }
+.bar-button:disabled {
+  cursor: default;
+  background: transparent;
+  color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
+}
+/* ChatType.brandTitle 20/26 bold, at most 180 dp, 20 dp end padding. */
+.brand-title,
+.conversation-bar-title {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: max-content;
+  margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* An open conversation's title uses ChatType.conversationTitleSolo 17/22 bold. */
+.conversation-bar-title { font-size: 17px; line-height: 22px; }
+/* With the token subtitle stacked below, the pair is the phone's Column: the title drops to
+   ChatType.conversationTitle 15/20, the subtitle is ChatType.micro 11/15 medium at 70 %
+   onSurfaceVariant, and the column's own width - the wider of its two lines, capped by the 180 dp
+   column - is the content width the capsule measures. */
+.conversation-bar-title.has-subtitle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: 15px;
+  line-height: 20px;
+}
+.conversation-bar-title .title-text { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.conversation-subtitle {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--md-on-surface-variant) 70%, transparent);
+}
+.title-labels h1[aria-hidden="true"] { pointer-events: none; user-select: none; }
+/* AgoraDropdownMenu on surfaceContainer: 24 dp corners, 48 dp items, highlight inset 8 dp. */
+.menu-popup-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
+  touch-action: auto;
+  overscroll-behavior: none;
+}
+.menu-popup-layer::backdrop { background: transparent; }
+.dropdown {
+  position: absolute;
+  z-index: 4;
+  /* MenuDefaults.MinWidth / MenuDefaults.MaxWidth: a menu is content-sized between 112 dp and 280 dp,
+     never the 180 dp floor it used to carry, which made every short menu read far too wide. */
+  min-width: 112px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 8px 0;
+  border-radius: 24px;
+  background: var(--md-surface-container);
+  box-shadow: var(--shadow-3);
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: auto;
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 16px);
+  height: 48px;
+  margin: 0 8px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  color: var(--md-on-surface);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dropdown-item svg { flex: none; width: 24px; height: 24px; fill: var(--md-on-surface-variant); }
+.dropdown-item:hover, .dropdown-item:focus-visible {
+  outline: none;
+}
+.dropdown-item:disabled {
+  cursor: default;
+  background: transparent;
+  color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
+}
+.dropdown-item:disabled svg { fill: currentColor; }

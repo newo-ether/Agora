@@ -52,9 +52,12 @@ Remote and detail views. Browser WebUI uses the same tonal roles, 24 px code she
 language label, 40 px header/copy control and 16 px icon. Its code body remains monospace and
 retains exact copy and optional horizontal scrolling. Both native Markdown table paths and WebUI
 tables use 24 dp/px rounded backgrounds without changing cells, search or scrolling.
-Completed native HTML fences additionally follow [interactive-html.md](interactive-html.md). The shared
-code leaf retains source/search/copy ownership; preview admission uses the existing AST and explicit
-streaming state. Standalone raw-code components, Remote and WebUI remain source-only.
+Completed native and WebUI HTML fences additionally follow [interactive-html.md](interactive-html.md).
+The shared code leaf retains source/search/copy ownership; preview admission uses the existing AST
+and explicit streaming state. Standalone raw-code components and Remote remain source-only.
+Code headers, controls and popup menus are excluded from message text selection. The entire native
+fullscreen HTML window is isolated from its ancestor message selection host; body selection and
+exact source copy in the ordinary code leaf are unchanged.
 
 Native release builds must preserve JLaTeXMath's `NewCommandMacro` class, public zero-argument
 constructor and `executeMacro(TeXParser, String[])` method. Environment expansion, including
@@ -475,9 +478,11 @@ starting with a drive (`F:/…`) stays a Windows path, anything else is rooted a
 `Local Sandbox` reads the host file through the sandbox path resolver and its mount
 rules; any other name selects a configured Conch device and uses `/file/image`
 (images only, 20 MB). SSH devices, videos and plain local paths are not resolved.
-`ShellMarkdownMedia` (ViewModel-owned, provided only around native chat) loads a slot
-when it is rendered, into a bounded disposable cache under `cacheDir/markdown-media`
-without model preparation. The bytes never enter Provider context, Room or the message
-graph; Remote sessions do not receive the provider and keep their own images. Slots
-reuse the viewport above; a failed slot keeps its failed state while a later composition
-retries. Tapping a loaded image opens the existing full-screen media viewer.
+`ShellMarkdownMedia` loads a slot when it is rendered, into a bounded disposable cache under
+`cacheDir/markdown-media`, without model preparation. Native chat provides it around its Markdown;
+WebUI serves authenticated, same-origin image reads through the same loader. A browser request must
+identify the owning conversation/message and an actual shell image destination in its Markdown AST;
+it cannot proxy arbitrary paths. Percent-encoded server names, POSIX and Windows paths retain native
+semantics. WebUI reserves the same square loading/failure viewport and opens AttachmentViewer on a
+loaded image. The bytes never enter Provider context, Room or the message graph; Remote sessions keep
+their own images. Failed slots keep their failed state until re-entry retries.

@@ -1,18 +1,21 @@
 # Interactive HTML Preview
 
-Native Agora chat recognizes completed `html-preview` fenced blocks as interactive HTML cards.
+Native Agora chat and browser WebUI recognize completed `html-preview` fenced blocks as interactive HTML cards.
 Ordinary `html` fences keep their source and expose a Run action. Unclosed fences never execute.
 At a live tail, a closing delimiter needs its completed line; already stable parser blocks and
 terminal messages use their existing AST fence-end token. Search retains the original source and
-source offsets. Raw HTML outside fences is still literal Markdown text. Remote sessions and browser
-WebUI do not enable this renderer. No second Markdown parser or generation lifecycle is introduced.
+source offsets. Raw HTML outside fences is still literal Markdown text. Remote sessions remain
+source-only. No second Markdown parser or generation lifecycle is introduced.
 
 Cards reuse the shared Material 3 Expressive code shell, header and actions defined in
 [streaming-markdown.md](streaming-markdown.md), retaining Source/Preview and Copy. Both inline and
 fullscreen headers expose Save HTML directly as a download icon. In reading order, inline actions
 are Source/Run, Copy, Save HTML, More; fullscreen actions are Source, Reload, Copy, Save HTML, Close.
 More and Close stay last, including when whole actions wrap at narrow widths.
-The overflow menu contains Reload, Full Screen and Share HTML with 24 dp leading icons; it does not duplicate Save HTML.
+The overflow menu contains Reload and Full Screen with 24 dp leading icons; native also exposes Share HTML.
+It does not duplicate Save HTML. Browser banners and overflow actions use the same Code,
+PlayArrow, Download and Fullscreen icon shapes as Compose. The loading overlay includes the
+localized `Loading HTML preview…` text beneath its indicator with a 12px gap in WebUI.
 The inline viewport is 360 dp with internal scrolling;
 fullscreen fills the safe window inside an 8 dp inset using the same rounded shell. The fixed viewport avoids positive feedback for `vh`
 layouts. The native WebView has explicit MATCH_PARENT width and height layout parameters before
@@ -67,6 +70,38 @@ Only inspected raster formats are served. No wildcard shell endpoint, arbitrary 
 document or access to message/app storage is exposed. Images have no CORS authorization so script
 cannot read their pixels into an export or network request. Raw HTML export preserves shell
 references; those require Agora and are not portable browser file URLs.
+
+Browser source/export controls remain available. WebUI uses the same completed-fence admission and
+shared code shell, with a 360px inline viewport and the existing retained fullscreen modal. Search
+shows the original code and source offsets. Completed running cards remain connected when later
+streaming text is appended. Source, reload, fullscreen, offscreen, background and disposal release
+the old browsing context and resource capability; re-entry starts fresh.
+
+WebUiHtmlPreview issues an unguessable, session-bound, short-lived resource capability. Source stays
+browser-local. Each visible entry loads fresh response-header sandboxed control/blocked documents
+and authenticates both opaque frame sources after their initial loads. Only `1,1:0,0` admits a
+one-shot parent-source/origin-checked source message. `document.open/write/close` retains the
+response's CSP, opaque sandbox and path-bounded Connection-Allowlist with `webrtc=block`.
+The generated document becomes visible after its load, behind a 180ms loading fade; reduced motion
+uses a stationary shared indicator. Initial trusted probe loads do not reveal the frame. After
+admission, only the first `document.write` document load may become ready. Any successor document
+load, including a browser error document from blocked navigation, removes the browsing context,
+releases its resource capability and shows the existing localized fallback. Failure is terminal
+for that entry; only an explicit reload or a normal fresh entry starts another admission.
+Unsupported browsers fail closed with Source, exact Copy and Save HTML available. Browser preview
+is capability-tested rather than inferred from a version.
+
+Literal HTTPS `script[src]`, `link[href]` and `img[src]` attributes for the approved CDN hosts and
+numeric OSM tiles are rewritten using inert parsing of literal resource start tags. Complete
+html/head/body tags and attributes, raw-text elements and comments are retained; copy and export
+retain the exact original bytes. The server
+reuses HtmlPreviewResources URL/type/DNS/redirect/credential limits, request/byte budgets and
+cancellation, and forwards no app/session credentials. Resources have CORS authorization for opaque
+script/module/image loads, but response framing is denied. Generated fetch, WebSocket, workers,
+frames, forms, popups, navigation to app APIs and unrestricted external loads remain blocked.
+CSS URL/import syntax, JavaScript-created absolute URLs, module import specifiers and `shell://`
+images are not rewritten by WebUI; these references may fail under the restrictive policy. This is
+a supported static-resource subset, not full native resource parity. No arbitrary file proxy exists.
 
 ## Transparent instructions
 

@@ -26,6 +26,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -50,6 +51,7 @@ class WebUiConversationMenuTest {
         every { subagentGenerationIds } returns MutableStateFlow(emptySet())
         every { chatDao } returns mockk {
             every { observeSubagentParentIds(any()) } returns kotlinx.coroutines.flow.flowOf(emptyList())
+            every { observeParentConversationId(any()) } returns kotlinx.coroutines.flow.flowOf(null)
         }
     }
     private val generation = mockk<com.newoether.agora.viewmodel.MessageGenerationController>(relaxed = true)
@@ -79,6 +81,27 @@ class WebUiConversationMenuTest {
         coEvery { start() } just Runs
         coEvery { close() } just Runs
         coEvery { endUploads() } just Runs
+    }
+
+    private val questions = com.newoether.agora.viewmodel.AskUserController()
+    private val approval = com.newoether.agora.viewmodel.ShellConfirmationController(MutableStateFlow(true), {})
+
+    @Test
+    fun drawerPublishesPendingInteractionsWithoutOpeningTheConversationAndClearsOnAnswer() = sync { _, received ->
+        received()
+        val request = questions.open("b", "Choose", emptyList(), false, blocking = false)
+        val rows = received().last { it.type == "conversations" }["items"]!!.let {
+            kotlinx.serialization.json.Json.decodeFromJsonElement<List<WebConversation>>(it)
+        }
+        assertEquals("question", rows.single { it.id == "b" }.interaction)
+        assertEquals(null, rows.single { it.id == "a" }.interaction)
+        questions.submit(request.id, emptyList(), "answer")
+        val cleared = received().last { it.type == "conversations" }["items"]!!.let {
+            kotlinx.serialization.json.Json.decodeFromJsonElement<List<WebConversation>>(it)
+        }
+        assertTrue(cleared.all { it.interaction == null })
+        coVerify(exactly = 0) { session.open(any(), any()) }
+        verify(exactly = 0) { registry.getOrCreate(any()) }
     }
 
     @Test
@@ -190,8 +213,8 @@ class WebUiConversationMenuTest {
             forkShare = mockk(relaxed = true),
             conversationLifecycle = lifecycle,
             generation = generation,
-            askUser = com.newoether.agora.viewmodel.AskUserController(),
-            shellConfirmation = com.newoether.agora.viewmodel.ShellConfirmationController(MutableStateFlow(true), {}),
+            askUser = questions,
+            shellConfirmation = approval,
             contextAccounting = WebUiContextAccounting(
                 conversations, mockk(), { mockk() }, { it }, MutableStateFlow(90), MutableStateFlow(true),
             ),

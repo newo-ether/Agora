@@ -14,8 +14,27 @@ import kotlinx.coroutines.withContext
 internal class WebUiToolImages(
     private val directory: File,
     private val attachmentDirectory: File? = null,
+    private val markdownImage: suspend (String) -> com.newoether.agora.model.ToolImageAttachment? = { null },
     private val loadMessage: suspend (String, String) -> ChatMessage?,
 ) {
+    suspend fun openMarkdown(conversationId: String, messageId: String, link: String): WebUiToolImageFile? {
+        if (link.length > 8_192) return null
+        val message = loadMessage(conversationId, messageId)?.takeIf { it.id == messageId } ?: return null
+        if (!withContext(Dispatchers.Default) { message.ownsShellMarkdownImage(link) }) return null
+        val image = markdownImage(link) ?: return null
+        return withContext(Dispatchers.IO) {
+            try {
+                val file = File(image.path)
+                val measured = inspectWebUiImageArtifact(file, image, ToolImageStore.MAX_IMAGE_BYTES)
+                    ?: return@withContext null
+                WebUiToolImageFile(file, measured.sizeBytes, measured.mimeType)
+            } catch (_: IOException) {
+                null
+            } catch (_: SecurityException) {
+                null
+            }
+        }
+    }
     /** Reads one persisted occurrence; roots and paths come only from the owning message. */
     suspend fun consumeAttachment(
         conversationId: String, messageId: String, index: Int,

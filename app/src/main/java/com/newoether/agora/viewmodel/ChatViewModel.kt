@@ -19,6 +19,7 @@ import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.observeConversationTodo
 import com.newoether.agora.data.repository.observeDrawerGeneratingConversationIds
+import com.newoether.agora.ui.chat.observeDrawerInteractions
 import com.newoether.agora.data.repository.observeSubagents
 import com.newoether.agora.data.repository.observeParentConversationId
 import com.newoether.agora.data.repository.ConversationSettingsTransferCoordinator
@@ -472,6 +473,10 @@ class ChatViewModel(
         foregroundIds = generationRegistry.activeConversationIds,
         automationIds = conversationExecutionCoordinator.activeAutomationConversationIds,
     ).stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    internal val drawerInteractions = convRepo.observeDrawerInteractions(
+        askUser.requests, shellConfirmation.pendingShellCommand,
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val isSwitching: StateFlow<Boolean> get() = selectionController.isSwitching
 
