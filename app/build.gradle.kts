@@ -22,8 +22,8 @@ android {
     // on JDK 17+ its TLS server needs reflective access to java.net (InetAddress.holder).
     testOptions.unitTests.all {
         it.jvmArgs("--add-opens=java.base/java.net=ALL-UNNAMED")
-        // Isolate Android sandboxes and native state between test classes.
-        it.forkEvery = 1
+        // Reuse each worker for a bounded batch instead of restarting it for every class.
+        it.forkEvery = 16
         it.maxParallelForks = 2
         it.maxHeapSize = "1g"
     }

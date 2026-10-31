@@ -19,6 +19,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -129,6 +130,8 @@ class SubagentQueueHandoffTest {
                     state.awaitSendAvailable()
                     assertEquals(1, coordinator.admittedChildCount("parent"))
                 }
+                // Slot publication precedes the completion hook's admission release.
+                coordinator.admittedGenerationIds.first { "child" !in it }
                 assertEquals(0, coordinator.admittedChildCount("parent"))
                 coVerify(exactly = 1) {
                     conversations.createRunWithMessages(any(), any(), any(), any(), any(), any())

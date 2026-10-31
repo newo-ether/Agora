@@ -11,6 +11,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -117,6 +118,8 @@ class SubagentGenerationLifecycleTest {
                     assertEquals(1, coordinator.admittedChildCount("parent"))
                 }
             }
+            // The slot becomes available before its completion hook releases the worker lease.
+            coordinator.admittedGenerationIds.first { "child" !in it }
             assertEquals(0, coordinator.admittedChildCount("parent"))
             state.dispose()
         }
