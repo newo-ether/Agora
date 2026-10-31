@@ -129,6 +129,55 @@ class WebUiAuthTest {
         tokens.forEach { assertFalse(restored.isValidSession(it)) }
     }
 
+    @Test fun logoutReachesASessionObserverStartedDuringTheWrite() = runBlocking {
+        val writeStarted = CompletableDeferred<Unit>()
+        val readDuringWrite = CompletableDeferred<Unit>()
+        val finishWrite = CompletableDeferred<Unit>()
+        var holdWrite = false
+        val serializer = object : androidx.datastore.core.okio.OkioSerializer<androidx.datastore.preferences.core.Preferences> {
+            override val defaultValue get() = PreferencesSerializer.defaultValue
+            override suspend fun readFrom(source: okio.BufferedSource): androidx.datastore.preferences.core.Preferences {
+                val value = PreferencesSerializer.readFrom(source)
+                if (holdWrite) readDuringWrite.complete(Unit)
+                return value
+            }
+            override suspend fun writeTo(t: androidx.datastore.preferences.core.Preferences, sink: okio.BufferedSink) {
+                if (holdWrite) {
+                    writeStarted.complete(Unit)
+                    finishWrite.await()
+                }
+                PreferencesSerializer.writeTo(t, sink)
+            }
+        }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO).also(scopes::add)
+        val path = temporary.root.resolve("concurrent-logout.preferences_pb")
+        val store = WebUiSettingsStore(PreferenceDataStoreFactory.create(scope = scope,
+            storage = OkioStorage(FileSystem.SYSTEM, serializer) { path.absolutePath.toPath() },
+        ))
+        store.savePasswordHash(hasher.hash("pw"))
+        val auth = WebUiAuth(store, hasher)
+        val token = (auth.login("pw") as WebUiLoginResult.Success).sessionToken
+        holdWrite = true
+        // Start the observer while logout holds the write lock but its new bytes are not visible.
+        val logout = async { auth.logout(token) }
+        val ended = async(start = CoroutineStart.LAZY) { auth.awaitSessionEnd(token) }
+        try {
+            withTimeout(5000) {
+                writeStarted.await()
+                ended.start()
+                readDuringWrite.await()
+                finishWrite.complete(Unit)
+                logout.await()
+                ended.await()
+            }
+            assertFalse(auth.isValidSession(token))
+        } finally {
+            finishWrite.complete(Unit)
+            ended.cancelAndJoin()
+            logout.cancelAndJoin()
+        }
+    }
+
     @Test fun passwordReplacementAtomicallyRejectsAnOldLoginCommit() = runBlocking {
         val store = store(hasher.hash("pw"))
         val previous = store.passwordHash.first()!!
