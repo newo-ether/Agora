@@ -31,8 +31,8 @@ android {
         applicationId = "com.newoether.agora"
         minSdk = 26
         targetSdk = 36
-        versionCode = 31
-        versionName = "2.1.0"
+        versionCode = 32
+        versionName = "2.2.0"
 
 
         ndk {

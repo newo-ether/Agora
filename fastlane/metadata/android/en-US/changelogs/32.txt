@@ -1,0 +1,7 @@
+* Phone Use tools with app access controls and an on-screen control indicator
+* Remote sessions for existing Codex and Claude conversations through Filo
+* Interactive HTML previews and shell image rendering in native chat and WebUI
+* Shared image quality controls, clearer tool details and pending interaction indicators
+* Faster, bounded history, embedding, attachment and backup operations
+* Improved transport security, recovery and compatibility
+* v2.2.0 and later are licensed under GPL-3.0
