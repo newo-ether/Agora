@@ -259,6 +259,9 @@ object HttpClient {
 
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
+        // One identity for every transport derived from this client (newBuilder copies
+        // interceptors); call-site headers such as web_fetch's browser UA still win.
+        .addInterceptor(com.newoether.agora.util.AppUserAgent.interceptor)
         .eventListenerFactory(traceEventListenerFactory)
         .readTimeout(5, TimeUnit.MINUTES)
         .writeTimeout(30, TimeUnit.SECONDS)

@@ -5,6 +5,7 @@ import com.newoether.agora.api.util.tokens.bpe.O200kBase
 import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.di.AppContainer
 import com.newoether.agora.diagnostics.DeveloperDiagnostics
+import com.newoether.agora.util.AppUserAgent
 import com.newoether.agora.util.CrashReporter
 import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.CancellationException
@@ -59,6 +60,15 @@ class AgoraApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Outbound identity must be known before the first request (update checks, crash
+        // upload, provider sync), all of which can start immediately after this method.
+        AppUserAgent.initialize(
+            try {
+                packageManager.getPackageInfo(packageName, 0).versionName
+            } catch (_: Exception) {
+                null
+            },
+        )
         CrashReporter.install(this)
         com.newoether.agora.phone.PhoneScreenTimeout.process(this).recoverOnAppEvents(this, startupScope)
         // The context indicator counts remote models' text with a real vocabulary once it is in
