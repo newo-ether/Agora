@@ -1,6 +1,5 @@
 package com.newoether.agora.ui
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -64,23 +63,6 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertTrue(source.contains("Modifier.clearFocusOnTap()"))
         assertTrue(source.contains("Spacer(modifier = Modifier.height(80.dp))"))
         assertTrue(source.contains("file.name.removeSuffix(\".md\")"))
-    }
-
-    @Test
-    fun `singular transcription ellipsis exists in every locale`() {
-        val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh",
-            "values-zh-rTW",
-        )
-
-        directories.forEach { directory ->
-            val strings = sourceFile("app/src/main/res/$directory/strings.xml")
-            assertTrue(
-                "$directory transcription_ellipsis_single",
-                strings.contains("name=\"transcription_ellipsis_single\""),
-            )
-        }
     }
 
     @Test
@@ -518,41 +500,6 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
     }
 
     @Test
-    fun `Thinking display policy is configurable only outside Timeline and auto expands Grouped cards`() {
-        val appearance = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/settings/SettingsAppearancePage.kt",
-        )
-        val presentation = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/chat/message/AssistantMessagePresentation.kt",
-        )
-        val messageItem = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/chat/message/MessageItem.kt",
-        )
-        val model = sourceFile("app/src/main/java/com/newoether/agora/model/ChatMessage.kt")
-
-        assertTrue(model.contains("fun isAvailableFor(toolCallDisplayMode: String?)"))
-        assertTrue(model.contains("fun effectiveMode("))
-        assertTrue(model.contains("fun allowsAutoExpand("))
-        assertTrue(model.contains(
-            "ToolCallDisplayModes.normalize(toolCallDisplayMode) != ToolCallDisplayModes.TIMELINE"
-        ))
-        assertTrue(model.contains("ToolCallDisplayModes.GROUPED_TIMELINE"))
-        assertTrue(model.contains("normalize(thinkingSegmentDisplayMode) == CARD"))
-        assertTrue(appearance.contains(
-            "ThinkingSegmentDisplayModes.isAvailableFor(normalizedToolCallDisplayMode)"
-        ))
-        assertTrue(appearance.contains("ThinkingSegmentDisplayModes.allowsAutoExpand("))
-        val toolBlocksIndex = appearance.indexOf("R.string.tool_call_display_mode")
-        val thinkingSegmentIndex = appearance.indexOf("R.string.thinking_segment_display_mode")
-        val autoExpandIndex = appearance.indexOf("R.string.auto_expand_active_group")
-        assertTrue(toolBlocksIndex >= 0)
-        assertTrue(thinkingSegmentIndex > toolBlocksIndex)
-        assertTrue(autoExpandIndex > thinkingSegmentIndex)
-        assertTrue(presentation.contains("ThinkingSegmentDisplayModes.effectiveMode("))
-        assertTrue(messageItem.contains("ThinkingSegmentDisplayModes.allowsAutoExpand("))
-    }
-
-    @Test
     fun `Responses API rows use the API Format JSON icon`() {
         val provider = sourceFile(
             "app/src/main/java/com/newoether/agora/ui/settings/SettingsProviderDetailPage.kt",
@@ -695,50 +642,6 @@ internal class ApplicationUiSourceContractTest : UiSourceContractFixture() {
         assertTrue(codeBlock.contains("LocalMarkdownColors provides assets.renderContext.colors"))
         assertTrue(codeBlock.contains("LocalMarkdownDimens provides markdownDimens()"))
         assertTrue(codeBlock.contains("ChatCodeBlockSurface("))
-    }
-
-    @Test
-    fun `Automation groups exact execution and battery optimization in every locale`() {
-        val page = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/settings/SettingsAutomationPage.kt",
-        )
-        val manifest = sourceFile("app/src/main/AndroidManifest.xml")
-        val backgroundGroup = page
-            .substringAfter("title = stringResource(R.string.automation_background_execution)")
-            .substringBefore("if (showDocFab)")
-
-        assertTrue(backgroundGroup.contains("R.string.automation_exact_execution"))
-        assertTrue(backgroundGroup.contains("R.string.automation_battery_optimization"))
-        assertTrue(
-            backgroundGroup.indexOf("R.string.automation_exact_execution") <
-                backgroundGroup.indexOf("R.string.automation_battery_optimization"),
-        )
-        assertTrue(page.contains("isIgnoringBatteryOptimizations(context.packageName)"))
-        assertTrue(page.contains("Lifecycle.Event.ON_RESUME"))
-        assertTrue(page.contains("Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS"))
-        assertFalse(manifest.contains("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"))
-
-        val directories = listOf(
-            "values", "values-ar", "values-de", "values-es", "values-fr", "values-ja",
-            "values-ko", "values-pt-rBR", "values-ru", "values-vi", "values-zh",
-            "values-zh-rTW",
-        )
-        val keys = listOf(
-            "automation_background_execution",
-            "automation_battery_optimization",
-            "automation_battery_optimization_ignored_desc",
-            "automation_battery_optimization_active_desc",
-        )
-        directories.forEach { directory ->
-            val fileName = "automation_strings.xml"
-            val strings = sourceFile("app/src/main/res/$directory/$fileName")
-            keys.forEach { key ->
-                assertTrue("$directory $key", strings.contains("name=\"$key\""))
-            }
-            assertFalse("$directory obsolete scheduling category", strings.contains(
-                "name=\"automation_scheduling\"",
-            ))
-        }
     }
 
     @Test

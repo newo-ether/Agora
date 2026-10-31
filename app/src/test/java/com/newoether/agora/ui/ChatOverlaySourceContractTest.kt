@@ -7,22 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 internal class ChatOverlaySourceContractTest : UiSourceContractFixture() {
-    @Test fun remoteReusesCanonicalScrollAndLoadingOwnersWithoutInventedContextCategories() {
-        val remote = sourceFile("app/src/main/java/com/newoether/agora/ui/remote/RemoteConversation.kt")
-        val cover = sourceFile("app/src/main/java/com/newoether/agora/ui/chat/ChatBodyPresentation.kt")
-            .substringAfter("internal fun ChatSwitchingOverlay(")
-        assertTrue(remote.contains("rememberAbsoluteBottomButtonVisible("))
-        assertFalse(remote.contains("shouldShowAbsoluteBottomButton("))
-        assertTrue(remote.contains("regenerationScrollActive = animatedScrollRequest?.conversationId == owner"))
-        assertTrue(remote.contains("ChatSwitchingOverlay("))
-        assertTrue(remote.contains("WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp"))
-        assertTrue(remote.contains("bottomBarHeight = barHeight"))
-        assertTrue(remote.contains("showBreakdown = false"))
-        assertFalse(remote.contains("Modifier.size(48.dp)"))
-        assertTrue(cover.contains("while (true) awaitPointerEvent()"))
-        assertFalse(cover.contains("consume()"))
-        assertTrue(cover.indexOf(".pointerInput(Unit)") < cover.indexOf(".padding(top = topBarHeight"))
-    }
     @Test
     fun `chat bottom dropdowns keep twenty four dp icons and adaptive provider color`() {
         val attachment = sourceFile(

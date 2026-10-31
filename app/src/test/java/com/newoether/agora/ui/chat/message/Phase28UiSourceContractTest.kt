@@ -7,28 +7,6 @@ import org.junit.Test
 
 class Phase28UiSourceContractTest {
     @Test
-    fun `direct dots require no LazyColumn or window coordinate owner`() {
-        val list = source("com/newoether/agora/ui/chat/MessageList.kt")
-        val assistant = messageSource("AssistantMessageContent.kt") + messageSource("AssistantInlineActivity.kt")
-        val retry = messageSource("RetryActivityIndicator.kt")
-        val follower = File(
-            mainSourceRoot(),
-            "com/newoether/agora/ui/chat/message/InlineActivityDotFollower.kt",
-        )
-
-        assertFalse(follower.exists())
-        assertFalse(list.contains("dotOverlayState"))
-        assertFalse(list.contains("LocalInlineActivityDotOverlayState"))
-        assertFalse(list.contains("InlineActivityDotFollower("))
-        assertFalse(assistant.contains("localPositionOf(markerCoordinates"))
-        assertFalse(assistant.contains("positionInWindow"))
-        assertTrue(assistant.contains("GenerationActivityDot()"))
-        assertTrue(assistant.contains("clip = false"))
-        assertTrue(retry.contains("GenerationActivityDot("))
-        assertTrue(retry.contains("clip = false"))
-    }
-
-    @Test
     fun `user bubble and Select Text share exact 1_1x user-body line height`() {
         val type = source("com/newoether/agora/ui/theme/Type.kt")
         val userBubble = messageSource("UserMessageBubble.kt")

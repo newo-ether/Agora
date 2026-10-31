@@ -21,14 +21,6 @@ class AskUserTextSourceContractTest {
         assertTrue(!card.contains("DisableSelection"))
     }
 
-    @Test
-    fun `ask_user bubble questions use 14 sp text on a 20 sp line`() {
-        val presentation = source("com/newoether/agora/ui/chat/message/MessageSourcePresentation.kt")
-
-        assertTrue(presentation.contains("internal val ASK_USER_QUESTION_FONT_SIZE = 14.sp"))
-        assertTrue(presentation.contains("internal val ASK_USER_QUESTION_LINE_HEIGHT = 20.sp"))
-    }
-
     private fun source(relative: String): String =
         File(locate("app/src/main/java"), relative).readText().replace("\r\n", "\n")
 

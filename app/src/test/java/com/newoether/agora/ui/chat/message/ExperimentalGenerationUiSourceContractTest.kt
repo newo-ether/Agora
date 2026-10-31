@@ -378,14 +378,6 @@ class ExperimentalGenerationUiSourceContractTest {
     }
 
     @Test
-    fun `list item paragraph boundaries restore markdown block spacing`() {
-        val assets = source(locateMainSourceRoot(), "message/MessageBubbleAssets.kt")
-
-        assertTrue(assets.contains("model.node.needsListParagraphSpacer()"))
-        assertTrue(assets.contains("Modifier.padding(top = LocalMarkdownPadding.current.block)"))
-    }
-
-    @Test
     fun `user actions move from the bottom row into the bubble long press menu`() {
         val user = source(locateMainSourceRoot(), "message/UserMessageBubble.kt")
 

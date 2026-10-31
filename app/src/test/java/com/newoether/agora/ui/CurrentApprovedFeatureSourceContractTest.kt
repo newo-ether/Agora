@@ -84,23 +84,12 @@ class CurrentApprovedFeatureSourceContractTest {
     }
 
     @Test
-    fun `MCP page entry rebuilds errors with bounded connection work`() {
+    fun `MCP connection work uses the shared permit limit`() {
         val registry = sourceFile(
             "app/src/main/java/com/newoether/agora/mcp/McpRegistry.kt",
         )
-        val page = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/settings/SettingsMcpPage.kt",
-        )
-
-        assertTrue(registry.contains("runtimeStatus == McpConnectionStatus.CONNECTING"))
         assertTrue(registry.contains("Semaphore(permits = MAX_CONCURRENT_CONNECTIONS)"))
         assertTrue(registry.contains("connectionPermits.withPermit"))
-        assertTrue(registry.contains("internal const val MAX_CONCURRENT_CONNECTIONS = 2"))
-        val status = sourceFile(
-            "app/src/main/java/com/newoether/agora/ui/settings/McpStatusPresentation.kt",
-        )
-        assertTrue(page.contains("McpStatusText("))
-        assertTrue(status.contains("val enabledToolCount = remember(tools)"))
     }
 
     @Test

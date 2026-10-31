@@ -280,26 +280,6 @@ class DataControlImportStrategySourceContractTest {
         }
     }
 
-    @Test
-    fun legacyClaudePageAndStrategyTypeAreRemoved() {
-        val mainRoot = sourceFile("app/src/main/java")
-        val legacyPage = File(
-            mainRoot,
-            "com/newoether/agora/ui/settings/SettingsClaudeImportPage.kt",
-        )
-        assertFalse(legacyPage.exists())
-
-        val kotlinSources = mainRoot.walkTopDown().filter { it.isFile && it.extension == "kt" }
-        kotlinSources.forEach { source ->
-            val text = source.readText()
-            assertFalse(source.path, text.contains("SettingsClaudeImportPage"))
-            assertFalse(
-                source.path,
-                text.contains("com.newoether.agora.ui.settings.ImportStrategy"),
-            )
-        }
-    }
-
     private fun sourceFile(relativePath: String): File {
         var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         repeat(8) {

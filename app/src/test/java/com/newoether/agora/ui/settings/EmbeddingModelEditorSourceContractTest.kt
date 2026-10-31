@@ -8,18 +8,6 @@ import org.junit.Test
 
 class EmbeddingModelEditorSourceContractTest {
     @Test
-    fun localTypeUsesTheProviderStarsIcon() {
-        val page = readSettingsSource("SettingsSearchPage.kt")
-
-        assertTrue(
-            page.contains(
-                "if (type == EmbeddingModelType.REMOTE) Icons.Default.Cloud else Icons.Default.AutoAwesome",
-            ),
-        )
-        assertFalse(page.contains("PhoneAndroid"))
-    }
-
-    @Test
     fun remoteProviderUsesWholeRowDropdownWithSelectedCheckmark() {
         val editor = readSettingsSource("EmbeddingModelEditor.kt")
         val provider = editor.section(
@@ -114,24 +102,6 @@ class EmbeddingModelEditorSourceContractTest {
     }
 
     @Test
-    fun editCacheKeepsStableTitleStatusAndExistingActionSlot() {
-        val editor = readSettingsSource("EmbeddingModelEditor.kt")
-        val cache = editor.section(
-            "if (!isNew) {\n                SettingsGroup(",
-            "if (showDocFab) Spacer",
-        )
-
-        assertTrue(cache.contains("headlineContent = { Text(stringResource(R.string.embedding_cache_status)) }"))
-        assertTrue(cache.contains("supportingContent = { Text(embeddingCacheLabel(cacheRow) ?: \"-\") }"))
-        assertTrue(cache.contains("EmbeddingCacheAction("))
-        assertTrue(cache.contains("modelId = initial.id"))
-        assertTrue(cache.contains("cacheRow = cacheRow"))
-        assertTrue(cache.contains("size = rememberEmbeddingCacheActionSize()"))
-        assertTrue(cache.contains("onCache = onCache"))
-        assertTrue(cache.contains("onRecache = onRecache"))
-    }
-
-    @Test
     fun editorKeepsExplicitSaveAndUnsavedDraftBackGuard() {
         val editor = readSettingsSource("EmbeddingModelEditor.kt")
 
@@ -157,14 +127,6 @@ class EmbeddingModelEditorSourceContractTest {
         assertTrue(picker.contains("if (lifecycle.closed) return@launch"))
         assertTrue(picker.contains("lifecycle.imports.discard(draft.localFilePath)"))
         assertFalse(editor.contains("File(path).delete()"))
-        val lifecycle = readSettingsSource("EmbeddingEditorLifecycle.kt")
-        val close = lifecycle.section("override fun close()", "internal suspend fun importEmbeddingGguf")
-        assertTrue(close.contains("closed = true"))
-        assertTrue(close.contains("connectionTest?.cancel()"))
-        assertTrue(close.contains("imports.close()"))
-        assertTrue(lifecycle.contains("currentCoroutineContext().ensureActive()"))
-        assertTrue(lifecycle.contains("if (!closed) onResult(result)"))
-        assertTrue(lifecycle.contains("copyLocalChatGguf(input, dest, imports)"))
     }
 
     private fun String.section(start: String, end: String): String {

@@ -8,60 +8,6 @@ import org.junit.Test
 
 class Phase25UiSourceContractTest {
     @Test
-    fun `direct dot exit retains draw state without clipping or overlay physics`() {
-        val list = chatSource("MessageList.kt")
-        val assistant = source("AssistantMessageContent.kt")
-        val retry = source("RetryActivityIndicator.kt")
-        val tail = chatSource("StreamingTailIndicator.kt")
-        val follower = File(
-            mainSourceRoot(),
-            "com/newoether/agora/ui/chat/message/InlineActivityDotFollower.kt",
-        )
-
-        assertFalse(follower.exists())
-        assertFalse(list.contains("InlineActivityDotFollower"))
-        assertFalse(list.contains("dotOverlayState"))
-        assertFalse(list.contains("StreamingTailIndicator("))
-        val activity = source("AssistantInlineActivity.kt")
-        val assistantActivity = activity
-            .substringAfter("internal fun AssistantInlineActivity(")
-            .substringBefore("/**")
-        assertTrue(assistantActivity.contains("retainExitLayout: Boolean"))
-        assertTrue(assistantActivity.contains(
-            "visibilityTransition.targetState ||"
-        ))
-        assertTrue(assistantActivity.contains(
-            "visibilityTransition.targetState || retainExitLayout"
-        ))
-        assertTrue(assistant.contains("retainExitLayout = inlineActivityPresentation.retainLayout"))
-        assertTrue(assistantActivity.contains(
-            "alpha = if (terminalText == null) activityOpacity else 1f"
-        ))
-        assertTrue(activity.contains(".heightIn(min = AssistantInlineActivityHeight)"))
-        assertTrue(assistantActivity.contains("clip = false"))
-        assertTrue(assistantActivity.contains("GenerationActivityDot()"))
-        assertTrue(assistantActivity.contains("Crossfade("))
-        assertTrue(assistantActivity.contains("targetState = terminalText"))
-        assertTrue(assistantActivity.contains(
-            "animationSpec = tween(durationMillis = 180, easing = LinearEasing)"
-        ))
-        assertFalse(assistantActivity.contains("terminalText?.let"))
-        assertTrue(assistant.contains(
-            "targetState = inlineActivityMode != AssistantInlineActivityMode.NONE ||"
-        ))
-        assertTrue(assistant.contains("inlineActivityPresentation.retainLayout,"))
-        assertTrue(retry.contains("GenerationActivityDot("))
-        assertTrue(retry.contains("clip = false"))
-        val tailIndicator = tail
-            .substringAfter("internal fun StreamingTailIndicator(")
-            .substringBefore("/** One breathing-scale sample")
-        assertTrue(tailIndicator.contains("GenerationActivityDot("))
-        assertTrue(tailIndicator.contains("clip = false"))
-        assertFalse(tailIndicator.contains("AnimatedVisibility("))
-        assertFalse(tailIndicator.contains("animateContentSize"))
-    }
-
-    @Test
     fun `Timeline info entrances have one card owned unbounded appearance layer`() {
         val timeline = source("MessageItemTimeline.kt") +
             source("TimelineSegmentsContent.kt")

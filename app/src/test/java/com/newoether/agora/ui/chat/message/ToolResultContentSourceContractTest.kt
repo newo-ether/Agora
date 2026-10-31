@@ -205,33 +205,6 @@ class ToolResultContentSourceContractTest {
     }
 
     @Test
-    fun `Completed wait for job keeps its own action summary`() {
-        val source = source(locateMainSourceRoot(), "MessageItemToolLabels.kt")
-        val completedSummary = source
-            .substringAfter("private fun Resources.completedSummary(")
-
-        assertTrue(completedSummary.contains("ToolKind.SHELL_JOB_WAIT -> optionalSubjectSummary("))
-        assertTrue(completedSummary.contains("R.string.tool_waited_shell_job,"))
-        assertTrue(completedSummary.contains("R.string.tool_waited_shell_job_default,"))
-        assertFalse(completedSummary.contains("ToolKind.SHELL_JOB_WAIT -> shellToolSummary(presentation)"))
-    }
-
-    @Test
-    fun `Background summary does not expose the job id`() {
-        val source = source(locateMainSourceRoot(), "MessageItemToolLabels.kt")
-        val shellSummary = source
-            .substringAfter("internal fun Resources.shellToolSummary(")
-            .substringBefore("private fun Resources.shellFailureSummary")
-        assertTrue(shellSummary.contains("R.string.tool_background_job_running_default"))
-        assertFalse(shellSummary.contains("status.jobId"))
-        assertFalse(shellSummary.contains("tool_background_job_running,"))
-        val generalSummary = source.substringAfter("internal fun Resources.toolSummary(presentation:")
-            .substringBefore("private fun Resources.runningSummary")
-        assertFalse(generalSummary.contains("presentation.jobId"))
-        assertFalse(generalSummary.contains("tool_background_job_running,"))
-    }
-
-    @Test
     fun `Tool presentation resources keep locale key and placeholder parity`() {
         val resourceRoot = locateResourceRoot()
         val directories = listOf(

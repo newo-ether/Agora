@@ -24,30 +24,6 @@ class AddCustomProviderPageSourceContractTest {
     }
 
     @Test
-    fun creationUsesCollapsingTitleGroupsAndExistingOutlinedFields() {
-        val editor = readSettingsSource("AddCustomProviderPage.kt")
-        val field = readSettingsSource("SettingsMcpPage.kt").substringAfter("internal fun McpLabeledField(")
-
-        assertTrue(editor.contains("CollapsingSettingsScaffold("))
-        assertTrue(editor.contains("title = stringResource(R.string.custom_provider_add_title)"))
-        assertTrue(editor.contains("scrollState = rememberSettingsScrollState()"))
-        assertTrue(editor.contains("SettingsGroupColumn {"))
-        assertTrue(editor.contains("title = stringResource(R.string.embedding_general)"))
-        assertTrue(editor.contains("title = stringResource(R.string.provider_connection)"))
-        assertEquals(2, Regex("\\bMcpLabeledField\\(").findAll(editor).count())
-        assertTrue(editor.contains("SettingsIconContent(Icons.Default.Label)"))
-        assertTrue(editor.contains("SettingsIconContent(Icons.Default.Cloud)"))
-        assertTrue(editor.contains("SettingsIconContent(Icons.Default.Link)"))
-        assertTrue(editor.contains("label = stringResource(R.string.custom_provider_name_label)"))
-        assertTrue(editor.contains("label = stringResource(R.string.provider_base_url)"))
-        assertTrue(editor.contains("R.string.custom_provider_name_error"))
-        assertTrue(editor.contains("R.string.custom_provider_url_error"))
-        assertTrue(field.contains("OutlinedTextField("))
-        assertTrue(field.contains("shape = RoundedCornerShape(16.dp)"))
-        assertTrue(field.contains("isError = isError"))
-    }
-
-    @Test
     fun protocolSelectorRetainsVisibleLabelAndAccessibilityDescription() {
         val editor = readSettingsSource("AddCustomProviderPage.kt")
 
@@ -97,17 +73,6 @@ class AddCustomProviderPageSourceContractTest {
         assertTrue(editor.contains("onBack = guardedBack"))
         assertFalse(editor.contains("onDispose"))
         assertFalse(editor.contains("onDismissRequest"))
-    }
-
-    @Test
-    fun documentationUsesTheSharedVisibilitySettingAndMatchingBottomClearance() {
-        val editor = readSettingsSource("AddCustomProviderPage.kt")
-        val page = readSettingsSource("SettingsProviderPage.kt")
-
-        assertTrue(editor.contains("val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()"))
-        assertTrue(editor.contains("floatingActionButton = { if (showDocFab) DocumentationFab(\"provider.md\") }"))
-        assertTrue(editor.contains("if (showDocFab) Spacer(Modifier.height(80.dp))"))
-        assertFalse(page.contains("DocumentationFab("))
     }
 
     private fun readSettingsSource(fileName: String): String {

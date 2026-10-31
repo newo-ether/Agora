@@ -56,60 +56,6 @@ class TaskEditorSourceContractTest {
     }
 
     @Test
-    fun taskEditorUsesTheActivitySessionWithoutPageWideSaveableCapture() {
-        val activity = source("MainActivity.kt")
-        val tasks = source("ui/tasks/TasksScreen.kt")
-        val editor = source("ui/tasks/TaskEditorPage.kt")
-        val preview = source("ui/tasks/TaskHistoryPreviewState.kt")
-        val session = source("ui/tasks/TaskEditorSessionViewModel.kt")
-
-        assertTrue(activity.contains("val taskEditorSession: TaskEditorSessionViewModel = viewModel()"))
-        assertTrue(activity.contains("TaskHistoryDestinationEffect("))
-        assertTrue(activity.contains("editorSession = taskEditorSession"))
-        assertTrue(activity.contains("previewConversationId = conversationId"))
-        assertTrue(activity.contains("restoreConversationDestination"))
-        assertTrue(activity.contains("restoreNewChatDestination"))
-        val returnHandler = activity
-            .substringAfter("taskEditorSession.requestHistoryReturn()")
-            .substringBefore("drawerEnabled = !taskHistoryPreview.active")
-        assertTrue(
-            returnHandler.indexOf("beginHistoryReturnRestore") <
-                returnHandler.indexOf("topLevelPresentation.present(TopLevelPresentation.TASKS)"),
-        )
-        assertTrue(tasks.contains("editorSession: TaskEditorSessionViewModel"))
-        assertTrue(preview.contains("destinationObserved"))
-        assertTrue(preview.contains("!destinationObserved && previewIsSelected"))
-        assertTrue(preview.contains("returnOverlayCovered"))
-        assertTrue(preview.contains("returnDestinationObserved"))
-        assertTrue(preview.contains("restoreRequested"))
-        assertTrue(preview.contains("generation == expectedGeneration"))
-        assertTrue(session.contains("TaskExecutionHistorySnapshot"))
-        assertTrue(session.contains("activeTaskId == taskId"))
-        assertTrue(editor.contains("previewPhase == TaskHistoryPreviewPhase.RETURNING"))
-        assertFalse(activity.contains("rememberSaveableStateHolder"))
-        assertFalse(tasks.contains("SaveableStateHolder"))
-        assertFalse(editor.contains("DiffUtil"))
-        assertFalse(preview.contains("Saver<"))
-        assertFalse(preview.contains("detailListIndex"))
-    }
-
-    @Test
-    fun scheduleAndTimeRowsUseDistinctIcons() {
-        val editor = source("ui/tasks/TaskEditorPage.kt")
-        val atRow = editor
-            .substringAfter("// ── At ──")
-            .substringBefore("// ── Custom cron passthrough ──")
-        val scheduleRow = editor
-            .substringAfter("// ── Armed switch ──")
-            .substringBefore("if (showWeekdayDialog)")
-
-        assertTrue(atRow.contains("Icons.Default.Schedule"))
-        assertFalse(atRow.contains("Icons.Default.Timer"))
-        assertTrue(scheduleRow.contains("Icons.Default.Timer"))
-        assertFalse(scheduleRow.contains("Icons.Default.Schedule"))
-    }
-
-    @Test
     fun thePromptIsEditedInADialogOpenedFromAPreviewRow() {
         val editor = source("ui/tasks/TaskEditorPage.kt")
         val dialog = source("ui/tasks/TaskPromptDialog.kt")

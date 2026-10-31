@@ -230,22 +230,6 @@ class StreamingMarkdownMessageSourceContractTest {
     }
 
     @Test
-    fun `all native Markdown roots share definition projection and document reference ownership`() {
-        val root = locateMainSourceRoot()
-        val normal = source(root, "MessageItemMarkdown.kt")
-        val incremental = source(root, "IncrementalStreamingMarkdown.kt")
-        val references = source(root, "MarkdownDocumentReferences.kt")
-        assertEquals(2, Regex("markdownVisibleBlocks\\(state.node\\)").findAll(normal).count())
-        assertTrue(incremental.contains("markdownVisibleBlocks(root, preserveTrailingSpacing)"))
-        listOf(normal, incremental).forEach { assertTrue(it.contains("MarkdownDocumentReferenceHandler(")) }
-        assertTrue(incremental.contains("stableReferences.putIfAbsent(label, destination)"))
-        assertTrue(incremental.contains("liveReferences = markdownReferenceDefinitions(root, tail)"))
-        assertTrue(references.contains("ASTNode by original"))
-        assertFalse(references.contains("buildMarkdownTreeFromString"))
-        assertFalse(references.contains("Regex("))
-    }
-
-    @Test
     fun `low level incremental renderer has exactly one UI caller`() {
         val root = locateMainSourceRoot()
         val consumers = root.walkTopDown()

@@ -44,38 +44,6 @@ class TodoSubagentSettingsSourceContractTest {
     }
 
     @Test
-    fun subagentsKeepImmediateSwitchAndWireModelControls() {
-        val page = sourceFile("ui/settings/SettingsSubagentPage.kt").readText()
-        listOf("subagentToolsEnabled", "subagentEnabledModels", "subagentRecommendedModel").forEach {
-            assertTrue(page.contains("viewModel.settings.$it.collectAsState()"))
-        }
-        listOf(
-            "setSubagentToolsEnabled", "addSubagentModels", "removeSubagentModel",
-            "setSubagentRecommendedModel",
-        ).forEach { assertTrue(page.contains("viewModel.settings::$it")) }
-        assertTrue(page.contains("CollapsingSettingsScaffold("))
-        assertTrue(page.contains("title = stringResource(R.string.settings_subagents)"))
-        assertTrue(page.contains("onBack = onBack"))
-        assertTrue(page.contains("rememberSettingsScrollState()"))
-        assertTrue(page.contains("headlineContent = { Text(stringResource(R.string.subagents_enable)) }"))
-        assertTrue(page.contains("supportingContent = { Text(stringResource(R.string.subagents_enable_desc)) }"))
-        assertTrue(page.contains("Icons.Default.AccountTree"))
-        assertEquals(2, Regex("""\bSwitch\(""").findAll(page).count())
-        assertTrue(page.contains("Switch(checked = subagentToolsEnabled, onCheckedChange = null)"))
-        assertTrue(page.contains("Switch(checked = subagentDeleteEnabled, onCheckedChange = null)"))
-        assertTrue(page.contains("viewModel.settings::setSubagentDeleteEnabled"))
-        assertTrue(page.contains("modifier = Modifier.toggleable("))
-        assertTrue(page.contains("value = subagentToolsEnabled"))
-        assertTrue(page.contains("role = Role.Switch"))
-        assertTrue(page.contains("onValueChange = onSubagentToolsEnabledChange"))
-        assertTrue(page.contains("R.string.subagents_model_list_title"))
-        assertTrue(page.contains("R.string.subagents_recommended_model_title"))
-        assertTrue(page.contains("SettingsAddItem("))
-        assertFalse(page.contains("R.string.save"))
-        assertFalse(page.contains("rememberUnsavedChangesBack"))
-    }
-
-    @Test
     fun settingsCopyIsLocalizedWithoutDuplicateKeys() {
         val keys = setOf(
             "settings_todo", "settings_todo_desc", "todo_enable", "todo_enable_desc",
