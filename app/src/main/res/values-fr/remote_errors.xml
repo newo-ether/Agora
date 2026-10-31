@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex n’a pas accepté le message. Consultez l’erreur avant de réessayer.</string>
     <string name="remote_storage_failed">Agora ne peut pas accéder aux données distantes locales. Vérifiez l’espace disponible.</string>
     <string name="remote_network_failed">Filo est inaccessible. Vérifiez l’ordinateur cible, l’adresse du service et le réseau.</string>
-    <string name="remote_auth_failed">Filo a refusé le jeton d’accès. Utilisez celui de l’ordinateur cible.</string>
+    <string name="remote_auth_failed">Filo n’a pas pu authentifier cette requête. Cela ne signifie pas nécessairement que le jeton d’accès est incorrect. Si le problème persiste, vérifiez le jeton et l’horloge de l’ordinateur cible.</string>
     <string name="remote_configuration_failed">Saisissez une URL de service valide et un jeton d’accès de 64 caractères.</string>
     <string name="remote_protocol_failed">Agora ne peut pas vérifier ou lire la réponse de Filo. Vérifiez que les deux apps sont à jour.</string>
     <string name="remote_service_failed">Codex n’a pas pu traiter la demande.</string>

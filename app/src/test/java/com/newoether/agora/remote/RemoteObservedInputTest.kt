@@ -28,6 +28,47 @@ class RemoteObservedInputTest {
         return state.copy(drafts = mapOf(requireNotNull(state.owner) to "original input"))
     }
 
+    @Test fun grantedSendWithUnknownRuntimeDispatchesOnceAndPreservesNativeState() = runTest {
+        for (runtime in listOf(null, RemoteRuntime("unknown"), RemoteRuntime("notLoaded"), RemoteRuntime("disconnected"))) {
+            val state = MutableStateFlow(initial().copy(runtime = runtime, failure = RemoteFailure.NETWORK))
+            val client = mockk<FiloClient>()
+            coEvery { client.sendReceipt(any(), any(), any(), any()) } coAnswers {
+                RemoteSendReceipt(clientId = thirdArg(), kind = "submitted_observed", state = "submitted")
+            }
+            val submission = RemoteSubmission(backgroundScope, state, { client }, { _, _ -> true }, { 1 },
+                { true }, {}, null, ScrollRequestCoordinator(), { _, _, _ -> null }, {}, { false })
+            val owner = state.value.owner!!
+            assertTrue(state.value.canSend)
+            submission.send()
+            submission.send()
+            runCurrent()
+            coVerify(exactly = 1) { client.sendReceipt("session", "original input", any(), emptyList()) }
+            assertEquals(RemoteDelivery.ACCEPTED, state.value.attempts[owner]?.delivery)
+            assertEquals("original input", state.value.drafts[owner])
+            assertEquals(runtime, state.value.runtime)
+        }
+    }
+
+    @Test fun unknownRuntimeNeverGrantsSendWithoutExactNativeAccessAndCapability() = runTest {
+        val initial = initial().copy(runtime = RemoteRuntime("unknown"))
+        val session = initial.session!!
+        val access = session.access!!
+        for (grant in listOf(null, access.copy(binding = ""), access.copy(nativeScopeId = "other"),
+            access.copy(capabilities = RemoteCapabilities(history = true)))) {
+            val state = MutableStateFlow(initial.copy(session = session.copy(access = grant)))
+            val client = mockk<FiloClient>()
+            val submission = RemoteSubmission(backgroundScope, state, { client }, { _, _ -> true }, { 1 },
+                { true }, {}, null, ScrollRequestCoordinator(), { _, _, _ -> null }, {}, { false })
+            assertFalse(state.value.canSend)
+            submission.send()
+            runCurrent()
+            coVerify(exactly = 0) { client.sendReceipt(any(), any(), any(), any()) }
+            assertTrue(state.value.attempts.isEmpty())
+            // Invalid access changes the derived owner; every existing owner's draft must remain intact.
+            assertEquals(initial.drafts, state.value.drafts)
+        }
+    }
+
     @Test fun submittedKeepsDraftAndObservedClearsOnlyUnchangedText() = runTest {
         for (editDraft in listOf(false, true)) {
             val state = MutableStateFlow(initial())

@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex 未接受這則訊息，請查看錯誤詳情後再嘗試。</string>
     <string name="remote_storage_failed">Agora 無法存取本機遠端資料，請檢查剩餘儲存空間。</string>
     <string name="remote_network_failed">無法連線至 Filo，請檢查目標電腦、服務位址和網路。</string>
-    <string name="remote_auth_failed">Filo 拒絕了存取權杖，請使用目標電腦上的權杖。</string>
+    <string name="remote_auth_failed">Filo 未能完成本次請求的驗證，這不一定表示存取權杖有誤。若持續發生，請核對目標電腦上的權杖和系統時間。</string>
     <string name="remote_configuration_failed">請輸入有效的服務 URL 和 64 字元存取權杖。</string>
     <string name="remote_protocol_failed">Agora 無法驗證或讀取 Filo 的回應，請檢查兩端應用程式是否已更新。</string>
     <string name="remote_service_failed">Codex 未能完成請求。</string>

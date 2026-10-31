@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex가 메시지를 수락하지 않았습니다. 다시 시도하기 전에 오류 세부 정보를 확인하세요.</string>
     <string name="remote_storage_failed">Agora가 로컬 원격 데이터에 접근할 수 없습니다. 저장 공간을 확인하세요.</string>
     <string name="remote_network_failed">Filo에 연결할 수 없습니다. 대상 컴퓨터, 서비스 주소 및 네트워크를 확인하세요.</string>
-    <string name="remote_auth_failed">Filo가 액세스 토큰을 거부했습니다. 대상 컴퓨터의 토큰을 사용하세요.</string>
+    <string name="remote_auth_failed">Filo가 이번 요청을 인증하지 못했습니다. 액세스 토큰이 잘못되었다는 뜻은 아닙니다. 계속 발생하면 대상 컴퓨터의 토큰과 시스템 시간을 확인하세요.</string>
     <string name="remote_configuration_failed">올바른 서비스 URL과 64자 액세스 토큰을 입력하세요.</string>
     <string name="remote_protocol_failed">Agora가 Filo 응답을 검증하거나 읽을 수 없습니다. 두 앱이 최신인지 확인하세요.</string>
     <string name="remote_service_failed">Codex가 요청을 완료하지 못했습니다.</string>

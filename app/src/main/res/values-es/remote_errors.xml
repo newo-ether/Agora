@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex no aceptó el mensaje. Consulta el error antes de intentarlo de nuevo.</string>
     <string name="remote_storage_failed">Agora no puede acceder a los datos remotos locales. Comprueba el espacio disponible.</string>
     <string name="remote_network_failed">No se puede conectar con Filo. Comprueba el equipo de destino, la dirección y la red.</string>
-    <string name="remote_auth_failed">Filo rechazó el token de acceso. Usa el token del equipo de destino.</string>
+    <string name="remote_auth_failed">Filo no pudo autenticar esta solicitud. Esto no significa necesariamente que el token de acceso sea incorrecto. Si persiste, comprueba el token y la hora del equipo de destino.</string>
     <string name="remote_configuration_failed">Introduce una URL de servicio válida y un token de acceso de 64 caracteres.</string>
     <string name="remote_protocol_failed">Agora no puede verificar o leer la respuesta de Filo. Comprueba que ambas apps estén actualizadas.</string>
     <string name="remote_service_failed">Codex no pudo completar la solicitud.</string>

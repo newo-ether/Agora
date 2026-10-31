@@ -50,6 +50,25 @@ class ThinkingControlPanelTest {
         }
     }
 
+    @Test fun unknownEffortCanBeSelectedByTouchWithoutInventingInitialSelection() {
+        val changes = mutableListOf<String>()
+        compose.setContent {
+            MaterialTheme {
+                ThinkingControlPanel(
+                    enabled = false, level = "", budgetEnabled = false, budgetTokens = 0,
+                    availableEfforts = listOf("low", "medium", "high", "xhigh", "max"),
+                    knownSelection = false, showEnabledToggle = false, showHeader = false,
+                    showBudgetControls = false, onEnabledChange = {}, onLevelChange = { changes += it },
+                    onBudgetEnabledChange = {}, onBudgetTokensChange = {},
+                )
+            }
+        }
+        compose.onNode(slider).assertIsDisplayed().assertIsEnabled().performTouchInput {
+            click(Offset(width * .9f, height * .5f))
+        }
+        compose.runOnIdle { assertEquals(listOf("max"), changes) }
+    }
+
     @Test fun unsupportedBudgetRemainsDiscoverableButCannotWrite() {
         val changes = mutableListOf<String>()
         panel(supported = false, changes = changes)

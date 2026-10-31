@@ -537,8 +537,11 @@ button, including while loading or using a read-only source. Thinking remains vi
 is independently disabled when its capability, model options or runtime admission is unavailable.
 Service Tier is hidden when the selected source does not advertise `serviceTier` settings,
 including both Claude sources. An advertised tier row stays visible but disabled while its
-model options or current session grant are unavailable. Without a model capability the selector
-shows a disabled Model Unavailable entry. The composer shows no read-only or snapshot notice line.
+model options or current session grant are unavailable. The model-selector trigger is disabled
+when model switching is unsupported, its catalog or conversation is loading, no usable model
+options are available, or its label is Model Unavailable. Preserve a known native model label
+without granting a menu. Revoking admission also closes an already-open model menu.
+The composer shows no read-only or snapshot notice line.
 The same capability fence applies to an already-open sheet if capabilities change.
 Remote Thinking and Service Tier use plain rows in the original details dropdown. Those rows
 open the original bottom sheets and slider panels; neither the dropdown nor panel exposes a

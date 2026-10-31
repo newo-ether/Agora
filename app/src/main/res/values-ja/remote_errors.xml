@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex がメッセージを受け付けませんでした。再試行する前にエラーの詳細を確認してください。</string>
     <string name="remote_storage_failed">Agora がリモート用のローカルデータにアクセスできません。空き容量を確認してください。</string>
     <string name="remote_network_failed">Filo に接続できません。接続先のパソコン、サービスのアドレス、ネットワークを確認してください。</string>
-    <string name="remote_auth_failed">Filo がアクセストークンを拒否しました。接続先のパソコンのトークンを使用してください。</string>
+    <string name="remote_auth_failed">Filo はこのリクエストを認証できませんでした。アクセストークンが間違っているとは限りません。繰り返し発生する場合は、接続先のパソコンのトークンと時刻を確認してください。</string>
     <string name="remote_configuration_failed">有効なサービス URL と 64 文字のアクセストークンを入力してください。</string>
     <string name="remote_protocol_failed">Agora が Filo の応答を検証または読み取りできません。両方のアプリが最新か確認してください。</string>
     <string name="remote_service_failed">Codex がリクエストを完了できませんでした。</string>

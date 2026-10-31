@@ -50,6 +50,17 @@ class RemoteErrorPresentationTest {
         }
     }
 
+    @Test fun authenticationFailureDoesNotClaimTheCredentialIsWrongOrSuggestResending() {
+        for (code in listOf(null, "authentication_failed")) {
+            val notice = RemoteNotice("send_failed", RemoteFailure.AUTHENTICATION, 1, code = code)
+            val english = remoteNoticeMessage(context("en"), notice)
+            assertTrue(english.contains("could not authenticate this request"))
+            assertTrue(english.contains("does not necessarily mean"))
+            assertTrue(remoteNoticeMessage(context("zh-CN"), notice).contains("不一定表示访问令牌有误"))
+            assertFalse(notice.canRetryRead)
+        }
+    }
+
     @Test fun unknownAndLegacyErrorsKeepProviderDetailsWithALocalizedHeading() {
         for (code in listOf(null, "native_error", "future_server_code")) {
             val notice = RemoteNotice("send_failed", RemoteFailure.SERVICE, 1, "Provider limit: 429", code)
