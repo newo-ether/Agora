@@ -20,7 +20,13 @@ android {
     testOptions.unitTests.isIncludeAndroidResources = true
     // Robolectric installs Conscrypt as the first security provider for the whole test JVM;
     // on JDK 17+ its TLS server needs reflective access to java.net (InetAddress.holder).
-    testOptions.unitTests.all { it.jvmArgs("--add-opens=java.base/java.net=ALL-UNNAMED") }
+    testOptions.unitTests.all {
+        it.jvmArgs("--add-opens=java.base/java.net=ALL-UNNAMED")
+        // Isolate Android sandboxes and native state between test classes.
+        it.forkEvery = 1
+        it.maxParallelForks = 2
+        it.maxHeapSize = "1g"
+    }
     compileSdk {
         version = release(36)
     }
