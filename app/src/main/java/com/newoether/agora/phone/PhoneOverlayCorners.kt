@@ -58,13 +58,16 @@ internal fun rememberPhoneCorners(view: View): List<RoundedCorner?>? {
 internal fun phoneBorderPath(size: Size, corners: List<RoundedCorner?>?, inset: Float, fallbackRadius: Float): Path {
     val positions = listOf(0, 1, 2, 3)
     val radii = positions.map { position ->
-        ((if (corners == null) fallbackRadius else corners[position]?.radius?.toFloat() ?: 0f) - inset).coerceAtLeast(0f)
+        val radius = if (Build.VERSION.SDK_INT >= 31 && corners != null) {
+            corners[position]?.radius?.toFloat() ?: 0f
+        } else fallbackRadius
+        (radius - inset).coerceAtLeast(0f)
     }
     val centers = positions.map { position ->
-        val corner = corners?.get(position)
+        val center = if (Build.VERSION.SDK_INT >= 31) corners?.get(position)?.center else null
         val radius = if (corners == null) fallbackRadius else 0f
-        val x = corner?.center?.x?.toFloat() ?: if (position == 0 || position == 3) radius else size.width - radius
-        val y = corner?.center?.y?.toFloat() ?: if (position < 2) radius else size.height - radius
+        val x = center?.x?.toFloat() ?: if (position == 0 || position == 3) radius else size.width - radius
+        val y = center?.y?.toFloat() ?: if (position < 2) radius else size.height - radius
         androidx.compose.ui.geometry.Offset(
             x.coerceIn(inset, (size.width - inset).coerceAtLeast(inset)),
             y.coerceIn(inset, (size.height - inset).coerceAtLeast(inset)),

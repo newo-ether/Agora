@@ -1,5 +1,6 @@
 package com.newoether.agora.webui
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.newoether.agora.R
 import com.newoether.agora.util.DebugLog
@@ -237,6 +238,8 @@ internal class WebUiController(
         this.theme = theme
     }
 
+    // These font resources are binary files; WebUI needs their bytes rather than a Typeface.
+    @SuppressLint("ResourceType")
     private fun readAppFont(): ByteArray? = runCatching {
         when (val font = theme?.font) {
             WebUiFont.AppDefault ->

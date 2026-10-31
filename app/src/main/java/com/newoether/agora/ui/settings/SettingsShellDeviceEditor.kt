@@ -67,6 +67,7 @@ internal fun SettingsShellDeviceEditor(
     val latestIsCurrent by rememberUpdatedState(isCurrent)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val saveFailureMessage by rememberUpdatedState(stringResource(R.string.img_save_failed))
     val pageActive = LocalSettingsScrollRetentionActive.current
 
     fun close() {
@@ -162,7 +163,7 @@ internal fun SettingsShellDeviceEditor(
                     scope.launch {
                         if (ownsEditor() && saveAttempt == attempt && saving) {
                             saving = false
-                            viewModel.emitSnackbar(context.getString(R.string.img_save_failed))
+                            viewModel.emitSnackbar(saveFailureMessage)
                         }
                     }
                 }

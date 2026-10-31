@@ -21,6 +21,16 @@ class PhoneOverlayCornersTest {
         setPath(phoneBorderPath(size, corners, inset, 28f).asAndroidPath(), Region(0, 0, 200, 400))
     }
 
+    @Test
+    @Config(sdk = [26])
+    fun olderAndroidUsesTheInsetFallbackWithoutPlatformCornerCalls() {
+        val bounds = phoneBorderPath(size, null, 1f, 28f).getBounds()
+        assertEquals(1f, bounds.left, 0.01f)
+        assertEquals(1f, bounds.top, 0.01f)
+        assertEquals(199f, bounds.right, 0.01f)
+        assertEquals(399f, bounds.bottom, 0.01f)
+    }
+
     @Test fun fourIndependentCentersAndRadiiDetermineTheVisibleMask() {
         val corners = listOf(
             RoundedCorner(0, 35, 45, 50), RoundedCorner(1, 20, 170, 30),
