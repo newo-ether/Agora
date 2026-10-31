@@ -111,6 +111,35 @@ internal object LocalModelRuntime {
     @Volatile
     private var activeChatEngine: LlamaChatEngine? = null
 
+    @Volatile
+    private var prefixCacheDirectory: String = ""
+
+    @Volatile
+    private var prefixCacheMaxBytes: Long = 0
+
+    @Volatile
+    private var memoryCheckpointBudget: MemoryCheckpointBudget? = null
+
+    /** RAM limits for prompt checkpoints in chat models loaded from now on. */
+    internal fun setMemoryCheckpointBudget(budget: MemoryCheckpointBudget) {
+        memoryCheckpointBudget = budget
+    }
+
+    /** Frees the resident chat model's RAM prompt checkpoints, e.g. on onTrimMemory. */
+    internal fun dropMemoryCheckpoints() {
+        (resident as? Resident.Chat)?.engine?.dropMemoryCheckpoints()
+    }
+
+    /**
+     * Enables persistent prompt-prefix snapshots for chat models loaded from now on. The
+     * directory belongs under the app cache so Android's Clear cache and low-storage cleanup
+     * remove it; [maxBytes] keeps it inside the app's cache quota.
+     */
+    internal fun setPrefixCacheDirectory(directory: String, maxBytes: Long) {
+        prefixCacheDirectory = directory
+        prefixCacheMaxBytes = maxBytes
+    }
+
     internal fun initialize(nativeLibraryDir: String) {
         require(nativeLibraryDir.isNotBlank()) { "Native library directory must not be blank" }
         val canonicalDirectory = canonicalize(nativeLibraryDir)
@@ -142,7 +171,10 @@ internal object LocalModelRuntime {
             current.engine
         } else {
             unloadResident()
-            val loaded = LlamaChatEngine(identity.canonicalPath, identity.nCtx)
+            val loaded = LlamaChatEngine(
+                identity.canonicalPath, identity.nCtx, prefixCacheDirectory, prefixCacheMaxBytes,
+                memoryCheckpointBudget,
+            )
             if (!loaded.load()) {
                 loaded.close()
                 return@run false
