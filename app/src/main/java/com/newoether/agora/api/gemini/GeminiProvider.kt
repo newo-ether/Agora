@@ -1,13 +1,13 @@
 package com.newoether.agora.api.gemini
 
 import com.newoether.agora.api.*
-
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.ThinkingProviderFamily
 import com.newoether.agora.api.util.Base64FileRegistry
+import com.newoether.agora.api.util.imageArtifactsForSend
 import com.newoether.agora.api.util.resolvedThinking
 import com.newoether.agora.api.util.adaptToolRoundsForProvider
 import com.newoether.agora.api.util.RequestFormatException
@@ -248,7 +248,7 @@ class GeminiProvider(
     ): Flow<StreamEvent> = flow {
         val baseUrl = config.baseUrl?.trimEnd('/')?.ifBlank { null } ?: defaultBaseUrl
         val cleanModelName = config.modelId.removePrefix("models/")
-        
+
         val requiresFunctionCallSignature =
             cleanModelName.contains("gemini-3", ignoreCase = true) ||
                 cleanModelName.contains("gemini-3.5", ignoreCase = true)
@@ -346,19 +346,19 @@ class GeminiProvider(
                 }
             }
             if (config.includeImages && msg.participant == Participant.USER) {
-                for (imagePath in msg.images) {
-                    val placeholder = base64Files.register(imagePath) ?: continue
+                for (artifact in msg.imageArtifactsForSend()) {
+                    val image = base64Files.register(artifact) ?: continue
                     parts.add(
                         ApiRequestPart(
                             inlineData = ApiInlineData(
-                                mimeType = com.newoether.agora.api.util.imageMimeType(imagePath),
-                                data = placeholder,
+                                mimeType = image.mimeType,
+                                data = image.placeholder,
                             ),
                         ),
                     )
                 }
             }
-            if (parts.isEmpty()) parts.add(ApiRequestPart(text = "[Attachment unavailable]"))
+            if (parts.isEmpty()) parts.add(ApiRequestPart(text = "Continue"))
             entries.add(ApiRequestContent(
                 role = if (msg.participant == Participant.USER) "user" else "model",
                 parts = parts

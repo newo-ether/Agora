@@ -20,7 +20,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
@@ -72,6 +74,33 @@ class BoundRunGenerationLauncherTest {
         }
         fixture.state.dispose()
         Unit
+    }
+
+    @Test
+    fun explicitContinuationIsForwardedToGenerationWithoutQueuedGuidance() = runBlocking {
+        for (continuesAfterSuccess in listOf(false, true)) {
+            val fixture = Fixture()
+            val callbacks = slot<GenerationCallbacks>()
+            coEvery {
+                fixture.manager.generate(
+                    any(), any(), any(), any(), any(), any(), any(),
+                    any(), any(), any(), any(), capture(callbacks), any(), any(),
+                )
+            } returns GenerationExecutionResult()
+            mockDebugLog()
+            try {
+                fixture.launcher.launch(
+                    fixture.request.copy(continuesAfterSuccess = continuesAfterSuccess),
+                    fixture.state,
+                )
+                assertEquals(continuesAfterSuccess, callbacks.captured.hasPendingContinuation)
+                assertFalse(callbacks.captured.hasQueuedSends())
+                assertTrue(fixture.continuationRequests.isEmpty())
+            } finally {
+                fixture.state.dispose()
+                unmockkObject(DebugLog)
+            }
+        }
     }
 
     @Test

@@ -32,7 +32,7 @@ class RemoteImageHydrationTest {
         try {
             val state = MutableStateFlow(snapshot())
             var imageReads = 0
-            val attachment = ToolImageAttachment(file.path, "image/png", 128, 128, 64, "hash")
+            val attachment = ToolImageAttachment(file.path, "image/png", 128, 128, 64)
             val hydration = RemoteMessageHydration(state, { _, _ -> RemoteConversationPage(listOf(record), null, emptyList(), nodes = state.value.messageGroups.single().nodes) }, { throw it },
                 { owner, request ->
                     assertEquals(state.value.owner, owner); assertEquals("image", request.id)
@@ -70,7 +70,7 @@ class RemoteImageHydrationTest {
             { _, _ -> RemoteConversationPage(listOf(record), null, emptyList(), nodes = state.value.messageGroups.single().nodes) },
             { throw it }, { _, _ ->
                 imageReads++
-                ToolImageAttachment("/private/tool.png", "image/png", 128, sha256 = "hash")
+                ToolImageAttachment("/private/tool.png", "image/png", 128)
             })
         val message = hydration.observeMessage(state.value.owner!!, "group").filterNotNull().first()
         assertEquals("view_image", message.segments!!.single().toolName)
@@ -88,7 +88,7 @@ class RemoteImageHydrationTest {
             val message = RemoteMessage("answer", "turn", null, "assistant", text, 1,
                 groupId = "group", imageLinks = listOf(link))
             val state = MutableStateFlow(snapshot().copy(messageGroups = projectRemoteTopology(listOf(node), null)))
-            val attachment = ToolImageAttachment(file.path, "image/png", 128, 128, 64, "hash")
+            val attachment = ToolImageAttachment(file.path, "image/png", 128, 128, 64)
             var reads = 0
             val hydration = RemoteMessageHydration(state,
                 { _, _ -> RemoteConversationPage(listOf(message), null, emptyList(), nodes = listOf(node)) },
@@ -132,7 +132,7 @@ class RemoteImageHydrationTest {
         }
         val pending = next { it.markdownImages.size == 2 }
         assertTrue(pending.markdownImages.values.all { it.attachment == null && !it.failed })
-        val first = ToolImageAttachment("/private/first.png", "image/png", 128, 128, 64, "hash")
+        val first = ToolImageAttachment("/private/first.png", "image/png", 128, 128, 64)
         gates[0].complete(first)
         val partial = next { it.markdownImages[links[0]]?.attachment != null }
         assertEquals(MarkdownImage(first), partial.markdownImages[links[0]])
@@ -166,7 +166,7 @@ class RemoteImageHydrationTest {
         entered.await()
         state.value = state.value.copy(session = RemoteSession("new", "Other", "", 2), messageGroups = emptyList())
         testScheduler.runCurrent()
-        gate.complete(ToolImageAttachment("/private/late.png", "image/png", 128, sha256 = "hash"))
+        gate.complete(ToolImageAttachment("/private/late.png", "image/png", 128))
         while (true) {
             val value = seen.receive() ?: break
             assertTrue(value.markdownImages.values.all { it.attachment == null })
@@ -207,7 +207,7 @@ class RemoteImageHydrationTest {
         }
         entered.await()
         state.value = state.value.copy(session = RemoteSession("new", "Other", "", 2), messageGroups = emptyList())
-        gate.complete(ToolImageAttachment("/private/late-tool.png", "image/png", 128, sha256 = "hash"))
+        gate.complete(ToolImageAttachment("/private/late-tool.png", "image/png", 128))
         load.join()
     }
 
@@ -219,7 +219,7 @@ class RemoteImageHydrationTest {
             suspend fun load(key: String) = cache.load(key) {
                 reads++
                 val file = File(directory, "image-" + reads).apply { writeBytes(ByteArray(8)) }
-                ToolImageAttachment(file.path, "image/png", 8, sha256 = key)
+                ToolImageAttachment(file.path, "image/png", 8)
             }
             val first = load("one")
             assertEquals(first, load("one"))
@@ -238,7 +238,7 @@ class RemoteImageHydrationTest {
             var reads = 0
             suspend fun load(key: String) = cache.load(key) {
                 val file = File(directory, "image-${++reads}").apply { writeBytes(ByteArray(8)) }
-                ToolImageAttachment(file.path, "image/png", 8, sha256 = key)
+                ToolImageAttachment(file.path, "image/png", 8)
             }
             val first = load("one")
             val second = load("two")

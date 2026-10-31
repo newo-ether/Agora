@@ -187,6 +187,36 @@ object SearchResultFormatter {
         return "$header\n\n$body${if (footer.isNotEmpty()) "\n\n$footer" else ""}"
     }
 
+    private fun formatHistoryDetails(message: JsonObject, context: Context): String = buildString {
+        (message["details_error"] as? JsonPrimitive)?.content?.let { error ->
+            append("\n\n${context.getString(R.string.conversation_details_error, error)}")
+        }
+        message["thinking"]?.jsonArray?.forEach { element ->
+            val text = (element.jsonObject["text"] as? JsonPrimitive)?.content.orEmpty()
+            if (text.isNotEmpty()) append("\n\n${context.getString(R.string.thinking)}:\n$text")
+        }
+        message["tool_calls"]?.jsonArray?.forEach { element ->
+            val tool = element.jsonObject
+            val name = (tool["display_name"] as? JsonPrimitive)?.content
+                ?: (tool["name"] as? JsonPrimitive)?.content.orEmpty()
+            val state = (tool["state"] as? JsonPrimitive)?.content.orEmpty()
+            append("\n\n${context.getString(R.string.tool_context)}: $name")
+            if (state.isNotEmpty()) append(" ($state)")
+            (tool["arguments"] as? JsonPrimitive)?.content?.let { append("\n$it") }
+            val result = (tool["result_text"] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
+                ?: (tool["result"] as? JsonPrimitive)?.content
+            listOfNotNull(
+                result,
+                (tool["structured_result"] as? JsonPrimitive)?.content,
+                (tool["image_transcription"] as? JsonPrimitive)?.content,
+            ).filter { it.isNotBlank() }.distinct().forEach { append("\n$it") }
+        }
+        if ((message["tool_calls_has_more"] as? JsonPrimitive)?.content == "true") {
+            val nextOffset = (message["tool_calls_next_offset"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0
+            append("\n${context.getString(R.string.conversation_tools_more, nextOffset)}")
+        }
+    }
+
     private fun formatConversationRead(json: JsonObject, context: Context): String {
         val title = (json["title"] as? JsonPrimitive)?.content ?: context.getString(R.string.search_untitled)
         val offset = (json["offset"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0
@@ -203,7 +233,7 @@ object SearchResultFormatter {
                 val role = if (participant == "USER") userRole else modelRole
                 val text = (obj["text"] as? JsonPrimitive)?.content ?: ""
                 val error = (obj["error"] as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() && it != text }
-                "$role: $text" + error?.let { "\n$it" }.orEmpty()
+                "$role: $text" + error?.let { "\n$it" }.orEmpty() + formatHistoryDetails(obj, context)
             }
         } else {
             context.getString(R.string.conversation_read_empty)

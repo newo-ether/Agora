@@ -10,11 +10,12 @@ import org.junit.Test
 
 class DefaultSystemPromptRenderingTest {
     @Test
-    fun defaultHasOneStaticPolicyItemThenCatalogAndMemoryBlocks() {
+    fun defaultHasStaticPolicyAndEditableHtmlGuidanceThenCatalogAndMemoryBlocks() {
         val items = DefaultSystemPrompt.create(Locale.ENGLISH).systemItems
         assertEquals(
-            listOf(PromptItemType.CUSTOM, PromptItemType.CUSTOM, PromptItemType.PREDEFINED,
-                PromptItemType.CUSTOM, PromptItemType.PREDEFINED, PromptItemType.CUSTOM),
+            listOf(PromptItemType.CUSTOM, PromptItemType.CUSTOM, PromptItemType.CUSTOM,
+                PromptItemType.PREDEFINED, PromptItemType.CUSTOM, PromptItemType.PREDEFINED,
+                PromptItemType.CUSTOM),
             items.map { it.type },
         )
         assertEquals(listOf("skill_catalog", "active_memory"),
@@ -25,8 +26,8 @@ class DefaultSystemPromptRenderingTest {
     }
 
     @Test
-    fun defaultRenderingIsExactlyTheShippedTextIncludingWhitespace() {
-        val items = DefaultSystemPrompt.create(Locale.ENGLISH).systemItems
+    fun historicalDefaultRenderingIsExactlyTheShippedTextIncludingWhitespace() {
+        val items = DefaultSystemPrompt.versionBeforeHtmlPreviewForMigration(Locale.ENGLISH).systemItems
         val values = mapOf("skill_catalog" to "catalog body", "active_memory" to "memory body")
         val expected = """
             You are an assistant in Agora, a personal AI client.
@@ -81,6 +82,14 @@ class DefaultSystemPromptRenderingTest {
         assertEquals(expected, PredefinedVariables.compile(items, values, emptyMap()))
         assertEquals(expected, PredefinedVariables.compile(items, values))
         assertFalse(expected.contains("\n\n\n"))
+
+        val current = DefaultSystemPrompt.create(Locale.ENGLISH).systemItems
+        val expectedCurrent = expected.replace("\n\n<skill_catalog>", HtmlPreviewGuidance.text + "\n\n<skill_catalog>")
+        assertEquals(expectedCurrent, PredefinedVariables.compile(current, values, emptyMap()))
+        assertEquals(expectedCurrent, PredefinedVariables.compile(current, values))
+        assertEquals(HtmlPreviewGuidance.text, current[1].value)
+        assertEquals(1, Regex("(?m)^## Interactive HTML preview$").findAll(expectedCurrent).count())
+        assertFalse(expectedCurrent.contains("\n\n\n"))
     }
 
     @Test

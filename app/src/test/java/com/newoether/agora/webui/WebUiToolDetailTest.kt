@@ -36,6 +36,44 @@ class WebUiToolDetailTest {
         }
     }
 
+    @Test fun shellPurposeAndRetainedOutputMatchComposeAndWebUi() {
+        val segment = MessageSegment(
+            type = "tool", toolName = "shell_job_get",
+            toolArgs = """{"description":"Inspect build result","job_id":"retained","head_lines":1,"tail_lines":1}""",
+            toolResult = "model preview",
+            toolStructuredResult = """{"job_id":"retained","state":"succeeded","description":"Build application","output":"first\nmiddle\nlast\n"}""",
+        )
+        for (language in listOf("en", "zh")) {
+            val resources = resources(language)
+            val detail = resources.toolDetailPresentation(segment)
+            val shared = detail.body as ToolDetailBody.Shell
+            val webDetail = resources.webToolDetail(segment)
+            val web = webDetail.body as WebToolBody.Shell
+            assertEquals(segment.toolArgs, detail.arguments)
+            assertEquals(resources.webToolDocument(segment.toolArgs!!), webDetail.arguments)
+            assertEquals("""{"description":"Build application"}""", shared.metadata)
+            assertEquals("first\nmiddle\nlast\n", shared.output)
+            assertEquals(WebToolBody.Shell(shared.status, shared.device, shared.error, shared.output,
+                resources.webToolDocument(shared.metadata!!)), web)
+            val encoded = WebUiSync.json.encodeToString(WebToolBody.serializer(), web)
+            assertEquals(web, WebUiSync.json.decodeFromString(WebToolBody.serializer(), encoded))
+        }
+    }
+
+    @Test fun failedMcpRetainsRawPayloadBesideItsFailureInBothLanguages() {
+        val payload = """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}"""
+        val segment = MessageSegment(type = "tool", toolName = "mcp_call_tool",
+            toolResult = payload, toolStructuredResult = payload, toolState = ToolExecutionStates.FAILED)
+        for (language in listOf("en", "zh")) {
+            val resources = resources(language)
+            val detail = resources.webToolDetail(segment)
+            assertEquals(WebToolBody.Failed(resources.getString(R.string.tool_call_failed), null), detail.body)
+            assertEquals(listOf(resources.webToolDocument(payload)), detail.supplemental)
+            assertEquals(ToolExecutionStates.FAILED, segment.toolState)
+            assertEquals(payload, segment.toolStructuredResult)
+        }
+    }
+
     @Test fun jsonPrefixesUseSharedGrammarWithoutInventedFieldsOrSyntax() {
         val prefix = webToolDocument("{\"key\":\"par")
         val root = prefix.roots.single() as WebToolNode.Object
@@ -87,12 +125,12 @@ class WebUiToolDetailTest {
 
     @Test fun imageProjectionKeepsOriginalIndicesAndNeverPublishesPrivatePaths() {
         val images = listOf(
-            ToolImageAttachment("", "image/png", 1, sha256 = "empty"),
-            ToolImageAttachment("/private/tool-image.png", "image/png", 10, 20, 30, "version"),
+            ToolImageAttachment("", "image/png", 1),
+            ToolImageAttachment("/private/tool-image.png", "image/png", 10, 20, 30),
         )
         val segment = MessageSegment(type = "tool", toolName = "generate_image", toolResult = "{}", toolImages = images)
         val detail = resources().webToolDetail(segment)
-        assertEquals(listOf(WebToolImage(1, 20, 30, "version")), detail.images)
+        assertEquals(listOf(WebToolImage(1, 20, 30)), detail.images)
         assertTrue(detail.squareCrop)
         val encoded = WebUiSync.json.encodeToString(WebToolDetail.serializer(), detail)
         assertFalse(encoded.contains("/private/"))

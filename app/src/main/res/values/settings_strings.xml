@@ -209,12 +209,10 @@
     <string name="tool_call_display_mode">Thinking &amp; Tool Blocks</string>
     <string name="tool_call_display_mode_timeline">Timeline</string>
     <string name="tool_call_display_mode_grouped_timeline">Grouped</string>
-    <string name="tool_call_display_mode_compact">Compact</string>
     <string name="tool_call_display_mode_timeline_desc">Show answer, thinking, and tool blocks in chronological order</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">Keep timeline order but merge consecutive thinking, tool, and image blocks</string>
     <string name="auto_expand_active_group">Auto-Expand Active Group</string>
     <string name="auto_expand_active_group_desc">Automatically expand the current thinking and tool group, then collapse it when the model moves on.</string>
-    <string name="tool_call_display_mode_compact_desc">Group thinking and tool blocks above the answer</string>
 
     <!-- Settings - Web Search Page -->
     <string name="web_search_title">Web Search</string>

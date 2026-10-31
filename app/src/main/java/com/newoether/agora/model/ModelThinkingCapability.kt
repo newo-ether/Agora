@@ -32,7 +32,7 @@ data class ModelThinkingCapability(
     val lowestEffort: String? get() = supportedEfforts.firstOrNull()
 
     /**
-     * Nearest accepted effort for [effort]. Ties resolve downward, so a value above the model's
+     * Nearest accepted effort for [effort]. Ties resolve upward, so a value above the model's
      * range lands on its highest accepted level and a value below lands on its lowest.
      * Returns null when the model has no effort selector.
      */

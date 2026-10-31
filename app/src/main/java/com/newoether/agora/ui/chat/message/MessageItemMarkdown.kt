@@ -313,6 +313,18 @@ private fun MarkdownPreparedTextContent(
         referenceLinkHandler = referenceLinkHandler,
         immediate = immediate
     ).state.collectAsState().value
+    val documentState = remember(state) {
+        if (state is State.Success) {
+            State.Success(
+                node = state.node,
+                content = state.content,
+                linksLookedUp = true,
+                referenceLinkHandler = MarkdownDocumentReferenceHandler(
+                    markdownReferenceDefinitions(state.node, state.content),
+                ),
+            )
+        } else state
+    }
     val currentOnReady by rememberUpdatedState(onReady)
 
     LaunchedEffect(state) {
@@ -322,7 +334,7 @@ private fun MarkdownPreparedTextContent(
     }
 
     com.mikepenz.markdown.compose.Markdown(
-        state = state,
+        state = documentState,
         modifier = modifier,
         colors = renderContext.colors,
         typography = renderContext.typography,
@@ -361,8 +373,9 @@ private fun MarkdownSuccessWithSpacing(
     modifier: Modifier = Modifier,
     includeFirstSpacer: Boolean = true
 ) {
+    val visibleNodes = remember(state.node) { markdownVisibleBlocks(state.node) }
     Column(modifier) {
-        state.node.children.forEachIndexed { index, node ->
+        visibleNodes.forEachIndexed { index, node ->
             MarkdownElement(
                 node = node,
                 components = components,
@@ -382,13 +395,14 @@ private fun LazyMarkdownSuccessWithSpacing(
     contentPadding: PaddingValues = PaddingValues(),
     includeFirstSpacer: Boolean = true,
 ) {
+    val visibleNodes = remember(state.node) { markdownVisibleBlocks(state.node) }
     LazyColumn(
         modifier = modifier,
         state = listState,
         contentPadding = contentPadding,
     ) {
         itemsIndexed(
-            items = state.node.children,
+            items = visibleNodes,
             key = { index, node ->
                 "${node.startOffset}:${node.endOffset}:${node.type}:$index"
             },

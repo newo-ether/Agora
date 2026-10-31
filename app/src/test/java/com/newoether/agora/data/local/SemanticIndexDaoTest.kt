@@ -53,6 +53,7 @@ class SemanticIndexDaoTest {
         val dao = mockk<SemanticIndexDao>()
         val ledger = needsReconcile(revision = 0, updatedAt = 10)
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery { dao.insertLedger(ledger) } returns 1L
         coEvery { dao.getLedger(MODEL_ID) } returns ledger
 
@@ -65,17 +66,18 @@ class SemanticIndexDaoTest {
     }
 
     @Test
-    fun reconcileInvalidationAdvancesRevisionAndClearsExactWork() = runTest {
+    fun reconcileInvalidationAdvancesRevisionWithoutDiscardingExactWork() = runTest {
         val dao = mockk<SemanticIndexDao>()
         val admission = needsReconcile(revision = 0, updatedAt = 20)
         val current = current(revision = 4, updatedAt = 10)
         val invalidated = needsReconcile(revision = 5, completedRevision = 4, updatedAt = 20)
         coEvery { dao.requestReconcile(any(), any()) } coAnswers { callOriginal() }
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery { dao.insertLedger(admission) } returns -1L
         coEvery { dao.getLedger(MODEL_ID) } returnsMany listOf(current, invalidated)
         coEvery { dao.advanceForReconcile(MODEL_ID, 20) } returns 1
-        coEvery { dao.deleteWorkForModel(MODEL_ID) } returns 3
+        coEvery { dao.invalidateSemanticConversations(MODEL_ID) } returns Unit
 
         assertEquals(invalidated, dao.requestReconcile(MODEL_ID, updatedAt = 20))
 
@@ -83,7 +85,7 @@ class SemanticIndexDaoTest {
             dao.insertLedger(admission)
             dao.getLedger(MODEL_ID)
             dao.advanceForReconcile(MODEL_ID, 20)
-            dao.deleteWorkForModel(MODEL_ID)
+            dao.invalidateSemanticConversations(MODEL_ID)
             dao.getLedger(MODEL_ID)
         }
     }
@@ -101,6 +103,7 @@ class SemanticIndexDaoTest {
         val work = work("fingerprint", revision = 3, updatedAt = 20)
         coEvery { dao.enqueueExactWork(any(), any(), any(), any()) } coAnswers { callOriginal() }
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery {
             dao.insertLedger(needsReconcile(revision = 0, updatedAt = 20))
         } returns -1L
@@ -126,6 +129,7 @@ class SemanticIndexDaoTest {
         val tombstone = work(null, revision = 6, updatedAt = 21)
         coEvery { dao.enqueueExactWork(any(), any(), any(), any()) } coAnswers { callOriginal() }
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery { dao.insertLedger(any()) } returns -1L
         coEvery { dao.getLedger(MODEL_ID) } returnsMany listOf(
             current,
@@ -194,6 +198,7 @@ class SemanticIndexDaoTest {
     fun invalidArgumentsFailBeforeDatabaseAccess() = runTest {
         val dao = mockk<SemanticIndexDao>()
         coEvery { dao.admitModel(any(), any()) } coAnswers { callOriginal() }
+        coEvery { dao.reviveModel(any(), any()) } returns Unit
         coEvery { dao.enqueueExactWork(any(), any(), any(), any()) } coAnswers { callOriginal() }
         coEvery { dao.completeReconcile(any(), any(), any()) } coAnswers { callOriginal() }
 
@@ -225,11 +230,11 @@ class SemanticIndexDaoTest {
         assertTrue(exactCurrent.contains("state = 'PENDING'"))
         assertTrue(exactCurrent.contains("sourceRevision = :sourceRevision"))
         assertTrue(exactCurrent.contains("NOT EXISTS"))
-        assertTrue(reconcileCurrent.contains("state = 'NEEDS_RECONCILE'"))
-        assertTrue(
-            reconcileCurrent.contains("reconcileRevision = :expectedReconcileRevision"),
-        )
-        assertTrue(reconcileCurrent.contains("sourceRevision = :expectedReconcileRevision"))
+        assertTrue(reconcileCurrent.contains("SET state = 'CURRENT'"))
+        assertTrue(reconcileCurrent.contains("reconcileRevision = :expectedReconcileRevision"))
+        assertTrue(reconcileCurrent.contains("completedRevision = sourceRevision"))
+        assertTrue(reconcileCurrent.contains("m.indexedRevision != c.sourceRevision"))
+        assertTrue(reconcileCurrent.contains("semantic_metadata_state"))
         assertTrue(reconcileCurrent.contains("NOT EXISTS"))
     }
 
@@ -265,6 +270,16 @@ class SemanticIndexDaoTest {
         completedRevision = revision,
         updatedAt = updatedAt,
     )
+
+    @Test
+    fun fingerprintMatchesDurableSha256IncludingSignedBytesAndUtf16PrefixBoundary() {
+        val inputs = listOf("", "abc", "\u0000中文\uD83D\uDE00", "a".repeat(7_999) + "\uD83D\uDE00tail")
+        inputs.forEach { text ->
+            val expected = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(text.take(8_000).toByteArray(Charsets.UTF_8)))
+            assertEquals(expected, semanticSourceFingerprint(text))
+        }
+    }
 
     private fun work(fingerprint: String?, revision: Long, updatedAt: Long) =
         workFor(MESSAGE_ID, fingerprint, revision, updatedAt)

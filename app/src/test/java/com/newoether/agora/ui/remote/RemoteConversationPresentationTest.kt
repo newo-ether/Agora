@@ -134,12 +134,93 @@ class RemoteConversationPresentationTest {
             session = RemoteSession("native", "", "", 0,
                 access = RemoteSessionAccess("scope", "canonical", "binding", caps)),
             draftSessionId = null, runtime = RemoteRuntime("idle", model = "actual-native-model"),
+            models = listOf(RemoteModel("cached", "Cached model option")),
         )
         show()
-        compose.onNodeWithText("Actual Native Model").assertIsDisplayed().performClick()
-        compose.onNodeWithText(text(R.string.remote_model_unavailable)).assertExists().assertIsNotEnabled()
+        compose.onNodeWithText("Actual Native Model").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithText("Cached model option").assertDoesNotExist()
         verify(exactly = 0) { vm.setModel(any()) }
         verify(exactly = 0) { vm.refreshModels() }
+    }
+
+    @Test fun openModelMenuDropsCachedOptionsWhenModelCapabilityIsRevoked() {
+        val caps = RemoteCapabilities(history = true, models = true, settings = listOf("model"))
+        val source = RemoteAdapter("claude-code", "claude", "cli", "connected",
+            nativeScopeId = "scope", capabilities = caps)
+        state = state.copy(
+            devices = state.devices.map { it.copy(multiAdapter = true, adapters = listOf(source)) },
+            adapterSelections = mapOf("device" to source.id),
+            session = RemoteSession("native", "", "", 0,
+                access = RemoteSessionAccess("scope", "canonical", "binding", caps)),
+            draftSessionId = null, runtime = RemoteRuntime("idle", model = "actual-native-model"),
+            models = listOf(RemoteModel("cached", "Cached model option")),
+        )
+        show()
+        compose.onNodeWithText("Actual Native Model").performClick()
+        compose.onNodeWithText("Cached model option").assertExists().assertIsEnabled()
+        compose.runOnIdle {
+            state = state.copy(session = state.session!!.copy(access = state.session!!.access!!.copy(
+                capabilities = caps.copy(models = false, settings = emptyList()))))
+        }
+        compose.onNodeWithText("Actual Native Model").assertIsNotEnabled()
+        compose.onNodeWithText("Cached model option").assertDoesNotExist()
+        compose.runOnIdle {
+            state = state.copy(session = state.session!!.copy(access = state.session!!.access!!.copy(capabilities = caps)))
+        }
+        compose.onNodeWithText("Actual Native Model").assertIsEnabled()
+        compose.onNodeWithText("Cached model option").assertDoesNotExist()
+        compose.onNodeWithText("Actual Native Model").performClick()
+        compose.onNodeWithText("Cached model option").assertExists()
+        verify(exactly = 0) { vm.setModel(any()) }
+    }
+
+    @Test fun loadingAndUnavailableModelTriggersCannotOpenAMenuOrRefresh() {
+        state = state.copy(modelsLoading = true)
+        show()
+        compose.onNodeWithText(text(R.string.loading_label)).assertIsNotEnabled()
+            .performTouchInput { click() }
+        compose.runOnIdle { state = state.copy(modelsLoading = false) }
+        compose.onNodeWithText(text(R.string.remote_model_unavailable)).assertIsNotEnabled()
+            .performTouchInput { click() }
+        compose.runOnIdle {
+            state = state.copy(models = listOf(RemoteModel("model", "Model", true)), modelsLoading = true)
+        }
+        compose.onNodeWithText("Model").assertIsNotEnabled()
+        compose.runOnIdle { state = state.copy(modelsLoading = false, loading = true) }
+        compose.onNodeWithText("Model").assertIsNotEnabled()
+        compose.runOnIdle { state = state.copy(loading = false) }
+        compose.onNodeWithText("Model").assertIsEnabled()
+        verify(exactly = 0) { vm.refreshModels() }
+        verify(exactly = 0) { vm.setModel(any()) }
+    }
+
+    @Test fun bothClaudeSourcesCanChooseUnknownEffortByTouch() {
+        val caps = RemoteCapabilities(history = true, live = true, settings = listOf("effort"))
+        val source = RemoteAdapter("claude-code", "claude", "cli", "connected",
+            nativeScopeId = "scope", capabilities = caps)
+        state = state.copy(
+            devices = state.devices.map { it.copy(multiAdapter = true, adapters = listOf(source)) },
+            adapterSelections = mapOf("device" to source.id),
+            session = RemoteSession("native", "", "", 0,
+                access = RemoteSessionAccess("scope", "canonical", "binding", caps)),
+            draftSessionId = null, runtime = RemoteRuntime("unknown", model = "claude-sonnet-5"),
+        )
+        show()
+        for ((id, origin) in listOf("claude-code" to "cli", "claude-desktop" to "desktop")) {
+            compose.runOnIdle {
+                state = state.copy(devices = state.devices.map { it.copy(adapters = listOf(source.copy(id = id, origin = origin))) },
+                    adapterSelections = mapOf("device" to id))
+            }
+            compose.onNodeWithContentDescription(text(R.string.tools)).performClick()
+            compose.onNodeWithText(text(R.string.thinking)).assertIsEnabled().performClick()
+            compose.mainClock.advanceTimeBy(500)
+            compose.waitForIdle()
+            compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress)).assertIsDisplayed().assertIsEnabled()
+                .performTouchInput { click(androidx.compose.ui.geometry.Offset(width * .9f, height * .5f)) }
+            compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss))
+                .performSemanticsAction(SemanticsActions.Dismiss) { it() }
+        }
+        verify(exactly = 2) { vm.setThinkingLevel("max") }
     }
 
     @Test fun cliNativeNameAndEffortChoicesSurviveTheSessionCapabilityFence() {

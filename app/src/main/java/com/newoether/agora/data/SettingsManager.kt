@@ -17,7 +17,7 @@ import java.util.Locale
 import kotlinx.coroutines.flow.map
 
 internal val Context.dataStore by preferencesDataStore(
-    name = "settings", produceMigrations = { listOf(modelProviderNamesMigration) },
+    name = "settings", produceMigrations = { listOf(modelProviderNamesMigration, toolCallDisplayModeMigration) },
 )
 
 class SettingsManager(private val context: Context) {
@@ -147,6 +147,7 @@ class SettingsManager(private val context: Context) {
     val webSearchBaseUrl: Flow<String> = context.dataStore.data.map { it[WEB_SEARCH_BASE_URL] ?: "" }
 
     // ── Image generation ──────────────────────────────────────
+    val imageQuality = ImageQualitySettingsStore(context.dataStore)
     val imageGenEnabled: Flow<Boolean> = context.dataStore.data.map { it[IMAGE_GEN_ENABLED] ?: false }
     // Selected image model "Provider:modelId" (null = none chosen). Creds reused from that provider.
     val imageGenModel: Flow<String?> = context.dataStore.data.map { it[IMAGE_GEN_MODEL] }
@@ -167,12 +168,9 @@ class SettingsManager(private val context: Context) {
     val autoUpdateCheck: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_CHECK] ?: true }
     val lastUpdateCheckTime: Flow<Long> = context.dataStore.data.map { it[LAST_UPDATE_CHECK_TIME] ?: 0L }
     val localChatModels: Flow<List<LocalChatModelConfig>> = modelPreferenceStore.localChatModels
-    val localModelIdleRetentionMinutes: Flow<Int> = context.dataStore.data.map {
-        normalizeLocalModelIdleRetentionMinutes(it[LOCAL_MODEL_IDLE_RETENTION_MINUTES])
-    }
-    val localLowContextModeEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[LOCAL_LOW_CONTEXT_MODE_ENABLED] ?: DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
-    }
+    val phoneUse = com.newoether.agora.phone.PhoneUseSettingsStore(context.dataStore)
+    val localModelIdleRetentionMinutes: Flow<Int> = modelPreferenceStore.localModelIdleRetentionMinutes
+    val localLowContextModeEnabled: Flow<Boolean> = modelPreferenceStore.localLowContextModeEnabled
     val customProviders: Flow<List<CustomProviderConfig>> = modelPreferenceStore.customProviders
 
     val showDocumentationFab: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DOCUMENTATION_FAB] ?: true }
@@ -535,16 +533,11 @@ class SettingsManager(private val context: Context) {
     suspend fun saveLocalChatModels(models: List<LocalChatModelConfig>) =
         modelPreferenceStore.saveLocalChatModels(models)
 
-    suspend fun saveLocalModelIdleRetentionMinutes(minutes: Int) {
-        context.dataStore.edit {
-            it[LOCAL_MODEL_IDLE_RETENTION_MINUTES] =
-                normalizeLocalModelIdleRetentionMinutes(minutes)
-        }
-    }
+    suspend fun saveLocalModelIdleRetentionMinutes(minutes: Int) =
+        modelPreferenceStore.saveLocalModelIdleRetentionMinutes(minutes)
 
-    suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[LOCAL_LOW_CONTEXT_MODE_ENABLED] = enabled }
-    }
+    suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) =
+        modelPreferenceStore.saveLocalLowContextModeEnabled(enabled)
 
     suspend fun saveCustomProviders(providers: List<CustomProviderConfig>) =
         modelPreferenceStore.saveCustomProviders(providers)

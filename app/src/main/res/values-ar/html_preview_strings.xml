@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="html_preview_run">تشغيل</string>
+    <string name="html_preview_source">المصدر</string>
+    <string name="html_preview_preview">@string/template_preview</string>
+    <string name="html_preview_reload">إعادة التحميل</string>
+    <string name="html_preview_fullscreen">ملء الشاشة</string>
+    <string name="html_preview_save">حفظ HTML</string>
+    <string name="html_preview_share">مشاركة HTML</string>
+    <string name="html_preview_failed">المعاينة غير متاحة</string>
+    <string name="html_preview_loading">جارٍ تحميل المعاينة</string>
+    <string name="html_preview_insert">إضافة إرشادات معاينة HTML</string>
+    <string name="html_preview_export_failed">تعذر تصدير HTML</string>
+    <string name="html_preview_webview_required">حدّث Android System WebView لتشغيل معاينات HTML</string>
+</resources>

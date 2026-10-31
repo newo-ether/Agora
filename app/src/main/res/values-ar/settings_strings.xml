@@ -200,12 +200,10 @@
     <string name="tool_call_display_mode">كتل التفكير والأدوات</string>
     <string name="tool_call_display_mode_timeline">المخطط الزمني</string>
     <string name="tool_call_display_mode_grouped_timeline">مجمّع</string>
-    <string name="tool_call_display_mode_compact">مضغوط</string>
     <string name="tool_call_display_mode_timeline_desc">إظهار الإجابة والتفكير وكتل الأدوات حسب الترتيب الزمني</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">الحفاظ على ترتيب المخطط الزمني مع دمج كتل التفكير والأدوات والصور المتتالية</string>
     <string name="auto_expand_active_group">توسيع المجموعة النشطة تلقائيًا</string>
     <string name="auto_expand_active_group_desc">وسّع مجموعة التفكير والأدوات الحالية تلقائيًا، ثم اطوها عندما ينتقل النموذج إلى المرحلة التالية.</string>
-    <string name="tool_call_display_mode_compact_desc">تجميع كتل التفكير والأدوات فوق الإجابة</string>
     <string name="interaction_feedback">تعليقات التفاعل</string>
     <string name="stick_to_bottom">التثبيت في الأسفل</string>
     <string name="stick_to_bottom_desc">متابعة المحتوى الجديد تلقائيًا أثناء إنشاء الرد.</string>

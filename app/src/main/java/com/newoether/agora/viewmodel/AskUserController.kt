@@ -44,6 +44,7 @@ class AskUserController {
          * a question asked on its own. Each question is still answered by its own id.
          */
         val setId: Long? = null,
+        val runId: String? = null,
     )
 
     /**
@@ -105,6 +106,7 @@ class AskUserController {
         allowMultiple: Boolean,
         blocking: Boolean,
         setId: Long? = null,
+        runId: String? = null,
     ): Request = synchronized(waiters) {
         val request = Request(
             id = nextRequestId.getAndIncrement(),
@@ -114,6 +116,7 @@ class AskUserController {
             allowMultiple = allowMultiple,
             blocking = blocking,
             setId = setId,
+            runId = runId,
         )
         // Only a blocking request has a caller to resume.
         if (blocking) waiters[request.id] = CompletableDeferred()

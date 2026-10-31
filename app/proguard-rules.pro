@@ -7,6 +7,10 @@
 -keepclassmembers class com.newoether.agora.** { *** Companion; }
 -keepclasseswithmembers class com.newoether.agora.** { kotlinx.serialization.KSerializer serializer(...); }
 
+# Phone entry points are loaded by Shizuku/app_process by name.
+-keep class com.newoether.agora.phone.PhoneUserService { public <init>(); *; }
+-keep class com.newoether.agora.phone.PhoneRootPaste { public static void main(java.lang.String[]); }
+-keep class com.newoether.agora.phone.IPhoneUserService** { *; }
 # Room
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.paging.**

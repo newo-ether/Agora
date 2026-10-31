@@ -7,6 +7,7 @@ import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.api.resolveRequest
 import com.newoether.agora.api.util.ContextTokenEstimator
 import com.newoether.agora.data.DefaultSystemPrompt
+import com.newoether.agora.data.HtmlPreviewGuidance
 import com.newoether.agora.data.PredefinedVariables
 import com.newoether.agora.data.PromptItemType
 import com.newoether.agora.data.PromptTemplateItem
@@ -132,6 +133,35 @@ class GenerationPromptRenderingTest {
             requestResolver = snapshot.config.requestResolver,
         ).resolveRequest(emptyList())
         assertEquals(custom, result.systemPrompt)
+    }
+
+    @Test
+    fun htmlGuidanceIsPresentInDispatchAndPreviewOnlyWhenStoredInTheTemplate() = runTest {
+        val fixture = fixture()
+        val original = DefaultSystemPrompt.create(Locale.ENGLISH).copy(id = "prompt-id")
+        val stored = MutableStateFlow(listOf(original))
+        every { fixture.settings.systemPrompts } returns stored
+        val values = mapOf("active_memory" to "active memory", "skill_catalog" to "skill catalog")
+        val removed = original.copy(systemItems = original.systemItems.filterNot { it.value == HtmlPreviewGuidance.text })
+        val edited = original.copy(systemItems = original.systemItems.map {
+            if (it.value == HtmlPreviewGuidance.text) it.copy(value = "\n\nMy edited HTML guidance") else it
+        })
+        listOf(original, removed, edited).forEachIndexed { index, entry ->
+            stored.value = listOf(entry)
+            val snapshot = fixture.builder.captureAdmissionSnapshot("conversation", "run-$index", fixture.modelId)
+            val preview = fixture.builder.captureContextProjectionSnapshot("conversation", fixture.modelId)
+            val expected = PredefinedVariables.compile(entry.systemItems, values)
+            listOf(emptyList(), listOf(tool("file_read"), tool("web_search"))).forEach { tools ->
+                val request = ProviderConfig(
+                    apiKey = "key", modelId = "model", tools = tools,
+                    requestResolver = snapshot.config.requestResolver,
+                ).resolveRequest(emptyList())
+                assertEquals(expected, request.systemPrompt)
+                assertEquals(expected, preview.config.effectiveSystemPrompt)
+                assertEquals(index == 0, request.systemPrompt.orEmpty().contains(HtmlPreviewGuidance.text))
+            }
+            assertEquals(entry.systemItems, snapshot.config.promptTemplate?.systemItems)
+        }
     }
 
     @Test

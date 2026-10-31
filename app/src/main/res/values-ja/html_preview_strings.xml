@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="html_preview_run">実行</string>
+    <string name="html_preview_source">ソース</string>
+    <string name="html_preview_preview">@string/template_preview</string>
+    <string name="html_preview_reload">再読み込み</string>
+    <string name="html_preview_fullscreen">全画面</string>
+    <string name="html_preview_save">HTML を保存</string>
+    <string name="html_preview_share">HTML を共有</string>
+    <string name="html_preview_failed">プレビューを表示できません</string>
+    <string name="html_preview_loading">プレビューを読み込み中</string>
+    <string name="html_preview_insert">HTML プレビューのガイダンスを追加</string>
+    <string name="html_preview_export_failed">HTML を書き出せませんでした</string>
+    <string name="html_preview_webview_required">HTML プレビューを実行するには Android System WebView を更新してください</string>
+</resources>

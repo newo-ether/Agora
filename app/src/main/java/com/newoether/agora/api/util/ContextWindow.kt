@@ -2,6 +2,8 @@ package com.newoether.agora.api.util
 
 import com.newoether.agora.api.util.tokens.ContextCostModel
 import com.newoether.agora.api.util.tokens.CostModelContextEstimator
+import com.newoether.agora.api.util.tokens.ImageEstimateBasis
+import com.newoether.agora.api.util.tokens.ImageTokenEstimate
 import com.newoether.agora.api.util.tokens.FixedContextComposition
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.Participant
@@ -87,7 +89,16 @@ data class ContextWindowUsage(
     val hasCompactBoundary: Boolean,
     val systemPromptTokens: Int = 0,
     val toolTokens: Int = 0,
+    /** Raw image estimates retain rule provenance independently of the final safety margin. */
+    val imageEstimates: List<ImageTokenEstimate> = emptyList(),
 ) {
+    val hasHeuristicImages: Boolean
+        get() = imageEstimates.any { it.basis == ImageEstimateBasis.HEURISTIC }
+    val hasMissingImageDimensions: Boolean
+        get() = imageEstimates.any { it.basis == ImageEstimateBasis.MISSING_DIMENSIONS }
+
+    val hasUnavailableImages: Boolean
+        get() = imageEstimates.any(ImageTokenEstimate::unavailable)
     val progress: Float
         get() = if (tokenBudget <= 0) 0f else
             (estimatedTokenCount.toFloat() / tokenBudget).coerceIn(0f, 1f)
@@ -124,6 +135,7 @@ fun contextWindowUsage(
         hasCompactBoundary = messages.any(ChatMessage::isSuccessfulContextCompact),
         systemPromptTokens = fixedComposition?.systemPromptTokens ?: 0,
         toolTokens = fixedComposition?.toolTokens ?: 0,
+        imageEstimates = CostModelContextEstimator(costs).imageEstimates(canonical),
     )
 }
 

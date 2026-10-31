@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex не принял сообщение. Перед новой попыткой проверьте сведения об ошибке.</string>
     <string name="remote_storage_failed">Agora не может открыть локальные данные Remote. Проверьте свободное место.</string>
     <string name="remote_network_failed">Не удалось подключиться к Filo. Проверьте целевой компьютер, адрес службы и сеть.</string>
-    <string name="remote_auth_failed">Filo отклонил токен доступа. Используйте токен с целевого компьютера.</string>
+    <string name="remote_auth_failed">Filo не смог аутентифицировать этот запрос. Это не обязательно означает, что токен доступа неверен. Если ошибка повторяется, проверьте токен и время на целевом компьютере.</string>
     <string name="remote_configuration_failed">Введите корректный URL службы и токен доступа из 64 символов.</string>
     <string name="remote_protocol_failed">Agora не может проверить или прочитать ответ Filo. Убедитесь, что оба приложения обновлены.</string>
     <string name="remote_service_failed">Codex не удалось выполнить запрос.</string>

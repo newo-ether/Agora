@@ -75,6 +75,7 @@ class GenerationManager(
     private val runFinalizationExecutor = GenerationRunFinalizationExecutor(conversations)
     private val apiPathBuilder = GenerationApiPathBuilder(
         conversations = conversations,
+        appContext = context,
         generationErrorFormatter = { raw ->
             normalizePersistedGenerationErrorText(context, raw)
         },
@@ -664,7 +665,8 @@ class GenerationManager(
                         val terminalDisposition = generationTerminalDisposition(
                             messageStatus = output.currentStatus,
                             hasPendingGuidance =
-                                callbacks.hasQueuedSends() || endedAtGuidanceBoundary || endedForFollowUp,
+                                callbacks.hasQueuedSends() || callbacks.hasPendingContinuation ||
+                                    endedAtGuidanceBoundary || endedForFollowUp,
                             conversationVisible = terminalConversationVisible,
                         )
                         val finalizationIdentity = RunEffectIdentity(
@@ -722,7 +724,7 @@ class GenerationManager(
                     foregroundLeaseAcquired = foregroundLeaseAcquired,
                     isContextCompact = modelMessageId.startsWith(Constants.COMPACT_MSG_PREFIX),
                     conversationVisible = terminalConversationVisible,
-                    hasPendingContinuation = endedForFollowUp,
+                    hasPendingContinuation = endedForFollowUp || callbacks.hasPendingContinuation,
                 ),
                 callbacks = callbacks.completionEffectsCallbacks(onMessagePersisted),
             )

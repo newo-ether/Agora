@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.newoether.agora.R
 import com.newoether.agora.model.MessageSegment
+import com.newoether.agora.phone.PhoneUseIcon
 
 /**
  * The only localization layer for tool cards. Parsing and lifecycle inference live in
@@ -103,6 +104,7 @@ internal fun mcpToolDisplayName(
 }
 
 internal fun toolHeaderIcon(kind: ToolKind): ImageVector = when (kind) {
+    ToolKind.PHONE -> PhoneUseIcon
     ToolKind.TODO_READ, ToolKind.TODO_UPDATE -> Icons.Default.Checklist
     ToolKind.SUBAGENT_SPAWN, ToolKind.SUBAGENT_SEND, ToolKind.SUBAGENT_WAIT,
     ToolKind.SUBAGENT_LIST, ToolKind.SUBAGENT_STOP, ToolKind.SUBAGENT_DELETE -> Icons.Default.AccountTree
@@ -159,6 +161,8 @@ private fun Resources.toolBaseDisplayName(
     ToolKind.TASK_DELETE -> getString(R.string.tool_delete_task)
     ToolKind.LOOP_START -> getString(R.string.tool_start_loop)
     ToolKind.LOOP_STOP -> getString(R.string.tool_stop_loop)
+    ToolKind.PHONE -> com.newoether.agora.phone.phoneActionLabel(toolName)?.let(::getString)
+        ?: fallbackToolDisplayName(toolName)
     ToolKind.ASK_USER -> getString(R.string.tool_ask_user)
     ToolKind.TODO_READ -> getString(R.string.tool_read_todo)
     ToolKind.TODO_UPDATE -> getString(R.string.tool_update_todo)
@@ -345,6 +349,7 @@ private fun Resources.runningSummary(
     )
     ToolKind.LOOP_START -> getString(R.string.tool_progress_starting)
     ToolKind.LOOP_STOP -> getString(R.string.tool_progress_stopping)
+    ToolKind.PHONE -> getString(com.newoether.agora.phone.phoneSummaryLabel(presentation.toolName, completed = false))
     ToolKind.ASK_USER -> getString(R.string.tool_waiting_for_answers)
     ToolKind.TODO_READ -> getString(R.string.tool_reading_todo)
     ToolKind.TODO_UPDATE -> getString(R.string.tool_updating_todo)
@@ -688,6 +693,7 @@ private fun Resources.completedSummary(
     ToolKind.LOOP_START -> getString(R.string.tool_started_loop)
     ToolKind.LOOP_STOP -> getString(if (presentation.outcome == "already_stopped")
         R.string.tool_loop_already_stopped else R.string.tool_stopped_loop)
+    ToolKind.PHONE -> getString(com.newoether.agora.phone.phoneSummaryLabel(presentation.toolName, completed = true))
     ToolKind.ASK_USER -> questionOutcomeSummary(presentation)
     ToolKind.TODO_READ -> getString(R.string.tool_read_todo_done)
     ToolKind.TODO_UPDATE -> getString(R.string.tool_updated_todo)
@@ -752,6 +758,7 @@ private fun Resources.failedSummary(
             getString(R.string.tool_list_failed_default)
         ToolKind.LOOP_START -> getString(R.string.tool_loop_start_failed)
         ToolKind.LOOP_STOP -> getString(R.string.tool_loop_stop_failed)
+        ToolKind.PHONE -> reason ?: getString(R.string.tool_call_failed)
         ToolKind.ASK_USER -> getString(R.string.tool_ask_user_failed)
         ToolKind.TODO_READ -> getString(R.string.tool_read_failed_default)
         ToolKind.TODO_UPDATE -> getString(R.string.tool_update_failed_default)

@@ -19,6 +19,7 @@ import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.observeConversationTodo
 import com.newoether.agora.data.repository.observeDrawerGeneratingConversationIds
+import com.newoether.agora.ui.chat.observeDrawerInteractions
 import com.newoether.agora.data.repository.observeSubagents
 import com.newoether.agora.data.repository.observeParentConversationId
 import com.newoether.agora.data.repository.ConversationSettingsTransferCoordinator
@@ -88,14 +89,23 @@ class ChatViewModel(
     )
     internal val messagePayloadHydration =
         ConversationMessagePayloadHydration(convRepo, appContext)
+    /** Display-only `shell://` Markdown images for native chat, read from the live device settings. */
+    internal val shellMarkdownMedia = com.newoether.agora.ui.chat.message.ShellMarkdownMedia(
+        context = appContext,
+        devices = { settingsRepository.shellDevices.value },
+        sandboxEnabled = { settingsRepository.sandboxEnabled.value },
+        sandbox = { sandboxFactory?.takeIf { it.isAvailable() }?.create() },
+    )
+    private val attachmentProcessor = AttachmentImportProcessor(application)
     private val composerDrafts = ComposerDraftController(
         persistence = conversationWorkspaces,
         conversations = conversationRepository,
+        hydrateAttachment = attachmentProcessor::hydrateDraftAttachment,
     )
     internal val conversationComposer = ConversationComposerController(
         scope = viewModelScope,
         drafts = composerDrafts,
-        processor = AttachmentImportProcessor(application),
+        processor = attachmentProcessor,
         sandboxHomeDir = {
             sandboxFactory?.takeIf { it.isAvailable() }?.let {
                 File(application.filesDir, "sandbox-home")
@@ -464,6 +474,10 @@ class ChatViewModel(
         automationIds = conversationExecutionCoordinator.activeAutomationConversationIds,
     ).stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
+    internal val drawerInteractions = convRepo.observeDrawerInteractions(
+        askUser.requests, shellConfirmation.pendingShellCommand,
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     val isSwitching: StateFlow<Boolean> get() = selectionController.isSwitching
 
     internal val regenerationTransitions = BranchReplacementTransitionCoordinator()
@@ -503,6 +517,7 @@ class ChatViewModel(
     private val contextProjector by lazy {
         ConversationContextProjector(
             conversations = convRepo,
+            appContext = appContext,
             requestBuilder = chatRuntime.requestBuilder,
             generationManager = { generationManager },
             generationErrorFormatter = { raw ->

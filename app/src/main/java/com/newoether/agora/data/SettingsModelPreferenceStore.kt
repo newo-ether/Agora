@@ -36,6 +36,18 @@ internal class SettingsModelPreferenceStore(
     private val dataStore: DataStore<Preferences>,
     private val json: Json,
 ) {
+    val localModelIdleRetentionMinutes: Flow<Int> = dataStore.data.map {
+        normalizeLocalModelIdleRetentionMinutes(it[LOCAL_MODEL_IDLE_RETENTION_MINUTES])
+    }
+    val localLowContextModeEnabled: Flow<Boolean> = dataStore.data.map {
+        it[LOCAL_LOW_CONTEXT_MODE_ENABLED] ?: DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
+    }
+    suspend fun saveLocalModelIdleRetentionMinutes(minutes: Int) {
+        dataStore.edit { it[LOCAL_MODEL_IDLE_RETENTION_MINUTES] = normalizeLocalModelIdleRetentionMinutes(minutes) }
+    }
+    suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) {
+        dataStore.edit { it[LOCAL_LOW_CONTEXT_MODE_ENABLED] = enabled }
+    }
     val selectedModel: Flow<String> = dataStore.data.map { it[SELECTED_MODEL] ?: Constants.EXAMPLE_MODEL_ID }
     val anthropicCacheEnabled: Flow<Boolean> = dataStore.data.map { it[ANTHROPIC_CACHE_ENABLED] ?: true }
     val anthropicCacheTtl: Flow<String> = dataStore.data.map { it[ANTHROPIC_CACHE_TTL] ?: "1h" }

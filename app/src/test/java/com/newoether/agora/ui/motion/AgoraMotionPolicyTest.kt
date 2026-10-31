@@ -13,6 +13,7 @@ class AgoraMotionPolicyTest {
         )
 
         assertFalse(policy.reduceMotion)
+        assertFalse(policy.systemAnimationsDisabled)
         assertTrue(policy.allowContinuousMotion)
         assertTrue(policy.allowSpatialTransitions)
         assertTrue(policy.allowProgrammaticScrollMotion)
@@ -26,6 +27,7 @@ class AgoraMotionPolicyTest {
         )
 
         assertReduced(policy)
+        assertFalse(policy.systemAnimationsDisabled)
     }
 
     @Test
@@ -36,6 +38,7 @@ class AgoraMotionPolicyTest {
         )
 
         assertReduced(policy)
+        assertTrue(policy.systemAnimationsDisabled)
     }
 
     private fun assertReduced(policy: AgoraMotionPolicy) {

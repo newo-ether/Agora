@@ -28,8 +28,6 @@ internal class RemoteSubmission(
             settingsConflict(snapshot) || !snapshot.canSend) return
         val owner = snapshot.owner ?: return
         val client = clientFor(snapshot) ?: return
-        if (!snapshot.selectedAdapter.legacy && !snapshot.isDraft && (snapshot.runtime == null || snapshot.runtime.status !in
-            setOf("idle", "active", "running", "ready"))) return
         val text = snapshot.drafts[owner].orEmpty()
         val attachments = snapshot.attachments[owner].orEmpty()
         val previous = snapshot.attempts[owner]

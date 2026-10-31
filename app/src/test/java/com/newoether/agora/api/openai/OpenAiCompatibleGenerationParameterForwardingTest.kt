@@ -143,8 +143,9 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
             CustomOpenAiProvider("Relay", server.baseUrl),
             config(server, "qwen/qwen3.8-27b").copy(thinkingLevel = "max"),
         )
-        // A relay has no documented effort set, so the user's value is forwarded unchanged.
-        assertEquals("max", body["reasoning_effort"]!!.jsonPrimitive.content)
+        assertEquals("xhigh", body["reasoning_effort"]!!.jsonPrimitive.content)
+        assertEquals("xhigh", body["chat_template_kwargs"]!!.jsonObject["reasoning_effort"]!!.jsonPrimitive.content)
+        assertTrue(body["chat_template_kwargs"]!!.jsonObject["enable_thinking"]!!.jsonPrimitive.boolean)
         assertStandardParameters(body)
     }
 
@@ -196,14 +197,14 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
     }
 
     @Test
-    fun customEndpointForwardsUserThinkingSettingsWithoutModelNameRules() = withServer { server ->
+    fun customEndpointClampsKnownEffortsAndPreservesUnknownOff() = withServer { server ->
         val enabled = server.capture(
             CustomOpenAiProvider("Relay", server.baseUrl),
             config(server, "DeepSeek/DeepSeek-V4").copy(thinkingLevel = "xhigh"),
         )
-        // A relay gets no DeepSeek-specific fields: the user's own effort is forwarded unchanged.
+        // The transport stays OpenAI-compatible; only the documented effort range is applied.
         assertFalse(enabled.containsKey("thinking"))
-        assertEquals("xhigh", enabled["reasoning_effort"]!!.jsonPrimitive.content)
+        assertEquals("max", enabled["reasoning_effort"]!!.jsonPrimitive.content)
         assertStandardParameters(enabled)
 
         withServer { offServer ->
@@ -279,6 +280,85 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
                 config(unknownServer, "llama-3.3-70b").copy(maxTokens = null),
             )
             assertFalse(unknown.containsKey("max_tokens"))
+        }
+    }
+
+    @Test
+    fun customQwenTemplateOffBudgetAndResponsesShareResolvedControls() {
+        listOf(false, true).forEach { responses ->
+            withServer { server ->
+                val provider = CustomOpenAiProvider("Strata relay", server.baseUrl)
+                val off = server.capture(provider, config(server, "Qwen/Qwen3.8-27B").copy(
+                    thinkingEnabled = false, responsesApiEnabled = responses))
+                assertFalse(off["chat_template_kwargs"]!!.jsonObject["enable_thinking"]!!.jsonPrimitive.boolean)
+                assertEquals("none", off["reasoning_effort"]!!.jsonPrimitive.content)
+                assertFalse(off["chat_template_kwargs"]!!.jsonObject.containsKey("reasoning_effort"))
+            }
+            withServer { server ->
+                val provider = CustomOpenAiProvider("Strata relay", server.baseUrl)
+                val on = server.capture(provider, config(server, "qwen3.8-27b").copy(
+                    thinkingLevel = "max", responsesApiEnabled = responses))
+                assertEquals("xhigh", on["reasoning_effort"]!!.jsonPrimitive.content)
+                assertEquals("xhigh", on["chat_template_kwargs"]!!.jsonObject["reasoning_effort"]!!.jsonPrimitive.content)
+            }
+            withServer { server ->
+                val budget = server.capture(CustomOpenAiProvider("Relay", server.baseUrl),
+                    config(server, "qwen3.8-27b").copy(thinkingBudgetEnabled = true,
+                        thinkingBudgetTokens = 8192, responsesApiEnabled = responses))
+                assertEquals(8192, budget["thinking_budget"]!!.jsonPrimitive.int)
+                assertFalse(budget.containsKey("reasoning_effort"))
+                assertFalse(budget["chat_template_kwargs"]!!.jsonObject.containsKey("reasoning_effort"))
+            }
+        }
+    }
+
+    @Test
+    fun knownGlmIdsClampSavedEffortsAndForcedOffInBothTransports() {
+        listOf(false, true).forEach { responses ->
+            listOf("glm-5-3-flash-260828", "z-ai/glm-5.3", "glm-5-2-260617").forEach { id ->
+                withServer { server ->
+                    val body = server.capture(CustomOpenAiProvider("Ark", server.baseUrl),
+                        config(server, id).copy(thinkingLevel = "medium", responsesApiEnabled = responses))
+                    val effort = if (responses) body["reasoning"]!!.jsonObject["effort"] else body["reasoning_effort"]
+                    assertEquals("high", effort!!.jsonPrimitive.content)
+                    assertFalse(body.containsKey("chat_template_kwargs"))
+                }
+            }
+            withServer { server ->
+                val body = server.capture(CustomOpenAiProvider("Ark", server.baseUrl),
+                    config(server, "z-ai/glm-5.3").copy(thinkingEnabled = false,
+                        responsesApiEnabled = responses))
+                val effort = if (responses) body["reasoning"]!!.jsonObject["effort"] else body["reasoning_effort"]
+                assertEquals("low", effort!!.jsonPrimitive.content)
+            }
+        }
+    }
+
+    @Test
+    fun nativeOpenAi61SolResponsesCannotSendDisabledOrIllegalEffort() = withServer { server ->
+        val body = server.capture(OpenAiProvider(), config(server, "gpt-6.1-sol").copy(
+            thinkingEnabled = false, thinkingLevel = "minimal", responsesApiEnabled = true))
+        assertEquals("low", body["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun claudeCompatibleRequestsOmitSamplingAndManualBudget() {
+        listOf(false, true).forEach { responses ->
+            withServer { server ->
+                val body = server.capture(CustomOpenAiProvider("Relay", server.baseUrl),
+                    config(server, "anthropic/claude-opus-5.5").copy(thinkingEnabled = false,
+                        thinkingBudgetEnabled = true, responsesApiEnabled = responses))
+                listOf("temperature", "top_p", "frequency_penalty", "presence_penalty", "thinking_budget")
+                    .forEach { assertFalse(it, body.containsKey(it)) }
+                val effort = if (responses) body["reasoning"]!!.jsonObject["effort"] else body["reasoning_effort"]
+                assertEquals("low", effort!!.jsonPrimitive.content)
+            }
+        }
+        withServer { server ->
+            val body = server.capture(OpenRouterProvider(), config(server, "anthropic/claude-sonnet-5.5"))
+            assertFalse(body.containsKey("temperature"))
+            assertFalse(body.containsKey("top_p"))
+            assertEquals("medium", body["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
         }
     }
 
@@ -362,10 +442,12 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
         init {
             server.createContext("/") { exchange ->
                 bodies += exchange.requestBody.bufferedReader().use { it.readText() }
-                val response = (
+                val response = (if (exchange.requestURI.path.endsWith("/responses")) {
+                    "data: {\"type\":\"response.completed\",\"sequence_number\":1,\"response\":{\"status\":\"completed\"}}\n\n"
+                } else {
                     "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
                         "data: [DONE]\n\n"
-                    ).toByteArray()
+                }).toByteArray()
                 exchange.responseHeaders.add("Content-Type", "text/event-stream")
                 exchange.sendResponseHeaders(200, response.size.toLong())
                 exchange.responseBody.use { it.write(response) }

@@ -1,5 +1,9 @@
 package com.newoether.agora.ui.settings
 
+import com.newoether.agora.phone.PHONE_USE_ICON_PATH
+import com.newoether.agora.phone.PhoneUseIcon
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.vector.addPathNodes
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
@@ -9,6 +13,50 @@ import org.junit.Test
 import org.w3c.dom.Element
 
 class SettingsResourceContractTest {
+    @Test
+    fun phoneIconGeometryMatchesNativeNotificationAndBrowser() {
+        val resources = locateResourceDirectory()
+        val vector = parse(File(resources, "drawable/ic_phone_use.xml")).documentElement
+        assertEquals(24f, vector.androidFloat("viewportWidth"), 0f)
+        assertEquals(24f, vector.androidFloat("viewportHeight"), 0f)
+        val path = vector.getElementsByTagName("path").item(0) as Element
+        assertEquals(PHONE_USE_ICON_PATH, path.getAttributeNS(ANDROID_NAMESPACE, "pathData"))
+        assertEquals("nonZero", path.getAttributeNS(ANDROID_NAMESPACE, "fillType"))
+        val nativePath = PhoneUseIcon.root[0] as androidx.compose.ui.graphics.vector.VectorPath
+        assertEquals(addPathNodes(PHONE_USE_ICON_PATH), nativePath.pathData)
+        assertEquals(PathFillType.NonZero, nativePath.pathFillType)
+        assertEquals(24f, PhoneUseIcon.viewportWidth, 0f)
+        assertEquals(24f, PhoneUseIcon.viewportHeight, 0f)
+        val browser = File(resources.parentFile, "assets/webui/icons.js").readText()
+        val browserPath = Regex("""export const ICON_MOBILE_HAND = "([^"]+)";""")
+            .find(browser)?.groupValues?.get(1)
+        assertEquals(PHONE_USE_ICON_PATH, browserPath)
+    }
+    @Test
+    fun toolCallDisplayOffersOnlyTimelineAndGroupedInEveryLocale() {
+        val resources = locateResourceDirectory()
+        val localePattern = Regex("""values(?:-[a-z]{2,3}(?:-r[A-Z]{2})?)?""")
+        val locales = resources.listFiles().orEmpty().filter {
+            it.isDirectory && localePattern.matches(it.name)
+        }
+        assertEquals(12, locales.size)
+        locales.forEach { locale ->
+            val values = readStringValues(locale)
+            assertFalse(locale.name, values.containsKey("tool_call_display_mode_compact"))
+            assertFalse(locale.name, values.containsKey("tool_call_display_mode_compact_desc"))
+            for (mode in listOf("timeline", "grouped_timeline")) {
+                assertTrue(locale.name, !values["tool_call_display_mode_$mode"].isNullOrBlank())
+                assertTrue(locale.name, !values["tool_call_display_mode_${mode}_desc"].isNullOrBlank())
+            }
+        }
+        val appearance = readSettingsSource("SettingsAppearancePage.kt")
+        val options = appearance.substringAfter("val selectedLabel = when (normalizedToolCallDisplayMode)")
+            .substringAfter("val options = listOf(").substringBefore("\n                            )")
+        assertEquals(1, Regex("ToolCallDisplayModes\\.TIMELINE").findAll(options).count())
+        assertEquals(1, Regex("ToolCallDisplayModes\\.GROUPED_TIMELINE").findAll(options).count())
+        assertEquals(2, Regex("ToolCallDisplayModes\\.").findAll(options).count())
+    }
+
     @Test
     fun retiredPromptGuideLabelsAreAbsentAndUnknownRowsKeepTheExistingFallback() {
         val resources = locateResourceDirectory()
@@ -261,7 +309,6 @@ class SettingsResourceContractTest {
             "tool_call_display_mode" to "Thinking & Tool Blocks",
             "tool_call_display_mode_timeline" to "Timeline",
             "tool_call_display_mode_grouped_timeline" to "Grouped",
-            "tool_call_display_mode_compact" to "Compact",
             "thinking_segment_display_mode" to "Thinking Segments",
             "thinking_segment_display_card" to "Card",
             "thinking_segment_display_bottom_sheet" to "Bottom Sheet",

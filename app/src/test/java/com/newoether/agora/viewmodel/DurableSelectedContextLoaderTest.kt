@@ -392,23 +392,24 @@ class DurableSelectedContextLoaderTest {
             ),
         )
         val conversations = mockk<ConversationRepository>()
+        val reader = mockk<ChatDao>()
         var inTransaction = false
         var formatted = false
         coEvery {
-            conversations.withProviderContextSnapshot<List<InterruptedToolRounds.Row>>(any())
+            conversations.withReadSnapshot<List<InterruptedToolRounds.Row>>(any())
         } coAnswers {
             inTransaction = true
             try {
-                firstArg<suspend () -> List<InterruptedToolRounds.Row>>().invoke()
+                firstArg<suspend (ChatDao) -> List<InterruptedToolRounds.Row>>().invoke(reader)
             } finally {
                 inTransaction = false
             }
         }
-        coEvery { conversations.getProviderContextTopologySnapshot(CONVERSATION_ID) } coAnswers {
+        coEvery { reader.getProviderContextTopologySnapshot(CONVERSATION_ID) } coAnswers {
             assertTrue(inTransaction)
             snapshot(listOf(entity))
         }
-        coEvery { conversations.getContextMessagesByIds(listOf(entity.id)) } coAnswers {
+        coEvery { reader.getMessagesByIds(listOf(entity.id)) } coAnswers {
             assertTrue(inTransaction)
             listOf(entity)
         }

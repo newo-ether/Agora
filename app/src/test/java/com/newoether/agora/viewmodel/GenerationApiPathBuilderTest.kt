@@ -10,6 +10,9 @@ import com.newoether.agora.api.util.prepareMessages
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.AttachmentItem
+import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.util.Constants
@@ -18,6 +21,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -405,6 +410,37 @@ class GenerationApiPathBuilderTest {
 
         assertEquals("conversation", enabled.providerConfig.promptCacheKey)
         assertEquals(null, disabled.providerConfig.promptCacheKey)
+    }
+
+    @Test
+    fun `transcription enabled requests preserve all undescribed image occurrences`() = runTest {
+        val builder = GenerationApiPathBuilder(
+            conversations = mockk<ConversationRepository>(relaxed = true),
+            generationErrorFormatter = { it },
+            toolDefinitions = { emptyList() },
+        )
+        val pending = ImageArtifact("pending.jpg", "image/jpeg", 100L, 1_000, 1_000)
+        val user = message("user", null, 0, Participant.USER).copy(
+            images = listOf("described.jpg", pending.path),
+            attachmentMeta = Json.encodeToString(AttachmentMeta(listOf(
+                AttachmentItem(type = "image", imageIndex = 0, transcription = "stored description"),
+                AttachmentItem(type = "image", imageIndex = 1, imageArtifacts = listOf(pending)),
+            ))),
+        )
+        val path = builder.build(GenerationApiPathRequest(
+            parentId = user.id, conversationId = "conversation",
+            config = generationConfig().copy(modelId = "OpenAI:claude-sonnet-4-5"),
+            context = GenerationContext(imageTranscriptionEnabled = true),
+            loadedMessages = listOf(user),
+        ))
+        assertTrue(path.providerConfig.includeImages)
+        assertEquals(listOf(pending.path), path.messages.single().images)
+        assertEquals(0, path.messages.single().attachmentMeta!!.items[1].imageIndex)
+        val projected = projectGenerationInputMessages(
+            path.messages, path.providerConfig.includeImages, null, null,
+        )
+        assertEquals(listOf(pending.path), projected.single().images)
+        assertTrue(projected.single().text.contains("stored description"))
     }
 
     private fun generationConfig(providerName: String = "provider") = GenerationConfig(

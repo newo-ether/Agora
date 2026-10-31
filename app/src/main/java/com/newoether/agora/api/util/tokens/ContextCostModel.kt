@@ -75,13 +75,13 @@ data class ContextCostModel(
 ) {
     companion object {
         /**
-         * Model-independent default: the character heuristic, byte-proportional images, shared
+         * Model-independent default: the character heuristic, dimension-based image proxy, shared
          * framing constants, and the ten percent margin. Used for every endpoint whose tokenizer
          * and image rules are unknown.
          */
         val Default = ContextCostModel(
             text = HeuristicTextTokenCounter,
-            image = ByteProportionalImageCost,
+            image = HeuristicPixelImageCost,
             envelope = EnvelopeCost.Default,
             safetyMargin = SafetyMargin.Default,
         )

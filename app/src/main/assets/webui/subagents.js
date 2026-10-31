@@ -109,9 +109,10 @@ export function SubagentsBar({ state, enter = true }) {
   if (shown.grouped) {
     const list = shown.agents;
     const single = list.length === 1 ? list[0] : null;
-    const title = single ? single.title : t.subagentsCount(list.length);
-    const status = single ? single.status
-      : list.some(agent => agent.status === "running") ? "running" : "idle";
+    const runningCount = list.filter(agent => agent.status === "running").length;
+    const title = single ? single.title
+      : runningCount ? t.subagentsRunningCount(runningCount) : t.subagentsCount(list.length);
+    const status = single ? single.status : runningCount ? "running" : "idle";
     return html`<${Fragment}>
       <${ToolItem} key=${`${shown.owner}:subagents`} toolKey=${`subagents:${shown.owner}`}
         identity=${shown.owner} active=${active} reduced=${reduced} enter=${enter} retain=${true}

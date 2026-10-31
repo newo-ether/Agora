@@ -38,8 +38,9 @@ internal fun interface GenerationToolDefinitionSource {
 internal class GenerationApiPathBuilder(
     private val conversations: ConversationRepository,
     private val generationErrorFormatter: (String) -> String,
+    appContext: android.content.Context? = null,
     private val contextLoader: DurableSelectedContextLoader =
-        DurableSelectedContextLoader(conversations, generationErrorFormatter),
+        DurableSelectedContextLoader(conversations, generationErrorFormatter, appContext = appContext),
     private val toolDefinitions: GenerationToolDefinitionSource,
 ) {
     suspend fun build(request: GenerationApiPathRequest): GenerationApiPath =
@@ -59,7 +60,7 @@ internal class GenerationApiPathBuilder(
                         ) &&
                     definitions.isNotEmpty()
             val fixedTokenCost = if (config.requestResolver == null) {
-                ContextTokenEstimator.estimateFixed(
+                ContextTokenEstimator.forModel(config.modelId).estimateFixed(
                     systemPrompt = config.effectiveSystemPrompt,
                     tools = definitions,
                     initialUserPrompt = config.initialUserPrompt,
@@ -96,9 +97,9 @@ internal class GenerationApiPathBuilder(
                 providerConfig = ProviderConfig(
                     apiKey = config.apiKey,
                     modelId = config.modelId,
-                    // Transcription-enabled models receive image descriptions instead of raw
-                    // images. Sending image_url parts to a non-vision model is a hard provider 400.
-                    includeImages = !request.context.imageTranscriptionEnabled,
+                    // Successful stored descriptions have already removed their own image range.
+                    // Undescribed images remain part of dispatch and context accounting.
+                    includeImages = true,
                     includeAssistantReasoning = includeAssistantReasoning,
                     systemPrompt = config.effectiveSystemPrompt,
                     maxContextWindow = providerTokenBudget,

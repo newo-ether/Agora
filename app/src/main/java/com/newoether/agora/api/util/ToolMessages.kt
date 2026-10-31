@@ -114,6 +114,7 @@ private fun ChatMessage.asTerminalAssistantMessage(
             .filter(String::isNotBlank)
             .joinToString("\n\n"),
         images = emptyList(),
+        imageArtifacts = emptyMap(),
         thoughts = null,
         thoughtTitle = null,
         tokenCount = 0,
@@ -166,158 +167,8 @@ fun stripEmptyTurns(messages: List<ChatMessage>): List<ChatMessage> =
             msg.segments?.any { it.type == "tool" } == true
     }
 
-/**
- * Builds an API-only view where assistant-generated images remain available for
- * visual follow-ups without being serialized as assistant-side image content.
- *
- * Chat completion schemas treat images as user inputs. Agora stores generated
- * images on model messages for display, so the latest generated image set is
- * projected onto the latest normal user message when images are being sent.
- */
-fun projectAssistantImagesToLatestUserMessage(
-    messages: List<ChatMessage>,
-    includeImages: Boolean
-): List<ChatMessage> {
-    if (messages.isEmpty()) return messages
-
-    val latestUserIndex = messages.indexOfLast { it.isNormalUserMessage() }
-    val generatedImages = if (includeImages && latestUserIndex >= 0) {
-        messages
-            .asSequence()
-            .take(latestUserIndex)
-            .filter { it.isNormalAssistantMessage() && it.images.isNotEmpty() }
-            .lastOrNull()
-            ?.images
-            ?.filter { it.isNotBlank() }
-            .orEmpty()
-    } else {
-        emptyList()
-    }
-
-    var changed = false
-    val projected = messages.mapIndexed { index, msg ->
-        var next = msg
-        if (msg.isNormalAssistantMessage() && msg.images.isNotEmpty()) {
-            next = next.copy(images = emptyList())
-            changed = true
-        }
-        if (index == latestUserIndex && generatedImages.isNotEmpty()) {
-            next = next.copy(
-                text = addGeneratedImageContextNote(next.text, generatedImages.size),
-                images = (generatedImages + next.images).distinct()
-            )
-            changed = true
-        }
-        next
-    }
-
-    return if (changed) projected else messages
-}
-
-/**
- * Adds an API-only normal user turn after each complete tool-result batch that returned images.
- *
- * Tool-result blocks themselves remain text-only because provider wire formats disagree about
- * multimodal tool results. A following ordinary user turn is accepted by all supported
- * multimodal providers and preserves the required tool-call/result adjacency. The synthetic row
- * is never persisted or rendered.
- */
-fun projectToolResultImagesToUserMessage(
-    messages: List<ChatMessage>,
-    includeImages: Boolean,
-): List<ChatMessage> {
-    if (messages.none { it.id.startsWith(Constants.RESULT_MSG_PREFIX) && it.images.isNotEmpty() }) {
-        return messages
-    }
-
-    val projected = ArrayList<ChatMessage>(messages.size + 2)
-    var index = 0
-    while (index < messages.size) {
-        val message = messages[index]
-        projected += message
-        if (!message.id.startsWith(Constants.RESULT_MSG_PREFIX)) {
-            index++
-            continue
-        }
-
-        val batch = mutableListOf(message)
-        var next = index + 1
-        while (
-            next < messages.size &&
-            messages[next].id.startsWith(Constants.RESULT_MSG_PREFIX)
-        ) {
-            projected += messages[next]
-            batch += messages[next]
-            next++
-        }
-        val images = batch.flatMap(ChatMessage::images).filter(String::isNotBlank).distinct()
-        if (images.isNotEmpty()) {
-            val first = batch.first()
-            val seed = batch.joinToString(":") { it.id }
-            val digest = MessageDigest.getInstance("SHA-256")
-                .digest(seed.toByteArray())
-                .take(8)
-                .joinToString("") { "%02x".format(it) }
-            // Carried like regular image transcriptions: a text block on this API-only row,
-            // read from the toolTranscription persisted on the batch's tool segments (the
-            // round-boundary path rebuild excludes the model message, so the description must
-            // travel with the result rows).
-            val descriptionBlock = transcriptionDescriptionsForBatch(batch)
-                ?.let { "\n\n--- Image Transcription: file_view_image ---\n$it" }
-                .orEmpty()
-            projected += ChatMessage(
-                // The id must not start with tool_ / result_ / compact_: provider serializers
-                // branch on those prefixes and would silently drop this API-only row (its text
-                // and images would never reach the model). image_context_ is reserved-free.
-                id = "image_context_$digest",
-                parentId = batch.last().id,
-                text = if (includeImages) {
-                    "[Tool visual result: inspect the attached image${if (images.size == 1) "" else "s"} before continuing.]$descriptionBlock"
-                } else if (descriptionBlock.isNotBlank()) {
-                    "[Tool visual result: the image description follows.]$descriptionBlock"
-                } else {
-                    "[Tool visual result unavailable: the current model does not support image input.]"
-                },
-                images = if (includeImages) images else emptyList(),
-                participant = Participant.USER,
-                status = MessageStatus.SUCCESS,
-                timestamp = batch.last().timestamp,
-                runId = first.runId,
-                runSequence = first.runSequence,
-            )
-        }
-        index = next
-    }
-    return projected
-}
-
-private fun ChatMessage.isNormalUserMessage(): Boolean =
-    participant == Participant.USER && !isToolProtocolMessage()
-
-/** Tool-image transcription travels on the result rows' tool segments (toolTranscription). */
-private fun transcriptionDescriptionsForBatch(
-    batch: List<ChatMessage>,
-): String? = batch
-    .flatMap { it.segments.orEmpty() }
-    .mapNotNull { it.toolTranscription?.takeIf(String::isNotBlank) }
-    .distinct()
-    .joinToString("\n\n")
-    .takeIf(String::isNotBlank)
-
-private fun ChatMessage.isNormalAssistantMessage(): Boolean =
-    participant == Participant.MODEL && !isToolProtocolMessage()
-
 internal fun ChatMessage.isToolProtocolMessage(): Boolean =
     id.startsWith(Constants.TOOL_MSG_PREFIX) || id.startsWith(Constants.RESULT_MSG_PREFIX)
-
-private fun addGeneratedImageContextNote(text: String, imageCount: Int): String {
-    val note = if (imageCount == 1) {
-        "[Visual context: the first attached image was generated by the assistant earlier in this conversation.]"
-    } else {
-        "[Visual context: the first $imageCount attached images were generated by the assistant earlier in this conversation.]"
-    }
-    return if (text.isBlank()) note else "$note\n\n$text"
-}
 
 /**
  * Merges consecutive non-user, non-tool messages that share the same participant.
@@ -357,7 +208,11 @@ fun mergeConsecutiveSameRole(messages: List<ChatMessage>): List<ChatMessage> {
             val merged = messages.subList(i, j)
             val mergedText = merged.joinToString("\n\n") { it.text }
             val mergedImages = merged.flatMap { it.images }
-            result.add(current.copy(text = mergedText, images = mergedImages))
+            result.add(current.copy(text = mergedText).let { message ->
+                if (mergedImages.isEmpty()) message else message.withProjectedImages(
+                    merged.flatMap { it.projectedImageOccurrences() },
+                )
+            })
         }
         i = j
     }

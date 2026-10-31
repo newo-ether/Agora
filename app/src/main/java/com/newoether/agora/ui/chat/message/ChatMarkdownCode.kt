@@ -1,25 +1,31 @@
 package com.newoether.agora.ui.chat.message
 
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.Text
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -31,38 +37,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.newoether.agora.R
-import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
-import com.newoether.agora.ui.chat.visibleMarkdownMatchRanges
 import com.mikepenz.markdown.compose.LocalMarkdownColors
 import com.mikepenz.markdown.compose.LocalMarkdownDimens
 import com.mikepenz.markdown.compose.LocalMarkdownPadding
-import com.mikepenz.markdown.model.markdownDimens
 import com.mikepenz.markdown.compose.components.MarkdownComponentModel
-import com.mikepenz.markdown.compose.elements.MarkdownCodeBackground
 import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
 import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
 import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
+import com.mikepenz.markdown.model.markdownDimens
+import com.newoether.agora.R
+import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
+import com.newoether.agora.ui.chat.visibleMarkdownMatchRanges
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.findChildOfType
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 internal fun ChatMarkdownCodeBlock(
@@ -80,35 +81,24 @@ internal fun ChatMarkdownCodeBlock(
         LocalMarkdownColors provides assets.renderContext.colors,
         LocalMarkdownDimens provides markdownDimens(),
     ) {
-        MarkdownCodeBackground(
-            color = assets.renderContext.colors.codeBackground,
-            shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            showHeader = false,
-            language = null,
-            code = code,
-        ) {
-            Column {
-                if (showHeader) ChatCodeBlockHeader(
-                    language = language,
-                    code = code,
-                    enabled = copyEnabled,
-                    canCopy = canCopy,
-                    copyModifier = copyModifier,
-                )
-                val codeStyle = assets.renderContext.typography.code.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                MarkdownBasicText(
-                    text = AnnotatedString(code),
-                    style = if (autoWrap) codeStyle.copy(lineBreak = LineBreak.Simple) else codeStyle,
-                    modifier = Modifier
-                        .then(if (autoWrap) Modifier else Modifier.horizontalScroll(rememberScrollState()))
-                        .padding(assets.renderContext.padding.codeBlock),
-                )
-            }
+        ChatCodeBlockSurface(modifier = modifier.padding(vertical = 8.dp)) {
+            if (showHeader) ChatCodeBlockHeader(
+                language = language,
+                code = code,
+                enabled = copyEnabled,
+                canCopy = canCopy,
+                copyModifier = copyModifier,
+            )
+            val codeStyle = assets.renderContext.typography.code.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            MarkdownBasicText(
+                text = AnnotatedString(code),
+                style = if (autoWrap) codeStyle.copy(lineBreak = LineBreak.Simple) else codeStyle,
+                modifier = Modifier
+                    .then(if (autoWrap) Modifier else Modifier.horizontalScroll(rememberScrollState()))
+                    .padding(assets.renderContext.padding.codeBlock),
+            )
         }
     }
 }
@@ -177,8 +167,12 @@ internal fun SearchHighlightedMarkdownCode(
         }
     }
     val block: @Composable (String, String?, TextStyle) -> Unit = { code, language, style ->
+        val previewEligible = fenced && htmlPreviewLanguage(language) &&
+            LocalShellMarkdownMedia.current != null &&
+            completedHtmlFence(model.content, model.node, LocalHtmlPreviewStreaming.current)
         SearchHighlightedMarkdownCodeText(
             code = code,
+            previewEligible = previewEligible,
             language = language,
             style = style,
             spec = spec,
@@ -199,6 +193,7 @@ internal fun SearchHighlightedMarkdownCode(
 @Composable
 private fun SearchHighlightedMarkdownCodeText(
     code: String,
+    previewEligible: Boolean,
     language: String?,
     style: TextStyle,
     spec: SearchHighlightSpec?,
@@ -267,18 +262,13 @@ private fun SearchHighlightedMarkdownCodeText(
     val horizontalScrollState = rememberScrollState()
     TrackStreamingHorizontalScroll(horizontalScrollState)
 
-    MarkdownCodeBackground(
-        color = LocalMarkdownColors.current.codeBackground,
-        shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        showHeader = false,
-        language = language,
-        code = code,
-    ) {
-        Column {
-            ChatCodeBlockHeader(language = language, code = code)
+    ChatCodeBlockSurface(modifier = Modifier.padding(vertical = 8.dp)) {
+        HtmlPreviewCodeContent(
+            code = code,
+            language = language,
+            eligible = previewEligible,
+            searching = spec != null,
+        ) {
             MarkdownBasicText(
                 text = renderedText,
                 style = if (autoWrap) style.copy(lineBreak = LineBreak.Simple) else style,
@@ -292,63 +282,97 @@ private fun SearchHighlightedMarkdownCodeText(
     }
 }
 
-/**
- * Code-block header mirroring the library's internal MarkdownCodeTopBar layout: monospace language
- * tag on the left, a 24.dp round copy target on the right, and the same 0.3-alpha 0.5.dp divider
- * below. The copy affordance is the standard Material icon instead of the library glyph, so it
- * matches the copy actions used elsewhere in the app. Rendered inside [MarkdownCodeBackground]'s
- * content slot while its built-in header stays disabled.
- */
+/** Shared tonal shell for fenced code, standalone code and the fullscreen HTML preview. */
 @Composable
-private fun ChatCodeBlockHeader(
+internal fun ChatCodeBlockSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Column(content = content)
+    }
+}
+
+/** The language yields width before actions; narrow headers wrap whole touch targets. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ChatCodeBlockHeader(
     language: String?,
     code: String,
     enabled: Boolean = true,
     canCopy: () -> Boolean = { true },
     copyModifier: Modifier = Modifier,
+    actions: @Composable () -> Unit = {},
+    trailingActions: @Composable () -> Unit = {},
 ) {
     val clipboardManager = LocalClipboardManager.current
-    val textColor = LocalMarkdownColors.current.text
-    val copyLabel = stringResource(R.string.copy)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (!language.isNullOrBlank()) {
-            Text(
-                text = language.uppercase(),
-                style = TextStyle(
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = textColor.copy(alpha = 0.6f),
-                ),
-            )
-        }
-        Box(
-            modifier = copyModifier
-                .size(24.dp)
-                .clip(CircleShape)
-                .semantics { role = Role.Button }
-                .clickable(enabled = enabled, onClickLabel = copyLabel) {
-                    if (canCopy()) clipboardManager.setText(AnnotatedString(code))
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = copyLabel,
-                modifier = Modifier.size(14.dp),
-                tint = textColor.copy(alpha = 0.6f),
-            )
+    // Header controls and their popup/dialog roots are not part of the message's text selection.
+    DisableSelection {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(modifier = Modifier.weight(1f).padding(start = 8.dp, end = 4.dp)) {
+                    if (!language.isNullOrBlank()) {
+                        Text(
+                            text = language.uppercase(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                FlowRow(
+                    modifier = Modifier.widthIn(max = 200.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    actions()
+                    ChatCodeBlockAction(
+                        icon = Icons.Default.ContentCopy,
+                        label = stringResource(R.string.copy),
+                        enabled = enabled,
+                        modifier = copyModifier,
+                        onClick = {
+                            if (canCopy()) clipboardManager.setText(AnnotatedString(code))
+                        },
+                    )
+                    trailingActions()
+                }
+            }
         }
     }
-    HorizontalDivider(
-        color = LocalMarkdownColors.current.dividerColor.copy(alpha = 0.3f),
-        thickness = 0.5.dp,
-    )
+}
+
+/** Shared uncontained actions retain fixed touch targets and the standard Material indication. */
+@Composable
+internal fun ChatCodeBlockAction(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    emphasized: Boolean = false,
+) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 40.dp) {
+        IconButton(
+            onClick = onClick,
+            modifier = modifier.size(40.dp),
+            enabled = enabled,
+            colors = IconButtonDefaults.iconButtonColors(
+                contentColor = if (emphasized) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+        ) {
+            Icon(icon, label, modifier = Modifier.size(16.dp))
+        }
+    }
 }
 
 private fun markdownCodeSourceRange(

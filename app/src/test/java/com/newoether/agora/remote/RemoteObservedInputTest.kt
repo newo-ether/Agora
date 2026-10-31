@@ -28,6 +28,47 @@ class RemoteObservedInputTest {
         return state.copy(drafts = mapOf(requireNotNull(state.owner) to "original input"))
     }
 
+    @Test fun grantedSendWithUnknownRuntimeDispatchesOnceAndPreservesNativeState() = runTest {
+        for (runtime in listOf(null, RemoteRuntime("unknown"), RemoteRuntime("notLoaded"), RemoteRuntime("disconnected"))) {
+            val state = MutableStateFlow(initial().copy(runtime = runtime, failure = RemoteFailure.NETWORK))
+            val client = mockk<FiloClient>()
+            coEvery { client.sendReceipt(any(), any(), any(), any()) } coAnswers {
+                RemoteSendReceipt(clientId = thirdArg(), kind = "submitted_observed", state = "submitted")
+            }
+            val submission = RemoteSubmission(backgroundScope, state, { client }, { _, _ -> true }, { 1 },
+                { true }, {}, null, ScrollRequestCoordinator(), { _, _, _ -> null }, {}, { false })
+            val owner = state.value.owner!!
+            assertTrue(state.value.canSend)
+            submission.send()
+            submission.send()
+            runCurrent()
+            coVerify(exactly = 1) { client.sendReceipt("session", "original input", any(), emptyList()) }
+            assertEquals(RemoteDelivery.ACCEPTED, state.value.attempts[owner]?.delivery)
+            assertEquals("original input", state.value.drafts[owner])
+            assertEquals(runtime, state.value.runtime)
+        }
+    }
+
+    @Test fun unknownRuntimeNeverGrantsSendWithoutExactNativeAccessAndCapability() = runTest {
+        val initial = initial().copy(runtime = RemoteRuntime("unknown"))
+        val session = initial.session!!
+        val access = session.access!!
+        for (grant in listOf(null, access.copy(binding = ""), access.copy(nativeScopeId = "other"),
+            access.copy(capabilities = RemoteCapabilities(history = true)))) {
+            val state = MutableStateFlow(initial.copy(session = session.copy(access = grant)))
+            val client = mockk<FiloClient>()
+            val submission = RemoteSubmission(backgroundScope, state, { client }, { _, _ -> true }, { 1 },
+                { true }, {}, null, ScrollRequestCoordinator(), { _, _, _ -> null }, {}, { false })
+            assertFalse(state.value.canSend)
+            submission.send()
+            runCurrent()
+            coVerify(exactly = 0) { client.sendReceipt(any(), any(), any(), any()) }
+            assertTrue(state.value.attempts.isEmpty())
+            // Invalid access changes the derived owner; every existing owner's draft must remain intact.
+            assertEquals(initial.drafts, state.value.drafts)
+        }
+    }
+
     @Test fun submittedKeepsDraftAndObservedClearsOnlyUnchangedText() = runTest {
         for (editDraft in listOf(false, true)) {
             val state = MutableStateFlow(initial())
@@ -137,7 +178,8 @@ class RemoteObservedInputTest {
             runCurrent()
             coVerify(exactly = 1) { client.updateSettings("session", RemoteSettings(effort = "low")) }
             assertEquals("deepseek-v4-pro[1m]", state.value.selectedModel)
-            assertEquals("high", state.value.selectedEffort)
+            assertEquals("low", state.value.selectedEffort)
+            assertEquals("high", state.value.runtime?.effort)
             assertEquals("native-turn", state.value.runtime?.activeTurnId)
             assertEquals(pending, state.value.runtime?.settingsChange)
             assertFalse(state.value.settingsPending)
@@ -169,6 +211,68 @@ class RemoteObservedInputTest {
         val mismatched = state.copy(session = state.session!!.copy(access = state.session.access!!.copy(binding = "")))
         assertTrue(mismatched.effortChoices.isEmpty())
         assertFalse(mismatched.canEditSettings)
+    }
+
+    @Test fun claudeEffortCanBeChosenBeforeAnObservedTurnWithoutInventingRuntime() = runTest {
+        for ((id, origin) in listOf("claude-code" to "cli", "claude-desktop" to "desktop")) {
+            val initial = initial()
+            val caps = RemoteCapabilities(history = true, live = true, settings = listOf("effort"))
+            val source = initial.selectedAdapter.copy(id = id, origin = origin, capabilities = caps)
+            val unknown = initial.copy(
+                devices = initial.devices.map { it.copy(adapters = listOf(source)) },
+                adapterSelections = mapOf("device" to id),
+                session = initial.session!!.copy(access = initial.session.access!!.copy(capabilities = caps)),
+                models = emptyList(), runtime = RemoteRuntime("unknown"),
+            )
+            assertTrue(unknown.canEditSettings)
+            assertNull(unknown.selectedEffort)
+            val state = MutableStateFlow(unknown)
+            val client = mockk<FiloClient>()
+            val pending = RemoteSettingsChange("change", "pending", RemoteSettings(effort = "high"))
+            coEvery { client.updateSettings(any(), any()) } returns Unit
+            coEvery { client.conversation(any(), any()) } returns RemoteConversationPage(emptyList(), null,
+                emptyList(), runtime = RemoteRuntime("unknown", settingsChange = pending))
+            val mutation = RemoteSettingsMutation(backgroundScope, state, { client }, { client }, { _, _ -> true },
+                { 1 }, { 1 }, { _, _, _, page -> state.value = state.value.copy(runtime = page.runtime) }, {},
+                { fail("An exact Claude request-effort grant does not require a known active turn"); null })
+            mutation.setThinkingLevel("high")
+            runCurrent()
+            coVerify(exactly = 1) { client.updateSettings("session", RemoteSettings(effort = "high")) }
+            assertEquals("high", state.value.selectedEffort)
+            assertEquals("unknown", state.value.runtime?.status)
+            assertNull(state.value.runtime?.effort)
+            assertNull(state.value.runtime?.activeTurnId)
+            assertTrue(state.value.canEditSettings)
+            assertFalse(state.value.settingsPending)
+            val ungranted = unknown.copy(session = unknown.session!!.copy(access =
+                unknown.session.access!!.copy(capabilities = RemoteCapabilities(history = true))))
+            val stale = unknown.copy(session = unknown.session.copy(access = unknown.session.access!!.copy(binding = "")))
+            val codex = unknown.copy(devices = unknown.devices.map { device ->
+                device.copy(adapters = device.adapters.map { it.copy(family = "codex") })
+            })
+            assertFalse(ungranted.canEditSettings)
+            assertFalse(stale.canEditSettings)
+            assertFalse(codex.canEditSettings)
+            assertFalse(unknown.copy(runtime = null).canEditSettings)
+            assertFalse(unknown.copy(runtime = RemoteRuntime("disconnected")).canEditSettings)
+        }
+    }
+
+    @Test fun pendingClaudeChoiceSettlesToActualEffortAndRequiresTheExactGrant() {
+        val initial = initial()
+        val pending = RemoteSettingsChange("change", "pending", RemoteSettings(effort = "low"))
+        val state = initial.copy(runtime = initial.runtime!!.copy(effort = "high", settingsChange = pending))
+        assertEquals("low", state.selectedEffort)
+        assertEquals("high", state.runtime?.effort)
+        assertEquals("high", state.copy(runtime = state.runtime!!.copy(settingsChange = pending.copy(state = "failed"))).selectedEffort)
+        assertEquals("low", state.copy(runtime = state.runtime!!.copy(effort = "low",
+            settingsChange = pending.copy(state = "confirmed"))).selectedEffort)
+        val stale = state.copy(session = state.session!!.copy(access = state.session.access!!.copy(binding = "")))
+        assertEquals("high", stale.selectedEffort)
+        val codex = state.copy(devices = state.devices.map { device ->
+            device.copy(adapters = device.adapters.map { it.copy(family = "codex") })
+        })
+        assertEquals("high", codex.selectedEffort)
     }
 
     @Test fun pendingSettingsReleasesSendBarrierWithoutClaimingAppliedValues() = runTest {

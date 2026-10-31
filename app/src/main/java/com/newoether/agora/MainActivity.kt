@@ -42,6 +42,8 @@ import com.newoether.agora.data.SettingsManager
 import com.newoether.agora.service.AgoraForegroundService
 import com.newoether.agora.service.AppForegroundTracker
 import com.newoether.agora.ui.chat.ChatApp
+import com.newoether.agora.ui.chat.message.LocalShellMarkdownMedia
+import androidx.compose.runtime.CompositionLocalProvider
 import com.newoether.agora.ui.chat.FullScreenMediaPreviewDialog
 import com.newoether.agora.ui.chat.MediaPreviewTarget
 import com.newoether.agora.ui.onboarding.WelcomeScreen
@@ -458,72 +460,75 @@ fun MainNavigation(
         color = MaterialTheme.colorScheme.background
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            ChatApp(
-                viewModel = viewModel,
-                initialComposerFocusReady = initialComposerFocusReady,
-                onNavigateBack = subagentParentId?.takeIf { !isNewChatMode }?.let { parent ->
-                    { viewModel.selectConversation(parent); Unit }
-                } ?: taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode)
-                    ?.let { taskId ->
-                        {
-                            taskToOpen = taskId
-                            taskEditorSession.requestHistoryReturn()
-                            taskEditorSession.beginHistoryReturnRestore { restore, onRestoreFailure ->
-                                if (restore.originWasNewChat) {
-                                    viewModel.restoreNewChatDestination(onRestoreFailure)
-                                } else {
-                                    restore.originConversationId?.let { origin ->
-                                        viewModel.restoreConversationDestination(origin, onRestoreFailure)
+            // Only native chat resolves shell:// Markdown images; Remote stays outside this provider.
+            CompositionLocalProvider(LocalShellMarkdownMedia provides viewModel.shellMarkdownMedia) {
+                ChatApp(
+                    viewModel = viewModel,
+                    initialComposerFocusReady = initialComposerFocusReady,
+                    onNavigateBack = subagentParentId?.takeIf { !isNewChatMode }?.let { parent ->
+                        { viewModel.selectConversation(parent); Unit }
+                    } ?: taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode)
+                        ?.let { taskId ->
+                            {
+                                taskToOpen = taskId
+                                taskEditorSession.requestHistoryReturn()
+                                taskEditorSession.beginHistoryReturnRestore { restore, onRestoreFailure ->
+                                    if (restore.originWasNewChat) {
+                                        viewModel.restoreNewChatDestination(onRestoreFailure)
+                                    } else {
+                                        restore.originConversationId?.let { origin ->
+                                            viewModel.restoreConversationDestination(origin, onRestoreFailure)
+                                        }
                                     }
                                 }
+                                topLevelPresentation.present(TopLevelPresentation.TASKS)
+                                showTasks = true
                             }
-                            topLevelPresentation.present(TopLevelPresentation.TASKS)
-                            showTasks = true
-                        }
+                        },
+                    drawerEnabled = taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode) == null,
+                    openDrawerOnStart = screenshotDestination == "drawer",
+                    initialScrollToTop = screenshotDestination == "chat",
+                    onOpenSettings = {
+                        topLevelPresentation.present(TopLevelPresentation.SETTINGS)
+                        showSettings = true
                     },
-                drawerEnabled = taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode) == null,
-                openDrawerOnStart = screenshotDestination == "drawer",
-                initialScrollToTop = screenshotDestination == "chat",
-                onOpenSettings = {
-                    topLevelPresentation.present(TopLevelPresentation.SETTINGS)
-                    showSettings = true
-                },
-                onOpenRemote = {
-                    topLevelPresentation.present(TopLevelPresentation.REMOTE)
-                    showRemote = true
-                },
-                onOpenTasks = { taskId ->
-                    taskToOpen = taskId
-                    topLevelPresentation.present(TopLevelPresentation.TASKS)
-                    showTasks = true
-                },
-                onMediaClick = openMediaPreview,
-                onFileContentClick = { name, content ->
-                    focusManager.clearFocus()
-                    topLevelPresentation.present(TopLevelPresentation.TEXT_PREVIEW)
-                    viewModel.mediaPreview.showFile(name, content)
-                },
-                onPdfPagesClick = { pages, idx ->
-                    focusManager.clearFocus()
-                    viewModel.mediaPreview.showPdf(pages, idx)
-                    mediaPreviewTarget = MediaPreviewTarget(pages, idx)
-                    pdfPreviewFromDialog = false
-                    topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
-                },
-                onPdfPreviewSelect = { pages, idx ->
-                    focusManager.clearFocus()
-                    viewModel.mediaPreview.showPdf(pages, idx)
-                    mediaPreviewTarget = MediaPreviewTarget(pages, idx)
-                    pdfPreviewFromDialog = true
-                    topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
-                },
-                pdfViewerSelection = pdfViewerSelection,
-                onTogglePdfSelection = onTogglePdfSelection,
-                onInitPdfSelection = onInitPdfSelection,
-                fullScreenViewerUrls = mediaPreviewTarget?.urls,
-                topLevelPresentation = topLevelPresentation.owner,
-                onSnackbarOffsetChanged = { chatSnackbarOffset = it }
-            )
+                    onOpenRemote = {
+                        topLevelPresentation.present(TopLevelPresentation.REMOTE)
+                        showRemote = true
+                    },
+                    onOpenTasks = { taskId ->
+                        taskToOpen = taskId
+                        topLevelPresentation.present(TopLevelPresentation.TASKS)
+                        showTasks = true
+                    },
+                    onMediaClick = openMediaPreview,
+                    onFileContentClick = { name, content ->
+                        focusManager.clearFocus()
+                        topLevelPresentation.present(TopLevelPresentation.TEXT_PREVIEW)
+                        viewModel.mediaPreview.showFile(name, content)
+                    },
+                    onPdfPagesClick = { pages, idx ->
+                        focusManager.clearFocus()
+                        viewModel.mediaPreview.showPdf(pages, idx)
+                        mediaPreviewTarget = MediaPreviewTarget(pages, idx)
+                        pdfPreviewFromDialog = false
+                        topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
+                    },
+                    onPdfPreviewSelect = { pages, idx ->
+                        focusManager.clearFocus()
+                        viewModel.mediaPreview.showPdf(pages, idx)
+                        mediaPreviewTarget = MediaPreviewTarget(pages, idx)
+                        pdfPreviewFromDialog = true
+                        topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
+                    },
+                    pdfViewerSelection = pdfViewerSelection,
+                    onTogglePdfSelection = onTogglePdfSelection,
+                    onInitPdfSelection = onInitPdfSelection,
+                    fullScreenViewerUrls = mediaPreviewTarget?.urls,
+                    topLevelPresentation = topLevelPresentation.owner,
+                    onSnackbarOffsetChanged = { chatSnackbarOffset = it }
+                )
+            }
 
             com.newoether.agora.ui.remote.RemoteOverlay(
                 visible = showRemote, settings = viewModel.settings,

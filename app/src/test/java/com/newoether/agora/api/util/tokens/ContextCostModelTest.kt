@@ -41,38 +41,26 @@ class ContextCostModelTest {
     }
 
     @Test
-    fun byteProportionalImageCostClampsAndFallsBackWhenNothingIsKnown() {
-        val cost = ByteProportionalImageCost
-        assertEquals(300L, cost.tokens(ImageDescriptor(byteSize = 768L * 300L)))
-        assertEquals(
-            ByteProportionalImageCost.MIN_TOKENS,
-            cost.tokens(ImageDescriptor(byteSize = 1L)),
-        )
-        assertEquals(
-            ByteProportionalImageCost.MAX_TOKENS,
-            cost.tokens(ImageDescriptor(byteSize = 768L * 4_000L)),
-        )
-        assertEquals(ByteProportionalImageCost.UNKNOWN_TOKENS, cost.tokens(ImageDescriptor()))
-        assertEquals(
-            ByteProportionalImageCost.UNKNOWN_TOKENS,
-            cost.tokens(ImageDescriptor(byteSize = 0L)),
-        )
-        assertEquals(
-            ByteProportionalImageCost.UNKNOWN_TOKENS,
-            cost.tokens(ImageDescriptor(byteSize = -4_096L)),
-        )
+    fun unknownModelImageCostUsesDimensionsWithoutAUniversalCap() {
+        val cost = HeuristicPixelImageCost
+        assertEquals(1L, cost.tokens(ImageDescriptor(pixelWidth = 1, pixelHeight = 1)))
+        assertEquals(256L, cost.tokens(ImageDescriptor(pixelWidth = 512, pixelHeight = 512)))
+        assertEquals(4_096L, cost.tokens(ImageDescriptor(pixelWidth = 2_048, pixelHeight = 2_048)))
+        val estimate = cost.estimate(ImageDescriptor(pixelWidth = 512, pixelHeight = 512))
+        assertEquals(ImageEstimateBasis.HEURISTIC, estimate.basis)
+        assertEquals("unpublished-32px-patch-proxy", estimate.ruleId)
     }
 
     @Test
-    fun byteProportionalImageCostIgnoresPixelDimensions() {
-        // The byte rule is the fallback for endpoints without published pixel formulas, so a known
-        // pixel size must not change its answer.
-        assertEquals(
-            ByteProportionalImageCost.tokens(ImageDescriptor(byteSize = 768L * 300L)),
-            ByteProportionalImageCost.tokens(
-                ImageDescriptor(byteSize = 768L * 300L, pixelWidth = 4_000, pixelHeight = 3_000),
-            ),
-        )
+    fun encodedLengthNeverChangesThePixelHeuristicOrResolvesMissingDimensions() {
+        val cost = HeuristicPixelImageCost
+        val smallFile = ImageDescriptor(byteSize = 1L, pixelWidth = 1_000, pixelHeight = 1_000)
+        assertEquals(cost.estimate(smallFile), cost.estimate(smallFile.copy(byteSize = Long.MAX_VALUE)))
+        listOf(null, 0L, -4_096L, Long.MAX_VALUE).forEach { size ->
+            val estimate = cost.estimate(ImageDescriptor(byteSize = size))
+            assertEquals(ImageEstimateBasis.MISSING_DIMENSIONS, estimate.basis)
+            assertEquals(HeuristicPixelImageCost.MISSING_DIMENSIONS_RESERVATION, estimate.tokens)
+        }
     }
 
     @Test
@@ -113,8 +101,8 @@ class ContextCostModelTest {
             estimator.estimateText("hello world"),
         )
         assertEquals(
-            ContextTokenEstimator.estimateImageTokens(768L * 300L),
-            estimator.imageTokens(ImageDescriptor(byteSize = 768L * 300L)),
+            ContextTokenEstimator.estimateImageTokens(ImageDescriptor(pixelWidth = 640, pixelHeight = 480)),
+            estimator.imageTokens(ImageDescriptor(pixelWidth = 640, pixelHeight = 480)),
         )
     }
 

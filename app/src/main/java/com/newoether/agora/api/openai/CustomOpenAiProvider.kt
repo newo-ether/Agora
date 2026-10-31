@@ -15,10 +15,8 @@ class CustomOpenAiProvider(
     override val retryMissingV1BaseUrl: Boolean = true
 
     /**
-     * A relay has no published parameter documentation, so no model id may decide the request
-     * shape here. Thinking settings are forwarded exactly as the user configured them through the
-     * permissive default capability, which the user can narrow per model when a relay rejects a
-     * field.
+     * Resolve documented model capabilities while retaining the permissive fallback for unknown
+     * relay IDs. The endpoint protocol still owns the spelling of every serialized parameter.
      */
     override fun customizeRequest(
         request: OpenAiChatRequest,
@@ -33,6 +31,7 @@ class CustomOpenAiProvider(
         return request.copy(
             reasoningEffort = effort,
             thinkingBudget = resolved.budgetTokens,
+            chatTemplateKwargs = resolved.qwenTemplateKwargs(config.modelId, thinkingProviderFamily),
         )
     }
 

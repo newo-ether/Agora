@@ -101,6 +101,11 @@ The monochrome Google Search and OpenAI Search provider icons inherit the dropdo
 content color. They therefore remain legible across light and dark themes and retain inherited
 disabled-state alpha; neither row hard-codes a light or dark tint. Provider artwork, icon size,
 spacing, labels, badges, switches, availability, ordering, and interaction remain unchanged.
+WebUI mirrors the native text-slot color for the Code Execution, Google Search and OpenAI Search
+leading glyphs, including disabled and pending states. Their provider badges use primaryContainer
+with onPrimaryContainer in both light and dark themes. Code Execution and Google Search show Gemini;
+OpenAI Search shows OpenAI. These labels identify the Provider and do not indicate toggle state.
+The WebUI fix changes presentation only, without changing capability availability or setting writes.
 
 ## 5. Chat bottom-bar answer fade
 
@@ -179,7 +184,7 @@ settings persistence/import behavior remains unchanged.
 
 When the Thinking segment display setting is available, Appearance places it immediately below the
 Thought and Tool Blocks display setting and before Auto-Expand Active Group. Reordering must not
-change the existing Grouped/Compact availability rule, the exact Grouped + Card Auto-Expand rule, or
+change the existing Grouped availability rule, the exact Grouped + Card Auto-Expand rule, or
 any stored/effective display-mode behavior.
 
 ## 10. Settings destination rows without redundant arrows
@@ -228,12 +233,13 @@ as model attachments and all-page full-screen preview generation. Every newly al
 PDF regions that do not paint an explicit background and prevents JPEG encoding from flattening
 transparent black pixels into a black page that hides correctly rendered black glyphs.
 
-Both consumers share one bitmap-initialization path. The change does not alter page dimensions,
-1536 px long-edge scaling, JPEG quality 80, filename/storage ownership, selected-page filtering and
-ordering, preview page limits, progress callbacks, cancellation cleanup, page-count behavior,
-PDF-authored colors or backgrounds, viewer motion, or attachment/LLM routing. A different PDF engine
-or dependency is not introduced without separate evidence of a rendering defect that remains after
-opaque-white initialization.
+Both consumers share one bitmap-initialization path. Raster dimensions and final encoding follow
+[image-processing.md](image-processing.md), which supersedes the former PDF-only 1536 px rule.
+Selected-page previews and model inputs use the same completed page artifact. Filename/storage
+ownership, selected-page filtering and ordering, preview page limits, progress callbacks,
+cancellation cleanup, page-count behavior, PDF-authored colors or backgrounds and viewer motion
+remain with their existing owners. A different PDF engine or dependency is not introduced without
+separate evidence of a rendering defect that remains after opaque-white initialization.
 
 ## 13. Full-screen media window layering
 
@@ -307,11 +313,18 @@ Conversation search exposes a separate in-flight state from the moment a nonblan
 
 The drawer's first-list state is not a second conversation authority or a new search architecture; Room remains the durable source and the existing search methods remain authoritative.
 
-The Android drawer's ordinary conversation row shows its existing generation indicator while that
+The native and WebUI drawers' ordinary conversation rows show their existing generation indicator while that
 conversation generates or any linked Subagent is running. The parent remains active until both its
 own generation and all child activity end, including when only one of several children finishes.
-The existing indicator appearance, unread priority and child-row visibility remain unchanged.
-`ChatViewModel.generatingConversationIds` consumes the repository's presentation-only union of
+Pending interactions take priority over generation in that same 18 dp slot on Compose and WebUI:
+Ask User and approval both use the standalone QuestionMark icon, without the Help circle or the
+interaction-kind icon (owner request 2026-10-30). Accessibility labels still identify the request kind.
+Approval wins when both kinds are pending. Indicators include nonblocking questions after generation ends, clear when answered,
+expired or cancelled, and surface a child's request on its visible parent. Process controller flows
+remain authoritative; only pending owner/parent metadata is observed, never unopened message payloads.
+Unowned prompts follow the interaction bar's all-conversation visibility. Existing unread behavior
+resumes when no interaction or generation is pending.
+`ChatViewModel.generatingConversationIds` and `WebUiSync` consume the same repository presentation-only union of
 foreground generation, automation and registered delegation Jobs, including each active child's
 parent ID. Parent membership is observed in one narrow Room query restricted to those active IDs;
 idle startup performs no child/Run/message scan, and no per-row query or polling is introduced.
@@ -788,7 +801,9 @@ lift ending at zero, the post-exit gone callback, and both option radii.
 ## 28. Composer model selector motion
 The Chat bottom-bar model selector follows the section 24 motion language through the same shared
 clip owner (`ui/motion/IdentityClipWidth.kt`, also used by the top-bar title). A change of the
-displayed label Crossfades the label over `200 ms` with `FastOutSlowInEasing`. The button is always
+displayed label Crossfades through `ui/motion/IdentityLabelCrossfade.kt` over `200 ms` with
+`FastOutSlowInEasing`; Phone Use status consumes that same label transition and shared clip owner.
+Phone duration updates text directly and uses only the shared clip for format carries. The button is always
 laid out at its independently measured final width: label width plus `8 dp` padding on each side,
 at least the Material button minimum width and at most the space left in the controls capsule. One start-anchored rounded clip
 (`50%` corners) cuts the whole button, including its ripple, at the visible edge, which moves over
@@ -1073,8 +1088,8 @@ Sign Out). The drawer is `ChatDrawerContent`: `min(width, 360 dp)`, `1 dp` tonal
 corners, `16 x 20 dp` padding, the Agora title (`25/32` bold) and trailing expandable search
 in the same first row as defined in section 16, the `42 dp` New Chat button and the list below. The
 search capsule uses the same `56 dp` height and full-row width. Browser conversation rows omit the indicator container
-and its 8px gap when neither generation nor unread is visible. A visible indicator keeps its 18px
-slot and 8px gap; generation takes priority and unread is hidden for the selected conversation.
+and its 8px gap when no interaction, generation or unread is visible. A visible indicator keeps its 18px
+slot and 8px gap; interaction takes priority as defined in section 16, then generation, and unread is hidden for the selected conversation.
 This is a WebUI-only exception; native Compose retains its empty indicator reservation.
 The browser's trailing details button keeps its
 32px circular hit region centered in the 44px row slot. It is inset exactly 4px from the 40px capsule's
@@ -1144,8 +1159,8 @@ tools) and the `48 dp` send button. English and Chinese labels are the app's own
 sign-in page centers its card with flex and caps it at `400 px`: a grid's auto track sized to the
 card's max-content and pushed it past a narrow screen once the app font loaded.
 The browser's message details mirror `SegmentDetailSheet` for Thought, Transcription, and Tool. In
-Grouped/Compact Bottom Sheet mode, the group header opens a segment list; ordinary Timeline
-cards and inline Grouped/Compact rows open the selected detail directly. Tool details consume the
+Grouped Bottom Sheet mode, the group header opens a segment list; ordinary Timeline
+cards and inline Grouped rows open the selected detail directly. Tool details consume the
 shared typed presentation, including lifecycle, shell/file/search results and prefix-aware JSON
 nodes; they never parse tool-result envelopes in the browser. Failed/stopped details retain the
 shared unboxed neutral terminal text. Under a generating turn the browser also owns the phone's single
@@ -1157,7 +1172,8 @@ is in flight and keeps the terminal text, and App Reduce Motion shows the full r
 breathing. Persisted tool images are requested only from authenticated
 `GET /api/tool-images/{conversationId}/{messageId}/{detailIndex}/{imageIndex}` with original
 attachment indices. Each request revalidates message ownership, real-path containment in the private
-tool-media store, raster MIME and recorded size; browser paths and inline image bytes are forbidden.
+tool-media store or its restored/fork attachment roots, and measures current decoded MIME, dimensions
+and byte length; browser paths and inline image bytes are forbidden.
 The preview keeps its Compose-sized viewport through loading, failure and decoding, follows square
 crop metadata, and opens a full-image viewer. The browser-local sheet uses 45%/94%
 viewport anchors and a flat scrim whose alpha follows the sheet's rise, without backdrop blur;
@@ -1437,7 +1453,9 @@ Browser Select Text opens the existing shared DetailSheet after its source menu 
 localized title and exact displayed user text, no Markdown parsing or attachments. Its selectable
 plain body is 14px/24.2px with 12px top, 24px sides and 32px bottom padding. The bubble is not
 selected automatically; sheet motion, input exclusion and close/focus remain with the shared owner.
-Composer presentation lives in composer.js; shell.js remains the chat frame and popup presenter.
+Composer owns the chat input and tools menu in composer.js; composer-settings.js owns the shared
+Thinking/Service Tier panel presentation, attachments.js owns attachment tiles/editors/viewers,
+and conversation-editor.js owns the conversation editor. shell.js remains the chat frame and popup presenter.
 Effective tool controls use the same pure Compose projection of global preferences, provider
 availability and per-conversation overrides. Existing-conversation edits transform the canonical
 SettingsRepository value instead of replacing unrelated fields; New Chat overrides remain in the
@@ -1457,6 +1475,11 @@ Settings entry/anchor motion uses DefaultSpatial (700, 0.9); exit uses FastEffec
 translating the full measured surface rather than clipping its height. Reduced Motion snaps travel.
 The body uses 16px insets and a 24px trailing spacer; panel text and rows follow the native
 ThinkingControlPanel/OpenAiServiceTierControlPanel, including 32px header-to-slider spacing.
+The chat Thinking editor always retains its Advanced entry and Budget switch. Unsupported model
+budgets remain visible but disabled, without changing saved choices or request capability policy.
+Both clients use the same nearest budget preset for the slider value label, keep the effective
+budget in the summary, commit only changed slider values on release, and keep the Thinking editor
+entry available while an unrelated command is pending. Pending commands still fence mutations.
 Context composition retains its header spacing and uses 16px from the bar to the legend, with
 6px between legend rows. Advanced parameter columns have no extra inter-row grid gap, use 6px
 vertical padding and the native labelMedium/labelSmall header geometry.
@@ -1614,6 +1637,11 @@ with and quotes the Material 3 1.4.0 token each came from, `progress.js` exports
 `material.css` owns the matching CSS. `index.html` loads `material.css` after `style.css` and before
 `theme.css`, so a theme override still wins. Duplicated spinner markup, hand-painted arcs and per-call-site
 slider math are gone, and a call site restates no Material number.
+Circular progress uses `primary` by default, including inline Tool/Markdown images, full-screen
+media and HTML preview loading. Image previews use the native shared 3 dp/px stroke: Tool/Markdown
+thumbnails keep a 28 dp/px ring, and full-screen media keeps the default 40 dp/px ring. Explicit
+foreground overrides are limited to the corresponding Compose control's content color, such as
+Composer buttons, selected drawer rows and Compact; a black media backdrop does not imply white.
 Circular progress has one owner for both states: a determinate ring paints a `SecondaryContainer` track
 under its arc and an indeterminate ring paints no track, matching `CircularProgressIndicatorTokens`. The
 indeterminate ring is one global `6000 ms` linear turn, a `90°` linear step over `300 ms` every
@@ -1723,9 +1751,11 @@ Settings > Subagents offers Capsule display: Individual or Grouped (default), ap
 on native and WebUI. This presentation preference does not change delegation admission or family data.
 Individual retains one capsule per child. Grouped hides at zero and keeps direct child navigation
 at one; two or more children share a count capsule and open the existing child sheet.
-The native grouped capsule displays localized `X Running` while any child has the canonical
-`running` status, using only that running count; otherwise it displays localized `X Subagents`
-using the total child count, including `1 Subagent` at one. Its plurals cover every supported locale.
+On native and WebUI, one grouped child always displays its own name, regardless of status. Only when
+there are two or more children does the capsule display localized `X Running` while any child has the
+canonical `running` status, using only that running count; otherwise it displays localized `X Subagents`
+using the total child count. Native plurals cover every supported locale; browser labels follow its
+existing English/Simplified Chinese language selection.
 Running consumes the existing repository status projection: a durable Run with `activeSlot = 1`
 or a registered Subagent worker is `running`, including a worker waiting for generation admission
 or crossing Compact/ordinary handoffs. Queued messages alone do not count. The existing progress
@@ -1882,8 +1912,8 @@ Thinking segment -> Auto-Expand Appearance row order with unchanged predicates, 
 0 dp gradient lead with unchanged 40 dp width and 20 dp expanded behavior, and scoped Settings-arrow
 absence with preserved category/Sandbox/Provider click destinations, Sandbox Switch, and custom
 protocol badge. PDF rasterization verification must cover one shared opaque-white bitmap initializer
-used by both render paths, initialization before every framework page render, and unchanged
-scaling/JPEG/page-selection/progress/cancellation behavior. Full-screen text-preview verification
+used by both render paths, initialization before every framework page render, shared image-artifact
+sizing/encoding, exact page-selection/progress/cancellation behavior and preview/request reuse. Full-screen text-preview verification
 must cover current App-font inheritance in
 both Markdown and ordinary-text paths, exact 1.1 Markdown line-height scaling, explicit Bold H1-H6,
 unchanged Markdown font sizes, and the unchanged 13 sp / 20 sp ordinary-text metrics. It must also

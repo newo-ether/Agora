@@ -1,13 +1,14 @@
 package com.newoether.agora.api.util.tokens
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
  * Pixel image costs checked against the figures published by each provider.
  *
- * Every expected number here comes from a provider document, not from this implementation, so a
- * regression in the formulas fails loudly.
+ * Formula goldens use published examples or the provider's live reference calculator. Selector
+ * and fallback tests separately check Agora's conservative scope and provenance handling.
  */
 class ImagePixelCostTest {
 
@@ -64,7 +65,8 @@ class ImagePixelCostTest {
             AnthropicImageCost.Tier.HIGH_RESOLUTION,
             AnthropicImageCost.tierForModelName("claude-opus-5-20260601"),
         )
-        // No readable version stays on the conservative tier.
+        // An unreadable version has no documented rule in the selector, even though the tier
+        // helper remains compatible with old callers.
         assertEquals(
             AnthropicImageCost.Tier.STANDARD,
             AnthropicImageCost.tierForModelName("claude-latest"),
@@ -109,8 +111,69 @@ class ImagePixelCostTest {
         // gpt-4.1-mini is patch based with a 1.62 multiplier, unlike gpt-4.1.
         assertEquals(765L, OpenAiImageCosts.forModelName("gpt-4.1").tokens(1_024, 1_024))
         assertEquals(1_659L, OpenAiImageCosts.forModelName("gpt-4.1-mini").tokens(1_024, 1_024))
-        // An unrecognised OpenAI-family model falls back to the conservative patch rule.
-        assertEquals(1_229L, OpenAiImageCosts.forModelName("gpt-7-unknown").tokens(1_024, 1_024))
+        // Unpublished variants use an explicitly labelled pixel proxy.
+        assertEquals(1_024L, OpenAiImageCosts.forModelName("gpt-7-unknown").tokens(1_024, 1_024))
+    }
+
+    @Test
+    fun openAiAutoDistinguishesOriginalFromHighAndDoesNotCapTheRejectionLimit() {
+        assertEquals(19_661L, OpenAiImageCosts.forModelName("gpt-6-astra").tokens(4_096, 4_096))
+        assertEquals(19_661L, OpenAiImageCosts.forModelName("gpt-5.6-sol").tokens(4_096, 4_096))
+        assertEquals(12_000L, OpenAiImageCosts.forModelName("gpt-5.5").tokens(4_096, 4_096))
+        listOf("gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano").forEach { model ->
+            assertEquals(3_000L, OpenAiImageCosts.forModelName(model).tokens(4_096, 4_096))
+        }
+        assertTrue(OpenAiImageCosts.forModelName("gpt-6-astra").tokens(8_192, 8_192) > 36_000L)
+    }
+
+    @Test
+    fun openAiOnlyListedModelsAndDatedSnapshotsReceiveDocumentedRules() {
+        val image = ImageDescriptor(pixelWidth = 1_024, pixelHeight = 1_024)
+        assertEquals(ImageEstimateBasis.DOCUMENTED,
+            OpenAiImageCosts.forModelName("openai/gpt-4.1-mini-2025-04-14").estimate(image).basis)
+        listOf("gpt-6-sol", "gpt-6.1-sol", "gpt-5-unknown", "gpt-5.4-special",
+            "gpt-4o-audio-preview", "gpt-5-mini", "gpt-4.1-nano", "o4-mini").forEach { model ->
+            assertEquals(model, ImageEstimateBasis.HEURISTIC,
+                OpenAiImageCosts.forModelName(model).estimate(image).basis)
+        }
+    }
+
+    @Test
+    fun deepSeekMatchesTheOfficialV41CalculatorIncludingRowSeparatorsAndUpsampling() {
+        // https://api-docs.deepseek.com/assets/js/1e0da2c4.24c3fb4b.js, evaluated 2026-10-27.
+        listOf(1, 200, 512).forEach { assertEquals(184L, DeepSeekImageCost.tokens(it, it)) }
+        assertEquals(602L, DeepSeekImageCost.tokens(1_000, 1_000))
+        assertEquals(968L, DeepSeekImageCost.tokens(1_920, 1_080))
+        assertEquals(986L, DeepSeekImageCost.tokens(1_080, 1_920))
+        assertEquals(994L, DeepSeekImageCost.tokens(2_000, 2_000))
+        assertEquals(994L, DeepSeekImageCost.tokens(5_000, 5_000))
+        assertEquals(1_024L, DeepSeekImageCost.tokens(999_999, 1))
+        assertEquals(1_024L, DeepSeekImageCost.tokens(1, 999_999))
+        assertEquals(981L, DeepSeekImageCost.tokens(4_096, 512))
+        assertEquals(1_001L, DeepSeekImageCost.tokens(1_075, 1_520))
+    }
+
+    @Test
+    fun deepSeekOnlyThePublishedVisionAliasesUseTheCalculator() {
+        val image = ImageDescriptor(pixelWidth = 1_000, pixelHeight = 1_000)
+        listOf("deepseek-flash", "deepseek/deepseek-v4-flash-vision-exp").forEach { model ->
+            assertEquals(ImageEstimateBasis.DOCUMENTED, DeepSeekImageCost.forModelName(model)
+                .estimate(image).basis)
+        }
+        listOf("deepseek-chat", "deepseek-v4.1", "deepseek-v4-pro").forEach { model ->
+            assertEquals(ImageEstimateBasis.HEURISTIC, DeepSeekImageCost.forModelName(model)
+                .estimate(image).basis)
+        }
+    }
+
+    @Test
+    fun geminiThreeAndFourUseTheUnspecifiedImageResolutionDefault() {
+        listOf("gemini-3-pro", "gemini-4-flash").forEach { model ->
+            assertEquals(1_120L, GeminiImageCost.forModelName(model).tokens(200, 200))
+            assertEquals(1_120L, GeminiImageCost.forModelName(model).tokens(4_096, 2_048))
+        }
+        assertEquals(ImageEstimateBasis.HEURISTIC, GeminiImageCost.forModelName("gemini-future")
+            .estimate(ImageDescriptor(pixelWidth = 200, pixelHeight = 200)).basis)
     }
 
     @Test
@@ -126,7 +189,7 @@ class ImagePixelCostTest {
     }
 
     @Test
-    fun pixelCostsFallBackToTheByteRuleWithoutDimensions() {
+    fun pixelCostsKeepMissingDimensionsExplicitWithoutUsingBytes() {
         val descriptors = listOf(
             ImageDescriptor(byteSize = 768L * 300L),
             ImageDescriptor(),
@@ -137,12 +200,13 @@ class ImagePixelCostTest {
             OpenAiPatchImageCost(2_048, 2_500, 1.2),
             OpenAiTileImageCost(85, 170),
             GeminiImageCost,
+            DeepSeekImageCost,
         )
         costs.forEach { cost ->
             descriptors.forEach { descriptor ->
                 assertEquals(
-                    ByteProportionalImageCost.tokens(descriptor),
-                    cost.tokens(descriptor),
+                    HeuristicPixelImageCost.estimate(descriptor),
+                    cost.estimate(descriptor),
                 )
             }
         }

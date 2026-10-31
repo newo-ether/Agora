@@ -200,12 +200,10 @@
     <string name="tool_call_display_mode">思考とツールブロック</string>
     <string name="tool_call_display_mode_timeline">タイムライン</string>
     <string name="tool_call_display_mode_grouped_timeline">グループ</string>
-    <string name="tool_call_display_mode_compact">コンパクト</string>
     <string name="tool_call_display_mode_timeline_desc">回答、思考、ツールブロックを時系列で表示します</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">時系列を保ちながら、連続する思考、ツール、画像ブロックを結合します</string>
     <string name="auto_expand_active_group">アクティブなグループを自動展開</string>
     <string name="auto_expand_active_group_desc">現在の思考・ツールグループを自動で展開し、モデルが次へ進むと折りたたみます。</string>
-    <string name="tool_call_display_mode_compact_desc">思考とツールブロックを回答の上にまとめて表示します</string>
     <string name="interaction_feedback">操作フィードバック</string>
     <string name="stick_to_bottom">下端に固定</string>
     <string name="stick_to_bottom_desc">応答の生成中、新しい内容を自動的に追従します。</string>

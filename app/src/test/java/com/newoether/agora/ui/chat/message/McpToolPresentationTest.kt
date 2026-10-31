@@ -5,7 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.R
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.ToolExecutionStates
+import com.newoether.agora.tool.ToolExecutionResult
 import com.newoether.agora.util.appLanguageResources
+import com.newoether.agora.viewmodel.finalToolState
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Test
@@ -17,6 +19,128 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35], application = Application::class)
 class McpToolPresentationTest {
     private val app: Application get() = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun `successful null error MCP result survives serialization and displays its JSON`() {
+        val payload = """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}"""
+        val result = ToolExecutionResult(payload, structuredContent = payload)
+        val segment = MessageSegment(
+            type = "tool",
+            toolName = "mcp_call_tool",
+            toolArgs = """{"tool_id":"mcp_mt_read_class_outline_abcdef","arguments":{}}""",
+            toolResult = result.text,
+            toolStructuredResult = result.structuredContent,
+            toolState = finalToolState(result, "mcp_call_tool"),
+        )
+        val restored = Json.decodeFromString(MessageSegment.serializer(),
+            Json.encodeToString(MessageSegment.serializer(), segment))
+        val presentation = ToolPresentationResolver.resolve(restored)
+        val detail = app.appLanguageResources("en").toolDetailPresentation(restored)
+
+        assertEquals(segment, restored)
+        assertEquals(ToolExecutionStates.SUCCEEDED, restored.toolState)
+        assertEquals(ToolPresentationState.COMPLETED, presentation.state)
+        assertNull(presentation.errorMessage)
+        assertEquals(ToolDetailBody.JsonContent(listOf(payload)), detail.body)
+        assertTrue(detail.supplemental.isEmpty())
+    }
+
+    @Test
+    fun `legacy failed MCP result keeps failure and its successful looking payload`() {
+        val payload = """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}"""
+        val segment = MessageSegment(
+            type = "tool",
+            toolName = "mcp_call_tool",
+            toolResult = payload,
+            toolStructuredResult = payload,
+            toolState = ToolExecutionStates.FAILED,
+        )
+        val restored = Json.decodeFromString(MessageSegment.serializer(),
+            Json.encodeToString(MessageSegment.serializer(), segment))
+        val resources = app.appLanguageResources("en")
+        val detail = resources.toolDetailPresentation(restored)
+
+        assertEquals(segment, restored)
+        assertEquals(ToolPresentationState.FAILED, ToolPresentationResolver.resolve(restored).state)
+        assertEquals(ToolDetailBody.Failed(resources.getString(R.string.tool_call_failed), null), detail.body)
+        assertEquals(listOf(payload), detail.supplemental)
+    }
+
+    @Test
+    fun `provider declared MCP error survives replay despite ok true and null error`() {
+        val payload = """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}"""
+        val result = ToolExecutionResult(payload, structuredContent = payload, isError = true)
+        val segment = MessageSegment(
+            type = "tool",
+            toolName = "mcp_call_tool",
+            toolResult = result.text,
+            toolStructuredResult = result.structuredContent,
+            toolState = finalToolState(result, "mcp_call_tool"),
+        )
+        val restored = Json.decodeFromString(MessageSegment.serializer(),
+            Json.encodeToString(MessageSegment.serializer(), segment))
+        val resources = app.appLanguageResources("en")
+        val detail = resources.toolDetailPresentation(restored)
+
+        assertEquals(ToolExecutionStates.FAILED, restored.toolState)
+        assertEquals(ToolPresentationState.FAILED, ToolPresentationResolver.resolve(restored).state)
+        assertEquals(ToolDetailBody.Failed(resources.getString(R.string.tool_call_failed), null), detail.body)
+        assertEquals(listOf(payload), detail.supplemental)
+        assertEquals(payload, restored.toolResult)
+        assertEquals(payload, restored.toolStructuredResult)
+    }
+
+    @Test
+    fun `failed MCP details use text then structured content before the protocol fallback`() {
+        val resources = app.appLanguageResources("en")
+        val structured = """{"ok":false,"error":"denied","message":"request denied"}"""
+        val failed = MessageSegment(
+            type = "tool",
+            toolName = "mcp_call_tool",
+            toolResult = "protocol result",
+            toolResultText = "partial class outline",
+            toolStructuredResult = structured,
+            toolState = ToolExecutionStates.FAILED,
+        )
+
+        val detail = resources.toolDetailPresentation(failed)
+        assertEquals(ToolDetailBody.Failed("request denied", null), detail.body)
+        assertEquals(listOf("partial class outline", structured), detail.supplemental)
+        assertEquals(listOf(structured), resources.toolDetailPresentation(
+            failed.copy(toolResultText = " \n "),
+        ).supplemental)
+
+        val rawPayload = """{"ok":true,"error":null,"data":{"fields":3}}"""
+        val rawOnly = failed.copy(toolResult = rawPayload, toolResultText = null, toolStructuredResult = null)
+        assertEquals(listOf(rawPayload), resources.toolDetailPresentation(rawOnly).supplemental)
+    }
+
+    @Test
+    fun `failed MCP supplemental omits blank content and exact error duplicates`() {
+        val resources = app.appLanguageResources("en")
+        val structured = """{"error":"denied","message":"request denied"}"""
+        val failed = MessageSegment(
+            type = "tool",
+            toolName = "mcp_call_tool",
+            toolResult = "protocol result",
+            toolResultText = "request denied",
+            toolStructuredResult = structured,
+            toolState = ToolExecutionStates.FAILED,
+        )
+
+        val detail = resources.toolDetailPresentation(failed)
+        assertEquals(ToolDetailBody.Failed("request denied", null), detail.body)
+        assertEquals(listOf(structured), detail.supplemental)
+        assertEquals(listOf("request denied ", structured), resources.toolDetailPresentation(
+            failed.copy(toolResultText = "request denied "),
+        ).supplemental)
+        assertTrue(resources.toolDetailPresentation(
+            failed.copy(toolResult = "request denied", toolResultText = null, toolStructuredResult = null),
+        ).supplemental.isEmpty())
+        assertTrue(resources.toolDetailPresentation(
+            failed.copy(toolResult = " \n ", toolResultText = " \t ", toolStructuredResult = null),
+        ).supplemental.isEmpty())
+    }
 
     @Test
     fun `search uses a localized action and bounded partial query without parsing large arguments`() {
@@ -160,7 +284,7 @@ class McpToolPresentationTest {
     @Test
     fun `routed call replays resolved metadata without registry and keeps images errors and stop`() {
         val image = com.newoether.agora.model.ToolImageAttachment(
-            path = "/private/result.png", mimeType = "image/png", sizeBytes = 12, sha256 = "digest",
+            path = "/private/result.png", mimeType = "image/png", sizeBytes = 12,
         )
         val segment = MessageSegment(
             type = "tool",

@@ -1,330 +1,440 @@
 package com.newoether.agora.viewmodel
 
-import com.newoether.agora.data.local.ConversationDraftAttachmentReference
-import com.newoether.agora.data.local.MessageAttachmentReference
-import com.newoether.agora.data.local.NewChatDraftAttachmentReference
+import android.app.Application
 import androidx.room.withTransaction
-import com.newoether.agora.data.local.ChatDao
-import com.newoether.agora.data.local.ChatDatabase
-import com.newoether.agora.model.AttachmentItem
-import com.newoether.agora.model.AttachmentMeta
-import com.newoether.agora.model.SelectedAttachment
+import androidx.test.core.app.ApplicationProvider
+import com.newoether.agora.data.local.*
+import com.newoether.agora.model.*
 import com.newoether.agora.util.AttachmentFiles
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.yield
+import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.After
-import org.junit.Before
-import org.junit.Rule
-import org.junit.Test
+import org.junit.*
+import org.junit.Assert.*
 import org.junit.rules.TemporaryFolder
-import java.io.File
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.SQLiteMode
 
+/** Production SQLite/Room regression for indexed ownership and the final unlink fence. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = Application::class)
+@SQLiteMode(SQLiteMode.Mode.NATIVE)
 class AttachmentOrphanSweeperTest {
-    @get:Rule
-    val temporaryFolder = TemporaryFolder()
+    @get:Rule val files = TemporaryFolder()
+    private lateinit var database: ChatDatabase
+    private lateinit var dao: ChatDao
+    private val statements = CopyOnWriteArrayList<String>()
+    private var beforePayload: (() -> Unit)? = null
+    private var beforeStatement: ((String) -> Unit)? = null
 
-    private val database = mockk<ChatDatabase>()
-    private val conversations = mockk<ChatDao>()
-
-    @Before
-    fun serializeRoomTransactions() {
-        val transaction = Mutex()
-        every { database.chatDao() } returns conversations
-        mockkStatic("androidx.room.RoomDatabaseKt")
-        coEvery { database.withTransaction<Any?>(any()) } coAnswers {
-            transaction.withLock { arg<suspend () -> Any?>(1).invoke() }
-        }
-        coEvery { conversations.getMessageAttachmentReferencesPage(any(), any(), any()) } returns emptyList()
-        coEvery { conversations.getConversationDraftAttachmentReferencesPage(any(), any(), any()) } returns emptyList()
-        coEvery { conversations.getNewChatDraftAttachmentReference(any()) } returns null
+    @Before fun setUp() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        database = ChatDatabase.build(context, queryCallback = { sql, _ ->
+            statements += sql
+            beforeStatement?.invoke(sql)
+            if (sql.startsWith("SELECT SUBSTR(CAST(")) beforePayload?.invoke()
+        })
+        dao = database.chatDao()
+        dao.upsertConversation(ChatEntity("owner", "owner", lastUpdated = 1))
+        dao.insertRun(RunEntity("run", "owner", parentRunId = null, status = RunStatus.COMPLETED, activeSlot = null,
+            startedAt = 1, lastCheckpointAt = 1, endedAt = 1, endReason = RunEndReason.MODEL_COMPLETED))
     }
 
-    @After
-    fun releaseRoomMock() = unmockkStatic("androidx.room.RoomDatabaseKt")
-    @Test
-    fun `discarded queue schedules exact cleanup without deleting another message file`() = runTest {
-        val image = oldFile(temporaryFolder.root, "img_queue_sent")
-        val attachment = SelectedAttachment(uri = fileUri(image), type = "image", localPath = image.path)
-        val debts = mutableListOf<SelectedAttachment>()
-        val registry = ConversationStateRegistry { debts += it }
-        val state = registry.getOrCreate("conversation")
-        state.enqueueSend(QueuedSend("queued", "text", "model", listOf(attachment), "run"))
-        val sweeper = AttachmentOrphanSweeper(database, temporaryFolder.root)
+    @After fun close() { database.close() }
+
+    @Test fun durableAndLiveOwnershipSurviveExactReclamation() = runBlocking {
+        val image = oldFile("img_owned")
+        val live = Any()
         try {
-            coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, image.name) } returns
-                listOf(MessageAttachmentReference("sent", listOf(image.path), null))
-            registry.remove("conversation")
-            assertTrue("Queue disposal must not directly unlink", image.exists())
-            org.junit.Assert.assertEquals(listOf(attachment), debts)
-            sweeper.deleteExact(debts.single().localPath!!)
+            AttachmentFiles.retainLivePath(live, image.path)
+            assertFalse(sweeper().deleteExact(image.path))
             assertTrue(image.exists())
-            coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, image.name) } returns emptyList()
-            sweeper.deleteExact(image.path)
+            dao.insertMessage(message("m", images = listOf(image.path)))
+            AttachmentFiles.releaseLivePaths(live)
+            assertTrue(sweeper().deleteExact(image.path))
+            assertTrue(image.exists())
+            dao.deleteMessagesByIds(listOf("m"))
+            assertTrue(sweeper().deleteExact(image.path))
             assertFalse(image.exists())
-        } finally {
-            registry.cancelAll()
-        }
+        } finally { AttachmentFiles.releaseLivePaths(live) }
     }
-    @Test
-    fun `live image survives sweep exact debt and continuous Room handoff`() = runTest {
-        val image = oldFile(temporaryFolder.root, "img_live")
-        val owner = Any()
-        val sweeper = AttachmentOrphanSweeper(database, temporaryFolder.root, now = { NOW })
+
+    @Test fun messageToolMetadataAndBothDraftKindsProtectFiles() = runBlocking {
+        val image = oldFile("att_image")
+        val metadata = oldFile("images/camera_metadata")
+        val tool = oldFile("img_tool")
+        val draft = oldFile("run-inputs/draft")
+        val newDraft = oldFile("fork-attachments/new-draft")
+        dao.insertMessage(message("m", listOf(image.path)).copy(
+            attachmentMeta = Json.encodeToString(AttachmentMeta(listOf(AttachmentItem(
+                originalUri = "file://${metadata.path}", type = "image",
+            )))),
+            toolCallJson = Json.encodeToString(listOf(MessageSegment(type = "tool",
+                toolImages = listOf(artifact(tool.path))))),
+        ))
+        dao.updateDraft("owner", "", attachments(draft), 1)
+        database.openHelper.writableDatabase.execSQL(
+            "INSERT INTO new_chat_persist(id, draftText, draftAttachments) VALUES(0, '', ?)", arrayOf(attachments(newDraft)))
+        sweeper().sweep()
+        listOf(image, metadata, tool, draft, newDraft).forEach { assertTrue(it.path, it.exists()) }
+    }
+
+    @Test fun sweepKeepsFreshAndUnrelatedFilesAndRemovesOnlyEligibleOrphans() = runBlocking {
+        val orphan = oldFile("img_orphan")
+        val camera = oldFile("images/camera_orphan")
+        val input = oldFile("run-inputs/orphan")
+        val fresh = oldFile("vid_fresh").also { it.setLastModified(NOW - 10) }
+        val unrelated = oldFile("notes.txt")
+        val thumbnail = oldFile("images/thumbnail")
+        sweeper().sweep()
+        listOf(orphan, camera, input).forEach { assertFalse(it.exists()) }
+        listOf(fresh, unrelated, thumbnail).forEach { assertTrue(it.exists()) }
+    }
+
+    @Test fun unfinishedSweepRemainsRetryableAndReclaimsAfterLiveRelease() = runBlocking {
+        val image = oldFile("img_pending_sweep")
+        val live = Any()
+        val sweeper = sweeper()
         try {
-            AttachmentFiles.retainLivePath(owner, image.path)
-            sweeper.sweep()
-            assertFalse("Live-only ownership defers exact debt completion", sweeper.deleteExact(image.path))
+            AttachmentFiles.retainLivePath(live, image.path)
+            assertFalse(sweeper.sweep())
             assertTrue(image.exists())
-            coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, image.name) } returns
-                listOf(MessageAttachmentReference("sent", listOf(image.path), null))
-            AttachmentFiles.releaseLivePaths(owner)
-            assertTrue("Durable ownership completes obsolete debt", sweeper.deleteExact(image.path))
-            assertTrue("Room owns the file after live ownership releases", image.exists())
-            coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, image.name) } returns emptyList()
-            sweeper.deleteExact(image.path)
+            AttachmentFiles.releaseLivePaths(live)
+            assertTrue(sweeper.sweep())
             assertFalse(image.exists())
-        } finally {
-            AttachmentFiles.releaseLivePaths(owner)
-        }
+            assertTrue(sweeper.sweep())
+        } finally { AttachmentFiles.releaseLivePaths(live) }
     }
 
-    @Test
-    fun `message ownership arriving between reference scans must not delete the image`() = runTest {
-        listOf(false, true).forEach { isNewChat ->
-            val image = oldFile(temporaryFolder.root, "img_handoff_$isNewChat")
-            val draft = Json.encodeToString(listOf(SelectedAttachment(
-                uri = fileUri(image), type = "image", localPath = image.path,
-            )))
-            var messageReferences = emptyList<MessageAttachmentReference>()
-            var draftPresent = true
-            val messageScan = CompletableDeferred<Unit>()
-            val senderAttempt = CompletableDeferred<Unit>()
-            coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, any()) } coAnswers {
-                val snapshot = messageReferences
-                messageScan.complete(Unit)
-                senderAttempt.await()
-                yield()
-                snapshot
-            }
-            coEvery { conversations.getConversationDraftAttachmentReferencesPage(null, 64, any()) } answers {
-                if (draftPresent && !isNewChat) listOf(ConversationDraftAttachmentReference("draft", draft))
-                else emptyList()
-            }
-            coEvery { conversations.getNewChatDraftAttachmentReference(any()) } answers {
-                if (draftPresent && isNewChat) NewChatDraftAttachmentReference(draft) else null
-            }
-            val sender = launch {
-                messageScan.await()
-                senderAttempt.complete(Unit)
-                database.withTransaction {
-                    messageReferences = listOf(MessageAttachmentReference("sent", listOf(image.path), null))
-                    draftPresent = false
-                }
-            }
-            AttachmentOrphanSweeper(database, temporaryFolder.root).deleteExact(image.path)
-            sender.join()
-            assertTrue(messageReferences.single().images.contains(image.path))
-            assertTrue("A persisted message still owns this image", image.exists())
-            // Reloaded messages must protect the same file after draft ownership has gone.
-            AttachmentOrphanSweeper(database, temporaryFolder.root).deleteExact(image.path)
-            assertTrue(image.exists())
-        }
-    }
-
-    @Test
-    fun `reconcile rechecks an orphan that becomes message owned after the coarse scan`() = runTest {
-        val image = oldFile(temporaryFolder.root, "img_late_owner")
-        coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, image.name) } returns
-            listOf(MessageAttachmentReference("sent", listOf(image.path), null))
-        AttachmentOrphanSweeper(database, temporaryFolder.root, now = { NOW }).sweep()
-        assertTrue(image.exists())
-        coVerify { conversations.getMessageAttachmentReferencesPage(null, 64, image.name) }
-    }
-
-    @Test
-    fun `equal basenames preserve only the referenced canonical file`() = runTest {
-        val referenced = oldFile(File(temporaryFolder.root, "images"), "img_same.jpg")
-        val orphan = oldFile(temporaryFolder.root, referenced.name)
-        coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, referenced.name) } returns
-            listOf(MessageAttachmentReference("sent", listOf(fileUri(referenced)), null))
-        val sweeper = AttachmentOrphanSweeper(database, temporaryFolder.root)
-        sweeper.deleteExact(orphan.path)
-        sweeper.deleteExact(referenced.path)
+    @Test fun equalBasenamesAndUnavailableToolArtifactsRetainOriginalMeaning() = runBlocking {
+        val held = oldFile("images/img_same")
+        val orphan = oldFile("run-inputs/img_same")
+        dao.insertMessage(message("m").copy(toolCallJson = Json.encodeToString(listOf(
+            MessageSegment(type = "tool", toolImages = listOf(artifact(held.path), artifact(orphan.path).copy(unavailable = true))),
+        ))))
+        assertTrue(sweeper().deleteExact(orphan.path))
         assertFalse(orphan.exists())
-        assertTrue(referenced.exists())
+        assertTrue(sweeper().deleteExact(held.path))
+        assertTrue(held.exists())
     }
 
-    @Test
-    fun `malformed candidate metadata fails closed without deleting the image`() = runTest {
-        val image = oldFile(temporaryFolder.root, "img_unreadable")
-        coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, image.name) } returns
-            listOf(MessageAttachmentReference("broken", emptyList(), "not-json:${image.name}"))
-        val result = runCatching {
-            AttachmentOrphanSweeper(database, temporaryFolder.root).deleteExact(image.path)
-        }
-        assertTrue(result.exceptionOrNull() is kotlinx.serialization.SerializationException)
+    @Test fun malformedCandidateFailsClosedButUnrelatedMalformedJsonDoesNotBlockCleanup() = runBlocking {
+        val held = oldFile("img_broken")
+        val orphan = oldFile("img_unrelated")
+        dao.insertMessage(message("m").copy(toolCallJson = "bad-json:${held.name}"))
+        assertTrue(runCatching { sweeper().deleteExact(held.path) }.exceptionOrNull() is kotlinx.serialization.SerializationException)
+        assertTrue(held.exists())
+        statements.clear()
+        assertTrue(sweeper().deleteExact(orphan.path))
+        assertFalse(orphan.exists())
+        assertFalse("Unrelated invalid fields must not be transferred and parsed again",
+            statements.any { it.startsWith("SELECT SUBSTR(CAST(") })
+    }
+
+    @Test fun sourceMutationAndDeleteRecreateRejectPreviouslyPreparedCheck() = runBlocking {
+        val image = oldFile("img_race")
+        val index = AttachmentReferenceIndex(database)
+        val revision = index.prepareCheck(image.path)
+        dao.insertMessage(message("m", listOf(image.path)))
+        database.withTransaction { assertFalse(index.isCurrent(revision)) }
+        val heldRevision = index.prepareCheck(image.path)
+        dao.deleteMessagesByIds(listOf("m"))
+        dao.insertMessage(message("m", listOf(image.path)))
+        database.withTransaction { assertFalse(index.isCurrent(heldRevision)) }
+        sweeper().deleteExact(image.path)
         assertTrue(image.exists())
     }
 
-    @Test
-    fun `cancelled reference scan and outside root paths cannot unlink files`() = runTest {
-        val image = oldFile(temporaryFolder.root, "img_cancelled")
-        coEvery { conversations.getMessageAttachmentReferencesPage(null, 64, image.name) } throws
-            kotlinx.coroutines.CancellationException("cancelled scan")
-        val sweeper = AttachmentOrphanSweeper(database, temporaryFolder.root)
-        val cancelled = runCatching { sweeper.deleteExact(image.path) }
-        assertTrue(cancelled.exceptionOrNull() is kotlinx.coroutines.CancellationException)
+    @Test fun rollbackRestoresReferenceInvalidationAndMessageOwnership() = runBlocking {
+        val image = oldFile("img_rollback")
+        dao.insertMessage(message("m", listOf(image.path)))
+        val index = AttachmentReferenceIndex(database)
+        val revision = index.prepareCheck(image.path)
+        runCatching {
+            database.withTransaction {
+                dao.deleteMessagesByIds(listOf("m"))
+                error("rollback")
+            }
+        }
+        database.withTransaction { assertTrue(index.isCurrent(revision)); assertTrue(index.contains(image.path)) }
+        sweeper().deleteExact(image.path)
         assertTrue(image.exists())
-        val outside = runCatching {
-            AttachmentOrphanSweeper(database, File(temporaryFolder.root, "private")).deleteExact(image.path)
+    }
+
+    @Test fun draftToMessageTransferRemainsAtomicForBothDraftKinds() = runBlocking {
+        for (newChat in listOf(false, true)) {
+            val image = oldFile("img_handoff_$newChat")
+            val index = AttachmentReferenceIndex(database)
+            index.refresh()
+            if (newChat) database.openHelper.writableDatabase.execSQL(
+                "INSERT OR REPLACE INTO new_chat_persist(id, draftText, draftAttachments) VALUES(0, '', ?)", arrayOf(attachments(image)))
+            else dao.updateDraft("owner", "", attachments(image), 1)
+            val revision = index.prepareCheck(image.path)
+            database.withTransaction {
+                dao.insertMessage(message("m-$newChat", listOf(image.path)))
+                if (newChat) database.openHelper.writableDatabase.execSQL("UPDATE new_chat_persist SET draftAttachments = NULL WHERE id = 0")
+                else dao.updateDraft("owner", "", null, 2)
+            }
+            database.withTransaction { assertFalse(index.isCurrent(revision)) }
+            sweeper().deleteExact(image.path)
+            assertTrue(image.exists())
         }
-        assertTrue(outside.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test fun payloadProcessingDoesNotOwnWriteTransactionAndForegroundWriteProgresses() = runBlocking {
+        val image = oldFile("img_parallel")
+        dao.insertMessage(message("m", listOf(image.path)).copy(text = "x".repeat(2 * 1024 * 1024)))
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val once = AtomicBoolean()
+        beforePayload = {
+            if (once.compareAndSet(false, true)) {
+                assertFalse(database.inTransaction())
+                entered.countDown()
+                check(release.await(10, TimeUnit.SECONDS))
+            }
+        }
+        val cleanup = async(Dispatchers.IO) { sweeper().deleteExact(image.path) }
+        try {
+            assertTrue(withContext(Dispatchers.IO) { entered.await(10, TimeUnit.SECONDS) })
+            withTimeout(5_000) { dao.updateDraft("owner", "foreground commit", null, 3) }
+        } finally { release.countDown() }
+        assertTrue(cleanup.await())
         assertTrue(image.exists())
     }
 
-    @Test
-    fun `sweep preserves every durable and fresh reference while deleting only eligible orphans`() =
-        runTest {
-            val root = temporaryFolder.root
-            val messageImage = oldFile(root, "att_message")
-            val messageMetadataImage = oldFile(File(root, "images"), "camera_message")
-            val draftLocal = oldFile(File(root, "run-inputs"), "draft_local")
-            val draftFrame = oldFile(File(root, "fork-attachments"), "draft_frame")
-            val draftRendered = oldFile(root, "pdf_draft")
-            val newChatLocal = oldFile(File(root, "run-inputs"), "new_chat_local")
-            val newChatFrame = oldFile(File(root, "fork-attachments"), "new_chat_frame")
-            val newChatRendered = oldFile(root, "pdf_new_chat")
-
-            val orphanRoot = oldFile(root, "img_orphan")
-            val orphanCamera = oldFile(File(root, "images"), "camera_orphan")
-            val orphanRunInput = oldFile(File(root, "run-inputs"), "run_orphan")
-            val orphanFork = oldFile(File(root, "fork-attachments"), "fork_orphan")
-            val freshEligible = file(root, "vid_fresh", NOW - 30 * 60 * 1000L)
-            val unrelatedRoot = oldFile(root, "notes.txt")
-            val unrelatedImage = oldFile(File(root, "images"), "thumbnail_other")
-
-            coEvery {
-                conversations.getMessageAttachmentReferencesPage(null, 64)
-            } returns listOf(
-                MessageAttachmentReference(
-                    id = "message",
-                    images = listOf(fileUri(messageImage)),
-                    attachmentMeta = Json.encodeToString(
-                        AttachmentMeta(
-                            listOf(
-                                AttachmentItem(
-                                    originalUri = fileUri(messageMetadataImage),
-                                    type = "image",
-                                )
-                            )
-                        )
-                    ),
-                ),
-                MessageAttachmentReference(
-                    id = "malformed-message",
-                    images = emptyList(),
-                    attachmentMeta = "not-json",
-                ),
-            )
-            coEvery {
-                conversations.getConversationDraftAttachmentReferencesPage(null, 64)
-            } returns listOf(
-                ConversationDraftAttachmentReference(
-                    id = "conversation",
-                    draftAttachments = Json.encodeToString(
-                        listOf(
-                            SelectedAttachment(
-                                uri = "content://draft",
-                                type = "file",
-                                localPath = draftLocal.absolutePath,
-                                processedFrames = listOf(draftFrame.absolutePath),
-                                preRenderedPaths = listOf(draftRendered.absolutePath),
-                            )
-                        )
-                    ),
-                ),
-                ConversationDraftAttachmentReference(
-                    id = "malformed-draft",
-                    draftAttachments = "not-json",
-                ),
-            )
-            coEvery {
-                conversations.getNewChatDraftAttachmentReference()
-            } returns NewChatDraftAttachmentReference(
-                draftAttachments = Json.encodeToString(
-                    listOf(
-                        SelectedAttachment(
-                            uri = "content://new-chat",
-                            type = "file",
-                            localPath = newChatLocal.absolutePath,
-                            processedFrames = listOf(newChatFrame.absolutePath),
-                            preRenderedPaths = listOf(newChatRendered.absolutePath),
-                        )
-                    )
-                ),
-            )
-
-            AttachmentOrphanSweeper(
-                database = database,
-                filesDirectory = root,
-                now = { NOW },
-            ).sweep()
-
-            listOf(
-                messageImage,
-                messageMetadataImage,
-                draftLocal,
-                draftFrame,
-                draftRendered,
-                newChatLocal,
-                newChatFrame,
-                newChatRendered,
-                freshEligible,
-                unrelatedRoot,
-                unrelatedImage,
-            ).forEach { retained -> assertTrue(retained.absolutePath, retained.exists()) }
-            listOf(orphanRoot, orphanCamera, orphanRunInput, orphanFork).forEach { deleted ->
-                assertFalse(deleted.absolutePath, deleted.exists())
-            }
-            coVerify(exactly = 1) {
-                conversations.getMessageAttachmentReferencesPage(null, 64)
-            }
-            coVerify(exactly = 1) {
-                conversations.getConversationDraftAttachmentReferencesPage(null, 64)
-            }
-            coVerify(exactly = 1) {
-                conversations.getNewChatDraftAttachmentReference()
-            }
-        }
-
-    private fun oldFile(parent: File, name: String): File =
-        file(parent, name, NOW - 2 * 60 * 60 * 1000L)
-
-    private fun file(parent: File, name: String, lastModified: Long): File {
-        parent.mkdirs()
-        return File(parent, name).also { file ->
-            file.writeText("test")
-            check(file.setLastModified(lastModified))
-        }
+    @Test fun completedIndexDoesNotReadUnchangedPayloadsAgainAndLookupUsesPathIndex() = runBlocking {
+        repeat(40) { dao.insertMessage(message("m-$it").copy(text = "x".repeat(256 * 1024))) }
+        val index = AttachmentReferenceIndex(database)
+        index.refresh()
+        statements.clear()
+        val orphan = oldFile("img_exact")
+        assertTrue(sweeper().deleteExact(orphan.path))
+        assertFalse(statements.any { it.startsWith("SELECT SUBSTR(CAST(") || it.contains("instr(") })
+        val plan = database.openHelper.readableDatabase.query(
+            "EXPLAIN QUERY PLAN SELECT 1 FROM attachment_references WHERE path = ? LIMIT 1", arrayOf(orphan.path),
+        ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(3)) } }
+        assertTrue(plan.toString(), plan.any { it.contains("SEARCH") && it.contains("index_attachment_references_path") })
     }
 
-    private fun fileUri(file: File): String = "file://${file.absolutePath}"
-
-    private companion object {
-        const val NOW = 10_000_000L
+    @Test fun cancellationResumesBootstrapAndOutsideRootNeverUnlinks() = runBlocking {
+        repeat(20) { dao.insertMessage(message("m-$it")) }
+        val held = oldFile("img_cancelled")
+        dao.insertMessage(message("held", listOf(held.path)))
+        val cleanup = async(Dispatchers.IO, start = CoroutineStart.LAZY) { sweeper().deleteExact(held.path) }
+        beforePayload = { cleanup.cancel(CancellationException("stop bootstrap")) }
+        cleanup.start()
+        assertTrue(runCatching { cleanup.await() }.exceptionOrNull() is CancellationException)
+        assertTrue(held.exists())
+        beforePayload = null
+        sweeper().deleteExact(held.path)
+        assertTrue(held.exists())
+        assertTrue(runCatching {
+            AttachmentOrphanSweeper(database, File(files.root, "private")).deleteExact(held.path)
+        }.exceptionOrNull() is IllegalArgumentException)
     }
+
+    @Test fun discardedQueueSchedulesDebtWithoutUnlinkingAnotherMessagesAttachment() = runBlocking {
+        val image = oldFile("img_discarded_queue")
+        val attachment = SelectedAttachment(uri = "file://${image.path}", type = "image", localPath = image.path)
+        val discarded = mutableListOf<SelectedAttachment>()
+        val reclamations = mutableListOf<Job>()
+        var scheduled = 0
+        val repository = com.newoether.agora.data.repository.ConversationRepository(
+            dao, database, scheduleMaintenance = { scheduled++ },
+        )
+        val registry = ConversationStateRegistry { attachments ->
+            discarded += attachments
+            reclamations += launch { repository.deleteUnreferencedDraftAttachmentFiles(attachments) }
+        }
+        try {
+            val state = registry.getOrCreate("queued-owner")
+            state.enqueueSend(QueuedSend("queued", "text", "model", listOf(attachment), "queued-run"))
+            dao.insertMessage(message("sent", listOf(image.path)))
+            registry.remove("queued-owner")
+            assertTrue("Queue disposal must not directly unlink", image.exists())
+            assertEquals(listOf(attachment), discarded)
+            reclamations.forEach { it.join() }
+            assertEquals(1, scheduled)
+            val debt = database.maintenanceDebtDao()
+            val pending = requireNotNull(debt.getDebt(MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS, image.path))
+            assertTrue(sweeper().deleteExact(pending.identity))
+            assertTrue(image.exists())
+            dao.deleteMessagesByIds(listOf("sent"))
+            assertTrue(sweeper().deleteExact(image.path))
+            assertFalse(image.exists())
+        } finally { registry.cancelAll() }
+    }
+
+    @Test fun artifactOnlyMetadataAndBothDraftsProtectFilesUntilTheirOwnersReleaseThem() = runBlocking {
+        val metadata = oldFile("img_metadata_artifact_only")
+        val draft = oldFile("img_draft_artifact_only")
+        val freshDraft = oldFile("img_new_draft_artifact_only")
+        val tool = oldFile("fork-attachments/tool_only.png")
+        fun artifactDraft(file: File) = Json.encodeToString(listOf(SelectedAttachment(
+            uri = "", type = "image", imageArtifacts = listOf(artifact(file.path)),
+        )))
+        dao.insertMessage(message("artifact-owner").copy(
+            attachmentMeta = Json.encodeToString(AttachmentMeta(listOf(AttachmentItem(
+                type = "image", imageArtifacts = listOf(artifact(metadata.path)),
+            )))),
+            toolCallJson = Json.encodeToString(listOf(MessageSegment(
+                type = "tool", toolImages = listOf(artifact(tool.path)),
+            ))),
+        ))
+        dao.updateDraft("owner", "", artifactDraft(draft), 1)
+        dao.upsertNewChatPersist(NewChatPersistEntity(draftAttachments = artifactDraft(freshDraft)))
+        val candidates = listOf(metadata, draft, freshDraft, tool)
+        candidates.forEach { assertTrue(sweeper().deleteExact(it.path)); assertTrue(it.exists()) }
+        dao.deleteMessagesByIds(listOf("artifact-owner"))
+        dao.updateDraft("owner", "", null, 2)
+        dao.upsertNewChatPersist(NewChatPersistEntity(draftAttachments = null))
+        candidates.forEach { assertTrue(sweeper().deleteExact(it.path)); assertFalse(it.exists()) }
+    }
+
+    @Test fun draftFrameAndRenderedPathsAreIndependentDurableReferences() = runBlocking {
+        val frame = oldFile("vid_frame")
+        val rendered = oldFile("pdf_rendered")
+        dao.updateDraft("owner", "", Json.encodeToString(listOf(SelectedAttachment(
+            uri = "", type = "video", processedFrames = listOf(frame.path),
+            preRenderedPaths = listOf(rendered.path),
+        ))), 1)
+        listOf(frame, rendered).forEach { assertTrue(sweeper().deleteExact(it.path)); assertTrue(it.exists()) }
+        dao.updateDraft("owner", "", null, 2)
+        listOf(frame, rendered).forEach { assertTrue(sweeper().deleteExact(it.path)); assertFalse(it.exists()) }
+    }
+
+    @Test fun largeToolPayloadAndMalformedLegacyPayloadDoNotOverflowTheCursorWindow() = runBlocking {
+        val held = oldFile("img_large_tool")
+        val other = oldFile("img_large_unrelated")
+        val payload = Json.encodeToString(listOf(MessageSegment(
+            type = "tool", toolResult = "x".repeat(3 * 1024 * 1024),
+            toolImages = listOf(artifact(held.path)),
+        )))
+        dao.insertMessage(message("large-tool").copy(toolCallJson = payload))
+        assertTrue(sweeper().deleteExact(held.path))
+        assertTrue(held.exists())
+        assertTrue(sweeper().deleteExact(other.path))
+        assertFalse(other.exists())
+        dao.insertMessage(message("large-malformed").copy(toolCallJson = payload.dropLast(1)))
+        assertTrue(runCatching { sweeper().deleteExact(held.path) }.isFailure)
+        assertTrue(held.exists())
+    }
+
+    @Test fun interruptedReferenceBatchesStayDirtyAndResumeAfterDatabaseReopen() = runBlocking {
+        val paths = (0 until 150).map { File(files.root, "img_batch_$it").canonicalPath }
+        dao.insertMessage(message("many-paths", paths))
+        val refresh = async(Dispatchers.IO, start = CoroutineStart.LAZY) { AttachmentReferenceIndex(database).refresh() }
+        var inserts = 0
+        beforeStatement = { sql ->
+            if (sql.startsWith("INSERT OR IGNORE INTO attachment_references VALUES") && ++inserts == 65) {
+                refresh.cancel(CancellationException("interrupt second reference batch"))
+            }
+        }
+        refresh.start()
+        assertTrue(runCatching { refresh.await() }.exceptionOrNull() is CancellationException)
+        beforeStatement = null
+        database.openHelper.readableDatabase.query(
+            "SELECT dirty FROM attachment_reference_owners WHERE kind = 0 AND ownerId = 'many-paths'",
+        ).use { assertTrue(it.moveToFirst()); assertEquals(1, it.getInt(0)) }
+        database.openHelper.readableDatabase.query(
+            "SELECT COUNT(*) FROM attachment_references WHERE kind = 0 AND ownerId = 'many-paths'",
+        ).use { assertTrue(it.moveToFirst()); assertTrue(it.getInt(0) in 64..128) }
+        database.close()
+        database = ChatDatabase.build(ApplicationProvider.getApplicationContext<Application>())
+        dao = database.chatDao()
+        val reopened = AttachmentReferenceIndex(database)
+        database.withTransaction { assertFalse(reopened.isCurrent(0)) }
+        reopened.refresh()
+        paths.forEach { assertTrue(reopened.contains(it)) }
+        // Replacing a large owner exercises bounded deletion of its previous derived references.
+        dao.upsertMessage(message("many-paths", listOf(paths.last())))
+        reopened.refresh()
+        assertFalse(reopened.contains(paths.first()))
+        assertTrue(reopened.contains(paths.last()))
+    }
+
+    @Test fun ownerMutationDuringChunkReadCannotPublishThePreviousToken() = runBlocking {
+        val previous = oldFile("img_previous")
+        val current = oldFile("img_current")
+        dao.insertMessage(message("changing", listOf(previous.path)))
+        val once = AtomicBoolean()
+        beforePayload = {
+            if (once.compareAndSet(false, true)) {
+                assertFalse(database.inTransaction())
+                database.openHelper.writableDatabase.execSQL(
+                    "UPDATE messages SET images = ? WHERE id = 'changing'",
+                    arrayOf(Json.encodeToString(listOf(current.path))),
+                )
+            }
+        }
+        val index = AttachmentReferenceIndex(database)
+        index.refresh()
+        assertFalse(index.contains(previous.path))
+        assertTrue(index.contains(current.path))
+        assertTrue(sweeper().deleteExact(current.path))
+        assertTrue(current.exists())
+    }
+
+    @Test fun stalledRebuildDoesNotSerializeAnotherRebuildOrPublishObsoleteReferences() = runBlocking {
+        val paths = (0 until 150).map { File(files.root, "img_concurrent_$it").canonicalPath }
+        dao.insertMessage(message("concurrent", paths))
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val once = AtomicBoolean()
+        beforePayload = {
+            if (once.compareAndSet(false, true)) {
+                entered.countDown()
+                check(release.await(10, TimeUnit.SECONDS))
+            }
+        }
+        val first = async(Dispatchers.IO) { AttachmentReferenceIndex(database).refresh() }
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS))
+            withTimeout(5_000) { AttachmentReferenceIndex(database).refresh() }
+        } finally { release.countDown() }
+        first.await()
+        val index = AttachmentReferenceIndex(database)
+        paths.forEach { assertTrue(index.contains(it)) }
+        val revision = index.prepareCheck(paths.first())
+        database.withTransaction { assertTrue(index.isCurrent(revision)) }
+    }
+
+    @Test fun utf8ChunkBoundariesAndLargeDraftMetadataKeepExactPaths() = runBlocking {
+        val image = oldFile("img_unicode")
+        val payload = Json.encodeToString(listOf(SelectedAttachment(
+            uri = "文😀".repeat(500_000), type = "image",
+            imageArtifacts = listOf(artifact(image.path)),
+        )))
+        dao.updateDraft("owner", "", payload, 1)
+        assertTrue(sweeper().deleteExact(image.path))
+        assertTrue(image.exists())
+        dao.updateDraft("owner", "", null, 2)
+        assertTrue(sweeper().deleteExact(image.path))
+        assertFalse(image.exists())
+    }
+
+    private fun sweeper() = AttachmentOrphanSweeper(database, files.root, now = { NOW })
+    private fun message(id: String, images: List<String> = emptyList()) = MessageEntity(
+        id = id, conversationId = "owner", text = "source", participant = Participant.USER,
+        timestamp = 1, images = images, runId = "run", runSequence = 0,
+    )
+    private fun attachments(file: File) = Json.encodeToString(listOf(
+        SelectedAttachment(uri = "file://${file.path}", type = "image", localPath = file.path),
+    ))
+    private fun artifact(path: String) = ImageArtifact(path, "image/png", 4, 40, 30)
+    private fun oldFile(path: String) = File(files.root, path).also {
+        it.parentFile!!.mkdirs()
+        it.writeText("test")
+        check(it.setLastModified(NOW - 2 * 60 * 60 * 1000L))
+    }
+    private companion object { const val NOW = 10_000_000L }
 }

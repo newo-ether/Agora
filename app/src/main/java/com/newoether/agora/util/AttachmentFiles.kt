@@ -22,16 +22,21 @@ object AttachmentFiles {
 
     /** Live owners are process-local; durable ownership remains in Room. */
     internal fun setLivePaths(owner: Any, paths: Collection<String>) = synchronized(ownershipLock) {
-        val normalized = paths.mapTo(linkedSetOf()) { File(it.removePrefix("file://")).canonicalPath }
+        val normalized = paths.asSequence().filter(String::isNotBlank)
+            .map { File(it.removePrefix("file://")).canonicalPath }.toCollection(linkedSetOf())
         if (normalized.isEmpty()) livePaths.remove(owner) else livePaths[owner] = normalized
         Unit
     }
 
     internal fun retainLivePath(owner: Any, path: String) = synchronized(ownershipLock) {
-        livePaths[owner] = livePaths[owner].orEmpty() + File(path.removePrefix("file://")).canonicalPath
+        if (path.isNotBlank()) {
+            livePaths[owner] = livePaths[owner].orEmpty() + File(path.removePrefix("file://")).canonicalPath
+        }
+        Unit
     }
 
     internal fun releaseLivePath(owner: Any, path: String) = synchronized(ownershipLock) {
+        if (path.isBlank()) return@synchronized
         val remaining = livePaths[owner].orEmpty() - File(path.removePrefix("file://")).canonicalPath
         if (remaining.isEmpty()) livePaths.remove(owner) else livePaths[owner] = remaining
         Unit
@@ -42,9 +47,9 @@ object AttachmentFiles {
     }
 
     internal fun deleteUnownedPaths(paths: Collection<String>) {
-        paths.distinct().forEach { path ->
+        paths.filter(String::isNotBlank).distinct().forEach { path ->
             runCatching {
-                val file = File(path)
+                val file = File(path.removePrefix("file://"))
                 deleteIfUnowned(file)
                 file.parentFile?.takeIf { it.isDirectory && it.list().isNullOrEmpty() }?.delete()
             }
@@ -60,7 +65,9 @@ object AttachmentFiles {
 
     internal fun ownedPaths(attachments: List<SelectedAttachment>): Set<String> = attachments
         .flatMapTo(linkedSetOf()) { attachment ->
-            listOfNotNull(attachment.localPath) + attachment.processedFrames.orEmpty() + attachment.preRenderedPaths.orEmpty()
+            (listOfNotNull(attachment.localPath) + attachment.processedFrames.orEmpty() +
+                attachment.preRenderedPaths.orEmpty() + attachment.imageArtifacts
+                    .filterNot { it.unavailable }.map { it.path }).filter(String::isNotBlank)
         }
 
     const val MAX_ATTACHMENT_BYTES: Long = 100L * 1024L * 1024L
@@ -143,13 +150,9 @@ object AttachmentFiles {
      *  copied-to-private image/file. Best-effort and exception-safe per file. */
     fun deleteBacking(att: SelectedAttachment) {
         if (!att.storage.reclaimWhenAbandoned) return
-        att.processedFrames?.forEach { deleteQuietly(it) }
-        att.preRenderedPaths?.forEach { deleteQuietly(it) }
-        att.localPath?.let { path ->
-            deleteQuietly(path)
-            if (att.storage == AttachmentStorage.LOCAL_SANDBOX_PENDING) {
-                deleteEmptyParent(path)
-            }
+        ownedPaths(listOf(att)).forEach(::deleteQuietly)
+        if (att.storage == AttachmentStorage.LOCAL_SANDBOX_PENDING) {
+            att.localPath?.takeIf(String::isNotBlank)?.let(::deleteEmptyParent)
         }
     }
 
@@ -171,6 +174,7 @@ object AttachmentFiles {
     }
 
     private fun deleteQuietly(path: String) {
+        if (path.isBlank()) return
         runCatching { deleteIfUnowned(File(path.removePrefix("file://"))) }
     }
 

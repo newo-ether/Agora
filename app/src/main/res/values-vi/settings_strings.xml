@@ -196,12 +196,10 @@
     <string name="tool_call_display_mode">Khối suy nghĩ &amp; công cụ</string>
     <string name="tool_call_display_mode_timeline">Dòng thời gian</string>
     <string name="tool_call_display_mode_grouped_timeline">Nhóm lại</string>
-    <string name="tool_call_display_mode_compact">Thu gọn</string>
     <string name="tool_call_display_mode_timeline_desc">Hiển thị câu trả lời, suy nghĩ và khối công cụ theo thứ tự thời gian</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">Giữ thứ tự dòng thời gian nhưng gộp các khối suy nghĩ, công cụ và hình ảnh liên tiếp</string>
     <string name="auto_expand_active_group">Tự động mở rộng nhóm đang hoạt động</string>
     <string name="auto_expand_active_group_desc">Tự động mở rộng nhóm suy luận và công cụ hiện tại, rồi thu gọn khi mô hình chuyển sang bước tiếp theo.</string>
-    <string name="tool_call_display_mode_compact_desc">Nhóm các khối suy nghĩ và công cụ phía trên câu trả lời</string>
 
     <!-- Settings - Web Search Page -->
     <string name="web_search_title">Tìm kiếm Web</string>

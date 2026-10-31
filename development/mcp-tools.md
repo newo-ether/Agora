@@ -103,6 +103,18 @@ they do not establish tool deduplication. `tools/call` may retry a proven pre-co
 never an uncertain posted request, response-body interruption or lost SSE session. Session recovery
 before tool dispatch remains separate from replaying a tool that may already have run.
 
+Failures from a tool invocation are scoped to that invocation. Once a catalog has connected,
+transport, remote execution, parsing, or local image-storage failures during `execute` must not mark
+the whole server unavailable or trigger another catalog connection loop. Retain discovery and exact
+configuration/enablement admission for later independent calls. `CONNECTED` records an established
+catalog, not a promise that every remote request will succeed. Initial connection/catalog failures
+and explicit refresh retain their existing connection-state and retry owners.
+
+An expired session reported by `tools/call` invalidates that session under the protocol client's
+existing serialization boundary. Report the failed call without replay; the next independent call
+initializes a new session. Generic EOF does not prove session expiry and must not reset an otherwise
+valid session. Cancellation propagates without changing registry availability.
+
 ## Presentation and verification
 
 Argument-aware metadata retains the actual remote tool name/server separately from the protocol

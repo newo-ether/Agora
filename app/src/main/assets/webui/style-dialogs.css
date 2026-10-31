@@ -1,0 +1,325 @@
+/*
+ * Composer context indicator (the phone's ComposerContextIndicator): a 20 dp ring with a 2.5 dp
+ * stroke, then a 240 dp popup holding the same 12 dp segmented bar and legend as ContextCompositionBar
+ * — 2 dp gaps, a 4 dp minimum so a part that holds tokens stays visible, the reserve flush right.
+ * Category segments and legend dots resolve the same roles from the current app theme.
+ */
+.context-ring .circular-progress circle { transition: stroke-dasharray 400ms cubic-bezier(.4, 0, .2, 1), stroke-dashoffset 400ms cubic-bezier(.4, 0, .2, 1); }
+.context-ring[data-over="true"] .circular-progress { color: var(--md-error); }
+.context-menu { width: 240px; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; }
+.context-menu .context-legend { margin-top: 6px; }
+.context-menu-head { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 500;
+  line-height: 20px; color: var(--md-on-surface); }
+.context-menu-head > span:last-child { margin-left: auto; }
+.context-bar { position: relative; height: 12px; border-radius: 6px; overflow: hidden; background: var(--md-surface-variant); }
+.context-reserved { position: absolute; top: 0; right: 0; bottom: 0; min-width: 4px; background: var(--md-outline);
+  transition: width 400ms cubic-bezier(.4, 0, .2, 1); }
+.context-reserved[data-empty="true"] { min-width: 0; }
+.context-segments { position: absolute; inset: 0; display: flex; gap: 2px; }
+.context-part { display: block; min-width: 4px; transition: width 400ms cubic-bezier(.4, 0, .2, 1); }
+.context-part[data-empty="true"] { min-width: 0; }
+.context-part-system, .context-dot-system { background: var(--md-primary); }
+.context-part-tools, .context-dot-tools { background: var(--md-secondary); }
+.context-part-messages, .context-dot-messages { background: var(--md-tertiary); }
+.context-part-messages.context-over, .context-dot-messages.context-over { background: var(--md-error); }
+.context-legend { display: flex; flex-direction: column; gap: 6px; }
+.context-legend-row { display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 20px;
+  color: var(--md-on-surface); }
+.context-legend-row > span:last-child { margin-left: auto; padding-left: 12px; color: var(--md-on-surface-variant); }
+.context-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.context-dot-free { background: var(--md-surface-variant); }
+.context-dot-reserved { background: var(--md-outline); }
+.shell[data-reduce-motion="true"] :is(.context-ring .circular-progress circle, .context-reserved, .context-part) {
+  transition: none;
+}
+.attachment-input { display: none; }
+.attachment-row { display: flex; gap: 8px; padding: 5px 8px 8px; overflow-x: auto; }
+.attachment-tile { position: relative; flex: 0 0 64px; width: 64px; align-self: flex-start; }
+.attachment-decode { display: none; }
+.attachment-layers { display: grid; pointer-events: none; }
+.attachment-layer { grid-area: 1 / 1; min-width: 0; }
+.attachment-visual { position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: var(--md-surface-variant); color: var(--md-on-surface-variant); }
+.attachment-visual img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.attachment-preview { position: absolute; top: 0; left: 0; width: 64px; height: 64px; padding: 0; border: 0; border-radius: 8px; background: transparent; }
+.attachment-preview:disabled { opacity: 1; }
+.attachment-status { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.attachment-status > svg { width: 28px; height: 28px; fill: currentColor; }
+.attachment-status small { max-width: 56px; font-size: 12px; line-height: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.attachment-status.file-placeholder { background: color-mix(in srgb, var(--md-primary-container) 40%, transparent); color: var(--md-primary); }
+.attachment-status.pdf-placeholder { background: rgb(229 57 53 / 15%); color: #e53935; }
+.attachment-progress { background: rgb(0 0 0 / 40%); }
+.attachment-error { background: rgb(0 0 0 / 25%); color: #b0b0b0; }
+.attachment-play { position: absolute; top: 20px; left: 20px; display: grid; place-items: center; width: 24px; height: 24px; padding: 4px; border-radius: 50%; background: rgb(0 0 0 / 50%); color: white; }
+.attachment-play svg { width: 16px; height: 16px; fill: currentColor; }
+.attachment-caption { min-width: 0; text-align: center; font-size: 11px; line-height: 15px; font-weight: 500; color: var(--md-on-surface-variant); }
+.attachment-caption > span { display: block; overflow: hidden; white-space: nowrap; }
+.attachment-filename { padding-top: 2px; text-overflow: ellipsis; }
+.attachment-unavailable { color: var(--md-error); }
+.attachment-remove { position: absolute; top: -5px; inset-inline-end: -5px; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: rgb(0 0 0 / 80%); color: white; }
+.attachment-remove svg { width: 10px; height: 10px; fill: currentColor; }
+/* Android WRAP_CONTENT dialogs first measure at config_prefDialogWidth (320 dp). */
+.attachment-editor { width: fit-content; min-width: min(480px, calc(100vw - 32px)); max-width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: 0; border-radius: 28px; background: var(--md-surface-container); color: var(--md-on-surface); overflow: hidden; }
+.attachment-editor > section { max-height: calc(100dvh - 48px); overflow-y: auto; }
+.attachment-editor::backdrop { background: rgb(0 0 0 / 32%); }
+.page-dialog { border-radius: 28px; }
+/* SystemPromptPickerDialog: an M3 AlertDialog (24 dp padding, Bold headlineSmall title with 16 dp
+   below it, bodyMedium text in onSurfaceVariant with 24 dp below it, 8 dp between buttons). Each
+   row is optionClickable + padding(8): a 48 dp RadioButton target (20 dp ring), an 8 dp spacer, then
+   the text, so the row is 64 dp tall and the text starts 22 dp past the ring's start. */
+.prompt-dialog section { padding: 24px; }
+.prompt-dialog h2 { margin: 0 0 16px; font-size: 23px; line-height: 29px; font-weight: 700; }
+.prompt-dialog footer { margin-top: 24px; gap: 8px; }
+.prompt-dialog footer button { font-size: 13px; line-height: 18px; font-weight: 500; letter-spacing: 0.1px; padding: 8px 12px; }
+.prompt-options { max-height: 50dvh; overflow: auto; }
+.prompt-options .prompt-option {
+  display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 8px; border-radius: 24px;
+  color: var(--md-on-surface-variant); font-size: 13px; line-height: 19px; letter-spacing: 0.25px; cursor: pointer;
+}
+.prompt-radio { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: var(--md-primary); }
+.prompt-option input { flex: none; accent-color: var(--md-primary); }
+.prompt-radio:focus-within { --md-state: .1; }
+.prompt-option .prompt-radio input:is(:hover, :focus-visible):not(:disabled),
+:is(.interaction-option, .interaction-trust) input:is(:hover, :focus-visible):not(:disabled) { box-shadow: none; }
+.prompt-option span { min-width: 0; overflow-wrap: anywhere; }
+.page-dialog .share-output { width: 100%; min-height: 240px; max-height: 50dvh; margin-top: 12px; resize: none; border: 0; background: transparent; color: var(--md-on-surface); font: inherit; font-size: 13px; line-height: 20px; }
+.attachment-editor section { padding: 24px; }
+.attachment-editor h2 { margin: 0 0 16px; font-size: 23px; line-height: 29px; font-weight: 700; }
+/* AlertDialog text: bodyMedium 13/19, letterSpacing 0.25, onSurfaceVariant. */
+.attachment-editor p { color: var(--md-on-surface-variant); font-size: 13px; line-height: 19px; letter-spacing: 0.25px; margin: 0; }
+.attachment-editor-row, .attachment-editor footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* Menu rows rendered inside a dialog keep the .dropdown-item style (onSurface, labelLarge). */
+.attachment-editor button:not(.dropdown-item) { min-height: 40px; border: 0; padding: 8px 12px; border-radius: 24px; background: transparent; color: var(--md-primary); font: inherit; font-size: 13px; }
+.attachment-editor button.filled { background: var(--md-primary); color: var(--md-on-primary); }
+.attachment-editor footer { justify-content: flex-end; gap: 8px; margin-top: 24px; }
+/* TextButton: labelLarge Medium 13/18, letterSpacing 0.1, 40 dp tall, 12 dp sides. */
+.attachment-editor footer button { font-size: 13px; line-height: 18px; font-weight: 500; letter-spacing: 0.1px; padding: 8px 12px; }
+.attachment-editor label { display: grid; gap: 8px; color: var(--md-primary); font-size: 13px; }
+.attachment-editor input[type="number"] { width: 100%; padding: 12px; background: transparent; color: var(--md-on-surface); font: inherit; }
+.attachment-editor input[type="range"] { width: 100%; }
+.video-modes { display: flex; gap: 8px; margin: 12px 0; }
+.video-modes button { flex: 1; background: var(--md-surface-variant); }
+.video-modes button[aria-pressed="true"] { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.video-edit-preview { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; }
+.pdf-loading { min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pdf-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; max-height: 320px; overflow-y: auto; }
+.pdf-page { position: relative; aspect-ratio: .75; border: 1px solid var(--md-outline-variant); border-radius: 6px; overflow: hidden; }
+.pdf-page[data-selected="true"] { border: 2px solid var(--md-primary); }
+.pdf-page button { padding: 0; width: 100%; height: 100%; border-radius: 0; position: relative; }
+.pdf-page img { width: 100%; height: 100%; object-fit: cover; }
+.pdf-page span { position: absolute; bottom: 4px; left: 4px; background: var(--md-surface-container); padding: 2px 4px; border-radius: 4px; }
+.pdf-page input { position: absolute; top: 4px; right: 4px; accent-color: var(--md-primary); width: 20px; height: 20px; }
+.attachment-full-image { display: block; object-fit: contain; width: 100%; height: 100%; }
+.image-viewport { overflow: hidden; touch-action: none; }
+.attachment-viewer > video { width: 100%; height: 100%; }
+.attachment-full-image, .attachment-viewer > video { transition: opacity 200ms linear; }
+.attachment-viewport-status { position: absolute; inset: 0; display: grid; place-items: center; background: black; pointer-events: none; transition: opacity 200ms linear; }
+.attachment-viewport-status > svg { width: 32px; height: 32px; fill: currentColor; }
+.attachment-viewer .tool-media-count { max-width: calc(100% - 60px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-viewer .tool-media-previous svg { transform: rotate(180deg); }
+.text-file-viewer { background: var(--md-background); color: var(--md-on-background); }
+.text-file-content { padding: 92px 24px 32px; height: 100%; overflow: auto; }
+.text-file-content pre { font: inherit; font-size: 13px; line-height: 20px; margin: 0; }
+.model-check { width: 24px; flex: none; }
+/* QUEUED_MESSAGE_HORIZONTAL_INSET: 4 dp on top of the card's own 4 dp, so the 20 dp capsule sits
+   8 dp inside the 28 dp composer card and stays concentric with it. */
+.queue-status { position: relative; margin: 0 4px; height: 0; }
+.queue-status-frame { position: absolute; bottom: 0; left: 0; right: 0; }
+.queue-status-frame[inert] { pointer-events: none; }
+.queued-message {
+  display: flex; align-items: center; gap: 0; height: 40px;
+  margin: 0 0 4px; padding: 0 4px 0 16px; border-radius: 20px;
+  background: var(--md-secondary-container); color: var(--md-on-secondary-container);
+  font-size: 13px; line-height: 18px; font-weight: 500;
+}
+.queued-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queued-attachments { display: flex; align-items: center; gap: 2px; margin-right: 4px; font-size: 11px; line-height: 15px; }
+.queued-attachments svg { width: 14px; height: 14px; }
+.queued-message button { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: inherit; }
+.queued-message svg { fill: currentColor; }
+.queued-message button svg { width: 18px; height: 18px; }
+.tool-label { flex: 1; min-width: 0; }
+.tool-label small { display: block; font-size: 11px; line-height: 16px; color: var(--md-on-surface-variant); }
+/* The split row is clickable as a whole on the phone: its press wave fills the 24 dp item capsule,
+   not a rectangle over the label. The label button therefore covers the full row (its own
+   background carries the wave); the icon lets presses through and the switch sits above it. */
+.tool-split { position: relative; }
+.tool-split > svg { position: relative; z-index: 1; pointer-events: none; }
+.tool-split > .tool-switch { z-index: 1; margin-left: auto; }
+.tool-split .tool-label {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center;
+  border: 0; border-radius: 24px; padding: 4px 61px 4px 40px; background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer;
+}
+.tool-split .tool-label:disabled { cursor: default; }
+.tool-switch { --switch-scale: .7; --switch-size: 16; --switch-offset: 8; position: relative; flex: none; width: calc(52px * var(--switch-scale)); height: calc(32px * var(--switch-scale)); border: calc(2px * var(--switch-scale)) solid var(--md-outline); border-radius: 16px; padding: 0; background: var(--md-surface-container-highest); cursor: pointer; }
+/* Centre against the actual track box: scaled borders can round to a different pixel width. */
+.tool-switch::after { content: ""; position: absolute; top: 50%; left: calc(50% + (var(--switch-offset) + var(--switch-size) / 2 - 26) * var(--switch-scale) * 1px); transform: translate(-50%, -50%); width: calc(var(--switch-size) * var(--switch-scale) * 1px); height: calc(var(--switch-size) * var(--switch-scale) * 1px); border-radius: 50%; background: var(--md-outline); }
+.tool-switch[data-checked="true"] { --switch-size: 24; --switch-offset: 24; border-color: var(--md-primary); background: var(--md-primary); }
+.tool-switch[data-checked="true"]::after { background: var(--md-on-primary); }
+.dropdown-item:not([data-pending="true"]):is(:disabled, [data-disabled="true"]) svg { fill: color-mix(in srgb, var(--md-on-surface-variant) 38%, transparent); }
+.tool-split:not([data-pending="true"])[data-disabled="true"] { color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.tool-label small { color: var(--md-on-surface-variant); }
+.tool-split:not([data-pending="true"])[data-disabled="true"] small { color: color-mix(in srgb, var(--md-on-surface-variant) 38%, transparent); }
+.tool-switch:is(:disabled:not([data-pending="true"]), [data-disabled="true"]),
+.dropdown-item:not([data-pending="true"]):disabled .tool-switch { cursor: default; border-color: color-mix(in srgb, var(--md-on-surface) 12%, var(--md-surface)); background-color: color-mix(in srgb, var(--md-surface-container-highest) 12%, var(--md-surface)); }
+.tool-switch:is(:disabled:not([data-pending="true"]), [data-disabled="true"])::after,
+.dropdown-item:not([data-pending="true"]):disabled .tool-switch::after { background: color-mix(in srgb, var(--md-on-surface) 38%, var(--md-surface)); }
+.tool-switch:is(:disabled:not([data-pending="true"]), [data-disabled="true"])[data-checked="true"],
+.dropdown-item:not([data-pending="true"]):disabled .tool-switch[data-checked="true"] { border-color: transparent; background: color-mix(in srgb, var(--md-on-surface) 12%, var(--md-surface)); }
+.tool-switch:is(:disabled:not([data-pending="true"]), [data-disabled="true"])[data-checked="true"]::after,
+.dropdown-item:not([data-pending="true"]):disabled .tool-switch[data-checked="true"]::after { background: var(--md-surface); }
+.dropdown-item:disabled[data-pending="true"], .tool-split[data-pending="true"] { color: var(--md-on-surface); }
+.dropdown-item:disabled[data-pending="true"] svg { fill: var(--md-on-surface-variant); }
+.tool-settings { padding: 16px 16px calc(40px + env(safe-area-inset-bottom)); font-size: 13px; line-height: 19px; letter-spacing: .25px; }
+.settings-sheet { max-height: 100dvh; }
+.settings-sheet .detail-sheet-handle { height: 48px; }
+.settings-sheet .detail-sheet-handle span { width: 32px; height: 4px; background: var(--md-on-surface-variant); }
+.tool-setting-header { display: flex; align-items: center; gap: 16px; min-height: 48px; margin-bottom: 32px; }
+.tool-setting-header > div { flex: 1; min-width: 0; }
+.tool-setting-header svg { width: 24px; height: 24px; flex: none; fill: var(--md-primary); }
+.tool-settings p { margin: 4px 0 0; color: var(--md-on-surface-variant); }
+.tool-setting-header > div > p { margin-top: 2px; }
+.tool-setting-header > div > .budget-note { margin-top: 4px; }
+.tool-setting-title { display: flex; gap: 0; justify-content: space-between; align-items: center; }
+.tool-setting-title > strong { flex: 1; min-width: 0; }
+.tool-setting-title > span { flex: none; color: var(--md-primary); font-size: 13px; line-height: 18px; letter-spacing: .1px; font-weight: 700; }
+.tool-setting-body { position: relative; margin: 0 0 8px 40px; }
+.tool-setting-body > svg { position: absolute; top: 2px; left: -40px; width: 24px; height: 24px; fill: var(--md-primary); }
+.tool-setting-header .tool-switch { --switch-scale: 1; border-radius: 16px; margin: 8px 0; }
+.tool-settings strong { font-size: 16px; line-height: 23px; letter-spacing: .5px; font-weight: 500; }
+.tool-settings [data-disabled="true"] { opacity: 0.38; }
+.tool-settings input[type="range"] { width: 100%; height: 48px; margin: 8px 0 0; }
+.tool-settings input[type="range"]:disabled[data-pending="true"] {
+  --range-active: var(--md-primary); --range-inactive: var(--md-secondary-container);
+  --range-handle: var(--md-primary); --range-stop-on-active: var(--md-secondary-container);
+  --range-stop-on-inactive: var(--md-primary);
+}
+/* Shared outlined fields keep one paint clock in every centered dialog. */
+.attachment-editor {
+  /* Samples of Material3 1.4.0 FastEffects (3800, 1) and FastSpatial (1400, .9). */
+  --md-field-effects: linear(0, .12734, .34922, .55168, .70560, .81280, .88368, .92896, .9572, .97449, .98493, .99117, .99485, .99702, .99828, .99901, .99943, .99968, 1);
+  --md-field-spatial: linear(0, .11979, .34153, .55375, .7193, .83468, .90891, .95354, .97868, .99185, .99814, 1.00072, 1.00148, 1.00144, 1.00114, 1.0008, 1.00051, 1.00031, 1);
+}
+.conversation-editor section { padding: 24px; }
+.conversation-editor h2 { margin-bottom: 16px; }
+.conversation-editor-body { display: grid; gap: 12px; max-height: calc(100dvh - 230px); overflow-y: auto; }
+
+.advanced-param { padding: 6px 0; }
+.conversation-editor-body:has(.advanced-param) { gap: 0; }
+.advanced-param > div { display: flex; align-items: center; gap: 8px; min-height: 15px; }
+.advanced-param label { flex: 1; min-width: 0; color: var(--md-on-surface); font-size: 11px; line-height: 15px; font-weight: 500; }
+.advanced-param span { font-size: 11px; line-height: 15px; color: var(--md-on-surface-variant); }
+.advanced-param[data-override="true"] span { color: var(--md-primary); font-weight: 700; }
+.conversation-editor .advanced-param button { padding: 0; min-height: 0; font-size: 11px; line-height: 15px; border-radius: 0; }
+.advanced-param input[type="range"] { height: 44px; margin: 0; }
+.conversation-editor .reset-all { margin-right: auto; }
+.conversation-editor select, .conversation-editor textarea, .conversation-editor input[type="text"] {
+  width: 100%; border: 1px solid var(--md-outline); border-radius: 16px; padding: 16px; background: transparent; color: var(--md-on-surface); font: inherit;
+}
+.conversation-editor textarea { min-height: 90px; max-height: 178px; resize: vertical; }
+/* ChatManualCompactDialog: M3 OutlinedTextField, shape 16 dp. The label rides in the top border's
+   notch (bodySmall, onSurfaceVariant; primary while focused), the outline is 1 dp outline and 2 dp
+   primary while focused. Inside AlertDialog's text slot LocalTextStyle is bodyMedium, so the field
+   text is bodyMedium with 16 dp padding. Each field reserves 8 dp above its border for the label
+   (OutlinedTextFieldTopPadding) and the column adds 12 dp, so borders sit 20 dp apart. */
+.conversation-editor .outlined-field { position: relative; display: block; margin-top: 8px; color: var(--md-on-surface-variant); }
+.conversation-editor .outlined-label {
+  position: absolute; z-index: 1; top: -8px; left: 12px; padding: 0 4px; pointer-events: none;
+  background: var(--md-surface-container); font-size: 11px; line-height: 16px; letter-spacing: 0.4px;
+  transition: color 180ms var(--md-field-effects);
+}
+.conversation-editor .outlined-field:focus-within .outlined-label,
+.conversation-editor .outlined-field:has(.editor-dropdown-field[aria-expanded="true"]) .outlined-label { color: var(--md-primary); }
+.conversation-editor .outlined-field :is(textarea, input, .editor-dropdown-field) {
+  display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 16px;
+  color: var(--md-on-surface); font: inherit; font-size: 13px; line-height: 19px; letter-spacing: 0.25px;
+}
+.attachment-editor :is(.rename-field, .message-edit, input[type="number"], .outlined-field textarea, .outlined-field input, .editor-dropdown-field) {
+  border: 1px solid var(--md-outline); border-radius: 16px; outline: none; background: transparent;
+  --md-field-width: 1px;
+  --md-field-color: var(--md-outline);
+  box-shadow: inset 0 0 0 calc(var(--md-field-width) - 1px) var(--md-field-color);
+  transition: border-color 180ms var(--md-field-effects), box-shadow 180ms var(--md-field-effects), --md-field-width 280ms var(--md-field-spatial);
+  --md-component-transition: border-color 180ms var(--md-field-effects), box-shadow 180ms var(--md-field-effects), --md-field-width 280ms var(--md-field-spatial);
+}
+/* OutlinedTextField min height is 56 dp. */
+.conversation-editor .outlined-field input { min-height: 56px; }
+.attachment-editor :is(.rename-field, .message-edit, input[type="number"], .outlined-field textarea, .outlined-field input, .editor-dropdown-field):focus:not(:disabled),
+.attachment-editor .editor-dropdown-field[aria-expanded="true"] {
+  --md-field-width: 2px;
+  --md-field-color: var(--md-primary);
+  border-color: var(--md-field-color);
+}
+/* minLines = 3, maxLines = 7: grows with the text between 3 and 7 bodyMedium lines (19 px),
+   plus 2 x 16 dp padding and the 1 px border. */
+.conversation-editor .outlined-field textarea { field-sizing: content; min-height: 91px; max-height: 167px; resize: none; }
+.conversation-editor .outlined-field :is(textarea, input):disabled { color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.conversation-editor .outlined-field .editor-dropdown-field { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 0 12px 0 16px; text-align: start; cursor: pointer; }
+.shell[data-reduce-motion="true"] .attachment-editor :is(.rename-field, .message-edit, input[type="number"], .outlined-field textarea, .outlined-field input, .editor-dropdown-field) {
+  transition: border-color 180ms var(--md-field-effects), box-shadow 180ms var(--md-field-effects);
+  --md-component-transition: border-color 180ms var(--md-field-effects), box-shadow 180ms var(--md-field-effects);
+}
+.editor-dropdown-field:disabled { cursor: default; color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.editor-dropdown-field > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-dropdown-icon { flex: none; display: grid; place-items: center; width: 24px; height: 24px; transition: transform 150ms linear; }
+.editor-dropdown-icon.open { transform: rotate(180deg); }
+.editor-dropdown-icon svg { width: 24px; height: 24px; fill: var(--md-on-surface-variant); }
+.conversation-editor p.conversation-editor-error { color: var(--md-error); }
+.tool-advanced { display: flex; align-items: center; gap: 4px; border: 0; border-radius: 20px; background: transparent; color: var(--md-primary); min-height: 48px; padding: 0 12px; font: 500 13px/18px var(--app-font, inherit); letter-spacing: .1px; cursor: pointer; }
+.tool-advanced svg { width: 18px; height: 18px; fill: currentColor; transition: transform 400ms cubic-bezier(.4, 0, .2, 1); }
+.tool-advanced[aria-expanded="true"] svg { transform: rotate(180deg); }
+.tool-budget-section { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows 400ms cubic-bezier(.4, 0, .2, 1), opacity 400ms cubic-bezier(.4, 0, .2, 1), visibility 400ms; }
+.tool-budget-section[data-visible="true"] { grid-template-rows: 1fr; opacity: 1; visibility: visible; }
+.tool-budget-section > div { overflow: hidden; min-height: 0; }
+.tool-budget-section .tool-setting-header { margin: 8px 0 0; }
+.tool-budget-slider { padding-top: 32px; margin-bottom: 0; }
+.tool-budget-slider > svg { top: 34px; }
+.tool-tier-note { padding-top: 12px; font-size: 12px; }
+/* Provider capability icons sit in the native menu's text slot and inherit its enabled/disabled color. */
+.dropdown-item.provider-capability > svg,
+.dropdown-item.provider-capability:disabled > svg { fill: currentColor; }
+/* ProviderBadge uses the theme's paired container roles in both native and WebUI menus. */
+.provider-badge { flex: none; font-size: 9px; border-radius: 4px; padding: 1px 4px; background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.shell[data-reduce-motion="true"] .tool-switch::after { transition-property: background; }
+.shell[data-reduce-motion="true"] .tool-advanced svg { transition: none; }
+.shell[data-reduce-motion="true"] .tool-budget-section { transition: opacity 400ms, visibility 400ms; }
+
+
+
+/* ---- Selection controls: the phone's Checkbox and RadioButton, drawn here ------------------- */
+/* Material 3 draws both controls itself: an 18-20 dp box with a 2 dp border, the fill and the mark
+   in primary, everything at 38 % when off, and a state layer only while the pointer is over it. The
+   browser box cannot be tinted past accent-color, so appearance: none hands the drawing over while
+   the input keeps focus, keyboard interaction and the form value. */
+.interaction-option input, .prompt-option input, .interaction-trust input {
+  appearance: none; -webkit-appearance: none; flex: none; display: grid; place-content: center;
+  width: 20px; height: 20px; margin: 0; padding: 0; box-sizing: border-box; cursor: pointer;
+  border: 2px solid color-mix(in srgb, var(--md-on-surface) 55%, transparent); background: transparent;
+  transition: border-color 120ms linear, background-color 120ms linear, box-shadow 120ms linear;
+}
+.interaction-option input[type="checkbox"], .interaction-trust input[type="checkbox"] { border-radius: 2px; }
+.interaction-option input[type="radio"], .prompt-option input[type="radio"] { border-radius: 50%; }
+.prompt-option input:is(:hover, :focus-visible):not(:disabled) {
+  box-shadow: 0 0 0 9px color-mix(in srgb, var(--md-on-surface) 8%, transparent);
+}
+:is(.interaction-option, .prompt-option, .interaction-trust) input[type="checkbox"]:checked {
+  border-color: var(--md-primary); background: var(--md-primary);
+}
+/* M3 keeps the radio ring open: the 10 dp dot sits inside the 2 dp ring with a gap all round,
+   never filling the box, so selection reads as dot-in-ring rather than a solid chip. */
+:is(.interaction-option, .prompt-option, .interaction-trust) input[type="radio"]:checked {
+  border-color: var(--md-primary);
+}
+/* The check is the phone's 10 x 5 glyph; the radio keeps a 10 dp dot inside its ring. */
+:is(.interaction-option, .interaction-trust) input[type="checkbox"]:checked::after {
+  content: ""; width: 10px; height: 5px; border: 2px solid var(--md-on-primary);
+  border-top: 0; border-right: 0; transform: rotate(-45deg) translate(0, -1px);
+}
+.prompt-option input[type="radio"]:checked::after,
+.interaction-option input[type="radio"]:checked::after {
+  content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--md-primary);
+}
+:is(.interaction-option, .prompt-option, .interaction-trust) input:disabled { cursor: default; opacity: 0.38; }
+.shell[data-reduce-motion="true"] :is(.interaction-option, .prompt-option, .interaction-trust) input { transition: none; }
+/* An option row is the whole touch target on the phone, so the pointer highlight sits on the row. */
+.interaction-option, .prompt-option { --md-component-transition: background-color 120ms linear, color 120ms linear; }
+.shell[data-reduce-motion="true"] :is(.interaction-option, .prompt-option) { transition: none; }

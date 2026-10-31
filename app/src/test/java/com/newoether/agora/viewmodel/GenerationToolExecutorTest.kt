@@ -35,6 +35,98 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class GenerationToolExecutorTest {
     @Test
+    fun `MCP null absent and blank errors remain successful`() {
+        val payloads = listOf(
+            """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}""",
+            """{"ok":true,"data":{"fields":3,"methods":9}}""",
+            """{"ok":true,"error":"","data":{"fields":3,"methods":9}}""",
+            """{"ok":true,"error":"  ","data":{"fields":3,"methods":9}}""",
+        )
+        for (name in listOf("mcp_call_tool", "mcp_mt_read_class_outline_abcdef")) {
+            for (payload in payloads) {
+                assertEquals(
+                    "$name: $payload",
+                    ToolExecutionStates.SUCCEEDED,
+                    finalToolState(ToolExecutionResult("class outline", structuredContent = payload), name),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `MCP string null and nonblank errors remain failures`() {
+        for (error in listOf("null", "permission_denied")) {
+            val result = ToolExecutionResult(
+                "class outline",
+                structuredContent = """{"ok":true,"error":"$error"}""",
+            )
+            assertEquals(error, ToolExecutionStates.FAILED, finalToolState(result, "mcp_call_tool"))
+        }
+    }
+
+    @Test
+    fun `provider error remains failed despite successful structured payload`() {
+        val result = ToolExecutionResult(
+            "class outline",
+            structuredContent = """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}""",
+            isError = true,
+        )
+
+        assertEquals(ToolExecutionStates.FAILED, finalToolState(result, "mcp_call_tool"))
+    }
+
+    @Test
+    fun `explicit failed flag remains failed with a null error`() {
+        val result = ToolExecutionResult(
+            "class outline",
+            structuredContent = """{"ok":true,"error":null,"failed":true}""",
+        )
+
+        assertEquals(ToolExecutionStates.FAILED, finalToolState(result, "mcp_call_tool"))
+    }
+
+    @Test
+    fun `nested shell null error preserves successful and running job states`() {
+        for ((state, expected) in listOf(
+            "succeeded" to ToolExecutionStates.SUCCEEDED,
+            "running" to ToolExecutionStates.BACKGROUND_RUNNING,
+        )) {
+            val result = ToolExecutionResult(
+                """{"error":null,"result":{"error":null,"job_id":"job-1","state":"$state"}}""",
+            )
+            assertEquals(state, expected, finalToolState(result, "shell_job_get"))
+        }
+    }
+
+    @Test
+    fun `nested shell null errors do not hide outer or nested failures`() {
+        val payloads = listOf(
+            """{"error":"connection_lost","result":{"error":null,"state":"succeeded"}}""",
+            """{"error":null,"failed":true,"result":{"error":null,"state":"succeeded"}}""",
+            """{"error":null,"result":{"error":"connection_lost","state":"succeeded"}}""",
+        )
+        for (payload in payloads) {
+            assertEquals(
+                payload,
+                ToolExecutionStates.FAILED,
+                finalToolState(ToolExecutionResult(payload), "shell_job_get"),
+            )
+        }
+    }
+
+    @Test
+    fun `no results remains empty even when provider marks an error`() {
+        for (name in listOf("web_search", "mcp_call_tool")) {
+            val result = ToolExecutionResult(
+                "no results",
+                structuredContent = """{"error":"no_results"}""",
+                isError = true,
+            )
+            assertEquals(name, ToolExecutionStates.EMPTY, finalToolState(result, name))
+        }
+    }
+
+    @Test
     fun `durable wait timeout remains background running at the completion boundary`() {
         val result =
             """{"type":"wait_for_job","job_id":"same-job","state":"running","timed_out":true}"""

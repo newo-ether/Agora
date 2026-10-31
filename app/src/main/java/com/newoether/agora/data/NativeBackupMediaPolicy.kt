@@ -3,6 +3,7 @@ package com.newoether.agora.data
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.AttachmentStorage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.SelectedAttachment
 import kotlinx.serialization.json.Json
@@ -24,33 +25,16 @@ internal object NativeBackupMediaPolicy {
             attachment.localPath,
             attachment.uri.takeIf(String::isNotBlank),
         ).firstNotNullOfOrNull(::sourceFileName)
-        if (attachment.unavailable) {
-            onMissingResource()
-            return@map attachment.asUnavailablePlaceholder(fileName)
-        }
         val primarySource = listOfNotNull(
-            attachment.localPath,
+            attachment.localPath?.takeIf(String::isNotBlank),
             attachment.uri.takeIf(String::isNotBlank),
         ).firstNotNullOfOrNull(archiveEntryForSource)
-        if (primarySource == null) {
-            onMissingResource()
-            attachment.asUnavailablePlaceholder(fileName)
-        } else {
-            attachment.copy(
-                uri = primarySource,
-                localPath = primarySource,
-                fileName = fileName,
-                processedFrames = attachment.processedFrames
-                    ?.mapNotNull(archiveEntryForSource)
-                    ?.takeIf(List<String>::isNotEmpty),
-                preRenderedPaths = attachment.preRenderedPaths
-                    ?.mapNotNull(archiveEntryForSource)
-                    ?.takeIf(List<String>::isNotEmpty),
-                storage = AttachmentStorage.APP_PRIVATE,
-                sandboxPath = null,
-                unavailable = false,
-            )
-        }
+        if (primarySource == null) onMissingResource()
+        attachment.rewriteDraftMedia(
+            primary = primarySource?.let { it to it },
+            rewritePath = archiveEntryForSource,
+            onMissingResource = onMissingResource,
+        ).copy(fileName = fileName)
     }
 
     fun restoreDraftAttachments(
@@ -58,37 +42,24 @@ internal object NativeBackupMediaPolicy {
         restoredPrimaryForArchiveEntry: (String) -> Pair<String, String>?,
         restoredPathForArchiveEntry: (String) -> String?,
     ): List<SelectedAttachment> = attachments.map { attachment ->
-        if (attachment.unavailable) {
-            return@map attachment.asUnavailablePlaceholder(attachment.fileName)
-        }
         val primaryEntry = attachment.localPath
             ?.takeIf(String::isNotBlank)
             ?: attachment.uri.takeIf(String::isNotBlank)
-        val primary = primaryEntry?.let(restoredPrimaryForArchiveEntry)
-        if (primary == null) {
-            attachment.asUnavailablePlaceholder(attachment.fileName ?: primaryEntry?.let(::sourceFileName))
-        } else {
-            attachment.copy(
-                uri = primary.second,
-                localPath = primary.first,
-                processedFrames = attachment.processedFrames
-                    ?.mapNotNull(restoredPathForArchiveEntry)
-                    ?.takeIf(List<String>::isNotEmpty),
-                preRenderedPaths = attachment.preRenderedPaths
-                    ?.mapNotNull(restoredPathForArchiveEntry)
-                    ?.takeIf(List<String>::isNotEmpty),
-                storage = AttachmentStorage.APP_PRIVATE,
-                sandboxPath = null,
-                unavailable = false,
-            )
-        }
+        attachment.rewriteDraftMedia(
+            primary = primaryEntry?.let(restoredPrimaryForArchiveEntry),
+            rewritePath = restoredPathForArchiveEntry,
+        ).copy(fileName = attachment.fileName ?: primaryEntry?.let(::sourceFileName))
     }
 
     fun toolImagePaths(raw: String?): List<String> {
         if (raw.isNullOrBlank()) return emptyList()
         return runCatching {
             json.decodeFromString<List<MessageSegment>>(raw)
-                .flatMap { segment -> segment.toolImages.map { it.path } }
+                .flatMap { segment ->
+                    segment.toolImages.filterNot { it.unavailable }.mapNotNull { image ->
+                        image.path.takeIf(String::isNotBlank)
+                    }
+                }
         }.getOrDefault(emptyList())
     }
 
@@ -99,33 +70,15 @@ internal object NativeBackupMediaPolicy {
         archiveEntryForSource: (String) -> String?,
         onMissingResource: () -> Unit = {},
     ): String? {
-        val decodedMeta = raw?.let {
-            runCatching { json.decodeFromString<AttachmentMeta>(it) }.getOrNull()
-        }
-        val claimedImageIndices = decodedMeta?.items.orEmpty().flatMapTo(mutableSetOf()) { item ->
-            val start = item.imageIndex ?: return@flatMapTo emptyList()
-            val count = item.pageCount?.coerceAtLeast(1) ?: 1
-            (start until start + count).toList()
-        }
-        val legacyImageItems = originalImageSources.mapIndexedNotNull { index, source ->
-            if (index in claimedImageIndices) null else AttachmentItem(
-                originalUri = source,
-                type = "image",
-                fileName = sourceFileName(source),
-                imageIndex = index,
-            )
-        }
-        val sourceItems = decodedMeta?.items.orEmpty() + legacyImageItems
+        val indexedSources = originalImageSources.withIndex().associate { it.index to it.value }
+        val sourceItems = attachmentItems(raw, indexedSources)
         if (sourceItems.isEmpty()) return null
         val items = sourceItems
             .filterNot { it.storage.isLocalSandbox }
             .map { item ->
-                val originalCount = item.pageCount?.coerceAtLeast(1) ?: 1
-                val survivingIndices = item.imageIndex
-                    ?.let { start ->
-                        (start until start + originalCount).mapNotNull(oldToNewImageIndex::get)
-                    }
-                    .orEmpty()
+                val artifacts = item.rewriteMessageArtifacts(
+                    oldToNewImageIndex, indexedSources, archiveEntryForSource,
+                )
                 val archivedOriginalUri = item.originalUri
                     ?.takeIf { !item.unavailable && item.type == "video" }
                     ?.let(archiveEntryForSource)
@@ -133,7 +86,8 @@ internal object NativeBackupMediaPolicy {
                     item.unavailable -> true
                     item.type == "video" -> archivedOriginalUri == null
                     item.type == "file" -> item.textContent == null
-                    item.type == "image" || item.type == "pdf" -> survivingIndices.isEmpty()
+                    item.type == "image" || item.type == "pdf" ->
+                        artifacts.isEmpty() || artifacts.any { it.unavailable }
                     else -> false
                 }
                 if (unavailable) onMissingResource()
@@ -142,14 +96,9 @@ internal object NativeBackupMediaPolicy {
                     // render from archived message media/text and must not expose a device URI.
                     originalUri = archivedOriginalUri,
                     fileName = item.fileName ?: item.originalUri?.let(::sourceFileName),
-                    imageIndex = when {
-                        unavailable || item.imageIndex == null -> null
-                        else -> survivingIndices.firstOrNull()
-                    },
-                    pageCount = when {
-                        unavailable || item.pageCount == null -> null
-                        else -> survivingIndices.size
-                    },
+                    imageIndex = item.imageIndex?.let(oldToNewImageIndex::get),
+                    pageCount = item.pageCount,
+                    imageArtifacts = artifacts,
                     textContent = item.textContent.takeUnless { unavailable },
                     unavailable = unavailable,
                 )
@@ -160,16 +109,25 @@ internal object NativeBackupMediaPolicy {
     fun rewriteToolImagePathsForExport(
         raw: String?,
         archiveEntryForSource: (String) -> String?,
+    ): String? = rewriteToolImagePathsForExport(raw, {}, archiveEntryForSource)
+
+    fun rewriteToolImagePathsForExport(
+        raw: String?,
+        onMissingResource: () -> Unit,
+        archiveEntryForSource: (String) -> String?,
     ): String? {
         if (raw.isNullOrBlank()) return raw
-        val segments = runCatching {
-            json.decodeFromString<List<MessageSegment>>(raw)
-        }.getOrNull() ?: return raw
+        val segments = json.decodeFromString<List<MessageSegment>>(raw)
         return json.encodeToString(
             segments.map { segment ->
                 segment.copy(
-                    toolImages = segment.toolImages.mapNotNull { image ->
-                        archiveEntryForSource(image.path)?.let { archivedPath ->
+                    toolImages = segment.toolImages.map { image ->
+                        val archivedPath = image.path.takeIf { !image.unavailable && it.isNotBlank() }
+                            ?.let(archiveEntryForSource)
+                        if (archivedPath == null) {
+                            onMissingResource()
+                            image.asUnavailablePlaceholder()
+                        } else {
                             image.copy(path = archivedPath)
                         }
                     },
@@ -184,20 +142,21 @@ internal object NativeBackupMediaPolicy {
         oldToNewImageIndex: Map<Int, Int> = emptyMap(),
         legacyVideoUris: Map<Int, String>,
         restoredUriForArchiveEntry: (String) -> String?,
+        restoredPathForArchiveEntry: (String) -> String? = { null },
+        originalImageSources: List<String> = emptyList(),
+        legacyImagePaths: Map<Int, String> = emptyMap(),
     ): String? {
-        if (raw.isNullOrBlank()) return raw
-        val meta = runCatching {
-            json.decodeFromString<AttachmentMeta>(raw)
-        }.getOrNull() ?: return null
+        val indexedSources = if (archiveVersion < 4) legacyImagePaths
+            else originalImageSources.withIndex().associate { it.index to it.value }
+        val sourceItems = attachmentItems(raw, indexedSources)
+        if (sourceItems.isEmpty()) return null
         return json.encodeToString(
             AttachmentMeta(
-                meta.items.map { item ->
-                    val originalCount = item.pageCount?.coerceAtLeast(1) ?: 1
-                    val survivingIndices = item.imageIndex
-                        ?.let { start ->
-                            (start until start + originalCount).mapNotNull(oldToNewImageIndex::get)
-                        }
-                        .orEmpty()
+                sourceItems.map { item ->
+                    val artifacts = item.rewriteMessageArtifacts(
+                        oldToNewImageIndex, indexedSources, restoredPathForArchiveEntry,
+                        legacyMappedPaths = archiveVersion < 4,
+                    )
                     val restoredOriginalUri = when {
                         item.unavailable -> null
                         archiveVersion >= 4 -> item.originalUri
@@ -209,19 +168,16 @@ internal object NativeBackupMediaPolicy {
                         item.unavailable -> true
                         item.type == "video" -> restoredOriginalUri == null
                         item.type == "file" -> item.textContent == null
-                        item.type == "image" || item.type == "pdf" -> survivingIndices.isEmpty()
+                        item.type == "image" || item.type == "pdf" ->
+                            artifacts.isEmpty() || artifacts.any { it.unavailable }
                         else -> false
                     }
                     item.copy(
                         originalUri = restoredOriginalUri,
-                        imageIndex = when {
-                            unavailable || item.imageIndex == null -> null
-                            else -> survivingIndices.firstOrNull()
-                        },
-                        pageCount = when {
-                            unavailable || item.pageCount == null -> null
-                            else -> survivingIndices.size
-                        },
+                        fileName = item.fileName ?: item.originalUri?.let(::sourceFileName),
+                        imageIndex = item.imageIndex?.let(oldToNewImageIndex::get),
+                        pageCount = item.pageCount,
+                        imageArtifacts = artifacts,
                         textContent = item.textContent.takeUnless { unavailable },
                         storage = AttachmentStorage.APP_PRIVATE,
                         sandboxPath = null,
@@ -238,40 +194,107 @@ internal object NativeBackupMediaPolicy {
         restoredPathForArchiveEntry: (String) -> String?,
     ): String? {
         if (raw.isNullOrBlank()) return raw
-        val segments = runCatching {
-            json.decodeFromString<List<MessageSegment>>(raw)
-        }.getOrNull() ?: return raw
+        val segments = json.decodeFromString<List<MessageSegment>>(raw)
         return json.encodeToString(
             segments.map { segment ->
                 segment.copy(
-                    toolImages = segment.toolImages.mapNotNull { image ->
-                        if (archiveVersion < 4) {
-                            // v1-v3 stored only a device-absolute path. Dropping an unusable
-                            // thumbnail is safer than retaining a misleading foreign path.
-                            null
-                        } else {
-                            restoredPathForArchiveEntry(image.path)?.let { restoredPath ->
-                                image.copy(path = restoredPath)
-                            }
-                        }
+                    toolImages = segment.toolImages.map { image ->
+                        val restoredPath = image.path.takeIf {
+                            archiveVersion >= 4 && !image.unavailable && it.isNotBlank()
+                        }?.let(restoredPathForArchiveEntry)
+                        if (restoredPath == null) image.asUnavailablePlaceholder()
+                        else image.copy(path = restoredPath)
                     },
                 )
             },
         )
     }
 
-    private fun SelectedAttachment.asUnavailablePlaceholder(
-        retainedFileName: String?,
-    ): SelectedAttachment = copy(
-        uri = "",
-        fileName = retainedFileName,
-        processedFrames = null,
-        selectedPages = null,
-        preRenderedPaths = null,
-        localPath = null,
-        storage = AttachmentStorage.APP_PRIVATE,
-        sandboxPath = null,
-        unavailable = true,
+    private fun attachmentItems(raw: String?, originalImageSources: Map<Int, String>): List<AttachmentItem> {
+        val decodedMeta = raw?.let {
+            runCatching { json.decodeFromString<AttachmentMeta>(it) }.getOrNull()
+        }
+        val claimedImageIndices = decodedMeta?.items.orEmpty().flatMapTo(mutableSetOf()) { item ->
+            val start = item.imageIndex ?: return@flatMapTo emptyList()
+            val count = item.pageCount?.coerceAtLeast(1) ?: 1
+            (start until start + count).toList()
+        }
+        return decodedMeta?.items.orEmpty() + originalImageSources.mapNotNull { (index, source) ->
+            if (index in claimedImageIndices) null else AttachmentItem(
+                originalUri = source,
+                type = "image",
+                fileName = sourceFileName(source),
+                imageIndex = index,
+            )
+        }
+    }
+
+    /** Every page/frame keeps its offset, including missing slots and repeated paths. */
+    private fun AttachmentItem.rewriteMessageArtifacts(
+        oldToNewImageIndex: Map<Int, Int>,
+        originalImageSources: Map<Int, String>,
+        rewritePath: (String) -> String?,
+        legacyMappedPaths: Boolean = false,
+    ): List<ImageArtifact> {
+        val start = imageIndex
+        val count = maxOf(imageArtifacts.size, if (start == null) 0 else pageCount?.coerceAtLeast(1) ?: 1)
+        return List(count) { offset ->
+            val artifact = imageArtifacts.getOrNull(offset) ?: unmeasuredArtifact(
+                mimeType, pixelWidth.takeIf { count == 1 }, pixelHeight.takeIf { count == 1 },
+            )
+            val index = start?.plus(offset)
+            val source = index?.let(originalImageSources::get) ?: artifact.path
+            val target = if (index != null && index !in oldToNewImageIndex) null
+                else if (legacyMappedPaths) index?.let(originalImageSources::get)?.takeIf(String::isNotBlank)
+                else source.takeIf(String::isNotBlank)?.let(rewritePath)
+            if (artifact.unavailable || target.isNullOrBlank()) artifact.asUnavailablePlaceholder()
+            else artifact.copy(path = target)
+        }
+    }
+
+    private fun SelectedAttachment.rewriteDraftMedia(
+        primary: Pair<String, String>?,
+        rewritePath: (String) -> String?,
+        onMissingResource: () -> Unit = {},
+    ): SelectedAttachment {
+        fun rewrite(paths: List<String>?): List<String>? = paths?.mapIndexed { index, source ->
+            source.takeIf { it.isNotBlank() && imageArtifacts.getOrNull(index)?.unavailable != true }
+                ?.let(rewritePath).orEmpty().also {
+                    if (it.isBlank()) onMissingResource()
+                }
+        }
+        val frames = rewrite(processedFrames)
+        val pages = rewrite(preRenderedPaths)
+        val targets = when (type) {
+            "image" -> listOf(primary?.first.orEmpty())
+            "video" -> frames.orEmpty()
+            "pdf" -> pages.orEmpty()
+            else -> emptyList()
+        }
+        val artifacts = List(maxOf(targets.size, imageArtifacts.size)) { index ->
+            val artifact = imageArtifacts.getOrNull(index) ?: unmeasuredArtifact(
+                mimeType, pixelWidth.takeIf { targets.size == 1 }, pixelHeight.takeIf { targets.size == 1 },
+            )
+            val target = targets.getOrNull(index)
+            if (artifact.unavailable || target.isNullOrBlank()) artifact.asUnavailablePlaceholder()
+            else artifact.copy(path = target)
+        }
+        return copy(
+            uri = primary?.second.orEmpty(),
+            localPath = primary?.first,
+            processedFrames = frames,
+            preRenderedPaths = pages,
+            imageArtifacts = artifacts,
+            storage = AttachmentStorage.APP_PRIVATE,
+            sandboxPath = null,
+            unavailable = unavailable || primary == null ||
+                (type in setOf("image", "pdf", "video") && artifacts.any { it.unavailable }),
+        )
+    }
+
+    private fun unmeasuredArtifact(mimeType: String?, width: Int?, height: Int?) = ImageArtifact(
+        path = "", mimeType = mimeType?.takeIf { it.startsWith("image/") } ?: "application/octet-stream",
+        sizeBytes = 0, width = width, height = height,
     )
 
     private fun sourceFileName(source: String): String? {
@@ -280,3 +303,10 @@ internal object NativeBackupMediaPolicy {
             .takeIf(String::isNotBlank)
     }
 }
+
+/** Unavailable images keep their occurrence and known bounds, never an old device reference. */
+internal fun ImageArtifact.asUnavailablePlaceholder(): ImageArtifact = copy(
+    path = "",
+    sizeBytes = 0,
+    unavailable = true,
+)

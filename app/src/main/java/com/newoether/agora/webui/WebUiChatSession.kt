@@ -168,6 +168,7 @@ internal class WebUiChatSession(
     private val drafts = ComposerDraftController(
         persistence = draftPersistence,
         conversations = conversations,
+        hydrateAttachment = attachmentProcessor::hydrateDraftAttachment,
     )
     private val composers = ConversationComposerController(
         scope = scope,
@@ -568,31 +569,31 @@ internal class WebUiChatSession(
                     if (closed || seq != target.value.browserSeq || index < 0) return@withLock null
                     val owner = retainedOwner ?: return@withLock null
                     val attachment = composers.state(owner).value.attachments.firstOrNull { it.localId == id }
-                        ?.takeIf { !it.unavailable && it.storage == com.newoether.agora.model.AttachmentStorage.APP_PRIVATE }
+                        ?.takeIf { it.storage == com.newoether.agora.model.AttachmentStorage.APP_PRIVATE }
                         ?: return@withLock null
-                    val artifact = when (kind) {
-                        "page" -> attachment.takeIf { it.type == "pdf" }?.preRenderedPaths?.getOrNull(index)?.let { it to "image/jpeg" }
-                        "frame" -> attachment.takeIf { it.type == "video" }?.processedFrames?.getOrNull(index)?.let { it to "image/jpeg" }
-                        "source" -> if (index != 0) null else attachment.localPath?.let { path ->
-                            when (attachment.type) {
-                                "image" -> if (attachment.importState == com.newoether.agora.model.AttachmentImportState.READY) path to "image/jpeg" else null
-                                "video" -> attachment.mimeType?.takeIf { VIDEO_MIME.matches(it) }?.let { path to it }
-                                else -> null
-                            }
-                        }
-                        else -> null
+                    val artifact = attachmentPreviewArtifact(attachment, kind, index)
+                    artifact?.let { selected ->
+                        AttachmentFiles.retainLivePath(previewOwner, selected.first)
+                        selected to attachment.imageArtifacts.getOrNull(index)
                     }
-                    artifact?.also { AttachmentFiles.retainLivePath(previewOwner, it.first) }
                 } ?: return@async false
                 withContext(Dispatchers.IO) {
                     val file = try {
                         val root = uploadDirectory.toPath().toRealPath()
-                        val path = File(selected.first).toPath().toRealPath()
+                        val path = File(selected.first.first).toPath().toRealPath()
                         path.takeIf { it.startsWith(root) && it != root && it.toFile().isFile }?.toFile()
                     } catch (_: java.io.IOException) {
                         null
                     } ?: return@withContext false
-                    consume(file, selected.second)
+                    val mime = if (kind == "source" && selected.first.second.startsWith("video/")) {
+                        selected.first.second
+                    } else {
+                        val measured = try { inspectWebUiImageArtifact(file, selected.second) }
+                            catch (_: java.io.IOException) { null }
+                        measured?.mimeType ?: return@withContext false
+                    }
+                    currentCoroutineContext().ensureActive()
+                    consume(file, mime)
                     true
                 }
             } finally {
@@ -795,6 +796,5 @@ internal class WebUiChatSession(
 
     private companion object {
         const val SNACKBAR_BUFFER = 8
-        val VIDEO_MIME = Regex("video/[A-Za-z0-9.+-]+")
     }
 }

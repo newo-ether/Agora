@@ -271,6 +271,8 @@
     <string name="conversation_read_empty">選択したブランチにメッセージがありません。</string>
     <string name="conversation_read_page">ページ: メッセージ %1$d-%2$d</string>
     <string name="conversation_read_more">さらにメッセージを表示するには、より大きいオフセットを使用してください。</string>
+    <string name="conversation_tools_more">このメッセージにはさらにツール呼び出しがあります（tool_offset: %1$d）。</string>
+    <string name="conversation_details_error">保存されたメッセージの詳細を読み取れませんでした（%1$s）。</string>
 
     <!-- General -->
     <string name="back">戻る</string>

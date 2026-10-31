@@ -30,15 +30,8 @@ data class ToolCallData(
     val target: String? = null,
 )
 
-@Serializable
-data class ToolImageAttachment(
-    val path: String,
-    val mimeType: String,
-    val sizeBytes: Long,
-    val width: Int? = null,
-    val height: Int? = null,
-    val sha256: String,
-)
+/** Tool images use the same measured artifact as ordinary attachments. */
+typealias ToolImageAttachment = ImageArtifact
 
 /** Disposable image presentation; an absent attachment is pending unless the read failed. */
 @Immutable
@@ -162,11 +155,10 @@ object ThinkingSegmentDisplayModes {
 object ToolCallDisplayModes {
     const val TIMELINE = "timeline"
     const val GROUPED_TIMELINE = "grouped_timeline"
-    const val COMPACT = "compact"
     const val DEFAULT = GROUPED_TIMELINE
 
     fun normalize(value: String?): String = when (value) {
-        COMPACT -> COMPACT
+        "compact" -> GROUPED_TIMELINE
         GROUPED_TIMELINE -> GROUPED_TIMELINE
         TIMELINE -> TIMELINE
         else -> DEFAULT
@@ -212,6 +204,8 @@ data class ChatMessage(
     /** Disposable off-main Markdown preparation; never persisted in Room or native history. */
     val preparedMarkdown: Map<String, com.mikepenz.markdown.model.State.Success> = emptyMap(),
     val preparedMarkdownBytes: Long = 0,
+    /** Facts keyed by the exact file paths in [images], including API-only tool image rows. */
+    val imageArtifacts: Map<String, ImageArtifact> = emptyMap(),
 
 )
 

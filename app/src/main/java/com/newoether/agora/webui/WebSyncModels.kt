@@ -210,6 +210,7 @@ internal data class WebConversation(
     val generating: Boolean,
     val unread: Boolean,
     val isPinned: Boolean = false,
+    val interaction: String? = null,
 )
 
 @OptIn(ExperimentalSerializationApi::class)

@@ -56,9 +56,10 @@ internal class ShellDurableJobExecutor {
         workdir: String,
         waitMs: Int,
         onOutput: suspend (String) -> Unit = {},
+        description: String = "",
     ): String {
         val startResult = try {
-            backend.startJob(command, workdir, BACKGROUND_JOB_MAX_MS)
+            backend.startJob(command, workdir, BACKGROUND_JOB_MAX_MS, description)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {
@@ -192,7 +193,9 @@ internal class ShellDurableJobExecutor {
                 server = serverName,
             )
         return try {
-            backend.listJobs()
+            val offset = (arg(args, "offset").toIntOrNull() ?: 0).coerceAtLeast(0)
+            val limit = arg(args, "limit").toIntOrNull()?.takeIf { it > 0 }?.coerceAtMost(100) ?: 100
+            backend.listJobs(offset, limit)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {

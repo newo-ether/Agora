@@ -1,6 +1,7 @@
 package com.newoether.agora.ui.chat.message
 
 import android.app.Application
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -39,6 +40,16 @@ class ToolDetailPresentationTest {
         )
         val background = segment("unknown", "{\"output\":\"live\"}", ToolExecutionStates.BACKGROUND_RUNNING)
         assertEquals(ToolDetailBody.Active(resources.toolSummary(background), "live"), body(background))
+    }
+
+    @Test fun failedMcpRendersItsSavedPayloadBelowTheFailureLabel() {
+        val payload = """{"ok":true,"error":null,"data":{"locator":"dex_class:Lahw;"}}"""
+        val failed = segment("mcp_call_tool", payload, ToolExecutionStates.FAILED).copy(
+            toolStructuredResult = payload,
+        )
+        compose.setContent { MaterialTheme { ToolDetailContent(failed) { _, _ -> } } }
+        compose.onNodeWithText(resources.getString(R.string.tool_call_failed)).assertExists()
+        compose.onNodeWithText("dex_class:Lahw;", substring = true).assertExists()
     }
 
     @Test fun shellKeepsCommandExitCodeAndCompletedOutputPriority() {
@@ -251,10 +262,47 @@ class ToolDetailPresentationTest {
         val failed = body(segment("stop_shell_job", "", ToolExecutionStates.FAILED)) as ToolDetailBody.Shell
         assertNull(failed.output)
     }
+    @Test fun shellParametersStayInArgumentsAndOnlyNewResultMetadataIsProjected() {
+        val args = """{"description":"Inspect result","job_id":"retained-job","head_lines":1,"tail_lines":1}"""
+        for (name in listOf("shell_job_get", "shell_job_wait", "stop_shell_job")) {
+            val detail = resources.toolDetailPresentation(segment(name,
+                """{"job_id":"retained-job","description":"Inspect result","output":"full output"}""", args = args))
+            assertEquals(args, detail.arguments)
+            assertNull((detail.body as ToolDetailBody.Shell).metadata)
+        }
+        val execute = resources.toolDetailPresentation(segment("execute_shell_command",
+            """{"result":{"job_id":"new-job","description":"Build app","output":"done"}}""",
+            args = """{"command":"build","description":"Build app","server":"Device"}"""))
+        assertEquals("build", execute.codeArgument?.text)
+        assertEquals("""{"description":"Build app","server":"Device"}""", execute.arguments)
+        assertEquals("""{"job_id":"new-job"}""", (execute.body as ToolDetailBody.Shell).metadata)
+        val failed = resources.toolDetailPresentation(segment("shell_job_get", "", ToolExecutionStates.FAILED, args))
+        assertEquals(args, failed.arguments)
+        assertNull((failed.body as ToolDetailBody.Shell).metadata)
+        assertNull((failed.body as ToolDetailBody.Shell).output)
+    }
+
     @Test fun composeRendersTheSharedShellAndFileDetails() {
-        val current = mutableStateOf(segment("execute_shell_command", "{\"exit_code\":7,\"output\":\"command output\"}"))
-        compose.setContent { MaterialTheme { ToolDetailContent(current.value) { _, _ -> } } }
+        val current = mutableStateOf(segment("execute_shell_command", """{"exit_code":7,"job_id":"retained-job","output":"command output"}""",
+            args = """{"description":"Verify build output"}"""))
+        compose.setContent { MaterialTheme { Column { ToolDetailContent(current.value) { _, _ -> } } } }
         compose.onNodeWithText("command output").assertExists()
+        compose.onNodeWithText("description").assertExists()
+        compose.onNodeWithText("Verify build output").assertExists()
+        compose.onNodeWithText("job_id").assertExists()
+        compose.onNodeWithText("retained-job").assertExists()
+        val outputBottom = compose.onNodeWithText("command output").fetchSemanticsNode().boundsInRoot.bottom
+        assertTrue(compose.onNodeWithText("job_id").fetchSemanticsNode().boundsInRoot.top > outputBottom)
+        assertTrue(compose.onNodeWithText("retained-job").fetchSemanticsNode().boundsInRoot.top > outputBottom)
+        assertTrue(compose.onNodeWithText("Verify build output").fetchSemanticsNode().boundsInRoot.top <
+            compose.onNodeWithText(resources.getString(R.string.result_label)).fetchSemanticsNode().boundsInRoot.top)
+        compose.runOnIdle { current.value = segment("shell_job_get",
+            """{"job_id":"retained-job","description":"Verify build output","output":"command output"}""",
+            args = """{"description":"Verify build output","job_id":"retained-job"}""") }
+        compose.onNodeWithText("description").assertExists()
+        compose.onNodeWithText("Verify build output").assertExists()
+        compose.onNodeWithText("job_id").assertExists()
+        compose.onNodeWithText("retained-job").assertExists()
         compose.runOnIdle { current.value = segment("file_read", "{\"path\":\"/file\",\"content\":\"file content\"}") }
         compose.onNodeWithText("file").assertExists()
         compose.onNodeWithText("file content").assertExists()
@@ -275,7 +323,7 @@ class ToolDetailPresentationTest {
 
     @Test @Config(qualifiers = "zh") fun composeFailureAndStopKeepLocalizedTerminalTextOnly() {
         val current = mutableStateOf(segment("mcp_test", "", ToolExecutionStates.FAILED))
-        compose.setContent { MaterialTheme { ToolDetailContent(current.value) { _, _ -> } } }
+        compose.setContent { MaterialTheme { Column { ToolDetailContent(current.value) { _, _ -> } } } }
         compose.onNodeWithText(resources.getString(R.string.tool_call_failed)).assertExists()
         compose.onNodeWithText("hidden result").assertDoesNotExist()
         compose.runOnIdle { current.value = segment("web_search", "{}", ToolExecutionStates.STOPPED) }

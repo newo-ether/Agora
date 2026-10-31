@@ -83,6 +83,24 @@ class PrivacySafeLoggingTest {
     }
 
     @Test
+    fun `phone releases remain visible in release and logging failure cannot escape`() {
+        mockkStatic(Log::class)
+        val lines = mutableListOf<String>()
+        every { Log.i("AgoraPhone", any()) } answers { lines.add(secondArg()); 0 }
+        val context = mockk<Context>()
+        every { context.applicationInfo } returns ApplicationInfo().apply { flags = 0 }
+        DebugLog.forceEnabled = false
+        DebugLog.init(context)
+
+        DebugLog.phoneRelease("permission_lost:root_denied", 7, 30_000, "root")
+        assertEquals(listOf("release reason=permission_lost:root_denied epoch=7 held_ms=30000 mode=root"), lines)
+        every { Log.i("AgoraPhone", any()) } throws IOException("TOP_SECRET_EXCEPTION")
+        DebugLog.phoneRelease("run_ended", 8, 1_000, "shizuku")
+        verify(exactly = 0) { Log.e(any(), any<String>()) }
+        verify(exactly = 0) { Log.w(any(), any<String>()) }
+    }
+
+    @Test
     fun `send stage logging failure does not escape or log its exception`() {
         mockkStatic(Log::class)
         every { Log.i("SendDiagnostics", any()) } throws IOException("TOP_SECRET_EXCEPTION")

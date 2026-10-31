@@ -1,9 +1,14 @@
 package com.newoether.agora.util
 
+import com.newoether.agora.data.local.MessageAttachmentReference
+import com.newoether.agora.data.repository.messageReclaimablePaths
+import com.newoether.agora.data.repository.reclaimablePaths
+import com.newoether.agora.data.repository.removedReclaimablePaths
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.AttachmentStorage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.SelectedAttachment
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -43,6 +48,67 @@ class AttachmentFoundationTest {
         } finally {
             AttachmentFiles.releaseLivePaths(first)
             AttachmentFiles.releaseLivePaths(second)
+        }
+    }
+
+    @Test
+    fun artifactOnlyFilesParticipateInLiveOwnershipAndAbandonedCleanup() {
+        val artifactFile = temporaryFolder.newFile("artifact-only.png")
+        val ignored = temporaryFolder.newFile("unavailable.png")
+        val artifact = ImageArtifact(artifactFile.path, "image/png", 1, 20, 30)
+        val attachment = SelectedAttachment(
+            uri = "content://source", type = "image", imageArtifacts = listOf(
+                artifact, artifact.copy(path = ignored.path, unavailable = true), artifact.copy(path = "", unavailable = true),
+            ),
+        )
+        val owner = Any()
+        try {
+            val paths = AttachmentFiles.ownedPaths(listOf(attachment))
+            assertEquals(setOf(artifactFile.path), paths)
+            AttachmentFiles.setLivePaths(owner, paths + "")
+            AttachmentFiles.retainLivePath(owner, "")
+            AttachmentFiles.deleteBacking(attachment)
+            assertTrue(artifactFile.exists())
+            assertEquals(setOf(artifactFile.canonicalPath), AttachmentFiles.releaseLivePaths(owner))
+            AttachmentFiles.deleteBacking(attachment)
+            assertFalse(artifactFile.exists())
+            assertTrue(ignored.exists())
+        } finally {
+            AttachmentFiles.releaseLivePaths(owner)
+        }
+    }
+
+    @Test
+    fun artifactReclamationRespectsReplacementAndRuntimeStorage() {
+        val file = temporaryFolder.newFile("artifact-debt.png")
+        val artifact = ImageArtifact(file.path, "image/png", 1, 20, 30)
+        val attachment = SelectedAttachment(uri = "", type = "image", imageArtifacts = listOf(artifact))
+        assertEquals(setOf(file.canonicalPath), listOf(attachment).reclaimablePaths())
+        assertTrue(listOf(attachment).removedReclaimablePaths(listOf(attachment.copy(localId = "other"))).isEmpty())
+        assertEquals(setOf(file.canonicalPath), listOf(attachment).removedReclaimablePaths(emptyList()))
+        val runtime = attachment.copy(storage = AttachmentStorage.LOCAL_SANDBOX_RUNTIME)
+        assertTrue(listOf(runtime).reclaimablePaths().isEmpty())
+        AttachmentFiles.deleteBacking(runtime)
+        assertTrue(file.exists())
+        val references = listOf(MessageAttachmentReference("message", listOf(""), Json.encodeToString(
+            AttachmentMeta(listOf(AttachmentItem(type = "image", imageArtifacts = listOf(artifact)))),
+        )))
+        assertEquals(setOf(file.canonicalPath), references.messageReclaimablePaths())
+    }
+
+    @Test
+    fun blankUnavailablePathsNeverRegisterTheWorkingDirectory() {
+        val owner = Any()
+        try {
+            AttachmentFiles.setLivePaths(owner, listOf("", " "))
+            AttachmentFiles.retainLivePath(owner, "")
+            AttachmentFiles.releaseLivePath(owner, "")
+            assertTrue(AttachmentFiles.releaseLivePaths(owner).isEmpty())
+            val blank = SelectedAttachment(uri = "", type = "image", localPath = "", processedFrames = listOf(""))
+            assertTrue(AttachmentFiles.ownedPaths(listOf(blank)).isEmpty())
+            assertTrue(listOf(blank).reclaimablePaths().isEmpty())
+        } finally {
+            AttachmentFiles.releaseLivePaths(owner)
         }
     }
 

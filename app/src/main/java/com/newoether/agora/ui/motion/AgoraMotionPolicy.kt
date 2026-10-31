@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 @Immutable
 data class AgoraMotionPolicy(
     val reduceMotion: Boolean,
+    val systemAnimationsDisabled: Boolean = false,
 ) {
     val allowContinuousMotion: Boolean
         get() = !reduceMotion
@@ -48,6 +49,7 @@ internal fun resolveAgoraMotionPolicy(
     systemAnimationsDisabled: Boolean,
 ): AgoraMotionPolicy = AgoraMotionPolicy(
     reduceMotion = appReduceMotion || systemAnimationsDisabled,
+    systemAnimationsDisabled = systemAnimationsDisabled,
 )
 
 @Composable

@@ -35,8 +35,12 @@ internal fun List<SelectedAttachment>.reclaimablePaths(): Set<String> =
                 attachment.preRenderedPaths.orEmpty().forEach {
                     yield(normalizeAttachmentPath(it))
                 }
+                attachment.imageArtifacts.filterNot { it.unavailable }.forEach {
+                    yield(normalizeAttachmentPath(it.path))
+                }
             }
         }
+        .filter(String::isNotBlank)
         .toSet()
 
 internal fun MessageEntity.toAttachmentReference() = MessageAttachmentReference(
@@ -79,11 +83,19 @@ internal fun attachmentFilePaths(
                     ?.let(::normalizeAttachmentPath)
             }
             .forEach(::add)
-    }
+        meta?.items.orEmpty().asSequence()
+            .filter { it.storage.reclaimWhenAbandoned }
+            .flatMap { it.imageArtifacts.asSequence() }
+            .filterNot { it.unavailable }
+            .map { normalizeAttachmentPath(it.path) }
+            .forEach(::add)
+    }.filter(String::isNotBlank)
 }
 
 internal fun normalizeAttachmentPath(path: String): String {
+    if (path.isBlank()) return ""
     val raw = path.removePrefix("file://")
+    if (raw.isBlank()) return ""
     return runCatching { java.io.File(raw).canonicalPath }
         .getOrElse { java.io.File(raw).absolutePath }
 }

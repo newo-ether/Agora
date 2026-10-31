@@ -36,6 +36,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 
 internal data class AuthorizedToolCall(
@@ -290,8 +291,8 @@ internal fun finalToolState(result: ToolExecutionResult, originalToolName: Strin
     }.getOrNull()
     val jobTool = toolName in setOf("shell_exec", "shell_job_get", "shell_job_wait", "shell_job_stop")
     val payload = if (jobTool) resultObject?.get("result") as? JsonObject ?: resultObject else resultObject
-    val errorCode = (payload?.get("error") as? JsonPrimitive)?.content
-        ?: (resultObject?.get("error") as? JsonPrimitive)?.content
+    val errorCode = (payload?.get("error") as? JsonPrimitive)?.contentOrNull
+        ?: (resultObject?.get("error") as? JsonPrimitive)?.contentOrNull
     if (errorCode == "no_results") return ToolExecutionStates.EMPTY
     val failedFlag = (payload?.get("failed") as? JsonPrimitive)?.content == "true" ||
         (resultObject?.get("failed") as? JsonPrimitive)?.content == "true"

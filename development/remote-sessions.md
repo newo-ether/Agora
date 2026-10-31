@@ -67,6 +67,10 @@ execution. Independent completion and writer release require actual qualificatio
 
 Remote transport, saved connections and transient presentation are independent of Room,
 LlmProvider, GenerationManager and ordinary conversation drafts. Codex is durable truth.
+Remote image loading preserves the received image bytes, encoding and dimensions. It does not
+invoke Agora's model-input image processor or apply Generation image-quality settings. Bounded
+viewport decoding remains a display operation only. This owner clarification on 2026-10-27 is
+also scoped in [image-processing.md](image-processing.md).
 Only the selected session owns Remote history/subscription. Changing selection, connection,
 visibility or read generation cancels old reads and rejects late results. In-flight writes
 stay bound to their original owner. No automatic POST retry or input replay is allowed.
@@ -400,6 +404,9 @@ retain their original JSON/plain display; this projection does not change the na
 Reuse MessageList, Markdown/glyph fade, ChatTopBar, composer/TextField, message menus,
 ChatScrollCoordinator, ChatLaunchInteractionEffects and bottom-scroll button directly.
 No invented Remote renderer, scroll algorithm, keyboard behavior or animation.
+Tool-call display follows the shared Timeline/Grouped policy in streaming-markdown.md. A retired
+`compact` value resolves to Grouped before rendering; Remote has no independent Compact display branch.
+The shared Grouped Thinking card and ordinary Context Compact features retain their existing owners.
 The bottom-scroll button must use ordinary ChatApp's canonical visibility owner, including its
 scroll-direction latch, not only the lower-level availability predicate. Each conversation starts
 with the button hidden. Preserve the existing 32dp directional-travel rule, readiness, near-bottom,
@@ -530,8 +537,11 @@ button, including while loading or using a read-only source. Thinking remains vi
 is independently disabled when its capability, model options or runtime admission is unavailable.
 Service Tier is hidden when the selected source does not advertise `serviceTier` settings,
 including both Claude sources. An advertised tier row stays visible but disabled while its
-model options or current session grant are unavailable. Without a model capability the selector
-shows a disabled Model Unavailable entry. The composer shows no read-only or snapshot notice line.
+model options or current session grant are unavailable. The model-selector trigger is disabled
+when model switching is unsupported, its catalog or conversation is loading, no usable model
+options are available, or its label is Model Unavailable. Preserve a known native model label
+without granting a menu. Revoking admission also closes an already-open model menu.
+The composer shows no read-only or snapshot notice line.
 The same capability fence applies to an already-open sheet if capabilities change.
 Remote Thinking and Service Tier use plain rows in the original details dropdown. Those rows
 open the original bottom sheets and slider panels; neither the dropdown nor panel exposes a
@@ -556,6 +566,11 @@ confirmed native value, settles the original panel feedback gate, and reports th
 Snackbar. A stale failure cannot roll back a newer choice or affect a different selected owner.
 For Claude Mod, releasing the native settings submission barrier permits the next Send while
 request confirmation remains pending, because that next turn supplies the required evidence.
+The Thinking panel retains the accepted pending choice for its exact granted access binding;
+this presentation never replaces the actual runtime effort. Confirmed or failed request evidence
+settles the choice back to actual native values. An exact Claude effort-only grant remains usable
+when fresh registration or native resume leaves runtime status unknown; it neither fabricates
+an idle state nor grants model changes, Stop or control on another source.
 The composer never renders native settings pending/confirmed/failed labels, request receipts,
 raw mismatch values, or other diagnostic markers. Confirmation remains internal; setting failures
 use the existing Snackbar. Other sources keep Send behind outstanding native application.

@@ -1,13 +1,26 @@
 package com.newoether.agora.api.util
 
+import android.graphics.BitmapFactory
+import com.newoether.agora.api.HttpClient
+import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.ImageArtifact
+import com.newoether.agora.util.AttachmentFiles
+import com.newoether.agora.util.ImageArtifactProcessor
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody
 import okio.BufferedSink
 import java.io.File
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.io.OutputStream
-import java.security.MessageDigest
+import java.net.URI
 import java.util.Base64
 import java.util.UUID
 
@@ -18,182 +31,228 @@ internal data class StreamingJsonRequest(
     val diagnosticJson: String,
 )
 
-/**
- * Projects image files into JSON as opaque placeholders. The final request body replaces each
- * placeholder with base64 while OkHttp writes the request, so image bytes never become a String
- * or a whole-request byte array. The body reopens each immutable attachment on every write and is
- * therefore replayable for endpoint fallback and transport retries.
- */
-internal class Base64FileRegistry {
-    private data class FilePart(
-        val placeholder: String,
-        val file: File,
-        val byteCount: Long,
-        val lastModified: Long,
-        val sha256: ByteArray,
-    ) {
-        val diagnosticMarker: String
-            get() = "[STREAMED_BASE64:${byteCount}_BYTES]"
-
-        fun metadataMatches(): Boolean =
-            file.isFile && file.length() == byteCount && file.lastModified() == lastModified
+/** Occurrences retain their own availability even when several refer to the same path. */
+internal fun ChatMessage.imageArtifactsForSend(): List<ImageArtifact> =
+    images.zip(imageArtifactOccurrences()).mapNotNull { (reference, artifact) ->
+        artifact?.takeIf { reference.isNotBlank() && !it.unavailable }
     }
 
-    private val files = mutableListOf<FilePart>()
+internal fun readableImageArtifactFile(artifact: ImageArtifact): File? {
+    val file = imageArtifactFile(artifact) ?: return null
+    return file.takeIf { readImageSnapshot(it) != null }
+}
 
-    fun register(path: String): String? {
-        val part = runCatching {
-            val file = File(path).canonicalFile
-            if (!file.isFile) return@runCatching null
-            val byteCount = file.length()
-            val lastModified = file.lastModified()
-            val sha256 = calculateSha256(file)
-            if (!file.isFile || file.length() != byteCount || file.lastModified() != lastModified) {
-                return@runCatching null
+private fun imageArtifactFile(artifact: ImageArtifact): File? {
+    if (artifact.unavailable || artifact.path.isBlank()) return null
+    return try {
+        val source = if (artifact.path.startsWith("file:", ignoreCase = true)) {
+            File(URI(artifact.path))
+        } else {
+            File(artifact.path)
+        }
+        if (source.isAbsolute) source.canonicalFile.takeIf { it.isFile && it.canRead() } else null
+    } catch (_: IOException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
+    } catch (_: SecurityException) {
+        null
+    }
+}
+
+private data class ImageSnapshot(val bytes: ByteArray, val mimeType: String)
+
+/** A single bounded original-byte snapshot is decoded before any of its JSON is written. */
+private fun readImageSnapshot(file: File): ImageSnapshot? = try {
+    checkImageReadCancellation()
+    val length = file.length()
+    if (!file.isFile || !file.canRead() || length !in 1..AttachmentFiles.MAX_ATTACHMENT_BYTES) {
+        null
+    } else {
+        val bytes = ByteArray(length.toInt())
+        val complete = file.inputStream().use { input ->
+            var offset = 0
+            while (offset < bytes.size) {
+                checkImageReadCancellation()
+                val count = input.read(bytes, offset, minOf(DEFAULT_BUFFER_SIZE, bytes.size - offset))
+                if (count < 0) return@use false
+                offset += count
             }
-            FilePart(
-                placeholder = "__AGORA_BASE64_${UUID.randomUUID()}__",
-                file = file,
-                byteCount = byteCount,
-                lastModified = lastModified,
-                sha256 = sha256,
-            )
-        }.getOrNull() ?: return null
-        files += part
-        return part.placeholder
+            input.read() < 0
+        }
+        if (!complete) null else {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            val mime = bounds.outMimeType?.takeIf { it.startsWith("image/") }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0 || mime == null) null else {
+                val options = BitmapFactory.Options().apply {
+                    inSampleSize = ImageArtifactProcessor.sampleSizeForBounds(
+                        bounds.outWidth, bounds.outHeight, ImageArtifactProcessor.DEFAULT_LONG_EDGE,
+                    )
+                }
+                val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                if (decoded == null) null else {
+                    decoded.recycle()
+                    checkImageReadCancellation()
+                    ImageSnapshot(bytes, mime)
+                }
+            }
+        }
+    }
+} catch (error: CancellationException) {
+    throw error
+} catch (error: InterruptedIOException) {
+    throw error
+} catch (_: IOException) {
+    null
+} catch (_: IllegalArgumentException) {
+    null
+} catch (_: SecurityException) {
+    null
+}
+
+private fun checkImageReadCancellation() {
+    if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Image read interrupted")
+    if (HttpClient.isRequestCancelled()) throw CancellationException("Image read cancelled")
+}
+
+/** Keeps only paths and opaque placeholders between writes; each write buffers one image at a time. */
+internal class Base64FileRegistry {
+    data class RegisteredImage(val placeholder: String, val mimeType: String)
+
+    private data class FilePart(
+        val image: RegisteredImage,
+        val file: File,
+        val byteCount: Int,
+    )
+
+    private val lock = Any()
+    private val files = mutableListOf<FilePart>()
+    private var sealed = false
+
+    fun register(artifact: ImageArtifact): RegisteredImage? {
+        synchronized(lock) { check(!sealed) { "Image registry is already prepared" } }
+        val file = imageArtifactFile(artifact) ?: return null
+        val snapshot = readImageSnapshot(file) ?: return null
+        val image = RegisteredImage("__AGORA_BASE64_${UUID.randomUUID()}__", snapshot.mimeType)
+        synchronized(lock) {
+            check(!sealed) { "Image registry is already prepared" }
+            files += FilePart(image, file, snapshot.bytes.size)
+        }
+        return image
     }
 
     fun prepare(templateJson: String): StreamingJsonRequest? {
-        if (files.isEmpty()) return null
-        val positionedFiles = files.map { part ->
-            val position = templateJson.indexOf(part.placeholder)
+        val snapshot = synchronized(lock) {
+            sealed = true
+            files.toList()
+        }
+        if (snapshot.isEmpty()) return null
+        var diagnosticJson = templateJson
+        snapshot.forEach { part ->
+            val placeholder = part.image.placeholder
+            val position = templateJson.indexOf(placeholder)
             require(position >= 0) { "Base64 placeholder is missing from serialized request" }
-            require(templateJson.indexOf(part.placeholder, position + part.placeholder.length) < 0) {
+            require(templateJson.indexOf(placeholder, position + placeholder.length) < 0) {
                 "Base64 placeholder occurs more than once in serialized request"
             }
-            position to part
-        }.sortedBy { it.first }
-
-        val segments = ArrayList<ByteArray>(positionedFiles.size + 1)
-        val orderedFiles = ArrayList<FilePart>(positionedFiles.size)
-        val diagnosticJson = StringBuilder(templateJson.length)
-        var cursor = 0
-        for ((position, part) in positionedFiles) {
-            require(position >= cursor) { "Base64 placeholders overlap" }
-            val segment = templateJson.substring(cursor, position)
-            segments += segment.toByteArray(Charsets.UTF_8)
-            orderedFiles += part
-            diagnosticJson.append(segment).append(part.diagnosticMarker)
-            cursor = position + part.placeholder.length
+            diagnosticJson = diagnosticJson.replace(placeholder, "[STREAMED_BASE64:${part.byteCount}_BYTES]")
         }
-        val finalSegment = templateJson.substring(cursor)
-        segments += finalSegment.toByteArray(Charsets.UTF_8)
-        diagnosticJson.append(finalSegment)
-
         return StreamingJsonRequest(
-            body = ReplayableJsonRequestBody(segments, orderedFiles),
-            diagnosticJson = diagnosticJson.toString(),
+            body = ReplayableJsonRequestBody(Json.parseToJsonElement(templateJson), snapshot),
+            diagnosticJson = diagnosticJson,
         )
     }
 
     private class ReplayableJsonRequestBody(
-        private val segments: List<ByteArray>,
-        private val files: List<FilePart>,
+        private val template: JsonElement,
+        files: List<FilePart>,
     ) : RequestBody() {
-        private val encodedContentLength = calculateContentLength(segments, files)
+        private val filesByPlaceholder = files.associateBy { it.image.placeholder }
 
         override fun contentType(): MediaType = JSON_MEDIA_TYPE
 
-        override fun contentLength(): Long = encodedContentLength
+        // Filtering and file sizes may change between prepare and an OkHttp replay.
+        override fun contentLength(): Long = -1L
 
-        override fun writeTo(sink: BufferedSink) {
-            files.forEachIndexed { index, part ->
-                if (!part.metadataMatches()) {
-                    throw IOException("Image attachment changed before request upload")
-                }
-                sink.write(segments[index])
-                val digest = MessageDigest.getInstance("SHA-256")
-                val base64Output = Base64.getEncoder().wrap(
-                    NonClosingOutputStream(sink.outputStream()),
-                )
-                var completed = false
-                try {
-                    part.file.inputStream().use { input ->
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                        var remaining = part.byteCount
-                        while (remaining > 0L) {
-                            val read = input.read(
-                                buffer,
-                                0,
-                                minOf(buffer.size.toLong(), remaining).toInt(),
-                            )
-                            if (read < 0) {
-                                throw IOException("Image attachment changed during request upload")
-                            }
-                            digest.update(buffer, 0, read)
-                            base64Output.write(buffer, 0, read)
-                            remaining -= read
-                        }
-                        if (input.read() >= 0) {
-                            throw IOException("Image attachment changed during request upload")
-                        }
+        override fun writeTo(sink: BufferedSink) = writeJson(template, sink)
+
+        private fun writeJson(element: JsonElement, sink: BufferedSink, field: String? = null) {
+            when (element) {
+                is JsonObject -> {
+                    sink.writeByte('{'.code)
+                    element.entries.forEachIndexed { index, (key, value) ->
+                        if (index > 0) sink.writeByte(','.code)
+                        sink.writeUtf8(JsonPrimitive(key).toString()).writeByte(':'.code)
+                        writeJson(value, sink, key)
                     }
-                    if (!part.metadataMatches() || !digest.digest().contentEquals(part.sha256)) {
-                        throw IOException("Image attachment changed during request upload")
-                    }
-                    completed = true
-                } finally {
-                    if (completed) base64Output.close()
+                    sink.writeByte('}'.code)
                 }
+                is JsonArray -> writeArray(element, sink, field)
+                else -> sink.writeUtf8(element.toString())
             }
-            sink.write(segments.last())
+        }
+
+        private fun writeArray(array: JsonArray, sink: BufferedSink, field: String?) {
+            sink.writeByte('['.code)
+            var written = 0
+            for (element in array) {
+                val part = imagePart(element)
+                val image = if (part != null) readImageSnapshot(part.file) ?: continue else null
+                if (written++ > 0) sink.writeByte(','.code)
+                if (part != null && image != null) writeImage(element, part, image, sink)
+                else writeJson(element, sink)
+            }
+            if (written == 0 && array.isNotEmpty() && field in setOf("content", "parts")) {
+                val type = (array.firstOrNull() as? JsonObject)?.get("type") as? JsonPrimitive
+                val fallback = when {
+                    field == "parts" -> "{\"text\":\"Continue\"}"
+                    type?.content == "input_image" -> "{\"type\":\"input_text\",\"text\":\"Continue\"}"
+                    else -> "{\"type\":\"text\",\"text\":\"Continue\"}"
+                }
+                sink.writeUtf8(fallback)
+            }
+            sink.writeByte(']'.code)
+        }
+
+        private fun imagePart(element: JsonElement): FilePart? {
+            val isImage = when (element) {
+                is JsonPrimitive -> element.isString && element.content in filesByPlaceholder
+                is JsonObject -> (element["type"] as? JsonPrimitive)?.content in
+                    setOf("image_url", "input_image", "image") || element["inlineData"] != null
+                else -> false
+            }
+            if (!isImage) return null
+            return findPlaceholder(element)?.let(filesByPlaceholder::get)
+        }
+
+        private fun findPlaceholder(element: JsonElement): String? = when (element) {
+            is JsonPrimitive -> if (element.isString) {
+                element.content.substringAfter(";base64,", element.content).takeIf { it in filesByPlaceholder }
+            } else null
+            is JsonObject -> element.values.firstNotNullOfOrNull(::findPlaceholder)
+            is JsonArray -> element.firstNotNullOfOrNull(::findPlaceholder)
+            else -> null
+        }
+
+        private fun writeImage(element: JsonElement, part: FilePart, image: ImageSnapshot, sink: BufferedSink) {
+            val json = element.toString()
+                .replace(JsonPrimitive(part.image.mimeType).toString(), JsonPrimitive(image.mimeType).toString())
+                .replace("data:${part.image.mimeType};base64,", "data:${image.mimeType};base64,")
+            val position = json.indexOf(part.image.placeholder)
+            check(position >= 0)
+            sink.writeUtf8(json.substring(0, position))
+            Base64.getEncoder().wrap(NonClosingOutputStream(sink.outputStream())).use { output ->
+                output.write(image.bytes)
+            }
+            sink.writeUtf8(json.substring(position + part.image.placeholder.length))
         }
     }
 
-    private class NonClosingOutputStream(
-        private val delegate: OutputStream,
-    ) : OutputStream() {
+    private class NonClosingOutputStream(private val delegate: OutputStream) : OutputStream() {
         override fun write(value: Int) = delegate.write(value)
-
-        override fun write(buffer: ByteArray, offset: Int, length: Int) =
-            delegate.write(buffer, offset, length)
-
+        override fun write(buffer: ByteArray, offset: Int, length: Int) = delegate.write(buffer, offset, length)
         override fun flush() = delegate.flush()
-
         override fun close() = Unit
-    }
-
-    private companion object {
-        fun calculateSha256(file: File): ByteArray {
-            val digest = MessageDigest.getInstance("SHA-256")
-            file.inputStream().use { input ->
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read < 0) break
-                    digest.update(buffer, 0, read)
-                }
-            }
-            return digest.digest()
-        }
-
-        fun calculateContentLength(
-            segments: List<ByteArray>,
-            files: List<FilePart>,
-        ): Long {
-            var total = 0L
-            segments.forEach { segment -> total = Math.addExact(total, segment.size.toLong()) }
-            files.forEach { part ->
-                require(part.byteCount >= 0L) { "Image attachment length is invalid" }
-                val completeGroups = part.byteCount / 3L
-                val remainderLength = if (part.byteCount % 3L == 0L) 0L else 4L
-                val encodedLength = Math.addExact(
-                    Math.multiplyExact(completeGroups, 4L),
-                    remainderLength,
-                )
-                total = Math.addExact(total, encodedLength)
-            }
-            return total
-        }
     }
 }

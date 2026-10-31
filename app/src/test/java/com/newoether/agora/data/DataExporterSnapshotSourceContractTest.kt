@@ -17,20 +17,20 @@ class DataExporterSnapshotSourceContractTest {
             "private suspend fun captureConversationSnapshot(",
             "private suspend fun writeConversationArchive(",
         )
-        val transaction = reader.indexOf(
-            "connection.withTransaction(Transactor.SQLiteTransactionType.DEFERRED)",
-        )
+        val snapshot = sourceFile("app/src/main/java/com/newoether/agora/data/ChatDatabaseReadSnapshot.kt")
+        val transaction = reader.indexOf("withChatDatabaseReadSnapshot(context, background = true)")
         val conversations = reader.indexOf("snapshotDao.getAllConversationsList()")
         val runs = reader.indexOf("snapshotDao.getRunsForConversationSnapshot(conversation.id)")
         val messages = reader.indexOf("snapshotDao.getConversationMessagesPage(")
         val loops = reader.indexOf("snapshotDao.getLoopsForConversationSnapshot(conversation.id)")
         val tasks = reader.indexOf("snapshotDao.getAllTasksList()")
         assertTrue(transaction >= 0)
-        assertTrue(reader.contains("queryExecutor = snapshotExecutor"))
-        assertTrue(reader.contains("transactionExecutor = snapshotExecutor"))
-        assertTrue(reader.contains("snapshotDatabase.useReaderConnection"))
-        assertTrue(reader.contains("finally {\n            snapshotDatabase.close()"))
-        assertTrue(reader.contains("snapshotExecutor.shutdown()"))
+        assertTrue(snapshot.contains("queryExecutor = executor"))
+        assertTrue(snapshot.contains("transactionExecutor = executor"))
+        assertTrue(snapshot.contains("reader.useReaderConnection"))
+        assertTrue(snapshot.contains("connection.withTransaction(Transactor.SQLiteTransactionType.DEFERRED)"))
+        assertTrue(snapshot.contains("database?.close()"))
+        assertTrue(snapshot.contains("executor.shutdown()"))
         assertTrue(conversations > transaction)
         assertTrue(runs > conversations)
         assertTrue(messages > runs)

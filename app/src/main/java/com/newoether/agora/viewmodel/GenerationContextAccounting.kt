@@ -57,7 +57,7 @@ internal class GenerationContextAccounting(
             googleSearchEnabled = config.googleSearchEnabled,
             openAiWebSearchEnabled = config.openAiWebSearchEnabled,
             tools = tools,
-            includeImages = !context.imageTranscriptionEnabled,
+            includeImages = true,
             includeAssistantReasoning = includesAssistantReasoning(config, context),
             requestResolver = resolver,
         )

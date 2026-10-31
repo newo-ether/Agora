@@ -1,27 +1,62 @@
 package com.newoether.agora.data
 
+import android.app.Application
 import android.content.Context
+import android.graphics.Bitmap
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.automation.LoopPolicy
 import com.newoether.agora.data.DataImporter.ImportStrategy
 import com.newoether.agora.data.local.ChatDao
 import com.newoether.agora.data.local.ChatDatabase
+import com.newoether.agora.data.local.semanticModelSnapshot
+import com.newoether.agora.data.repository.ConversationRepository
+import com.newoether.agora.model.AttachmentImportState
+import com.newoether.agora.model.AttachmentItem
+import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.ImageArtifact
+import com.newoether.agora.model.MessageSegment
+import com.newoether.agora.model.SelectedAttachment
+import com.newoether.agora.util.ImageArtifactProcessor
+import com.newoether.agora.viewmodel.AttachmentImportProcessor
+import com.newoether.agora.viewmodel.ComposerDraftController
+import com.newoether.agora.viewmodel.hasCanonicalReadyArtifact
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import java.io.ByteArrayInputStream
+import java.io.File
 import java.io.InputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
+import kotlin.coroutines.intrinsics.suspendCoroutineUninterceptedOrReturn
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.junit.runners.model.FrameworkMethod
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.internal.bytecode.InstrumentationConfiguration
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
-@RunWith(RobolectricTestRunner::class)
+/** Keep archive APIs on the declared test runtime, outside Robolectric's sandbox lookup. */
+class NativeConversationGraphImportTestRunner(testClass: Class<*>) : RobolectricTestRunner(testClass) {
+    override fun createClassLoaderConfig(method: FrameworkMethod): InstrumentationConfiguration =
+        InstrumentationConfiguration.Builder(super.createClassLoaderConfig(method))
+            .doNotAcquirePackage("org.apache.commons.compress.")
+            .build()
+}
+
+@RunWith(NativeConversationGraphImportTestRunner::class)
 class NativeConversationGraphImportContractTest {
     @get:Rule
     val tempFolder = TemporaryFolder()
@@ -255,6 +290,341 @@ class NativeConversationGraphImportContractTest {
         assertEquals(setOf("c1", "c2"), headers.availableConversationIds)
         coVerify(exactly = 0) { chatDao.getAllConversationIds() }
         coVerify(exactly = 0) { chatDao.getAllTaskIds() }
+    }
+
+    @Test
+    fun restoreKeepsRawBytesAndCoherentPrivateMessageMetadataToolAndDraftPaths() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val imageEntry = "media/images/recorded.png"
+        val draftEntry = "media/drafts/source.pdf"
+        val imageBytes = byteArrayOf(-119, 80, 78, 71, 0, 12, 34, -1)
+        val draftBytes = "raw document bytes".encodeToByteArray()
+        val media = restoreArchive(mapOf(imageEntry to imageBytes, draftEntry to draftBytes))
+        val recorded = ImageArtifact(imageEntry, "image/png", imageBytes.size.toLong(), 321, 987, 1)
+        val missing = recorded.copy(path = "media/images/missing.png", width = 77, height = 88)
+        val metadata = AttachmentMeta(listOf(AttachmentItem(
+            type = "pdf", imageIndex = 0, pageCount = 4, imageArtifacts = listOf(recorded, missing, recorded, recorded),
+        )))
+        val tool = MessageSegment(type = "tool", toolCallId = "call", signature = "opaque",
+            toolImages = listOf(recorded, missing, missing))
+        val draft = SelectedAttachment(
+            uri = draftEntry, localPath = draftEntry, type = "pdf", pageCount = 4, selectedPages = setOf(1, 3),
+            preRenderedPaths = listOf(imageEntry, missing.path, imageEntry, ""),
+            imageArtifacts = listOf(recorded, missing, recorded, recorded),
+        )
+        val payload = NativeConversationPayload(
+            conversations = listOf(NativeExportChatEntity("media-conversation", "Media", 1L,
+                draftAttachments = importJson.encodeToString(listOf(draft)))),
+            runs = listOf(NativeExportRunEntity("media-run", "media-conversation", startedAt = 1L,
+                lastCheckpointAt = 2L, endedAt = 2L)),
+            messages = listOf(NativeExportMessageEntity(
+                id = "media-message", conversationId = "media-conversation", text = "image", participant = "USER",
+                images = listOf(imageEntry, missing.path, imageEntry, ""), timestamp = 1L, runId = "media-run", runSequence = 0L,
+                attachmentMeta = importJson.encodeToString(metadata), toolCallJson = importJson.encodeToString(listOf(tool)),
+            )), loops = emptyList(),
+        )
+        val database = Room.inMemoryDatabaseBuilder(context, ChatDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            importMediaPayload(database, payload, media, 4)
+            val row = checkNotNull(database.chatDao().getMessage("media-message"))
+            val path = media.archiveFiles.getValue(imageEntry).absolutePath
+            assertTrue(File(path).isAbsolute)
+            assertTrue(File(path).canonicalPath.startsWith(context.filesDir.canonicalPath + File.separator))
+            assertEquals(listOf(path, "", path, ""), row.images)
+            assertArrayEquals(imageBytes, File(path).readBytes())
+            val restoredMeta = importJson.decodeFromString<AttachmentMeta>(row.attachmentMeta!!)
+            val expectedArtifacts = listOf(recorded.copy(path = path), missing.asUnavailablePlaceholder(),
+                recorded.copy(path = path), recorded.asUnavailablePlaceholder())
+            assertEquals(expectedArtifacts, restoredMeta.items.single().imageArtifacts)
+            assertEquals(0, restoredMeta.items.single().imageIndex)
+            assertEquals(4, restoredMeta.items.single().pageCount)
+            assertTrue(restoredMeta.items.single().unavailable)
+            val restoredTool = importJson.decodeFromString<List<MessageSegment>>(row.toolCallJson!!).single()
+            assertEquals(tool.copy(toolImages = listOf(recorded.copy(path = path),
+                missing.asUnavailablePlaceholder(), missing.asUnavailablePlaceholder())), restoredTool)
+            assertFalse(row.toolCallJson!!.contains("/old-device/"))
+            val restoredDraft = importJson.decodeFromString<List<SelectedAttachment>>(
+                database.chatDao().getConversation("media-conversation")!!.draftAttachments!!,
+            ).single()
+            assertEquals(listOf(path, "", path, ""), restoredDraft.preRenderedPaths)
+            assertEquals(setOf(1, 3), restoredDraft.selectedPages)
+            assertEquals(expectedArtifacts, restoredDraft.imageArtifacts)
+            assertTrue(restoredDraft.unavailable)
+            assertArrayEquals(draftBytes, File(restoredDraft.localPath!!).readBytes())
+        } finally {
+            database.close()
+            media.createdFiles.forEach { it.delete() }
+        }
+    }
+
+    @Test
+    fun legacyRestoreSortsNumericSlotsAndStoresAbsoluteImagePathsWithoutChangingBytes() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val media = restoreArchive(linkedMapOf(
+            "images/legacy-message/10" to byteArrayOf(10, 11),
+            "images/legacy-message/2" to byteArrayOf(2, 3),
+        ))
+        val payload = NativeConversationPayload(
+            listOf(NativeExportChatEntity("legacy-conversation", "Legacy", 1L)), emptyList(),
+            listOf(NativeExportMessageEntity("legacy-message", "legacy-conversation", text = "legacy",
+                participant = "USER", timestamp = 1L)), emptyList(),
+        )
+        val database = Room.inMemoryDatabaseBuilder(context, ChatDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            importMediaPayload(database, payload, media, 3)
+            val row = checkNotNull(database.chatDao().getMessage("legacy-message"))
+            val expected = media.legacyImagesByMessage.getValue("legacy-message").toSortedMap().values.toList()
+            assertEquals(expected, row.images)
+            assertTrue(row.images.all { File(it).isAbsolute && !it.startsWith("file:") && !it.startsWith("content:") })
+            assertArrayEquals(byteArrayOf(2, 3), File(row.images[0]).readBytes())
+            assertArrayEquals(byteArrayOf(10, 11), File(row.images[1]).readBytes())
+            val items = importJson.decodeFromString<AttachmentMeta>(row.attachmentMeta!!).items
+            assertEquals(listOf(0, 1), items.map { it.imageIndex })
+            assertEquals(expected, items.flatMap { it.imageArtifacts }.map { it.path })
+            assertTrue(items.none { it.unavailable })
+        } finally {
+            database.close()
+            media.createdFiles.forEach { it.delete() }
+        }
+    }
+
+    @Test
+    fun exporterZipRoundTripPreservesMissingAndRepeatedImageOccurrences() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val source = tempFolder.newFile("source.png").also { it.writeBytes(byteArrayOf(1, 4, 9, -1)) }
+        val document = tempFolder.newFile("source.pdf").also { it.writeBytes("original PDF".encodeToByteArray()) }
+        val missing = File(tempFolder.root, "missing.png").absolutePath
+        val sources = listOf(source.absolutePath, missing, source.absolutePath, "")
+        val artifacts = sources.mapIndexed { index, path ->
+            ImageArtifact(path, "image/png", 4, 100 + index, 200 + index, 1)
+        }
+        val meta = AttachmentMeta(listOf(AttachmentItem(type = "pdf", imageIndex = 0,
+            pageCount = 4, imageArtifacts = artifacts)))
+        val draft = SelectedAttachment(uri = document.absolutePath, localPath = document.absolutePath, type = "pdf",
+            pageCount = 4, selectedPages = setOf(1, 3), preRenderedPaths = sources, imageArtifacts = artifacts)
+        val tool = MessageSegment(type = "tool", toolCallId = "export-call",
+            toolImages = listOf(artifacts[0], artifacts[1], artifacts[1]))
+        val conversation = NativeExportChatEntity("export-conversation", "Export", 1L,
+            draftAttachments = importJson.encodeToString(listOf(draft)))
+        val run = NativeExportRunEntity("export-run", conversation.id, startedAt = 1L, lastCheckpointAt = 2L, endedAt = 2L)
+        val message = NativeExportMessageEntity("export-message", conversation.id, text = "pages", images = sources,
+            participant = "USER", timestamp = 1L, runId = run.id, runSequence = 0L,
+            attachmentMeta = importJson.encodeToString(meta), toolCallJson = importJson.encodeToString(listOf(tool)))
+        val spoolFile = tempFolder.newFile("export.jsonl")
+        val index = ExportSpoolWriter(spoolFile).use { writer ->
+            writer.writeConversation(conversation.id, 0L, importJson.encodeToString(conversation))
+            writer.writeRun(Json { encodeDefaults = true }.encodeToString(run))
+            writer.writeMessage(importJson.encodeToString(message))
+            writer.finish()
+        }
+        val archiveFile = tempFolder.newFile("export.zip")
+        val exporter = DataExporter(context, mockk(), mockk(), mockk())
+        val result = ZipArchiveOutputStream(archiveFile.outputStream()).use { zip ->
+            writeExportSpool(exporter, zip, spoolFile, index)
+        }
+        assertEquals(3, result.imagesExported)
+        assertEquals(5, result.missingResourceCount)
+        val database = Room.inMemoryDatabaseBuilder(context, ChatDatabase::class.java).allowMainThreadQueries().build()
+        var media: NativeConversationMediaRestorer.RestoredMedia? = null
+        try {
+            NativeBackupArchive.open(archiveFile).use { archive ->
+                val payload = archive.stream(NativeBackupFormat.conversationEntry(conversation.id))!!.use {
+                    importJson.decodeFromString<NativeConversationPayload>(it.readBytes().decodeToString())
+                }
+                val archivedMessage = payload.messages.single()
+                assertEquals(4, archivedMessage.images.size)
+                assertEquals("", archivedMessage.images[1])
+                assertEquals("", archivedMessage.images[3])
+                assertEquals(archivedMessage.images[0], archivedMessage.images[2])
+                val archivedMeta = importJson.decodeFromString<AttachmentMeta>(archivedMessage.attachmentMeta!!).items.single()
+                assertEquals(4, archivedMeta.pageCount)
+                assertEquals(archivedMessage.images, archivedMeta.imageArtifacts.map { it.path })
+                assertTrue(archivedMeta.unavailable)
+                assertEquals(artifacts[1].asUnavailablePlaceholder(), archivedMeta.imageArtifacts[1])
+                assertFalse(importJson.encodeToString(payload).contains(tempFolder.root.absolutePath.replace("\\", "\\\\")))
+                val restoredMedia = NativeConversationMediaRestorer(context, importJson).restoreConversationMedia(archive)
+                media = restoredMedia
+                val graphImporter = NativeConversationGraphImporter(database, database.chatDao(), importJson,
+                    NativeConversationMediaRestorer(context, importJson), scheduleMaintenance = {})
+                NativeConversationGraphSource.open(archive, 6, tempFolder.root).use { graph ->
+                    val headers = graph.open().use {
+                        graphImporter.readConversationGraphHeaders(it, ImportStrategy.REPLACE, restoredMedia) { id -> id }
+                    }
+                    graphImporter.importConversationGraph(graph, ImportStrategy.REPLACE, headers, restoredMedia, 6,
+                        semanticModelSnapshot("", emptyList()))
+                }
+                val row = checkNotNull(database.chatDao().getMessage(message.id))
+                assertEquals(4, row.images.size)
+                assertEquals(listOf(row.images[0], "", row.images[0], ""), row.images)
+                assertTrue(File(row.images[0]).isAbsolute)
+                assertArrayEquals(source.readBytes(), File(row.images[0]).readBytes())
+                val restoredMeta = importJson.decodeFromString<AttachmentMeta>(row.attachmentMeta!!).items.single()
+                assertEquals(row.images, restoredMeta.imageArtifacts.map { it.path })
+                assertEquals(artifacts.map { it.width }, restoredMeta.imageArtifacts.map { it.width })
+                assertTrue(restoredMeta.unavailable)
+                val restoredDraft = importJson.decodeFromString<List<SelectedAttachment>>(
+                    database.chatDao().getConversation(conversation.id)!!.draftAttachments!!).single()
+                assertEquals(setOf(1, 3), restoredDraft.selectedPages)
+                assertEquals(listOf(restoredDraft.preRenderedPaths!![0], "", restoredDraft.preRenderedPaths!![0], ""),
+                    restoredDraft.preRenderedPaths)
+                assertTrue(restoredDraft.unavailable)
+                assertArrayEquals(document.readBytes(), File(restoredDraft.localPath!!).readBytes())
+                val restoredTool = importJson.decodeFromString<List<MessageSegment>>(row.toolCallJson!!).single()
+                assertEquals(listOf(row.images[0], "", ""), restoredTool.toolImages.map { it.path })
+            }
+        } finally {
+            database.close()
+            media?.createdFiles?.forEach { it.delete() }
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], application = Application::class)
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun selectedLegacyDraftLoadMeasuresRestoredImagePagesAndFramesWithoutReencoding() = runTest {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val landscape = tempFolder.newFile("legacy-landscape.png")
+        val portrait = tempFolder.newFile("legacy-portrait.png")
+        writeBitmap(landscape, 93, 41)
+        writeBitmap(portrait, 41, 137)
+        val imageEntry = "media/drafts/legacy.png"
+        val pageEntry = "media/drafts/page.png"
+        val pdfEntry = "media/drafts/legacy.pdf"
+        val videoEntry = "media/drafts/legacy.mp4"
+        val entries = linkedMapOf(
+            imageEntry to landscape.readBytes(), pageEntry to portrait.readBytes(),
+            pdfEntry to "completed document bytes".encodeToByteArray(),
+            videoEntry to "completed video bytes".encodeToByteArray(),
+        )
+        val media = restoreArchive(entries)
+        val originals = listOf(
+            SelectedAttachment(localId = "image", uri = imageEntry, localPath = imageEntry, type = "image"),
+            SelectedAttachment(
+                localId = "pdf", uri = pdfEntry, localPath = pdfEntry, type = "pdf", pageCount = 8,
+                selectedPages = setOf(1, 6), preRenderedPaths = listOf(pageEntry, imageEntry),
+            ),
+            SelectedAttachment(
+                localId = "video", uri = videoEntry, localPath = videoEntry, type = "video", frameCount = 2,
+                sliceIntervalMs = 500L, processedFrames = listOf(imageEntry, pageEntry),
+            ),
+        )
+        val payload = NativeConversationPayload(
+            listOf(NativeExportChatEntity("legacy-draft", "Legacy", 1L,
+                draftText = "continue", draftAttachments = importJson.encodeToString(originals))),
+            emptyList(), emptyList(), emptyList(),
+        )
+        val database = Room.inMemoryDatabaseBuilder(app, ChatDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            importMediaPayload(database, payload, media, 4)
+            val restored = checkNotNull(database.chatDao().getConversation("legacy-draft"))
+            val legacy = importJson.decodeFromString<List<SelectedAttachment>>(restored.draftAttachments!!)
+            assertTrue(legacy.all { !it.unavailable && it.imageArtifacts.isNotEmpty() })
+            assertTrue(legacy.flatMap { it.imageArtifacts }.all { it.sizeBytes == 0L })
+            val beforeFiles = app.filesDir.walkTopDown().filter(File::isFile).map(File::getAbsolutePath).toSet()
+            val processor = AttachmentImportProcessor(
+                app = app,
+                normalizeImage = { _, _ -> error("READY image must not be normalized") },
+                extractVideoFrames = { _, _, _ -> error("READY frames must not be extracted") },
+                renderPdf = { _, _, _ -> error("READY pages must not be rendered") },
+                renderAllPdfPages = { _, _, _, _ -> error("READY pages must not be rendered") },
+            )
+            for (encodeDefaults in listOf(false, true)) {
+                val repository = mockk<ConversationRepository>()
+                coEvery { repository.getConversation("legacy-draft") } returns restored.copy(
+                    draftAttachments = Json { this.encodeDefaults = encodeDefaults }.encodeToString(legacy),
+                )
+                coEvery { repository.updateDraft(any(), any(), any()) } returns Unit
+                val loaded = ComposerDraftController(
+                    repository, hydrateAttachment = processor::hydrateDraftAttachment,
+                ).load("legacy-draft")
+
+                assertEquals(1L, loaded.revision)
+                assertTrue(loaded.attachments.all { it.importState == AttachmentImportState.READY })
+                assertTrue(loaded.attachments.all { it.hasCanonicalReadyArtifact() })
+                assertEquals(legacy.map { it.localPath }, loaded.attachments.map { it.localPath })
+                assertEquals(setOf(1, 6), loaded.attachments[1].selectedPages)
+                assertEquals(8, loaded.attachments[1].pageCount)
+                assertEquals(500L, loaded.attachments[2].sliceIntervalMs)
+                assertEquals(legacy[1].preRenderedPaths, loaded.attachments[1].preRenderedPaths)
+                assertEquals(legacy[2].processedFrames, loaded.attachments[2].processedFrames)
+                assertEquals(listOf(listOf(93), listOf(41, 93), listOf(93, 41)),
+                    loaded.attachments.map { it.imageArtifacts.map(ImageArtifact::width) })
+                assertEquals(listOf(listOf(41), listOf(137, 41), listOf(41, 137)),
+                    loaded.attachments.map { it.imageArtifacts.map(ImageArtifact::height) })
+                val artifacts = loaded.attachments.flatMap { it.imageArtifacts }
+                assertTrue(artifacts.all { it.policyVersion == 0 })
+                artifacts.forEach { artifact ->
+                    assertEquals(ImageArtifactProcessor(app).inspect(artifact.path), artifact)
+                }
+                coVerify(exactly = 1) {
+                    repository.updateDraft("legacy-draft", "continue", Json.encodeToString(loaded.attachments))
+                }
+            }
+            entries.forEach { (entry, bytes) ->
+                assertArrayEquals(bytes, File(media.archiveFiles.getValue(entry).absolutePath).readBytes())
+            }
+            assertEquals(beforeFiles, app.filesDir.walkTopDown().filter(File::isFile).map(File::getAbsolutePath).toSet())
+        } finally {
+            database.close()
+            media.createdFiles.forEach { it.delete() }
+        }
+    }
+
+    private fun writeBitmap(file: File, width: Int, height: Int) {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        try {
+            file.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private suspend fun writeExportSpool(
+        exporter: DataExporter,
+        zip: ZipArchiveOutputStream,
+        file: File,
+        index: ExportSpoolIndex,
+    ): DataExporter.ExportResult = suspendCoroutineUninterceptedOrReturn { continuation ->
+        val spoolType = DataExporter::class.java.declaredClasses.single { it.simpleName == "ExportedSpool" }
+        val spool = spoolType.declaredConstructors.single().apply { isAccessible = true }
+            .newInstance(file, index, emptySet<String>())
+        val write = DataExporter::class.java.declaredMethods.single { it.name == "writeConversationArchive" }
+        write.isAccessible = true
+        write.invoke(exporter, zip, spool, null, continuation)
+    }
+
+    private fun restoreArchive(entries: Map<String, ByteArray>): NativeConversationMediaRestorer.RestoredMedia {
+        val archive = tempFolder.newFile("media-${System.nanoTime()}.zip")
+        ZipOutputStream(archive.outputStream()).use { zip ->
+            entries.forEach { (name, bytes) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(bytes)
+                zip.closeEntry()
+            }
+        }
+        return NativeBackupArchive.open(archive).use {
+            NativeConversationMediaRestorer(ApplicationProvider.getApplicationContext(), importJson)
+                .restoreConversationMedia(it)
+        }
+    }
+
+    private suspend fun importMediaPayload(
+        database: ChatDatabase,
+        payload: NativeConversationPayload,
+        media: NativeConversationMediaRestorer.RestoredMedia,
+        version: Int,
+    ) {
+        val entries = FakeEntries(mapOf(NativeBackupFormat.CONVERSATIONS_ENTRY to importJson.encodeToString(payload)))
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val importer = NativeConversationGraphImporter(database, database.chatDao(), importJson,
+            NativeConversationMediaRestorer(context, importJson), scheduleMaintenance = {})
+        NativeConversationGraphSource.open(entries, version, tempFolder.root).use { graph ->
+            val headers = graph.open().use {
+                importer.readConversationGraphHeaders(it, ImportStrategy.REPLACE, media) { id -> id }
+            }
+            importer.importConversationGraph(graph, ImportStrategy.REPLACE, headers, media, version,
+                semanticModelSnapshot("", emptyList()))
+        }
     }
 
     @Test

@@ -7,6 +7,9 @@ import { Marked, Renderer } from "./vendor/marked.esm.js";
 import { html } from "./html.js";
 import { t } from "./i18n.js";
 import { ICON_CONTENT_COPY } from "./icons.js";
+import { htmlPreviewFence } from "./html-preview-fence.js";
+import { mountHtmlPreview } from "./html-preview.js";
+import { mountMarkdownImage } from "./markdown-images.js";
 
 const escapeHtml = (text) =>
   text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -34,6 +37,10 @@ marked.use({
       const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
       return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>`;
     },
+    image(token) {
+      if (!/^shell:\/\//i.test(token.href)) return Renderer.prototype.image.call(this, token);
+      return `<span class="markdown-image-slot" data-shell-image="${escapeHtml(token.href)}" data-image-label="${escapeHtml(token.text || "")}"></span>`;
+    },
     // MarkdownListItems: the marker ("• " or "<n>. ") beside a column that holds the item.
     list(token) {
       const depth = Math.min(listDepth, MAX_LIST_DEPTH);
@@ -52,7 +59,9 @@ marked.use({
       const { text, lang, raw } = token;
       const language = (lang ?? "").trim().split(/\s+/)[0];
       const label = language ? `<span class="code-language">${escapeHtml(language.toUpperCase())}</span>` : "";
-      return `<div class="code-block"><div class="code-header">${label}` +
+      const preview = htmlPreviewFence(token, !!token.previewStreaming);
+      const previewAttributes = preview ? ` data-html-language="${preview.language}" data-html-source="${escapeHtml(JSON.stringify(preview.source))}"` : "";
+      return `<div class="code-block"${previewAttributes}><div class="code-header">${label}` +
         `<button class="code-copy" type="button" aria-label="${escapeHtml(t.copy)}"></button></div>` +
         `<pre><code ${sourceAttributes(token)} data-source-content-start="${/^\s*(```|~~~)/.test(raw) ? raw.indexOf("\n") + 1 : 0}">${escapeHtml(text)}</code></pre></div>`;
     },
@@ -68,7 +77,7 @@ const lineBreaks = (text) => text.split("\n").length - 1;
  * is a node of its own, so a blank line between two paragraphs is three spacers. Display math
  * is its own paragraph with a blank line on each side, as latexToMarkdown writes it.
  */
-function renderHtml(markdown, math, sourceMap = [], citations = []) {
+function renderHtml(markdown, math, sourceMap = [], citations = [], streaming = false) {
   const positions = [];
   let source = "", boundary = 0, delta = 0;
   for (let index = 0; index < markdown.length; index++) {
@@ -94,26 +103,42 @@ function renderHtml(markdown, math, sourceMap = [], citations = []) {
       source += "\n\n"; positions.push(index + delta, index + delta);
     }
   }
-  const tokens = marked.lexer(source);
-  function locate(tokens, raw, positions) {
+  // Marked normalizes line endings. Keep the exact fragment for every parser character so
+  // preview copy/export retains CRLF and CR without changing the canonical source positions.
+  const fragments = [], normalizedPositions = [];
+  let normalized = "";
+  for (let index = 0; index < source.length; index++) {
+    const start = index;
+    const newline = source[index] === "\r";
+    if (newline && source[index + 1] === "\n") index++;
+    normalized += newline ? "\n" : source[index];
+    fragments.push(source.slice(start, index + 1));
+    normalizedPositions.push(positions[start]);
+  }
+  const tokens = marked.lexer(normalized);
+  function locate(tokens, raw, positions, fragments) {
     let cursor = 0;
     for (const token of tokens) {
       const exact = raw.indexOf(token.raw, cursor);
-      const selected = [];
+      const selected = [], selectedFragments = [];
       for (let index = 0; index < token.raw.length; index++) {
         const found = exact >= 0 ? exact + index : raw.indexOf(token.raw[index], cursor);
         if (found < 0) break;
         selected.push(positions[found]);
+        selectedFragments.push(fragments[found]);
         cursor = found + 1;
       }
       token.sourcePositions = selected;
-      locate(token.tokens || token.items || [], token.raw, selected);
+      token.previewFragments = selectedFragments;
+      token.previewStreaming = streaming;
+      token.previewLineComplete = raw[cursor] === "\n";
+      locate(token.tokens || token.items || [], token.raw, selected, selectedFragments);
       if (token.header) {
-        locate([...token.header, ...token.rows.flat()].flatMap(cell => cell.tokens), token.raw, selected);
+        locate([...token.header, ...token.rows.flat()].flatMap(cell => cell.tokens), token.raw, selected, selectedFragments);
       }
     }
   }
-  locate(tokens, source, positions);
+  locate(tokens, normalized, normalizedPositions, fragments);
   let out = "";
   let breaks = 0;
   for (const token of tokens) {
@@ -334,8 +359,11 @@ export function highlightSearch(element, search, matches, sourceStart = 0) {
  * code block wrapping setting (off scrolls long lines sideways).
  */
 export function Markdown({ text, variant = "answer", wrap = true, search, matches = [], sourceStart = 0,
-  streaming = false, reduceMotion = false, births, emptyStreamingText = null, onCitation }) {
+  streaming = false, reduceMotion = false, births, emptyStreamingText = null, onCitation, conversationId, messageId }) {
   const root = useRef(null);
+  const previews = useRef(new Map());
+  const images = useRef(new Map());
+  const imageOwner = useRef(null);
   const emptyNode = useRef(null);
   const showEmpty = streaming && !text.markdown.trim() && emptyStreamingText != null;
   const [retainedEmpty, setRetainedEmpty] = useState(showEmpty);
@@ -357,15 +385,75 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
   }, [showEmpty, emptyStreamingText]);
   const localBirths = useRef(new Map());
   const citationKey = JSON.stringify(text.citations ?? []);
-  const markup = useMemo(() => renderHtml(text.markdown, text.math, text.sourceMap, text.citations), [text.markdown, text.math, text.sourceMap, citationKey]);
+  const markup = useMemo(() => renderHtml(text.markdown, text.math, text.sourceMap, text.citations, streaming), [text.markdown, text.math, text.sourceMap, citationKey, streaming]);
   const activateCitation = useRef(onCitation);
   activateCitation.current = onCitation;
   const mathKey = JSON.stringify(text.math ?? []);
   const searchKey = JSON.stringify([!!search?.query.trim(), matches.map(match =>
     [match.key, match.start, match.endExclusive])]);
   const activeMatch = search?.matches[search.index]?.key;
-  // Semantic markup is the only body commit; parent refreshes preserve text and KaTeX nodes.
-  useLayoutEffect(() => { root.current.innerHTML = markup; }, [markup]);
+  // Completed code islands stay connected while later streaming siblings are replaced/appended.
+  useLayoutEffect(() => {
+    const template = document.createElement("template");
+    template.innerHTML = markup;
+    const reconcile = (current, next) => {
+      let index = 0;
+      while (next.firstChild) {
+        const incoming = next.firstChild;
+        const existing = current.childNodes[index];
+        const samePreview = existing?.nodeType === Node.ELEMENT_NODE && incoming.nodeType === Node.ELEMENT_NODE &&
+          existing.matches("[data-html-source]") && incoming.matches("[data-html-source]") &&
+          existing.dataset.htmlSource === incoming.dataset.htmlSource &&
+          existing.dataset.htmlLanguage === incoming.dataset.htmlLanguage;
+        const sameImage = existing?.nodeType === Node.ELEMENT_NODE && incoming.nodeType === Node.ELEMENT_NODE &&
+          existing.matches("[data-shell-image]") && incoming.matches("[data-shell-image]") &&
+          existing.dataset.shellImage === incoming.dataset.shellImage && existing.dataset.imageLabel === incoming.dataset.imageLabel;
+        if (sameImage) incoming.remove();
+        else if (samePreview) {
+          const code = existing.querySelector("pre code"), freshCode = incoming.querySelector("pre code");
+          for (const attribute of freshCode.attributes) code.setAttribute(attribute.name, attribute.value);
+          incoming.remove();
+        } else if (existing?.isEqualNode(incoming)) incoming.remove();
+        else if (existing?.nodeType === Node.ELEMENT_NODE && incoming.nodeType === Node.ELEMENT_NODE &&
+          existing.tagName === incoming.tagName && existing.querySelector("[data-html-source],[data-shell-image]")) {
+          reconcile(existing, incoming);
+          incoming.remove();
+        } else if (existing) existing.replaceWith(incoming);
+        else current.append(incoming);
+        index++;
+      }
+      while (current.childNodes.length > index) current.lastChild.remove();
+    };
+    const owner = JSON.stringify([conversationId, messageId]);
+    if (imageOwner.current !== owner) {
+      for (const dispose of images.current.values()) dispose();
+      images.current.clear();
+      imageOwner.current = owner;
+    }
+    reconcile(root.current, template.content);
+    for (const [block, island] of previews.current) {
+      if (!root.current.contains(block)) { island.dispose(); previews.current.delete(block); }
+    }
+    for (const block of root.current.querySelectorAll("[data-html-source]")) {
+      if (!previews.current.has(block)) previews.current.set(block, mountHtmlPreview(block));
+    }
+    for (const [node, dispose] of images.current) {
+      if (!root.current.contains(node)) { dispose(); images.current.delete(node); }
+    }
+    for (const node of root.current.querySelectorAll("[data-shell-image]")) {
+      if (!images.current.has(node)) images.current.set(node, mountMarkdownImage(node, conversationId, messageId));
+    }
+  }, [markup, conversationId, messageId]);
+  const forceSource = !!search?.query.trim();
+  useLayoutEffect(() => {
+    for (const island of previews.current.values()) island.update(reduceMotion, forceSource);
+  }, [markup, reduceMotion, forceSource]);
+  useLayoutEffect(() => () => {
+    for (const island of previews.current.values()) island.dispose();
+    previews.current.clear();
+    for (const dispose of images.current.values()) dispose();
+    images.current.clear();
+  }, []);
   useLayoutEffect(() => {
     root.current.querySelectorAll("[data-citation-token]").forEach(button => {
       button.onclick = () => {
@@ -383,7 +471,7 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
       slot.classList.toggle("display", math.display);
       window.katex?.render(math.tex, slot, { displayMode: math.display, throwOnError: false });
     });
-    element.querySelectorAll(".code-copy").forEach((button) => {
+    element.querySelectorAll(".code-block:not([data-html-source]) .code-copy").forEach((button) => {
       button.innerHTML = copyIcon;
       button.onclick = () => {
         const code = button.closest(".code-block")?.querySelector("code")?.textContent ?? "";

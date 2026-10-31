@@ -1,116 +1,134 @@
 package com.newoether.agora.api.util.tokens
 
+import com.newoether.agora.api.util.contextWindowUsage
+import com.newoether.agora.api.util.imageArtifactOccurrences
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.Participant
+import com.newoether.agora.viewmodel.projectGenerationInputMessages
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Recorded pixel dimensions must reach the cost model through the durable attachment metadata. */
+/** Accounting consumes each transmitted artifact, never source-byte or first-page metadata. */
 class PixelAwareContextEstimateTest {
-
     private val text = "look at this"
 
-    private fun imageMessage(
-        pixelWidth: Int?,
-        pixelHeight: Int?,
-        fileSize: Long?,
-        images: List<String> = listOf("shot.jpg"),
-        pageCount: Int? = null,
-        type: String = "image",
-    ) = ChatMessage(
-        id = "u1",
-        text = text,
-        participant = Participant.USER,
-    ).copy(
-        images = images,
-        attachmentMeta = AttachmentMeta(
-            items = listOf(
-                AttachmentItem(
-                    type = type,
-                    imageIndex = 0,
-                    pageCount = pageCount,
-                    pixelWidth = pixelWidth,
-                    pixelHeight = pixelHeight,
-                    fileSize = fileSize,
-                ),
-            ),
-        ),
+    private fun artifact(path: String, width: Int?, height: Int?, bytes: Long = 100L) = ImageArtifact(
+        path = path, mimeType = "image/jpeg", sizeBytes = bytes, width = width, height = height,
     )
 
-    private fun expected(
-        imageTokens: Long,
-        images: Int = 1,
-        envelope: EnvelopeCost = EnvelopeCost.Default,
-    ): Int = SafetyMargin.Default.apply(
-        envelope.perMessage + HeuristicTextTokenCounter.count(text) + imageTokens * images,
-    )
+    private fun message(artifacts: List<ImageArtifact>, images: List<String> = artifacts.map { it.path }) =
+        ChatMessage(id = "u1", text = text, participant = Participant.USER, images = images,
+            attachmentMeta = AttachmentMeta(listOf(AttachmentItem(
+                type = "pdf", imageIndex = 0, pageCount = artifacts.size, imageArtifacts = artifacts,
+            ))))
+
+    private fun estimator(model: String = "Gateway:claude-sonnet-4-5") =
+        CostModelContextEstimator(ContextCostModels.forModel(model))
 
     @Test
-    fun anthropicModelPricesAnAttachmentByItsRecordedPixels() {
-        val costs = ContextCostModels.forModel("Anthropic:claude-sonnet-4-5")
-        val message = imageMessage(
-            pixelWidth = 1_000,
-            pixelHeight = 1_000,
-            // Bytes are recorded too; the pixel rule must win.
-            fileSize = 768L * 1_400L,
-        )
-        assertEquals(
-            expected(1_296L),
-            CostModelContextEstimator(costs).estimate(listOf(message)),
-        )
+    fun mixedPagesAndFramesKeepTheirOwnDimensionsWhenReordered() {
+        val page = artifact("page.jpg", 1_000, 1_000)
+        val frame = artifact("frame.jpg", 200, 200)
+        val input = message(listOf(frame, page))
+        assertEquals(listOf(64L, 1_296L), estimator().imageEstimates(listOf(input)).map { it.tokens })
+        assertTrue(estimator().imageEstimates(listOf(input)).all { it.basis == ImageEstimateBasis.DOCUMENTED })
     }
 
     @Test
-    fun byteFallbackStillAppliesWhenPixelsWereNeverMeasured() {
-        val costs = ContextCostModels.forModel("Anthropic:claude-sonnet-4-5")
-        val message = imageMessage(pixelWidth = null, pixelHeight = null, fileSize = 768L * 1_400L)
-        assertEquals(
-            expected(1_400L),
-            CostModelContextEstimator(costs).estimate(listOf(message)),
-        )
+    fun repeatedPathsAreChargedForEveryVisibleOccurrence() {
+        val page = artifact("page.jpg", 1_000, 1_000)
+        val input = message(listOf(page), listOf(page.path, page.path))
+        assertEquals(listOf(1_296L, 1_296L), estimator().imageEstimates(listOf(input)).map { it.tokens })
+        assertEquals(SafetyMargin.Default.apply(EnvelopeCost.Default.perMessage +
+            ContextCostModels.forModel("Gateway:claude-sonnet-4-5").text.count(text) + 2_592L),
+            estimator().estimate(listOf(input)))
     }
 
     @Test
-    fun everyPageOfOneItemSharesTheRecordedPixelSize() {
-        val costs = ContextCostModels.forModel("Anthropic:claude-sonnet-4-5")
-        val message = imageMessage(
-            pixelWidth = 1_000,
-            pixelHeight = 1_000,
-            fileSize = 768L * 900L,
-            images = listOf("p0.jpg", "p1.jpg", "p2.jpg"),
-            pageCount = 3,
-            type = "pdf",
-        )
-        assertEquals(
-            expected(1_296L, images = 3),
-            CostModelContextEstimator(costs).estimate(listOf(message)),
-        )
+    fun encodedLengthAndLegacyItemDimensionsCannotReplaceArtifactDimensions() {
+        val page = artifact("page.jpg", 200, 200)
+        val input = message(listOf(page))
+        val alteredSource = input.copy(attachmentMeta = AttachmentMeta(listOf(AttachmentItem(
+            type = "pdf", imageIndex = 0, pageCount = Int.MAX_VALUE,
+            pixelWidth = 10_000, pixelHeight = 10_000, fileSize = Long.MAX_VALUE,
+            imageArtifacts = listOf(page.copy(sizeBytes = Long.MAX_VALUE)),
+        ))))
+        assertEquals(estimator().estimate(listOf(input)), estimator().estimate(listOf(alteredSource)))
+        assertEquals(64L, estimator().imageEstimates(listOf(alteredSource)).single().tokens)
     }
 
     @Test
-    fun theSameAttachmentCostsDifferentAmountsForDifferentFamilies() {
-        val message = imageMessage(pixelWidth = 1_000, pixelHeight = 1_000, fileSize = null)
-        val anthropic = CostModelContextEstimator(
-            ContextCostModels.forModel("Anthropic:claude-sonnet-4-5"),
-        ).estimate(listOf(message))
-        val gemini = CostModelContextEstimator(
-            ContextCostModels.forModel("Google:models/gemini-2.5-flash"),
-        ).estimate(listOf(message))
-        val openAi = CostModelContextEstimator(
-            ContextCostModels.forModel("OpenAI:gpt-4o"),
-        ).estimate(listOf(message))
-        assertEquals(expected(1_296L), anthropic)
-        assertEquals(expected(4L * 258L), gemini)
-        // OpenAI also frames messages more cheaply than the shared default.
-        assertEquals(expected(765L, envelope = OpenAiEnvelopeCost), openAi)
-        // An unrecognised endpoint has no pixel rule, so a pixel-only attachment stays on the
-        // unknown-image fallback.
-        assertTrue(
-            CostModelContextEstimator(ContextCostModels.forModel("My Gateway:mystery"))
-                .estimate(listOf(message)) == expected(ByteProportionalImageCost.UNKNOWN_TOKENS),
-        )
+    fun absentDimensionsStayExplicitUntilOwnerHydrationMeasuresReadableBytes() {
+        val input = message(emptyList(), listOf("legacy.jpg"))
+        val usage = contextWindowUsage(listOf(input), 32_768,
+            costs = ContextCostModels.forModel("Gateway:claude-sonnet-4-5"))
+        assertEquals(ImageEstimateBasis.MISSING_DIMENSIONS, usage.imageEstimates.single().basis)
+        assertTrue(usage.hasMissingImageDimensions)
+        assertFalse(usage.hasUnavailableImages)
+    }
+
+    @Test
+    fun directArtifactMapIgnoresStaleEntriesAndSkipsWrongPathDescriptors() {
+        val visible = artifact("visible.jpg", 200, 200)
+        val stale = artifact("stale.jpg", 1_000, 1_000)
+        val input = message(emptyList(), listOf(visible.path)).copy(
+            imageArtifacts = mapOf(visible.path to visible, stale.path to stale))
+        assertEquals(listOf(64L), estimator().imageEstimates(listOf(input)).map { it.tokens })
+        assertTrue(estimator().imageEstimates(listOf(input.copy(
+            imageArtifacts = mapOf(visible.path to stale)))).isEmpty())
+    }
+
+    @Test
+    fun unavailableAndBlankImagesContributeZeroImageTokensWithoutLosingUiSlots() {
+        val missing = artifact("", null, null, 0L).copy(unavailable = true)
+        val known = artifact("lost.jpg", 1_000, 1_000).copy(unavailable = true)
+        val input = message(listOf(missing, known), listOf("", known.path))
+        val usage = contextWindowUsage(listOf(input), 32_768,
+            costs = ContextCostModels.forModel("Gateway:claude-sonnet-4-5"))
+        assertTrue(usage.imageEstimates.isEmpty())
+        assertFalse(usage.hasMissingImageDimensions)
+        assertFalse(usage.hasUnavailableImages)
+        assertEquals(estimator().estimate(listOf(input.copy(images = emptyList()))),
+            estimator().estimate(listOf(input)))
+        assertEquals(listOf(missing, known), input.imageArtifactOccurrences())
+    }
+
+    @Test
+    fun mixedRepeatedPathsChargeOnlyTheSentOccurrencesInEitherOrder() {
+        val good = artifact("shared.jpg", 200, 200)
+        for (badIndex in 0..2) {
+            val artifacts = List(3) { good.copy(unavailable = it == badIndex) }
+            val input = message(artifacts).copy(imageArtifacts = mapOf(good.path to artifacts.last()))
+            val sent = projectGenerationInputMessages(listOf(input), true, null, null).single()
+            assertEquals(List(2) { good.path }, sent.images)
+            assertEquals(listOf(64L, 64L), estimator().imageEstimates(listOf(input)).map { it.tokens })
+            assertEquals(estimator().estimate(listOf(sent)), estimator().estimate(listOf(input)))
+            assertEquals(artifacts, input.imageArtifactOccurrences())
+        }
+    }
+
+    @Test
+    fun blankPdfPagesKeepTheirOwnDisplayDimensionsAndHaveNoImageCost() {
+        val small = artifact("", 200, 200, 0L).copy(unavailable = true)
+        val large = small.copy(width = 1_000, height = 1_000)
+        val input = message(listOf(small, large)).copy(imageArtifacts = mapOf("" to large))
+        assertEquals(listOf(small, large), input.imageArtifactOccurrences())
+        assertTrue(estimator().imageEstimates(listOf(input)).isEmpty())
+    }
+
+    @Test
+    fun identicalArtifactsFollowTheActualModelIdentityAcrossTransports() {
+        val input = message(listOf(artifact("shot.jpg", 1_000, 1_000)))
+        assertEquals(1_296L, estimator("OpenAI:claude-sonnet-4-5").imageEstimates(listOf(input)).single().tokens)
+        assertEquals(765L, estimator("Gateway:gpt-4o").imageEstimates(listOf(input)).single().tokens)
+        assertEquals(602L, estimator("OpenAI:deepseek-flash").imageEstimates(listOf(input)).single().tokens)
+        assertEquals(1_120L, estimator("Gateway:gemini-3-pro").imageEstimates(listOf(input)).single().tokens)
+        assertEquals(ImageEstimateBasis.HEURISTIC,
+            estimator("OpenAI:private-model").imageEstimates(listOf(input)).single().basis)
     }
 }

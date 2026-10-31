@@ -271,6 +271,8 @@
     <string name="conversation_read_empty">No hay mensajes en la rama seleccionada.</string>
     <string name="conversation_read_page">Página: mensajes %1$d-%2$d</string>
     <string name="conversation_read_more">Usa un desplazamiento mayor para ver más mensajes.</string>
+    <string name="conversation_tools_more">Hay más llamadas a herramientas disponibles para este mensaje (tool_offset: %1$d).</string>
+    <string name="conversation_details_error">No se pudieron leer los detalles almacenados del mensaje (%1$s).</string>
 
     <!-- General -->
     <string name="back">Atrás</string>

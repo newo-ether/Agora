@@ -34,9 +34,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -160,6 +162,7 @@ internal fun EmbeddingModelEditor(
     var showGgufError by remember(initial.id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val resources by rememberUpdatedState(LocalResources.current)
 
     DisposableEffect(lifecycle) {
         onDispose { lifecycle.close() }
@@ -228,7 +231,7 @@ internal fun EmbeddingModelEditor(
             if (lifecycle.closed) return@testConnection
             isTesting = false
             if (result == null || !result.startsWith("OK")) {
-                viewModel.emitSnackbar(context.getString(R.string.embedding_test_failed, result ?: "Failed"))
+                viewModel.emitSnackbar(resources.getString(R.string.embedding_test_failed, result ?: "Failed"))
                 return@testConnection
             }
             if (isNew) {

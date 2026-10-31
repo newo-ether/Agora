@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="html_preview_run">실행</string>
+    <string name="html_preview_source">소스</string>
+    <string name="html_preview_preview">@string/template_preview</string>
+    <string name="html_preview_reload">새로고침</string>
+    <string name="html_preview_fullscreen">전체 화면</string>
+    <string name="html_preview_save">HTML 저장</string>
+    <string name="html_preview_share">HTML 공유</string>
+    <string name="html_preview_failed">미리보기를 사용할 수 없습니다</string>
+    <string name="html_preview_loading">미리보기 로딩 중</string>
+    <string name="html_preview_insert">HTML 미리보기 지침 추가</string>
+    <string name="html_preview_export_failed">HTML을 내보내지 못했습니다</string>
+    <string name="html_preview_webview_required">HTML 미리보기를 실행하려면 Android System WebView를 업데이트하세요</string>
+</resources>

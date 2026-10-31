@@ -70,6 +70,7 @@ fun ThinkingControlPanel(
     controlsEnabled: Boolean = true,
     allowDisable: Boolean = true,
     showBudgetControls: Boolean = true,
+    budgetControlsEnabled: Boolean = true,
     settingsRevision: Long = 0,
     knownSelection: Boolean = true,
 ) {
@@ -98,6 +99,7 @@ fun ThinkingControlPanel(
     val showSelection = knownSelection || choosingEffort
     val sliderPosition = effortGate.displayed
     var showAdvanced by rememberSaveable { mutableStateOf(budgetEnabled) }
+    val budgetEditable = enabled && controlsEnabled && budgetControlsEnabled
     val sliderEnabled = (enabled || !showEnabledToggle) && !budgetEnabled && controlsEnabled && availableEfforts?.isEmpty() != true
 
     LaunchedEffect(budgetEnabled) {
@@ -231,7 +233,7 @@ fun ThinkingControlPanel(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .alpha(if (enabled) 1f else 0.38f)
+                    .alpha(if (budgetEditable) 1f else 0.38f)
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -261,7 +263,7 @@ fun ThinkingControlPanel(
                     Spacer(modifier = Modifier.width(16.dp))
                     Switch(
                         checked = budgetEnabled,
-                        onCheckedChange = if (enabled) { { checked ->
+                        onCheckedChange = if (budgetEditable) { { checked ->
                             if (checked) {
                                 onEnabledChange(true)
                                 if (budgetTokens < 1) {
@@ -270,7 +272,7 @@ fun ThinkingControlPanel(
                             }
                             onBudgetEnabledChange(checked)
                         } } else { { } },
-                        enabled = enabled
+                        enabled = budgetEditable
                     )
                 }
 
@@ -279,7 +281,7 @@ fun ThinkingControlPanel(
                         Spacer(modifier = Modifier.height(BudgetToggleToSliderSpacing))
                         val budgetPresets = ThinkingLevels.budgetPresets
                         val currentBudget = budgetTokens.coerceAtLeast(1)
-                        val budgetGate = remember(budgetPresets) {
+                        val budgetGate = remember(budgetPresets, settingsRevision) {
                             PersistedSliderFeedbackGate(
                                 initialPersisted = currentBudget,
                                 toDisplay = { persisted ->
@@ -321,11 +323,11 @@ fun ThinkingControlPanel(
                                 Slider(
                                     value = budgetSliderPos,
                                     onValueChange = {
-                                        if (enabled) budgetGate.updateFromGesture(it)
+                                        if (budgetEditable) budgetGate.updateFromGesture(it)
                                     },
                                     onValueChangeFinished = {
-                                        if (enabled) {
-                                            val idx = budgetSliderPos.roundToInt().coerceIn(0, budgetPresets.lastIndex)
+                                        if (budgetEditable) {
+                                            val idx = budgetGate.displayed.roundToInt().coerceIn(0, budgetPresets.lastIndex)
                                             val tokens = budgetPresets[idx]
                                             if (tokens == currentBudget) {
                                                 budgetGate.settleWithoutWrite(
@@ -335,14 +337,13 @@ fun ThinkingControlPanel(
                                             } else {
                                                 budgetGate.expectPersisted(tokens, idx.toFloat())
                                             }
-                                            onEnabledChange(true)
-                                            onBudgetTokensChange(tokens)
+                                            if (tokens != currentBudget) onBudgetTokensChange(tokens)
                                         }
                                     },
                                     valueRange = 0f..(budgetPresets.size - 1).toFloat(),
                                     steps = budgetPresets.size - 2,
                                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                    enabled = enabled
+                                    enabled = budgetEditable
                                 )
                             }
                         }

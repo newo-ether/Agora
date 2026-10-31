@@ -110,7 +110,7 @@ internal class McpProtocolClient(
         retryAfterSessionExpiry {
             ensureInitializedLocked()
         }
-        run {
+        try {
             val result = requestLocked(
                 method = "tools/call",
                 params = buildJsonObject {
@@ -119,6 +119,12 @@ internal class McpProtocolClient(
                 },
             )
             parseCallPayload(result)
+        } catch (error: McpSessionExpiredException) {
+            // Recover for the next independent invocation without replaying this tool request.
+            initialized = false
+            initializedGeneration = null
+            transport.resetSession()
+            throw error
         }
     }
 

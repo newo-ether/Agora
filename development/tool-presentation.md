@@ -5,8 +5,12 @@ This contract defines the user-visible title and summary semantics for every bui
 `ToolDetailPresentation` owns resource-backed detail content selection and result fields shared by
 Compose and the WebUI. It consumes `ToolPresentationResolver` rather than resolving another lifecycle.
 Compose retains layout, selection, prefix-aware JSON rendering, and local image loading; browser
-projection stays demand-driven within watched message payloads. Failed/stopped content does not
-replay completed MCP/search results, and shell exit codes remain command results rather than failures.
+projection stays demand-driven within watched message payloads. Failed/stopped content never becomes
+completed content, and shell exit codes remain command results rather than failures. Failed MCP
+details retain the error label and show their stored text/structured payload as supplemental JSON,
+without repeating text identical to the displayed error. This preserves diagnostic and historical
+result evidence without overriding a recorded failure or changing Room. Stopped calls keep their
+stopped-only presentation.
 
 ## Lifecycle
 
@@ -24,7 +28,7 @@ Display names use title case and contain no lifecycle state. Active summaries us
 
 Failed summaries show a concrete error reason directly whenever one is available. Remove generic `Error:` and tool-execution wrapper prefixes from the summary, capitalize the initial natural-language word, and preserve paths, identifiers and the original result/detail text. For example, `Error: command timeout` becomes `Command timeout`. Only failures without a concrete reason use a localized attempted-action fallback such as `Failed to read <path>`.
 
-Execution failure is declared by provider error metadata or a structured protocol error, never by the spelling of successful text. Active memory, saved memory files, and skill file bodies are arbitrary content, including bodies beginning with `Error` or containing JSON error fields. Stopped summaries use past tense. Background summaries state only that the job is running in the background and do not include its ID.
+Execution failure is declared by provider error metadata or a structured protocol error, never by the spelling of successful text. A JSON `error:null` is absent error evidence, not the string error code `"null"`; explicit provider errors and `failed:true` remain authoritative. Historical FAILED rows cannot be reclassified from `ok:true,error:null` alone because older persistence did not retain the provider error flag separately. Active memory, saved memory files, and skill file bodies are arbitrary content, including bodies beginning with `Error` or containing JSON error fields. Stopped summaries use past tense. Background summaries state only that the job is running in the background and do not include its ID.
 
 Reliable subjects and counts are shown. An unavailable count is not zero and must use a count-free default. Paths, commands, file names, IDs explicitly required by an action, and user input preserve their original case. Summary text describes lifecycle only. Result content and compact detail status must not replace it.
 
@@ -55,6 +59,31 @@ and lifecycle semantics stay unchanged; this is shared JSON presentation, not a 
 value prefixes model-facing text with `context: N (requested M)`, while structured content retains
 the actual backend result. Noninteger values still fail validation.
 
+## Shell Purpose, Output and Retention
+
+Every built-in `shell_*` tool schema requires `description` for the purpose of that call. All shell
+calls keep `description` and other parameters, including `job_id`, in the ordinary Arguments JSON;
+only the command is extracted into the existing code view. Execute/get/wait/stop results show returned
+`job_id` and `description` fields through the existing JSON renderer at the bottom of Result, after
+command output or failure details, omitting values already present in Arguments. Keep the full labeled
+job ID visible there. Never move a parameter into Result or show an unlabeled job ID. A different original
+job description remains visible as a result field. Neither purpose replaces the lifecycle summary or
+invents success. Legacy calls and records without descriptions keep the existing fallback. Compose
+and WebUI consume `ToolDetailPresentation` as the single owner; neither reparses output to invent
+job metadata.
+
+`head_lines` and `tail_lines` may be used alone or together on execute/get/wait. Positive selections
+project only the model-facing text, insert the omitted middle line count, and return the full text
+when ranges overlap. Structured content, retained output, UI display and copy preserve the complete
+bounded backend output. Warnings, terminal evidence and job identity remain outside that selection.
+
+Conch retains foreground and background snapshots until time expiry (24 hours by default), including
+after successful Room settlement and ACK. ACK does not delete a job. Count eviction is disabled.
+The list tool requests bounded metadata pages with `offset` and `limit` (default and maximum 100),
+returns `next_offset`/`has_more`, and never inlines rolling output. Original job descriptions survive
+get/wait/stop calls; the current action description never rewrites them. Paging reflects live ordering
+and does not promise a frozen snapshot across calls.
+
 ## MCP Router Presentation
 
 `mcp_list_servers` is a distinct localized list action with no target or argument subject. Active
@@ -81,6 +110,16 @@ including completed result rows and fallback round construction. Replay, Regener
 history consume those fields without requiring a connected or still-existing MCP server. Legacy
 per-tool MCP names retain their existing read-side title fallback. Native and WebUI consume the
 same localized title, lifecycle, summary and detail owners; neither changes protocol identity.
+
+## Phone Use Tools
+The eleven `phone_*` tools use the shared Phone kind with localized action titles. Individual
+native and WebUI cards use the shared Material Symbols Outlined `mobile_hand` icon, matching
+Phone Use Settings and the control notification; mixed tool groups keep their generic group icon.
+Active cards use progressive summaries ending in `…`; completed cards describe the finished action in past
+tense without terminal punctuation. These summaries do not reuse the overlay's concise status
+labels. Concrete structured failures such as `not_claimed`, `occupied`, `released_by_user`,
+`permission_lost` and `app_blocked` retain their error reason through the existing resolver.
+Native and WebUI use the same resource-backed summary and ordinary JSON/image detail owners.
 
 ## Remote Native Tools
 

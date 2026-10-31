@@ -80,6 +80,22 @@ class ConversationTitleGenerator(
         >()
     }
 
+    /** Task fallback belongs beside the shared title generation and persistence rules. */
+    internal suspend fun updateTaskTitle(conversationId: String, response: String) {
+        settings.awaitInitialLoad()
+        providers.awaitInitialSync()
+        if (settings.titleGenerationEnabled.value) {
+            when (generateAndPersist(conversationId)) {
+                is Result.Success -> return
+                is Result.Failure -> DebugLog.w("ConversationTitleGenerator", "Using task response title fallback")
+            }
+        }
+        val fallback = fallbackConversationTitle(response)
+        if (fallback.isBlank()) return
+        conversations.getConversation(conversationId)?.let { conversation ->
+            conversations.updateConversationTitleIfUnchanged(conversationId, conversation.title, fallback)
+        }
+    }
     suspend fun generateAndPersist(
         conversationId: String,
         runtimeSnapshot: ConversationGenerationSnapshot? = null,
@@ -110,14 +126,14 @@ class ConversationTitleGenerator(
         runtimeSnapshot: ConversationGenerationSnapshot?,
         onStarted: suspend () -> Unit,
     ): Result {
-        var summary = ""
+        var sourceEntity: com.newoether.agora.data.local.MessageEntity? = null
         var sourceModel: String? = null
         // Freeze the selected path and its first user payload in one Room read.
         // Settings, notifications and local-model admission must not delay this source capture.
-        val conversation = conversations.withProviderContextSnapshot {
-            val target = conversations.getConversation(conversationId)
-                ?: return@withProviderContextSnapshot null
-            val topology = conversations.getMessageTopologySnapshot(conversationId)
+        val conversation = conversations.withReadSnapshot { reader ->
+            val target = reader.getConversation(conversationId)
+                ?: return@withReadSnapshot null
+            val topology = reader.getMessageContextTopology(conversationId)
             val streaming = runtimeSnapshot
                 ?.takeIf { it.conversationId == conversationId && it.isGenerating }
                 ?.streamingMessage
@@ -131,21 +147,20 @@ class ConversationTitleGenerator(
             val path = ConversationUiState.resolvePath(
                 allMessages = topology.map { it.toUiChatMessageStub() },
                 streamingMsg = streaming,
-                selectedChildren = conversations.restoreBranchSelections(conversationId),
+                selectedChildren = com.newoether.agora.data.repository.ConversationBranchSelections(reader)
+                    .restoreBranchSelections(conversationId),
             )
             sourceModel = path.firstOrNull { it.participant == Participant.MODEL }?.modelName
             val firstUser = path.firstOrNull { it.participant == Participant.USER }
             if (firstUser != null) {
-                val entity = conversations.getMessage(firstUser.id)
-                if (entity?.conversationId == conversationId) {
-                    summary = projectProviderMessages(
-                        entities = listOf(entity),
-                        includeStoredTranscriptions = true,
-                    ).singleOrNull()?.let(::titleSourceText).orEmpty()
-                }
+                sourceEntity = reader.getMessage(firstUser.id)?.takeIf { it.conversationId == conversationId }
             }
             target
         } ?: return Result.Failure("Conversation not found")
+        val summary = sourceEntity?.let { entity ->
+            projectProviderMessages(listOf(entity), includeStoredTranscriptions = true)
+                .singleOrNull()?.let(::titleSourceText)
+        }.orEmpty()
         if (summary.isBlank()) return Result.Failure("Conversation has no usable text")
 
         settings.awaitInitialLoad()

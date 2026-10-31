@@ -2,6 +2,7 @@ package com.newoether.agora.api.util.tokens
 
 import com.newoether.agora.api.ToolDefinition
 import com.newoether.agora.api.ToolProperty
+import com.newoether.agora.api.util.imageArtifactOccurrences
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.Participant
 import com.newoether.agora.util.Constants
@@ -148,9 +149,8 @@ class CostModelContextEstimator(val costs: ContextCostModel) {
         // mirrored Room text field. Counting both made result-heavy contexts look up to 2x larger.
         var total = costs.envelope.perMessage.toLong() +
             if (isToolProtocol) 0L else textRaw(message.text)
-        // Only user-role images reach a provider: every adapter (OpenAI-compatible, Anthropic,
-        // Gemini, Ollama, local) serializes images for user rows and drops them elsewhere, so
-        // tool-result images stay display-only and are deliberately not counted here.
+        // Provider adapters serialize images on ordinary USER rows. Tool and generated images
+        // reach this estimator through the API-only USER projection, never their source row.
         if (!isToolProtocol && message.participant == Participant.USER) {
             total += imageTokensTotal(message)
         }
@@ -201,46 +201,25 @@ class CostModelContextEstimator(val costs: ContextCostModel) {
         return total
     }
 
-    /** Provider-visible image cost of one message. */
-    private fun imageTokensTotal(message: ChatMessage): Long {
-        val descriptors = imageDescriptors(message)
-        var total = 0L
-        repeat(message.images.size) { index ->
-            total += costs.image.tokens(descriptors[index] ?: ImageDescriptor())
+    /** One estimate per provider-visible occurrence, including repeated paths. No image is decoded. */
+    fun imageEstimates(messages: List<ChatMessage>): List<ImageTokenEstimate> = messages
+        .filter {
+            it.participant == Participant.USER &&
+                !it.id.startsWith(Constants.TOOL_MSG_PREFIX) &&
+                !it.id.startsWith(Constants.RESULT_MSG_PREFIX)
         }
-        return total
-    }
-
-    /**
-     * What is known about each [ChatMessage.images] entry, read from the durable attachment
-     * metadata. One item covers a contiguous image range (`imageIndex` plus `pageCount`), and every
-     * frame or page of one item shares the recorded pixel size, while the item's bytes are split
-     * evenly across them. Entries with neither a pixel size nor a byte size stay unmapped and are
-     * priced as a fully unknown image.
-     */
-    private fun imageDescriptors(message: ChatMessage): Map<Int, ImageDescriptor> {
-        val items = message.attachmentMeta?.items ?: return emptyMap()
-        return buildMap {
-            items.forEach { item ->
-                if (item.type != "image" && item.type != "pdf" && item.type != "video") return@forEach
-                val start = item.imageIndex ?: return@forEach
-                if (start !in message.images.indices) return@forEach
-                val pages = (item.pageCount ?: 1).coerceAtLeast(1)
-                val bytesPerPage = item.fileSize?.takeIf { it > 0L }?.let { it / pages }
-                val width = item.pixelWidth?.takeIf { it > 0 }
-                val height = item.pixelHeight?.takeIf { it > 0 }
-                if (bytesPerPage == null && (width == null || height == null)) return@forEach
-                val descriptor = ImageDescriptor(
-                    byteSize = bytesPerPage,
-                    pixelWidth = width,
-                    pixelHeight = height,
-                )
-                repeat(minOf(pages, message.images.size - start)) { offset ->
-                    put(start + offset, descriptor)
-                }
+        .flatMap { message ->
+            message.images.zip(message.imageArtifactOccurrences()).mapNotNull { (path, artifact) ->
+                if (path.isBlank() || artifact?.unavailable == true) return@mapNotNull null
+                costs.image.estimate(ImageDescriptor(
+                    pixelWidth = artifact?.width, pixelHeight = artifact?.height,
+                ))
             }
         }
-    }
+
+    /** Measured dimensions belong to each transmitted image, never an item's first page. */
+    private fun imageTokensTotal(message: ChatMessage): Long =
+        imageEstimates(listOf(message)).sumOf(ImageTokenEstimate::tokens)
 
     private fun textRaw(text: String): Long = costs.text.count(text)
 

@@ -69,6 +69,8 @@ data class AttachmentItem(
     @SerialName("sandbox_path") val sandboxPath: String? = null,
     @SerialName("file_size") val fileSize: Long? = null,
     val unavailable: Boolean = false,
+    /** One measured artifact per image, page or frame, in the same order as its image range. */
+    val imageArtifacts: List<ImageArtifact> = emptyList(),
 )
 
 /** Used for passing attachment metadata from ChatBottomBar to ViewModel. */
@@ -100,4 +102,6 @@ data class SelectedAttachment(
     val importState: AttachmentImportState = AttachmentImportState.READY,
     val preparedText: String? = null,
     val unavailable: Boolean = false,
+    /** One measured artifact per image, page or frame, in the same order as its image range. */
+    val imageArtifacts: List<ImageArtifact> = emptyList(),
 )

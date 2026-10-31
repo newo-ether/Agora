@@ -271,6 +271,8 @@
     <string name="conversation_read_empty">Keine Nachrichten im ausgewählten Zweig.</string>
     <string name="conversation_read_page">Seite: Nachrichten %1$d-%2$d</string>
     <string name="conversation_read_more">Verwende einen höheren Versatz, um mehr Nachrichten zu sehen.</string>
+    <string name="conversation_tools_more">Für diese Nachricht sind weitere Werkzeugaufrufe verfügbar (tool_offset: %1$d).</string>
+    <string name="conversation_details_error">Die gespeicherten Nachrichtendetails konnten nicht gelesen werden (%1$s).</string>
 
     <!-- General -->
     <string name="back">Zurück</string>

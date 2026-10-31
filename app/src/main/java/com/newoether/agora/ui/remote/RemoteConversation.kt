@@ -112,6 +112,9 @@ internal fun RemoteConversation(
     LaunchedEffect(tierSupported) {
         if (!tierSupported) showOpenAiServiceTierSheet = false
     }
+    LaunchedEffect(state.canChooseModel) {
+        if (!state.canChooseModel && activeMenu == "model") activeMenu = null
+    }
     LaunchedEffect(active) {
         if (!active) {
             activeMenu = null
@@ -360,10 +363,10 @@ internal fun RemoteConversation(
                 },
                 controls = {
                     ComposerControlGroup {
-                        // The plus and model controls never disappear for an unsupported source; their
-                        // menu rows are disabled instead, and a missing model reads as Unavailable.
+                        // Keep native model text visible even when switching is unavailable.
                         RemoteAttachmentPicker(owner, active, state.capabilities.uploads && !submitting, vm)
-                        val modelChoice = state.capabilities.models && state.canChooseModel &&
+                        val modelChoice = active && state.canChooseModel && state.selectedModel != null &&
+                            state.models.isNotEmpty() && !state.modelsLoading && !state.loading &&
                             !submitting && !stopping && !state.controlling
                         ComposerModelSelector(
                             displayText = (state.models.takeIf { state.capabilities.models }
@@ -371,8 +374,8 @@ internal fun RemoteConversation(
                                 ?: state.selectedModel?.let(::inferModelAlias)) ?: stringResource(
                                     if (state.capabilities.models && (state.modelsLoading || state.loading)) R.string.loading_label
                                     else R.string.remote_model_unavailable),
-                            isModelValid = state.selectedModel != null, expanded = activeMenu == "model",
-                            enabled = active,
+                            isModelValid = state.selectedModel != null, expanded = activeMenu == "model" && modelChoice,
+                            enabled = modelChoice,
                             onClick = {
                                 val now = System.currentTimeMillis()
                                 if (activeMenu == "model") activeMenu = null
@@ -388,7 +391,9 @@ internal fun RemoteConversation(
                                 }
                             },
                             menuContent = {
-                                val sortedModels = remember(state.models) { state.models.sortedBy { it.id.lowercase() } }
+                                val sortedModels = remember(state.models, state.capabilities.models) {
+                                    if (state.capabilities.models) state.models.sortedBy { it.id.lowercase() } else emptyList()
+                                }
                                 if (!state.capabilities.models) AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.remote_model_unavailable)) },
                                     enabled = false,

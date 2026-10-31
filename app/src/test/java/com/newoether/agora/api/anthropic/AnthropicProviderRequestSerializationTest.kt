@@ -147,6 +147,24 @@ class AnthropicProviderRequestSerializationTest {
         assertEquals(null, AnthropicOutputLimits.maxOutputTokens("claude-mythos-preview"))
     }
 
+    @Test
+    fun currentDocumentedClaudeModelsUseAdaptiveOnlyAndNoSamplingOrBudget() = withServer { server ->
+        listOf("claude-opus-5-5", "claude-sonnet-5.5", "anthropic/claude-fable-5-1").forEach { id ->
+            val body = server.capture(config(server, id).copy(thinkingEnabled = false,
+                thinkingLevel = "max", thinkingBudgetEnabled = true, thinkingBudgetTokens = 4096))
+            val thinking = body["thinking"]!!.jsonObject
+            assertEquals("adaptive", thinking["type"]!!.jsonPrimitive.content)
+            assertFalse(thinking.containsKey("budget_tokens"))
+            assertEquals("low", body["output_config"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
+            assertFalse(body.containsKey("temperature"))
+            assertFalse(body.containsKey("top_p"))
+        }
+        val haiku = server.capture(config(server, "claude-haiku-5-5").copy(thinkingEnabled = false))
+        assertEquals("disabled", haiku["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertFalse(haiku.containsKey("temperature"))
+        assertFalse(haiku.containsKey("top_p"))
+    }
+
     private fun assertDisabled(model: String, effort: String) = withServer { server ->
         val body = server.capture(
             config(server, model).copy(thinkingEnabled = false, thinkingLevel = effort),

@@ -132,6 +132,12 @@ interface SandboxManager {
     /** Physical directory mounted as /home inside the sandbox, or null if not available. */
     fun getSandboxHomeDir(): File?
 
+    /**
+     * Physical file for a sandbox path, resolved with the same mount and traversal rules as the
+     * file tools. Null when the flavor has no sandbox; throws when the path is outside every mount.
+     */
+    fun resolveHostFile(path: String): File? = null
+
     // ── Nested types ───────────────────────────────────────
 
     data class SandboxResult(

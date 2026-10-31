@@ -22,7 +22,7 @@ internal data class AssistantContentPresentation(
     val errorContent: AssistantErrorContent?,
     /** [mergedSegments] plus a trailing answer when an image boundary would hide the text. */
     val orderedSegments: List<MessageSegment>,
-    /** Info segments shown by the compact block and the detail sheet. */
+    /** Info segments shown by the shared Thinking card and the detail sheet. */
     val detailSegments: List<MessageSegment>,
     val normalizedToolCallDisplayMode: String,
     val useThinkingSheet: Boolean,
@@ -30,7 +30,7 @@ internal data class AssistantContentPresentation(
     val groupOrderedInfoBlocks: Boolean,
     val useTimelineSegments: Boolean,
     val compactVisible: Boolean,
-    /** The answer shown below the compact block, or null when there is none. */
+    /** The answer shown below the Thinking card, or null when there is none. */
     val answerBodyText: String?,
 ) {
     /** True when the terminal bar sits directly under an info card. */
@@ -102,12 +102,10 @@ internal fun assistantContentPresentation(
     ) == ThinkingSegmentDisplayModes.BOTTOM_SHEET
     val groupAdjacentTimelineTools =
         normalizedToolCallDisplayMode == ToolCallDisplayModes.GROUPED_TIMELINE
-    val groupOrderedInfoBlocks = groupAdjacentTimelineTools ||
-        (hasImageGenerationBoundary && normalizedToolCallDisplayMode != ToolCallDisplayModes.TIMELINE)
+    val groupOrderedInfoBlocks = groupAdjacentTimelineTools
     val useTimelineSegments = hasImageGenerationBoundary ||
         (
             !useThinkingSheet &&
-                normalizedToolCallDisplayMode != ToolCallDisplayModes.COMPACT &&
                 (
                     mergedSegments.any { it.type == "answer" } ||
                         (groupAdjacentTimelineTools && mergedSegments.any { it.isInfoSegment() })

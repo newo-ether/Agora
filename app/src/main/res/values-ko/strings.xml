@@ -271,6 +271,8 @@
     <string name="conversation_read_empty">선택한 분기에 메시지가 없습니다.</string>
     <string name="conversation_read_page">페이지: 메시지 %1$d-%2$d</string>
     <string name="conversation_read_more">더 많은 메시지를 보려면 더 큰 오프셋을 사용하세요.</string>
+    <string name="conversation_tools_more">이 메시지에 더 많은 도구 호출이 있습니다(tool_offset: %1$d).</string>
+    <string name="conversation_details_error">저장된 메시지 세부 정보를 읽을 수 없습니다(%1$s).</string>
 
     <!-- General -->
     <string name="back">뒤로</string>

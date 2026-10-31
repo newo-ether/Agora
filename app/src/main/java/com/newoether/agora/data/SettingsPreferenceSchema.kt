@@ -1,10 +1,13 @@
 package com.newoether.agora.data
 
+import androidx.datastore.core.DataMigration
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.newoether.agora.model.ToolCallDisplayModes
 
 internal val SELECTED_MODEL = stringPreferencesKey("selected_model")
 internal val AVAILABLE_MODELS_JSON = stringPreferencesKey("available_models_json")
@@ -161,3 +164,20 @@ internal val AUTO_DELETE_ENABLED = booleanPreferencesKey("auto_delete_enabled")
 internal val AUTO_DELETE_PERIOD_HOURS = intPreferencesKey("auto_delete_period_hours")
 internal val LAST_BACKUP_TIMESTAMP = longPreferencesKey("last_backup_timestamp")
 internal val LAST_MODELS_FETCH_FINGERPRINT = stringPreferencesKey("last_models_fetch_fingerprint")
+
+/** Persist the retired display value before any Settings flow is published. */
+internal val toolCallDisplayModeMigration = object : DataMigration<Preferences> {
+    override suspend fun shouldMigrate(currentData: Preferences): Boolean =
+        currentData[TOOL_CALL_DISPLAY_MODE] == "compact"
+
+    override suspend fun migrate(currentData: Preferences): Preferences =
+        if (shouldMigrate(currentData)) {
+            currentData.toMutablePreferences().apply {
+                this[TOOL_CALL_DISPLAY_MODE] = ToolCallDisplayModes.GROUPED_TIMELINE
+            }
+        } else {
+            currentData
+        }
+
+    override suspend fun cleanUp() = Unit
+}

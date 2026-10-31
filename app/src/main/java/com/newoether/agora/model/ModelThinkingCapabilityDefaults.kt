@@ -18,12 +18,11 @@ enum class ThinkingProviderFamily {
 }
 
 /**
- * Built-in capability defaults.
+ * Endpoint-specific defaults and model-intrinsic capability refinements.
  *
- * Every entry below is taken from the provider's official API documentation; see
- * `.harness/runtime-logs/2026-09-26/provider-field-audit.md` for the source URL of each value. A
- * model id without an entry uses its family default, and an unknown family uses
- * [ModelThinkingCapability.Permissive]. Nothing here can reject a request.
+ * Source links live beside each entry. Documented model IDs are recognized across compatible
+ * transports; QWEN retains its endpoint-specific semantics. Unknown IDs keep their family default.
+ * Nothing here can reject a request.
  */
 object ModelThinkingCapabilityDefaults {
 
@@ -146,11 +145,21 @@ object ModelThinkingCapabilityDefaults {
     }
 
     /**
-     * Documented per-model refinements. Only ids whose behaviour is stated by the provider's own
-     * documentation appear here; everything else keeps the family default.
+     * Documented per-model refinements plus the owner's explicit compatible-endpoint policy.
+     * Unlisted IDs keep the family default.
      */
     fun forModel(family: ThinkingProviderFamily, modelId: String): ModelThinkingCapability {
-        val model = modelId.trim().lowercase()
+        val model = modelId.trim().lowercase(java.util.Locale.ROOT)
+        if (family in setOf(
+                ThinkingProviderFamily.OPENAI_COMPATIBLE,
+                ThinkingProviderFamily.OPENROUTER,
+                ThinkingProviderFamily.ANTHROPIC,
+                ThinkingProviderFamily.OPENAI,
+                ThinkingProviderFamily.GEMINI,
+            )
+        ) {
+            intrinsicCapability(normalizeThinkingModelId(model))?.let { return it }
+        }
         return when (family) {
             ThinkingProviderFamily.ANTHROPIC -> anthropicCapability(model)
             ThinkingProviderFamily.OPENAI -> when (model) {
@@ -164,6 +173,84 @@ object ModelThinkingCapabilityDefaults {
             else -> familyDefault(family)
         }
     }
+
+    /**
+     * Shared model facts, independent of the endpoint's parameter spelling. These entries implement
+     * the owner's 2026-10-26 compatibility table. Where catalogs differ, the comments identify the
+     * explicit compatibility choice rather than claiming every endpoint publishes the same schema.
+     */
+    private fun intrinsicCapability(model: String): ModelThinkingCapability? = when {
+        // Z.ai thinking reference and Ark deep-thinking reference (checked 2026-10-26):
+        // https://docs.bigmodel.cn/cn/guide/capabilities/thinking
+        // https://docs.volcengine.com/docs/82379/1449737
+        listOf("glm-5-3", "glm-5-3-flash", "glm-5-3-flashx").any { model.matchesSnapshot(it) } ->
+            deepSeek.copy(canDisableThinking = false)
+        // Z.ai documents high/max as the actual GLM-5.2 levels; compatible aliases map to them.
+        // https://docs.bigmodel.cn/cn/guide/capabilities/thinking
+        model.matchesSnapshot("glm-5-2") -> deepSeek.copy(supportedEfforts = listOf("high", "max"))
+        // Bailian OpenAI-compatible reference and Qwen's model card; effort and budget are exclusive.
+        // https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+        // https://huggingface.co/Qwen/Qwen3.8-27B
+        model.matchesSnapshot("qwen3-8-2-4t-a95b") -> qwen38Effort.copy(canDisableThinking = false)
+        listOf("qwen3-8-27b", "qwen3-8-flash-next", "qwen3-8-flash", "qwen3-8-omni-flash")
+            .any { model.matchesSnapshot(it) } || model.startsWith("qwen3-8-max") -> qwen38Effort
+        // DeepSeek's thinking reference specifies low/high/max; this also covers v4.1 snapshots.
+        // https://api-docs.deepseek.com/guides/thinking_mode
+        model.startsWith("deepseek-v4") -> deepSeek
+        // Moonshot always-on thinking is the common setting, even where OpenRouter permits off.
+        // https://platform.moonshot.cn/docs/guide/kimi-k3-quickstart
+        // https://platform.moonshot.cn/docs/api/chat
+        model.matchesSnapshot("kimi-k3") || model.matchesSnapshot("kimi-k3-1-pro") ->
+            deepSeek.copy(canDisableThinking = false)
+        // Ark's deep-thinking reference documents Seed's three effort levels and thinking toggle.
+        // https://docs.volcengine.com/docs/82379/1449737
+        model.startsWith("doubao-seed-2-1") || model.matchesSnapshot("doubao-seed-evolving") ->
+            deepSeek.copy(supportedEfforts = listOf("low", "medium", "high"))
+        // OpenRouter model reasoning metadata (checked 2026-10-26).
+        // https://openrouter.ai/api/v1/models
+        model.matchesSnapshot("minimax-m3-1-flash") -> gpt6Astra
+        model.matchesSnapshot("minimax-m3") -> local
+        // OpenAI model reference: neither none nor minimal is supported by GPT-6.1 Sol.
+        // https://developers.openai.com/api/docs/models/gpt-6.1-sol
+        model.matchesSnapshot("gpt-6-1-sol") -> gpt6Astra
+        // Claude adaptive thinking / effort references; no manual budget or sampling parameters.
+        // https://platform.claude.com/docs/en/build-with-claude/thinking
+        // https://platform.claude.com/docs/en/build-with-claude/effort
+        listOf("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1")
+            .any { model.matchesSnapshot(it) } -> anthropic.copy(
+                canDisableThinking = false,
+                supportsThinkingBudget = false,
+            )
+        model.matchesSnapshot("claude-haiku-5-5") -> anthropic.copy(supportsThinkingBudget = false)
+        // Gemini and Grok effort ranges / mandatory reasoning from the official model catalog.
+        // https://openrouter.ai/api/v1/models
+        model.matchesSnapshot("gemini-4-argon") || model.matchesSnapshot("gemini-3-8-flash") ->
+            gemini.copy(
+                canDisableThinking = false,
+                supportedEfforts = listOf("low", "medium", "high"),
+                supportsThinkingBudget = false,
+            )
+        listOf("gemini-3-6-flash", "gemini-3-5-flash", "gemini-3-5-flash-lite")
+            .any { model.matchesSnapshot(it) } -> gemini.copy(
+                canDisableThinking = false,
+                supportsThinkingBudget = false,
+            )
+        model.matchesSnapshot("grok-4-7") || model.matchesSnapshot("grok-4-6") ->
+            gpt6Astra.copy(supportedEfforts = listOf("low", "medium", "high", "xhigh"))
+        model.matchesSnapshot("grok-4-5") ->
+            gpt6Astra.copy(supportedEfforts = listOf("low", "medium", "high"))
+        // Catalog supplies the effort range; off remains available by explicit owner policy because
+        // endpoint-wide off support is unresolved. Do not invent a local request rejection.
+        // https://openrouter.ai/api/v1/models
+        model.matchesSnapshot("step-5-preview") || model.matchesSnapshot("step-3-7-flash") -> groq
+        else -> null
+    }
+
+    /** Matches exact IDs and dated snapshots without absorbing unrelated future model variants. */
+    private fun String.matchesSnapshot(base: String): Boolean = this == base ||
+        (startsWith("$base-") && snapshotSuffix.matches(removePrefix("$base-")))
+
+    private val snapshotSuffix = Regex("(?:\\d{4,8}|\\d{4}-\\d{2}-\\d{2})")
 
     /**
      * Claude generations differ in which thinking parameters exist at all:
@@ -264,3 +351,14 @@ object ModelThinkingCapabilityDefaults {
         else -> ModelThinkingCapability.Permissive.copy(supportsThinkingBudget = false)
     }
 }
+
+/** Normalize provider namespaces, catalog tags, dotted versions and Ark's dashed version IDs. */
+internal fun normalizeThinkingModelId(modelId: String): String = modelId.trim()
+    .lowercase(java.util.Locale.ROOT)
+    .substringAfterLast('/')
+    .substringBefore(':')
+    .replace('.', '-')
+
+/** Qwen template controls apply only to this generation, regardless of the serving namespace. */
+internal fun isQwen38ModelId(modelId: String): Boolean =
+    normalizeThinkingModelId(modelId).startsWith("qwen3-8-")

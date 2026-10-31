@@ -308,6 +308,8 @@
     <string name="conversation_read_empty">No messages in the selected branch.</string>
     <string name="conversation_read_page">Page: messages %1$d-%2$d</string>
     <string name="conversation_read_more">Use a higher offset to see more messages.</string>
+    <string name="conversation_tools_more">More tool calls are available for this message (tool_offset: %1$d).</string>
+    <string name="conversation_details_error">Could not read stored message details (%1$s).</string>
 
     <!-- General -->
     <string name="back">Back</string>

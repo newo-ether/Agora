@@ -271,6 +271,8 @@
     <string name="conversation_read_empty">لا توجد رسائل في الفرع المحدد.</string>
     <string name="conversation_read_page">الصفحة: الرسائل %1$d-%2$d</string>
     <string name="conversation_read_more">استخدم إزاحة أكبر لعرض المزيد من الرسائل.</string>
+    <string name="conversation_tools_more">تتوفر المزيد من استدعاءات الأدوات لهذه الرسالة (tool_offset: %1$d).</string>
+    <string name="conversation_details_error">تعذرت قراءة تفاصيل الرسالة المخزنة (%1$s).</string>
 
     <!-- General -->
     <string name="back">رجوع</string>

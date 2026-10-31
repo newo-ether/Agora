@@ -155,6 +155,22 @@ fun AttachmentThumbnailItem(
         .size(120.dp, 90.dp)
         .clip(shape)
 
+    if (unavailable && type == "image") {
+        Box(
+            modifier = thumbModifier.background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.BrokenImage,
+                contentDescription = androidx.compose.ui.res.stringResource(
+                    com.newoether.agora.R.string.attachment_copy_failed_image,
+                ),
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(32.dp),
+            )
+        }
+        return
+    }
     if (unavailable) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -220,9 +236,9 @@ fun AttachmentThumbnailItem(
             }
         }
         "pdf" -> {
-            val hasPages = pdfPages.isNotEmpty()
-            val clickMod = if (hasPages && handlers.onPdfClick != null)
-                Modifier.clip(shape).clickable { handlers.onPdfClick(pdfPages, 0) } else Modifier
+            val firstPage = pdfPages.indexOfFirst(String::isNotBlank)
+            val clickMod = if (firstPage >= 0 && handlers.onPdfClick != null)
+                Modifier.clip(shape).clickable { handlers.onPdfClick(pdfPages, firstPage) } else Modifier
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(72.dp)) {
                 FileThumbnail(fileName = null, isPdf = true, modifier = Modifier.size(64.dp).then(clickMod), shape = shape)
                 if (showFileName && fileName != null) {

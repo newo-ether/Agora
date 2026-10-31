@@ -257,6 +257,30 @@ class QueuedGuidancePermissionsTest {
         ), result.automaticCompact)
     }
 
+    @Test fun queuedPhonePermissionsIntersectModeReadinessAndAutomationLineage() {
+        val allowed = context().copy(phoneEnabled = true, phoneReady = true, phoneAllowAutomation = true)
+        val chosen = snapshot("last", allowed)
+        val automated = snapshot("task", allowed.copy(automationCaller = true, phoneAllowAutomation = false))
+        val narrowed = narrowQueuedGuidancePermissions(listOf(queued("task", automated), queued("typed", chosen)), chosen)
+        assertTrue(narrowed.context.automationCaller)
+        assertFalse(narrowed.context.phoneAllowAutomation)
+        assertTrue(com.newoether.agora.phone.phoneDefinitions(narrowed.context).isEmpty())
+        val differentMode = snapshot("parent", allowed.copy(phoneMode = "root"))
+        assertFalse(narrowQueuedGuidancePermissions(listOf(queued("parent", differentMode)), chosen).context.phoneEnabled)
+        val notReady = snapshot("parent", allowed.copy(phoneReady = false))
+        assertFalse(narrowQueuedGuidancePermissions(listOf(queued("parent", notReady)), chosen).context.phoneReady)
+    }
+
+    @Test fun uncapturedAutomationInputsCannotAcquireInteractivePhoneAdmissionAtDrain() {
+        val chosen = snapshot("typed", context().copy(phoneEnabled = true, phoneReady = true))
+        for (source in listOf(MessageSource.TASK, MessageSource.LOOP)) {
+            val result = narrowQueuedGuidancePermissions(listOf(queued("legacy", null, source)), chosen)
+            assertTrue(result.context.automationCaller)
+            assertTrue(result.automaticCompact.generationContext.automationCaller)
+            assertTrue(com.newoether.agora.phone.phoneDefinitions(result.context).isEmpty())
+        }
+    }
+
     @Test fun restrictionsNeverReplaceChosenConversationOrEffectIdentity() {
         val parent = snapshot("Parent:model", context(false).copy(
             toolEffectIdentity = RunEffectIdentity("parent", 1L, "parent-run", 1, "old-effect"),

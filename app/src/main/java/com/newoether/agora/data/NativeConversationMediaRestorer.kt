@@ -1,7 +1,6 @@
 package com.newoether.agora.data
 
 import android.content.Context
-import androidx.core.content.FileProvider
 import com.newoether.agora.model.SelectedAttachment
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -72,18 +71,9 @@ internal class NativeConversationMediaRestorer(
                 }
                 val target = File(targetDir, "$prefix${UUID.randomUUID()}.$extension")
                 // An empty attachment is exported as a normal entry, so it is restored as one.
-                archive.copyTo(path, target) ?: return null
                 createdFiles += target
-                val uri = if (kind == "image") {
-                    FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.fileprovider",
-                        target,
-                    ).toString()
-                } else {
-                    "file://${target.absolutePath}"
-                }
-                return RestoredMediaFile(target.absolutePath, uri)
+                archive.copyTo(path, target) ?: return null
+                return RestoredMediaFile(target.absolutePath, "file://${target.absolutePath}")
             }
 
             names.asSequence()
@@ -109,7 +99,7 @@ internal class NativeConversationMediaRestorer(
                 val index = parts[1].toIntOrNull() ?: return@forEach
                 restoreEntry(path, "image")?.let { restored ->
                     legacyImagesByMessage
-                        .getOrPut(parts[0]) { mutableMapOf() }[index] = restored.uri
+                        .getOrPut(parts[0]) { mutableMapOf() }[index] = restored.absolutePath
                 }
             }
 

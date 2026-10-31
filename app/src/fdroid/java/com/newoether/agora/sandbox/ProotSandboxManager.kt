@@ -325,6 +325,8 @@ class ProotSandboxManager(
 
     override fun getSandboxHomeDir(): File? = homeMountDir
 
+    override fun resolveHostFile(path: String): File = resolvePath(path)
+
     override suspend fun reset(): Boolean = withContext(Dispatchers.IO + NonCancellable) {
         // Quiesce manager jobs before deletion; cancellation alone does not finish their IO.
         val previousScope = sandboxScope

@@ -1,41 +1,56 @@
 package com.newoether.agora.api.util.tokens
 
-/**
- * Everything known offline about one provider-visible image.
- *
- * Pixel dimensions are what providers actually price, but durable attachment metadata does not
- * always record them, so the byte size stays available as a fallback input. An implementation must
- * define a cost for every combination, including "nothing is known".
- */
+/** Facts about one transmitted artifact. Encoded length is retained for compatibility, never priced. */
 data class ImageDescriptor(
     val byteSize: Long? = null,
     val pixelWidth: Int? = null,
     val pixelHeight: Int? = null,
 )
 
-/** Prices one image in provider-visible tokens, before any safety margin. */
+enum class ImageEstimateBasis { DOCUMENTED, HEURISTIC, MISSING_DIMENSIONS }
+
+/** Raw visual cost, before the independent request safety margin. No universal bound is implied. */
+data class ImageTokenEstimate(
+    val tokens: Long,
+    val basis: ImageEstimateBasis,
+    val ruleId: String,
+    /** Unavailable artifacts are provisional costs and cannot establish a sendable request. */
+    val unavailable: Boolean = false,
+)
+
+/** Prices one provider-visible image occurrence, before any safety margin. */
 fun interface ImageTokenCost {
     fun tokens(image: ImageDescriptor): Long
+
+    fun estimate(image: ImageDescriptor): ImageTokenEstimate = ImageTokenEstimate(
+        tokens = tokens(image),
+        basis = ImageEstimateBasis.HEURISTIC,
+        ruleId = "custom-image-cost",
+    )
 }
 
-/**
- * Byte-proportional image cost. Providers tokenize visual tiles, not bytes, so the byte divisor is
- * a deliberately coarse proxy that keeps a thumbnail well below a full-resolution photo while
- * staying model independent. [BYTES_PER_TOKEN] puts a 768 KiB image at the historical 1024-token
- * figure, and the bounds keep one image between a quarter and one and a half of that figure.
- *
- * This is the fallback for endpoints and attachments whose pixel dimensions are unknown.
- */
-object ByteProportionalImageCost : ImageTokenCost {
-    const val BYTES_PER_TOKEN = 768L
-    const val MIN_TOKENS = 256L
-    const val MAX_TOKENS = 1_536L
+/** Unpublished models use a dimension-only 32 px patch proxy, without a byte divisor or cap. */
+object HeuristicPixelImageCost : ImageTokenCost {
+    // This is an explicit provisional reservation, not a measured estimate or a provider bound.
+    const val MISSING_DIMENSIONS_RESERVATION = 1_024L
 
-    /** Cost of an image whose durable metadata records no usable byte size. */
-    const val UNKNOWN_TOKENS = 1_024L
+    override fun tokens(image: ImageDescriptor): Long = estimate(image).tokens
 
-    override fun tokens(image: ImageDescriptor): Long = image.byteSize
-        ?.takeIf { it > 0L }
-        ?.let { bytes -> (bytes / BYTES_PER_TOKEN).coerceIn(MIN_TOKENS, MAX_TOKENS) }
-        ?: UNKNOWN_TOKENS
+    override fun estimate(image: ImageDescriptor): ImageTokenEstimate {
+        val width = image.pixelWidth?.takeIf { it > 0 }
+        val height = image.pixelHeight?.takeIf { it > 0 }
+        return if (width == null || height == null) {
+            ImageTokenEstimate(
+                MISSING_DIMENSIONS_RESERVATION,
+                ImageEstimateBasis.MISSING_DIMENSIONS,
+                "missing-dimensions-reservation",
+            )
+        } else {
+            ImageTokenEstimate(
+                blocksCovering(width, 32) * blocksCovering(height, 32),
+                ImageEstimateBasis.HEURISTIC,
+                "unpublished-32px-patch-proxy",
+            )
+        }
+    }
 }

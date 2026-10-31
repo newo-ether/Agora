@@ -18,7 +18,7 @@ import org.junit.Test
 internal class RemoteDelayedSettingsTest : RemoteViewModelFixture() {
     private val caps = RemoteCapabilities(history = true, live = true, idleSend = true,
         activeSend = "native-steer", stop = true, settings = listOf("effort"))
-    private val source = RemoteAdapter("claude-desktop", "claude", "desktop", "connected",
+    private var source = RemoteAdapter("claude-desktop", "claude", "desktop", "connected",
         nativeScopeId = "scope", capabilities = caps)
     private val nativeSession = session.copy(access = RemoteSessionAccess("scope", "canonical", "binding", caps))
     private val updates = MutableSharedFlow<RemoteConversationPage>(extraBufferCapacity = 8)
@@ -53,6 +53,36 @@ internal class RemoteDelayedSettingsTest : RemoteViewModelFixture() {
         val notices = mutableListOf<RemoteNotice>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.notices.collect { notices += it } }
         return vm to notices
+    }
+
+    @Test fun unknownDesktopEffortDispatchesAndKeepsPendingSelectionWithoutCatalog() = runTest(dispatcher) {
+        assertUnknownEffortDispatch()
+    }
+
+    @Test fun unknownTerminalEffortDispatchesAndKeepsPendingSelectionWithoutCatalog() = runTest(dispatcher) {
+        source = source.copy(id = "claude-code", origin = "cli")
+        assertUnknownEffortDispatch()
+    }
+
+    private fun TestScope.assertUnknownEffortDispatch() {
+        runtime = RemoteRuntime("unknown", model = "claude-sonnet-5")
+        coEvery { client.models() } returns emptyList()
+        val (vm, notices) = open()
+        assertTrue(vm.state.value.canEditSettings)
+        assertNull(vm.state.value.selectedEffort)
+        vm.setThinkingLevel("low")
+        runCurrent()
+        coVerify(exactly = 1) { client.updateSettings("session", RemoteSettings(effort = "low")) }
+        assertEquals(pending, vm.state.value.runtime?.settingsChange)
+        assertEquals("low", vm.state.value.selectedEffort)
+        assertFalse(vm.state.value.settingsPending)
+        assertTrue(notices.isEmpty())
+        vm.refresh()
+        runCurrent()
+        assertEquals("low", vm.state.value.selectedEffort)
+        coVerify(exactly = 1) { client.updateSettings(any(), any()) }
+        coVerify(exactly = 0) { client.send(any(), any(), any(), any()) }
+        vm.setVisible(false)
     }
 
     @Test fun pendingThenFailedNotifiesOnceThroughTheExistingNoticeAndKeepsActualValues() = runTest(dispatcher) {

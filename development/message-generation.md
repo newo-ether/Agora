@@ -394,6 +394,15 @@ message/status, stale identity, or any other Compact anomaly stops this automati
 claimed guidance remains owned and ordered but is not automatically invoked or cleared after that
 failure; only a later explicit user action may resume ordinary queue admission.
 
+A caller with an already-scheduled ordinary continuation marks successful terminalization as
+`CONTINUATION_PENDING`, including an automatic Compact that will hand off again. This never reopens
+its Run or grants tool authority. Accepted reducer transitions may retain the existing Phone Use
+resource epoch until the admitted successor binds; see [phone-use.md](phone-use.md) section 3.
+The existing runtime resource owner retains the exact scheduling token before execution. Empty
+queue drains respect that obligation, while queue-versus-continuation admission remains serialized
+by `queueMutationMutex`. Guidance winning this decision transfers the cleanup obligation to the
+ordinary queue; failed or abandoned continuation releases only its original unclaimed resource.
+
 ### 8.7 Compact UI
 
 Compact may own a capsule renderer, message label/menu, haptic exclusion, and stable presentation.
@@ -607,7 +616,9 @@ changes affect future captured contexts only; no global timer, request state own
 
 ### 8.13b Built-in tool name compatibility
 
-Built-in definitions use namespace_action protocol names. `BuiltInToolNames` is the sole legacy alias
+Built-in definitions use namespace_action protocol names: the domain comes first and the detail
+after (`memory_read`, `task_create`, `phone_tap`). Every new built-in tool must follow this rule and
+join an existing domain prefix when one applies; never put the verb first. `BuiltInToolNames` is the sole legacy alias
 map. Execution canonicalizes the called name and frozen authorized names before permission checks
 and provider dispatch. Historical Room rows stay unchanged. Immutable request projection canonicalizes
 call/result names, segment names and Responses function_call.name before validation, preserving IDs,
@@ -757,6 +768,20 @@ reachable safe prefix. It must never jump to a Compact on another branch.
 ### 9.1 Immutable materialization and single rollout ownership
 
 The Room read side may optimize payload materialization, but it may not select a different context.
+An independent Room pool and executor own a DEFERRED WAL read snapshot; context, title input,
+and task-recovery reads never enter the foreground write transaction lane. Export reuses that same
+read boundary with background priority. Actual read/modify/write recovery and queue decisions retain
+their atomic write boundary. Database open/close also run off the main thread, and the snapshot
+remains attached to its caller's cancellation. Nullable transaction results never replay the operation.
+Each invocation owns and finally closes its database and executors; concurrent readers do not queue
+behind another snapshot's long read transaction. Tests cover opening after a foreground writer has
+started, multiple simultaneous readers, and cancellation of only some readers. Per-call connection
+and executor construction has a resource cost; this isolation does not imply a shared reusable pool.
+Tool-round sequence allocation retains the canonical per-Run MAX-plus-one rule in the same write
+transaction. Schema 44 adds a covering (runId, runSequence) index, so allocation reads indexed metadata
+without visiting message bodies or adding a second sequence authority. The same migration adds
+owner/id and Provider/model indexes for direct continuation and identity lookup; building these
+indexes has a one-time upgrade cost proportional to indexed rows, with no content rewrite.
 One immutable read transaction captures the selected-branch state, payload-free message topology,
 and every full row reachable from the requested parent or selected visible path. The transaction
 walks the same durable parent chain, applies the nearest-SUCCESS-Compact boundary regardless of
@@ -827,9 +852,10 @@ prompt without a construction-layer fallback.
 The shipped default begins with one custom text item containing Response, Tools, Memory, Skills,
 Past conversations, Web, Devices, Subagents and automation, and Asking the user in that order.
 These sections are static, including when their tools are disabled or Compact preserves the ordinary
-system prompt. The explicit Skill catalog block follows, then Active Memory with their existing
-variables and surrounding text. Tool availability never trims these sections or injects them into
-custom templates. Custom text and whitespace remain verbatim.
+system prompt. A normal editable HTML preview guidance text item follows that first item, as specified
+by [interactive-html.md](interactive-html.md). The explicit Skill catalog block follows, then Active
+Memory with their existing variables and surrounding text. Tool availability never trims these
+sections or injects them into custom templates. Custom text and whitespace remain verbatim.
 `GenerationPromptRendering` compiles request and preview values without changing stored items.
 `GenerationContextAccounting` uses the dispatch tool-definition source for fixed cost/composition
 and Compact accounting. Preview compilation occurs once in its captured snapshot; it does not need
@@ -923,11 +949,13 @@ descriptors, and the optional API-only initial USER prompt. Every Provider-visib
 page, video frame, assistant-generated image projected to the latest USER, and tool-result image
 projected to its synthetic USER turn.
 
-Exact tokenization and visual-token pricing vary by selected model and custom Provider, so the
-shared estimator remains intentionally conservative: text uses its deterministic cross-provider
-heuristic and every projected image uses the established fixed per-image estimate. It may
-overestimate, but it may not omit a Provider-visible category. Display-only citations, tool
-progress, presentation metadata, and attachment metadata that is not serialized are excluded.
+Exact tokenization and visual-token pricing vary by selected model and custom Provider. Image
+processing, preview/dispatch identity and dimension-based estimation follow
+[image-processing.md](image-processing.md). Every image is estimated from its own transmitted
+artifact dimensions and actual request detail/resolution mode using the most accurate verified
+model rule available; unknown rules remain explicitly heuristic. The former fixed per-image rule
+is superseded. The estimator must not omit a Provider-visible category. Display-only citations,
+tool progress, presentation metadata and attachment metadata that is not serialized are excluded.
 
 The Chat top-bar token subtitle and Bottom Bar context indicator report the same full selected canonical
 context estimate plus fixed request cost; neither surface replaces that number with the already-retained
@@ -1052,6 +1080,6 @@ retained-message calculation.
 | Delete isolation | Target-only delete, direct-child reparent, unchanged surviving rows, independent Run presentation. |
 | Priority | Only Compact SUCCESS permits handoff; then pending and already-claimed queue guidance beat loop and the no-guidance path admits loop once. ERROR/STOPPED/cancellation/anomaly starts neither. |
 | Request terminal role | Compact dispatch appends one non-durable initial USER invocation after an Assistant or tool-result parent; provider-visible input ends USER and fixed token accounting includes it. |
-| Provider-hosted output | OpenAI-compatible Chat requests serialize applicable numeric and model-specific thinking controls; Responses requests serialize the five normalized `service_tier` values after mapping the stored tier to the actual model's supported choices and serialize enabled `web_search` plus reasoning summaries; impossible thinking-off requests fail before HTTP; summary indices preserve part boundaries and headings supply titles; OpenAI Search and Gemini Google Search/Code Execution settle display-only tool blocks without local execution; Gemini Code Execution replays typed parts and fails closed when a result is missing. |
+| Provider-hosted output | OpenAI-compatible Chat requests serialize applicable numeric and model-specific thinking controls; Responses requests serialize the five normalized `service_tier` values after mapping the stored tier to the actual model's supported choices and serialize enabled `web_search` plus reasoning summaries; mandatory-thinking models resolve off to their lowest legal setting before HTTP; summary indices preserve part boundaries and headings supply titles; OpenAI Search and Gemini Google Search/Code Execution settle display-only tool blocks without local execution; Gemini Code Execution replays typed parts and fails closed when a result is missing. |
 | Races and failures | Stop before/after bind, consecutive origin/Compact release suppressions in both settlement orders, selection drift, missing target/status, transaction rollback, stale callbacks, checkpoint-versus-terminal ordering, and queue claim failure. |
 | UI stability | Compact row/pill vertical bounds do not change across progress and terminal content; entrance is draw-only and does not alter apparent vertical spacing; message and Thinking Tool terminal text reuse the shared neutral body-text tokens and alpha without Segment error cards. |

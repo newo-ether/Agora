@@ -7,6 +7,7 @@ import com.newoether.agora.util.Constants
 
 class OpenAiProvider : BaseOpenAiProvider() {
     override val name: String = Constants.PROVIDER_OPENAI
+    override val thinkingProviderFamily = ThinkingProviderFamily.OPENAI
     override val defaultBaseUrl: String = "https://api.openai.com/v1"
 
     /**

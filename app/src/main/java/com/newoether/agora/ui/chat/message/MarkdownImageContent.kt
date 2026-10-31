@@ -148,7 +148,14 @@ internal fun markdownImageLink(content: String, node: ASTNode, references: Refer
         }
         return null
     }
-    node.descendant(MarkdownElementTypes.LINK_DESTINATION)?.let { return it.getUnescapedTextInNode(content) }
+    node.descendant(MarkdownElementTypes.LINK_DESTINATION)?.let {
+        return it.getUnescapedTextInNode(content)
+    }
+    // Angle-wrapped inline destinations are parsed as a direct AUTOLINK child.
+    node.findChildOfType(MarkdownElementTypes.INLINE_LINK)?.children
+        ?.firstOrNull { it.type == MarkdownElementTypes.AUTOLINK }?.let {
+            return it.getUnescapedTextInNode(content).removeSurrounding("<", ">")
+        }
     val reference = node.descendant(MarkdownElementTypes.FULL_REFERENCE_LINK)
         ?: node.descendant(MarkdownElementTypes.SHORT_REFERENCE_LINK) ?: return null
     val label = reference.findChildOfType(MarkdownElementTypes.LINK_LABEL)?.getUnescapedTextInNode(content)

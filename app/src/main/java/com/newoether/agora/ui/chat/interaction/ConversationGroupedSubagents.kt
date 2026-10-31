@@ -52,7 +52,9 @@ internal fun ConversationGroupedSubagentCapsule(
     val first = agents.firstOrNull() ?: return
     val single = agents.singleOrNull()
     val runningCount = agents.count { it.status == "running" }
-    val title = if (runningCount > 0) {
+    val title = if (single != null) {
+        single.title
+    } else if (runningCount > 0) {
         pluralStringResource(R.plurals.subagents_running_count, runningCount, runningCount)
     } else {
         pluralStringResource(R.plurals.subagents_count, agents.size, agents.size)

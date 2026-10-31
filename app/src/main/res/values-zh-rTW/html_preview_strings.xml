@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="html_preview_run">執行</string>
+    <string name="html_preview_source">原始碼</string>
+    <string name="html_preview_preview">@string/template_preview</string>
+    <string name="html_preview_reload">重新載入</string>
+    <string name="html_preview_fullscreen">全螢幕</string>
+    <string name="html_preview_save">儲存 HTML</string>
+    <string name="html_preview_share">分享 HTML</string>
+    <string name="html_preview_failed">預覽無法使用</string>
+    <string name="html_preview_loading">正在載入預覽</string>
+    <string name="html_preview_insert">新增 HTML 預覽指引</string>
+    <string name="html_preview_export_failed">無法匯出 HTML</string>
+    <string name="html_preview_webview_required">請更新 Android System WebView，以執行 HTML 預覽</string>
+</resources>

@@ -35,6 +35,23 @@ class ChatDrawerContentTest {
     @get:Rule val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
 
     @Test
+    fun interactionIndicatorUsesTheExistingSlotAndReturnsToUnreadWhenCleared() {
+        val resources = ApplicationProvider.getApplicationContext<Application>().resources
+        val question = resources.getString(com.newoether.agora.ui.chat.interaction.InteractionKind.Question.titleRes)
+        val approval = resources.getString(com.newoether.agora.ui.chat.interaction.InteractionKind.Approval.titleRes)
+        var status by mutableStateOf(DrawerConversationIndicator.QUESTION)
+        compose.setContent { MaterialTheme { DrawerStatus(status, MaterialTheme.colorScheme.primary) } }
+        compose.onNodeWithContentDescription(question).assertIsDisplayed().assertWidthIsEqualTo(18.dp)
+        compose.runOnIdle { status = DrawerConversationIndicator.APPROVAL }
+        compose.onNodeWithContentDescription(approval).assertIsDisplayed().assertWidthIsEqualTo(18.dp)
+        compose.onNodeWithContentDescription(question).assertDoesNotExist()
+        compose.runOnIdle { status = DrawerConversationIndicator.UNREAD }
+        compose.onNodeWithContentDescription(approval).assertDoesNotExist()
+        compose.onNodeWithContentDescription(resources.getString(R.string.conversation_unread_generation))
+            .assertIsDisplayed().assertWidthIsEqualTo(8.dp)
+    }
+
+    @Test
     fun headerSearchFillsTheRowAndClearDoesNotCollapseButReturnResetsQuery() {
         val resources = ApplicationProvider.getApplicationContext<Application>().resources
         val hint = resources.getString(R.string.search_hint)
@@ -259,7 +276,7 @@ class ChatDrawerContentTest {
         assertTrue(source.contains("animationSpec = tween(durationMillis = 250)"))
         assertTrue(source.contains("color = selectionContainerColor"))
         assertTrue(source.contains("color = selectionContentColor"))
-        assertTrue(source.contains("color = selectionIndicatorColor"))
+        assertTrue(source.contains("DrawerStatus(indicator, selectionIndicatorColor)"))
         assertTrue(source.contains(".height(44.dp)"))
     }
 

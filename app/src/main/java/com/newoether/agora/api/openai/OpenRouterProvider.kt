@@ -15,6 +15,7 @@ private fun extractThoughtTitle(text: String): String? =
 
 class OpenRouterProvider : BaseOpenAiProvider() {
     override val name: String = Constants.PROVIDER_OPEN_ROUTER
+    override val thinkingProviderFamily = ThinkingProviderFamily.OPENROUTER
     override val defaultBaseUrl: String = "https://openrouter.ai/api/v1"
 
     /**

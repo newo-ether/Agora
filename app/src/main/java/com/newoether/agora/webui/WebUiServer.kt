@@ -81,7 +81,9 @@ internal class WebUiServer(
     private val toolImages: WebUiToolImages? = null,
 ) {
     fun install(application: Application) = with(application) {
-        install(SecurityHeaders)
+        val htmlPreview = WebUiHtmlPreview(auth)
+        monitor.subscribe(io.ktor.server.application.ApplicationStopped) { htmlPreview.close() }
+        install(webUiSecurityHeaders(secureCookies))
         val httpsGate = createApplicationPlugin("WebUiHttpsGate") {
             onCall { call ->
                 val port = httpsRedirectPort() ?: return@onCall
@@ -120,6 +122,7 @@ internal class WebUiServer(
             }
         }
         routing {
+            htmlPreview.install(this)
             route("/api/sync") {
                 install(syncGate)
                 webSocket { serveSync() }
@@ -264,6 +267,34 @@ internal class WebUiServer(
                     if (!found) call.respond(HttpStatusCode.NotFound)
                 }
             }
+            route("/api/markdown-images/{conversationId}/{messageId}") {
+                install(syncGate)
+                get {
+                    call.response.header(HttpHeaders.CacheControl, "no-store")
+                    val token = call.request.cookies[SESSION_COOKIE] ?: return@get
+                    val link = call.request.queryParameters["link"] ?: return@get call.respond(HttpStatusCode.NotFound)
+                    val image = toolImages?.openMarkdown(call.parameters["conversationId"].orEmpty(),
+                        call.parameters["messageId"].orEmpty(), link) ?: return@get call.respond(HttpStatusCode.NotFound)
+                    if (!auth.isValidSession(token)) return@get call.respond(HttpStatusCode.Forbidden)
+                    call.respondOutputStream(ContentType.parse(image.mimeType), contentLength = image.size) {
+                        withContext(Dispatchers.IO) {
+                            image.file.inputStream().use { input ->
+                                check(input.channel.size() == image.size)
+                                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                                var remaining = image.size
+                                while (remaining > 0) {
+                                    currentCoroutineContext().ensureActive()
+                                    if (!auth.isValidSession(token)) throw kotlinx.coroutines.CancellationException("Session revoked")
+                                    val count = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                                    if (count < 0) throw java.io.EOFException("Markdown image ended early")
+                                    write(buffer, 0, count)
+                                    remaining -= count
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             route("$TOOL_IMAGE_PATH/{conversationId}/{messageId}/{detailIndex}/{imageIndex}") {
                 install(syncGate)
                 get {
@@ -274,7 +305,8 @@ internal class WebUiServer(
                     val imageIndex = call.parameters["imageIndex"]?.toIntOrNull() ?: return@get call.respond(HttpStatusCode.NotFound)
                     val image = toolImages?.open(conversationId, messageId, detailIndex, imageIndex)
                         ?: return@get call.respond(HttpStatusCode.NotFound)
-                    if (!auth.isValidSession(call.request.cookies[SESSION_COOKIE])) {
+                    val token = call.request.cookies[SESSION_COOKIE]
+                    if (!auth.isValidSession(token)) {
                         return@get call.respond(HttpStatusCode.Forbidden)
                     }
                     call.respondOutputStream(ContentType.parse(image.mimeType), contentLength = image.size) {
@@ -286,8 +318,10 @@ internal class WebUiServer(
                                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                                 var remaining = image.size
                                 while (remaining > 0) {
+                                    currentCoroutineContext().ensureActive()
+                                    if (!auth.isValidSession(token)) throw kotlinx.coroutines.CancellationException("Session revoked")
                                     val count = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
-                                    if (count < 0) throw java.io.EOFException("Tool image ended before its recorded size")
+                                    if (count < 0) throw java.io.EOFException("Tool image ended early")
                                     write(buffer, 0, count)
                                     remaining -= count
                                 }
@@ -499,16 +533,28 @@ internal class WebUiServer(
 }
 
 /** Browser hardening for every response: no framing, no sniffing, no third-party loads. */
-private val SecurityHeaders = createApplicationPlugin("WebUiSecurityHeaders") {
+private fun webUiSecurityHeaders(secureCookies: (ApplicationCall) -> Boolean) = createApplicationPlugin("WebUiSecurityHeaders") {
     onCall { call ->
+        val previewId = WebUiHtmlPreview.id(call.request.local.uri)
+        val previewDocument = previewId != null && !call.request.local.uri.contains("/resource/")
+        val authority = call.request.headers[HttpHeaders.Host].orEmpty()
+        val protocol = if (secureCookies(call)) "https" else "http"
+        val previewPrefix = "$protocol://$authority${WebUiHtmlPreview.ROOT}/$previewId"
         with(call.response) {
             header("X-Content-Type-Options", "nosniff")
-            header("X-Frame-Options", "DENY")
+            header("X-Frame-Options", if (previewDocument) "SAMEORIGIN" else "DENY")
             header("Referrer-Policy", "no-referrer")
-            header(
+            header("Cache-Control", "no-store")
+            if (previewId != null) header("Permissions-Policy", WebUiHtmlPreview.PERMISSIONS)
+            if (previewDocument) {
+                header("Content-Security-Policy", WebUiHtmlPreview.policy(previewPrefix))
+                if (call.request.local.uri.endsWith("/blocked")) {
+                    header("Connection-Allowlist", WebUiHtmlPreview.connection(previewPrefix))
+                }
+            } else header(
                 "Content-Security-Policy",
                 "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
-                    "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+                    "connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
             )
         }
     }

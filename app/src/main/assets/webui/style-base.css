@@ -1,0 +1,305 @@
+/*
+ * Agora WebUI styles. Colors and font come from /theme.css, which the app writes from its
+ * current Material color scheme and font. The values below only apply until the app has
+ * published its theme (they approximate the default Forest tonal-spot scheme).
+ * Sizes follow the app's type scale and Material 3 component metrics.
+ */
+:root {
+  color-scheme: light dark;
+  --md-primary: #3b6939;
+  --md-on-primary: #ffffff;
+  --md-background: #f7fbf1;
+  --md-on-background: #181d17;
+  --md-surface: #f7fbf1;
+  --md-on-surface: #181d17;
+  --md-on-surface-variant: #424940;
+  --md-surface-container-low: #f1f5eb;
+  --md-surface-container: #ebefe6;
+  --md-surface-container-high: #e5e9e0;
+  --md-surface-variant: #dee5d8;
+  --md-secondary-container: #d7e8cd;
+  --md-on-secondary-container: #121f0e;
+  --md-primary-container: #bcf0b4;
+  --md-on-primary-container: #002204;
+  --md-outline: #72796f;
+  --md-outline-variant: #c2c9bd;
+  --md-error: #ba1a1a;
+  --md-error-container: #ffdad6;
+  --md-on-error-container: #93000a;
+  --app-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --md-primary: #a1d39a;
+    --md-on-primary: #0a390f;
+    --md-background: #10140f;
+    --md-on-background: #e0e4db;
+    --md-surface: #10140f;
+    --md-on-surface: #e0e4db;
+    --md-on-surface-variant: #c2c9bd;
+    --md-surface-container-low: #181d17;
+    --md-surface-container: #1c211b;
+    --md-surface-container-high: #272b25;
+    --md-surface-variant: #424940;
+    --md-secondary-container: #3b4b38;
+    --md-on-secondary-container: #d6e8ce;
+    --md-primary-container: #235024;
+    --md-on-primary-container: #bcf0b4;
+    --md-outline: #8c9388;
+    --md-outline-variant: #424940;
+    --md-error: #ffb4ab;
+    --md-error-container: #93000a;
+    --md-on-error-container: #ffdad6;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--md-background);
+  color: var(--md-on-background);
+  font-family: var(--app-font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app { min-height: 100%; }
+/*
+ * Flex, not a grid: an auto grid track sizes to the card's max-content (its one-line hint), so on
+ * a narrow phone the card grew past the screen once the app font loaded.
+ */
+.sign-in-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+/* Dialog-like surface, as the app's AlertDialog: surfaceContainer, 28 dp corners, 24 dp inset. */
+.card {
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+  border-radius: 28px;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.brand svg { width: 24px; height: 24px; fill: var(--md-primary); flex: none; }
+
+/* brandTitle: bold 20/26. */
+.brand span { font-size: 20px; line-height: 26px; font-weight: 700; }
+
+/* Dialog title: headlineSmall 23/29, bold as the app's dialog titles. */
+h1 { margin: 0 0 8px; font-size: 23px; line-height: 29px; font-weight: 700; }
+
+/* bodyMedium 13/19 in onSurfaceVariant, as dialog text. */
+p {
+  margin: 0 0 20px;
+  color: var(--md-on-surface-variant);
+  font-size: 13px;
+  line-height: 19px;
+  letter-spacing: 0.25px;
+}
+
+/* Outlined text field: 16 dp corners (the app's shape), 56 dp tall, floating label. */
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  border: 1px solid var(--md-outline);
+  border-radius: 16px;
+  transition: border-color 150ms;
+}
+
+.field:hover { border-color: var(--md-on-surface); }
+
+.field:focus-within {
+  border: 2px solid var(--md-primary);
+  /* Keep the content still when the border thickens. */
+  margin: -1px;
+  height: 58px;
+}
+
+.field.invalid, .field.invalid:focus-within { border-color: var(--md-error); }
+
+.field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 0 0 16px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--md-on-surface);
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  caret-color: var(--md-primary);
+}
+
+.field label {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  padding: 0 4px;
+  transform: translateY(-50%);
+  background: var(--md-surface-container);
+  color: var(--md-on-surface-variant);
+  font-size: 16px;
+  line-height: 20px;
+  pointer-events: none;
+  transition: top 150ms, font-size 150ms, color 150ms;
+}
+
+.field:focus-within label,
+.field input:not(:placeholder-shown) + label {
+  top: 0;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.field:focus-within label { color: var(--md-primary); }
+.field.invalid label { color: var(--md-error); }
+
+/* Trailing eye button, as SecretVisibilityToggle: 48 dp target, 24 dp icon. */
+.icon-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+}
+
+.icon-button svg { width: 24px; height: 24px; fill: currentColor; }
+
+/* bodySmall supporting text below a field. */
+.supporting {
+  min-height: 16px;
+  margin: 4px 16px 0;
+  color: var(--md-error);
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+}
+
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* Material 3 buttons: 40 dp tall capsule, labelLarge 13/18 medium. */
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 40px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 20px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.button.filled { background: var(--md-primary); color: var(--md-on-primary); }
+.button.text { padding: 0 12px; background: transparent; color: var(--md-primary); }
+
+.button:disabled {
+  cursor: default;
+  background: color-mix(in srgb, var(--md-on-surface) 12%, transparent);
+  color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
+}
+
+.button.text:disabled { background: transparent; }
+.button:disabled::after { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sign-in-page .field, .sign-in-page .field label, .sign-in-page .button::after { transition: none; }
+}
+
+/* No focus ring anywhere (owner decision 2026-10-12): Compose draws none. Keyboard focus keeps the
+ * Material focus state layer from material.css. */
+:focus, :focus-visible { outline: none; }
+
+.icon-button:disabled {
+  cursor: default;
+  background: transparent;
+  color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
+}
+/* Error banner, as an errorContainer card. */
+.banner {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--md-error-container);
+  color: var(--md-on-error-container);
+  font-size: 13px;
+  line-height: 19px;
+}
+/*
+ * Chat frame, mirroring the app's chat screen. Tonal surfaces follow Compose's
+ * surfaceColorAtElevation (primary over surface at (4.5 ln(e + 1) + 2) %), and shadows approximate
+ * the Material 3 elevation levels used by the app's shadowElevation values.
+ */
+:root {
+  --tonal-1: color-mix(in srgb, var(--md-primary) 5.1%, var(--md-surface));
+  --tonal-2: color-mix(in srgb, var(--md-primary) 6.9%, var(--md-surface));
+  --tonal-4: color-mix(in srgb, var(--md-primary) 9.2%, var(--md-surface));
+  --tonal-8: color-mix(in srgb, var(--md-primary) 11.9%, var(--md-surface));
+  --shadow-3: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --shadow-4: 0 1px 3px rgb(0 0 0 / 0.3), 0 4px 8px 3px rgb(0 0 0 / 0.15);
+  --shadow-8: 0 2px 3px rgb(0 0 0 / 0.3), 0 6px 10px 4px rgb(0 0 0 / 0.15);
+  --mono-font: "AgoraMono", ui-monospace, monospace;
+}
+/* The app's code font (MonoFamily, JetBrains Mono), served by the phone. */
+@font-face {
+  font-family: "AgoraMono";
+  src: url("/fonts/mono/regular") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AgoraMono";
+  src: url("/fonts/mono/bold") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AgoraMono";
+  src: url("/fonts/mono/italic") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AgoraMono";
+  src: url("/fonts/mono/bolditalic") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}

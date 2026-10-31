@@ -27,7 +27,7 @@ class ContextCostModelsTest {
         // Providers that host many vendors carry no family of their own.
         assertEquals(ContextCostFamily.GENERIC, familyOf(Constants.PROVIDER_OLLAMA, "llama3.2"))
         assertEquals(
-            ContextCostFamily.GENERIC,
+            ContextCostFamily.DEEPSEEK,
             familyOf(Constants.PROVIDER_DEEPSEEK, "deepseek-chat"),
         )
         assertEquals(ContextCostFamily.GENERIC, familyOf(Constants.PROVIDER_QWEN, "qwen3-max"))
@@ -48,7 +48,7 @@ class ContextCostModelsTest {
 
     @Test
     fun providerNamesMatchRegardlessOfCase() {
-        assertEquals(ContextCostFamily.ANTHROPIC, familyOf("anthropic", "some-model"))
+        assertEquals(ContextCostFamily.GENERIC, familyOf("anthropic", "some-model"))
         assertEquals(ContextCostFamily.LOCAL, familyOf("local", "some-model"))
     }
 
@@ -152,12 +152,28 @@ class ContextCostModelsTest {
             765L,
             ContextCostModels.forModel("${Constants.PROVIDER_OPENAI}:gpt-4o").image.tokens(image),
         )
-        // Unrecognised endpoints keep the byte proxy, which ignores pixels.
+        // An unpublished identity uses only dimensions and carries heuristic provenance.
         assertEquals(
-            ByteProportionalImageCost.tokens(image),
-            ContextCostModels.forModel("My Gateway:mystery-model-v2").image.tokens(image),
+            HeuristicPixelImageCost.estimate(image),
+            ContextCostModels.forModel("My Gateway:mystery-model-v2").image.estimate(image),
         )
         assertEquals(ContextCostModel.Default, ContextCostModels.forModel(null as String?))
+    }
+
+    @Test
+    fun actualIdentityWinsOverAnOpenAiCompatibleTransport() {
+        assertEquals(ContextCostFamily.ANTHROPIC, familyOf(Constants.PROVIDER_OPENAI, "claude-opus-4-7"))
+        assertEquals(ContextCostFamily.DEEPSEEK, familyOf(Constants.PROVIDER_OPENAI, "deepseek-flash"))
+        assertEquals(ContextCostFamily.GEMINI, familyOf(Constants.PROVIDER_OPENAI, "google/gemini-3-pro"))
+        assertEquals(ContextCostFamily.GENERIC, familyOf(Constants.PROVIDER_OPENAI, "private-vision"))
+        assertEquals(ContextCostFamily.ANTHROPIC, familyOf("Gateway", "anthropic/private-alias"))
+        assertEquals(ContextCostFamily.LOCAL, familyOf(Constants.PROVIDER_LOCAL, "claude-opus-4-7"))
+        val image = ImageDescriptor(pixelWidth = 1_000, pixelHeight = 1_000)
+        assertEquals(
+            602L,
+            ContextCostModels.forModel(ModelId(Constants.PROVIDER_OPENAI, "deepseek-flash"))
+                .image.tokens(image),
+        )
     }
 
     @Test

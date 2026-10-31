@@ -68,12 +68,12 @@ class AssistantMessagePresentationTest {
     }
 
     @Test
-    fun compactAndSheetModesUseOneBlockAboveTheAnswer() {
-        val compact = present(message(listOf(thought, tool, answer)), toolMode = ToolCallDisplayModes.COMPACT)
-        assertFalse(compact.useTimelineSegments)
-        assertTrue(compact.compactVisible)
-        assertEquals(listOf(thought, tool), compact.detailSegments)
-        assertEquals("Done.", compact.answerBodyText)
+    fun legacyCompactUsesGroupedTimelineAndSheetKeepsTheSharedThinkingCard() {
+        val grouped = present(message(listOf(thought, tool, answer)))
+        val legacy = present(message(listOf(thought, tool, answer)), toolMode = "compact")
+        assertEquals(grouped, legacy)
+        assertTrue(legacy.useTimelineSegments)
+        assertFalse(legacy.compactVisible)
         val sheet = present(message(listOf(thought, answer)), thinkingMode = ThinkingSegmentDisplayModes.BOTTOM_SHEET)
         assertTrue(sheet.useThinkingSheet)
         assertTrue(sheet.compactVisible)

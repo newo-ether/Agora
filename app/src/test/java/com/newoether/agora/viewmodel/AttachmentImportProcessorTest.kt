@@ -3,6 +3,7 @@ package com.newoether.agora.viewmodel
 import android.app.Application
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.model.AttachmentStorage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.util.Constants
 import com.newoether.agora.util.AttachmentFiles
@@ -215,24 +216,61 @@ class AttachmentImportProcessorTest {
         val normalized = temporaryFolder.newFile("normalized.jpg").apply {
             writeBytes(byteArrayOf(8, 9))
         }
+        val measured = ImageArtifact(normalized.absolutePath, "image/png", 2, 901, 377, 1)
         var normalizedSource: String? = null
         val processor = processor(
             normalizeImage = { source ->
                 normalizedSource = source
                 normalized.absolutePath
             },
+            measureArtifact = { path ->
+                assertEquals(normalized.absolutePath, path)
+                measured
+            },
         )
 
         val result = processor.process(
-            attachment(type = "image", localPath = staged.absolutePath),
+            attachment(type = "image", localPath = staged.absolutePath).copy(
+                mimeType = "image/gif", pixelWidth = 9_999, pixelHeight = 9_999, fileSize = 99_999,
+            ),
         ) as AttachmentImportProcessor.ProcessResult.Ready
 
         assertEquals(staged.absolutePath, normalizedSource)
         assertEquals(normalized.absolutePath, result.attachment.localPath)
         assertEquals(2L, result.attachment.fileSize)
+        assertEquals("image/png", result.attachment.mimeType)
+        assertEquals(901, result.attachment.pixelWidth)
+        assertEquals(377, result.attachment.pixelHeight)
+        assertEquals(listOf(measured), result.attachment.imageArtifacts)
         assertEquals(AttachmentImportState.READY, result.attachment.importState)
         assertEquals(listOf(normalized.absolutePath), result.createdPaths)
         assertEquals(listOf(staged.absolutePath), result.obsoletePaths)
+    }
+
+    @Test
+    fun incompleteImageMeasurementsFailBeforeReadyAndReclaimOnlyTheNewArtifact() = runTest {
+        val staged = temporaryFolder.newFile("incomplete-source.jpg")
+        val complete = ImageArtifact("output.jpg", "image/jpeg", 1, 100, 200, 1)
+        val incomplete = listOf(
+            complete.copy(path = "wrong-output.jpg"),
+            complete.copy(mimeType = "application/octet-stream"),
+            complete.copy(sizeBytes = 0),
+            complete.copy(width = null),
+            complete.copy(height = 0),
+            complete.copy(unavailable = true),
+        )
+        incomplete.forEachIndexed { index, facts ->
+            val normalized = temporaryFolder.newFile("incomplete-output-$index.jpg")
+            val descriptor = if (index == 0) facts else facts.copy(path = normalized.absolutePath)
+            val result = processor(
+                normalizeImage = { normalized.absolutePath },
+                measureArtifact = { descriptor },
+            ).process(attachment(type = "image", localPath = staged.absolutePath))
+
+            assertTrue("Incomplete measurement $index must fail", result is AttachmentImportProcessor.ProcessResult.Failure)
+            assertFalse(normalized.exists())
+            assertTrue(staged.exists())
+        }
     }
 
     @Test
@@ -302,6 +340,99 @@ class AttachmentImportProcessorTest {
         assertEquals(pages, pdf.attachment.preRenderedPaths)
         assertEquals(setOf(0, 1), pdf.attachment.selectedPages)
         assertEquals(pages, pdf.createdPaths)
+    }
+
+    @Test
+    fun videoAndPdfKeepEachMeasuredArtifactWithoutRepeatingTheFirstImageSize() = runTest {
+        val stagedVideo = temporaryFolder.newFile("mixed-video.mp4")
+        val stagedPdf = temporaryFolder.newFile("mixed-document.pdf")
+        val frameA = ImageArtifact("frame-a.jpg", "image/jpeg", 20, 2048, 1152, 1)
+        val frameB = ImageArtifact("frame-b.png", "image/png", 30, 911, 1611, 1)
+        val pageA = ImageArtifact("page-a.jpg", "image/jpeg", 40, 1448, 2048, 1)
+        val pageB = ImageArtifact("page-b.jpg", "image/jpeg", 50, 2048, 1448, 1)
+        val measured = listOf(frameA, frameB, pageA, pageB).associateBy { it.path }
+        val processor = processor(
+            extractVideoFrames = { _, _ -> listOf(frameA.path, frameB.path) },
+            renderPdf = { _, _ -> listOf(pageA.path, pageB.path) },
+            measureArtifact = { measured.getValue(it) },
+        )
+
+        val video = processor.process(
+            attachment(type = "video", localPath = stagedVideo.absolutePath, frameCount = 2, sliceIntervalMs = 1000),
+        ) as AttachmentImportProcessor.ProcessResult.Ready
+        val pdf = processor.process(
+            attachment(type = "pdf", localPath = stagedPdf.absolutePath, selectedPages = setOf(0, 1)),
+        ) as AttachmentImportProcessor.ProcessResult.Ready
+
+        assertEquals(listOf(frameA, frameB), video.attachment.imageArtifacts)
+        assertEquals(listOf(pageA, pageB), pdf.attachment.imageArtifacts)
+        assertEquals(listOf(frameA.path, frameB.path), video.createdPaths)
+        assertEquals(listOf(pageA.path, pageB.path), pdf.createdPaths)
+        assertTrue(stagedVideo.exists())
+        assertTrue(stagedPdf.exists())
+        assertTrue(video.obsoletePaths.isEmpty())
+        assertTrue(pdf.obsoletePaths.isEmpty())
+    }
+
+    @Test
+    fun failedArtifactMeasurementReclaimsEveryNewFrameAndKeepsTheVideoSource() = runTest {
+        val staged = temporaryFolder.newFile("failed-metadata.mp4")
+        val frames = (0..1).map { temporaryFolder.newFile("failed-frame-$it.jpg").absolutePath }
+        val processor = processor(
+            extractVideoFrames = { _, _ -> frames },
+            measureArtifact = { path ->
+                if (path == frames[1]) throw java.io.IOException("Unreadable frame")
+                ImageArtifact(path, "image/jpeg", 1, 100, 100, 1)
+            },
+        )
+
+        val result = processor.process(
+            attachment(type = "video", localPath = staged.absolutePath, frameCount = 2, sliceIntervalMs = 1000),
+        )
+
+        assertTrue(result is AttachmentImportProcessor.ProcessResult.Failure)
+        assertTrue(frames.none { File(it).exists() })
+        assertTrue(staged.exists())
+    }
+
+    @Test
+    fun incompleteFrameMeasurementReclaimsEveryNewFrameAndKeepsTheVideoSource() = runTest {
+        val staged = temporaryFolder.newFile("incomplete-metadata.mp4")
+        val frames = (0..1).map { temporaryFolder.newFile("incomplete-frame-$it.jpg").absolutePath }
+        val processor = processor(
+            extractVideoFrames = { _, _ -> frames },
+            measureArtifact = { path ->
+                ImageArtifact(path, "image/jpeg", 1, 100, if (path == frames[1]) null else 200, 1)
+            },
+        )
+
+        val result = processor.process(
+            attachment(type = "video", localPath = staged.absolutePath, frameCount = 2, sliceIntervalMs = 1000),
+        )
+
+        assertTrue(result is AttachmentImportProcessor.ProcessResult.Failure)
+        assertTrue(frames.none { File(it).exists() })
+        assertTrue(staged.exists())
+    }
+
+    @Test
+    fun cancelledArtifactMeasurementReclaimsEveryNewFrameAndPropagatesCancellation() = runTest {
+        val staged = temporaryFolder.newFile("cancelled-metadata.mp4")
+        val frames = (0..1).map { temporaryFolder.newFile("cancelled-frame-$it.jpg").absolutePath }
+        val processor = processor(
+            extractVideoFrames = { _, _ -> frames },
+            measureArtifact = { throw CancellationException("cancelled measurement") },
+        )
+
+        val failure = runCatching {
+            processor.process(
+                attachment(type = "video", localPath = staged.absolutePath, frameCount = 2, sliceIntervalMs = 1000),
+            )
+        }.exceptionOrNull()
+
+        assertTrue(failure is CancellationException)
+        assertTrue(frames.none { File(it).exists() })
+        assertTrue(staged.exists())
     }
 
     @Test
@@ -388,6 +519,96 @@ class AttachmentImportProcessorTest {
     }
 
     @Test
+    fun pdfSelectionReusesTheCompletedPreviewArtifactsWithoutRenderingAgain() = runTest {
+        val source = temporaryFolder.newFile("selected-source.pdf")
+        val paths = (0..2).map { temporaryFolder.newFile("preview-$it.jpg").absolutePath }
+        val artifacts = paths.mapIndexed { index, path ->
+            ImageArtifact(path, "image/jpeg", 1, 2048 - index * 100, 1000 + index * 100, 1)
+        }
+        val result = processor(
+            renderPdf = { _, _ -> error("Completed previews must be reused") },
+            measureArtifact = { path -> artifacts.first { it.path == path } },
+        ).process(
+            attachment(type = "pdf", localPath = source.absolutePath, selectedPages = setOf(0, 2),
+                preRenderedPaths = paths).copy(imageArtifacts = artifacts),
+        ) as AttachmentImportProcessor.ProcessResult.Ready
+
+        assertEquals(listOf(paths[0], paths[2]), result.attachment.preRenderedPaths)
+        assertEquals(listOf(artifacts[0], artifacts[2]), result.attachment.imageArtifacts)
+        assertTrue(result.createdPaths.isEmpty())
+    }
+
+    @Test
+    fun legacyPdfPreviewMeasuresSelectedBytesWithoutRenderingOrClaimingCurrentPolicy() = runTest {
+        val source = temporaryFolder.newFile("legacy-preview-source.pdf")
+        val pages = (0..2).map { index ->
+            temporaryFolder.newFile("legacy-preview-$index.jpg").apply { writeText("page $index") }
+        }
+        val paths = pages.map { it.absolutePath }
+        val measured = mutableListOf<String>()
+        val processor = processor(
+            renderPdf = { _, _ -> error("Legacy preview bytes must be reused") },
+            measureArtifact = { path ->
+                measured += path
+                ImageArtifact(path, "image/jpeg", File(path).length(), 100, 200, 1)
+            },
+        )
+
+        val result = processor.process(
+            attachment(type = "pdf", localPath = source.absolutePath, selectedPages = setOf(2, 0),
+                preRenderedPaths = paths),
+        ) as AttachmentImportProcessor.ProcessResult.Ready
+
+        assertEquals(listOf(paths[0], paths[2]), measured)
+        assertEquals(measured, result.attachment.preRenderedPaths)
+        assertEquals(measured, result.attachment.imageArtifacts.map { it.path })
+        assertTrue(result.attachment.imageArtifacts.all { it.policyVersion == 0 })
+        assertEquals(listOf("page 0", "page 1", "page 2"), pages.map { it.readText() })
+        assertTrue(result.createdPaths.isEmpty())
+        assertTrue(result.obsoletePaths.isEmpty())
+        assertTrue(source.exists())
+    }
+
+    @Test
+    fun incompleteRecordedPdfPreviewMeasuresCurrentBytesWithoutRendering() = runTest {
+        val source = temporaryFolder.newFile("incomplete-preview-source.pdf")
+        val page = temporaryFolder.newFile("incomplete-preview.jpg").apply { writeText("preview") }
+        val recorded = ImageArtifact(page.absolutePath, "image/jpeg", page.length(), null, 200, 1)
+        val result = processor(
+            renderPdf = { _, _ -> error("Completed preview must not be rendered again") },
+            measureArtifact = { recorded.copy(width = 100) },
+        ).process(
+            attachment(type = "pdf", localPath = source.absolutePath, selectedPages = setOf(0),
+                preRenderedPaths = listOf(page.absolutePath)).copy(imageArtifacts = listOf(recorded)),
+        ) as AttachmentImportProcessor.ProcessResult.Ready
+
+        assertEquals(listOf(recorded.copy(width = 100)), result.attachment.imageArtifacts)
+        assertEquals("preview", page.readText())
+        assertTrue(source.exists())
+    }
+
+    @Test
+    fun missingSelectedPdfPreviewRetainsABrokenSlotWithoutRenderingReplacementBytes() = runTest {
+        val source = temporaryFolder.newFile("missing-preview-source.pdf")
+        val first = temporaryFolder.newFile("available-preview.jpg")
+        val missing = File(temporaryFolder.root, "missing-preview.jpg")
+        val paths = listOf(first.absolutePath, missing.absolutePath)
+        val artifacts = paths.map { ImageArtifact(it, "image/jpeg", 1, 100, 200, 1) }
+        val result = processor(
+            renderPdf = { _, _ -> error("Missing preview must stay unavailable") },
+            measureArtifact = { throw java.io.IOException("Missing preview") },
+        ).process(
+            attachment(type = "pdf", localPath = source.absolutePath, selectedPages = setOf(1),
+                preRenderedPaths = paths).copy(imageArtifacts = artifacts),
+        ) as AttachmentImportProcessor.ProcessResult.Ready
+
+        assertEquals(listOf(artifacts[1].copy(unavailable = true)), result.attachment.imageArtifacts)
+        assertTrue(first.exists())
+        assertTrue(source.exists())
+        assertFalse(missing.exists())
+    }
+
+    @Test
     fun sandboxProcessingCopiesFromStageAndReportsPromotionPaths() = runTest {
         val staged = temporaryFolder.newFile("archive.bin").apply { writeBytes(byteArrayOf(4, 5)) }
         val sandboxHome = temporaryFolder.newFolder("sandbox-home")
@@ -426,6 +647,9 @@ class AttachmentImportProcessorTest {
         readPdfPageCount: (String) -> Int = { 0 },
         readVideoDurationMs: (String) -> Long = { 0L },
         maxAttachmentBytes: Long = Long.MAX_VALUE,
+        measureArtifact: suspend (String) -> ImageArtifact = { path ->
+            ImageArtifact(path, "image/jpeg", File(path).length().coerceAtLeast(1L), 640, 480, 1)
+        },
     ): AttachmentImportProcessor {
         val app = mockk<Application>()
         every { app.filesDir } returns temporaryFolder.root
@@ -440,6 +664,7 @@ class AttachmentImportProcessorTest {
             readPdfPageCount = readPdfPageCount,
             readVideoDurationMs = readVideoDurationMs,
             maxAttachmentBytes = maxAttachmentBytes,
+            measureArtifact = measureArtifact,
         )
     }
 

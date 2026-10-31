@@ -437,12 +437,10 @@
     <string name="tool_call_display_mode">思考與工具區塊</string>
     <string name="tool_call_display_mode_timeline">時間軸</string>
     <string name="tool_call_display_mode_grouped_timeline">分組</string>
-    <string name="tool_call_display_mode_compact">精簡</string>
     <string name="tool_call_display_mode_timeline_desc">依時間順序顯示回答、思考和工具區塊</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">保留時間順序，但合併連續的思考、工具和圖片區塊</string>
     <string name="auto_expand_active_group">自動展開目前群組</string>
     <string name="auto_expand_active_group_desc">自動展開目前的思考與工具群組，並在模型進入下一階段時收合。</string>
-    <string name="tool_call_display_mode_compact_desc">將思考和工具區塊聚合顯示在回答上方</string>
     <string name="interaction_feedback">互動回饋</string>
     <string name="stick_to_bottom">始終貼底</string>
     <string name="stick_to_bottom_desc">回覆生成期間自動跟隨新增內容。</string>

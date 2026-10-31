@@ -50,7 +50,9 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val cacheRows by viewModel.ragManager.cacheRows.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val embeddingModelIds = remember(embeddingModels) { embeddingModels.map(EmbeddingModelConfig::id) }
-    LaunchedEffect(embeddingModelIds) { viewModel.ragManager.loadCacheCounts() }
+    LaunchedEffect(viewModel.ragManager, embeddingModelIds) {
+        viewModel.ragManager.observeCachePresentation()
+    }
 
     var editorRoute by remember { mutableStateOf<EmbeddingEditorRoute?>(null) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
@@ -461,56 +463,13 @@ private fun SearchMethodItem(
     ragAvailable: Boolean,
     onSelect: (String) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    SettingsItem(
-        headlineContent = { Text(stringResource(titleRes)) },
-        supportingContent = { Text(stringResource(descRes)) },
-        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = {
-            Box {
-                Text(
-                    searchMethods.find { it.key == selected }?.let { stringResource(it.labelRes) } ?: "",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.width(80.dp),
-                    textAlign = TextAlign.Center
-                )
-                AgoraDropdownMenu(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 16.dp,
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    searchMethods.forEach { method ->
-                        val disabled = method.key == Constants.SEARCH_METHOD_RAG && !ragAvailable
-                        val disabledColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        AgoraDropdownMenuItem(
-                            text = {
-                                Text(
-                                    stringResource(method.labelRes),
-                                    color = if (disabled) disabledColor else MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
-                            leadingIcon = {
-                                if (selected == method.key) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        null,
-                                        tint = if (disabled) disabledColor else MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            },
-                            onClick = {
-                                if (!disabled) {
-                                    onSelect(method.key)
-                                    expanded = false
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        },
-        modifier = Modifier.clickable { expanded = true }
+    SettingsChoiceItem(
+        titleRes = titleRes,
+        descRes = descRes,
+        icon = icon,
+        selected = selected,
+        choices = searchMethods.map { it.key to it.labelRes },
+        enabled = { it != Constants.SEARCH_METHOD_RAG || ragAvailable },
+        onSelect = onSelect,
     )
 }

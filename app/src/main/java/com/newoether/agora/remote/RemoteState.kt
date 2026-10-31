@@ -123,7 +123,10 @@ internal data class RemoteState(
     val settingsPending: Boolean get() = settingsProjection != null ||
         optimisticSettings.keys.any { it != settingsKey && it.startsWith("${owner.orEmpty()}/@settings/") }
     val selectedEffort: String? get() = if (isDraft) draftSettings.effort ?: settingsModel?.defaultReasoningEffort
-        else settingsProjection?.effort ?: runtime?.effort
+        else settingsProjection?.effort ?: runtime?.settingsChange?.takeIf {
+            selectedAdapter.family == "claude" && verifiedSessionAccess &&
+                "effort" in capabilities.settings && it.state == "pending"
+        }?.requested?.effort ?: runtime?.effort
     val selectedServiceTier: String? get() {
         val tier = when {
             isDraft -> if (draftSettings.updateServiceTier) draftSettings.serviceTier else settingsModel?.defaultServiceTier
@@ -135,7 +138,9 @@ internal data class RemoteState(
     val serviceTierKnown: Boolean get() = isDraft || settingsProjection?.updateServiceTier == true ||
         runtime?.serviceTierKnown == true || runtime?.serviceTier != null
     private val canControlSettings: Boolean get() = session != null && capabilities.settings.isNotEmpty() &&
-        (isDraft || runtime?.status in setOf("idle", "active", "running", "ready", "notLoaded")) &&
+        (isDraft || runtime?.status in setOf("idle", "active", "running", "ready", "notLoaded") ||
+            selectedAdapter.family == "claude" && verifiedSessionAccess &&
+                capabilities.settings == listOf("effort") && runtime?.status == "unknown") &&
         !controlling && !controlPending && !isStopping && attempts[owner]?.delivery !in
             setOf(RemoteDelivery.SUBMITTING, RemoteDelivery.ACCEPTED, RemoteDelivery.UNKNOWN)
     val canChooseModel: Boolean get() = capabilities.models && "model" in capabilities.settings && canControlSettings && !settingsPending

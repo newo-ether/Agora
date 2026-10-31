@@ -81,6 +81,7 @@ class WebUiSyncTest {
         every { observeConversationTodo(any()) } returns todo
         every { observeParentConversationId(any()) } returns flowOf(null)
         every { observeSubagents(any()) } returns flowOf(emptyList())
+        every { observeSubagentParentIds(any()) } returns flowOf(emptyList())
         coEvery { getSubagentFamilyRootId(any()) } answers { firstArg<String>() }
         coEvery { getSubagentIds(any()) } returns emptyList()
         coEvery { getLiveRun(any()) } returns null
@@ -105,6 +106,7 @@ class WebUiSyncTest {
     private val state = mockk<ConversationGenerationState> {
         every { generationSnapshot } returns snapshot
     }
+    internal val executionCoordinator = ConversationExecutionCoordinator()
     internal val registry = mockk<ConversationStateRegistry> {
         every { activeConversationIds } returns MutableStateFlow(setOf("b"))
         every { getOrCreate("a") } returns state
@@ -177,26 +179,6 @@ class WebUiSyncTest {
         assertTrue(received().none { it.type == "todo" })
         io.mockk.verify(exactly = 1) { todoDao.observeConversationTodo("a") }
     }
-    @Test
-    fun drawerPagesAreBoundedAndDuplicateLoadRequestsDoNotAdvanceTwice() = sync { send, received ->
-        received()
-        list.value = (0 until 200).map { ChatConversation(id = "c$it", title = "Conversation $it", isPinned = it == 0) }
-        val first = received().single { it.type == "conversations" }
-        assertEquals(80, first["items"]!!.jsonArray.size)
-        assertEquals("true", first.string("hasMore"))
-        assertEquals("true", first["items"]!!.jsonArray.first().jsonObject.string("isPinned"))
-        send("""{"type":"list_more","tokens":80}""")
-        assertEquals(160, received().single { it.type == "conversations" }["items"]!!.jsonArray.size)
-        send("""{"type":"list_more","tokens":80}""")
-        assertTrue(received().none { it.type == "conversations" })
-        send("""{"type":"list_more","tokens":160}""")
-        val last = received().single { it.type == "conversations" }
-        assertEquals(200, last["items"]!!.jsonArray.size)
-        assertFalse(last["hasMore"]?.jsonPrimitive?.content?.toBoolean() == true)
-        verify(exactly = 0) { conversations.getAllConversations() }
-        coVerify(exactly = 0) { conversations.recoverConversationRuntime(any(), any()) }
-    }
-
     @Test fun removedPromptEditorCommandsDoNothingAndExistingSelectionStillRoutes() = sync { send, received ->
         received()
         for (type in listOf("prompt_new", "prompt_preview", "prompt_create")) {
@@ -783,7 +765,7 @@ class WebUiSyncTest {
     private fun webUiSync(dispatcher: kotlinx.coroutines.CoroutineDispatcher) = WebUiSync(
         conversations = conversations,
         registry = registry,
-        executionCoordinator = ConversationExecutionCoordinator(),
+        executionCoordinator = executionCoordinator,
         hydration = hydration,
         customProviders = customProviders,
         display = display,

@@ -74,6 +74,23 @@ layout, states, density, or interaction design has been approved.
   relay-owned caching, negotiate relay policy, add block-level breakpoints, or retry with altered
   cache parameters. Provider settings must reach every applicable request caller.
 
+## Generation image quality
+- Generation places its immediate-save Image Quality group last, after generation parameters.
+  Its whole-row Quality Mode SettingsItem has a leading image icon, title,
+  effective longest-edge/JPEG description and a trailing selected value. It opens the shared
+  Appearance-style dropdown with a selected-item checkmark and the existing menu surface treatment.
+- Modes are Light, Balanced, High and Custom. `image-processing.md` owns their numeric policy.
+  Only Custom shows the two controls Maximum Long Edge and JPEG Quality. Each control retains a
+  leading icon, title, supporting description and displayed value, and uses the existing persisted
+  slider feedback gate. A drag updates its local displayed value and commits once on release;
+  stale persistence emissions do not interrupt the gesture or overwrite its pending final value.
+  Maximum Long Edge uses seven discrete integer stops: 128, 256, 512, 1024, 2048, 4096 and 8192 px.
+  An existing off-stop integer remains displayed and persisted unchanged until the user selects
+  a stop. JPEG Quality retains its existing range and interaction.
+- Mode changes persist immediately, retain custom values and apply to newly processed images.
+  There is no Save action or save-on-exit draft. The existing Generation scaffold/navigation and
+  shared SettingsGroup own spacing and navigation. All supported locales define the complete copy.
+
 ## Appearance defaults
 
 - When no appearance preference has been persisted, the app uses the Forest color scheme with the
@@ -475,6 +492,9 @@ in the existing editor. Source links retain the established external-link icon a
   remain removable rows with the existing localized Unknown label and technical key underneath;
   preview compilation contributes no text for them. Opening or leaving the editor never deletes
   or rewrites those saved items. Save and unsaved Back behavior stay unchanged.
+- The explicit-save editor also offers an HTML Preview Guidance insertion as an ordinary CUSTOM text
+  item, following [interactive-html.md](interactive-html.md). It edits only the draft and remains fully
+  editable/removable; it is not a predefined tool variable or runtime prompt injection.
 - The existing variable picker keeps its title, SettingsItem rows, spacing and scroll behavior.
   Selection changes the draft only. Default copy describes response rules, tool guidance, the Skill
   catalog and Active Memory. Exact template ordering, migration and ownership follow

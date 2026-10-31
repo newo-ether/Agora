@@ -200,12 +200,10 @@
     <string name="tool_call_display_mode">Blocos de raciocínio e ferramentas</string>
     <string name="tool_call_display_mode_timeline">Linha do tempo</string>
     <string name="tool_call_display_mode_grouped_timeline">Agrupado</string>
-    <string name="tool_call_display_mode_compact">Compacto</string>
     <string name="tool_call_display_mode_timeline_desc">Mostra resposta, raciocínio e blocos de ferramentas em ordem cronológica</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">Mantém a ordem cronológica, mas mescla blocos consecutivos de raciocínio, ferramentas e imagens</string>
     <string name="auto_expand_active_group">Expandir automaticamente o grupo ativo</string>
     <string name="auto_expand_active_group_desc">Expande automaticamente o grupo atual de raciocínio e ferramentas e o recolhe quando o modelo avança.</string>
-    <string name="tool_call_display_mode_compact_desc">Agrupa blocos de raciocínio e ferramentas acima da resposta</string>
     <string name="interaction_feedback">Feedback de interação</string>
     <string name="stick_to_bottom">Manter no final</string>
     <string name="stick_to_bottom_desc">Acompanhe automaticamente o novo conteúdo enquanto uma resposta é gerada.</string>

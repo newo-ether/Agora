@@ -256,7 +256,7 @@ class LatexRendererTest {
     @Test
     fun authenticatedInlineImageViewportStaysSquareAcrossLoadStates() {
         val link = "C:/picture.png"
-        val attachment = ToolImageAttachment("/private/picture.png", "image/png", 128, 1024, 200, "hash")
+        val attachment = ToolImageAttachment("/private/picture.png", "image/png", 128, 1024, 200)
         val states = listOf(MarkdownImage(), MarkdownImage(attachment), MarkdownImage(failed = true))
         for (state in states) {
             val transformer = LatexImageTransformer(inlineImages = mapOf(link to state))

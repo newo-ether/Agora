@@ -1,5 +1,6 @@
 package com.newoether.agora.data.repository
 
+import android.content.Context
 import androidx.room.withTransaction
 import com.newoether.agora.data.local.ChatDao
 import com.newoether.agora.data.local.ChatDatabase
@@ -10,7 +11,7 @@ import com.newoether.agora.data.local.ConversationSettingsTransferEntity
 import com.newoether.agora.data.local.EmbeddingEntity
 import com.newoether.agora.data.local.EmbeddingModelCount
 import com.newoether.agora.data.local.EmbeddingSearchRow
-import com.newoether.agora.data.local.IndexableMessage
+import com.newoether.agora.data.local.EmbeddingCacheCounts
 import com.newoether.agora.data.local.MaintenanceDebtDao
 import com.newoether.agora.data.local.MaintenanceDebtEntity
 import com.newoether.agora.data.local.MessageAttachmentReference
@@ -47,13 +48,14 @@ import kotlinx.serialization.json.Json
 class ConversationRepository(
     internal val chatDao: ChatDao,
     /** Non-null in production; null is an explicit DAO-isolated unit-test seam. */
-    private val database: ChatDatabase?,
+    internal val database: ChatDatabase?,
     internal val scheduleMaintenance: () -> Unit = { MaintenanceDebtWorker.schedule() },
     private val maintenanceDebtDao: MaintenanceDebtDao? = database?.maintenanceDebtDao(),
     internal val generationErrorFormatter: (String) -> String = { it.ifBlank { "Failed to generate" } },
     private val semanticModelSnapshotProvider: suspend () -> SemanticModelSnapshot = {
         semanticModelSnapshot("", emptyList())
     },
+    internal val snapshotContext: Context? = null,
     internal val subagentGenerationIds: kotlinx.coroutines.flow.StateFlow<Set<String>> = kotlinx.coroutines.flow.MutableStateFlow(emptySet()),
 ) {
     private val branchSelections = ConversationBranchSelections(chatDao)
@@ -79,7 +81,7 @@ class ConversationRepository(
 
     suspend fun upsertNewChatPersist(entity: NewChatPersistEntity) {
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             val previousRaw = chatDao.getNewChatPersist()?.draftAttachments
             val previous = previousRaw.decodeSelectedAttachments()
             val replacement = entity.draftAttachments.decodeSelectedAttachments()
@@ -97,7 +99,7 @@ class ConversationRepository(
     suspend fun deleteNewChatPersist(reclaimAttachments: Boolean = true): Boolean {
         var deleted = false
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             val previousRaw = chatDao.getNewChatPersist()?.draftAttachments
             val previous = previousRaw.decodeSelectedAttachments()
             deleted = chatDao.deleteNewChatPersist() > 0
@@ -210,15 +212,15 @@ class ConversationRepository(
     ): ProviderContextTopologySnapshot? =
         chatDao.getProviderContextTopologySnapshot(conversationId)
 
-    /** Keeps topology and every selected payload row on one immutable Room read snapshot. */
+    /** Production reads use an independent pool. Null context is a DAO/in-memory test seam. */
+    suspend fun <T> withReadSnapshot(block: suspend (ChatDao) -> T): T = readSnapshot(block)
+
+    /** Atomic read/modify/write boundary for recovery, queue ownership, and child state. */
     suspend fun <T> withProviderContextSnapshot(block: suspend () -> T): T =
-        database?.withTransaction { block() } ?: block()
+        if (database == null) block() else database.withTransaction { block() }
 
     suspend fun getMessage(messageId: String): MessageEntity? =
         chatDao.getMessage(messageId)
-
-    suspend fun getContextMessagesByIds(ids: List<String>): List<MessageEntity> =
-        getMessagesByIds(ids)
 
     suspend fun getLastMessageForConversation(conversationId: String): MessageEntity? =
         chatDao.getLastMessageForConversation(conversationId)
@@ -404,8 +406,8 @@ class ConversationRepository(
         chatDao.getLiveRun(conversationId)
 
     suspend fun requestRunStop(runId: String, at: Long = System.currentTimeMillis()): Boolean =
-        withSemanticTransaction(updatedAt = at) {
-            val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+        withDatabaseTransaction {
+            val run = chatDao.getRun(runId) ?: return@withDatabaseTransaction false
             val changed = chatDao.markRunStopping(runId, at) == 1
             if (changed) check(chatDao.touchConversationData(run.conversationId, at) == 1)
             changed
@@ -415,16 +417,16 @@ class ConversationRepository(
         runId: String,
         reason: RunEndReason = RunEndReason.USER_STOPPED,
         at: Long = System.currentTimeMillis(),
-    ): Boolean = withSemanticTransaction(updatedAt = at) {
-        val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+    ): Boolean = withDatabaseTransaction {
+        val run = chatDao.getRun(runId) ?: return@withDatabaseTransaction false
         val changed = chatDao.terminalizeLiveRun(runId, RunStatus.STOPPED, reason, at) == 1
         if (changed) check(chatDao.touchConversationData(run.conversationId, at) == 1)
         changed
     }
 
     suspend fun failRun(runId: String, at: Long = System.currentTimeMillis()): Boolean =
-        withSemanticTransaction(updatedAt = at) {
-            val run = chatDao.getRun(runId) ?: return@withSemanticTransaction false
+        withDatabaseTransaction {
+            val run = chatDao.getRun(runId) ?: return@withDatabaseTransaction false
             val changed = chatDao.terminalizeLiveRun(
                 runId,
                 RunStatus.FAILED,
@@ -535,7 +537,7 @@ class ConversationRepository(
     suspend fun removeContextCompact(messageId: String): Boolean {
         var removed = false
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             val message = chatDao.getMessage(messageId)
             removed = chatDao.removeContextCompact(messageId)
             if (removed && message != null) {
@@ -608,6 +610,7 @@ class ConversationRepository(
     suspend fun deleteSemanticModel(modelId: String) {
         checkNotNull(database) { "Semantic model deletion requires the production database" }
             .deleteSemanticModel(modelId)
+        scheduleMaintenance()
     }
     suspend fun invalidateSemanticModel(
         modelId: String,
@@ -615,6 +618,7 @@ class ConversationRepository(
     ) {
         checkNotNull(database) { "Semantic model invalidation requires the production database" }
             .invalidateSemanticModel(modelId, updatedAt)
+        scheduleMaintenance()
     }
 
     suspend fun commitSemanticEmbedding(
@@ -649,12 +653,8 @@ class ConversationRepository(
     suspend fun getIndexableMessageCount(): Int =
         chatDao.getIndexableMessageCount()
 
-    suspend fun getUnembeddedMessagesPage(
-        modelId: String,
-        afterId: String?,
-        limit: Int,
-    ): List<IndexableMessage> =
-        chatDao.getUnembeddedMessagesPage(modelId, afterId, limit)
+    suspend fun getEmbeddingCacheCounts(modelIds: List<String>): EmbeddingCacheCounts =
+        chatDao.getEmbeddingCacheCounts(modelIds)
 
     // ── Search ────────────────────────────────────────────────
 
@@ -688,7 +688,7 @@ class ConversationRepository(
         reclaimRemovedAttachments: Boolean = true,
     ) {
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             val previousRaw = chatDao.getConversation(conversationId)?.draftAttachments
             val previous = previousRaw.decodeSelectedAttachments()
             val replacement = draftAttachments.decodeSelectedAttachments()
@@ -717,7 +717,7 @@ class ConversationRepository(
         attachments: List<SelectedAttachment>,
     ) {
         var scheduled = false
-        withMaintenanceTransaction {
+        withDatabaseTransaction {
             scheduled = enqueueAttachmentDebt(attachments.reclaimablePaths())
         }
         if (scheduled) scheduleMaintenance()
@@ -746,8 +746,8 @@ class ConversationRepository(
         }
     }
 
-    private suspend fun <T> withMaintenanceTransaction(block: suspend () -> T): T =
-        database?.withTransaction { block() } ?: block()
+    private suspend fun <T> withDatabaseTransaction(block: suspend () -> T): T =
+        if (database == null) block() else database.withTransaction { block() }
 
     internal suspend fun enqueueAttachmentDebt(paths: Collection<String>): Boolean =
         enqueueDebt(MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS, paths)

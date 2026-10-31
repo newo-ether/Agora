@@ -274,6 +274,8 @@
     <string name="conversation_read_empty">Không có tin nhắn nào trong nhánh đã chọn.</string>
     <string name="conversation_read_page">Trang: tin nhắn từ %1$d-%2$d</string>
     <string name="conversation_read_more">Sử dụng giá trị offset lớn hơn để xem thêm tin nhắn.</string>
+    <string name="conversation_tools_more">Có thêm lời gọi công cụ cho tin nhắn này (tool_offset: %1$d).</string>
+    <string name="conversation_details_error">Không thể đọc chi tiết tin nhắn đã lưu (%1$s).</string>
 
     <!-- General -->
     <string name="back">Quay lại</string>

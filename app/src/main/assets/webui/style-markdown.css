@@ -1,0 +1,149 @@
+/*
+ * Markdown, as rememberChatMarkdownAssets: ChatType sizes with 1.1x line height, 8 dp block
+ * spacers (5 dp in thoughts), library list, quote and code metrics, links in primary.
+ */
+.markdown {
+  --md-block: 8px;
+  --code-background: var(--md-surface-container-low);
+  font-size: 16px;
+  line-height: 26.4px;
+  overflow-wrap: anywhere;
+}
+.markdown.thought { --md-block: 5px; font-size: 13px; line-height: 20.9px; }
+.markdown-message { display: grid; }
+.markdown-message > * { grid-area: 1 / 1; min-width: 0; }
+.markdown-empty-stream { padding-top: 8px; color: var(--md-primary); opacity: 0; pointer-events: none; user-select: none; }
+.md-spacer { height: var(--md-block); }
+/* Resets the dialog text style that the sign-in page gives every p. */
+.markdown p { margin: 0; color: inherit; font: inherit; letter-spacing: normal; }
+.markdown a { color: var(--md-primary); text-decoration: none; }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5, .markdown h6 { margin: 0; }
+.markdown h1 { font-size: 22px; line-height: 30.8px; font-weight: 700; }
+.markdown h2 { font-size: 19px; line-height: 27.5px; font-weight: 700; }
+.markdown h3 { font-size: 17px; line-height: 25.3px; font-weight: 600; }
+.markdown h4 { font-size: 16px; line-height: 24.2px; font-weight: 600; }
+.markdown h5, .markdown h6 { font-size: 15px; line-height: 24.2px; font-weight: 500; }
+.markdown.thought h1 { font-size: 18px; line-height: 25.3px; }
+.markdown.thought h2 { font-size: 16px; line-height: 23.1px; }
+.markdown.thought h3 { font-size: 15px; line-height: 22px; }
+.markdown.thought h4 { font-size: 14px; line-height: 20.9px; }
+.markdown.thought h5, .markdown.thought h6 { font-size: 13px; line-height: 20.9px; }
+.markdown.thought h6 { font-weight: 400; }
+/* ChatType.code 14/20 (thoughtCode 12/17), 1.1x; inline code has no background. */
+.markdown code { font-family: var(--mono-font); font-size: 14px; line-height: 22px; }
+.markdown.thought code { font-size: 12px; line-height: 18.7px; }
+/* MarkdownListItems: 4 dp around a list and each item; nested lists indent 8 dp per level. */
+.md-list { margin: 0; padding: 4px 0; list-style: none; }
+.md-list li { display: flex; padding: 4px 0; }
+.md-marker { flex: none; white-space: pre; }
+ul.md-list > li > .md-marker { padding-bottom: 4px; }
+.md-item { flex: 1; min-width: 0; }
+.md-item > p + p { margin-top: var(--md-block); }
+.md-list[data-depth="1"] { padding-left: 8px; }
+.md-list[data-depth="2"] { padding-left: 16px; }
+.md-list[data-depth="3"] { padding-left: 24px; }
+.md-list[data-depth="4"] { padding-left: 32px; }
+.md-list[data-depth="5"] { padding-left: 40px; }
+.md-list[data-depth="6"] { padding-left: 48px; }
+/* MarkdownBlockQuote: 16 dp sides, 4 dp text padding, a 2 dp bar in the text color at 4 dp. */
+.markdown blockquote { position: relative; margin: 0; padding: 4px 16px; }
+.markdown blockquote::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 3px;
+  width: 2px;
+  background: currentColor;
+}
+.markdown hr { height: 1px; margin: 0; border: 0; background: var(--md-outline-variant); }
+/* Markdown tables share code shells' 24 dp corners; cell geometry and scrolling stay unchanged. */
+.markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--md-on-background) 2%, transparent);
+}
+/* Owner asked for no row rules in markdown tables: the faint surface alone separates the rows. */
+.markdown th, .markdown td {
+  min-width: 160px;
+  padding: 16px;
+  text-align: start;
+  vertical-align: top;
+}
+/* Display math scrolls sideways instead of widening the message. */
+.markdown .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; }
+/* Shared native/WebUI code shell: tonal surface, compact header and uncontained actions. */
+.code-block { margin: 8px 0; border-radius: 24px; overflow: hidden; background: var(--code-background); }
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background: var(--md-surface-container-high);
+}
+.code-language {
+  min-width: 0;
+  padding-inline: 8px 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--app-font);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: .5px;
+  color: var(--md-on-surface-variant);
+}
+.code-copy {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-inline-start: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+}
+.code-copy svg { width: 16px; height: 16px; fill: currentColor; }
+.code-block pre { margin: 0; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nowrap .code-block pre { white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+.html-preview-host { width: 100%; }
+.html-preview-host .code-header, .html-preview-fullscreen .code-header { flex-wrap: wrap; }
+.html-actions { display: flex; flex-wrap: wrap; margin-inline-start: auto; }
+.html-actions .html-action { margin-inline-start: 0; }
+.html-actions .primary { color: var(--md-primary); }
+.code-header { user-select: none; }
+.html-preview-viewport { position: relative; height: 360px; width: 100%; background: var(--md-surface-container-low); }
+.html-preview-frame { display: block; border: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 180ms linear; }
+.html-preview-frame.ready { opacity: 1; }
+.html-preview-status { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 16px;
+  text-align: center; background: var(--md-surface-container-low); color: var(--md-on-surface-variant);
+  font-family: var(--app-font); font-size: 14px; line-height: 20px; opacity: 1;
+  transition: opacity 180ms linear, visibility 0s linear; visibility: visible; }
+.html-preview-status.ready { opacity: 0; visibility: hidden; transition-delay: 0s, 180ms; }
+.html-preview-viewport.reduced-motion .circular-progress:not(.determinate),
+.html-preview-viewport.reduced-motion .circular-progress:not(.determinate) svg,
+.html-preview-viewport.reduced-motion .circular-progress:not(.determinate) g,
+.html-preview-viewport.reduced-motion .circular-progress:not(.determinate) .arc { animation: none; }
+.html-preview-viewport.reduced-motion .circular-progress:not(.determinate) .arc { stroke-dasharray: 25 100; }
+.html-preview-fullscreen { padding: 8px; background: var(--md-surface); }
+.html-preview-fullscreen .code-block { display: flex; flex-direction: column; width: 100%; height: 100%; margin: 0; }
+.html-preview-fullscreen .code-header { flex: none; }
+.html-preview-fullscreen .html-preview-viewport { flex: 1; height: 0; min-height: 0; }
+.html-preview-fullscreen pre { flex: 1; min-height: 0; overflow: auto; }
+.branch-selector { display: flex; align-items: center; width: max-content; padding: 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--md-surface-variant) 50%, transparent); font-size: 11px; line-height: 15px; font-weight: 500; }
+.branch-selector button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.branch-selector button:disabled { opacity: .38; cursor: default; }
+.branch-selector svg { width: 16px; height: 16px; fill: currentColor; }
+.branch-previous svg { transform: rotate(180deg); }
+:dir(rtl) .branch-selector svg { transform: rotate(180deg); }
+:dir(rtl) .branch-previous svg { transform: none; }
+.user-row > .branch-selector { align-self: flex-end; margin-top: 4px; }
+.message-actions > .branch-selector { margin-left: 8px; }

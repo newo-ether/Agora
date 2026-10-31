@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="html_preview_run">Запустить</string>
+    <string name="html_preview_source">Исходный код</string>
+    <string name="html_preview_preview">@string/template_preview</string>
+    <string name="html_preview_reload">Перезагрузить</string>
+    <string name="html_preview_fullscreen">На весь экран</string>
+    <string name="html_preview_save">Сохранить HTML</string>
+    <string name="html_preview_share">Поделиться HTML</string>
+    <string name="html_preview_failed">Предпросмотр недоступен</string>
+    <string name="html_preview_loading">Загрузка предпросмотра</string>
+    <string name="html_preview_insert">Добавить инструкции для предпросмотра HTML</string>
+    <string name="html_preview_export_failed">Не удалось экспортировать HTML</string>
+    <string name="html_preview_webview_required">Обновите Android System WebView для запуска предпросмотра HTML</string>
+</resources>

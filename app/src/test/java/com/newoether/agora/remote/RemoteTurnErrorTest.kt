@@ -42,6 +42,20 @@ class RemoteTurnErrorTest {
         assertEquals(error.text, assistantErrorContent(body, body.segments.orEmpty(), "Fallback")!!.errorText)
     }
 
+    @Test fun retiredToolDisplayUsesTheSharedGroupedPolicyForNativeRemoteMessages() {
+        val native = projectRemoteMessages(listOf(user, answer, tool, error)).last()
+        fun present(mode: String) = com.newoether.agora.ui.chat.message.assistantContentPresentation(
+            native, false, mode, com.newoether.agora.model.ThinkingSegmentDisplayModes.CARD, "Fallback")
+        val grouped = present(com.newoether.agora.model.ToolCallDisplayModes.GROUPED_TIMELINE)
+        assertEquals(grouped, present("compact"))
+        assertTrue(grouped.useTimelineSegments)
+        assertTrue(grouped.groupAdjacentTimelineTools)
+        assertEquals(error.text, grouped.errorContent!!.errorText)
+        assertEquals(listOf(answer.text), com.newoether.agora.ui.chat.message.timelineBlocks(
+            grouped.orderedSegments, false, grouped.groupOrderedInfoBlocks,
+        ).filterIsInstance<com.newoether.agora.ui.chat.message.TimelineBlock.Answer>().map { it.segment.content })
+    }
+
     @Test fun unknownRuntimeDoesNotInventANativeErrorAndANewTurnCanGenerateAfterFailure() {
         assertNull(assistantErrorContent(projectRemoteMessages(listOf(answer), RemoteRuntime("notLoaded")).single(), emptyList(), "Fallback"))
         val nextUser = user.copy(id = "u2", turnId = "next")

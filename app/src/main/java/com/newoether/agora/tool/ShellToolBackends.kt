@@ -200,10 +200,10 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
 
     override fun close() {}
 
-    suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int): String =
-        client.startJob(cmd, timeoutMs, workdir)
+    suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int, description: String = ""): String =
+        client.startJob(cmd, timeoutMs, workdir, description)
 
-    suspend fun listJobs(): String = client.listJobs()
+    suspend fun listJobs(offset: Int = 0, limit: Int = 100): String = client.listJobs(offset, limit)
 
     suspend fun getJob(jobId: String): String = client.getJob(jobId)
 

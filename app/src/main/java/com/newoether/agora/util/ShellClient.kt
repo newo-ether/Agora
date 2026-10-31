@@ -766,13 +766,14 @@ class ShellClient(
         command: String,
         timeoutMs: Int,
         workdir: String,
+        description: String = "",
     ): String = encryptedPost(
         "/jobs/start",
-        buildJsonBody(command, timeoutMs, workdir),
+        shellJobStartBody(command, timeoutMs, workdir, description),
     )
 
-    suspend fun listJobs(): String =
-        encryptedPost("/jobs/list", "{}")
+    suspend fun listJobs(offset: Int = 0, limit: Int = 100): String =
+        encryptedPost("/jobs/list", shellJobListBody(offset, limit))
 
     suspend fun getJob(jobId: String): String =
         encryptedPost("/jobs/get", buildJsonObject { put("job_id", jobId) }.toString())

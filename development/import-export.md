@@ -186,6 +186,7 @@ The following JSON field names are the complete current portable allowlist.
 | Interaction | `askUserEnabled`, `askUserTimeoutMinutes` |
 | Search and embedding | `ragSearchEnabled`, `modelSearchMethod`, `manualSearchMethod`, `remoteEmbeddingModels`, `activeRemoteEmbeddingModelId`, `searchContextWindow`, `searchMatchLimit`, `ragThreshold`, `autoCacheEnabled`, `showUncachedNotification` |
 | Language, Web Search, and image generation | `appLanguage`, `webSearchEnabled`, `webSearchProvider`, `webSearchNumResults`, `webSearchBaseUrl`, `imageGenEnabled`, `imageGenModel`, `imageGenSize`, `autoUpdateCheck` |
+| Image quality | `imageQualityMode`, `imageQualityMaxLongEdge`, `imageQualityJpegQuality` |
 | Image transcription | `imageTranscriptionEnabled`, `imageTranscriptionEnabledModels`, `imageTranscriptionModel`, `imageTranscriptionBatchSize`, `imageTranscriptionPrompt` |
 | Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, secret-free `mcpServers` |
 | Proxy | `proxyEnabled`, `proxyType`, `proxyHost`, `proxyPort`, `proxyUsername`, `proxyBypass` |
@@ -203,6 +204,17 @@ the existing record replacement and stable-identity remapping rules. Missing cus
 on/1h defaults, including when an imported record replaces a matching local record. Explicit invalid
 cache values are rejected before any Settings reset or restore write. These fields contain no
 secrets; their request and UI semantics are owned by `settings-ui-ux.md`.
+
+`imageQualityMode` is a string normalized to `light`, `balanced`, `high` or `custom`; unknown
+strings resolve to `balanced`. `imageQualityMaxLongEdge` and `imageQualityJpegQuality` are
+non-string JSON integers storing retained custom values, even while a preset is active. They
+clamp to 128..8192 and 1..100 respectively, with defaults 2048 and 80. Export reads one settings
+snapshot and writes all three fields. MERGE preserves each absent field; a partial import patches
+only present fields together in one DataStore edit. REPLACE clears all three keys before restore,
+so older archives use Balanced and the default custom values. Explicit wrong JSON types are
+rejected before any reset or restore write. These settings contain no secrets or paths and never
+reprocess existing artifacts. Runtime/UI behavior is owned by `image-processing.md` and
+`settings-ui-ux.md`.
 
 `modelProviderNames` maps complete model IDs to booleans independently of aliases. False explicitly
 hides the Provider suffix; absent model IDs default to true. Export preserves both values. Import
@@ -252,6 +264,11 @@ older missing fields restore an effectively empty candidate list and no recommen
 empty set under REPLACE keeps it empty. Existing children and their model IDs are never rewritten by
 these global preferences.
 
+`toolCallDisplayMode` writes only `timeline` or `grouped_timeline` (default). Legacy `compact`
+imports normalize to `grouped_timeline` through the ordinary Settings write in both MERGE and REPLACE.
+An absent field remains untouched in MERGE and resolves to the default after REPLACE. Device-local
+legacy preferences migrate transactionally before publication, and exports contain the resolved value.
+Thinking Card/Bottom Sheet preferences remain independent; Context Compact data and settings are unchanged.
 `subagentCapsuleDisplayMode` is a secret-free presentation string: `individual` or `grouped` (default).
 Unknown, invalid or absent values normalize to `grouped`; an explicitly saved `individual` remains
 unchanged. Export writes the resolved value. MERGE leaves an absent field unchanged; REPLACE clears
@@ -355,6 +372,29 @@ indeterminate, motion-aware circular progress indicator, reject Back and outside
 and expose no cancel action. Preview-loading state is distinct from actual import progress and clears
 on success, invalid or empty archives, failure, and cancellation. Third-party Claude/GPT imports
 retain their determinate percentage presentation.
+
+Native graph import finishes archive decoding, media-reference restoration, graph validation and
+selection serialization before taking the Room writer. Prepared messages are streamed through a
+private temporary application-cache file, with bounded object retention, then replayed in batches
+inside the existing single atomic graph transaction. The file is deleted on success, failure and
+cancellation; it is an internal transient representation, never an accepted external archive format.
+The prepared file uses one locked channel. Android unlinks the open file immediately, so process death
+also releases its storage; hosts that cannot unlink open files retain the lock and reclaim abandoned
+unlocked prepared files at the next import. Concurrent active imports and unrelated cache files are
+excluded from that cleanup. Object serialization resets its handle table after each message, and
+archive JSON/media decoding stays outside the writer. Prepared-file reads and typed-object replay
+remain inside the atomic transaction, whose total cost scales with the imported graph.
+The final transaction still checks MERGE identities and commits graphs, settings-transfer records
+and maintenance debt together. A late batch failure rolls back earlier batches and REPLACE deletions.
+This removes archive/media preparation from writer occupancy without introducing partial imports.
+
+Legacy custom-Provider normalization preserves physical stable-ID remapping and the existing
+`legacyNames` resume marker. Conversation and historical message references are found through
+model-leading indexes and rewritten in transactions of at most 64 rows; each message batch updates
+only its affected backup watermarks. The marker is cleared only after all batches and remaining
+configuration references finish. Cancellation may leave completed batches and retains the marker
+for retry. Provider deletion, name reuse and import mapping keep their existing identity meaning;
+permanent name aliases are not introduced.
 
 ## 7. Legacy compatibility and failure behavior
 

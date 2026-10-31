@@ -122,18 +122,25 @@ class DataImporter(
             addAll(importedModelIds)
         }
         val updatedAt = System.currentTimeMillis()
+        var invalidated = false
         affectedModelIds.forEach { modelId ->
             EmbeddingCacheLocks.forModel(modelId).withLock {
                 val current = settingsManager.embeddingModels.first()
                     .firstOrNull { it.id == modelId }
                 val previous = previousById[modelId]
                 when {
-                    current == null -> database.deleteSemanticModel(modelId)
-                    previous == null || embeddingModelSemanticsChanged(previous, current) ->
+                    current == null -> {
+                        database.deleteSemanticModel(modelId)
+                        invalidated = true
+                    }
+                    previous == null || embeddingModelSemanticsChanged(previous, current) -> {
                         database.invalidateSemanticModel(modelId, updatedAt)
+                        invalidated = true
+                    }
                 }
             }
         }
+        if (invalidated) com.newoether.agora.service.MaintenanceDebtWorker.schedule()
     }
 
     @Serializable

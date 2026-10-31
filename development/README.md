@@ -74,10 +74,16 @@ conversation rows, message graphs, Composer drafts, attachment JSON, branch or R
 media, or any other conversation-owned payload. It must not enumerate conversation owners to decide
 whether validation or recovery work exists, validate files or durable references, create per-owner
 runtime or Composer sessions, or resume conversation-owned jobs. After that list is visibly available,
-the sole automatic data-maintenance exception is the semantic-index ledger check defined in
-[semantic-search.md](semantic-search.md): it reads only one lightweight row for the active Embedding
-model and may admit one bounded low-priority cache worker. It never authorizes a startup message,
-conversation, embedding, attachment, Run, or owner scan.
+automatic semantic maintenance is limited to two admissions defined in [semantic-search.md](semantic-search.md):
+read the active Embedding model's lightweight ledger row and the durable metadata completion row;
+schedule at most one bounded cache worker per model and one unique legacy metadata worker when needed.
+The once-only metadata worker may read legacy message identities and source input in small, resumable
+background pages to build durable metadata. It runs independently of Auto Cache and makes no Embedding
+API or local-model calls; only enabled Auto Cache or an explicit cache action admits vector generation.
+Neither admission delays list publication, executes aggregate counts, scans source bodies itself,
+instantiates conversation runtime state, or authorizes unrelated validation/recovery work. Completed
+metadata is reused on later launches; ordinary writes maintain only their affected sources and
+conversation summaries.
 
 Explicitly opening one conversation is the admission boundary for its state. That action may load,
 deserialize, validate, and recover the selected owner. It also admits ordinary validation of all indexed
@@ -150,6 +156,7 @@ Never:
 | External agent devices, existing sessions, independent Remote transport and shared chat presentation | [remote-sessions.md](remote-sessions.md) |
 | Conch/Filo encrypted network requests and client read limits | [encrypted-agent-transport.md](encrypted-agent-transport.md) |
 | Message generation, Run lifecycle, queue, tools, Compact, Regenerate, message actions/status, or Provider context | [message-generation.md](message-generation.md) |
+| Native and browser sandboxed HTML code-fence previews, static resource capabilities and transparent template guidance | [interactive-html.md](interactive-html.md) |
 | Shared streaming Markdown, timeline/detail rendering, selection, media loading, and generation motion | [streaming-markdown.md](streaming-markdown.md) |
 | Provider-hosted output, OpenAI-compatible request controls, thinking, service tier, and hosted tools | [provider-output.md](provider-output.md) |
 | Embedded llama.cpp FIFO admission, Chat/Embedding residency, identity switching, Stop, or idle offload | [local-model-runtime.md](local-model-runtime.md) |
@@ -159,8 +166,10 @@ Never:
 | MCP fixed list/search/call tools, catalog discovery, target permission and cache-stable projection | [mcp-tools.md](mcp-tools.md) |
 | Persistent Skill files, Skill catalog prompt projection, Skill tools/settings, or Skill archive transport | [skills.md](skills.md) |
 | Application-level onboarding motion, settings category copy, or other non-message global UI behavior | [application-ui.md](application-ui.md) |
+| All Agora model-input images, shared processing, preview/dispatch identity and dimension-based image token estimation | [image-processing.md](image-processing.md) |
 | Native `.agora` archive categories, settings portability, import strategies, secrets, or backup compatibility | [import-export.md](import-export.md) |
 | Shared Settings page structure, interaction, copy, localization, or documentation entry points | [settings-ui-ux.md](settings-ui-ux.md) |
+| Phone Use device control tools, control lease, overlay, permissions and app access control | [phone-use.md](phone-use.md) |
 
 Add a module document when a user defines durable behavior for another subsystem. Each module
 document must describe current code ownership, allowed and forbidden responsibilities, concrete
