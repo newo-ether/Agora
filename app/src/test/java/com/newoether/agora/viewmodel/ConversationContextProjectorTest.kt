@@ -464,9 +464,17 @@ class ConversationContextProjectorTest {
         )
         val firstLoad = CompletableDeferred<DurableSelectedContext>()
         val secondLoad = CompletableDeferred<DurableSelectedContext>()
+        val firstStarted = CompletableDeferred<Unit>()
+        val secondStarted = CompletableDeferred<Unit>()
         var loadIndex = 0
         coEvery { contextLoader.load(any()) } coAnswers {
-            if (loadIndex++ == 0) firstLoad.await() else secondLoad.await()
+            if (loadIndex++ == 0) {
+                firstStarted.complete(Unit)
+                firstLoad.await()
+            } else {
+                secondStarted.complete(Unit)
+                secondLoad.await()
+            }
         }
         val admission = testGenerationAdmissionSnapshot(conversationId = "conversation")
         val snapshot = GenerationContextProjectionSnapshot(admission.config, admission.context)
@@ -489,11 +497,12 @@ class ConversationContextProjectorTest {
         val firstJob = launch {
             projector.project("conversation", firstSelection, "provider:model", 4_096)
         }
-        runCurrent()
+        // project switches to Dispatchers.Default, which runCurrent does not drain.
+        firstStarted.await()
         val secondJob = launch {
             projector.project("conversation", secondSelection, "provider:model", 4_096)
         }
-        runCurrent()
+        secondStarted.await()
         secondLoad.complete(secondContext)
         secondJob.join()
 
