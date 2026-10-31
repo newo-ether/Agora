@@ -2,7 +2,9 @@ package com.newoether.agora.ui.chat.message
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
@@ -10,6 +12,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
@@ -62,6 +65,55 @@ class MarkdownReferenceRenderingTest {
         assertEquals(baseline, height(), 0.1f)
         awaitLink("https://example.com/1")
         assertNoDefinitionText()
+    }
+
+    @Test fun terminalizationAndBlockReplacementShareLazyRemeasure() {
+        val list = LazyListState()
+        val visible = mutableStateOf(true)
+        content.value = "Starting answer"
+        streaming.value = true
+        compose.setContent {
+            MaterialTheme {
+                val assets = rememberChatMarkdownAssets(MaterialTheme.colorScheme.onSurface)
+                LazyColumn(state = list, modifier = Modifier.size(360.dp, 600.dp)) {
+                    if (visible.value) {
+                        item(key = "answer") {
+                            StreamingMarkdownMessage(
+                                content.value,
+                                streaming.value,
+                                assets.renderContext,
+                                modifier = Modifier.onSizeChanged { list.requestScrollToItem(0) },
+                            )
+                        }
+                    }
+                    item(key = "following") { androidx.compose.material3.Text("Following message") }
+                }
+            }
+        }
+        awaitText("Starting answer")
+        repeat(8) { iteration ->
+            compose.runOnIdle {
+                content.value += "\n\nBlock $iteration.\n\n> Quoted $iteration.\n\n- First\n- Second\n\nTail $iteration"
+                list.requestScrollToItem(0)
+            }
+            awaitText("Tail $iteration")
+        }
+        compose.runOnIdle { list.requestScrollToItem(0) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            content.value += " terminal.\n\nFinal answer."
+            streaming.value = false
+            list.requestScrollToItem(0)
+        }
+        awaitText("Final answer.")
+        compose.runOnIdle {
+            visible.value = false
+            content.value = ""
+            list.requestScrollToItem(0)
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(1, list.layoutInfo.totalItemsCount) }
+        compose.onNodeWithText("Following message").assertIsDisplayed()
     }
 
     @Test fun historicalMessageKeepsParagraphSpacingWith48Definitions() = verifyStatic(Mode.MESSAGE)
