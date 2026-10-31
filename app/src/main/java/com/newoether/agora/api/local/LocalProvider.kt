@@ -183,6 +183,9 @@ class LocalProvider(
             // Register while still holding the process-wide runtime task. The handle is removed
             // before the next FIFO waiter may begin native work on the resident engine.
             val streamScope = HttpClient.boundStreamScope()
+            // Tool call indexes restart at 0 in every provider pass; without a per-pass key the
+            // next pass's first call would update (and hide) the previous pass's card.
+            val passKey = java.util.UUID.randomUUID().toString().take(8)
             val nativeCancel = GenerationCancelHandle { engine.cancel() }
             streamScope?.register(nativeCancel)
             try {
@@ -202,7 +205,7 @@ class LocalProvider(
                             val call = event.call
                             emit(
                                 StreamEvent.ToolCallUpdate(
-                                    streamKey = "local_tool_${call.index}",
+                                    streamKey = "local_tool_${passKey}_${call.index}",
                                     id = call.id,
                                     name = call.name,
                                     arguments = call.arguments,
@@ -215,12 +218,12 @@ class LocalProvider(
                                 StreamEvent.ToolCallRequest(
                                     id = call.id?.takeIf(String::isNotBlank)
                                         ?: buildToolCallId(
-                                            "${call.name}:${call.index}",
+                                            "${call.name}:$passKey:${call.index}",
                                             arguments,
                                         ),
                                     name = call.name,
                                     arguments = arguments,
-                                    streamKey = "local_tool_${call.index}",
+                                    streamKey = "local_tool_${passKey}_${call.index}",
                                 )
                             }
                             if (calls.size == 1) {
