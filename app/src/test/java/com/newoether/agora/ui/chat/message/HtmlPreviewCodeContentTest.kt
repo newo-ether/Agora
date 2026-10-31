@@ -52,6 +52,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -279,6 +280,70 @@ class HtmlPreviewCodeContentTest {
         compose.onNodeWithContentDescription(context.getString(R.string.provider_close)).performClick()
         assertNotSame(inline, awaitBrowser())
         compose.runOnIdle { assertTrue(shadowOf(requireNotNull(fullscreen)).wasDestroyCalled()) }
+    }
+
+    @Test
+    fun fullscreenHeaderDoesNotJoinTheUnderlyingMessageSelection() {
+        code.value = "<h1>Visible preview</h1>"
+        host { content ->
+            com.newoether.agora.util.NoAutoScrollSelectionContainer {
+                Column(Modifier.width(360.dp)) { content() }
+            }
+        }
+        awaitBrowser()
+        compose.onNodeWithContentDescription(moreLabel).performClick()
+        compose.onNodeWithText(context.getString(R.string.html_preview_fullscreen)).performClick()
+        compose.onNode(
+            androidx.compose.ui.test.hasText("HTML-PREVIEW") and hasAnyAncestor(isDialog()),
+        ).performTouchInput { longClick() }
+        compose.onNodeWithContentDescription(context.getString(R.string.provider_close)).performClick()
+        compose.onNodeWithContentDescription(sourceLabel).performClick()
+        compose.onNodeWithTag(SOURCE).assertIsDisplayed().assertTextEquals(code.value)
+        compose.onNodeWithContentDescription(copyLabel).performClick()
+        compose.runOnIdle { assertEquals(code.value, clipboard.getText()?.text) }
+    }
+
+    @Test
+    fun previewMenuLabelsDoNotJoinTheUnderlyingMessageSelection() {
+        host { content ->
+            com.newoether.agora.util.NoAutoScrollSelectionContainer {
+                Column(Modifier.width(360.dp)) { content() }
+            }
+        }
+        awaitBrowser()
+        compose.onNodeWithContentDescription(moreLabel).performClick()
+        compose.onNodeWithText(context.getString(R.string.html_preview_fullscreen))
+            .performTouchInput { longClick() }
+    }
+
+    @Test
+    fun fullscreenFallbackDoesNotJoinTheUnderlyingMessageSelection() {
+        code.value = "<h1>Visible preview</h1>"
+        host { content ->
+            com.newoether.agora.util.NoAutoScrollSelectionContainer {
+                Column(Modifier.width(360.dp)) { content() }
+            }
+        }
+        awaitBrowser()
+        compose.onNodeWithContentDescription(moreLabel).performClick()
+        compose.onNodeWithText(context.getString(R.string.html_preview_fullscreen)).performClick()
+        var browser: HtmlPreviewWebView? = null
+        compose.waitUntil(5_000) {
+            compose.runOnIdle {
+                browser = ShadowDialog.getLatestDialog()?.window?.decorView
+                    ?.let { previewViews(it).singleOrNull() }
+            }
+            browser != null
+        }
+        compose.runOnIdle {
+            val shadow = shadowOf(requireNotNull(browser))
+            shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
+            requireNotNull(shadow.lastEvaluatedJavascriptCallback).onReceiveValue("\"1,1:1,1\"")
+        }
+        compose.onNodeWithText(context.getString(R.string.html_preview_webview_required))
+            .assertIsDisplayed().performTouchInput { longClick() }
+        compose.onNodeWithContentDescription(context.getString(R.string.provider_close)).performClick()
+        awaitBrowser()
     }
 
     @Test

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
@@ -109,41 +110,44 @@ internal fun HtmlPreviewCodeContent(
     } else source()
     if (fullScreen && !searching) {
         // A focused dialog uses the existing Chat window-focus gate to suspend covered haptics.
-        Dialog(
-            onDismissRequest = { fullScreen = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-        ) {
-            DialogWindowEdgeToEdge()
-            DialogWindowNoSystemDim()
-            Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
-                Column(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
-                    ChatCodeBlockSurface(modifier = Modifier.weight(1f)) {
-                        ChatCodeBlockHeader(language = language, code = code, actions = {
-                            ChatCodeBlockAction(
-                                icon = Icons.Default.Code,
-                                label = stringResource(R.string.html_preview_source),
-                                onClick = { fullScreen = false; preview = false },
-                                emphasized = true,
-                            )
-                            ChatCodeBlockAction(
-                                icon = Icons.Default.Refresh,
-                                label = stringResource(R.string.html_preview_reload),
-                                onClick = { revision++ },
-                            )
-                        }, trailingActions = {
-                            ChatCodeBlockAction(
-                                icon = Icons.Default.Download,
-                                label = stringResource(R.string.html_preview_save),
-                                onClick = { export(false) },
-                            )
-                            ChatCodeBlockAction(
-                                icon = Icons.Default.Close,
-                                label = stringResource(R.string.provider_close),
-                                onClick = { fullScreen = false },
-                            )
-                        })
-                        key(revision) {
-                            HtmlPreviewBrowser(code, Modifier.weight(1f).fillMaxWidth(), fullScreen = true)
+        // This window must not inherit the message's selection registrar from another layout root.
+        DisableSelection {
+            Dialog(
+                onDismissRequest = { fullScreen = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+            ) {
+                DialogWindowEdgeToEdge()
+                DialogWindowNoSystemDim()
+                Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
+                        ChatCodeBlockSurface(modifier = Modifier.weight(1f)) {
+                            ChatCodeBlockHeader(language = language, code = code, actions = {
+                                ChatCodeBlockAction(
+                                    icon = Icons.Default.Code,
+                                    label = stringResource(R.string.html_preview_source),
+                                    onClick = { fullScreen = false; preview = false },
+                                    emphasized = true,
+                                )
+                                ChatCodeBlockAction(
+                                    icon = Icons.Default.Refresh,
+                                    label = stringResource(R.string.html_preview_reload),
+                                    onClick = { revision++ },
+                                )
+                            }, trailingActions = {
+                                ChatCodeBlockAction(
+                                    icon = Icons.Default.Download,
+                                    label = stringResource(R.string.html_preview_save),
+                                    onClick = { export(false) },
+                                )
+                                ChatCodeBlockAction(
+                                    icon = Icons.Default.Close,
+                                    label = stringResource(R.string.provider_close),
+                                    onClick = { fullScreen = false },
+                                )
+                            })
+                            key(revision) {
+                                HtmlPreviewBrowser(code, Modifier.weight(1f).fillMaxWidth(), fullScreen = true)
+                            }
                         }
                     }
                 }

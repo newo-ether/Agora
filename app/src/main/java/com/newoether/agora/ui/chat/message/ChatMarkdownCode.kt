@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
@@ -310,37 +311,40 @@ internal fun ChatCodeBlockHeader(
     trailingActions: @Composable () -> Unit = {},
 ) {
     val clipboardManager = LocalClipboardManager.current
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(modifier = Modifier.weight(1f).padding(start = 8.dp, end = 4.dp)) {
-                if (!language.isNullOrBlank()) {
-                    Text(
-                        text = language.uppercase(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            FlowRow(
-                modifier = Modifier.widthIn(max = 200.dp),
-                horizontalArrangement = Arrangement.End,
+    // Header controls and their popup/dialog roots are not part of the message's text selection.
+    DisableSelection {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                actions()
-                ChatCodeBlockAction(
-                    icon = Icons.Default.ContentCopy,
-                    label = stringResource(R.string.copy),
-                    enabled = enabled,
-                    modifier = copyModifier,
-                    onClick = {
-                        if (canCopy()) clipboardManager.setText(AnnotatedString(code))
-                    },
-                )
-                trailingActions()
+                Box(modifier = Modifier.weight(1f).padding(start = 8.dp, end = 4.dp)) {
+                    if (!language.isNullOrBlank()) {
+                        Text(
+                            text = language.uppercase(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                FlowRow(
+                    modifier = Modifier.widthIn(max = 200.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    actions()
+                    ChatCodeBlockAction(
+                        icon = Icons.Default.ContentCopy,
+                        label = stringResource(R.string.copy),
+                        enabled = enabled,
+                        modifier = copyModifier,
+                        onClick = {
+                            if (canCopy()) clipboardManager.setText(AnnotatedString(code))
+                        },
+                    )
+                    trailingActions()
+                }
             }
         }
     }
