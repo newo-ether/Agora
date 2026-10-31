@@ -229,7 +229,7 @@ For a completed attachment, the Coil request receives the explicit pixel size de
 `300 dp` slot so decoding never waits for the painter's first draw; the Pending matrix remains until
 decode succeeds, then Crossfades to a `ContentScale.Crop` image that reuses the ordinary media-open
 callback. Tool-detail image previews follow the same full-viewport loading/success/failure Crossfade
-and use the shared 4 dp indeterminate loading stroke.
+and use the shared 3 dp indeterminate loading stroke.
 Remote `view_image` previews retain this exact presentation but admit their image request only when
 the Tool preview is expanded. The square viewport exists before the request starts and remains fixed
 through download and decode; the decoded image fades in without changing surrounding geometry.

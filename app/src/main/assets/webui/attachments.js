@@ -225,7 +225,7 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
       : html`<div key=${source} class="tool-media-scroll image-viewport" ref=${viewport} onDblClick=${toggleZoom}><img ref=${image} class="attachment-full-image" src=${source}
         alt=${item.name || t.attachments} draggable="false" onLoad=${() => setLoadedSource(source)} onError=${() => setFailedSource(source)}
         style=${{ opacity: loaded ? 1 : 0 }} /></div>`}
-    ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !loaded && !failed ? 1 : 0 }}><${Spinner} size=${18} stroke=${3} label=${t.attachments} color="inherit" /></div>
+    ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !loaded && !failed ? 1 : 0 }}><${Spinner} stroke=${3} label=${t.attachments} /></div>
       <div class="attachment-viewport-status" style=${{ opacity: failed ? 1 : 0 }} role=${failed ? "alert" : null}>${icon(item.type === "image" || item.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>`}
     <div class="tool-media-controls"><span class="tool-media-count">${file?.name || `${index + 1} / ${viewer.items.length}`}</span>
       <button class="detail-sheet-icon" type="button" title=${t.close} aria-label=${t.close} onClick=${onClose}>${icon(ICON_CLOSE)}</button></div>

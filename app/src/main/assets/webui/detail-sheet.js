@@ -157,7 +157,8 @@ function ToolBody({ body }) {
         <${ToolPill} text=${body.status} emphasized /><${ToolPill} text=${body.device} />
       </div>
       ${body.error && html`<div class="tool-terminal tool-gap">${body.error}</div>`}
-      ${body.output != null && html`<div class="tool-gap"><${ToolOutput} text=${body.output} /></div>`}`;
+      ${body.output != null && html`<div class="tool-gap"><${ToolOutput} text=${body.output} /></div>`}
+      ${body.metadata && html`<div class="tool-gap"><${ToolDocument} document=${body.metadata} /></div>`}`;
     case "paths": return html`<div class="tool-paths">
       ${body.values.map((path, index) => html`<${ToolPath} key=${index} path=${path} />`)}
     </div>`;
@@ -207,7 +208,7 @@ function ToolImage({ src, image, detail, full = false, onClick, onState }) {
     ${!image.unavailable && html`<img src=${src} alt=${detail.imageLabel} loading=${full ? "eager" : "lazy"} decoding="async"
       onLoad=${() => settle("loaded")} onError=${() => settle("failed")} />`}
     <span class="tool-image-overlay loading" aria-hidden=${state !== "loading"}>
-      <${Spinner} size=${28} stroke=${2} label=${detail.imageLabel} color="inherit" />
+      <${Spinner} size=${28} stroke=${3} label=${detail.imageLabel} />
     </span>
     <span class="tool-image-overlay failed" aria-hidden=${state !== "failed"}>
       <span class="tool-image-failed" role="img" aria-label=${detail.imageFailedLabel}>${icon(ICON_BROKEN_IMAGE)}</span>

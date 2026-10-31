@@ -39,7 +39,9 @@ internal fun Resources.webToolDetail(segment: MessageSegment): WebToolDetail {
             is ToolDetailBody.Stopped -> WebToolBody.Stopped(body.text)
             is ToolDetailBody.Muted -> WebToolBody.Muted(body.text)
             is ToolDetailBody.JsonContent -> WebToolBody.Documents(body.values.map { webToolDocument(it) })
-            is ToolDetailBody.Shell -> WebToolBody.Shell(body.status, body.device, body.error, body.output)
+            is ToolDetailBody.Shell -> WebToolBody.Shell(
+                body.status, body.device, body.error, body.output, body.metadata?.let { webToolDocument(it) },
+            )
             is ToolDetailBody.Paths -> WebToolBody.Paths(body.values.map(::webToolPath))
             is ToolDetailBody.Grep -> WebToolBody.Grep(body.groups.map { group ->
                 WebToolMatchGroup(webToolPath(group.path), group.rows.map(::webToolCodeRow))
@@ -140,7 +142,13 @@ internal sealed interface WebToolBody {
     @Serializable @SerialName("documents")
     data class Documents(val values: List<WebToolDocument>) : WebToolBody
     @Serializable @SerialName("shell")
-    data class Shell(val status: String, val device: String, val error: String?, val output: String?) : WebToolBody
+    data class Shell(
+        val status: String,
+        val device: String,
+        val error: String?,
+        val output: String?,
+        val metadata: WebToolDocument? = null,
+    ) : WebToolBody
     @Serializable @SerialName("paths")
     data class Paths(val values: List<WebToolPath>) : WebToolBody
     @Serializable @SerialName("grep")

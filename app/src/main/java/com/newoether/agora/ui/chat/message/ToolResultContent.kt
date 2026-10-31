@@ -386,6 +386,10 @@ private fun ShellResult(body: ToolDetailBody.Shell) {
         Spacer(Modifier.height(8.dp))
         TerminalOutput(it)
     }
+    body.metadata?.let {
+        Spacer(Modifier.height(8.dp))
+        JsonOrPlainView(it)
+    }
 }
 
 @Composable

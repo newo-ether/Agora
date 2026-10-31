@@ -276,7 +276,7 @@ class ShellToolProvider(
                         command = command,
                     )
                 }
-                backend.startJob(command, workdir, timeoutMs)
+                backend.startJob(command, workdir, timeoutMs, arg(args, "description"))
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Exception) {
@@ -312,6 +312,7 @@ class ShellToolProvider(
                     command = command,
                     workdir = workdir,
                     waitMs = timeoutMs.coerceAtMost(maxWaitMs(ctx)),
+                    description = arg(args, "description"),
                 )
             } else {
                 backend.executeCommand(command, workdir, timeoutMs)
@@ -439,6 +440,7 @@ class ShellToolProvider(
                             command = command,
                             workdir = workdir,
                             waitMs = timeoutMs.coerceAtMost(maxWaitMs(ctx)),
+                            description = arg(args, "description"),
                             onOutput = { delta ->
                                 emit(ToolExecutionEvent.OutputDelta(delta))
                             },

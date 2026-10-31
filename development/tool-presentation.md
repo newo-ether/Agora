@@ -59,6 +59,31 @@ and lifecycle semantics stay unchanged; this is shared JSON presentation, not a 
 value prefixes model-facing text with `context: N (requested M)`, while structured content retains
 the actual backend result. Noninteger values still fail validation.
 
+## Shell Purpose, Output and Retention
+
+Every built-in `shell_*` tool schema requires `description` for the purpose of that call. All shell
+calls keep `description` and other parameters, including `job_id`, in the ordinary Arguments JSON;
+only the command is extracted into the existing code view. Execute/get/wait/stop results show returned
+`job_id` and `description` fields through the existing JSON renderer at the bottom of Result, after
+command output or failure details, omitting values already present in Arguments. Keep the full labeled
+job ID visible there. Never move a parameter into Result or show an unlabeled job ID. A different original
+job description remains visible as a result field. Neither purpose replaces the lifecycle summary or
+invents success. Legacy calls and records without descriptions keep the existing fallback. Compose
+and WebUI consume `ToolDetailPresentation` as the single owner; neither reparses output to invent
+job metadata.
+
+`head_lines` and `tail_lines` may be used alone or together on execute/get/wait. Positive selections
+project only the model-facing text, insert the omitted middle line count, and return the full text
+when ranges overlap. Structured content, retained output, UI display and copy preserve the complete
+bounded backend output. Warnings, terminal evidence and job identity remain outside that selection.
+
+Conch retains foreground and background snapshots until time expiry (24 hours by default), including
+after successful Room settlement and ACK. ACK does not delete a job. Count eviction is disabled.
+The list tool requests bounded metadata pages with `offset` and `limit` (default and maximum 100),
+returns `next_offset`/`has_more`, and never inlines rolling output. Original job descriptions survive
+get/wait/stop calls; the current action description never rewrites them. Paging reflects live ordering
+and does not promise a frozen snapshot across calls.
+
 ## MCP Router Presentation
 
 `mcp_list_servers` is a distinct localized list action with no target or argument subject. Active

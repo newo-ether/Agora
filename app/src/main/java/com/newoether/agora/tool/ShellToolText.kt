@@ -52,6 +52,7 @@ internal fun shellToolModelText(
     json: String,
     tailLines: Int? = null,
     searchRoot: String? = null,
+    headLines: Int? = null,
 ): String? {
     val obj = runCatching { Json.parseToJsonElement(json) as? JsonObject }.getOrNull() ?: return null
     if (obj["error"] == null) {
@@ -66,7 +67,8 @@ internal fun shellToolModelText(
         obj["start_line"] != null -> FILE_READ_LINE_MODE_OMITTED_KEYS
         else -> FILE_READ_OMITTED_KEYS
     }
-    return genericText(obj, tailLines.takeIf { BuiltInToolNames.canonical(toolName) in TAIL_LINES_SHELL_TOOLS }, omit)
+    val supportsSelection = BuiltInToolNames.canonical(toolName) in TAIL_LINES_SHELL_TOOLS
+    return genericText(obj, tailLines.takeIf { supportsSelection }, omit, headLines.takeIf { supportsSelection })
 }
 
 /**
@@ -82,7 +84,7 @@ internal fun shellModelFacingResult(
     if (result.structuredContent != null || result.images.isNotEmpty()) return result
     val args = parseToolArgs(arguments)
     val searchRoot = arg(args, "path").takeIf { name == "file_glob" || name == "file_grep" }
-    val text = shellToolModelText(name, result.text, parseTailLines(arguments), searchRoot) ?: return result
+    val text = shellToolModelText(name, result.text, parseTailLines(arguments), searchRoot, parseHeadLines(arguments)) ?: return result
     val requested = arg(args, "context").toIntOrNull()
     val rendered = if (name == "file_grep" && requested != null && requested !in 0..com.newoether.agora.util.SHELL_FILE_GREP_MAX_CONTEXT_LINES) {
         "context: ${requested.coerceIn(0, com.newoether.agora.util.SHELL_FILE_GREP_MAX_CONTEXT_LINES)} (requested $requested)\n$text"
@@ -93,7 +95,10 @@ internal fun shellModelFacingResult(
 internal fun parseTailLines(arguments: String): Int? =
     arg(parseToolArgs(arguments), "tail_lines").toIntOrNull()?.takeIf { it > 0 }
 
-private fun genericText(obj: JsonObject, tailLines: Int?, omit: Set<String> = emptySet()): String {
+internal fun parseHeadLines(arguments: String): Int? =
+    arg(parseToolArgs(arguments), "head_lines").toIntOrNull()?.takeIf { it > 0 }
+
+private fun genericText(obj: JsonObject, tailLines: Int?, omit: Set<String> = emptySet(), headLines: Int? = null): String {
     val fields = LinkedHashMap<String, JsonElement>()
     fun collect(source: JsonObject) {
         for ((key, value) in source) {
@@ -140,11 +145,20 @@ private fun genericText(obj: JsonObject, tailLines: Int?, omit: Set<String> = em
         line(key, rendered)
     }
 
-    if (body != null && tailLines != null) {
+    if (!body.isNullOrEmpty() && (headLines != null || tailLines != null)) {
         val lines = body.removeSuffix("\n").split('\n')
-        if (lines.size > tailLines) {
-            line("output_tail_lines", "last $tailLines of ${lines.size}")
-            body = lines.takeLast(tailLines).joinToString("\n")
+        val head = (headLines ?: 0).coerceIn(0, lines.size)
+        val tail = (tailLines ?: 0).coerceIn(0, lines.size)
+        val omitted = (lines.size.toLong() - head - tail).coerceAtLeast(0).toInt()
+        if (omitted > 0) {
+            if (headLines != null) line("output_head_lines", "first $head of ${lines.size}")
+            if (tailLines != null) line("output_tail_lines", "last $tail of ${lines.size}")
+            line("output_omitted_lines", omitted.toString())
+            body = buildList {
+                addAll(lines.take(head))
+                add("... ($omitted lines omitted) ...")
+                addAll(lines.takeLast(tail))
+            }.joinToString("\n")
         }
     }
     return when {

@@ -1,6 +1,12 @@
 package com.newoether.agora.tool
 
 import com.newoether.agora.model.ToolCallData
+import com.newoether.agora.data.ShellDeviceConfig
+import com.newoether.agora.viewmodel.GenerationContext
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockkConstructor
+import io.mockk.unmockkConstructor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -13,6 +19,23 @@ import org.junit.Test
 
 class ShellDurableJobExecutorTest {
     private val executor = ShellDurableJobExecutor()
+
+    @Test
+    fun listRequestsBoundedPagesAndPreservesContinuationMetadata() = runTest {
+        mockkConstructor(ConchBackend::class)
+        try {
+            val page = """{"jobs":[],"total":125,"next_offset":125,"has_more":false}"""
+            coEvery { anyConstructed<ConchBackend>().listJobs(100, 25) } returns page
+            val result = executor.listShellJobs(
+                """{"server":"server","description":"Read older jobs","offset":100,"limit":25}""",
+                GenerationContext(shellDevices = listOf(ShellDeviceConfig(name = "server", serverUrl = "http://localhost"))),
+            )
+            assertEquals(page, result)
+            coVerify(exactly = 1) { anyConstructed<ConchBackend>().listJobs(100, 25) }
+        } finally {
+            unmockkConstructor(ConchBackend::class)
+        }
+    }
 
     @Test
     fun onlyConchTerminalStatesFinishPolling() {
