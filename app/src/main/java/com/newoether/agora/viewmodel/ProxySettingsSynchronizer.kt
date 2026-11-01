@@ -35,10 +35,10 @@ internal fun currentProxyConfig(settings: SettingsRepository): HttpClient.ProxyC
     val host = settings.proxyHost.value.trim()
     if (!settings.proxyEnabled.value || host.isEmpty()) return null
     return HttpClient.ProxyConfig(
-        type = if (settings.proxyType.value.equals("socks5", ignoreCase = true)) {
-            HttpClient.ProxyType.SOCKS
-        } else {
-            HttpClient.ProxyType.HTTP
+        type = when {
+            settings.proxyType.value.equals("socks5", ignoreCase = true) -> HttpClient.ProxyType.SOCKS
+            settings.proxyType.value.equals("https", ignoreCase = true) -> HttpClient.ProxyType.HTTPS
+            else -> HttpClient.ProxyType.HTTP
         },
         host = host,
         port = settings.proxyPort.value.trim().toIntOrNull() ?: 0,
