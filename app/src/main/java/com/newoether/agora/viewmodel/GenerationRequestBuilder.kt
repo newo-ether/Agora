@@ -223,10 +223,20 @@ class GenerationRequestBuilder(
             ),
             webSearchEnabled = if (settings.webSearchEnabled.value) (overrides.webSearchEnabled ?: true) else false,
             shellEnabled = if (settings.shellEnabled.value) (overrides.shellEnabled ?: true) else false,
-            lowContextModeEnabled =
-                overrides.lowContextModeEnabled ?: settings.localLowContextModeEnabled.value,
+            // Left unresolved: the default depends on the provider (see isLowContextMode).
+            lowContextModeEnabled = overrides.lowContextModeEnabled,
         )
     }
+
+    /**
+     * A conversation's explicit Low Context Mode choice applies to every provider. Without one,
+     * only the on-device provider follows the global default.
+     */
+    private fun isLowContextMode(
+        providerName: String,
+        effectiveSettings: ConversationSettings,
+    ): Boolean = effectiveSettings.lowContextModeEnabled
+        ?: (providerName == Constants.PROVIDER_LOCAL && settings.localLowContextModeEnabled.value)
 
     /**
      * Captures every setting owned by one generation before its Room graph is admitted.
@@ -274,10 +284,7 @@ class GenerationRequestBuilder(
             automationCaller = automationCaller,
             includeSkillCatalog =
                 settings.accessSkills.value &&
-                    !(
-                        providerName == Constants.PROVIDER_LOCAL &&
-                            effectiveSettings.lowContextModeEnabled == true
-                        ),
+                    !isLowContextMode(providerName, effectiveSettings),
         )
         val compactModel = settings.contextCompactModel.value
             ?.takeIf(String::isNotBlank)
@@ -428,10 +435,7 @@ class GenerationRequestBuilder(
             applyLowContextMode = true,
             includeSkillCatalog =
                 settings.accessSkills.value &&
-                    !(
-                        providerName == Constants.PROVIDER_LOCAL &&
-                            effectiveSettings.lowContextModeEnabled == true
-                        ),
+                    !isLowContextMode(providerName, effectiveSettings),
         )
         val conversation = convRepo.getConversation(conversationId)
         val isSubagent = conversation?.parentConversationId != null
@@ -479,9 +483,7 @@ class GenerationRequestBuilder(
         phoneToolsEnabled: Boolean = true,
     ): Pair<GenerationConfig, GenerationContext> {
         val lowContextModeEnabled =
-            applyLowContextMode &&
-                providerName == Constants.PROVIDER_LOCAL &&
-                effectiveSettings.lowContextModeEnabled == true
+            applyLowContextMode && isLowContextMode(providerName, effectiveSettings)
         val imageGenModel = settings.imageGenModel.value
         val transcriptionModel = settings.imageTranscriptionModel.value
         val cacheProviders = settings.customProviders.value

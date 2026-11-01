@@ -303,7 +303,7 @@ class WebUiSyncTest {
         val projected = received().single { it.type == "composer" }["controls"]!!.jsonObject
         assertEquals("true", projected.string("openAiWebSearchAvailable"))
         assertEquals("fast", projected.string("openAiServiceTier"))
-        assertEquals("false", projected.string("showLowContextMode"))
+        assertEquals("true", projected.string("showLowContextMode"))
         assertEquals("false", projected.string("shellAvailable"))
         assertEquals("32768", projected.string("contextWindow"))
         send("""{"type":"setting","seq":7,"actionId":10,"setting":"thinkingLevel","value":"high"}""")

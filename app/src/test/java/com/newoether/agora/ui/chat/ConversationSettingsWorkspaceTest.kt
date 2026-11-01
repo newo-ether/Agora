@@ -25,7 +25,9 @@ class ConversationSettingsWorkspaceTest {
         assertEquals("fast", openai.openAiServiceTierState.tier)
         assertEquals(false, openai.webSearchEnabled)
         assertEquals(false, openai.shellEnabled)
-        assertEquals(false, openai.showLowContextMode)
+        assertEquals(true, openai.showLowContextMode)
+        // The global Low Context default is for on-device models only.
+        assertEquals(false, openai.lowContextModeEnabled)
         assertEquals(65536, openai.contextWindow)
         val local = resolveEffectiveConversationControls(null, null, global, Constants.PROVIDER_LOCAL, false, emptyList())
         assertNull(local.settingsOwnerId)

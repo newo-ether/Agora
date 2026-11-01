@@ -403,7 +403,8 @@ class GenerationRequestBuilderProviderDisplayTest {
         val unsaved = builder.buildEffectiveConversationSettings("unsaved-conversation")
         assertEquals(true, unsaved.webSearchEnabled)
         assertEquals(true, unsaved.shellEnabled)
-        assertEquals(true, unsaved.lowContextModeEnabled)
+        // Low Context stays unresolved here; its default depends on the provider.
+        assertNull(unsaved.lowContextModeEnabled)
     }
 
     @Test
@@ -518,7 +519,7 @@ class GenerationRequestBuilderProviderDisplayTest {
     }
 
     @Test
-    fun `remote and ollama ignore a true low context conversation override`() = runTest {
+    fun `remote and ollama honor a true low context conversation override`() = runTest {
         listOf(Constants.PROVIDER_OPENAI, Constants.PROVIDER_OLLAMA).forEach { providerName ->
             val fixture = RequestBuilderFixture(
                 providerName = providerName,
@@ -530,15 +531,10 @@ class GenerationRequestBuilderProviderDisplayTest {
                 modelId = fixture.modelId,
             )
 
-            assertFalse(providerName, snapshot.config.lowContextModeEnabled)
-            assertEquals(
-                providerName,
-                RequestBuilderFixture.RESOLVED_SYSTEM_PROMPT,
-                snapshot.config.effectiveSystemPrompt,
-            )
-            assertEquals(providerName, "user-before|", snapshot.config.userPrepend)
-            assertEquals(providerName, "|user-after", snapshot.config.userPostpend)
-            assertTrue(providerName, snapshot.config.promptTemplate != null)
+            assertTrue(providerName, snapshot.config.lowContextModeEnabled)
+            assertNull(providerName, snapshot.config.effectiveSystemPrompt)
+            assertNull(providerName, snapshot.config.promptTemplate)
+            assertFalse(providerName, snapshot.context.skillReadAccess)
         }
     }
 
@@ -628,10 +624,11 @@ class GenerationRequestBuilderProviderDisplayTest {
 
 internal class RequestBuilderFixture(
     providerName: String,
-    lowContextModeEnabled: Boolean,
+    lowContextModeEnabled: Boolean?,
     compactPreserveSystemPrompt: Boolean = false,
     accessActiveMemory: Boolean = true,
     phoneReady: suspend (String) -> Boolean = { false },
+    localLowContextDefault: Boolean = false,
 ) {
     companion object {
         const val COMPACT_PROMPT = "compact prompt"
@@ -714,8 +711,8 @@ internal class RequestBuilderFixture(
         every { settings.askUserTimeoutMinutes } returns MutableStateFlow(5)
         every { settings.todoEnabled } returns MutableStateFlow(true)
         every { settings.subagentToolsEnabled } returns MutableStateFlow(true)
-        every { settings.subagentDeleteEnabled } returns MutableStateFlow(false)
-        every { settings.localLowContextModeEnabled } returns MutableStateFlow(false)
+        every { settings.subagentDeleteEnabled } returns MutableStateFlow(localLowContextDefault)
+        every { settings.localLowContextModeEnabled } returns MutableStateFlow(localLowContextDefault)
         every { settings.contextCompactModel } returns MutableStateFlow(null)
         every { settings.contextCompactPrompt } returns MutableStateFlow(COMPACT_PROMPT)
         every { settings.contextCompactEnabled } returns MutableStateFlow(true)

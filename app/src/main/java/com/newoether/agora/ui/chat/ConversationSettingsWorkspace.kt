@@ -136,9 +136,9 @@ internal fun resolveEffectiveConversationControls(
         webSearchEnabled = requireNotNull(global.webSearchEnabled) && (conversationOverride?.webSearchEnabled ?: true),
         shellAvailable = requireNotNull(global.shellEnabled),
         shellEnabled = requireNotNull(global.shellEnabled) && (conversationOverride?.shellEnabled ?: true),
-        showLowContextMode = isEmbeddedLocalModel,
-        lowContextModeEnabled = isEmbeddedLocalModel &&
-            (conversationOverride?.lowContextModeEnabled ?: requireNotNull(global.lowContextModeEnabled)),
+        showLowContextMode = true,
+        lowContextModeEnabled = conversationOverride?.lowContextModeEnabled
+            ?: (isEmbeddedLocalModel && requireNotNull(global.lowContextModeEnabled)),
         contextWindow = ContextBudget.normalize(conversationOverride?.contextWindow ?: requireNotNull(global.contextWindow)),
     )
 }
