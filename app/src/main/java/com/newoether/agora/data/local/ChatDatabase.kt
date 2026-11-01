@@ -60,6 +60,27 @@ import java.util.concurrent.Executor
     exportSchema = true
 )@TypeConverters(MessageConverters::class)
 abstract class ChatDatabase : RoomDatabase() {
+    private var mainThreadQueriesAllowed = false
+
+    override fun init(configuration: DatabaseConfiguration) {
+        mainThreadQueriesAllowed = configuration.allowMainThreadQueries
+        super.init(configuration)
+    }
+
+    /**
+     * Room's compatibility preflight calls this before dispatching a suspend DAO operation.
+     * Its implementation opens the helper even just to inspect thread-local transaction state.
+     * Production never enables main-thread database access, so that thread cannot own a
+     * transaction. Avoid acquiring the helper's process lock on the UI thread; worker threads
+     * retain Room's transaction check, including inherited suspending-transaction validation.
+     */
+    override fun inTransaction(): Boolean {
+        if (!mainThreadQueriesAllowed &&
+            android.os.Looper.myLooper() == android.os.Looper.getMainLooper()
+        ) return false
+        return super.inTransaction()
+    }
+
     abstract fun chatDao(): ChatDao
     abstract fun maintenanceDebtDao(): MaintenanceDebtDao
     abstract fun semanticIndexDao(): SemanticIndexDao
