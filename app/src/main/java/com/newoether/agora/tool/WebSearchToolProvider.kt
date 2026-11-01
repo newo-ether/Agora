@@ -251,7 +251,7 @@ class WebSearchToolProvider : ToolProvider {
                     return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
                 val answer = (json["answer"] as? JsonPrimitive)?.content
                 val rawResults = buildJsonArray {
-                    for (element in resultsArray) {
+                    for (element in resultsArray.take(numResults)) {
                         val obj = element.jsonObject
                         add(buildJsonObject {
                             put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
@@ -284,7 +284,8 @@ class WebSearchToolProvider : ToolProvider {
                 return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
 
             val rawResults = buildJsonArray {
-                for (element in resultsArray) {
+                // SearXNG has no result-count parameter and returns every engine's results.
+                for (element in resultsArray.take(numResults)) {
                     val obj = element.jsonObject
                     add(buildJsonObject {
                         put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
