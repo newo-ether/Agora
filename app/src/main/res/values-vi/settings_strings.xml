@@ -227,6 +227,10 @@
     <string name="web_search_exa_key">Khóa API Exa (tùy chọn)</string>
     <string name="web_search_tavily_key_hint">Khóa API từ tavily.com</string>
     <string name="web_search_exa_key_hint">Tùy chọn. Để trống để dùng điểm cuối công khai không cần khóa của Exa.</string>
+    <string name="web_search_parallel">Parallel</string>
+    <string name="web_search_parallel_desc">API tìm kiếm thuần AI với trích đoạn sẵn sàng cho LLM. Hoạt động không cần khóa qua điểm cuối công khai của Parallel.</string>
+    <string name="web_search_parallel_key">Khóa API Parallel (tùy chọn)</string>
+    <string name="web_search_parallel_key_hint">Tùy chọn. Để trống để dùng điểm cuối công khai không cần khóa của Parallel.</string>
     <string name="web_search_num_results">Kết quả tối đa</string>
     <string name="web_search_num_results_desc">Số kết quả cần lấy: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Các máy chủ công cộng thường bị giới hạn lượt truy cập. Khuyên dùng tự lưu trữ để sử dụng ổn định.</string>

@@ -206,4 +206,9 @@ class SettingsContractsTest {
     fun exaIsARegisteredSearchProvider() {
         assertEquals("exa", normalizeWebSearchProvider(" Exa "))
     }
+
+    @Test
+    fun parallelIsARegisteredSearchProvider() {
+        assertEquals("parallel", normalizeWebSearchProvider(" Parallel "))
+    }
 }

@@ -236,6 +236,10 @@
     <string name="web_search_exa_key">Exa APIキー（任意）</string>
     <string name="web_search_tavily_key_hint">tavily.com の API キー</string>
     <string name="web_search_exa_key_hint">任意。空欄のままにすると、Exa のキー不要の公開エンドポイントを使用します。</string>
+    <string name="web_search_parallel">Parallel</string>
+    <string name="web_search_parallel_desc">LLM向けの抜粋を返すAIネイティブ検索API。Parallelの公開エンドポイントならキーなしで利用できます。</string>
+    <string name="web_search_parallel_key">Parallel APIキー（任意）</string>
+    <string name="web_search_parallel_key_hint">任意。空欄のままにすると、Parallel のキー不要の公開エンドポイントを使用します。</string>
     <string name="web_search_num_results">最大結果数</string>
     <string name="web_search_num_results_desc">取得する結果数: %1$d（1-10）</string>
     <string name="web_search_searxng_fallback_desc">公開インスタンスはレート制限されることが多いです。安定した利用にはセルフホストを推奨します。</string>

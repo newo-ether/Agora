@@ -236,6 +236,10 @@
     <string name="web_search_exa_key">Exa-API-Schlüssel (optional)</string>
     <string name="web_search_tavily_key_hint">API-Schlüssel von tavily.com</string>
     <string name="web_search_exa_key_hint">Optional. Leer lassen, um den schlüsselfreien öffentlichen Endpunkt von Exa zu nutzen.</string>
+    <string name="web_search_parallel">Parallel</string>
+    <string name="web_search_parallel_desc">KI-native Such-API mit LLM-fertigen Auszügen. Funktioniert ohne Schlüssel über den öffentlichen Endpunkt von Parallel.</string>
+    <string name="web_search_parallel_key">Parallel-API-Schlüssel (optional)</string>
+    <string name="web_search_parallel_key_hint">Optional. Leer lassen, um den schlüsselfreien öffentlichen Endpunkt von Parallel zu nutzen.</string>
     <string name="web_search_num_results">Max. Ergebnisse</string>
     <string name="web_search_num_results_desc">Anzahl der abzurufenden Ergebnisse: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Öffentliche Instanzen sind oft ratenbegrenzt. Für zuverlässige Nutzung wird Selbst-Hosting empfohlen.</string>

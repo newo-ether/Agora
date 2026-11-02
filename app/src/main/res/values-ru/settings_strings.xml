@@ -236,6 +236,10 @@
     <string name="web_search_exa_key">Ключ API Exa (необязательно)</string>
     <string name="web_search_tavily_key_hint">API-ключ с tavily.com</string>
     <string name="web_search_exa_key_hint">Необязательно. Оставьте пустым, чтобы использовать публичный эндпоинт Exa без ключа.</string>
+    <string name="web_search_parallel">Parallel</string>
+    <string name="web_search_parallel_desc">Нативный для ИИ поисковый API с готовыми для LLM выдержками. Работает без ключа через публичный эндпоинт Parallel.</string>
+    <string name="web_search_parallel_key">Ключ API Parallel (необязательно)</string>
+    <string name="web_search_parallel_key_hint">Необязательно. Оставьте пустым, чтобы использовать публичный эндпоинт Parallel без ключа.</string>
     <string name="web_search_num_results">Макс. результатов</string>
     <string name="web_search_num_results_desc">Количество получаемых результатов: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Публичные экземпляры часто имеют ограничения по частоте. Для надёжной работы рекомендуется собственный хостинг.</string>
