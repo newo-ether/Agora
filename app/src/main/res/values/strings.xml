@@ -163,6 +163,7 @@
     <string name="info">Info</string>
     <string name="more">More</string>
     <string name="arguments_label">Arguments:</string>
+    <string name="tool_search_provider">Provider: %1$s</string>
     <string name="result_label">Result:</string>
     <string name="cost_tokens">Cost %1$d tokens</string>
     <string name="token_usage_with_label">Token usage: %1$d tokens</string>

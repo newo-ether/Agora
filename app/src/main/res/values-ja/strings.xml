@@ -126,6 +126,7 @@
     <string name="info">情報</string>
     <string name="more">その他</string>
     <string name="arguments_label">引数:</string>
+    <string name="tool_search_provider">プロバイダー: %1$s</string>
     <string name="result_label">結果:</string>
     <string name="cost_tokens">コスト %1$d トークン</string>
     <string name="token_usage_with_label">トークン使用量: %1$d トークン</string>
