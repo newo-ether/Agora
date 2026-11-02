@@ -3,8 +3,9 @@ package com.newoether.agora.api.openai
 import com.newoether.agora.api.OpenAiResponseEnvelope
 import com.newoether.agora.api.OpenAiResponseOutputItem
 import com.newoether.agora.api.StreamEvent
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -17,7 +18,7 @@ internal class ResponsesToolCallCompletionTest : ResponsesEventFixture() {
         val reasoning = OpenAiResponseOutputItem(
             id = "rs_1",
             type = "reasoning",
-            summary = JsonArray(listOf(JsonPrimitive("summary"))),
+            summary = Json.parseToJsonElement("""[{"type":"summary_text","text":"summary"}]"""),
             encryptedContent = "opaque-reasoning-state",
         )
         assertTrue(
@@ -72,10 +73,35 @@ internal class ResponsesToolCallCompletionTest : ResponsesEventFixture() {
         ).filterIsInstance<StreamEvent.ToolCallRequest>().single()
 
         assertEquals(
-            listOf(responseItem(reasoning), responseItem(callItem)),
+            listOf(responseItem(reasoning.copy(summary = JsonArray(emptyList()))), responseItem(callItem)),
             call.responseOutputItems,
         )
         assertTrue(router.route(responseEvent("response.created", 6)).single() is StreamEvent.Error)
+    }
+
+    @Test
+    fun responsesEmptyReasoningSummarySurvivesEmptyOrMissingDoneSummary() {
+        for (completedSummary in listOf(JsonArray(emptyList()), null, JsonNull)) {
+            val router = responsesRouter()
+            val reasoning = OpenAiResponseOutputItem(
+                id = "rs_1",
+                type = "reasoning",
+                summary = JsonArray(emptyList()),
+                encryptedContent = "opaque-reasoning-state",
+            )
+            val callItem = responseCallItem("item_1", "call_1", "lookup", "{}")
+            router.route(responseEvent("response.output_item.added", 1, outputIndex = 0, item = reasoning))
+            router.route(responseEvent("response.output_item.done", 2, outputIndex = 0,
+                item = reasoning.copy(summary = completedSummary)))
+            router.route(responseEvent("response.output_item.added", 3, outputIndex = 1, item = callItem))
+            router.route(responseEvent("response.output_item.done", 4, outputIndex = 1, item = callItem))
+
+            val call = router.route(responseEvent("response.completed", 5,
+                response = OpenAiResponseEnvelope(status = "completed")))
+                .filterIsInstance<StreamEvent.ToolCallRequest>().single()
+
+            assertEquals(listOf(responseItem(reasoning), responseItem(callItem)), call.responseOutputItems)
+        }
     }
 
     @Test
