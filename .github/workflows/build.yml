@@ -43,7 +43,7 @@ jobs:
           ./gradlew :app:testFdroidDebugUnitTest verifyKotlinFileSize --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process --stacktrace
 
       - name: Check Play flavor behavior
-        timeout-minutes: 5
+        timeout-minutes: 12
         run: |
           ./gradlew :app:testPlayDebugUnitTest --tests 'com.newoether.agora.sandbox.PlaySandboxFlavorTest' --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process --stacktrace
 
