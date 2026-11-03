@@ -218,11 +218,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">Datenschutzorientierte Such-API. Kostenlose Stufe verfügbar.</string>
     <string name="web_search_serper_desc">Schnelle Google-Such-API. 2.500 kostenlose Abfragen/Monat.</string>
     <string name="web_search_tavily_desc">KI-optimierte Such-API. Für LLM-Agenten entwickelt.</string>
+    <string name="web_search_exa_desc">Neuronale Suche mit Seitenauszügen. Funktioniert ohne Schlüssel über den öffentlichen MCP-Endpunkt von Exa.</string>
     <string name="web_search_searxng_desc">Selbst gehostete Metasuchmaschine. Am besten mit eigener Instanz.</string>
     <string name="web_search_duckduckgo_desc">Kostenlos, kein API-Key. Web-Scraping von lite.duckduckgo.com. Kann instabil sein und Bot-Schutz auslösen.</string>
     <string name="web_search_select_provider">Suchanbieter auswählen</string>
@@ -231,7 +233,9 @@
     <string name="web_search_serper_key">Serper-API-Schlüssel</string>
     <string name="web_search_serper_key_hint">API-Schlüssel von serper.dev</string>
     <string name="web_search_tavily_key">Tavily-API-Schlüssel</string>
+    <string name="web_search_exa_key">Exa-API-Schlüssel (optional)</string>
     <string name="web_search_tavily_key_hint">API-Schlüssel von tavily.com</string>
+    <string name="web_search_exa_key_hint">Optional. Leer lassen, um den schlüsselfreien öffentlichen Endpunkt von Exa zu nutzen.</string>
     <string name="web_search_num_results">Max. Ergebnisse</string>
     <string name="web_search_num_results_desc">Anzahl der abzurufenden Ergebnisse: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Öffentliche Instanzen sind oft ratenbegrenzt. Für zuverlässige Nutzung wird Selbst-Hosting empfohlen.</string>

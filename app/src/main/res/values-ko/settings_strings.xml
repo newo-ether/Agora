@@ -218,11 +218,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">개인정보 보호 중심 검색 API. 무료 등급 제공.</string>
     <string name="web_search_serper_desc">빠른 Google 검색 API. 월 2,500회 무료 쿼리.</string>
     <string name="web_search_tavily_desc">AI에 최적화된 검색 API. LLM 에이전트용으로 제작.</string>
+    <string name="web_search_exa_desc">페이지 발췌문을 제공하는 신경망 검색입니다. Exa의 공개 MCP 엔드포인트는 키 없이 사용할 수 있습니다.</string>
     <string name="web_search_searxng_desc">자체 호스팅 메타 검색 엔진. 자체 인스턴스에서 사용하는 것이 가장 좋습니다.</string>
     <string name="web_search_duckduckgo_desc">무료, API 키 불필요. lite.duckduckgo.com 스크래핑. 불안정할 수 있으며 봇 보호가 작동할 수 있습니다.</string>
     <string name="web_search_select_provider">검색 제공자 선택</string>
@@ -231,7 +233,9 @@
     <string name="web_search_serper_key">Serper API 키</string>
     <string name="web_search_serper_key_hint">serper.dev의 API 키</string>
     <string name="web_search_tavily_key">Tavily API 키</string>
+    <string name="web_search_exa_key">Exa API 키(선택 사항)</string>
     <string name="web_search_tavily_key_hint">tavily.com의 API 키</string>
+    <string name="web_search_exa_key_hint">선택 사항입니다. 비워 두면 Exa의 키 없는 공개 엔드포인트를 사용합니다.</string>
     <string name="web_search_num_results">최대 결과 수</string>
     <string name="web_search_num_results_desc">가져올 결과 수: %1$d(1-10)</string>
     <string name="web_search_searxng_fallback_desc">공개 인스턴스는 종종 속도 제한이 있습니다. 안정적인 사용을 위해 자체 호스팅을 권장합니다.</string>

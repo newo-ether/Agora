@@ -201,4 +201,9 @@ class SettingsContractsTest {
         assertEquals("duckduckgo", normalizeWebSearchProvider(" unknown "))
         assertEquals("kagi", normalizeWebSearchProvider(" KAGI "))
     }
+
+    @Test
+    fun exaIsARegisteredSearchProvider() {
+        assertEquals("exa", normalizeWebSearchProvider(" Exa "))
+    }
 }
