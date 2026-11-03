@@ -11,5 +11,4 @@
     <string name="html_preview_loading">Đang tải bản xem trước</string>
     <string name="html_preview_insert">Thêm hướng dẫn xem trước HTML</string>
     <string name="html_preview_export_failed">Không thể xuất HTML</string>
-    <string name="html_preview_webview_required">Cập nhật Android System WebView để chạy bản xem trước HTML</string>
 </resources>

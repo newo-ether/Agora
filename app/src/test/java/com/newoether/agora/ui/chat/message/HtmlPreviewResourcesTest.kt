@@ -53,77 +53,32 @@ class HtmlPreviewResourcesTest {
     private val library = "https://cdn.jsdelivr.net/npm/pkg/index.js"
 
     @Test
-    fun deniesEveryGeneratedAndRemoteRouteBeforeProbeAdmission() {
-        val requests = AtomicInteger()
-        resources(client = client { chain ->
-            requests.incrementAndGet()
-            response(chain.request())
-        }).use { loader ->
-            listOf(
-                Triple(document.rootUrl, "GET", true),
-                Triple(document.frameUrl, "GET", false),
-                Triple("${document.origin}/image/0", "GET", false),
-                Triple(library, "GET", false),
-                Triple("https://tile.openstreetmap.org/1/2/3.png", "GET", false),
-                Triple("${document.origin}/probe.html", "GET", false),
-                Triple("${document.origin}/probe-control.html", "GET", true),
-                Triple("${document.origin}/probe-blocked.html", "POST", false),
-            ).forEach { (url, method, mainFrame) ->
-                assertBlocked(loader.response(url, method, mainFrame))
-            }
-        }
-        assertEquals(0, requests.get())
-    }
-
-    @Test
-    fun trustedProbeRoutesSeparateTheControlFromTheConnectionRestrictedFrame() {
+    fun generatedDocumentLoadsDirectlyWithConnectionPolicyAndStopsAfterClose() {
         resources().use { loader ->
-            val wrapper = loader.response("${document.origin}/probe.html", "GET", true)
-            val control = loader.response("${document.origin}/probe-control.html", "GET", false)
-            val blocked = loader.response("${document.origin}/probe-blocked.html", "GET", false)
-            listOf(wrapper, control, blocked).forEach {
+            val wrapper = loader.response(document.rootUrl, "GET", true)
+            val frame = loader.response(document.frameUrl, "GET", false)
+            listOf(wrapper, frame).forEach {
                 assertEquals(200, it.statusCode)
                 assertEquals("text/html", it.mimeType)
                 assertEquals("no-store", it.responseHeaders["Cache-Control"])
                 assertEquals("nosniff", it.responseHeaders["X-Content-Type-Options"])
                 assertNull(it.responseHeaders["Access-Control-Allow-Origin"])
-                assertNotNull(it.responseHeaders["Content-Security-Policy"])
                 assertNotNull(it.responseHeaders["Permissions-Policy"])
+                assertEquals(document.connectionPolicy, it.responseHeaders["Connection-Allowlist"])
             }
-            assertNull(wrapper.responseHeaders["Connection-Allowlist"])
-            assertNull(control.responseHeaders["Connection-Allowlist"])
-            assertEquals(document.connectionPolicy, blocked.responseHeaders["Connection-Allowlist"])
-            assertEquals(HtmlPreviewProbe.POLICY, control.responseHeaders["Content-Security-Policy"])
-            assertEquals(HtmlPreviewProbe.POLICY, blocked.responseHeaders["Content-Security-Policy"])
-            assertEquals(control.readText(), blocked.readText())
-            assertFalse(wrapper.readText().contains("Generated content"))
-        }
-    }
-
-    @Test
-    fun admitsOnlyTheExactJavascriptResultAndCannotReopenAfterClose() {
-        resources().use { loader ->
-            listOf("", "null", "1,1:0,0", "\"1,1:1,1\"", "\"0,0:0,0\"", " \"1,1:0,0\"", "\"1,1:0,0\"\n").forEach {
-                assertFalse("Admitted invalid result: $it", loader.admit(it))
-                assertBlocked(loader.response(document.rootUrl, "GET", true))
-            }
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
-            val wrapper = loader.response(document.rootUrl, "GET", true)
-            val frame = loader.response(document.frameUrl, "GET", false)
             assertEquals(document.wrapperPolicy, wrapper.responseHeaders["Content-Security-Policy"])
             assertEquals(document.contentPolicy, frame.responseHeaders["Content-Security-Policy"])
             assertTrue(wrapper.readText().contains("sandbox=\"allow-scripts\""))
             assertTrue(frame.readText().contains("<p>Generated content</p>"))
             loader.close()
-            assertFalse(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             assertBlocked(loader.response(document.rootUrl, "GET", true))
+            assertBlocked(loader.response(document.frameUrl, "GET", false))
         }
     }
 
     @Test
-    fun admittedRoutesKeepMainFrameAndMethodBoundaries() {
+    fun routesKeepMainFrameAndMethodBoundaries() {
         resources().use { loader ->
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             listOf(
                 Triple(document.rootUrl, "GET", false),
                 Triple(document.frameUrl, "GET", true),
@@ -131,6 +86,8 @@ class HtmlPreviewResourcesTest {
                 Triple(document.rootUrl, "HEAD", true),
                 Triple(library, "GET", true),
                 Triple("${document.origin}/probe.html", "GET", true),
+                Triple("${document.origin}/probe-control.html", "GET", false),
+                Triple("${document.origin}/probe-blocked.html", "GET", false),
                 Triple("${document.origin}/unknown", "GET", false),
                 Triple("${document.frameUrl}?query=x", "GET", false),
             ).forEach { (url, method, mainFrame) ->
@@ -153,7 +110,6 @@ class HtmlPreviewResourcesTest {
                 response(chain.request(), "<script>bad</script>".toResponseBody(mime?.toMediaType()), code)
             }
             resources(client = remote).use { loader ->
-                assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
                 assertBlocked(loader.response(library, "GET", false))
             }
             assertEquals(1, requests.get())
@@ -168,7 +124,6 @@ class HtmlPreviewResourcesTest {
             response(chain.request()).newBuilder().header("Set-Cookie", "secret=value; Secure").build()
         }
         resources(client = remote).use { loader ->
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             repeat(2) {
                 val result = loader.response(library, "GET", false)
                 assertEquals(200, result.statusCode)
@@ -203,7 +158,6 @@ class HtmlPreviewResourcesTest {
             requests.incrementAndGet()
             response(chain.request())
         }).use { loader ->
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             listOf(
                 "https://user:secret@cdn.jsdelivr.net/index.js",
                 "https://example.com/index.js",
@@ -220,7 +174,6 @@ class HtmlPreviewResourcesTest {
         listOf(HtmlPreviewDocument.MAX_RESOURCE_BYTES.toLong() + 1, -1L).forEach { declared ->
             val body = CountingBody(HtmlPreviewDocument.MAX_RESOURCE_BYTES.toLong() + 1, declared)
             resources(client = client { response(it.request(), body) }).use { loader ->
-                assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
                 assertBlocked(loader.response(library, "GET", false))
             }
             assertTrue(body.closed)
@@ -232,7 +185,6 @@ class HtmlPreviewResourcesTest {
     @Test
     fun requestCountCapsRepeatedLoadsAcrossTheWholePreview() {
         resources().use { loader ->
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             repeat(HtmlPreviewResources.MAX_REQUESTS) {
                 assertEquals(200, loader.response(document.frameUrl, "GET", false).statusCode)
             }
@@ -248,7 +200,6 @@ class HtmlPreviewResourcesTest {
         file.writeBytes(png)
         val url = "${document.origin}/image/0"
         resources(mapOf(url to attachment(file))).use { loader ->
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             val result = loader.response(url, "GET", false)
             assertEquals(200, result.statusCode)
             assertEquals("image/png", result.mimeType)
@@ -269,13 +220,11 @@ class HtmlPreviewResourcesTest {
         val missing = File(temporary.root, "missing.png")
         listOf(attachment(svg, "image/svg+xml"), attachment(missing)).forEach { image ->
             resources(mapOf(url to image)).use { loader ->
-                assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
                 assertBlocked(loader.response(url, "GET", false))
             }
         }
         val image = temporary.newFile("image.png").apply { writeBytes(byteArrayOf(1)) }
         resources(mapOf(url to attachment(image))).use { loader ->
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             assertBlocked(loader.response("${HtmlPreviewDocument("").origin}/image/0", "GET", false))
             assertBlocked(loader.response("$url?path=other.png", "GET", false))
             assertBlocked(loader.response("${document.origin}/image/1", "GET", false))
@@ -288,7 +237,6 @@ class HtmlPreviewResourcesTest {
         RandomAccessFile(file, "rw").use { it.setLength(HtmlPreviewDocument.MAX_RESOURCE_BYTES.toLong()) }
         val url = "${document.origin}/image/0"
         resources(mapOf(url to attachment(file)), client { response(it.request()) }).use { loader ->
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             repeat(HtmlPreviewDocument.MAX_TOTAL_BYTES / HtmlPreviewDocument.MAX_RESOURCE_BYTES) {
                 val result = loader.response(url, "GET", false)
                 assertEquals(200, result.statusCode)
@@ -312,7 +260,6 @@ class HtmlPreviewResourcesTest {
             response(chain.request())
         })
         try {
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             val result = worker.submit<WebResourceResponse> { loader.response(library, "GET", false) }
             assertTrue(entered.await(5, TimeUnit.SECONDS))
             loader.close()
@@ -340,7 +287,6 @@ class HtmlPreviewResourcesTest {
             response(chain.request())
         })
         try {
-            assertTrue(loader.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
             val results = (0 until 4).map {
                 workers.submit<WebResourceResponse> { loader.response(library, "GET", false) }
             }

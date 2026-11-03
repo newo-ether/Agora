@@ -11,5 +11,4 @@
     <string name="html_preview_loading">Carregando prévia</string>
     <string name="html_preview_insert">Adicionar orientações de prévia HTML</string>
     <string name="html_preview_export_failed">Não foi possível exportar o HTML</string>
-    <string name="html_preview_webview_required">Atualize o Android System WebView para executar prévias HTML</string>
 </resources>

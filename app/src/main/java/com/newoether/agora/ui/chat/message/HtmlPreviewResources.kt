@@ -31,7 +31,6 @@ internal class HtmlPreviewResources(
     private val client: OkHttpClient = networkClient,
 ) : Closeable {
     private val closed = AtomicBoolean()
-    private val admitted = AtomicBoolean()
     private val consumed = AtomicInteger()
     private val attempts = AtomicInteger()
     private val permits = Semaphore(4)
@@ -40,7 +39,6 @@ internal class HtmlPreviewResources(
 
     fun response(url: String, method: String, mainFrame: Boolean): WebResourceResponse {
         if (closed.get() || method != "GET" || attempts.incrementAndGet() > MAX_REQUESTS) return blocked()
-        if (!admitted.get()) return probe(url, mainFrame)
         if (url == document.rootUrl && mainFrame) {
             return html(document.wrapper(background), document.wrapperPolicy)
         }
@@ -52,27 +50,6 @@ internal class HtmlPreviewResources(
             if (!allowedHtmlResource(url)) return blocked()
             remote(url)
         } finally { permits.release() }
-    }
-
-    fun admit(probeResult: String): Boolean {
-        if (closed.get() || probeResult != HtmlPreviewProbe.ACCEPTED_RESULT) return false
-        admitted.set(true)
-        return true
-    }
-
-    private fun probe(url: String, mainFrame: Boolean): WebResourceResponse = when {
-        mainFrame && url == "${document.origin}/probe.html" -> html(
-            HtmlPreviewProbe.wrapper(document.origin),
-            "default-src 'none'; script-src 'unsafe-inline'; frame-src ${document.origin}; base-uri 'none'",
-            connection = null,
-        )
-        !mainFrame && url == "${document.origin}/probe-control.html" -> html(
-            HtmlPreviewProbe.frame(document.origin), HtmlPreviewProbe.POLICY, connection = null,
-        )
-        !mainFrame && url == "${document.origin}/probe-blocked.html" -> html(
-            HtmlPreviewProbe.frame(document.origin), HtmlPreviewProbe.POLICY,
-        )
-        else -> blocked()
     }
 
     private fun image(image: ToolImageAttachment): WebResourceResponse = try {

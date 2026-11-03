@@ -83,113 +83,38 @@ class HtmlPreviewWebViewTest {
         assertFalse(settings.builtInZoomControls)
         assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS, browser.importantForAutofill)
         assertFalse(CookieManager.getInstance().acceptThirdPartyCookies(browser))
-        assertEquals("${fixture.document.origin}/probe.html", shadowOf(browser).lastLoadedUrl)
+        assertEquals(fixture.document.rootUrl, shadowOf(browser).lastLoadedUrl)
         assertNull(shadowOf(browser).getJavascriptInterface("Android"))
         assertNull(shadowOf(browser).getJavascriptInterface("Agora"))
     }
 
     @Test
-    fun exactSuccessfulProbeAdmitsTheGeneratedDocumentOnce() {
+    fun generatedDocumentLoadsDirectlyAndIsNotTimedOut() {
         val fixture = fixture()
         val browser = fixture.browser
         val shadow = shadowOf(browser)
-        shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
-        assertEquals(HtmlPreviewProbe.RESULT_SCRIPT, shadow.lastEvaluatedJavascript)
-        val callback = requireNotNull(shadow.lastEvaluatedJavascriptCallback)
-
-        callback.onReceiveValue(HtmlPreviewProbe.ACCEPTED_RESULT)
-        assertEquals(fixture.document.rootUrl, shadow.lastLoadedUrl)
-        assertEquals(200, fixture.resources.response(fixture.document.rootUrl, "GET", true).statusCode)
-        callback.onReceiveValue("\"1,1:1,1\"")
+        shadow.webChromeClient.onReceivedTitle(browser, "agora-preview-probe-complete")
+        assertNull(shadow.lastEvaluatedJavascript)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(6))
         assertEquals(fixture.document.rootUrl, shadow.lastLoadedUrl)
+        assertEquals(200, fixture.resources.response(fixture.document.rootUrl, "GET", true).statusCode)
         assertEquals(0, fixture.failures.get())
-        assertEquals(0, fixture.unsupported.get())
         assertFalse(shadow.wasDestroyCalled())
     }
 
     @Test
-    fun invalidProbeClosesResourcesAndReportsUnsupportedExactlyOnce() {
+    fun explicitReleaseIsIdempotentAndClosesResources() {
         val fixture = fixture()
         val browser = fixture.browser
         val shadow = shadowOf(browser)
-        shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
-        val callback = requireNotNull(shadow.lastEvaluatedJavascriptCallback)
-
-        callback.onReceiveValue("\"1,1:1,1\"")
-        callback.onReceiveValue(HtmlPreviewProbe.ACCEPTED_RESULT)
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(6))
-        assertEquals(1, fixture.unsupported.get())
-        assertEquals(0, fixture.failures.get())
-        assertTrue(shadow.wasDestroyCalled())
-        assertNull(browser.parent)
-        assertEquals(403, fixture.resources.response(fixture.document.rootUrl, "GET", true).statusCode)
-    }
-
-    @Test
-    fun callbackAfterExplicitReleaseCannotAdmitOrReportAnError() {
-        val fixture = fixture()
-        val browser = fixture.browser
-        val shadow = shadowOf(browser)
-        shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
-        val callback = requireNotNull(shadow.lastEvaluatedJavascriptCallback)
-        val probeUrl = browser.url
-
         browser.release()
-        callback.onReceiveValue(HtmlPreviewProbe.ACCEPTED_RESULT)
         browser.release()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(6))
-
-        assertEquals(probeUrl, shadow.lastLoadedUrl)
         assertTrue(shadow.wasDestroyCalled())
         assertTrue(shadow.wasOnPauseCalled())
         assertNull(browser.parent)
-        assertEquals(0, fixture.unsupported.get())
         assertEquals(0, fixture.failures.get())
-        assertFalse(fixture.resources.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
-    }
-
-    @Test
-    fun probeResultAfterNavigationIsStaleAndCannotLoadGeneratedContent() {
-        val fixture = fixture()
-        val browser = fixture.browser
-        val shadow = shadowOf(browser)
-        shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
-        val callback = requireNotNull(shadow.lastEvaluatedJavascriptCallback)
-        val otherUrl = "${fixture.document.origin}/other.html"
-        browser.loadUrl(otherUrl)
-
-        callback.onReceiveValue(HtmlPreviewProbe.ACCEPTED_RESULT)
-
-        assertEquals(otherUrl, shadow.lastLoadedUrl)
         assertEquals(403, fixture.resources.response(fixture.document.rootUrl, "GET", true).statusCode)
-        assertEquals(0, fixture.unsupported.get())
-        assertEquals(0, fixture.failures.get())
-    }
-
-    @Test
-    fun wrongTitleAndWrongPageDoNotStartProbeEvaluation() {
-        val fixture = fixture()
-        val browser = fixture.browser
-        val shadow = shadowOf(browser)
-        shadow.webChromeClient.onReceivedTitle(browser, "ordinary title")
-        assertNull(shadow.lastEvaluatedJavascript)
-
-        browser.loadUrl(fixture.document.rootUrl)
-        shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
-        assertNull(shadow.lastEvaluatedJavascript)
-        assertEquals(403, fixture.resources.response(fixture.document.rootUrl, "GET", true).statusCode)
-    }
-
-    @Test
-    fun missingProbeResultTimesOutAndDisposesTheBrowser() {
-        val fixture = fixture()
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(6))
-        assertEquals(1, fixture.unsupported.get())
-        assertEquals(0, fixture.failures.get())
-        assertTrue(shadowOf(fixture.browser).wasDestroyCalled())
-        assertNull(fixture.browser.parent)
-        assertFalse(fixture.resources.admit(HtmlPreviewProbe.ACCEPTED_RESULT))
     }
 
     @Test
@@ -198,9 +123,9 @@ class HtmlPreviewWebViewTest {
         val browser = fixture.browser
         val client = shadowOf(browser).webViewClient
         assertFalse(client.shouldOverrideUrlLoading(browser, request(fixture.document.frameUrl)))
-        assertFalse(client.shouldOverrideUrlLoading(browser, request("${fixture.document.origin}/probe-control.html")))
-        assertFalse(client.shouldOverrideUrlLoading(browser, request("${fixture.document.origin}/probe-blocked.html")))
         listOf(
+            request("${fixture.document.origin}/probe-control.html"),
+            request("${fixture.document.origin}/probe-blocked.html"),
             request("https://example.com/"),
             request(fixture.document.frameUrl, mainFrame = true),
             request(fixture.document.frameUrl, method = "POST"),
@@ -211,7 +136,8 @@ class HtmlPreviewWebViewTest {
         assertNull(shadowOf(controller.get()).nextStartedActivity)
         val intercepted = client.shouldInterceptRequest(browser, request(fixture.document.frameUrl))
         assertNotNull(intercepted)
-        assertEquals(403, intercepted!!.statusCode)
+        assertEquals(200, intercepted!!.statusCode)
+        assertEquals(403, client.shouldInterceptRequest(browser, request("https://example.com/"))!!.statusCode)
     }
 
     @Test
@@ -262,26 +188,19 @@ class HtmlPreviewWebViewTest {
         }
         assertTrue(shadowOf(browser).webViewClient.onRenderProcessGone(browser, detail))
         assertEquals(1, fixture.failures.get())
-        assertEquals(0, fixture.unsupported.get())
         assertTrue(shadowOf(browser).wasDestroyCalled())
         assertNull(browser.parent)
         assertEquals(403, fixture.resources.response(fixture.document.rootUrl, "GET", true).statusCode)
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(6))
-        assertEquals(0, fixture.unsupported.get())
     }
 
     @Test
-    fun loadingKeepsTheBrowserHiddenUntilTheAdmittedDocumentCanDraw() {
+    fun loadingKeepsTheBrowserHiddenUntilTheGeneratedDocumentCanDraw() {
         val fixture = fixture()
         val browser = fixture.browser
         val shadow = shadowOf(browser)
         val visual = Shadow.extract<HtmlPreviewVisualStateShadow>(browser)
         assertEquals(View.INVISIBLE, browser.visibility)
         assertEquals(Color.BLACK, shadow.backgroundColor)
-        shadow.webViewClient.onPageFinished(browser, browser.url)
-        assertTrue(visual.callbacks.isEmpty())
-
-        admit(fixture)
         shadow.webViewClient.onPageFinished(browser, "${fixture.document.origin}/probe.html")
         shadow.webViewClient.onPageFinished(browser, fixture.document.frameUrl)
         assertTrue(visual.callbacks.isEmpty())
@@ -302,7 +221,6 @@ class HtmlPreviewWebViewTest {
     fun visualCompletionAfterReleaseOrNavigationCannotRevealTheBrowser() {
         listOf(false, true).forEach { release ->
             val fixture = fixture()
-            admit(fixture)
             val browser = fixture.browser
             shadowOf(browser).webViewClient.onPageFinished(browser, fixture.document.rootUrl)
             if (release) browser.release() else browser.loadUrl("${fixture.document.origin}/other.html")
@@ -315,7 +233,6 @@ class HtmlPreviewWebViewTest {
     @Test
     fun mainFrameLoadFailureReleasesTheBrowserWithoutAReadySignal() {
         val fixture = fixture()
-        admit(fixture)
         val browser = fixture.browser
         val client = shadowOf(browser).webViewClient
         val error = io.mockk.mockk<android.webkit.WebResourceError>()
@@ -332,23 +249,16 @@ class HtmlPreviewWebViewTest {
         assertTrue(shadowOf(browser).wasDestroyCalled())
     }
 
-    private fun admit(fixture: Fixture) {
-        val shadow = shadowOf(fixture.browser)
-        shadow.webChromeClient.onReceivedTitle(fixture.browser, HtmlPreviewProbe.COMPLETE_TITLE)
-        requireNotNull(shadow.lastEvaluatedJavascriptCallback).onReceiveValue(HtmlPreviewProbe.ACCEPTED_RESULT)
-    }
-
     private fun fixture(): Fixture {
         val document = HtmlPreviewDocument("<p>Generated content</p>")
         val resources = HtmlPreviewResources(document, emptyMap(), "#000000", "#FFFFFF")
         val failures = AtomicInteger()
-        val unsupported = AtomicInteger()
         val ready = AtomicInteger()
         val browser = HtmlPreviewWebView(controller.get(), document, resources,
-            onFailure = { failures.incrementAndGet() }, onUnsupported = { unsupported.incrementAndGet() },
+            onFailure = { failures.incrementAndGet() },
             backgroundColor = Color.BLACK, onReady = { ready.incrementAndGet() })
         parent.addView(browser)
-        return Fixture(document, resources, browser, failures, unsupported, ready).also { fixtures += it }
+        return Fixture(document, resources, browser, failures, ready).also { fixtures += it }
     }
 
     private fun request(
@@ -369,7 +279,6 @@ class HtmlPreviewWebViewTest {
         val resources: HtmlPreviewResources,
         val browser: HtmlPreviewWebView,
         val failures: AtomicInteger,
-        val unsupported: AtomicInteger,
         val ready: AtomicInteger,
     )
 }

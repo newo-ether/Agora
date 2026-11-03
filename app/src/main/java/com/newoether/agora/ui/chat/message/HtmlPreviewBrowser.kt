@@ -78,7 +78,6 @@ private fun HtmlPreviewActiveBrowser(code: String) {
     val document = remember(code) { runCatching { HtmlPreviewDocument(code) }.getOrNull() }
     var images by remember(document) { mutableStateOf<Map<String, ToolImageAttachment>?>(null) }
     var failed by remember(document) { mutableStateOf(document == null) }
-    var unsupported by remember(document) { mutableStateOf(false) }
     val surface = MaterialTheme.colorScheme.surface
     val background = String.format(Locale.ROOT, "#%06X", surface.toArgb() and 0xffffff)
     val foreground = String.format(Locale.ROOT, "#%06X", MaterialTheme.colorScheme.onSurface.toArgb() and 0xffffff)
@@ -100,9 +99,9 @@ private fun HtmlPreviewActiveBrowser(code: String) {
         var ready by remember { mutableStateOf(false) }
         Box(Modifier.fillMaxSize().background(surface), contentAlignment = Alignment.Center) {
             val loaded = images
-            if (unsupported || failed) {
+            if (failed) {
                 Text(
-                    stringResource(if (unsupported) R.string.html_preview_webview_required else R.string.html_preview_failed),
+                    stringResource(R.string.html_preview_failed),
                     modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else if (document != null && loaded != null) {
@@ -117,7 +116,7 @@ private fun HtmlPreviewActiveBrowser(code: String) {
                 AndroidView(
                     factory = {
                         HtmlPreviewWebView(context, document, resources,
-                            onFailure = { failed = true }, onUnsupported = { unsupported = true },
+                            onFailure = { failed = true },
                             backgroundColor = surface.toArgb(), onReady = { ready = true },
                         ).also { browser = it }
                     },
@@ -126,7 +125,7 @@ private fun HtmlPreviewActiveBrowser(code: String) {
                     update = {},
                 )
             }
-            HtmlPreviewLoadingOverlay(loading = !ready && !failed && !unsupported)
+            HtmlPreviewLoadingOverlay(loading = !ready && !failed)
         }
     }
 }

@@ -44,45 +44,34 @@ function Viewport({ source, revision, reduceMotion }) {
   useLayoutEffect(() => {
     if (!active) return;
     const element = host.current;
-    let disposed = false, admitted = false, documentLoaded = false, failed = false;
-    let release = () => {}, control, blocked, timer;
+    let disposed = false, posted = false, documentLoaded = false, failed = false;
+    let release = () => {}, frame, timer;
     const abort = new AbortController();
+    const fail = () => {
+      if (disposed || failed) return;
+      failed = true;
+      clearTimeout(timer);
+      frame?.remove(); release();
+      setStatus("failed");
+    };
+    // First load is the receiver shell: post the source once. The next load is document.write
+    // finishing and reveals the frame; any later navigation fails closed.
     const loaded = () => {
-      if (disposed || failed || !admitted) return;
+      if (disposed || failed) return;
+      if (!posted) {
+        posted = true;
+        clearTimeout(timer);
+        const prefix = new URL(frame.src).href.replace(/\/frame$/, "");
+        frame.contentWindow.postMessage({ source: previewResourceSource(source, prefix) }, "*");
+        timer = setTimeout(fail, 25000);
+        return;
+      }
       if (documentLoaded) { fail(); return; }
       documentLoaded = true;
       clearTimeout(timer);
       setStatus("ready");
     };
-    const fail = () => {
-      if (disposed || failed) return;
-      failed = true;
-      clearTimeout(timer);
-      control?.remove(); blocked?.remove(); release();
-      setStatus("failed");
-    };
-    const results = new Map(), initialLoads = new Set();
-    const admit = () => {
-      if (disposed || failed || admitted || results.size !== 2 || initialLoads.size !== 2) return;
-      if (results.get(control) !== "1,1" || results.get(blocked) !== "0,0") { fail(); return; }
-      admitted = true;
-      control.remove();
-      clearTimeout(timer);
-      // Probe loads have completed. Only the first document.write load may reveal the frame.
-      blocked.addEventListener("load", loaded);
-      const prefix = new URL(blocked.src).href.replace(/\/blocked$/, "");
-      blocked.contentWindow.postMessage({ source: previewResourceSource(source, prefix) }, "*");
-      timer = setTimeout(fail, 25000);
-    };
-    const receive = event => {
-      if (disposed || failed || admitted || event.origin !== "null") return;
-      const frame = [control, blocked].find(frame => frame?.contentWindow === event.source);
-      if (!frame || typeof event.data !== "string") return;
-      results.set(frame, event.data);
-      admit();
-    };
     setStatus("loading");
-    addEventListener("message", receive);
     const start = async () => {
       try {
         if (source.length > MAX_SOURCE_CHARS) throw new Error("Source limit");
@@ -96,27 +85,22 @@ function Viewport({ source, revision, reduceMotion }) {
           release = () => {};
         };
         if (disposed) { release(); return; }
-        const create = kind => {
-          const frame = document.createElement("iframe");
-          frame.sandbox = "allow-scripts";
-          frame.referrerPolicy = "no-referrer";
-          frame.title = t.htmlPreview;
-          frame.src = `/html-preview/${id}/${kind}`;
-          frame.addEventListener("load", () => { initialLoads.add(frame); admit(); }, { once: true });
-          return frame;
-        };
-        control = create("control"); blocked = create("blocked");
-        control.hidden = true; blocked.className = "html-preview-frame";
-        blocked.addEventListener("error", fail);
+        frame = document.createElement("iframe");
+        frame.sandbox = "allow-scripts";
+        frame.referrerPolicy = "no-referrer";
+        frame.title = t.htmlPreview;
+        frame.className = "html-preview-frame";
+        frame.src = `/html-preview/${id}/frame`;
+        frame.addEventListener("load", loaded);
+        frame.addEventListener("error", fail);
         timer = setTimeout(fail, 5000);
-        element.append(control, blocked);
+        element.append(frame);
       } catch { if (!disposed) fail(); }
     };
     start();
     return () => {
       disposed = true; abort.abort(); clearTimeout(timer);
-      removeEventListener("message", receive);
-      control?.remove(); blocked?.remove(); release();
+      frame?.remove(); release();
     };
   }, [source, revision, active]);
   useLayoutEffect(() => {

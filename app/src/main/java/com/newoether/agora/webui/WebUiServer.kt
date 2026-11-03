@@ -548,7 +548,7 @@ private fun webUiSecurityHeaders(secureCookies: (ApplicationCall) -> Boolean) = 
             if (previewId != null) header("Permissions-Policy", WebUiHtmlPreview.PERMISSIONS)
             if (previewDocument) {
                 header("Content-Security-Policy", WebUiHtmlPreview.policy(previewPrefix))
-                if (call.request.local.uri.endsWith("/blocked")) {
+                if (call.request.local.uri.endsWith("/frame")) {
                     header("Connection-Allowlist", WebUiHtmlPreview.connection(previewPrefix))
                 }
             } else header(

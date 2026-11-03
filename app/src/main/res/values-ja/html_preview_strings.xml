@@ -11,5 +11,4 @@
     <string name="html_preview_loading">プレビューを読み込み中</string>
     <string name="html_preview_insert">HTML プレビューのガイダンスを追加</string>
     <string name="html_preview_export_failed">HTML を書き出せませんでした</string>
-    <string name="html_preview_webview_required">HTML プレビューを実行するには Android System WebView を更新してください</string>
 </resources>

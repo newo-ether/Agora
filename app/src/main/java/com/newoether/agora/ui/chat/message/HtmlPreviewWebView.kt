@@ -29,21 +29,12 @@ internal class HtmlPreviewWebView(
     document: HtmlPreviewDocument,
     private val resources: HtmlPreviewResources,
     private val onFailure: () -> Unit,
-    private val onUnsupported: () -> Unit,
     backgroundColor: Int,
     private val onReady: () -> Unit,
 ) : WebView(context) {
     private var released = false
-    private var admitted = false
     private var visualStateRequested = false
     private var ready = false
-    private val probeUrl = "${document.origin}/probe.html"
-    private val probeTimeout = Runnable {
-        if (!released && !admitted) {
-            release()
-            onUnsupported()
-        }
-    }
 
     init {
         // Compose's holder otherwise supplies WRAP_CONTENT. WebView then forces Blink's
@@ -52,7 +43,7 @@ internal class HtmlPreviewWebView(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT,
         )
-        // Keep the trusted probe and incomplete document out of the fading loading overlay.
+        // Keep the incomplete document out of the fading loading overlay.
         visibility = View.INVISIBLE
         setBackgroundColor(backgroundColor)
         settings.apply {
@@ -85,8 +76,7 @@ internal class HtmlPreviewWebView(
                 resources.response(request.url.toString(), request.method, request.isForMainFrame)
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val allowedFrame = request.url.toString() == document.frameUrl ||
-                    (!admitted && request.url.toString() in setOf("${document.origin}/probe-control.html", "${document.origin}/probe-blocked.html"))
+                val allowedFrame = request.url.toString() == document.frameUrl
                 if (!request.isForMainFrame && allowedFrame && request.method == "GET") return false
                 val uri = request.url
                 if (request.hasGesture() && request.method == "GET" &&
@@ -98,7 +88,7 @@ internal class HtmlPreviewWebView(
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
-                if (released || !admitted || visualStateRequested || url != document.rootUrl || view.url != url) return
+                if (released || visualStateRequested || url != document.rootUrl || view.url != url) return
                 visualStateRequested = true
                 // Page load completion alone does not guarantee the sandbox's pixels are ready.
                 view.postVisualStateCallback(0, object : VisualStateCallback() {
@@ -126,20 +116,6 @@ internal class HtmlPreviewWebView(
             }
         }
         webChromeClient = object : WebChromeClient() {
-            override fun onReceivedTitle(view: WebView, title: String?) {
-                if (released || admitted || view.url != probeUrl || title != HtmlPreviewProbe.COMPLETE_TITLE) return
-                view.evaluateJavascript(HtmlPreviewProbe.RESULT_SCRIPT) { result ->
-                    if (released || admitted || view.url != probeUrl) return@evaluateJavascript
-                    if (resources.admit(result)) {
-                        admitted = true
-                        removeCallbacks(probeTimeout)
-                        loadUrl(document.rootUrl)
-                    } else {
-                        release()
-                        onUnsupported()
-                    }
-                }
-            }
             override fun onPermissionRequest(request: PermissionRequest) = request.deny()
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
                 callback.invoke(origin, false, false)
@@ -164,14 +140,12 @@ internal class HtmlPreviewWebView(
         }
         setDownloadListener { _, _, _, _, _ -> }
         setOnLongClickListener { true }
-        loadUrl(probeUrl)
-        postDelayed(probeTimeout, 5_000)
+        loadUrl(document.rootUrl)
     }
 
     fun release() {
         if (released) return
         released = true
-        removeCallbacks(probeTimeout)
         resources.close()
         (parent as? ViewGroup)?.removeView(this)
         stopLoading()

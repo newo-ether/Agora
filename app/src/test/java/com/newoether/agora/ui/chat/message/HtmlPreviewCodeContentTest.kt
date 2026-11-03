@@ -336,11 +336,13 @@ class HtmlPreviewCodeContentTest {
             browser != null
         }
         compose.runOnIdle {
-            val shadow = shadowOf(requireNotNull(browser))
-            shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
-            requireNotNull(shadow.lastEvaluatedJavascriptCallback).onReceiveValue("\"1,1:1,1\"")
+            val crashed = requireNotNull(browser)
+            shadowOf(crashed).webViewClient.onRenderProcessGone(crashed, object : android.webkit.RenderProcessGoneDetail() {
+                override fun didCrash() = true
+                override fun rendererPriorityAtExit() = 0
+            })
         }
-        compose.onNodeWithText(context.getString(R.string.html_preview_webview_required))
+        compose.onNodeWithText(context.getString(R.string.html_preview_failed))
             .assertIsDisplayed().performTouchInput { longClick() }
         compose.onNodeWithContentDescription(context.getString(R.string.provider_close)).performClick()
         awaitBrowser()
@@ -438,22 +440,6 @@ class HtmlPreviewCodeContentTest {
         compose.onNodeWithContentDescription(sourceLabel).assertIsDisplayed()
     }
 
-    @Test
-    fun rejectedProbeReplacesTheMountedBrowserWithVisibleUpdateGuidance() {
-        code.value = "<h1>Visible preview</h1>"
-        host()
-        val browser = awaitBrowser()
-        compose.runOnIdle {
-            val shadow = shadowOf(browser)
-            shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
-            requireNotNull(shadow.lastEvaluatedJavascriptCallback).onReceiveValue("\"1,1:1,1\"")
-        }
-        compose.onNodeWithText(context.getString(R.string.html_preview_webview_required)).assertIsDisplayed()
-        compose.runOnIdle {
-            assertTrue(previewViews().isEmpty())
-            assertTrue(shadowOf(browser).wasDestroyCalled())
-        }
-    }
     @Test
     fun clippingAncestorExpandingFromZeroHeightMountsTheVisibleBrowser() {
         val height = mutableStateOf(0.dp)
@@ -569,10 +555,7 @@ class HtmlPreviewCodeContentTest {
         compose.onNodeWithTag(LOADING).assertIsDisplayed().assertHeightIsEqualTo(360.dp)
         compose.runOnIdle {
             assertEquals(View.INVISIBLE, browser.visibility)
-            val shadow = shadowOf(browser)
-            shadow.webChromeClient.onReceivedTitle(browser, HtmlPreviewProbe.COMPLETE_TITLE)
-            requireNotNull(shadow.lastEvaluatedJavascriptCallback).onReceiveValue(HtmlPreviewProbe.ACCEPTED_RESULT)
-            shadow.webViewClient.onPageFinished(browser, browser.url)
+            shadowOf(browser).webViewClient.onPageFinished(browser, browser.url)
         }
         compose.onNodeWithTag(LOADING).assertIsDisplayed()
         compose.mainClock.autoAdvance = false

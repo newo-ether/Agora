@@ -11,5 +11,4 @@
     <string name="html_preview_loading">جارٍ تحميل المعاينة</string>
     <string name="html_preview_insert">إضافة إرشادات معاينة HTML</string>
     <string name="html_preview_export_failed">تعذر تصدير HTML</string>
-    <string name="html_preview_webview_required">حدّث Android System WebView لتشغيل معاينات HTML</string>
 </resources>

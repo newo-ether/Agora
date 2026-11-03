@@ -11,5 +11,4 @@
     <string name="html_preview_loading">Vorschau wird geladen</string>
     <string name="html_preview_insert">HTML-Vorschauanleitung hinzufügen</string>
     <string name="html_preview_export_failed">HTML konnte nicht exportiert werden</string>
-    <string name="html_preview_webview_required">Aktualisiere Android System WebView, um HTML-Vorschauen auszuführen</string>
 </resources>

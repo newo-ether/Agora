@@ -1,7 +1,6 @@
 package com.newoether.agora.webui
 
 import com.newoether.agora.ui.chat.message.HtmlPreviewDocument
-import com.newoether.agora.ui.chat.message.HtmlPreviewProbe
 import com.newoether.agora.ui.chat.message.HtmlPreviewResources
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -46,7 +45,6 @@ internal class WebUiHtmlPreview(private val auth: WebUiAuth) : AutoCloseable {
             expired.forEach { (id, entry) -> if (entries.remove(id, entry)) entry.resources.close() }
             val id = UUID.randomUUID().toString()
             val resource = HtmlPreviewResources(HtmlPreviewDocument(""), emptyMap(), "#fff", "#111")
-            resource.admit(HtmlPreviewProbe.ACCEPTED_RESULT)
             val accepted = synchronized(entries) {
                 if (entries.size >= 64 || entries.values.count { it.token == token } >= 16) false
                 else { entries[id] = Entry(token, resource, System.currentTimeMillis()); true }
@@ -58,8 +56,8 @@ internal class WebUiHtmlPreview(private val auth: WebUiAuth) : AutoCloseable {
         get("$ROOT/{id}/{kind}") {
             val id = call.parameters["id"].orEmpty()
             val kind = call.parameters["kind"]
-            if (active(id) == null || kind !in setOf("control", "blocked")) return@get call.respond(HttpStatusCode.NotFound)
-            call.respondText(document(kind == "blocked"), ContentType.Text.Html)
+            if (active(id) == null || kind != "frame") return@get call.respond(HttpStatusCode.NotFound)
+            call.respondText(document(), ContentType.Text.Html)
         }
         get("$ROOT/{id}/resource/{host}/{path...}") {
             val id = call.parameters["id"].orEmpty()
@@ -85,7 +83,7 @@ internal class WebUiHtmlPreview(private val auth: WebUiAuth) : AutoCloseable {
     companion object {
         const val ROOT = "/html-preview"
         private const val MAX_AGE = 10 * 60 * 1000L
-        private val ID_PATH = Regex("/html-preview/([a-f0-9-]{36})/(control|blocked|resource/.*)")
+        private val ID_PATH = Regex("/html-preview/([a-f0-9-]{36})/(frame|resource/.*)")
         const val PERMISSIONS = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), clipboard-read=(), clipboard-write=()"
         fun id(path: String): String? = ID_PATH.matchEntire(path)?.groupValues?.get(1)
         fun policy(prefix: String) = "default-src 'none'; script-src 'unsafe-inline' $prefix/resource/; " +
@@ -94,11 +92,10 @@ internal class WebUiHtmlPreview(private val auth: WebUiAuth) : AutoCloseable {
             "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox allow-scripts"
         fun connection(prefix: String) = "(\"$prefix/resource/*\");webrtc=block"
 
-        fun document(blocked: Boolean): String {
-            val probe = HtmlPreviewProbe.frame("*")
-            if (!blocked) return probe
-            val receiver = """
-                <script>
+        /** Receiver shell; the parent posts the generated source once. No capability probe:
+         *  Connection-Allowlist is an origin trial that stock browsers ignore. */
+        fun document(): String = """
+                <!doctype html><html><head><meta charset="utf-8"></head><body><script>
                 addEventListener('message', function receive(event) {
                   if (event.source !== parent || event.origin !== location.origin ||
                       typeof event.data?.source !== 'string' || event.data.source.length > ${HtmlPreviewDocument.MAX_SOURCE_CHARS}) return;
@@ -107,9 +104,7 @@ internal class WebUiHtmlPreview(private val auth: WebUiAuth) : AutoCloseable {
                   document.write(event.data.source);
                   document.close();
                 });
-                </script>
+                </script></body></html>
             """.trimIndent()
-            return probe.replace("</body>", "$receiver</body>")
-        }
     }
 }

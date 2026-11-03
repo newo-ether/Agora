@@ -28,7 +28,6 @@ import okio.FileSystem
 import okio.Path.Companion.toPath
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -68,30 +67,31 @@ class WebUiHtmlPreviewTest {
     }
 
     @Test
-    fun capabilityDocumentsCarryResponseSandboxAndOnlyBlockedProbeHasConnectionPolicy() = webUi { _, token ->
+    fun receiverDocumentCarriesResponseSandboxAndConnectionPolicyWithoutProbe() = webUi { _, token ->
         val id = createId(token)
-        val control = client.get("/html-preview/$id/control")
-        val blocked = client.get("/html-preview/$id/blocked")
-        for (response in listOf(control, blocked)) {
-            assertEquals(HttpStatusCode.OK, response.status)
-            assertEquals("SAMEORIGIN", response.headers["X-Frame-Options"])
-            assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
-            assertEquals("nosniff", response.headers["X-Content-Type-Options"])
-            val policy = response.headers["Content-Security-Policy"]!!
-            assertTrue(policy.contains("sandbox allow-scripts"))
-            assertFalse(policy.contains("allow-same-origin"))
-            assertTrue(policy.contains("connect-src 'none'"))
-            assertTrue(policy.contains("frame-src 'none'"))
-            assertTrue(policy.contains("form-action 'none'"))
-            assertTrue(policy.contains("/html-preview/$id/resource/"))
-        }
-        assertNull(control.headers["Connection-Allowlist"])
-        assertTrue(blocked.headers["Connection-Allowlist"]!!.contains("/html-preview/$id/resource/*"))
-        assertTrue(blocked.headers["Connection-Allowlist"]!!.contains("webrtc=block"))
-        assertFalse(control.bodyAsText().contains(token))
-        assertFalse(blocked.bodyAsText().contains(token))
+        val response = client.get("/html-preview/$id/frame")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals("SAMEORIGIN", response.headers["X-Frame-Options"])
+        assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+        assertEquals("nosniff", response.headers["X-Content-Type-Options"])
+        val policy = response.headers["Content-Security-Policy"]!!
+        assertTrue(policy.contains("sandbox allow-scripts"))
+        assertFalse(policy.contains("allow-same-origin"))
+        assertTrue(policy.contains("connect-src 'none'"))
+        assertTrue(policy.contains("frame-src 'none'"))
+        assertTrue(policy.contains("form-action 'none'"))
+        assertTrue(policy.contains("/html-preview/$id/resource/"))
+        assertTrue(response.headers["Connection-Allowlist"]!!.contains("/html-preview/$id/resource/*"))
+        assertTrue(response.headers["Connection-Allowlist"]!!.contains("webrtc=block"))
+        val body = response.bodyAsText()
+        assertFalse(body.contains(token))
+        assertFalse(body.contains("RTCPeerConnection"))
+        assertTrue(body.contains("document.write"))
+        // The removed probe routes no longer exist.
+        assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/control").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/blocked").status)
         assertEquals("DENY", client.get("/").headers["X-Frame-Options"])
-        assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/00000000-0000-0000-0000-000000000000/blocked").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/00000000-0000-0000-0000-000000000000/frame").status)
     }
 
     @Test
@@ -99,9 +99,9 @@ class WebUiHtmlPreviewTest {
         val id = createId(token)
         val other = (auth.login("pw") as WebUiLoginResult.Success).sessionToken
         assertEquals(HttpStatusCode.NoContent, release(other, id).status)
-        assertEquals(HttpStatusCode.OK, client.get("/html-preview/$id/blocked").status)
+        assertEquals(HttpStatusCode.OK, client.get("/html-preview/$id/frame").status)
         assertEquals(HttpStatusCode.NoContent, release(token, id).status)
-        assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/blocked").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/frame").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/resource/unapproved.invalid/file.js").status)
         assertEquals(HttpStatusCode.NoContent, release(token, id).status)
     }
@@ -110,7 +110,7 @@ class WebUiHtmlPreviewTest {
     fun logoutRevokesAnExistingCapabilityWithoutRequiringBrowserCleanup() = webUi { auth, token ->
         val id = createId(token)
         auth.logout(token)
-        assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/blocked").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/frame").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/resource/unapproved.invalid/file.js").status)
         assertEquals(HttpStatusCode.Forbidden, create(token).status)
     }

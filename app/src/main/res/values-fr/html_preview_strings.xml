@@ -11,5 +11,4 @@
     <string name="html_preview_loading">Chargement de l’aperçu</string>
     <string name="html_preview_insert">Ajouter les consignes d’aperçu HTML</string>
     <string name="html_preview_export_failed">Échec de l’exportation HTML</string>
-    <string name="html_preview_webview_required">Mettez à jour Android System WebView pour exécuter les aperçus HTML</string>
 </resources>
