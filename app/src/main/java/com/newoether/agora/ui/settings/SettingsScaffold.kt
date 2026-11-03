@@ -58,13 +58,15 @@ import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.CircularBackButton
 import com.newoether.agora.ui.components.clearFocusOnTap
+import com.newoether.agora.ui.theme.chatCompactWidth
 
 // ── Shared geometry for the iOS-style collapsing large title, used by the
 //    Settings home page and every settings sub-page so the morph is identical. ──
 internal val SettingsBarHeight = 64.dp          // fixed top bar height (below the status bar)
 internal val SettingsTitleDockTop = 18.dp       // docked title's top inside the bar
-internal val SettingsTitleBottomInset = 70.dp   // big title's top-left, measured up from the header bottom
-internal val SettingsTitleAreaHeight = 90.dp    // big-title header room; taller = longer rise
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) tighten the space above (8 dp) and below (10 dp) the big title.
+internal val SettingsTitleBottomInset get() = if (chatCompactWidth) 60.dp else 70.dp   // big title's top-left, measured up from the header bottom
+internal val SettingsTitleAreaHeight get() = if (chatCompactWidth) 72.dp else 90.dp    // big-title header room; taller = longer rise
 internal val SettingsTitleExpandedFont = 33.sp
 internal val SettingsTitleCollapsedFont = 22.sp
 internal val SettingsContentMaxWidth = 840.dp

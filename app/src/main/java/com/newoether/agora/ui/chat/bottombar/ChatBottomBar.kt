@@ -32,6 +32,7 @@ import com.newoether.agora.R
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.theme.chatCompactWidth
 import com.newoether.agora.viewmodel.ConversationComposerController
 import com.newoether.agora.viewmodel.ConversationComposerSnapshot
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionController
@@ -56,7 +57,8 @@ internal val CHAT_BOTTOM_BAR_OUTER_SHAPE = RoundedCornerShape(CHAT_BOTTOM_BAR_OU
 // Non-expanded bar geometry, measured from the bar's outer edge.
 // The controls capsule and the send button share one height and sit 10 dp from the start/end and
 // bottom edges. They are not concentric with the outer corners: the owner chose larger controls.
-internal val COMPOSER_CONTROL_HEIGHT = 48.dp
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) shrink both to 44 dp.
+internal val COMPOSER_CONTROL_HEIGHT get() = if (chatCompactWidth) 44.dp else 48.dp
 internal val COMPOSER_CONTROLS_INSET = 10.dp
 // The expand icon sits 18 dp from the top and end edges. The expand button's circle is a fade to
 // transparent, so only its 20 dp icon is placed, not the circle.
@@ -64,8 +66,9 @@ internal val COMPOSER_CORNER_CONTENT_INSET = 18.dp
 // The input text starts 18 dp from the start edge and 16 dp from the top, and ends 22 dp above the
 // controls.
 internal val COMPOSER_TEXT_START_INSET = 18.dp
-internal val COMPOSER_TEXT_TOP_INSET = 16.dp
-internal val COMPOSER_TEXT_CONTROLS_GAP = 22.dp
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) tighten both to 13 dp and 18 dp.
+internal val COMPOSER_TEXT_TOP_INSET get() = if (chatCompactWidth) 13.dp else 16.dp
+internal val COMPOSER_TEXT_CONTROLS_GAP get() = if (chatCompactWidth) 18.dp else 22.dp
 internal val COMPOSER_EXPAND_BUTTON_SIZE = 40.dp
 internal val COMPOSER_EXPAND_ICON_SIZE = 20.dp
 // The host padding the status rows, attachment previews and expanded collapse button share.

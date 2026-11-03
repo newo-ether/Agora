@@ -46,6 +46,7 @@ import com.newoether.agora.ui.chat.resolveAttachmentType
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.chatCompactWidth
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 
@@ -167,7 +168,7 @@ internal fun UserMessageBubble(
             shape = shape,
             color = backgroundColor,
             modifier = Modifier
-                .widthIn(min = USER_BUBBLE_MIN_WIDTH, max = 300.dp)
+                .widthIn(min = USER_BUBBLE_MIN_WIDTH, max = USER_BUBBLE_MAX_WIDTH)
                 .then(contextAlpha)
                 .clip(shape)
                 .combinedClickable(
@@ -453,5 +454,7 @@ internal fun UserMessageBubble(
 private val EDIT_BOTTOM_INSET = 4.dp
 
 /** Width of a single-line bubble's height (15dp padding twice plus one 24.2sp line), so the
- * shortest message is a circle rather than a pinched capsule. */
-private val USER_BUBBLE_MIN_WIDTH = 54.dp
+ * shortest message is a circle rather than a pinched capsule. Compact: 30 dp + 23.2 sp * 15/16. */
+private val USER_BUBBLE_MIN_WIDTH get() = if (chatCompactWidth) 52.dp else 54.dp
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) cap the bubble at roughly three quarters of the width.
+private val USER_BUBBLE_MAX_WIDTH get() = if (chatCompactWidth) 256.dp else 300.dp

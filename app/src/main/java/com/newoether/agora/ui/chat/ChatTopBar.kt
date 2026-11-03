@@ -54,6 +54,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.newoether.agora.ui.theme.chatCompactWidth
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
@@ -69,6 +70,14 @@ import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.viewmodel.ChatViewModel
 
 private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
+
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) use thinner capsules.
+private val chatTopBarCapsuleHeight get() = if (chatCompactWidth) 48.dp else 52.dp
+// Compact: 40 dp buttons with a 4 dp inset, so the 48 dp new-chat circle has equal padding on all sides.
+private val chatTopBarButtonInset get() = if (chatCompactWidth) 4.dp else 5.dp
+private val chatTopBarButtonSize get() = if (chatCompactWidth) 40.dp else 44.dp
+// Nudges the leading icon onto the capsule's vertical center line (regular: 5 + 22 - 1 = 26 = 52 / 2).
+private val chatTopBarLeadingNudge get() = chatTopBarCapsuleHeight / 2 - chatTopBarButtonInset - chatTopBarButtonSize / 2
 
 @Composable
 internal fun ChatTopBar(
@@ -289,7 +298,7 @@ internal fun ChatTopBar(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
-                .height(52.dp),
+                .height(chatTopBarCapsuleHeight),
         ) { targetSearchActive ->
             Row(
                 modifier = Modifier
@@ -423,8 +432,8 @@ internal fun ChatTopBar(
                     val leadingWidth = if (subtitleLeading != null && tokenSubtitle != null) 14.dp else 0.dp
                     minOf(maxOf(primaryWidth, subtitleWidth + leadingWidth), 180.dp)
                 }
-                val targetTitleCapsuleWidth = if (isNewChatMode) 52.dp else minOf(
-                    5.dp + 44.dp + 5.dp + targetTitleContentWidth + 20.dp,
+                val targetTitleCapsuleWidth = if (isNewChatMode) chatTopBarCapsuleHeight else minOf(
+                    chatTopBarButtonInset + chatTopBarButtonSize + 5.dp + targetTitleContentWidth + 20.dp,
                     TITLE_CAPSULE_MAX_WIDTH_DP.dp,
                 )
                 // Only the rounded clip moves; the title content keeps its final layout.
@@ -472,10 +481,10 @@ internal fun ChatTopBar(
                             modifier = Modifier.fillMaxHeight(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Spacer(modifier = Modifier.width(5.dp))
+                            Spacer(modifier = Modifier.width(chatTopBarButtonInset))
                             IconButton(
                                 onClick = onNavigateBack ?: onOpenDrawer,
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(chatTopBarButtonSize)
                             ) {
                                 Icon(
                                     imageVector = if (onNavigateBack != null) {
@@ -487,7 +496,7 @@ internal fun ChatTopBar(
                                         if (onNavigateBack != null) R.string.back else R.string.menu
                                     ),
                                     modifier = Modifier.size(26.dp).graphicsLayer {
-                                        translationX = if (onNavigateBack == null) (-1).dp.toPx() else 0f
+                                        translationX = if (onNavigateBack == null) chatTopBarLeadingNudge.toPx() else 0f
                                     },
                                 )
                             }
@@ -547,15 +556,15 @@ internal fun ChatTopBar(
                 ChatTopBarCapsule(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(98.dp)
+                        .width(chatTopBarButtonSize * 2 + chatTopBarButtonInset * 2)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxHeight(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(chatTopBarButtonInset))
                         if (trailingActions != null) trailingActions() else {
-                        IconButton(onClick = onNewChat, enabled = newChatEnabled, modifier = Modifier.size(44.dp)) {
+                        IconButton(onClick = onNewChat, enabled = newChatEnabled, modifier = Modifier.size(chatTopBarButtonSize)) {
                             Icon(Icons.Default.Add, contentDescription = newChatDescription ?: stringResource(R.string.new_chat), modifier = Modifier.size(30.dp))
                         }
                         Box {
@@ -565,7 +574,7 @@ internal fun ChatTopBar(
                                     moreMenuRequest = Any()
                                     moreMenuOpen = true
                                 },
-                                modifier = Modifier.size(44.dp),
+                                modifier = Modifier.size(chatTopBarButtonSize),
                             ) {
                                 Icon(
                                     Icons.Default.MoreVert,
@@ -659,7 +668,7 @@ internal fun ChatTopBar(
                             }
                         }
                         }
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(chatTopBarButtonInset))
                     }
                 }
                 }
