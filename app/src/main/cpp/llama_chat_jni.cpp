@@ -242,7 +242,7 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerate(
     int32_t callback_tokens = 0;
     std::string utf8_pending;
     std::string callback_buffer;
-    NativeChatParser parser(metadata);
+    NativeChatParser parser(metadata, *handle);
     const char * stop_reason = nullptr;
     std::string failure;
     bool consumer_closed = false;
@@ -291,6 +291,7 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerate(
         }
         handle->decoded_tokens.push_back(new_token_id);
         generated++;
+        parser.add_token(piece, new_token_id);
 
         utf8_pending.append(piece);
         const size_t complete_len = utf8_complete_prefix_len(utf8_pending);
@@ -486,8 +487,13 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerateWithImages(
         }
         env->DeleteLocalRef(jpath);
 
-        bitmaps[i] = mtmd_helper_bitmap_init_from_file(handle->mtmd_ctx,
-                                                       image_path_storage[i].c_str());
+        const auto loaded = mtmd_helper_bitmap_init_from_file(
+            handle->mtmd_ctx, image_path_storage[i].c_str(), false,
+            mtmd_helper_init_opt_default()
+        );
+        // Agora sends still images only; drop any video helper the loader created.
+        if (loaded.video_ctx) mtmd_helper_video_free(loaded.video_ctx);
+        bitmaps[i] = loaded.bitmap;
         if (!bitmaps[i]) {
             LOGE("Failed to load image at index %d of %d", i, n_images);
             // Clean up already-loaded bitmaps
@@ -501,8 +507,9 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerateWithImages(
     }
 
     // --- Tokenize prompt with image markers ---
-    mtmd_input_text text_input;
+    mtmd_input_text text_input{};
     text_input.text         = prompt_text.c_str();
+    text_input.text_len     = prompt_text.size();
     text_input.add_special  = true;
     text_input.parse_special = true;
 
@@ -593,7 +600,7 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerateWithImages(
     int32_t callback_tokens = 0;
     std::string utf8_pending;
     std::string callback_buffer;
-    NativeChatParser parser(metadata);
+    NativeChatParser parser(metadata, *handle);
     const char * stop_reason = nullptr;
     std::string failure;
     bool consumer_closed = false;
@@ -631,6 +638,7 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatGenerateWithImages(
             break;
         }
         generated++;
+        parser.add_token(piece, new_token_id);
 
         utf8_pending.append(piece);
         const size_t complete_len = utf8_complete_prefix_len(utf8_pending);
