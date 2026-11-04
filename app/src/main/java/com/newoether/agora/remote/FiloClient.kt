@@ -103,6 +103,9 @@ internal class FiloClient(
         // the encrypted path reuses a dead socket and the POST cannot be replayed safely.
         .connectionPool(okhttp3.ConnectionPool(5, 45, TimeUnit.SECONDS))
         .addInterceptor(com.newoether.agora.util.ConchEncryptedHttp(token))
+        // Inside the Conch interceptor: it replaces the caller's request with its own handshake
+        // and envelope requests, so an outer interceptor would never reach the wire.
+        .addInterceptor(com.newoether.agora.util.AppUserAgent.interceptor)
         .callTimeout(30, TimeUnit.SECONDS).build(),
     private val mutationTimeoutMillis: Long = 210_000,
     private val accessPath: RemoteAccessPath? = null,
