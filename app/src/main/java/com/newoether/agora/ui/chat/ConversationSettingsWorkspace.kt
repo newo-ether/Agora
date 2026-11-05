@@ -24,6 +24,7 @@ internal data class EffectiveConversationControls(
     val webSearchEnabled: Boolean,
     val shellAvailable: Boolean,
     val shellEnabled: Boolean,
+    val toolsEnabled: Boolean,
     val showLowContextMode: Boolean,
     val lowContextModeEnabled: Boolean,
     val contextWindow: Int,
@@ -136,6 +137,7 @@ internal fun resolveEffectiveConversationControls(
         webSearchEnabled = requireNotNull(global.webSearchEnabled) && (conversationOverride?.webSearchEnabled ?: true),
         shellAvailable = requireNotNull(global.shellEnabled),
         shellEnabled = requireNotNull(global.shellEnabled) && (conversationOverride?.shellEnabled ?: true),
+        toolsEnabled = conversationOverride?.toolsEnabled ?: true,
         showLowContextMode = isEmbeddedLocalModel,
         lowContextModeEnabled = isEmbeddedLocalModel &&
             (conversationOverride?.lowContextModeEnabled ?: requireNotNull(global.lowContextModeEnabled)),

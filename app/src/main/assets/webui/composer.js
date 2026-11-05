@@ -8,7 +8,7 @@ import { icon, ICON_ADD, ICON_ARROW_UPWARD, ICON_EXPAND_ALL, ICON_COLLAPSE_ALL, 
 import { sync } from "./sync.js";
 import { ChatToolsRow } from "./tools-row.js";
 import { ComposerSettings, thinkingSummary } from "./composer-settings.js";
-import { ICON_NEUROLOGY, ICON_MEMORY, ICON_SPEED, ICON_TERMINAL, ICON_LANGUAGE, ICON_COMPRESS, ICON_TUNE, ICON_GOOGLE, ICON_OPENAI } from "./icons.js";
+import { ICON_NEUROLOGY, ICON_MEMORY, ICON_SPEED, ICON_TERMINAL, ICON_LANGUAGE, ICON_COMPRESS, ICON_TUNE, ICON_GOOGLE, ICON_OPENAI, ICON_BUILD } from "./icons.js";
 import { ICON_IMAGE, ICON_VIDEO } from "./icons.js";
 
 /** The phone's `contextUsagePercent`: whole percent of the window already used, reserve excluded. */
@@ -690,6 +690,9 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
         ${controls?.showLowContextMode && html`<button class="dropdown-item" role="menuitemcheckbox" aria-checked=${controls.lowContextModeEnabled}
           data-pending=${settingsAvailable && !!state.pendingAction} disabled=${!settingsEditable} onClick=${() => sync.setting("lowContextModeEnabled", !controls.lowContextModeEnabled)}>
           ${icon(ICON_MEMORY)}<span class="tool-label">${t.lowContext}</span><span class="tool-switch" data-checked=${controls.lowContextModeEnabled}></span></button>`}
+        <button class="dropdown-item" role="menuitemcheckbox" aria-checked=${controls?.toolsEnabled !== false}
+          data-pending=${settingsAvailable && !!state.pendingAction} disabled=${!settingsEditable} onClick=${() => sync.setting("toolsEnabled", !(controls?.toolsEnabled !== false))}>
+          ${icon(ICON_BUILD)}<span class="tool-label">${t.toolCalling}</span><span class="tool-switch" data-checked=${controls?.toolsEnabled !== false}></span></button>
         <div class="dropdown-item tool-split" data-disabled=${!settingsAvailable}>
           ${icon(ICON_NEUROLOGY, "0 0 960 960")}<button class="tool-label" role="menuitem" disabled=${!settingsAvailable} onClick=${() => openTool("thinking")}>
             ${t.thinking}<small>${thinkingSummary(controls)}</small></button>

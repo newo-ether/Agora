@@ -163,6 +163,8 @@ data class ConversationSettings(
     val webSearchEnabled: Boolean? = null,
     val shellEnabled: Boolean? = null,
     val lowContextModeEnabled: Boolean? = null,
+    /** Per-conversation master switch for attaching tool definitions. Null follows the default (on). */
+    val toolsEnabled: Boolean? = null,
 ) {
     fun isAllNull() = contextWindow == null && temperature == null && maxTokens == null && topP == null
         && frequencyPenalty == null && presencePenalty == null
@@ -171,5 +173,5 @@ data class ConversationSettings(
         && thinkingLevel == null && thinkingBudgetEnabled == null && thinkingBudgetTokens == null
         && openAiServiceTierEnabled == null && openAiServiceTier == null
         && webSearchEnabled == null && shellEnabled == null
-        && lowContextModeEnabled == null
+        && lowContextModeEnabled == null && toolsEnabled == null
 }

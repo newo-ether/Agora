@@ -818,6 +818,7 @@
     <string name="tool_edit_replace_all">Thay thế tất cả</string>
     <string name="low_context_mode">Chế độ ngữ cảnh thấp</string>
     <string name="low_context_mode_default_desc">Bật chế độ ngữ cảnh thấp theo mặc định</string>
+    <string name="tool_calling">Gọi công cụ</string>
     <string name="learn_more">Tìm hiểu thêm...</string>
     <string name="local_model_limitations_title">Giới hạn của mô hình cục bộ</string>
     <string name="local_model_limitations_body">Mô hình cục bộ bị giới hạn bởi bộ nhớ khả dụng trên thiết bị di động. Kích thước ngữ cảnh là một trong những giới hạn chính. Ngữ cảnh thường bao gồm lời nhắc hệ thống, định nghĩa công cụ hoặc hàm và kỹ năng. Để giảm mức sử dụng ngữ cảnh ban đầu, hãy mở menu ba chấm bên cạnh bộ chọn mô hình và bật chế độ ngữ cảnh thấp.</string>
