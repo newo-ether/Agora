@@ -26,8 +26,10 @@ static bool read_string_field(
 
 static jobject make_template_result(
     JNIEnv * env,
+    ChatHandle & handle,
     const common_chat_params & params,
-    bool supports_tools
+    bool supports_tools,
+    std::string fallback_prefix = {}
 ) {
     jclass trigger_class = env->FindClass(
         "com/newoether/agora/api/ChatTemplateGrammarTrigger"
@@ -74,12 +76,16 @@ static jobject make_template_result(
         env->DeleteLocalRef(value);
     }
 
-    jstring prompt = utf8_to_jstring(env, params.prompt.data(), params.prompt.size());
+    const std::string prompt_text = params.prompt.str();
+    jstring prompt = utf8_to_jstring(env, prompt_text.data(), prompt_text.size());
     jstring grammar = utf8_to_jstring(env, params.grammar.data(), params.grammar.size());
     jstring generation_prompt = utf8_to_jstring(
         env, params.generation_prompt.data(), params.generation_prompt.size()
     );
-    jstring parser = utf8_to_jstring(env, params.parser.data(), params.parser.size());
+    const std::string parser_key = handle.prefix_cache_dir.empty()
+        ? handle.store_parser(params.parser)
+        : handle.store_parser(params.parser, params.message_delimiters, std::move(fallback_prefix));
+    jstring parser = utf8_to_jstring(env, parser_key.data(), parser_key.size());
     jobject result = env->NewObject(
         result_class, result_ctor,
         prompt, supports_tools ? JNI_TRUE : JNI_FALSE,
@@ -249,6 +255,10 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatApplyTemplate(
     inputs.tool_choice = COMMON_CHAT_TOOL_CHOICE_AUTO;
     inputs.parallel_tool_calls = true;
     inputs.use_jinja = true;
+    // Separate reasoning from the answer; with NONE it stays in the content. Each template
+    // handler supplies its own markers (<think>, Gemma 4's <|channel>thought, ...); any value
+    // other than NONE only switches extraction on, and AUTO is the one llama.cpp recommends.
+    inputs.reasoning_format = COMMON_REASONING_FORMAT_AUTO;
     bool has_tool_history = false;
 
     for (jint i = 0; i < message_count; ++i) {
@@ -320,19 +330,26 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatApplyTemplate(
 
     const auto caps = common_chat_templates_get_caps(handle->chat_templates.get());
     const auto supports = [&](const char * name) {
-        const auto found = caps.find(name);
-        return found != caps.end() && found->second;
+        return caps.contains(name) && caps.at(name).is_boolean() && caps.at(name).get<bool>();
     };
     const bool supports_tools = supports("supports_tools") && supports("supports_tool_calls");
     if ((!inputs.tools.empty() || has_tool_history) && !supports_tools) {
-        return make_template_result(env, common_chat_params{}, false);
+        return make_template_result(env, *handle, common_chat_params{}, false);
     }
 
     try {
         const common_chat_params params = common_chat_templates_apply(
             handle->chat_templates.get(), inputs
         );
-        return make_template_result(env, params, supports_tools);
+        std::string fallback_prefix;
+        if (!handle->prefix_cache_dir.empty() && params.message_delimiters.delimiters.empty()) {
+            fallback_prefix = agora::prefix_cache::probe_static_prefix(
+                handle->chat_templates.get(), inputs, params.prompt.str()
+            );
+        }
+        return make_template_result(
+            env, *handle, params, supports_tools, std::move(fallback_prefix)
+        );
     } catch (const std::exception &) {
         LOGE("Failed to apply model chat template");
         return nullptr;
