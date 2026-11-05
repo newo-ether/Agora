@@ -355,7 +355,10 @@ class ProviderPassRetryAccumulatorTest {
             val previousText = harness.output.totalText.toString()
             val retry = StreamEvent.Retrying(1, 5)
             harness.onRetry = {
-                assertEquals(expectedUsage, harness.output.totalTokenUsage)
+                assertEquals(
+                    expectedUsage?.withoutWallClockTiming(),
+                    harness.output.totalTokenUsage?.withoutWallClockTiming(),
+                )
                 assertEquals(expectedUsage?.totalTokenCount ?: 0, harness.output.totalTokenCount)
                 assertEquals(previousText, harness.output.totalText.toString())
             }
@@ -368,7 +371,10 @@ class ProviderPassRetryAccumulatorTest {
 
             assertFalse(retry.resetCurrentAttempt)
             assertEquals(ProviderPassOutcome.CompletedText(IDENTITY), outcome)
-            assertEquals(expectedUsage, harness.output.totalTokenUsage)
+            assertEquals(
+                expectedUsage?.withoutWallClockTiming(),
+                harness.output.totalTokenUsage?.withoutWallClockTiming(),
+            )
             assertEquals(expectedUsage?.totalTokenCount ?: 0, harness.output.totalTokenCount)
             assertEquals(previousText + "Replacement", harness.output.totalText.toString())
         }
@@ -425,6 +431,10 @@ class ProviderPassRetryAccumulatorTest {
             assertEquals(ToolExecutionStates.FAILED, segments.single { it.type == "tool" }.toolState)
         }
     }
+
+    /** Wall-clock figures are measured in real time, so constant fixtures cannot pin them. */
+    private fun TokenUsage.withoutWallClockTiming(): TokenUsage =
+        copy(timeToFirstTokenMs = null, totalGenerationMs = null)
 
     private class AccumulatorHarness {
         val output = GenerationOutputAccumulator(

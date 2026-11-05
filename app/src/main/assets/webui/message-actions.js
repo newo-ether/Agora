@@ -37,6 +37,11 @@ function formatRowTime(value) {
     `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+/** MessageInfoDialog's latency figures: sub-second waits in ms, longer waits in seconds. */
+function formatLatency(millis) {
+  return millis < 1000 ? `${millis} ms` : `${(millis / 1000).toFixed(1)} s`;
+}
+
 /** One IconButton of a message row: 32 dp, tinted at 60 % of onSurfaceVariant and 30 % when off. */
 export function RowAction({ path, size, enabled = true, label, onClick }) {
   return html`
@@ -86,6 +91,12 @@ export function MessageInfoDialog({ message, onClose: onClosed }) {
     lines.push(t.outputWithLabel(usage?.output == null ? t.noFigure : t.tokenCount(usage.output)));
     if (usage?.tokensPerSecond != null) {
       lines.push(t.speedWithLabel(`~${usage.tokensPerSecond.toFixed(1)} token/s`));
+    }
+    if (usage?.timeToFirstTokenMs != null) {
+      lines.push(t.firstTokenWithLabel(formatLatency(usage.timeToFirstTokenMs)));
+    }
+    if (usage?.totalGenerationMs != null) {
+      lines.push(t.totalTimeWithLabel(formatLatency(usage.totalGenerationMs)));
     }
   }
   return html`

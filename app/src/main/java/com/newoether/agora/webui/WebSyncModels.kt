@@ -270,6 +270,8 @@ internal data class WebTokenUsage(
     val cachedInput: Int?,
     val output: Int?,
     val tokensPerSecond: Double?,
+    val timeToFirstTokenMs: Long?,
+    val totalGenerationMs: Long?,
 )
 
 

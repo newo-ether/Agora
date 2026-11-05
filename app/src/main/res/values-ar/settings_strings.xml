@@ -205,6 +205,8 @@
     <string name="auto_expand_active_group">توسيع المجموعة النشطة تلقائيًا</string>
     <string name="auto_expand_active_group_desc">وسّع مجموعة التفكير والأدوات الحالية تلقائيًا، ثم اطوها عندما ينتقل النموذج إلى المرحلة التالية.</string>
     <string name="interaction_feedback">تعليقات التفاعل</string>
+    <string name="show_generation_speed">سرعة التوليد</string>
+    <string name="show_generation_speed_desc">يعرض متوسط الرموز في الثانية وإجمالي زمن التوليد لكل رد مكتمل بجانب أيقونات الإجراءات.</string>
     <string name="stick_to_bottom">التثبيت في الأسفل</string>
     <string name="stick_to_bottom_desc">متابعة المحتوى الجديد تلقائيًا أثناء إنشاء الرد.</string>
     <string name="haptic_feedback">الاهتزاز اللمسي</string>
