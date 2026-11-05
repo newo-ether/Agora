@@ -225,6 +225,7 @@ class GenerationRequestBuilder(
             shellEnabled = if (settings.shellEnabled.value) (overrides.shellEnabled ?: true) else false,
             lowContextModeEnabled =
                 overrides.lowContextModeEnabled ?: settings.localLowContextModeEnabled.value,
+            toolsEnabled = overrides.toolsEnabled,
         )
     }
 
@@ -532,6 +533,7 @@ class GenerationRequestBuilder(
             userPrepend = resolvedUserPrepend,
             userPostpend = resolvedUserPostpend,
             lowContextModeEnabled = lowContextModeEnabled,
+            toolsEnabled = effectiveSettings.toolsEnabled != false,
             temperature = effectiveSettings.temperature,
             maxTokens = effectiveSettings.maxTokens,
             topP = effectiveSettings.topP,

@@ -812,6 +812,7 @@
     <string name="tool_edit_replace_all">すべて置換</string>
     <string name="low_context_mode">低コンテキストモード</string>
     <string name="low_context_mode_default_desc">低コンテキストモードをデフォルトで有効にする</string>
+    <string name="tool_calling">ツール呼び出し</string>
     <string name="learn_more">詳細...</string>
     <string name="local_model_limitations_title">ローカルモデルの制限</string>
     <string name="local_model_limitations_body">ローカルモデルは、モバイル端末で利用できるメモリによって制限されます。コンテキストサイズは主な制約の一つです。コンテキストには通常、システムプロンプト、ツールまたは関数の定義、スキルが含まれます。初期コンテキストの使用量を減らすには、モデル選択の横にある3点メニューを開き、低コンテキストモードを有効にしてください。</string>

@@ -134,7 +134,10 @@ abstract class BaseOpenAiProvider : LlmProvider {
                         stream = true,
                         streamOptions = OpenAiStreamOptions(includeUsage = true),
                         serviceTier = config.openAiServiceTier,
-                        tools = config.tools,
+                        // Some OpenAI-protocol backends reject an explicitly empty tools array with a
+                        // 404/400 (OpenRouter routes per tool support). Omit the field entirely when
+                        // there is nothing to send.
+                        tools = config.tools?.takeIf { it.isNotEmpty() },
                         temperature = config.temperature,
                         maxTokens = config.effectiveOpenAiMaxTokens(),
                         topP = config.topP,

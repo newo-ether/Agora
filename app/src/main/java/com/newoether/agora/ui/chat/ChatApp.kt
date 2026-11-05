@@ -700,6 +700,13 @@ fun ChatApp(
                                 it.copy(lowContextModeEnabled = enabled)
                             }
                         },
+                        toolsEnabled = conversationControls.toolsEnabled,
+                        onToolsToggle = { enabled ->
+                            haptics.toggle(enabled)
+                            viewModel.updateConversationSetting(conversationControls.settingsOwnerId) {
+                                it.copy(toolsEnabled = enabled)
+                            }
+                        },
                         // The model row owns its selection tick. Repeating it here produced the
                         // previous double buzz for one physical tap.
                         onModelSelect = { viewModel.setActiveModel(it) },

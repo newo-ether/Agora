@@ -351,7 +351,9 @@ class AnthropicProvider(
                 }
                 AnthropicOutputLimits.maxOutputTokens(modelName)?.let { minOf(wanted, it) } ?: wanted
             },
-            tools = anthropicTools,
+            // Empty tool lists are omitted rather than sent as an empty array, matching
+            // BaseOpenAiProvider and GeminiProvider; some backends reject "tools": [].
+            tools = anthropicTools?.takeIf { it.isNotEmpty() },
             // temperature/top_k/top_p are deprecated and rejected by models released after
             // Claude Opus 4.6, so the model's capability decides whether they are sent at all.
             // Sampling is accepted only by generations that document it, and only when no thinking

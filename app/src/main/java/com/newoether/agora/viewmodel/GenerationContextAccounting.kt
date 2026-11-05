@@ -11,7 +11,7 @@ internal class GenerationContextAccounting(
     private val toolDefinitions: GenerationToolDefinitionSource,
 ) {
     private fun definitions(config: GenerationConfig, context: GenerationContext) =
-        if (config.lowContextModeEnabled) emptyList() else toolDefinitions.definitions(context)
+        if (config.lowContextModeEnabled || !config.toolsEnabled) emptyList() else toolDefinitions.definitions(context)
 
     fun fixedContextTokenCost(config: GenerationConfig, context: GenerationContext): Int =
         ContextTokenEstimator.forModel(config.modelId).estimateFixed(

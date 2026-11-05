@@ -25,4 +25,8 @@ Web search, active memory, saved memory, past-conversation access, and the globa
 
 Tool calls and results become part of the conversation protocol and can be sent to the selected model on subsequent passes. External tools receive the arguments needed for their call. Review each server and permission before enabling it.
 
+## Turning tool calling off
+
+The composer tools menu has a Tool calling switch, on by default for every conversation. Turning it off detaches every tool definition before dispatch — the built-in toolset and every connected MCP tool. No function definitions are attached, the fixed token cost of tool definitions is not charged, and OpenAI-protocol providers are sent no tools field at all. The system prompt and every other setting are unchanged. Built-ins with their own switches keep theirs: Google Search and Code Execution on Gemini, web search on the OpenAI Responses API. Use it for models whose endpoints do not accept tool definitions — some OpenAI-protocol backends reject any request carrying function definitions and answer every call with a 404. Compact and title generation follow the same switch. Low Context Mode, which is limited to embedded local models, goes further and also removes the structured prompt.
+
 Image-generation and embedding credentials come from their selected providers; they are not separate universal tool secrets. See [MCP](mcp.md), [Automation](automation.md), [Shell](shell.md), and [Privacy & Security](privacy.md).

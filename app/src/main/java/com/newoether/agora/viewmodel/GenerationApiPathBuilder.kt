@@ -46,7 +46,7 @@ internal class GenerationApiPathBuilder(
     suspend fun build(request: GenerationApiPathRequest): GenerationApiPath =
         withContext(Dispatchers.Default) {
             val config = request.config
-            val definitions = if (config.lowContextModeEnabled) {
+            val definitions = if (config.lowContextModeEnabled || !config.toolsEnabled) {
                 emptyList()
             } else {
                 toolDefinitions.definitions(request.context)

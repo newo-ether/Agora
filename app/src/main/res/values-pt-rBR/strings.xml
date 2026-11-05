@@ -812,6 +812,7 @@
     <string name="tool_edit_replace_all">Substituir tudo</string>
     <string name="low_context_mode">Modo de contexto reduzido</string>
     <string name="low_context_mode_default_desc">Ativar o modo de contexto reduzido por padrão</string>
+    <string name="tool_calling">Chamada de ferramentas</string>
     <string name="learn_more">Saiba mais...</string>
     <string name="local_model_limitations_title">Limitações dos modelos locais</string>
     <string name="local_model_limitations_body">Os modelos locais são limitados pela memória disponível em dispositivos móveis. O tamanho do contexto é uma das principais limitações. O contexto geralmente inclui o prompt do sistema, definições de ferramentas ou funções e habilidades. Para reduzir o uso inicial do contexto, abra o menu de três pontos ao lado do seletor de modelo e ative o modo de contexto reduzido.</string>

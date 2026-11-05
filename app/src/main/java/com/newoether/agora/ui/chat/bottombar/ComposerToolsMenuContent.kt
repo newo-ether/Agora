@@ -3,6 +3,7 @@ package com.newoether.agora.ui.chat.bottombar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Memory
@@ -34,6 +35,8 @@ internal fun ComposerToolsMenuContent(
     showLowContextMode: Boolean,
     lowContextModeEnabled: Boolean,
     onLowContextModeToggle: (Boolean) -> Unit,
+    toolsEnabled: Boolean,
+    onToolsToggle: (Boolean) -> Unit,
     thinkingEnabled: Boolean,
     thinkingLevel: String,
     thinkingBudgetEnabled: Boolean,
@@ -91,6 +94,27 @@ internal fun ComposerToolsMenuContent(
             onClick = { onLowContextModeToggle(!lowContextModeEnabled) },
         )
     }
+    AgoraDropdownMenuItem(
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Build,
+                    contentDescription = null,
+                    modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(stringResource(R.string.tool_calling))
+            }
+        },
+        trailingIcon = {
+            Switch(
+                checked = toolsEnabled,
+                onCheckedChange = onToolsToggle,
+                modifier = Modifier.scale(0.7f),
+            )
+        },
+        onClick = { onToolsToggle(!toolsEnabled) },
+    )
     AgoraDropdownMenuItem(
         text = {
             Row(verticalAlignment = Alignment.CenterVertically) {

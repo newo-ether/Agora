@@ -815,6 +815,7 @@
     <string name="tool_edit_replace_all">全部取代</string>
     <string name="low_context_mode">低上下文模式</string>
     <string name="low_context_mode_default_desc">預設啟用低上下文模式</string>
+    <string name="tool_calling">工具呼叫</string>
     <string name="learn_more">瞭解更多...</string>
     <string name="local_model_limitations_title">本地模型的限制</string>
     <string name="local_model_limitations_body">本地模型受行動裝置可用記憶體限制，上下文大小是主要限制之一。上下文通常包含系統提示詞、工具或函式定義以及技能。若要減少初始上下文用量，請開啟模型選擇器旁的三點選單並啟用低上下文模式。</string>

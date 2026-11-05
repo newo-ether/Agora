@@ -330,6 +330,7 @@ internal class WebUiSync(
                                                     put("shellEnabled", controls.shellEnabled)
                                                     put("showLowContextMode", controls.showLowContextMode)
                                                     put("lowContextModeEnabled", controls.lowContextModeEnabled)
+                                                    put("toolsEnabled", controls.toolsEnabled)
                                                     put("contextWindow", controls.contextWindow)
                                                 }
                                             },
