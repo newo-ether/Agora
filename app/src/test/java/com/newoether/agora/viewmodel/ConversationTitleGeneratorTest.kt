@@ -17,6 +17,7 @@ import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.MessageStatus
+import com.newoether.agora.util.Constants
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -75,6 +76,47 @@ class ConversationTitleGeneratorTest {
         assertEquals(listOf(true, false), captured.map { it.anthropicCacheEnabled })
         assertEquals(listOf("1h", "5m"), captured.map { it.anthropicCacheTtl })
     }
+
+    @Test
+    fun titleRequestCarriesTheConversationIdForMunito() = runTest {
+        val settings = mockk<SettingsRepository>(relaxed = true)
+        val dao = mockk<ChatDao>(relaxed = true)
+        val conversations = ConversationRepository(dao, database = null)
+        val registry = mockk<ProviderRegistry>(relaxed = true)
+        val provider = mockk<LlmProvider>()
+        val captured = mutableListOf<ProviderConfig>()
+        val user = MessageEntity(
+            id = "user", conversationId = "conversation", text = "Hello",
+            participant = Participant.USER, status = MessageStatus.SUCCESS,
+            timestamp = 1L, runId = "run", runSequence = 0L,
+        )
+        coEvery { dao.getConversation("conversation") } returns ChatEntity("conversation", "Old")
+        coEvery { dao.getMessageContextTopology("conversation") } returns listOf(
+            MessageContextTopology(
+                user.id, user.conversationId, null, user.status, user.participant,
+                user.timestamp, modelName = null, runId = user.runId,
+                runSequence = user.runSequence, consumedAtPass = null,
+            ),
+        )
+        coEvery { dao.getMessage("user") } returns user
+        coEvery { dao.updateConversationTitleIfUnchanged(any(), any(), any(), any()) } returns 1
+        every { settings.titleGenerationModel } returns MutableStateFlow("${Constants.PROVIDER_MUNITO}:model")
+        every { settings.titleGenerationPrompt } returns MutableStateFlow("Title prompt")
+        every { settings.anthropicCacheEnabled } returns MutableStateFlow(false)
+        every { settings.anthropicCacheTtl } returns MutableStateFlow("5m")
+        every { settings.customProviders } returns MutableStateFlow(emptyList())
+        every { registry.canonicalModelId(any()) } answers { firstArg() }
+        every { registry.providerForModel(any()) } returns Constants.PROVIDER_MUNITO
+        every { registry.isConfigured(any(), any()) } returns true
+        every { registry.getInstanceOrNull(any()) } returns provider
+        every { registry.getEffectiveBaseUrl(any()) } returns null
+        every { provider.generateResponse(any(), capture(captured)) } returns flowOf(StreamEvent.TextChunk("Title"))
+
+        val generator = ConversationTitleGenerator(conversations, settings, registry)
+        assertEquals(ConversationTitleGenerator.Result.Success("Title"), generator.generateAndPersist("conversation"))
+        assertEquals("conversation", captured.single().sessionId)
+    }
+
     @Test
     fun titleResetRetryDiscardsTheFailedPrefixAndErrorBeforePersisting() = runTest {
         val settings = mockk<SettingsRepository>(relaxed = true)
