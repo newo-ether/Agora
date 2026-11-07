@@ -27,7 +27,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
-import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -200,10 +199,11 @@ internal fun ZoomableImageItem(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(url, motionPolicy.allowSpatialTransitions) {
-                    val velocityTracker = VelocityTracker()
                     awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false)
+                        val down = awaitFirstDown(requireUnconsumed = false)
                         animationJob?.cancel()
+                        val panTracker = PanVelocityTracker()
+                        panTracker.add(down.uptimeMillis, Offset.Zero)
                         var pastTouchSlop = false
                         val touchSlop = viewConfiguration.touchSlop
                         lastCentroid = Offset.Unspecified
@@ -250,17 +250,15 @@ internal fun ZoomableImageItem(
                                     }
                                 }
                             }
-                            if (event.changes.size == 1) {
-                                velocityTracker.addPosition(event.changes.first().uptimeMillis, event.changes.first().position)
-                            } else {
-                                velocityTracker.resetTracking()
-                            }
+                            val eventTime = event.changes.first().uptimeMillis
+                            if (event.changes.size == 1) panTracker.add(eventTime, panChange)
+                            else panTracker.reset(eventTime)
                         } while (event.changes.any { it.pressed })
-                        val rawVelocity = velocityTracker.calculateVelocity()
+                        val rawVelocity = panTracker.velocity()
                         val maxV = with(density) { 2500.dp.toPx() }
                         val velocity = Velocity(
-                            x = if (rawVelocity.x.isNaN()) 0f else rawVelocity.x.coerceIn(-maxV, maxV),
-                            y = if (rawVelocity.y.isNaN()) 0f else rawVelocity.y.coerceIn(-maxV, maxV)
+                            x = rawVelocity.x.coerceIn(-maxV, maxV),
+                            y = rawVelocity.y.coerceIn(-maxV, maxV)
                         )
                         animationJob = scope.launch {
                             if (!motionPolicy.allowSpatialTransitions) {
@@ -324,7 +322,6 @@ internal fun ZoomableImageItem(
                                 }
                             }
                         }
-                        velocityTracker.resetTracking()
                     }
                 }
                 .graphicsLayer(
