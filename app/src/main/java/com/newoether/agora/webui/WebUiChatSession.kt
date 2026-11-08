@@ -498,7 +498,7 @@ internal class WebUiChatSession(
                 "openAiServiceTierEnabled" -> current.openAiServiceTierState.available && model.isNotBlank() && !current.lowContextModeEnabled
                 "webSearchEnabled" -> current.webSearchAvailable && !current.lowContextModeEnabled
                 "shellEnabled" -> current.shellAvailable && !current.lowContextModeEnabled
-                else -> false
+                else -> WebUiToolCallingSetting.isSupported(command.setting)
             }
             if (!allowed || (command.setting?.endsWith("Enabled") == true && enabled == null)) return@withLock
             val update: (ConversationSettings) -> ConversationSettings = { previous ->
@@ -516,7 +516,7 @@ internal class WebUiChatSession(
                     "openAiServiceTierEnabled" -> previous.copy(openAiServiceTierEnabled = enabled)
                     "webSearchEnabled" -> previous.copy(webSearchEnabled = enabled)
                     "shellEnabled" -> previous.copy(shellEnabled = enabled)
-                    else -> previous
+                    else -> WebUiToolCallingSetting.update(previous, command.setting, enabled)
                 }
             }
             val id = openId.value

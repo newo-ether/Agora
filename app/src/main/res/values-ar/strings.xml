@@ -812,6 +812,7 @@
     <string name="tool_edit_replace_all">استبدال الكل</string>
     <string name="low_context_mode">وضع السياق المنخفض</string>
     <string name="low_context_mode_default_desc">تفعيل وضع السياق المنخفض افتراضيًا</string>
+    <string name="tool_calling">استدعاء الأدوات</string>
     <string name="learn_more">معرفة المزيد...</string>
     <string name="local_model_limitations_title">قيود النماذج المحلية</string>
     <string name="local_model_limitations_body">تكون النماذج المحلية محدودة بالذاكرة المتاحة على الأجهزة المحمولة. ويُعد حجم السياق أحد القيود الرئيسية. غالبًا ما يتضمن السياق مطالبة النظام وتعريفات الأدوات أو الدوال والمهارات. لتقليل استخدام السياق الأولي، افتح قائمة النقاط الثلاث بجوار محدد النموذج وفعّل وضع السياق المنخفض.</string>

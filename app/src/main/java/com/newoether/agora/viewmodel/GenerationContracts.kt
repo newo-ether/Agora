@@ -60,6 +60,8 @@ data class GenerationConfig(
     val requestResolver: ProviderRequestResolver? = null,
     /** Omits the selected structured prompt and every tool definition for embedded Local requests. */
     val lowContextModeEnabled: Boolean = false,
+    /** Master switch for attaching tool definitions to dispatch requests. */
+    val toolsEnabled: Boolean = true,
     val temperature: Float? = null,
     val maxTokens: Int? = null,
     val topP: Float? = null,

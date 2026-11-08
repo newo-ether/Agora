@@ -101,6 +101,42 @@ class GenerationApiPathBuilderTest {
             path.providerConfig.maxContextWindow,
         )
     }
+
+    @Test
+    fun `tools disabled omits tool definitions and their fixed token cost but keeps the system prompt`() = runTest {
+        val repository = mockk<ConversationRepository>(relaxed = true)
+        var definitionReads = 0
+        val builder = GenerationApiPathBuilder(
+            conversations = repository,
+            generationErrorFormatter = { it },
+            toolDefinitions = {
+                definitionReads++
+                error("Tool calling off must not read tool definitions")
+            },
+        )
+        val user = message("user", null, 0, Participant.USER)
+        val config = generationConfig().copy(toolsEnabled = false)
+
+        val path = builder.build(
+            GenerationApiPathRequest(
+                parentId = user.id,
+                conversationId = "conversation",
+                config = config,
+                context = GenerationContext(),
+                loadedMessages = listOf(user),
+            ),
+        )
+
+        assertEquals(0, definitionReads)
+        assertEquals("system", path.providerConfig.systemPrompt)
+        assertTrue(path.providerConfig.tools.orEmpty().isEmpty())
+        assertEquals(
+            config.maxContextWindow -
+                ContextTokenEstimator.estimateFixed("system", emptyList()),
+            path.providerConfig.maxContextWindow,
+        )
+    }
+
     @Test
     fun `deepseek chat with tools enables ordinary reasoning accounting`() = runTest {
         val repository = mockk<ConversationRepository>(relaxed = true)
