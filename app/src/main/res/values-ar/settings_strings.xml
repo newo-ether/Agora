@@ -218,11 +218,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">واجهة بحث تركّز على الخصوصية. تتوفر باقة مجانية.</string>
     <string name="web_search_serper_desc">واجهة بحث Google سريعة. 2,500 استعلام مجاني شهريًا.</string>
     <string name="web_search_tavily_desc">واجهة بحث محسّنة للذكاء الاصطناعي. مصممة لوكلاء LLM.</string>
+    <string name="web_search_exa_desc">بحث عصبي مع مقتطفات من الصفحات. يعمل بدون مفتاح عبر نقطة نهاية MCP العامة من Exa.</string>
     <string name="web_search_searxng_desc">محرك بحث وصفي ذاتي الاستضافة. يُفضّل استخدامه مع نسختك الخاصة.</string>
     <string name="web_search_duckduckgo_desc">مجاني، بدون مفتاح API. استخراج من lite.duckduckgo.com. قد يكون غير مستقر ويُشغّل حماية ضد البوتات.</string>
     <string name="web_search_select_provider">اختيار مزوّد البحث</string>
@@ -231,7 +233,9 @@
     <string name="web_search_serper_key">مفتاح API لـ Serper</string>
     <string name="web_search_serper_key_hint">مفتاح API من serper.dev</string>
     <string name="web_search_tavily_key">مفتاح API لـ Tavily</string>
+    <string name="web_search_exa_key">مفتاح API لـ Exa (اختياري)</string>
     <string name="web_search_tavily_key_hint">مفتاح API من tavily.com</string>
+    <string name="web_search_exa_key_hint">اختياري. اتركه فارغًا لاستخدام نقطة النهاية العامة بدون مفتاح من Exa.</string>
     <string name="web_search_num_results">أقصى عدد للنتائج</string>
     <string name="web_search_num_results_desc">عدد النتائج المراد جلبها: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">غالبًا ما تكون النسخ العامة محدودة المعدل. يُوصى بالاستضافة الذاتية للاستخدام الموثوق.</string>

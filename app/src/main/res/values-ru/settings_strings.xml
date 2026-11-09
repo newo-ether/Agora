@@ -218,11 +218,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">API поиска с упором на конфиденциальность. Доступен бесплатный тариф.</string>
     <string name="web_search_serper_desc">Быстрый API Google Search. 2 500 бесплатных запросов в месяц.</string>
     <string name="web_search_tavily_desc">API поиска, оптимизированный для ИИ. Создан для LLM-агентов.</string>
+    <string name="web_search_exa_desc">Нейронный поиск с выдержками со страниц. Работает без ключа через публичный MCP-эндпоинт Exa.</string>
     <string name="web_search_searxng_desc">Самостоятельно размещаемый метапоисковик. Лучше использовать со своим экземпляром.</string>
     <string name="web_search_duckduckgo_desc">Бесплатно, без API-ключа. Веб-скрапинг lite.duckduckgo.com. Может быть нестабильным и вызывать защиту от ботов.</string>
     <string name="web_search_select_provider">Выбрать провайдера поиска</string>
@@ -231,7 +233,9 @@
     <string name="web_search_serper_key">API-ключ Serper</string>
     <string name="web_search_serper_key_hint">API-ключ с serper.dev</string>
     <string name="web_search_tavily_key">API-ключ Tavily</string>
+    <string name="web_search_exa_key">Ключ API Exa (необязательно)</string>
     <string name="web_search_tavily_key_hint">API-ключ с tavily.com</string>
+    <string name="web_search_exa_key_hint">Необязательно. Оставьте пустым, чтобы использовать публичный эндпоинт Exa без ключа.</string>
     <string name="web_search_num_results">Макс. результатов</string>
     <string name="web_search_num_results_desc">Количество получаемых результатов: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Публичные экземпляры часто имеют ограничения по частоте. Для надёжной работы рекомендуется собственный хостинг.</string>
