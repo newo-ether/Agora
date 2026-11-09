@@ -106,6 +106,32 @@ internal fun projectStoredMediaOccurrences(
     return StoredMediaOccurrenceProjection(urls, indices)
 }
 
+/**
+ * Metadata owns attachment order. Images not claimed by metadata are legacy entries and are
+ * appended in their stored order. The leading value is the metadata sort key, unused by renderers.
+ */
+internal fun storedMediaDisplayItems(
+    message: ChatMessage,
+): List<Triple<Int, String, AttachmentItem?>> {
+    val claimedImageIndices = mutableSetOf<Int>()
+    val metadataItems = message.attachmentMeta?.items.orEmpty().map { item ->
+        val start = item.imageIndex
+        if (start != null) {
+            val count = item.pageCount?.coerceAtLeast(1) ?: 1
+            claimedImageIndices += start until start + count
+        }
+        Triple(
+            start ?: -1,
+            start?.let(message.images::getOrNull).orEmpty(),
+            item,
+        )
+    }
+    val legacyItems = message.images.mapIndexedNotNull { index, path ->
+        if (index in claimedImageIndices) null else Triple(index, path, null)
+    }
+    return metadataItems + legacyItems
+}
+
 @Composable
 internal fun UserMessageBubble(
     message: ChatMessage,
@@ -239,29 +265,8 @@ internal fun UserMessageBubble(
                 ) {
                     val hasMetaItems = message.attachmentMeta?.items?.isNotEmpty() == true
                 if (message.images.isNotEmpty() || hasMetaItems) {
-                        val meta = remember(message.attachmentMeta) {
-                            message.attachmentMeta
-                        }
-                        // Metadata owns attachment order. Images not claimed by metadata are legacy
-                        // entries and are appended in their stored order.
-                        val displayItems = remember(message.images, meta) {
-                            val claimedImageIndices = mutableSetOf<Int>()
-                            val metadataItems = meta?.items.orEmpty().map { item ->
-                                val start = item.imageIndex
-                                if (start != null) {
-                                    val count = item.pageCount?.coerceAtLeast(1) ?: 1
-                                    claimedImageIndices += start until start + count
-                                }
-                                Triple(
-                                    start ?: -1,
-                                    start?.let(message.images::getOrNull).orEmpty(),
-                                    item,
-                                )
-                            }
-                            val legacyItems = message.images.mapIndexedNotNull { index, path ->
-                                if (index in claimedImageIndices) null else Triple(index, path, null)
-                            }
-                            metadataItems + legacyItems
+                        val displayItems = remember(message.images, message.attachmentMeta) {
+                            storedMediaDisplayItems(message)
                         }
 
                         val mediaProjection = remember(displayItems, message.imageArtifacts) {

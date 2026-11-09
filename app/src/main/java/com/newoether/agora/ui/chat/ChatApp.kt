@@ -38,6 +38,7 @@ import com.newoether.agora.TopLevelPresentation
 import com.newoether.agora.api.DebugProvider
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.util.gradientBlur
+import com.newoether.agora.ui.chat.message.chatMediaGallery
 import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
 import com.newoether.agora.ui.chat.bottombar.LoopStatusBackdrop
@@ -568,7 +569,12 @@ fun ChatApp(
                                     conversationInteraction.toggleShareMessage(messageId)
                                 },
                                 onMediaClick = { urls, index ->
-                                    onMediaClick(urls, index)
+                                    // Open the viewer on the whole chat, not just the tapped message,
+                                    // so a swipe reaches every other image in the conversation.
+                                    val gallery = chatMediaGallery(displayMessagesState.value)
+                                    val at = urls.getOrNull(index)?.let { gallery.indexOf(it) } ?: -1
+                                    if (at >= 0 && gallery.size > 1) onMediaClick(gallery, at)
+                                    else onMediaClick(urls, index)
                                 },
                                 onFileContentClick = onFileContentClick?.let { open ->
                                     { name, content ->
