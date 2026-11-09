@@ -5,16 +5,12 @@ import android.content.Context
 import com.newoether.agora.R
 import com.newoether.agora.api.local.LocalProvider
 import com.newoether.agora.automation.ConversationExecutionCoordinator
-import com.newoether.agora.automation.LoopManager
-import com.newoether.agora.automation.TaskExecutionEngine
 import com.newoether.agora.data.MemoryManager
 import com.newoether.agora.data.SkillManager
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.sandbox.SandboxManagerFactory
-import com.newoether.agora.tool.AskUserToolProvider
-import com.newoether.agora.tool.AutomationToolProvider
-import com.newoether.agora.tool.McpToolProvider
+import com.newoether.agora.tool.ToolProvider
 import com.newoether.agora.util.SnackbarEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
@@ -32,9 +28,9 @@ import java.io.File
  * It owns the foreground generation core, RAG indexing, the message commands (send,
  * regenerate, edit, delete, compact, stop) and the conversation commands (rename, delete, fork,
  * share). Commands name their conversation and origin client
- * explicitly. It binds the generation registry's callbacks and the Loop foreground bridge, so a
- * queued send continues and a Loop cycle is delegated without any Activity. Per-client state (open conversation, scroll, composer drafts, new-chat workspace)
- * stays with each client.
+ * explicitly. It binds the generation registry's callbacks so queued sends continue without any
+ * Activity. AppContainer connects the foreground automation bridge to the same Send path.
+ * Per-client state (open conversation, scroll, composer drafts, new-chat workspace) stays with each client.
  */
 class ChatRuntime(
     application: Application,
@@ -44,24 +40,18 @@ class ChatRuntime(
     memoryManager: MemoryManager,
     skillManager: SkillManager,
     sandboxFactory: SandboxManagerFactory?,
-    phoneToolProvider: com.newoether.agora.tool.ToolProvider,
+    additionalToolProviders: () -> List<ToolProvider>,
     phoneReady: suspend (String) -> Boolean,
-    automationToolProvider: AutomationToolProvider,
-    subagentToolProvider: com.newoether.agora.tool.SubagentToolProvider,
-    subagentManager: com.newoether.agora.automation.SubagentManager,
-    mcpToolProvider: McpToolProvider,
-    askUser: AskUserController,
-    shellConfirmation: ShellConfirmationController,
+    internal val onConversationOpened: (String) -> Unit,
+    onConversationIdle: (String) -> Unit,
+    onConfirmShellCommand: suspend (String, String, String?) -> Boolean,
     registry: ConversationStateRegistry,
     providerRegistry: ProviderRegistry,
     localProvider: LocalProvider,
     executionCoordinator: ConversationExecutionCoordinator,
-    loopManager: LoopManager,
-    taskExecutionEngine: TaskExecutionEngine,
+    stopConversationLoop: suspend (String) -> Unit,
     scope: CoroutineScope,
 ) {
-    internal val onConversationOpened: (String) -> Unit = subagentManager::conversationOpened
-
     // replay=0: events raised while no client is collecting are dropped rather than replayed
     // stale to the next client. The 1-slot buffer keeps tryEmit lossless for slow collectors.
     private val _snackbarEvents = MutableSharedFlow<SnackbarEvent>(
@@ -92,13 +82,7 @@ class ChatRuntime(
             skillManager = skillManager,
             context = appContext,
             sandboxFactory = sandboxFactory,
-            additionalToolProviders = listOf(
-                phoneToolProvider,
-                automationToolProvider,
-                subagentToolProvider,
-                mcpToolProvider,
-                AskUserToolProvider(askUser),
-            ),
+            additionalToolProviders = additionalToolProviders(),
             customProviders = { settings.customProviders.value },
             generatingConversationIds = {
                 registry.activeConversationIds.value + executionCoordinator.activeAutomationConversationIds.value
@@ -106,7 +90,7 @@ class ChatRuntime(
         ).also { gm ->
             // Gate lives in RagManager.indexMessageForRag (autoCacheEnabled + active model).
             gm.onMessagePersisted = { messageId, text -> ragManager.indexMessageForRag(messageId, text) }
-            gm.onConfirmShellCommand = shellConfirmation::confirm
+            gm.onConfirmShellCommand = onConfirmShellCommand
         }
     }
 
@@ -147,7 +131,7 @@ class ChatRuntime(
             clients = clients,
             onSnackbar = { message -> _snackbarEvents.tryEmit(SnackbarEvent(message)) },
             onUserMessagePersisted = ragManager::indexMessageForRag,
-            pauseConversationTasks = { conversationId -> loopManager.stopLoop(conversationId) },
+            pauseConversationTasks = stopConversationLoop,
         )
     }
 
@@ -164,7 +148,7 @@ class ChatRuntime(
         conversations = conversations,
         scope = scope,
         clients = clients,
-        stopLoop = { conversationId -> loopManager.stopLoop(conversationId) },
+        stopLoop = stopConversationLoop,
         tryWithConversationLock = { conversationId, block ->
             executionCoordinator.tryWithConversationLock(conversationId) { block() }
         },
@@ -188,23 +172,6 @@ class ChatRuntime(
         shareFailureText = { reason -> appContext.getString(R.string.conversation_share_failed, reason) },
     )
 
-    // Loop cycles for a conversation some client shows use the regular Send path; the bridge
-    // waits for that exact durable turn and returns a typed result to the automation lease owner.
-    private val foregroundAutomationBridge = ForegroundAutomationBridgeController(
-        isConversationOpen = clients::isConversationOpen,
-        send = { conversationId, userText, modelId, requestKind ->
-            messageGeneration.sendMessageFromAutomationAwaitingCompletion(
-                conversationId,
-                userText,
-                modelId,
-                requestKind,
-            )
-        },
-        loadMessage = conversations::getMessage,
-        attach = taskExecutionEngine::attachForegroundSendBridge,
-        detach = taskExecutionEngine::detachForegroundSendBridge,
-    )
-
     init {
         // The runtime is the registry's single, process-lifetime callback owner.
         registry.attachUiCallbacks(this) { state ->
@@ -214,7 +181,7 @@ class ChatRuntime(
             }
             state.onIdle = { conversationId ->
                 clients.generationActivityChanged(conversationId, active = false)
-                subagentManager.conversationIdle(conversationId)
+                onConversationIdle(conversationId)
             }
             state.onStreamCommit = clients::commitTerminalStreamingMessage
             state.onQueueDrainRequested = { settledState ->
@@ -223,6 +190,5 @@ class ChatRuntime(
                 }
             }
         }
-        foregroundAutomationBridge.start()
     }
 }

@@ -19,7 +19,7 @@ enum class ScheduleType { ONCE, DAILY, WEEKLY, MONTHLY, YEARLY }
  *  Everything that used to test `cronExpr.isNotBlank()` must go through this, or one-shots
  *  read as unscheduled and are silently skipped. */
 fun com.newoether.agora.data.local.TaskEntity.hasSchedule(): Boolean =
-    cronExpr.isNotBlank() || (runAt != null && runAt > 0L)
+    cronExpr.isNotBlank() || (runAt?.let { it > 0L } == true)
 
 /**
  * @param daysOfWeek WEEKLY only. 0 = Sunday … 6 = Saturday, matching cron's day-of-week field.

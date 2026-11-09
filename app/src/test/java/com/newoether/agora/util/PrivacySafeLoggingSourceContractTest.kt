@@ -2,30 +2,52 @@ package com.newoether.agora.util
 
 import java.io.File
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PrivacySafeLoggingSourceContractTest {
     @Test
     fun `production logging routes through the privacy-aware wrapper`() {
-        val sourceRoot = locateMainSourceRoot()
-        sourceRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" && it.name != "DebugLog.kt" }
-            .forEach { file ->
-                val source = file.readText()
-                assertFalse(
-                    "${file.relativeTo(sourceRoot)} imports Android Log directly",
-                    source.contains("import android.util.Log"),
-                )
-                assertFalse(
-                    "${file.relativeTo(sourceRoot)} invokes Android Log directly",
-                    source.contains("android.util.Log."),
-                )
-            }
+        val repository = locateRepositoryRoot()
+        productionSources(repository).forEach { file ->
+            val source = file.readText()
+            assertFalse(
+                "${file.relativeTo(repository)} imports Android Log directly",
+                source.contains("import android.util.Log"),
+            )
+            assertFalse(
+                "${file.relativeTo(repository)} invokes Android Log directly",
+                source.contains("android.util.Log."),
+            )
+        }
+
+        val facade = File(repository, APP_LOG_WRAPPER).readText()
+        val cloud = File(repository, CLOUD_LOG_WRAPPER).readText()
+        assertTrue(facade.contains("get() = CloudDebugLog.forceEnabled"))
+        assertTrue(facade.contains("CloudDebugLog.forceEnabled = value"))
+        assertTrue(facade.contains("fun init(context: Context) = CloudDebugLog.init(context)"))
+        assertTrue(facade.contains("safeThrowableSummary(tr: Throwable): String = CloudDebugLog.safeThrowableSummary(tr)"))
+        assertTrue(cloud.contains("enabled = forceEnabled || (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0"))
+        assertTrue(cloud.contains("private val active: Boolean get() = forceEnabled || enabled"))
+        val compactCloud = cloud.replace(Regex("\\s+"), " ")
+        listOf("d", "e", "w").forEach { level ->
+            assertTrue(facade.contains("fun $level(tag: String, msg: String) = CloudDebugLog.$level(tag, msg)"))
+            assertTrue(facade.contains("fun $level(tag: String, msg: String, tr: Throwable) = CloudDebugLog.$level(tag, msg, tr)"))
+            assertTrue(compactCloud.contains("fun $level(tag: String, msg: String) { if (active) Log.$level(tag, msg) }"))
+            assertTrue(compactCloud.contains("fun $level(tag: String, msg: String, tr: Throwable) { if (active) Log.$level(tag, \"\$msg \${safeThrowableSummary(tr)}\") }"))
+        }
+        val summary = cloud.substringAfter("fun safeThrowableSummary(tr: Throwable): String")
+        assertTrue(summary.contains("append(tr.javaClass.name)"))
+        assertTrue(summary.contains(".take(MAX_SAFE_STACK_FRAMES)"))
+        assertTrue(summary.contains("MAX_SAFE_STACK_FRAMES = 24"))
+        listOf("tr.message", "tr.localizedMessage", "tr.cause", "printStackTrace", "getStackTraceString").forEach { raw ->
+            assertFalse("Cloud throwable summary exposes $raw", summary.contains(raw))
+        }
     }
 
     @Test
     fun `production log calls do not receive known sensitive raw values`() {
-        val sourceRoot = locateMainSourceRoot()
+        val repository = locateRepositoryRoot()
         val forbiddenFragments = listOf(
             "\$jsonBody",
             "\$requestBodyJson",
@@ -52,36 +74,34 @@ class PrivacySafeLoggingSourceContractTest {
             "body?.string()",
         )
 
-        sourceRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" && it.name != "DebugLog.kt" }
-            .forEach { file ->
-                val calls = extractDebugLogCalls(file.readText())
-                forbiddenFragments.forEach { fragment ->
-                    assertFalse(
-                        "${file.relativeTo(sourceRoot)} logs sensitive fragment: $fragment",
-                        calls.contains(fragment),
-                    )
-                }
+        productionSources(repository).forEach { file ->
+            val calls = extractDebugLogCalls(file.readText())
+            forbiddenFragments.forEach { fragment ->
+                assertFalse(
+                    "${file.relativeTo(repository)} logs sensitive fragment: $fragment",
+                    calls.contains(fragment),
+                )
             }
+        }
     }
 
     @Test
     fun `generation diagnostics do not log request content private endpoints or raw responses`() {
-        val sourceRoot = locateMainSourceRoot()
+        val repository = locateRepositoryRoot()
         val protectedSources = listOf(
-            "com/newoether/agora/api/HttpClient.kt",
-            "com/newoether/agora/api/LlamaChatEngine.kt",
-            "com/newoether/agora/api/LlamaEngine.kt",
-            "com/newoether/agora/api/anthropic/AnthropicProvider.kt",
-            "com/newoether/agora/api/gemini/GeminiProvider.kt",
-            "com/newoether/agora/api/local/LocalProvider.kt",
-            "com/newoether/agora/api/ollama/OllamaProvider.kt",
-            "com/newoether/agora/api/openai/BaseOpenAiProvider.kt",
-            "com/newoether/agora/api/util/MessageConverter.kt",
-            "com/newoether/agora/automation/TaskManager.kt",
-            "com/newoether/agora/data/AutoBackupManager.kt",
+            "provider/cloud/src/main/java/com/newoether/agora/api/HttpClient.kt",
+            "app/src/main/java/com/newoether/agora/api/LlamaChatEngine.kt",
+            "app/src/main/java/com/newoether/agora/api/LlamaEngine.kt",
+            "provider/cloud/src/main/java/com/newoether/agora/api/anthropic/AnthropicProvider.kt",
+            "provider/cloud/src/main/java/com/newoether/agora/api/gemini/GeminiProvider.kt",
+            "app/src/main/java/com/newoether/agora/api/local/LocalProvider.kt",
+            "provider/cloud/src/main/java/com/newoether/agora/api/ollama/OllamaProvider.kt",
+            "provider/cloud/src/main/java/com/newoether/agora/api/openai/BaseOpenAiProvider.kt",
+            "provider/cloud/src/main/java/com/newoether/agora/api/util/MessageConverter.kt",
+            "app/src/main/java/com/newoether/agora/automation/TaskManager.kt",
+            "app/src/main/java/com/newoether/agora/data/AutoBackupManager.kt",
         ).associateWith { relativePath ->
-            extractDebugLogCalls(File(sourceRoot, relativePath).readText())
+            extractDebugLogCalls(File(repository, relativePath).readText())
         }
 
         val forbiddenFragments = listOf(
@@ -152,15 +172,28 @@ class PrivacySafeLoggingSourceContractTest {
         }
     }
 
-    private fun locateMainSourceRoot(): File {
+    private fun productionSources(repository: File): Sequence<File> = sequence {
+        listOf("app/src/main/java", "provider/cloud/src/main/java").forEach { path ->
+            val root = File(repository, path)
+            check(root.isDirectory) { "Missing production source root: $root" }
+            yieldAll(root.walkTopDown().filter {
+                it.isFile && it.extension == "kt" &&
+                    it.relativeTo(repository).invariantSeparatorsPath !in setOf(APP_LOG_WRAPPER, CLOUD_LOG_WRAPPER)
+            })
+        }
+    }
+
+    private fun locateRepositoryRoot(): File {
         var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         repeat(8) {
-            listOf(
-                File(directory, "app/src/main/java"),
-                File(directory, "src/main/java"),
-            ).firstOrNull(File::isDirectory)?.let { return it }
+            if (File(directory, "settings.gradle.kts").isFile) return directory
             directory = directory.parentFile ?: error("Reached filesystem root")
         }
-        error("Unable to locate the main Java source directory")
+        error("Unable to locate the repository root")
+    }
+
+    private companion object {
+        const val APP_LOG_WRAPPER = "app/src/main/java/com/newoether/agora/util/DebugLog.kt"
+        const val CLOUD_LOG_WRAPPER = "provider/cloud/src/main/java/com/newoether/agora/util/CloudDebugLog.kt"
     }
 }

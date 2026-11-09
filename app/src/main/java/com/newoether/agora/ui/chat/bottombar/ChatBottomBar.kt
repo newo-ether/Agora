@@ -74,16 +74,6 @@ internal val COMPOSER_EXPAND_ICON_SIZE = 20.dp
 // The host padding the status rows, attachment previews and expanded collapse button share.
 internal val COMPOSER_HOST_SIDE_PADDING = 4.dp
 internal val COMPOSER_HOST_TOP_PADDING = 8.dp
-internal fun contextUsageExceedsCompactThreshold(
-    estimatedTokens: Int, tokenBudget: Int, thresholdPercent: Int,
-): Boolean {
-    val normalizedBudget = tokenBudget.coerceAtLeast(1)
-    val normalizedPercent = thresholdPercent.coerceIn(50, 100)
-    val threshold = ((normalizedBudget.toLong() * normalizedPercent + 99L) / 100L)
-        .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-    return tokenBudget > 0 && estimatedTokens > threshold
-}
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun ChatBottomBar(

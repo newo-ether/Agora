@@ -247,13 +247,16 @@ class TaskManager(
         taskRepository.deleteTask(task.id)
     }
 
-    fun nextRunFor(task: TaskEntity, now: Long): Long = when {
-        !task.enabled -> 0L
-        // One-shot: its instant IS the next run, and only while still in the future. Returning 0
-        // once it has passed is what retires the task after it fires (see finishScheduledRun).
-        task.runAt != null -> task.runAt.takeIf { it > now } ?: 0L
-        task.cronExpr.isNotBlank() -> CronExpression.parse(task.cronExpr)?.next(now) ?: 0L
-        else -> 0L
+    fun nextRunFor(task: TaskEntity, now: Long): Long {
+        if (!task.enabled) return 0L
+        val runAt = task.runAt
+        return when {
+            // One-shot: its instant IS the next run, and only while still in the future. Returning 0
+            // once it has passed is what retires the task after it fires (see finishScheduledRun).
+            runAt != null -> runAt.takeIf { it > now } ?: 0L
+            task.cronExpr.isNotBlank() -> CronExpression.parse(task.cronExpr)?.next(now) ?: 0L
+            else -> 0L
+        }
     }
 
     /** Starts one exclusive manual run. A second tap while queued/running is ignored. */

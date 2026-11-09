@@ -319,8 +319,9 @@ internal fun UserMessageBubble(
                                         onPdfClick = onPdfPagesClick
                                     )
                                 )
-                                if (type == "pdf" && metaItem?.warning != null) {
-                                    Text(metaItem.warning, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                val warning = metaItem?.warning
+                                if (type == "pdf" && warning != null) {
+                                    Text(warning, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }

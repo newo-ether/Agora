@@ -85,7 +85,12 @@ class LocalProvider(
         // Build template messages, collecting images per-message with <__media__> markers
         val imagePaths = mutableListOf<String>()
         val localContextWindow = minOf(config.maxContextWindow, modelConfig.nCtx).coerceAtLeast(1)
-        val resolvedRequest = config.copy(maxContextWindow = localContextWindow).resolveRequest(messages)
+        val resolvedRequest = config.copy(maxContextWindow = localContextWindow).resolveRequest(
+            messages,
+            fallbackCosts = com.newoether.agora.api.util.tokens.ContextCostModels.forModel(
+                config.modelId, LocalModelRuntime::exactTokenCountOrNull,
+            ),
+        )
         val templateMessages = try {
             buildTemplateMessages(
                 if (config.includeImages) resolvedRequest.messages

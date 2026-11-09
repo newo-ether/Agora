@@ -16,7 +16,7 @@ import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageSource
 import com.newoether.agora.model.Participant
-import com.newoether.agora.util.DebugLog
+import com.newoether.agora.util.CloudDebugLog as DebugLog
 import com.sun.net.httpserver.HttpServer
 import io.mockk.Runs
 import io.mockk.every

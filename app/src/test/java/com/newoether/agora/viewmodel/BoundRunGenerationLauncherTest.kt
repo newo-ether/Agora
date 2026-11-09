@@ -5,6 +5,7 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
+import com.newoether.agora.util.CloudDebugLog
 import com.newoether.agora.util.DebugLog
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -58,7 +59,7 @@ class BoundRunGenerationLauncherTest {
             fixture.launcher.launch(fixture.request, fixture.state)
             callbacks.captured.onToolRoundPersisted()
         } finally {
-            unmockkObject(DebugLog)
+            unmockkObject(DebugLog, CloudDebugLog)
         }
 
         assertSame(currentCoroutineContext()[Job], generationJob)
@@ -98,7 +99,7 @@ class BoundRunGenerationLauncherTest {
                 assertTrue(fixture.continuationRequests.isEmpty())
             } finally {
                 fixture.state.dispose()
-                unmockkObject(DebugLog)
+                unmockkObject(DebugLog, CloudDebugLog)
             }
         }
     }
@@ -128,7 +129,7 @@ class BoundRunGenerationLauncherTest {
         try {
             fixture.launcher.launch(fixture.request, fixture.state)
         } finally {
-            unmockkObject(DebugLog)
+            unmockkObject(DebugLog, CloudDebugLog)
         }
 
         val continuation = fixture.continuationRequests.single()
@@ -180,7 +181,7 @@ class BoundRunGenerationLauncherTest {
         try {
             fixture.launcher.launch(fixture.request, fixture.state)
         } finally {
-            unmockkObject(DebugLog)
+            unmockkObject(DebugLog, CloudDebugLog)
         }
 
         assertEquals(MessageStatus.ERROR, failedMessage.captured.status)
@@ -226,7 +227,7 @@ class BoundRunGenerationLauncherTest {
                 Unit
             }
         } finally {
-            unmockkObject(DebugLog)
+            unmockkObject(DebugLog, CloudDebugLog)
         }
 
         coVerify(exactly = 0) {
@@ -311,9 +312,10 @@ class BoundRunGenerationLauncherTest {
         )
 
         fun mockDebugLog() {
-            mockkObject(DebugLog)
+            mockkObject(DebugLog, CloudDebugLog)
             every { DebugLog.d(any(), any()) } just Runs
             every { DebugLog.e(any(), any()) } just Runs
+            every { CloudDebugLog.d(any(), any()) } just Runs
         }
     }
 }

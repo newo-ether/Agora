@@ -13,14 +13,16 @@ internal fun tokenUsagePresentation(
     usage: TokenUsage?,
 ): TokenUsagePresentation {
     if (usage == null) return TokenUsagePresentation(null, null, null)
+    val cachedInputTokenCount = usage.cachedInputTokenCount
+    val uncachedInputTokenCount = usage.uncachedInputTokenCount
     val input = usage.inputTokenCount
         ?: if (
-            usage.cachedInputTokenCount != null &&
-            usage.uncachedInputTokenCount != null
+            cachedInputTokenCount != null &&
+            uncachedInputTokenCount != null
         ) {
             TokenUsage.addCounts(
-                usage.cachedInputTokenCount,
-                usage.uncachedInputTokenCount,
+                cachedInputTokenCount,
+                uncachedInputTokenCount,
             )
         } else {
             usage.outputTokenCount

@@ -2,7 +2,6 @@ package com.newoether.agora.automation
 
 import android.app.Application
 import android.content.Context
-import com.newoether.agora.api.HttpClient
 import com.newoether.agora.api.local.LocalProvider
 import com.newoether.agora.data.MemoryManager
 import com.newoether.agora.data.SkillManager
@@ -514,7 +513,7 @@ class TaskExecutionEngine(
             generationState.loadingChange(uiToken, true)
             generationState.streamUpdate(uiToken, placeholder)
 
-            val requestTrace = HttpClient.RequestTrace(
+            val requestTrace = DeveloperDiagnostics.newRequestTrace(
                 requestId = modelMessageId,
                 origin = requestKind,
                 diagnosticContext = DeveloperDiagnostics.newRequestContext(

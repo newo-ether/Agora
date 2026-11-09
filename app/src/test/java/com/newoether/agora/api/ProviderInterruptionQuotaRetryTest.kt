@@ -4,7 +4,7 @@ import com.newoether.agora.api.anthropic.AnthropicProvider
 import com.newoether.agora.api.gemini.GeminiProvider
 import com.newoether.agora.api.ollama.OllamaProvider
 import com.newoether.agora.api.openai.CustomOpenAiProvider
-import com.newoether.agora.api.util.ProviderRetryPolicy
+import com.newoether.agora.util.NetworkRetryPolicy
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
@@ -12,6 +12,7 @@ import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.model.ToolCallData
 import com.newoether.agora.viewmodel.ProviderPassRunner
 import com.newoether.agora.util.DebugLog
+import com.newoether.agora.util.CloudDebugLog
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -35,20 +36,22 @@ import org.junit.Test
 class ProviderInterruptionQuotaRetryTest {
     @Before
     fun useImmediateRetriesAndJvmLogging() {
-        mockkObject(DebugLog)
-        mockkObject(ProviderRetryPolicy)
+        mockkObject(DebugLog, CloudDebugLog)
+        mockkObject(NetworkRetryPolicy)
         every { DebugLog.d(any(), any()) } just Runs
         every { DebugLog.e(any(), any()) } just Runs
         every { DebugLog.w(any(), any()) } just Runs
-        every { ProviderRetryPolicy.delayMillis(any()) } returns 1L
-        every { ProviderRetryPolicy.delayMillis(any(), any()) } returns 1L
+        every { CloudDebugLog.d(any(), any()) } just Runs
+        every { CloudDebugLog.e(any(), any()) } just Runs
+        every { CloudDebugLog.w(any(), any()) } just Runs
+        every { NetworkRetryPolicy.delayMillis(any(), any(), any(), any()) } returns 1L
     }
 
     @After
     fun restoreObjects() {
         unmockkObject(HttpClient)
-        unmockkObject(ProviderRetryPolicy)
-        unmockkObject(DebugLog)
+        unmockkObject(NetworkRetryPolicy)
+        unmockkObject(DebugLog, CloudDebugLog)
     }
 
     @Test
@@ -305,10 +308,10 @@ class ProviderInterruptionQuotaRetryTest {
     fun eofAndRateLimitExhaustOnlyTheExistingFiveRetriesAndReportOnce() {
         cases().forEach { case ->
             listOf(
-                collect(case, reads = List(ProviderRetryPolicy.MAX_ATTEMPTS) { EOFException() }),
+                collect(case, reads = List(NetworkRetryPolicy.MAX_ATTEMPTS) { EOFException() }),
                 collect(
                     case,
-                    reads = List(ProviderRetryPolicy.MAX_ATTEMPTS) {
+                    reads = List(NetworkRetryPolicy.MAX_ATTEMPTS) {
                         case.formattingOnlyLines().first() +
                             (if (case.name == "Ollama") "not-json" else "data: not-json")
                     }.flatten(),
@@ -316,15 +319,15 @@ class ProviderInterruptionQuotaRetryTest {
                 collect(case, status = 429, errorBody = "Too many requests, retry later"),
                 collect(
                     case,
-                    reads = List(ProviderRetryPolicy.MAX_ATTEMPTS) {
+                    reads = List(NetworkRetryPolicy.MAX_ATTEMPTS) {
                         case.errorLine("rate_limit_exceeded", "rate_limit_error", "Rate limit exceeded")
                     },
                 ),
             ).forEachIndexed { failureIndex, result ->
-                assertEquals(case.name, ProviderRetryPolicy.MAX_ATTEMPTS, result.second)
+                assertEquals(case.name, NetworkRetryPolicy.MAX_ATTEMPTS, result.second)
                 assertEquals(
                     case.name,
-                    (1..ProviderRetryPolicy.MAX_RETRIES).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = failureIndex <= 1) },
+                    (1..NetworkRetryPolicy.MAX_RETRIES).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = failureIndex <= 1) },
                     result.first.filterIsInstance<StreamEvent.Retrying>(),
                 )
                 assertEquals(case.name, 1, result.first.filterIsInstance<StreamEvent.Error>().size)
@@ -483,8 +486,7 @@ class ProviderInterruptionQuotaRetryTest {
             listOf(false, true).forEach { cancelOnRetry ->
                 // Keep the producer in backoff until the buffered retry reaches the collector.
                 val retryDelay = if (cancelOnRetry) Long.MAX_VALUE else 1L
-                every { ProviderRetryPolicy.delayMillis(any()) } returns retryDelay
-                every { ProviderRetryPolicy.delayMillis(any(), any()) } returns retryDelay
+                every { NetworkRetryPolicy.delayMillis(any(), any(), any(), any()) } returns retryDelay
                 val urls = mutableListOf<String>()
                 val events = mutableListOf<StreamEvent>()
                 val failure = if (cancelOnRetry) IOException("The server response could not be read.")

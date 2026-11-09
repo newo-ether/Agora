@@ -70,7 +70,7 @@ object AttachmentFiles {
                     .filterNot { it.unavailable }.map { it.path }).filter(String::isNotBlank)
         }
 
-    const val MAX_ATTACHMENT_BYTES: Long = 100L * 1024L * 1024L
+    const val MAX_ATTACHMENT_BYTES: Long = com.newoether.agora.model.ImageArtifactLimits.MAX_ATTACHMENT_BYTES
 
     internal sealed class CopyResult {
         data class Success(val bytesCopied: Long) : CopyResult()

@@ -65,8 +65,9 @@ class MaintenanceDebtRecoveryTest {
             db.close()
             db = ChatDatabase.build(context)
             val maintenance = db.maintenanceDebtDao()
-            assertTrue(maintenance.claim("too-early", abandoned.claimedAt!! + 1, abandoned.claimedAt - 1, 1).isEmpty())
-            val replacementClaim = maintenance.claim("new-lease", abandoned.claimedAt + 1, abandoned.claimedAt, 1).single()
+            val claimedAt = requireNotNull(abandoned.claimedAt)
+            assertTrue(maintenance.claim("too-early", claimedAt + 1, claimedAt - 1, 1).isEmpty())
+            val replacementClaim = maintenance.claim("new-lease", claimedAt + 1, claimedAt, 1).single()
             assertFalse(maintenance.complete(abandoned))
             assertFalse(maintenance.release(abandoned, 5))
             // A new invalidation supersedes both the abandoned and recovered claim.

@@ -284,7 +284,9 @@ internal class ContextCompactor(
             contextLimit = threshold,
             retainLogicalMessages = config.request.retainLogicalMessages,
             fixedTokenCost = config.fixedTokenCost,
-            costs = ContextCostModels.forModel(config.mainModelId),
+            costs = ContextCostModels.forModel(
+                config.mainModelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
+            ),
             includeAssistantReasoning = config.includeAssistantReasoning,
             userPrepend = mainPrompt?.userPrepend ?: config.userPrepend,
             userPostpend = mainPrompt?.userPostpend ?: config.userPostpend,

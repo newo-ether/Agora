@@ -1,5 +1,6 @@
 package com.newoether.agora.diagnostics
 
+import com.newoether.agora.api.HttpClient
 import com.newoether.agora.api.StreamEvent
 import com.newoether.agora.model.ConversationRuntimeTrace
 import com.newoether.agora.model.ConversationRuntimeTraceEntry
@@ -54,6 +55,22 @@ object DeveloperDiagnostics {
             requestKind = DiagnosticRedactor.safeIdentifier(requestKind).take(MAX_IDENTIFIER_LENGTH),
         )
     }
+
+    /** Bind callbacks once; each producer method still checks the live capture state. */
+    fun newRequestTrace(
+        requestId: String,
+        origin: String,
+        diagnosticContext: DiagnosticRequestContext? = null,
+    ): HttpClient.RequestTrace = HttpClient.RequestTrace(
+        requestId = requestId,
+        origin = origin,
+        diagnosticContext = diagnosticContext,
+        onStage = ::recordHttpStage,
+        onRequest = ::recordHttpRequest,
+        onResponseBody = ::recordHttpResponseBody,
+        onWireLine = ::recordWireLine,
+        onParsedEvent = ::recordParsedStreamEvent,
+    )
 
     fun recordRuntimeTransition(entry: ConversationRuntimeTraceEntry) {
         if (!buffer.isCaptureActive) return

@@ -2,8 +2,10 @@ package com.newoether.agora.viewmodel
 
 import android.app.Application
 import android.graphics.Bitmap
-import com.newoether.agora.api.util.Base64FileRegistry
-import com.newoether.agora.api.util.convertToOpenAiMessages
+import com.newoether.agora.api.OpenAiMessage
+import com.newoether.agora.api.ProviderConfig
+import com.newoether.agora.api.captureProviderRequest
+import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.api.util.imageArtifactOccurrences
 import com.newoether.agora.data.local.ChatDao
 import com.newoether.agora.data.local.MessageContextTopology
@@ -26,10 +28,10 @@ import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import okio.Buffer
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -110,13 +112,14 @@ class ImageArtifactHydrationTest {
         )
         try {
             val result = ImageArtifactHydration(app).hydrate(source)
-            val pages = result.attachmentMeta!!.items[0].imageArtifacts
+            val attachmentMeta = result.attachmentMeta!!
+            val pages = attachmentMeta.items[0].imageArtifacts
             assertEquals(listOf(93, 41), pages.map(ImageArtifact::width))
             assertEquals(listOf(41, 137), pages.map(ImageArtifact::height))
             assertEquals(3, result.images.size)
             assertEquals(missing, result.images[2])
             assertTrue(result.imageArtifacts.getValue(missing).unavailable)
-            assertTrue(result.attachmentMeta.items[1].unavailable)
+            assertTrue(attachmentMeta.items[1].unavailable)
         } finally {
             first.delete()
             second.delete()
@@ -137,8 +140,9 @@ class ImageArtifactHydrationTest {
         val result = ImageArtifactHydration(app).hydrate(message)
         assertEquals(2, result.images.size)
         assertEquals(listOf(10, 30), result.attachmentMeta!!.items.single().imageArtifacts.map { it.width })
-        assertEquals(listOf(10, 30), result.segments!!.single().toolImages.map { it.width })
-        assertTrue(result.segments.single().toolImages.all { it.unavailable })
+        val segments = result.segments!!
+        assertEquals(listOf(10, 30), segments.single().toolImages.map { it.width })
+        assertTrue(segments.single().toolImages.all { it.unavailable })
     }
 
     @Test
@@ -292,11 +296,13 @@ class ImageArtifactHydrationTest {
                 val projected = projectGenerationInputMessages(listOf(hydrated), true, null, null).single()
                 assertEquals(List(2) { valid.path }, projected.images)
                 assertEquals(source.text, projected.text)
-                val registry = Base64FileRegistry()
-                val wire = convertToOpenAiMessages(listOf(projected), base64Files = registry)
+                val request = captureProviderRequest(
+                    provider = CustomOpenAiProvider("OpenAI", "https://example.test/v1"),
+                    messages = listOf(projected),
+                    config = ProviderConfig(apiKey = "test-key", modelId = "model"),
+                )
+                val wire = Json.decodeFromJsonElement<List<OpenAiMessage>>(request.getValue("messages"))
                 assertEquals(2, wire.single().content!!.count { it.type == "image_url" })
-                val request = checkNotNull(registry.prepare(Json.encodeToString(wire)))
-                request.body.writeTo(Buffer())
                 assertArrayEquals(bytes, valid.readBytes())
                 assertEquals(paths, source.images)
             }
@@ -328,13 +334,12 @@ class ImageArtifactHydrationTest {
                     val hydrated = ImageArtifactHydration(app).hydrate(input)
                     assertEquals(listOf(file.canonicalPath), hydrated.images)
                     assertEquals(listOf(measured), hydrated.imageArtifactOccurrences())
-                    val registry = Base64FileRegistry()
-                    val converted = convertToOpenAiMessages(
-                        projectGenerationInputMessages(listOf(hydrated), true, null, null),
-                        base64Files = registry,
+                    val request = captureProviderRequest(
+                        provider = CustomOpenAiProvider("OpenAI", "https://example.test/v1"),
+                        messages = projectGenerationInputMessages(listOf(hydrated), true, null, null),
+                        config = ProviderConfig(apiKey = "test-key", modelId = "model"),
                     )
-                    val request = checkNotNull(registry.prepare(Json.encodeToString(converted)))
-                    val json = Json.parseToJsonElement(Buffer().also(request.body::writeTo).readUtf8()).jsonArray
+                    val json = request.getValue("messages").jsonArray
                     val uri = json.single().jsonObject.getValue("content").jsonArray
                         .map { it.jsonObject }.single { it["type"]?.jsonPrimitive?.content == "image_url" }
                         .getValue("image_url").jsonObject.getValue("url").jsonPrimitive.content

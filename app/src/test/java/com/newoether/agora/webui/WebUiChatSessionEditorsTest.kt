@@ -7,8 +7,8 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.ConversationSettingsTransferCoordinator
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ChatConversation
-import com.newoether.agora.ui.chat.validGenerationParameters
-import com.newoether.agora.ui.chat.withGenerationParameters
+import com.newoether.agora.presentation.validGenerationParameters
+import com.newoether.agora.presentation.withGenerationParameters
 import com.newoether.agora.viewmodel.*
 import io.mockk.*
 import kotlinx.coroutines.*

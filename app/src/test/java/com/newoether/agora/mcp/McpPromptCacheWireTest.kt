@@ -18,6 +18,7 @@ import com.newoether.agora.tool.McpToolProvider
 import com.newoether.agora.tool.ToolExecutionResult
 import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
+import com.newoether.agora.util.CloudDebugLog
 import com.newoether.agora.viewmodel.GenerationContext
 import com.sun.net.httpserver.HttpServer
 import io.mockk.Runs
@@ -60,10 +61,13 @@ class McpPromptCacheWireTest {
 
     @Before
     fun setUp() {
-        mockkObject(DebugLog)
+        mockkObject(DebugLog, CloudDebugLog)
         every { DebugLog.d(any(), any()) } just Runs
         every { DebugLog.e(any(), any()) } just Runs
         every { DebugLog.w(any(), any()) } just Runs
+        every { CloudDebugLog.d(any(), any()) } just Runs
+        every { CloudDebugLog.e(any(), any()) } just Runs
+        every { CloudDebugLog.w(any(), any()) } just Runs
         // Configured names stay fixed while runtime catalog/directory state changes below.
         every { registry.enabledServerNames() } returns listOf("config" to "Config Server")
         every { registry.listServers(any(), any()) } answers { directory }
@@ -77,7 +81,7 @@ class McpPromptCacheWireTest {
 
     @After
     fun tearDown() {
-        unmockkObject(DebugLog)
+        unmockkObject(DebugLog, CloudDebugLog)
     }
 
     @Test
@@ -161,7 +165,8 @@ class McpPromptCacheWireTest {
         val history = listOf(user) + listRound("cost-list", listServers()) + searchRound("cost-search", search())
         for (name in listOf("mcp_list_servers", "mcp_search_tools")) {
             val withoutResult = history.map { message ->
-                if (message.toolCall?.toolName == name) message.copy(toolCall = message.toolCall.copy(result = ""))
+                val toolCall = message.toolCall
+                if (toolCall?.toolName == name) message.copy(toolCall = toolCall.copy(result = ""))
                 else message
             }
             assertTrue(

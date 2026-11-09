@@ -24,8 +24,9 @@ class RemoteTurnErrorTest {
             assertEquals(error.text, original.errorText)
             assertEquals(answer.text.takeIf { answer in records }, original.answerText)
             assertFalse(original.showLocalContextHelp)
-            assertEquals(records.count { it.activity?.type == "tool" }, failed.segments!!.count { it.type == "tool" })
-            assertEquals("error", failed.segments.last().type)
+            val segments = failed.segments!!
+            assertEquals(records.count { it.activity?.type == "tool" }, segments.count { it.type == "tool" })
+            assertEquals("error", segments.last().type)
             assertFalse(messages.any { it.status in setOf(MessageStatus.THINKING, MessageStatus.TOOL_CALLING, MessageStatus.SENDING) })
         }
     }

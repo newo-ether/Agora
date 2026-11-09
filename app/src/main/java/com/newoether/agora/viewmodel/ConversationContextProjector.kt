@@ -157,7 +157,11 @@ internal class ConversationContextProjector(
             // The indicator must price context exactly like dispatch does, so it uses the selected
             // model's cost model too.
             val costs = snapshot
-                ?.let { ContextCostModels.forModel(it.config.modelId) }
+                ?.let {
+                    ContextCostModels.forModel(
+                        it.config.modelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
+                    )
+                }
                 ?: ContextCostModel.Default
             ConversationContextProjection(
                 conversationId = conversationId,

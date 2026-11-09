@@ -210,7 +210,7 @@ class ConversationTitleGenerator(
         )
 
         val requestId = UUID.randomUUID().toString()
-        val requestTrace = HttpClient.RequestTrace(
+        val requestTrace = DeveloperDiagnostics.newRequestTrace(
             requestId = requestId,
             origin = "title",
             diagnosticContext = DeveloperDiagnostics.newRequestContext(

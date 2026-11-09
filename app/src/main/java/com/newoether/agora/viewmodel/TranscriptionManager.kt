@@ -285,7 +285,7 @@ class TranscriptionManager(
             ),
         )
         val requestId = "$modelMessageId:tool-image-${UUID.randomUUID()}"
-        val requestTrace = HttpClient.RequestTrace(
+        val requestTrace = DeveloperDiagnostics.newRequestTrace(
             requestId = requestId,
             origin = "transcription",
             diagnosticContext = DeveloperDiagnostics.newRequestContext(
@@ -433,7 +433,7 @@ class TranscriptionManager(
                 status = MessageStatus.SUCCESS
             ))
             val requestId = "$modelMessageId:transcription-$processed"
-            val requestTrace = HttpClient.RequestTrace(
+            val requestTrace = DeveloperDiagnostics.newRequestTrace(
                 requestId = requestId,
                 origin = "transcription",
                 diagnosticContext = DeveloperDiagnostics.newRequestContext(

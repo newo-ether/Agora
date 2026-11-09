@@ -13,6 +13,7 @@ import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
 import com.newoether.agora.tool.BuiltInToolNames
 import com.newoether.agora.util.DebugLog
+import com.newoether.agora.util.CloudDebugLog
 import com.sun.net.httpserver.HttpServer
 import io.mockk.*
 import java.net.InetSocketAddress
@@ -27,14 +28,17 @@ import org.junit.Test
 class BuiltInToolWireNamesTest {
     @Before
     fun logging() {
-        mockkObject(DebugLog)
+        mockkObject(DebugLog, CloudDebugLog)
         every { DebugLog.d(any(), any()) } just Runs
         every { DebugLog.w(any(), any()) } just Runs
         every { DebugLog.e(any(), any()) } just Runs
+        every { CloudDebugLog.d(any(), any()) } just Runs
+        every { CloudDebugLog.w(any(), any()) } just Runs
+        every { CloudDebugLog.e(any(), any()) } just Runs
     }
 
     @After
-    fun cleanup() = unmockkObject(DebugLog)
+    fun cleanup() = unmockkObject(DebugLog, CloudDebugLog)
 
     @Test
     fun everyRemoteWireAdapterUsesCanonicalNamesForLegacyRounds() = runBlocking {

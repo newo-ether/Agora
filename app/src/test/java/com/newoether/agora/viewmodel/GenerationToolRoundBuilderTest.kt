@@ -1,11 +1,12 @@
 package com.newoether.agora.viewmodel
 
-import com.newoether.agora.api.openai.toResponsesInput
-import com.newoether.agora.api.util.Base64FileRegistry
-import com.newoether.agora.api.util.convertToOpenAiMessages
+import com.newoether.agora.api.ProviderConfig
+import com.newoether.agora.api.captureProviderRequest
+import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.ToolCallData
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -46,10 +47,14 @@ class GenerationToolRoundBuilderTest {
         )
 
         val durablePath = ApiPathAssembler.assemble(round.entities, round.entities)
-        val input = convertToOpenAiMessages(
-            projectProviderMessages(durablePath, includeStoredTranscriptions = false),
-            base64Files = Base64FileRegistry(),
-        ).toResponsesInput(providerName = "OpenAI", targetModel = "model")
+        val request = captureProviderRequest(
+            provider = CustomOpenAiProvider("OpenAI", "https://example.test/v1"),
+            messages = projectProviderMessages(durablePath, includeStoredTranscriptions = false),
+            config = ProviderConfig(
+                apiKey = "test-key", modelId = "model", responsesApiEnabled = true,
+            ),
+        )
+        val input = request.getValue("input").jsonArray.map { it.jsonObject }
 
         assertEquals(
             listOf("reasoning", "function_call", "function_call_output"),

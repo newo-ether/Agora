@@ -1,6 +1,12 @@
 package com.newoether.agora.api.util
 
+import com.newoether.agora.api.OpenAiMessage
+import com.newoether.agora.api.ProviderConfig
+import com.newoether.agora.api.captureProviderRequest
+import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.model.AttachmentItem
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.ImageArtifact
@@ -41,11 +47,8 @@ class ToolMessagesTest {
         assertEquals(messages, prepareMessages(messages, contextTokenBudget = 16_384))
         assertEquals(
             messages.map { it.text },
-            convertToOpenAiMessages(
-                prepareMessages(messages, contextTokenBudget = 16_384),
-                includeImages = false,
-                base64Files = Base64FileRegistry(),
-            ).map { it.content!!.single().text },
+            wireMessages(prepareMessages(messages, contextTokenBudget = 16_384))
+                .map { it.content!!.single().text },
         )
     }
 
@@ -215,11 +218,7 @@ class ToolMessagesTest {
         assertEquals(listOf("/private/tool-result.png"), visualTurn.images)
         assertEquals("result_image", visualTurn.parentId)
 
-        val wire = convertToOpenAiMessages(
-            projected,
-            includeImages = false,
-            base64Files = Base64FileRegistry(),
-        )
+        val wire = wireMessages(projected)
         val wireUser = wire.single { message ->
             message.role == "user" &&
                 message.content?.any { part ->
@@ -501,6 +500,15 @@ class ToolMessagesTest {
         )
         assertEquals(1, normalizedDuplicate.size)
         assertTrue(normalizedDuplicate.single().id.startsWith("protocol_notice_"))
+    }
+
+    private fun wireMessages(messages: List<ChatMessage>): List<OpenAiMessage> {
+        val request = captureProviderRequest(
+            CustomOpenAiProvider("wire-test", "https://example.invalid/v1"),
+            messages,
+            ProviderConfig(apiKey = "", modelId = "test-model", includeImages = false),
+        )
+        return Json.decodeFromJsonElement(checkNotNull(request["messages"]))
     }
 
     private fun normal(id: String, participant: Participant) = ChatMessage(

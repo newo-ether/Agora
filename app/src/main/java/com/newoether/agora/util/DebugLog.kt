@@ -3,16 +3,11 @@ package com.newoether.agora.util
 import android.content.Context
 
 object DebugLog {
-    @Volatile
-    var forceEnabled = false
-    @Volatile
-    private var enabled = true
+    var forceEnabled: Boolean
+        get() = CloudDebugLog.forceEnabled
+        set(value) { CloudDebugLog.forceEnabled = value }
 
-    fun init(context: Context) {
-        enabled = forceEnabled || (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
-    }
-
-    private val active: Boolean get() = forceEnabled || enabled
+    fun init(context: Context) = CloudDebugLog.init(context)
 
     // Release diagnostics accept only generated run IDs, fixed stage labels and timings.
     internal fun sendStage(
@@ -43,13 +38,9 @@ object DebugLog {
         elapsedMs: Long,
         rows: Int? = null,
     ) {
-        runCatching {
-            val count = if (rows != null) "rows=$rows " else ""
-            android.util.Log.i(
-                "RecoveryDiagnostics",
-                "conversation=$conversationId stage=$stage ${count}elapsedMs=$elapsedMs",
-            )
-        }
+        com.newoether.agora.data.local.DatabaseRecoveryDiagnostics.recoveryStage(
+            conversationId, stage, elapsedMs, rows,
+        )
     }
 
     // Phone release diagnostics contain fixed reason/mode labels and in-memory counters only.
@@ -59,35 +50,12 @@ object DebugLog {
         }
     }
 
-    fun d(tag: String, msg: String) { if (active) android.util.Log.d(tag, msg) }
-    fun d(tag: String, msg: String, tr: Throwable) {
-        if (active) android.util.Log.d(tag, "$msg ${safeThrowableSummary(tr)}")
-    }
-    fun e(tag: String, msg: String) { if (active) android.util.Log.e(tag, msg) }
-    fun e(tag: String, msg: String, tr: Throwable) {
-        if (active) android.util.Log.e(tag, "$msg ${safeThrowableSummary(tr)}")
-    }
-    fun w(tag: String, msg: String) { if (active) android.util.Log.w(tag, msg) }
-    fun w(tag: String, msg: String, tr: Throwable) {
-        if (active) android.util.Log.w(tag, "$msg ${safeThrowableSummary(tr)}")
-    }
+    fun d(tag: String, msg: String) = CloudDebugLog.d(tag, msg)
+    fun d(tag: String, msg: String, tr: Throwable) = CloudDebugLog.d(tag, msg, tr)
+    fun e(tag: String, msg: String) = CloudDebugLog.e(tag, msg)
+    fun e(tag: String, msg: String, tr: Throwable) = CloudDebugLog.e(tag, msg, tr)
+    fun w(tag: String, msg: String) = CloudDebugLog.w(tag, msg)
+    fun w(tag: String, msg: String, tr: Throwable) = CloudDebugLog.w(tag, msg, tr)
 
-    /**
-     * Throwable messages and cause chains frequently contain request URLs, response excerpts,
-     * local paths, or user content. Keep the exception type and application stack locations for
-     * diagnostics without forwarding those uncontrolled strings to Logcat.
-     */
-    internal fun safeThrowableSummary(tr: Throwable): String = buildString {
-        append("exception=")
-        append(tr.javaClass.name)
-        tr.stackTrace
-            .asSequence()
-            .take(MAX_SAFE_STACK_FRAMES)
-            .forEach { frame ->
-                append("\n\tat ")
-                append(frame)
-            }
-    }
-
-    private const val MAX_SAFE_STACK_FRAMES = 24
+    internal fun safeThrowableSummary(tr: Throwable): String = CloudDebugLog.safeThrowableSummary(tr)
 }

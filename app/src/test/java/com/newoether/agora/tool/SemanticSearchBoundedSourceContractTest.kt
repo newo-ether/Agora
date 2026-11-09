@@ -93,8 +93,12 @@ class SemanticSearchBoundedSourceContractTest {
         }
     }
 
-    private fun source(root: File, path: String): String =
-        File(root, "com/newoether/agora/$path").readText().replace("\r\n", "\n")
+    private fun source(root: File, path: String): String {
+        val sourceRoot = if (path.startsWith("data/local/")) {
+            File(root, "../../../../data/database/src/main/kotlin")
+        } else root
+        return File(sourceRoot, "com/newoether/agora/$path").readText().replace("\r\n", "\n")
+    }
 
     private fun String.section(start: String, end: String): String {
         val startIndex = indexOf(start)

@@ -15,11 +15,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody
 import okio.*
 
-/** Conch's existing handshake, request HMAC and sequenced AEAD stream for any Filo API. */
-internal open class ConchChannelException(message: String, cause: Throwable? = null) : IOException(message, cause)
-
-/** These transport categories describe the failure, not whether a mutation executed. */
-internal class ConchAuthenticationException(message: String) : ConchChannelException(message)
+/** This transport category describes the failure, not whether a mutation executed. */
 internal class ConchServiceException(message: String) : ConchChannelException(message)
 
 internal class ConchEncryptedHttp(private val token: String) : Interceptor {

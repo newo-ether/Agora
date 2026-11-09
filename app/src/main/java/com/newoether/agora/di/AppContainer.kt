@@ -397,22 +397,50 @@ class AppContainer(
             memoryManager = memoryManager,
             skillManager = skillManager,
             sandboxFactory = sandboxManagerFactory,
-            phoneToolProvider = phoneUse.provider,
+            additionalToolProviders = run {
+                // Capture the same process owners now; build the list and Ask User wrapper lazily.
+                val phone = phoneUse.provider
+                val automation = automationToolProvider
+                val subagent = subagentToolProvider
+                val mcp = mcpToolProvider
+                val askUser = askUserController
+                return@run {
+                    listOf(
+                        phone,
+                        automation,
+                        subagent,
+                        mcp,
+                        com.newoether.agora.tool.AskUserToolProvider(askUser),
+                    )
+                }
+            },
             phoneReady = { phoneUse.readiness(it) },
-            automationToolProvider = automationToolProvider,
-            subagentToolProvider = subagentToolProvider,
-            subagentManager = subagentManager,
-            mcpToolProvider = mcpToolProvider,
-            askUser = askUserController,
-            shellConfirmation = shellConfirmationController,
+            onConversationOpened = subagentManager::conversationOpened,
+            onConversationIdle = subagentManager::conversationIdle,
+            onConfirmShellCommand = shellConfirmationController::confirm,
             registry = conversationStateRegistry,
             providerRegistry = providerRegistry,
             localProvider = localProvider,
             executionCoordinator = conversationExecutionCoordinator,
-            loopManager = loopManager,
-            taskExecutionEngine = taskExecutionEngine,
+            stopConversationLoop = { loopManager.stopLoop(it) },
             scope = appScope,
-        )
+        ).also { runtime ->
+            // Capture this completed runtime; do not re-enter the chatRuntime lazy initializer.
+            com.newoether.agora.viewmodel.ForegroundAutomationBridgeController(
+                isConversationOpen = runtime.clients::isConversationOpen,
+                send = { conversationId, userText, modelId, requestKind ->
+                    runtime.messageGeneration.sendMessageFromAutomationAwaitingCompletion(
+                        conversationId,
+                        userText,
+                        modelId,
+                        requestKind,
+                    )
+                },
+                loadMessage = conversationRepository::getMessage,
+                attach = taskExecutionEngine::attachForegroundSendBridge,
+                detach = taskExecutionEngine::detachForegroundSendBridge,
+            ).start()
+        }
     }
     // WebUI remote control: settings, authentication and the embedded server.
     internal val webUi: WebUiController by lazy {

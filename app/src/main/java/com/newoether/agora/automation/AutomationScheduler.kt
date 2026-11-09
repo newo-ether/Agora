@@ -128,10 +128,10 @@ class AutomationScheduler(
         val useExact = snapshot.exactRequested && canScheduleExactAlarms()
 
         val activeTasks = snapshot.tasks.filter {
-            it.enabled && it.name.isNotBlank() && it.prompt.isNotBlank() && when {
+            it.enabled && it.name.isNotBlank() && it.prompt.isNotBlank() && when (val runAt = it.runAt) {
+                null -> it.cronExpr.isNotBlank() && CronExpression.isValid(it.cronExpr)
                 // One-shot: armable only while its instant is still ahead of us.
-                it.runAt != null -> it.runAt > now
-                else -> it.cronExpr.isNotBlank() && CronExpression.isValid(it.cronExpr)
+                else -> runAt > now
             }
         }
         val activeTaskIds = activeTasks.mapTo(mutableSetOf()) { it.id }

@@ -679,7 +679,9 @@ class GenerationRequestBuilder(
     ): ProviderRequestResolver = ProviderRequestResolver { messages, providerConfig ->
         val resolved = resolvePromptTemplate(promptTemplate, activeModel)
         // One cost model per request: the fixed cost, the trimming and the indicator must agree.
-        val costs = ContextCostModels.forModel(providerConfig.modelId)
+        val costs = ContextCostModels.forModel(
+            providerConfig.modelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
+        )
         val fixedTokenCost = CostModelContextEstimator(costs).estimateFixed(
             systemPrompt = resolved.systemPrompt,
             tools = providerConfig.tools.orEmpty(),

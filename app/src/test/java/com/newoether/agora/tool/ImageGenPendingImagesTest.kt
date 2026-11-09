@@ -13,7 +13,7 @@ class ImageGenPendingImagesTest {
         val batch = source("viewmodel/GenerationToolBatchEffectExecutor.kt")
         val store = source("tool/ToolImageStore.kt")
         val processor = source("util/ImageArtifactProcessor.kt")
-        val httpClient = source("api/HttpClient.kt")
+        val httpClient = source("api/HttpClient.kt", module = "provider/cloud")
 
         assertTrue(provider.contains("override fun executeEvents("))
         assertTrue(provider.contains("images = listOfNotNull(textAndImage.second)"))
@@ -38,12 +38,12 @@ class ImageGenPendingImagesTest {
         assertFalse(batch.contains("generatedImages"))
     }
 
-    private fun source(relativePath: String): String {
+    private fun source(relativePath: String, module: String = "app"): String {
         var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         repeat(8) {
             val candidate = File(
                 directory,
-                "app/src/main/java/com/newoether/agora/$relativePath",
+                "$module/src/main/java/com/newoether/agora/$relativePath",
             )
             if (candidate.isFile) return candidate.readText().replace("\r\n", "\n")
             directory = directory.parentFile ?: return@repeat

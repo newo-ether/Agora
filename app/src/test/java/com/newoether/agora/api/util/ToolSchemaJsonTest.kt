@@ -2,6 +2,7 @@ package com.newoether.agora.api.util
 
 import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.api.ToolProperty
+import com.newoether.agora.api.providerToolValidationError
 import com.newoether.agora.tool.AskUserToolProvider
 import com.newoether.agora.viewmodel.AskUserController
 import com.newoether.agora.viewmodel.GenerationContext
@@ -10,7 +11,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -90,7 +90,7 @@ class ToolSchemaJsonTest {
     fun `the ask_user schema is valid and keeps its question set nested`() {
         val definitions = AskUserToolProvider(AskUserController())
             .definitions(GenerationContext(askUserEnabled = true))
-        assertTrue(validateToolDefinitions(definitions).isEmpty())
+        assertEquals(null, providerToolValidationError(definitions))
 
         val schema = ToolSchemaJson.of(definitions.single().function.parameters)
         val questions = schema["properties"]!!.jsonObject["questions"]!!.jsonObject

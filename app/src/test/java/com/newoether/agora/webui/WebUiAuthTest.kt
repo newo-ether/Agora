@@ -138,7 +138,11 @@ class WebUiAuthTest {
             override val defaultValue get() = PreferencesSerializer.defaultValue
             override suspend fun readFrom(source: okio.BufferedSource): androidx.datastore.preferences.core.Preferences {
                 val value = PreferencesSerializer.readFrom(source)
-                if (holdWrite) readDuringWrite.complete(Unit)
+                if (holdWrite) {
+                    // Release the consumed file before unblocking its replacement on Windows.
+                    source.close()
+                    readDuringWrite.complete(Unit)
+                }
                 return value
             }
             override suspend fun writeTo(t: androidx.datastore.preferences.core.Preferences, sink: okio.BufferedSink) {

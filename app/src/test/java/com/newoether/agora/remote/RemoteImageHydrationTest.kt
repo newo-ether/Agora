@@ -73,9 +73,10 @@ class RemoteImageHydrationTest {
                 ToolImageAttachment("/private/tool.png", "image/png", 128)
             })
         val message = hydration.observeMessage(state.value.owner!!, "group").filterNotNull().first()
-        assertEquals("view_image", message.segments!!.single().toolName)
+        val segments = message.segments!!
+        assertEquals("view_image", segments.single().toolName)
         assertEquals(0, imageReads)
-        assertTrue(message.segments.single().toolImages.isEmpty())
+        assertTrue(segments.single().toolImages.isEmpty())
     }
 
     @Test fun inlinePicturesPreserveMarkdownAndUseSeparateIndexedImagesWithoutSearchDownloads() = runTest {

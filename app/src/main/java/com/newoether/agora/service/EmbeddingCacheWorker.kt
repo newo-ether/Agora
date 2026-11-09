@@ -195,14 +195,15 @@ class EmbeddingCacheWorker(
             val candidates = mutableListOf<EmbeddingCandidate>()
             page.forEach { work ->
                 currentCoroutineContext().ensureActive()
-                if (work.sourceFingerprint == null) {
+                val sourceFingerprint = work.sourceFingerprint
+                if (sourceFingerprint == null) {
                     semanticDao.completeExactWork(work, System.currentTimeMillis())
                 } else {
                     val text = semanticDao.getSearchableMessageText(work.messageId)
-                    if (text != null && semanticSourceFingerprint(text) == work.sourceFingerprint) {
+                    if (text != null && semanticSourceFingerprint(text) == sourceFingerprint) {
                         candidates += EmbeddingCandidate(
                             workRevision = work.sourceRevision,
-                            fingerprint = work.sourceFingerprint,
+                            fingerprint = sourceFingerprint,
                             message = IndexableMessage(work.messageId, text),
                         )
                     } else {

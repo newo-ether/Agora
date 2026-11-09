@@ -72,8 +72,9 @@ fun findMetaForIndex(meta: AttachmentMeta?, index: Int): AttachmentItem? {
     if (meta == null) return null
     meta.items.firstOrNull { it.imageIndex == index }?.let { return it }
     return meta.items.firstOrNull { m ->
-        m.imageIndex != null && (m.pageCount ?: 1) > 0 &&
-        index in m.imageIndex until m.imageIndex + (m.pageCount ?: 1)
+        val imageIndex = m.imageIndex
+        imageIndex != null && (m.pageCount ?: 1) > 0 &&
+        index in imageIndex until imageIndex + (m.pageCount ?: 1)
     }
 }
 

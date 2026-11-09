@@ -35,12 +35,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Run application and build-logic tests
+      - name: Run application, library and build-logic tests
         timeout-minutes: 35
         run: |
           chmod +x ./gradlew
           ./gradlew -p build-logic test --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process --stacktrace
-          ./gradlew :app:testFdroidDebugUnitTest verifyKotlinFileSize --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process --stacktrace
+          ./gradlew :app:testFdroidDebugUnitTest :core:model:test :core:contracts:test :core:presentation:test :data:database:test :provider:cloud:test verifyKotlinFileSize --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process --stacktrace
 
       - name: Check Play flavor behavior
         timeout-minutes: 12
@@ -55,6 +55,12 @@ jobs:
           path: |
             app/build/reports/tests/
             app/build/test-results/
+            core/*/build/reports/tests/
+            core/*/build/test-results/
+            data/*/build/reports/tests/
+            data/*/build/test-results/
+            provider/*/build/reports/tests/
+            provider/*/build/test-results/
             build-logic/build/reports/tests/
             build-logic/build/test-results/
           if-no-files-found: warn

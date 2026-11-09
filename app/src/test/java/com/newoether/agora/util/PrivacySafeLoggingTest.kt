@@ -130,6 +130,38 @@ class PrivacySafeLoggingTest {
     }
 
     @Test
+    fun `application facade and cloud logger share initialization and force enabled state`() {
+        mockkStatic(Log::class)
+        every { Log.d(any(), any<String>()) } returns 0
+        every { Log.w(any(), any<String>()) } returns 0
+        val context = mockk<Context>()
+        every { context.applicationInfo } returns ApplicationInfo().apply { flags = 0 }
+        DebugLog.forceEnabled = false
+        DebugLog.init(context)
+
+        DebugLog.d("app", "disabled")
+        CloudDebugLog.d("cloud", "disabled")
+        verify(exactly = 0) { Log.d(any(), any<String>()) }
+
+        DebugLog.forceEnabled = true
+        assertTrue(CloudDebugLog.forceEnabled)
+        CloudDebugLog.d("cloud", "enabled")
+        verify(exactly = 1) { Log.d("cloud", "enabled") }
+
+        CloudDebugLog.forceEnabled = false
+        assertFalse(DebugLog.forceEnabled)
+        DebugLog.d("app", "disabled-again")
+        verify(exactly = 0) { Log.d("app", "disabled-again") }
+
+        every { context.applicationInfo } returns ApplicationInfo().apply {
+            flags = ApplicationInfo.FLAG_DEBUGGABLE
+        }
+        CloudDebugLog.init(context)
+        DebugLog.w("app", "debug-enabled")
+        verify(exactly = 1) { Log.w("app", "debug-enabled") }
+    }
+
+    @Test
     fun `throwable summary has a bounded stack frame count`() {
         val failure = IOException("omitted").apply {
             stackTrace = Array(100) { index ->

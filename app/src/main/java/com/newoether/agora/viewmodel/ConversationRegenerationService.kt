@@ -57,9 +57,10 @@ internal class ConversationRegenerationService(
             request.messageId,
         ) ?: return false
         if (boundary.lastAssistant?.id != request.messageId) return false
-        val rootOutputId = boundary.firstAssistant?.id ?: return false
+        val firstAssistant = boundary.firstAssistant ?: return false
+        val rootOutputId = firstAssistant.id
         val targetParentMessageId =
-            boundary.input?.id ?: boundary.firstAssistant.parentId ?: return false
+            boundary.input?.id ?: firstAssistant.parentId ?: return false
 
         val uiToken = state.tryAcquireForReplacement() ?: return false
         val transitions = request.origin.branchTransitions

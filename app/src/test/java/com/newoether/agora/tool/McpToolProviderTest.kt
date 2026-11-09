@@ -1,6 +1,6 @@
 package com.newoether.agora.tool
 
-import com.newoether.agora.api.util.validateToolDefinitions
+import com.newoether.agora.api.providerToolValidationError
 import com.newoether.agora.mcp.McpRegistry
 import com.newoether.agora.mcp.McpRemoteTool
 import com.newoether.agora.mcp.McpToolDescriptor
@@ -39,7 +39,7 @@ class McpToolProviderTest {
     @Test fun `definitions are fixed when no registry state is available and only entries are handled`() {
         val definitions = provider.definitions(context)
         assertEquals(listOf("mcp_list_servers", "mcp_search_tools", "mcp_call_tool"), definitions.map { it.function.name })
-        assertTrue(validateToolDefinitions(definitions).isEmpty())
+        assertEquals(null, providerToolValidationError(definitions))
         assertTrue(provider.handles("mcp_list_servers"))
         assertTrue(provider.handles("mcp_search_tools"))
         assertTrue(provider.handles("mcp_call_tool"))
@@ -58,7 +58,7 @@ class McpToolProviderTest {
         val search = named.single { it.function.name == "mcp_search_tools" }.function.description
         assertTrue(search.endsWith("""[{"id":"blender","name":"Blender \"MCP\""},{"id":"home","name":"Home"}]"""))
         assertEquals(named, provider.definitions(context))
-        assertTrue(validateToolDefinitions(named).isEmpty())
+        assertEquals(null, providerToolValidationError(named))
     }
 
     @Test fun `listing uses bounded defaults and pagination without changing definitions`() = runTest {

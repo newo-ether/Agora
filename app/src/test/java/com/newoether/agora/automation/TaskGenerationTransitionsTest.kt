@@ -10,6 +10,7 @@ import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.model.RunEndReason
 import com.newoether.agora.model.RunStatus
 import com.newoether.agora.phone.PhoneControlLease
+import com.newoether.agora.util.CloudDebugLog
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.viewmodel.AutomaticCompactContinuationRequest
 import com.newoether.agora.viewmodel.BoundRunGenerationRequest
@@ -61,14 +62,16 @@ import org.junit.Test
 class TaskGenerationTransitionsTest {
     @Before
     fun stubDiagnosticLogging() {
-        mockkObject(DebugLog)
+        mockkObject(DebugLog, CloudDebugLog)
         every { DebugLog.d(any(), any()) } just Runs
         every { DebugLog.e(any(), any()) } just Runs
+        every { CloudDebugLog.d(any(), any()) } just Runs
+        every { CloudDebugLog.e(any(), any()) } just Runs
     }
 
     @After
     fun restoreDiagnosticLogging() {
-        unmockkObject(DebugLog)
+        unmockkObject(DebugLog, CloudDebugLog)
     }
 
     @Test

@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
     // Build-time bytecode fix for the Android 15 removeFirst()/removeLast() crash (see build-logic).
     id("buildlogic.removefirstlast-fix")
 }
@@ -52,10 +51,6 @@ android {
                 targets += listOf("agora_llama", "agora_proot")
             }
         }
-    }
-
-    ksp {
-        arg("room.schemaLocation", "$projectDir/schemas")
     }
 
     signingConfigs {
@@ -175,6 +170,11 @@ afterEvaluate {
 }
 
 dependencies {
+    implementation(project(":core:model"))
+    implementation(project(":core:contracts"))
+    implementation(project(":core:presentation"))
+    implementation(project(":data:database"))
+    implementation(project(":provider:cloud"))
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation(libs.androidx.core.ktx)
@@ -193,7 +193,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.compose.markdown)
     implementation(libs.jetbrains.markdown)

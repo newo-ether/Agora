@@ -11,9 +11,9 @@ import org.junit.Test
 class SemanticIndexMutationSourceContractTest {
     @Test
     fun sourceMetadataAndAffectedConversationCountsShareTheOwningRoomTransaction() {
-        val ledger = source("app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt")
-        val mutations = source("app/src/main/java/com/newoether/agora/data/local/SemanticMutationDao.kt")
-        val metadata = source("app/src/main/java/com/newoether/agora/data/local/SemanticMetadataDao.kt")
+        val ledger = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticIndexLedger.kt")
+        val mutations = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticMutationDao.kt")
+        val metadata = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticMetadataDao.kt")
         val repository = source("app/src/main/java/com/newoether/agora/data/repository/ConversationRepository.kt")
 
         listOf("insertMessage", "upsertMessage").forEach { operation ->
@@ -57,19 +57,19 @@ class SemanticIndexMutationSourceContractTest {
             "advanceSemanticConversation(source.conversationId,",
             "if (changed && !legacy) deleteSourceEmbeddingRows(source.messageId)",
             "putSemanticSource(source)", "adjustSourceEmbeddingCounts(source, 1)")
-        val sourceMutation = ledger.section("internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(",
-            "internal suspend fun <T> ChatDatabase.withSemanticGraphMutation(")
+        val sourceMutation = ledger.section("suspend fun <T> ChatDatabase.withSemanticSourceMutation(",
+            "suspend fun <T> ChatDatabase.withSemanticGraphMutation(")
         assertTrue(sourceMutation.contains("): T = withTransaction {"))
         assertOrdered(sourceMutation, "val before =", "getSearchableMessageFingerprint(it)",
             "val result = block()", "val changed =", "getSearchableMessageFingerprint(messageId)",
             "semanticDao.invalidateSemanticSources(snapshot, changed, updatedAt)")
         val invalidation = ledger.section("private suspend fun SemanticIndexDao.invalidateSemanticSources(",
-            "internal suspend fun <T> ChatDatabase.withSemanticSourceMutation(")
+            "suspend fun <T> ChatDatabase.withSemanticSourceMutation(")
         assertTrue(invalidation.contains("enqueueExactWork(modelId, messageId, fingerprint, updatedAt)"))
         assertFalse(invalidation.contains("requestReconcile("))
         assertFalse(invalidation.contains("snapshot.second"))
         val mutationBoundaries = ledger.section("private suspend fun SemanticIndexDao.invalidateSemanticSources(",
-            "internal suspend fun ChatDatabase.commitSemanticEmbedding(")
+            "suspend fun ChatDatabase.commitSemanticEmbedding(")
         assertFalse(mutationBoundaries.contains("getSearchableMessageText("))
         assertFalse(mutationBoundaries.contains("getLegacySource("))
         assertFalse(mutationBoundaries.contains("requestSemanticReconcile("))
@@ -96,16 +96,16 @@ class SemanticIndexMutationSourceContractTest {
     @Test
     fun embeddingCommitRejectsStaleResultsAndModelLifecycleIsAtomic() {
         val ledger = source(
-            "app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt",
+            "data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticIndexLedger.kt",
         )
         val chatDao = source(
-            "app/src/main/java/com/newoether/agora/data/local/ChatDao.kt",
-        ) + source("app/src/main/java/com/newoether/agora/data/local/ChatSearchDao.kt") +
-            source("app/src/main/java/com/newoether/agora/data/local/ChatMediaReferencesDao.kt")
+            "data/database/src/main/kotlin/com/newoether/agora/data/local/ChatDao.kt",
+        ) + source("data/database/src/main/kotlin/com/newoether/agora/data/local/ChatSearchDao.kt") +
+            source("data/database/src/main/kotlin/com/newoether/agora/data/local/ChatMediaReferencesDao.kt")
 
         val commit = ledger.section(
-            "internal suspend fun ChatDatabase.commitSemanticEmbedding(",
-            "internal suspend fun ChatDatabase.invalidateSemanticModel(",
+            "suspend fun ChatDatabase.commitSemanticEmbedding(",
+            "suspend fun ChatDatabase.invalidateSemanticModel(",
         )
         assertTrue(commit.contains("): Boolean = withTransaction {"))
         assertOrdered(
@@ -123,8 +123,8 @@ class SemanticIndexMutationSourceContractTest {
         assertFalse(commit.contains("deleteEmbeddingForModelMessage"))
 
         val invalidation = ledger.section(
-            "internal suspend fun ChatDatabase.invalidateSemanticModel(",
-            "internal suspend fun ChatDatabase.deleteSemanticModel(",
+            "suspend fun ChatDatabase.invalidateSemanticModel(",
+            "suspend fun ChatDatabase.deleteSemanticModel(",
         )
         assertTrue(invalidation.contains("withTransaction {"))
         assertOrdered(
@@ -135,14 +135,14 @@ class SemanticIndexMutationSourceContractTest {
             "KIND_STALE_EMBEDDINGS",
         )
         val deletion = ledger.substringAfter(
-            "internal suspend fun ChatDatabase.deleteSemanticModel(",
+            "suspend fun ChatDatabase.deleteSemanticModel(",
         )
         assertTrue(deletion.contains("withTransaction {"))
         assertFalse(invalidation.contains("deleteEmbeddingsForModel("))
         assertFalse(deletion.contains("deleteEmbeddingsForModel("))
         assertOrdered(deletion, "deleteModel(modelId)", "KIND_STALE_EMBEDDINGS")
 
-        val membership = source("app/src/main/java/com/newoether/agora/data/local/SemanticEmbeddingDao.kt")
+        val membership = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticEmbeddingDao.kt")
         assertTrue(membership.contains("@Transaction\n    suspend fun upsertEmbedding("))
         val countedCommit = membership.section("suspend fun upsertEmbedding(", "suspend fun insertEmbeddings(")
         assertOrdered(countedCommit, "findEmbeddingIdentities(", "upsertEmbeddingRow(embedding.copy(",
@@ -290,8 +290,8 @@ class SemanticIndexMutationSourceContractTest {
     @Test
     fun canonicalWorkerConsumesExactWorkThenOnlyDirtyConversationSourcePages() {
         val worker = source("app/src/main/java/com/newoether/agora/service/EmbeddingCacheWorker.kt")
-        val ledger = source("app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt")
-        val metadata = source("app/src/main/java/com/newoether/agora/data/local/SemanticMetadataDao.kt")
+        val ledger = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticIndexLedger.kt")
+        val metadata = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticMetadataDao.kt")
 
         listOf("getIndexableMessageCount(", "getEmbeddingCountByModel(", "getUnembeddedMessagesPage(",
             "getFirstReconcileMessageIdsPage(", "getReconcileMessageIdsPage(", "getLegacySource(",
@@ -308,9 +308,10 @@ class SemanticIndexMutationSourceContractTest {
 
         val exact = worker.section("private suspend fun consumeExactWork(", "private suspend fun reconcileModel(")
         assertOrdered(exact, "semanticDao.getWorkCountThroughRevision(", "publishProgress(",
-            "semanticDao.getWorkPage(", "work.sourceFingerprint == null", "semanticDao.completeExactWork(work",
+            "semanticDao.getWorkPage(", "val sourceFingerprint = work.sourceFingerprint",
+            "sourceFingerprint == null", "semanticDao.completeExactWork(work",
             "semanticDao.getSearchableMessageText(work.messageId)",
-            "semanticSourceFingerprint(text) == work.sourceFingerprint", "!embedCandidates(")
+            "semanticSourceFingerprint(text) == sourceFingerprint", "!embedCandidates(")
         val reconcile = worker.section("private suspend fun reconcileModel(", "private suspend fun embedCandidates(")
         assertOrdered(reconcile, "while (true)", "semanticDao.getLedger(model.id)?.reconcileRevision",
             "metadataDao.getDirtyConversations(", "pageLedger.sourceRevision != admittedRevision",
@@ -377,10 +378,10 @@ class SemanticIndexMutationSourceContractTest {
 
     @Test
     fun additiveMigrationAndIndependentBootstrapKeepLegacyBodiesOffHotPaths() {
-        val migration = source("app/src/main/java/com/newoether/agora/data/local/migration/Migration41To42.kt")
+        val migration = source("data/database/src/main/kotlin/com/newoether/agora/data/local/migration/Migration41To42.kt")
         val worker = source("app/src/main/java/com/newoether/agora/service/SemanticMetadataWorker.kt")
-        val metadata = source("app/src/main/java/com/newoether/agora/data/local/SemanticMetadataDao.kt")
-        val sourceMetadata = source("app/src/main/java/com/newoether/agora/data/local/SemanticSourceMetadata.kt")
+        val metadata = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticMetadataDao.kt")
+        val sourceMetadata = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticSourceMetadata.kt")
         listOf("semantic_sources", "semantic_conversations", "semantic_model_conversations",
             "semantic_metadata_state").forEach {
             assertTrue(migration.contains("CREATE TABLE IF NOT EXISTS $it"))
@@ -401,14 +402,14 @@ class SemanticIndexMutationSourceContractTest {
         assertOrdered(pageCommit, "state.afterMessageId != expectedAfterId",
             "getSemanticSource(source.messageId) == null", "getSemanticMessageIdentity(source.messageId) != null",
             "maintainSemanticSource(source, legacy = true)", "advanceLegacyMetadata(")
-        assertTrue(sourceMetadata.contains("text.take(Constants.MAX_EMBEDDING_TEXT_LENGTH + 1)"))
+        assertTrue(sourceMetadata.contains("text.take(DatabaseConstants.MAX_EMBEDDING_TEXT_LENGTH + 1)"))
         val providerInput = source("app/src/main/java/com/newoether/agora/service/EmbeddingCacheWorker.kt")
             .section("private suspend fun embedCandidates(", "private fun ReconcileIndexableMessage.toCandidate(")
         assertTrue(providerInput.contains("candidate.message.text.take(Constants.MAX_EMBEDDING_TEXT_LENGTH)"))
-        val fingerprint = source("app/src/main/java/com/newoether/agora/data/local/SemanticIndexLedger.kt")
-            .section("internal fun semanticSourceFingerprint(", "internal typealias SemanticModelSnapshot")
+        val fingerprint = source("data/database/src/main/kotlin/com/newoether/agora/data/local/SemanticIndexLedger.kt")
+            .section("fun semanticSourceFingerprint(", "typealias SemanticModelSnapshot")
         assertTrue(fingerprint.contains("MessageDigest.getInstance(\"SHA-256\")"))
-        assertTrue(fingerprint.contains("text.take(Constants.MAX_EMBEDDING_TEXT_LENGTH).toByteArray(Charsets.UTF_8)"))
+        assertTrue(fingerprint.contains("text.take(DatabaseConstants.MAX_EMBEDDING_TEXT_LENGTH).toByteArray(Charsets.UTF_8)"))
     }
 
     @Test

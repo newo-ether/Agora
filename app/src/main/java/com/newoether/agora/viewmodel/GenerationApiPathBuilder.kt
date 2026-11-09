@@ -60,7 +60,9 @@ internal class GenerationApiPathBuilder(
                         ) &&
                     definitions.isNotEmpty()
             val fixedTokenCost = if (config.requestResolver == null) {
-                ContextTokenEstimator.forModel(config.modelId).estimateFixed(
+                ContextTokenEstimator.forModel(
+                    config.modelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
+                ).estimateFixed(
                     systemPrompt = config.effectiveSystemPrompt,
                     tools = definitions,
                     initialUserPrompt = config.initialUserPrompt,

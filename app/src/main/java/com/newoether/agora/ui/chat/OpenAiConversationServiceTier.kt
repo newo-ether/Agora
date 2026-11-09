@@ -5,35 +5,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.ConversationSettings
-import com.newoether.agora.data.isResponsesApiEnabledForProvider
 import com.newoether.agora.model.OpenAiServiceTiers
+import com.newoether.agora.presentation.OpenAiConversationServiceTierState
+import com.newoether.agora.presentation.resolveOpenAiConversationServiceTier
 import com.newoether.agora.ui.common.AgoraHaptics
 import com.newoether.agora.viewmodel.ChatViewModel
-
-internal data class OpenAiConversationServiceTierState(
-    val available: Boolean,
-    val enabled: Boolean,
-    val tier: String,
-)
-
-internal fun resolveOpenAiConversationServiceTier(
-    globalEnabled: Boolean,
-    globalTier: String,
-    conversationOverride: ConversationSettings?,
-    providerName: String,
-    builtInOpenAiResponsesEnabled: Boolean,
-    customProviders: List<CustomProviderConfig>,
-): OpenAiConversationServiceTierState = OpenAiConversationServiceTierState(
-    available = isResponsesApiEnabledForProvider(
-        providerName = providerName,
-        builtInOpenAiEnabled = builtInOpenAiResponsesEnabled,
-        customProviders = customProviders,
-    ),
-    enabled = conversationOverride?.openAiServiceTierEnabled ?: globalEnabled,
-    tier = OpenAiServiceTiers.normalize(
-        conversationOverride?.openAiServiceTier ?: globalTier,
-    ),
-)
 
 @Composable
 internal fun openAiConversationServiceTierState(

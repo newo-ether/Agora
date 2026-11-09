@@ -8,10 +8,10 @@ import com.newoether.agora.data.repository.updateConversationModel
 import com.newoether.agora.data.modelDisplayName
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.thinkingCapabilityForSelectedModel
-import com.newoether.agora.ui.chat.EffectiveConversationControls
-import com.newoether.agora.ui.chat.resolveEffectiveConversationControls
-import com.newoether.agora.ui.chat.withGenerationParameters
-import com.newoether.agora.ui.chat.validGenerationParameters
+import com.newoether.agora.presentation.EffectiveConversationControls
+import com.newoether.agora.presentation.resolveEffectiveConversationControls
+import com.newoether.agora.presentation.withGenerationParameters
+import com.newoether.agora.presentation.validGenerationParameters
 import com.newoether.agora.viewmodel.CompactRequest
 import com.newoether.agora.viewmodel.CompactResult
 import com.newoether.agora.viewmodel.CompactFailureReason

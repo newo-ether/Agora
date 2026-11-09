@@ -12,7 +12,6 @@ import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.local.RunEntity
 import com.newoether.agora.data.local.SemanticMetadataDao
 import com.newoether.agora.data.local.SemanticSourceEntity
-import com.newoether.agora.data.local.semanticSource
 import com.newoether.agora.data.local.semanticSourceFingerprint
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunStatus
@@ -268,7 +267,7 @@ class SemanticMetadataWorkerTest {
         database.chatDao().insertMessageRow(message("source", original))
         val metadata = database.semanticMetadataDao()
         assertFalse(metadata.ensureMetadataState().complete)
-        metadata.maintainSemanticSource(semanticSource("source", "root", Participant.USER, original))
+        database.chatDao().upsertMessage(message("source", original))
         statements.clear()
         recordSql.set(true)
 

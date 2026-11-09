@@ -230,12 +230,7 @@ class ImageArtifactProcessor(
             return ImageArtifactProcessor(context, quality.maxLongEdge, quality.jpegQuality)
         }
 
-        internal fun sampleSizeForBounds(width: Int, height: Int, maxLongEdge: Int): Int {
-            require(width > 0 && height > 0 && maxLongEdge > 0)
-            val longest = maxOf(width, height).toLong()
-            var sample = 1
-            while (longest / (sample.toLong() * 2L) >= maxLongEdge) sample *= 2
-            return sample
-        }
+        internal fun sampleSizeForBounds(width: Int, height: Int, maxLongEdge: Int): Int =
+            com.newoether.agora.model.ImageArtifactLimits.sampleSizeForBounds(width, height, maxLongEdge)
     }
 }

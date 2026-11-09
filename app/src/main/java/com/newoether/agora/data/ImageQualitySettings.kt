@@ -35,7 +35,7 @@ data class ImageQualitySettings(
         const val BALANCED = "balanced"
         const val HIGH = "high"
         const val CUSTOM = "custom"
-        const val DEFAULT_MAX_LONG_EDGE = 2048
+        const val DEFAULT_MAX_LONG_EDGE = com.newoether.agora.model.ImageArtifactLimits.DEFAULT_MAX_LONG_EDGE
         const val DEFAULT_JPEG_QUALITY = 80
         const val LIGHT_MAX_LONG_EDGE = 1024
         const val LIGHT_JPEG_QUALITY = 75

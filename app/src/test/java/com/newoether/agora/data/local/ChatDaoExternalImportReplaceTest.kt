@@ -210,10 +210,12 @@ class ChatDaoExternalImportReplaceTest {
     private fun mainSource(relativePath: String): File {
         var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         repeat(8) {
-            val candidate = File(
-                directory,
-                "app/src/main/java/com/newoether/agora/$relativePath",
-            )
+            val sourceRoot = if (relativePath.startsWith("data/local/")) {
+                "data/database/src/main/kotlin/com/newoether/agora"
+            } else {
+                "app/src/main/java/com/newoether/agora"
+            }
+            val candidate = File(directory, "$sourceRoot/$relativePath")
             if (candidate.isFile) return candidate
             directory = directory.parentFile ?: return@repeat
         }

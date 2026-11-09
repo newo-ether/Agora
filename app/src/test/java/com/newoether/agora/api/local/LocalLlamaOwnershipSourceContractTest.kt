@@ -204,7 +204,7 @@ class LocalLlamaOwnershipSourceContractTest {
         val native = mainCppSource("llama_chat_jni.cpp")
         val callbacks = mainCppSource("llama_chat_callbacks.cpp")
         val engine = mainSource("com/newoether/agora/api/LlamaChatEngine.kt")
-        val providerContract = mainSource("com/newoether/agora/api/LlmProvider.kt")
+        val providerContract = contractsSource("com/newoether/agora/api/LlmProvider.kt")
         val provider = mainSource("com/newoether/agora/api/local/LocalProvider.kt")
         val normalizer = mainSource("com/newoether/agora/api/util/ProviderStreamNormalizer.kt")
         val runner = mainSource("com/newoether/agora/viewmodel/ProviderPassRunner.kt")
@@ -584,6 +584,16 @@ class LocalLlamaOwnershipSourceContractTest {
     private fun nativeFunctionSection(source: String, functionName: String): String = source
         .substringAfter("Java_com_newoether_agora_api_LlamaChatEngine_$functionName(")
         .substringBefore("\nJNIEXPORT")
+
+    private fun contractsSource(relativePath: String): String {
+        var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
+        repeat(8) {
+            val source = File(directory, "core/contracts/src/main/java/$relativePath")
+            if (source.isFile) return source.readText()
+            directory = directory.parentFile ?: error("Reached filesystem root")
+        }
+        error("Unable to locate contracts source: $relativePath")
+    }
 
     private fun mainSource(relativePath: String): String = locateSourceRoot("java")
         .resolve(relativePath)

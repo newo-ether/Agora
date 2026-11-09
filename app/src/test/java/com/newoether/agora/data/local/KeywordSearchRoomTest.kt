@@ -83,19 +83,6 @@ class KeywordSearchRoomTest {
         assertTrue(search("needle", 1).isEmpty())
     }
 
-    @Test fun bothPageQueriesUseTimestampIndexAndBoundInnerRead() {
-        for (query in listOf(KEYWORD_MESSAGE_FIRST_PAGE, KEYWORD_MESSAGE_NEXT_PAGE)) {
-            // EXPLAIN runs the exact production query with fixed synthetic arguments.
-            val sql = query.replace(":literalQuery", "NULL").replace(":query", "'needle'").replace(":pageSize", "128")
-                .replace(":beforeTimestamp", "20").replace(":beforeId", "'before'")
-            val details = database.openHelper.readableDatabase.query("EXPLAIN QUERY PLAN $sql").use { cursor ->
-                buildList { while (cursor.moveToNext()) add(cursor.getString(3)) }
-            }
-            assertTrue(details.toString(), details.any { "index_messages_timestamp_id" in it })
-            assertFalse(details.toString(), details.any { "SCAN messages" in it && "INDEX" !in it })
-        }
-    }
-
     private suspend fun search(query: String, limit: Int = 30) =
         searchConversationMessages(dao, query, limit).map { it.id }
 

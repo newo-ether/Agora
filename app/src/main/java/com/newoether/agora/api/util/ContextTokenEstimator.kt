@@ -20,8 +20,12 @@ object ContextTokenEstimator {
     private val default = CostModelContextEstimator(ContextCostModel.Default)
 
     /** Estimator bound to the cost model of a "Provider:model" id. */
-    fun forModel(prefixedModelId: String?): CostModelContextEstimator =
-        CostModelContextEstimator(ContextCostModels.forModel(prefixedModelId))
+    fun forModel(
+        prefixedModelId: String?,
+        exactLocalTokenCount: (String) -> Int? = { null },
+    ): CostModelContextEstimator = CostModelContextEstimator(
+        ContextCostModels.forModel(prefixedModelId, exactLocalTokenCount),
+    )
 
     fun estimate(
         messages: List<ChatMessage>,

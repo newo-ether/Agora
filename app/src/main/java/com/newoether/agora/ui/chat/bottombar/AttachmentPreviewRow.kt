@@ -177,13 +177,14 @@ internal fun AttachmentPreviewRow(
                     val clickableModifier = when {
                         unavailable || !isReady -> Modifier
                         isFile -> {
-                            if (!attachment.storage.canPreview || attachment.preparedText == null) {
+                            val preparedText = attachment.preparedText
+                            if (!attachment.storage.canPreview || preparedText == null) {
                                 Modifier
                             } else if (onFileContentClick != null) {
                                 Modifier.clickable {
                                     onFileContentClick(
                                         attachment.fileName ?: uriString,
-                                        attachment.preparedText,
+                                        preparedText,
                                     )
                                 }
                             } else {

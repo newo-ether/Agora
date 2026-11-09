@@ -151,6 +151,10 @@ Never:
 
 ## 7. Module contract registry
 
+Gradle source ownership and dependency directions are recorded in
+[modularization-plan.md](modularization-plan.md). The behavior contracts below continue to
+apply across those build boundaries.
+
 | Scope | Required module contract |
 |---|---|
 | External agent devices, existing sessions, independent Remote transport and shared chat presentation | [remote-sessions.md](remote-sessions.md) |

@@ -1,11 +1,12 @@
 package com.newoether.agora.viewmodel
 
+import com.newoether.agora.api.OpenAiMessage
 import com.newoether.agora.api.ToolDefinition
 import com.newoether.agora.api.ToolFunction
 import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.api.ToolProperty
-import com.newoether.agora.api.util.Base64FileRegistry
-import com.newoether.agora.api.util.convertToOpenAiMessages
+import com.newoether.agora.api.captureProviderRequest
+import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.api.util.prepareMessages
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
@@ -23,6 +24,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -243,10 +245,13 @@ class GenerationApiPathBuilderTest {
             userPrepend = path.providerConfig.userPrepend,
             userPostpend = path.providerConfig.userPostpend,
         )
-        val wire = convertToOpenAiMessages(
-            prepareMessages(projected, path.providerConfig.maxContextWindow),
-            base64Files = Base64FileRegistry(),
+        val request = captureProviderRequest(
+            provider = CustomOpenAiProvider("provider", "https://example.test/v1"),
+            messages = prepareMessages(projected, path.providerConfig.maxContextWindow),
+            // These wire assertions cover conversation turns without a system message.
+            config = path.providerConfig.copy(systemPrompt = null),
         )
+        val wire = Json.decodeFromJsonElement<List<OpenAiMessage>>(request.getValue("messages"))
         val wireText = wire.flatMap { it.content.orEmpty() }.mapNotNull { it.text }.joinToString("\n")
 
         assertEquals(listOf("user", "assistant", "user"), wire.map { it.role })
@@ -298,10 +303,13 @@ class GenerationApiPathBuilderTest {
         assertEquals(MessageStatus.SUCCESS, failed.status)
         assertEquals(1, Regex(Regex.escape(displayedError)).findAll(failed.text).count())
         assertFalse(failed.text.contains(rawError))
-        val wire = convertToOpenAiMessages(
-            prepareMessages(path.messages, path.providerConfig.maxContextWindow),
-            base64Files = Base64FileRegistry(),
+        val request = captureProviderRequest(
+            provider = CustomOpenAiProvider("provider", "https://example.test/v1"),
+            messages = prepareMessages(path.messages, path.providerConfig.maxContextWindow),
+            // These wire assertions cover conversation turns without a system message.
+            config = path.providerConfig.copy(systemPrompt = null),
         )
+        val wire = Json.decodeFromJsonElement<List<OpenAiMessage>>(request.getValue("messages"))
         assertEquals(listOf("user", "assistant", "user"), wire.map { it.role })
         val wireText = wire.flatMap { it.content.orEmpty() }.mapNotNull { it.text }.joinToString("\n")
         assertEquals(1, Regex(Regex.escape(displayedError)).findAll(wireText).count())

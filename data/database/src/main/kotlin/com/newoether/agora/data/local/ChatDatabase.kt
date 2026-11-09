@@ -1,0 +1,341 @@
+package com.newoether.agora.data.local
+
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.newoether.agora.data.local.migration.MIGRATION_16_17
+import com.newoether.agora.data.local.migration.MIGRATION_17_18
+import com.newoether.agora.data.local.migration.MIGRATION_18_19
+import com.newoether.agora.data.local.migration.MIGRATION_19_20
+import com.newoether.agora.data.local.migration.MIGRATION_20_21
+import com.newoether.agora.data.local.migration.MIGRATION_21_22
+import com.newoether.agora.data.local.migration.MIGRATION_22_23
+import com.newoether.agora.data.local.migration.MIGRATION_23_24
+import com.newoether.agora.data.local.migration.MIGRATION_24_25
+import com.newoether.agora.data.local.migration.MIGRATION_25_26
+import com.newoether.agora.data.local.migration.MIGRATION_26_27
+import com.newoether.agora.data.local.migration.MIGRATION_27_28
+import com.newoether.agora.data.local.migration.MIGRATION_28_29
+import com.newoether.agora.data.local.migration.MIGRATION_29_30
+import com.newoether.agora.data.local.migration.MIGRATION_30_31
+import com.newoether.agora.data.local.migration.MIGRATION_31_32
+import com.newoether.agora.data.local.migration.MIGRATION_32_33
+import com.newoether.agora.data.local.migration.MIGRATION_33_34
+import com.newoether.agora.data.local.migration.MIGRATION_34_35
+import com.newoether.agora.data.local.migration.MIGRATION_39_40
+import com.newoether.agora.data.local.migration.MIGRATION_40_41
+import com.newoether.agora.data.local.migration.MIGRATION_41_42
+import com.newoether.agora.data.local.migration.MIGRATION_44_45
+import com.newoether.agora.data.local.migration.MIGRATION_45_46
+import com.newoether.agora.data.local.migration.MIGRATION_43_44
+import com.newoether.agora.data.local.migration.MIGRATION_42_43
+import com.newoether.agora.data.local.migration.installAttachmentReferenceTriggers
+import java.util.concurrent.Executor
+
+@Database(
+    entities = [
+        ChatEntity::class,
+        RunEntity::class,
+        MessageEntity::class,
+        EmbeddingEntity::class,
+        TaskEntity::class,
+        LoopEntity::class,
+        NewChatPersistEntity::class,
+        ConversationSettingsTransferEntity::class,
+        ConversationSettingsImportTransferEntity::class,
+        MaintenanceDebtEntity::class,
+        SemanticIndexLedgerEntity::class,
+        SemanticIndexWorkEntity::class,
+        SemanticSourceEntity::class,
+        SemanticConversationEntity::class,
+        SemanticModelConversationEntity::class,
+        SemanticMetadataStateEntity::class,
+        AttachmentReferenceOwner::class,
+        AttachmentReference::class,
+        AttachmentReferenceState::class,
+    ],
+    version = ChatDatabase.CURRENT_VERSION,
+    exportSchema = true
+)@TypeConverters(MessageConverters::class)
+abstract class ChatDatabase : RoomDatabase() {
+    private var mainThreadQueriesAllowed = false
+
+    override fun init(configuration: DatabaseConfiguration) {
+        mainThreadQueriesAllowed = configuration.allowMainThreadQueries
+        super.init(configuration)
+    }
+
+    /**
+     * Room's compatibility preflight calls this before dispatching a suspend DAO operation.
+     * Its implementation opens the helper even just to inspect thread-local transaction state.
+     * Production never enables main-thread database access, so that thread cannot own a
+     * transaction. Avoid acquiring the helper's process lock on the UI thread; worker threads
+     * retain Room's transaction check, including inherited suspending-transaction validation.
+     */
+    override fun inTransaction(): Boolean {
+        if (!mainThreadQueriesAllowed &&
+            android.os.Looper.myLooper() == android.os.Looper.getMainLooper()
+        ) return false
+        return super.inTransaction()
+    }
+
+    abstract fun chatDao(): ChatDao
+    abstract fun maintenanceDebtDao(): MaintenanceDebtDao
+    abstract fun semanticIndexDao(): SemanticIndexDao
+    abstract fun semanticMetadataDao(): SemanticMetadataDao
+
+    companion object {
+        const val CURRENT_VERSION = 46
+        const val DB_NAME = "agora_db"
+
+        val ALL_MIGRATIONS = listOf(
+            // v1 → v2 added messages.images (List<String> stored as TEXT via converter,
+            // NOT NULL with "" representing an empty list). This step was missing, so any
+            // device still on schema v1 crashed on launch with "migration 1 to 2 not found".
+            object : Migration(1, 2) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE messages ADD COLUMN images TEXT NOT NULL DEFAULT ''")
+                }
+            },
+            object : Migration(2, 3) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN selectedBranchesJson TEXT")
+                }
+            },
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE messages ADD COLUMN thoughtTimeMs INTEGER")
+                }
+            },
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE messages ADD COLUMN modelName TEXT")
+                }
+            },
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN systemPromptId TEXT")
+                }
+            },
+            object : Migration(6, 7) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN modelId TEXT")
+                }
+            },
+            object : Migration(7, 8) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE messages ADD COLUMN thoughtTitle TEXT")
+                }
+            },
+            object : Migration(8, 9) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE messages ADD COLUMN toolCallJson TEXT")
+                }
+            },
+            object : Migration(9, 10) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS embeddings (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            messageId TEXT NOT NULL,
+                            embedding BLOB NOT NULL,
+                            chunkText TEXT NOT NULL,
+                            dimension INTEGER NOT NULL
+                        )
+                    """)
+                    db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_embeddings_messageId ON embeddings (messageId)")
+                }
+            },
+            object : Migration(10, 11) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE embeddings ADD COLUMN modelId TEXT NOT NULL DEFAULT ''")
+                    db.execSQL("DROP INDEX IF EXISTS index_embeddings_messageId")
+                    db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_embeddings_messageId_modelId ON embeddings (messageId, modelId)")
+                }
+            },
+            object : Migration(11, 12) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE messages ADD COLUMN attachmentMeta TEXT")
+                }
+            },
+            // v12 → v13 adds the automation layer: tasks + loops tables, and the
+            // task-execution columns on conversations (origin/taskId/graduated).
+            object : Migration(12, 13) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN taskId TEXT")
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN origin TEXT NOT NULL DEFAULT 'user'")
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN graduated INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_conversations_taskId ON conversations (taskId)")
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS tasks (
+                            id TEXT PRIMARY KEY NOT NULL,
+                            name TEXT NOT NULL,
+                            prompt TEXT NOT NULL,
+                            systemPrompt TEXT,
+                            modelId TEXT,
+                            cronExpr TEXT NOT NULL,
+                            nextRunAt INTEGER NOT NULL,
+                            enabled INTEGER NOT NULL DEFAULT 1,
+                            createdAt INTEGER NOT NULL,
+                            lastRunAt INTEGER
+                        )
+                    """)
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS loops (
+                            conversationId TEXT PRIMARY KEY NOT NULL,
+                            intervalMs INTEGER NOT NULL,
+                            prompt TEXT,
+                            nextFireAt INTEGER NOT NULL,
+                            cycleCount INTEGER NOT NULL DEFAULT 0,
+                            maxCycles INTEGER,
+                            active INTEGER NOT NULL DEFAULT 1,
+                            FOREIGN KEY(conversationId) REFERENCES conversations(id) ON DELETE CASCADE
+                        )
+                    """)
+                }
+            },
+            // v13 → v14 adds an optimistic revision to loop state. A cycle that was
+            // already running can then observe a stop/restart and avoid overwriting it.
+            object : Migration(13, 14) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE loops ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
+                }
+            },
+            // v14 → v15 adds per-conversation draft persistence for the composer.
+            object : Migration(14, 15) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN draftText TEXT NOT NULL DEFAULT ''")
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN draftAttachments TEXT")
+                }
+            },
+            // v15 → v16 adds one-shot ("run once at an instant") tasks, which a cron cannot express.
+            object : Migration(15, 16) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE tasks ADD COLUMN runAt INTEGER")
+                }
+            },
+            MIGRATION_16_17,
+            MIGRATION_17_18,
+            MIGRATION_18_19,
+            MIGRATION_19_20,
+            MIGRATION_20_21,
+            MIGRATION_21_22,
+            MIGRATION_22_23,
+            MIGRATION_23_24,
+            MIGRATION_24_25,
+            MIGRATION_25_26,
+            MIGRATION_26_27,
+            MIGRATION_27_28,
+            MIGRATION_28_29,
+            MIGRATION_29_30,
+            MIGRATION_30_31,
+            MIGRATION_31_32,
+            MIGRATION_32_33,
+            MIGRATION_33_34,
+            MIGRATION_34_35,
+            object : Migration(35, 36) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0")
+                }
+            },
+            object : Migration(36, 37) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN todoJson TEXT")
+                }
+            },
+            object : Migration(37, 38) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN parentConversationId TEXT")
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN subagentResultJson TEXT")
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN subagentResultId TEXT")
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN subagentResultStatus TEXT")
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN subagentDeliveredResultId TEXT")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_conversations_parentConversationId ON conversations (parentConversationId)")
+                }
+            },
+            object : Migration(38, 39) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE conversations ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
+                    // Legacy rows have no exact creation record. Freeze their earliest stored activity once.
+                    db.execSQL("""
+                        UPDATE conversations SET createdAt = MIN(lastUpdated,
+                            COALESCE((SELECT MIN(startedAt) FROM runs
+                                WHERE conversationId = conversations.id), lastUpdated),
+                            COALESCE((SELECT MIN(timestamp) FROM messages
+                                WHERE conversationId = conversations.id), lastUpdated))
+                    """)
+                    db.execSQL("UPDATE conversations SET dataChangedAt = MAX(dataChangedAt + 1, lastUpdated, createdAt)")
+                }
+            },
+            MIGRATION_39_40,
+            MIGRATION_40_41,
+            MIGRATION_41_42,
+            MIGRATION_42_43,
+            MIGRATION_43_44,
+            MIGRATION_44_45,
+            MIGRATION_45_46,
+        )
+
+        fun inspectCompatibility(context: Context): DatabaseCompatibility {
+            val dbPath = context.getDatabasePath(DB_NAME)
+            return classifyDatabaseCompatibility(
+                databaseExists = dbPath.exists(),
+                currentVersion = CURRENT_VERSION,
+            ) {
+                SQLiteDatabase.openDatabase(
+                    dbPath.path,
+                    null,
+                    SQLiteDatabase.OPEN_READONLY,
+                ).use { database -> database.version }
+            }
+        }
+
+        /**
+         * Builds and validates the database without any destructive fallback.
+         *
+         * The compatibility check is repeated here as a defense-in-depth boundary for
+         * Workers or future callers that do not enter through AgoraApplication.
+         */
+        fun build(
+            context: Context,
+            queryExecutor: Executor? = null,
+            transactionExecutor: Executor? = null,
+            queryCallback: QueryCallback? = null,
+        ): ChatDatabase {
+            val compatibility = inspectCompatibility(context)
+            check(compatibility.canOpen) {
+                "Refusing to open incompatible Agora database: " +
+                    compatibility.javaClass.simpleName
+            }
+
+            val builder = Room.databaseBuilder(
+                context.applicationContext,
+                ChatDatabase::class.java,
+                DB_NAME,
+            ).addMigrations(*ALL_MIGRATIONS.toTypedArray())
+                .addCallback(object : Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        installAttachmentReferenceTriggers(db)
+                    }
+                })
+            queryCallback?.let { callback ->
+                builder.setQueryCallback(callback, queryExecutor ?: Executor { it.run() })
+            }
+            queryExecutor?.let { builder.setQueryExecutor(it) }
+            transactionExecutor?.let { builder.setTransactionExecutor(it) }
+            val database = builder.build()
+
+            return try {
+                // Force Room to run supported migrations and schema validation before the
+                // process container or normal UI is published as Ready.
+                database.openHelper.writableDatabase
+                database
+            } catch (error: Exception) {
+                database.close()
+                throw error
+            }
+        }
+    }
+}

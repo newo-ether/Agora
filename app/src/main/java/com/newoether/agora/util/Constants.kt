@@ -1,13 +1,17 @@
 package com.newoether.agora.util
 
+import com.newoether.agora.data.local.DatabaseConstants
+import com.newoether.agora.model.ModelConstants
+import com.newoether.agora.viewmodel.GenerationDefaults
+
 object Constants {
-    const val TOOL_MSG_PREFIX = "tool_"
-    const val RESULT_MSG_PREFIX = "result_"
-    const val COMPACT_MSG_PREFIX = "compact_"
-    const val TOOL_CALL_ID_PREFIX = "call_"
+    const val TOOL_MSG_PREFIX = ModelConstants.TOOL_MSG_PREFIX
+    const val RESULT_MSG_PREFIX = ModelConstants.RESULT_MSG_PREFIX
+    const val COMPACT_MSG_PREFIX = ModelConstants.COMPACT_MSG_PREFIX
+    const val TOOL_CALL_ID_PREFIX = ModelConstants.TOOL_CALL_ID_PREFIX
 
     /** Max characters per embedded text chunk */
-    const val MAX_EMBEDDING_TEXT_LENGTH = 8000
+    const val MAX_EMBEDDING_TEXT_LENGTH = DatabaseConstants.MAX_EMBEDDING_TEXT_LENGTH
     /** Max characters stored per embedding chunk for display */
     const val MAX_CHUNK_TEXT_LENGTH = 500
     /** Max file content to read from user-attached text files */
@@ -29,10 +33,10 @@ object Constants {
     /** UTF-8 byte budget for the serialized segment column inside one message row. Text and
      *  thoughts have separate conservative caps below, so their combined worst case remains
      *  comfortably below Android's roughly 2 MB CursorWindow row limit. */
-    const val MAX_PERSISTED_SEGMENTS_BYTES = 600_000
+    const val MAX_PERSISTED_SEGMENTS_BYTES = DatabaseConstants.MAX_PERSISTED_SEGMENTS_BYTES
     /** Max UTF-16 code units persisted in either messages.text or messages.thoughts. At worst this
      *  is about 300 KB of UTF-8, leaving room for both columns, segments, and row metadata. */
-    const val MAX_PERSISTED_TEXT_CHARS = 100_000
+    const val MAX_PERSISTED_TEXT_CHARS = DatabaseConstants.MAX_PERSISTED_TEXT_CHARS
     /** Timeout for fetching available models from a single provider (ms) */
     const val MODEL_FETCH_TIMEOUT_MS = 10_000L
     /** Connection establishment and request writes should fail fast; long-running response work is
@@ -44,8 +48,8 @@ object Constants {
      *  coroutine (flow.emit suspends the producer until the collector returns), so a tool that
      *  blocks forever hangs the whole generation. This bound downgrades that to a recoverable
      *  tool error instead of a permanent hang (#49). Overridable via GenerationContext. */
-    const val TOOL_EXECUTION_TIMEOUT_SECONDS = 300
-    const val TOOL_EXECUTION_TIMEOUT_MS = TOOL_EXECUTION_TIMEOUT_SECONDS * 1_000L
+    const val TOOL_EXECUTION_TIMEOUT_SECONDS = GenerationDefaults.TOOL_EXECUTION_TIMEOUT_SECONDS
+    const val TOOL_EXECUTION_TIMEOUT_MS = GenerationDefaults.TOOL_EXECUTION_TIMEOUT_MS
     /** Image generation alone may wait up to ten minutes for generation and download. */
     const val IMAGE_GENERATION_TIMEOUT_MS = 600_000L
     /** Wall-clock budget for a shell-command confirmation prompt. The await hangs forever if the
@@ -56,17 +60,17 @@ object Constants {
     const val SEARCH_METHOD_RAG = "rag"
 
     // ── Provider name constants ────────────────────────────────
-    const val PROVIDER_LOCAL = "Local"
-    const val PROVIDER_OPENAI = "OpenAI"
-    const val PROVIDER_OLLAMA = "Ollama"
-    const val PROVIDER_GOOGLE = "Google"
-    const val PROVIDER_ANTHROPIC = "Anthropic"
-    const val PROVIDER_DEEPSEEK = "DeepSeek"
-    const val PROVIDER_QWEN = "Qwen"
-    const val PROVIDER_GROQ = "Groq"
-    const val PROVIDER_OPEN_ROUTER = "Open Router"
-    const val PROVIDER_OPENCODE_GO = "OpenCode Go"
-    const val PROVIDER_UNKNOWN = "Unknown"
+    const val PROVIDER_LOCAL = ModelConstants.PROVIDER_LOCAL
+    const val PROVIDER_OPENAI = ModelConstants.PROVIDER_OPENAI
+    const val PROVIDER_OLLAMA = ModelConstants.PROVIDER_OLLAMA
+    const val PROVIDER_GOOGLE = ModelConstants.PROVIDER_GOOGLE
+    const val PROVIDER_ANTHROPIC = ModelConstants.PROVIDER_ANTHROPIC
+    const val PROVIDER_DEEPSEEK = ModelConstants.PROVIDER_DEEPSEEK
+    const val PROVIDER_QWEN = ModelConstants.PROVIDER_QWEN
+    const val PROVIDER_GROQ = ModelConstants.PROVIDER_GROQ
+    const val PROVIDER_OPEN_ROUTER = ModelConstants.PROVIDER_OPEN_ROUTER
+    const val PROVIDER_OPENCODE_GO = ModelConstants.PROVIDER_OPENCODE_GO
+    const val PROVIDER_UNKNOWN = ModelConstants.PROVIDER_UNKNOWN
     /** Placeholder model ID used as StateFlow/DataStore cold-start fallback and
      *  template preview sample. NOT the real default model — it is overwritten
      *  as soon as the user selects a model or DataStore loads the persisted value. */

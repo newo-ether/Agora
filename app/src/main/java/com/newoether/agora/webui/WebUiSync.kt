@@ -340,7 +340,7 @@ internal class WebUiSync(
                                                 put("contextLabels", JsonArray(com.newoether.agora.model.ContextBudget.PRESETS.map { value -> JsonPrimitive(com.newoether.agora.model.ContextBudget.compactLabel(value)) }))
                                                 put("contextOverrideLabel", it.generationParameters.contextWindow?.let { value -> com.newoether.agora.model.ContextBudget.compactLabel(com.newoether.agora.model.ContextBudget.normalize(value)) })
                                                 put("contextDefaultLabel", com.newoether.agora.model.ContextBudget.compactLabel(com.newoether.agora.model.ContextBudget.normalize(it.generationDefaults.contextWindow)))
-                                                put("maxTokensPresets", JsonArray(com.newoether.agora.ui.chat.advancedMaxTokensPresets.map(::JsonPrimitive)))
+                                                put("maxTokensPresets", JsonArray(com.newoether.agora.presentation.advancedMaxTokensPresets.map(::JsonPrimitive)))
                                             },
                                             it.compactDefaults?.let { request -> buildJsonObject {
                                                 put("modelId", request.model)
