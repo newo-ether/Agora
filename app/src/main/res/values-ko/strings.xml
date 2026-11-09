@@ -126,6 +126,7 @@
     <string name="info">정보</string>
     <string name="more">더 보기</string>
     <string name="arguments_label">인수:</string>
+    <string name="tool_search_provider">프로바이더: %1$s</string>
     <string name="result_label">결과:</string>
     <string name="cost_tokens">비용 %1$d 토큰</string>
     <string name="token_usage_with_label">토큰 사용량: %1$d 토큰</string>
