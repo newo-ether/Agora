@@ -25,6 +25,7 @@ internal object CustomProviderNamePolicy {
         Constants.PROVIDER_OLLAMA,
         Constants.PROVIDER_OPEN_ROUTER,
         Constants.PROVIDER_OPENCODE_GO,
+        Constants.PROVIDER_REQUESTY,
         Constants.PROVIDER_LOCAL,
     )
 

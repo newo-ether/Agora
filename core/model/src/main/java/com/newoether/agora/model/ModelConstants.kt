@@ -11,6 +11,7 @@ object ModelConstants {
     const val PROVIDER_OLLAMA = "Ollama"
     const val PROVIDER_OPEN_ROUTER = "Open Router"
     const val PROVIDER_OPENCODE_GO = "OpenCode Go"
+    const val PROVIDER_REQUESTY = "Requesty"
     const val PROVIDER_OPENAI = "OpenAI"
     const val PROVIDER_GOOGLE = "Google"
     const val PROVIDER_ANTHROPIC = "Anthropic"

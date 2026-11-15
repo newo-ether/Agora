@@ -92,6 +92,11 @@ internal fun embeddingProviderPresets(): List<EmbeddingProviderPreset> = listOf(
         listOf("openai/text-embedding-3-small", "openai/text-embedding-3-large"),
     ),
     EmbeddingProviderPreset(
+        Constants.PROVIDER_REQUESTY,
+        ProviderDefaults.embeddingBaseUrl(Constants.PROVIDER_REQUESTY),
+        listOf("openai/text-embedding-3-small", "openai/text-embedding-3-large"),
+    ),
+    EmbeddingProviderPreset(
         Constants.PROVIDER_OLLAMA,
         ProviderDefaults.embeddingBaseUrl(Constants.PROVIDER_OLLAMA),
         emptyList(),
