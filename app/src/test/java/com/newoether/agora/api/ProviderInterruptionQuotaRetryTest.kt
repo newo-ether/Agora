@@ -55,6 +55,24 @@ class ProviderInterruptionQuotaRetryTest {
     }
 
     @Test
+    fun retriesCarryActualFailuresAcrossEveryRemoteProtocol() {
+        cases().forEach { case ->
+            val opening = collect(case, reads = case.success, openingFailure = EOFException("opening EOF"))
+                .first.filterIsInstance<StreamEvent.Retrying>().single().error
+            assertTrue(case.name, opening is GenerationError.Network)
+            val http = collect(case, reads = case.success, status = 503, recoverHttp = true,
+                errorBody = """{"error":{"message":"Busy now","type":"server_error"}}""")
+                .first.filterIsInstance<StreamEvent.Retrying>().single().error
+            assertTrue(case.name, http is GenerationError.Api)
+            assertEquals(case.name, "Busy now", (http as GenerationError.Api).message)
+            val malformed = if (case.name == "Ollama") "not-json" else "data: not-json"
+            val stream = collect(case, reads = case.partial + malformed + case.success)
+                .first.filterIsInstance<StreamEvent.Retrying>().single().error
+            assertTrue(case.name, stream is GenerationError.SseParse)
+        }
+    }
+
+    @Test
     fun prematureEofBeforeAndAfterOutputUsesEveryRemoteProviderBoundary() {
         cases().forEach { case ->
             listOf(
@@ -84,7 +102,7 @@ class ProviderInterruptionQuotaRetryTest {
                 ).forEach { failure ->
                     val result = collect(case, reads = prefix + failure + case.success, throughConsumer = true)
                     assertEquals(case.name, 2, result.second)
-                    assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>())
+                    assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
                     assertEquals(case.name, "ok", answer(result.first))
                     assertEquals(case.name, "", result.first.filterIsInstance<StreamEvent.ThoughtChunk>().joinToString("") { it.thought })
                     assertTrue(case.name, result.first.none { it is StreamEvent.Error })
@@ -157,7 +175,7 @@ class ProviderInterruptionQuotaRetryTest {
                 val prefix = case.formattingOnlyLines().first()
                 val result = collect(case, reads = prefix + failure + case.success, messages = history, throughConsumer = true)
                 assertEquals(case.name, 2, result.second)
-                assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>())
+                assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
                 assertEquals(case.name, "ok", answer(result.first))
                 assertTrue(case.name, result.first.none { it is StreamEvent.Error })
             }
@@ -328,7 +346,7 @@ class ProviderInterruptionQuotaRetryTest {
                 assertEquals(
                     case.name,
                     (1..NetworkRetryPolicy.MAX_RETRIES).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = failureIndex <= 1) },
-                    result.first.filterIsInstance<StreamEvent.Retrying>(),
+                    result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) },
                 )
                 assertEquals(case.name, 1, result.first.filterIsInstance<StreamEvent.Error>().size)
                 assertTrue(case.name, answer(result.first).isBlank())
@@ -378,7 +396,7 @@ class ProviderInterruptionQuotaRetryTest {
                 assertEquals(
                     case.name,
                     (1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) },
-                    result.first.filterIsInstance<StreamEvent.Retrying>(),
+                    result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) },
                 )
                 assertEquals(case.name, List(6) { "partial" }, result.first.filterIsInstance<StreamEvent.TextChunk>().map { it.text })
                 val error = result.first.filterIsInstance<StreamEvent.Error>().single().error
@@ -408,7 +426,7 @@ class ProviderInterruptionQuotaRetryTest {
                 assertEquals(
                     case.name,
                     (1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) },
-                    exhausted.first.filterIsInstance<StreamEvent.Retrying>(),
+                    exhausted.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) },
                 )
                 val error = exhausted.first.filterIsInstance<StreamEvent.Error>().single().error
                 assertTrue(case.name, error is GenerationError.Network)
@@ -514,7 +532,7 @@ class ProviderInterruptionQuotaRetryTest {
         assertTrue(recovered.first.none { it is StreamEvent.ToolCallRequest || it is StreamEvent.ToolCallsRequest })
         val exhausted = collect(case, reads = List(6) { prefix + listOf(null) }.flatten())
         assertEquals(6, exhausted.second)
-        assertEquals((1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) }, exhausted.first.filterIsInstance<StreamEvent.Retrying>())
+        assertEquals((1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) }, exhausted.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
         assertTrue(exhausted.first.filterIsInstance<StreamEvent.Error>().single().error is GenerationError.SseParse)
         assertTrue(exhausted.first.last() is StreamEvent.Error)
     }
@@ -525,7 +543,7 @@ class ProviderInterruptionQuotaRetryTest {
         failedOutput: (StreamEvent) -> Boolean,
     ) {
         assertEquals(case.name, 2, result.second)
-        assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>())
+        assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
         val retryIndex = result.first.indexOfFirst { it is StreamEvent.Retrying }
         assertTrue(case.name, result.first.take(retryIndex).any(failedOutput))
         assertEquals(case.name, "ok", answer(result.first.drop(retryIndex + 1)))
@@ -538,7 +556,7 @@ class ProviderInterruptionQuotaRetryTest {
         resetCurrentAttempt: Boolean = false,
     ) {
         assertEquals(case.name, 2, result.second)
-        assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt)), result.first.filterIsInstance<StreamEvent.Retrying>())
+        assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt)), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
         assertEquals(case.name, "ok", answer(result.first))
         assertTrue(case.name, result.first.none { it is StreamEvent.Error })
     }

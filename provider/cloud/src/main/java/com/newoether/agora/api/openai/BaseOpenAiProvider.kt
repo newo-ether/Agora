@@ -223,7 +223,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
                                     "$attempt/$maxAttempts (${e.javaClass.simpleName}), " +
                                     "retrying in ${retryDelayMs}ms",
                             )
-                            emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES))
+                            emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES, error = retryable))
                             delay(retryDelayMs)
                             retryScheduled = true
                             continue
@@ -259,6 +259,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
                                         ProviderRetryPolicy.MAX_RETRIES,
                                         resetCurrentAttempt = termination.producedContent ||
                                             ProviderRetryPolicy.requiresResponseReadRetry(termination.streamError),
+                                        error = termination.toError(name),
                                     ),
                                 )
                                 delay(retryDelayMs)
@@ -302,7 +303,10 @@ abstract class BaseOpenAiProvider : LlmProvider {
                                     com.newoether.agora.util.NetworkRetryPolicy.retryAfterMillis(handle.retryAfter) ?: 0L,
                                 )
                                 DebugLog.w("AgoraAPI", "[$name] Transient error ${handle.code} on attempt $attempt/$maxAttempts, retrying in ${retryDelayMs}ms...")
-                                emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES))
+                                emit(StreamEvent.Retrying(
+                                    attempt, ProviderRetryPolicy.MAX_RETRIES,
+                                    error = buildGenerationError(handle.code, errorRaw, endpointUrls),
+                                ))
                                 delay(retryDelayMs)
                                 retryScheduled = true
                             } else {

@@ -60,7 +60,7 @@ data class AssistantContentPresentation(
     val showsErrorBar: Boolean get() = hasAnswerContent && errorContent != null
 
     fun showsStoppedBar(message: ChatMessage, isStreaming: Boolean): Boolean =
-        hasAnswerContent && !isStreaming && message.status == MessageStatus.STOPPED
+        hasAnswerContent && !isStreaming && message.status == MessageStatus.STOPPED && errorContent == null
 }
 
 fun assistantContentPresentation(

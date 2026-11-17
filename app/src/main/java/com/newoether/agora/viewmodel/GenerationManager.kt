@@ -407,7 +407,9 @@ class GenerationManager(
                                     publishRetrySnapshot = {
                                         val projected = projectOutput(modelMessage())
                                         onStreamUpdate(projected)
-                                        if (event is StreamEvent.Retrying && event.resetCurrentAttempt) {
+                                        if (event is StreamEvent.Retrying &&
+                                            (event.resetCurrentAttempt || event.error != null)
+                                        ) {
                                             checkpoints.persist(projected, force = true)
                                         }
                                     },

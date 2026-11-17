@@ -467,7 +467,7 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
 
         assertEquals(6, server.requests.size)
         assertEquals(6, events.filterIsInstance<StreamEvent.HostedToolCallUpdate>().size)
-        assertEquals((1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) }, events.filterIsInstance<StreamEvent.Retrying>())
+        assertEquals((1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) }, events.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
         assertTrue(events.filterIsInstance<StreamEvent.Error>().single().error is GenerationError.SseParse)
         assertTrue(events.none { it is StreamEvent.ToolCallRequest })
     }
@@ -508,7 +508,7 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
             responsesApiEnabled = true,
         )
         assertEquals(1, events.filterIsInstance<StreamEvent.HostedToolCallUpdate>().size)
-        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), events.filterIsInstance<StreamEvent.Retrying>().single())
+        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), events.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) }.single())
         assertEquals("replacement", events.filterIsInstance<StreamEvent.TextChunk>().single().text)
         assertTrue(events.none { it is StreamEvent.Error })
         assertTrue(events.none { it is StreamEvent.ToolCallRequest })
@@ -652,11 +652,11 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
             listOf(matching, "data: {\"type\":\"response.completed\",\"sequence_number\":1,\"response\":{\"status\":\"completed\"}}"),
             responsesApiEnabled = true,
         )
-        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), responses.filterIsInstance<StreamEvent.Retrying>().single())
+        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), responses.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) }.single())
         val partial = collectWithMockedStream(
             listOf("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial\"}}]}", matching, success, "data: [DONE]"),
         )
-        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), partial.filterIsInstance<StreamEvent.Retrying>().single())
+        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), partial.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) }.single())
         assertEquals(listOf("partial", "complete"), partial.filterIsInstance<StreamEvent.TextChunk>().map { it.text })
         assertTrue(partial.none { it is StreamEvent.Error })
         val toolCall = ToolCallData("file_edit", "{}", "", toolCallId = "call-1")
@@ -668,7 +668,7 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
                 ChatMessage("result_call", text = "done", participant = Participant.USER, toolCall = toolCall.copy(result = "done")),
             ),
         )
-        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), afterTool.filterIsInstance<StreamEvent.Retrying>().single())
+        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), afterTool.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) }.single())
         assertEquals("complete", afterTool.filterIsInstance<StreamEvent.TextChunk>().single().text)
         val nonmatching = collectWithMockedStream(listOf(IOException("unexpected stream reset")))
         assertTrue(nonmatching.none { it is StreamEvent.Retrying })
@@ -682,7 +682,7 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
             "data: not-json",
         )
         val events = collectWithMockedStream(List(6) { attempt }.flatten(), responsesApiEnabled = true)
-        assertEquals((1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) }, events.filterIsInstance<StreamEvent.Retrying>())
+        assertEquals((1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) }, events.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
         assertEquals(List(6) { "partial" }, events.filterIsInstance<StreamEvent.TextChunk>().map { it.text })
         assertEquals(1, events.filterIsInstance<StreamEvent.Error>().size)
         assertTrue(events.filterIsInstance<StreamEvent.Error>().single().error is GenerationError.SseParse)
@@ -695,7 +695,7 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
             listOf("data: not-json", "data: {\"type\":\"response.completed\",\"sequence_number\":1,\"response\":{\"status\":\"completed\"}}"),
             responsesApiEnabled = true,
         )
-        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), retried.filterIsInstance<StreamEvent.Retrying>().single())
+        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), retried.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) }.single())
         assertTrue(retried.none { it is StreamEvent.Error })
     }
 

@@ -261,7 +261,7 @@ internal class ConversationCompactController(
             codeExecutionEnabled = false,
             googleSearchEnabled = false,
             openAiWebSearchEnabled = false,
-            thinkingEnabled = false,
+            // Keep the admitted reasoning and sampling controls, including explicit thinking-off.
         ),
         context = context.copy(
             phoneEnabled = false,

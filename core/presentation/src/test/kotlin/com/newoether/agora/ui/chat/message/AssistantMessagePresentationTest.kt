@@ -102,6 +102,45 @@ class AssistantMessagePresentationTest {
     }
 
     @Test
+    fun retryStopShowsTheLastPersistedErrorWithoutASecondStoppedLabel() {
+        val oldError = MessageSegment(type = "error", content = "First failure")
+        val lastError = MessageSegment(type = "error", content = "Service unavailable")
+        for (hasAnswer in listOf(false, true)) {
+            val segments = if (hasAnswer) listOf(answer, oldError, lastError)
+            else listOf(thought, oldError, lastError)
+            val m = message(segments, status = MessageStatus.STOPPED)
+            val presentation = present(m)
+            assertEquals("Service unavailable", presentation.errorContent?.errorText)
+            assertEquals(hasAnswer, presentation.showsErrorBar)
+            assertFalse(presentation.showsStoppedBar(m, isStreaming = false))
+            assertEquals(if (hasAnswer) null else "Service unavailable",
+                presentation.inlineTerminalText(m, false, "Stopped"))
+            assertEquals(MessageStatus.STOPPED, m.status)
+        }
+    }
+
+    @Test
+    fun ordinaryStopDoesNotPromoteAnswerOrBlankErrorIntoFailure() {
+        val m = message(listOf(answer, MessageSegment(type = "error", content = " ")),
+            status = MessageStatus.STOPPED)
+        val presentation = present(m)
+        assertNull(presentation.errorContent)
+        assertFalse(presentation.showsErrorBar)
+        assertTrue(presentation.showsStoppedBar(m, isStreaming = false))
+        assertEquals("Done.", presentation.answerBodyText)
+    }
+
+    @Test
+    fun pendingRetryErrorDoesNotRenderAsTerminalWhileGenerationIsActive() {
+        val error = MessageSegment(type = "error", content = "Temporary failure")
+        val m = message(listOf(error), status = MessageStatus.SENDING)
+        val presentation = present(m, isStreaming = true)
+        assertNull(presentation.errorContent)
+        assertNull(presentation.inlineTerminalText(m, true, "Stopped"))
+        assertFalse(presentation.showsErrorBar)
+    }
+
+    @Test
     fun imageBoundaryAppendsTheTextAsTheFinalAnswer() {
         val image = MessageSegment(type = "tool", toolName = "generate_image")
         val presentation = present(message(listOf(thought, image), text = "Here it is."))

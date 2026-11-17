@@ -422,7 +422,7 @@ class AnthropicProvider(
                                 "$attempt/$maxAttempts (${e.javaClass.simpleName}), retrying",
                         )
                         val retryDelayMs = ProviderRetryPolicy.delayMillis(attempt)
-                        emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES))
+                        emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES, error = retryable))
                         delay(retryDelayMs)
                         continue
                     }
@@ -530,6 +530,7 @@ class AnthropicProvider(
                                 ProviderRetryPolicy.MAX_RETRIES,
                                 resetCurrentAttempt = termination.producedContent ||
                                     ProviderRetryPolicy.requiresResponseReadRetry(termination.streamError),
+                                error = termination.toError(name),
                             ),
                         )
                         delay(retryDelayMs)
@@ -554,7 +555,10 @@ class AnthropicProvider(
                     ) {
                         val retryDelayMs = ProviderRetryPolicy.delayMillis(attempt, handle.retryAfter)
                         DebugLog.w("AgoraAPI", "[$name] Transient error ${handle.code} on attempt $attempt/$maxAttempts, retrying in ${retryDelayMs}ms...")
-                        emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES))
+                        emit(StreamEvent.Retrying(
+                            attempt, ProviderRetryPolicy.MAX_RETRIES,
+                            error = providerHttpError(handle.code, errorRaw),
+                        ))
                         delay(retryDelayMs)
                     } else {
                         done = true

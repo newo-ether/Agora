@@ -71,11 +71,13 @@ sealed class StreamEvent {
     data class ToolCallsRequest(val calls: List<ToolCallRequest>) : StreamEvent()
     /** Emitted before one provider retry. [attempt] is the 1-based retry number, while
      *  [maxAttempts] is the retry budget and excludes the initial request.
-     *  [resetCurrentAttempt] replaces only this request's failed partial output. */
+     *  [resetCurrentAttempt] replaces only this request's failed partial output.
+     *  [error] retains the actual failure for Stop without emitting a terminal Error event. */
     data class Retrying(
         val attempt: Int,
         val maxAttempts: Int,
         val resetCurrentAttempt: Boolean = false,
+        val error: GenerationError? = null,
     ) : StreamEvent()
 }
 

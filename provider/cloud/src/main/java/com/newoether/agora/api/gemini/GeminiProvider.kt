@@ -315,7 +315,7 @@ class GeminiProvider(
                 val toolSegs = msg.segments?.filter { it.type == "tool" }
                 if (!toolSegs.isNullOrEmpty()) {
                     val parts = toolSegs.map { seg ->
-                        val response = buildGeminiFunctionResponse(seg.toolResult ?: "{}")
+                        val response = json.buildGeminiFunctionResponse(seg.toolResult ?: "{}")
                         ApiRequestPart(functionResponse = GeminiFunctionResponse(
                             id = seg.toolCallId,
                             name = seg.toolName ?: "",
@@ -324,7 +324,7 @@ class GeminiProvider(
                     }
                     entries.add(ApiRequestContent(role = "user", parts = parts))
                 } else if (msg.toolCall != null) {
-                    val response = buildGeminiFunctionResponse(msg.toolCall!!.result)
+                    val response = json.buildGeminiFunctionResponse(msg.toolCall!!.result)
                     entries.add(ApiRequestContent(
                         role = "user",
                         parts = listOf(ApiRequestPart(functionResponse = GeminiFunctionResponse(
@@ -491,7 +491,7 @@ class GeminiProvider(
                 } catch (e: Exception) {
                     val retryable = e.asRetryableTransportError()
                     if (retryable != null && attempt < maxAttempts) {
-                        emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES))
+                        emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES, error = retryable))
                         delay(ProviderRetryPolicy.delayMillis(attempt))
                         continue
                     }
@@ -714,6 +714,7 @@ class GeminiProvider(
                                     ProviderRetryPolicy.MAX_RETRIES,
                                     resetCurrentAttempt = termination.producedContent ||
                                         ProviderRetryPolicy.requiresResponseReadRetry(termination.streamError),
+                                    error = termination.toError(name),
                                 ),
                             )
                             delay(ProviderRetryPolicy.delayMillis(attempt))
@@ -734,7 +735,10 @@ class GeminiProvider(
                             retryableCodes,
                         )
                         if (retryable && attempt < maxAttempts) {
-                            emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES))
+                            emit(StreamEvent.Retrying(
+                                attempt, ProviderRetryPolicy.MAX_RETRIES,
+                                error = providerHttpError(handle.code, errorRaw),
+                            ))
                             delay(ProviderRetryPolicy.delayMillis(attempt, handle.retryAfter))
                         } else {
                             val genError = providerHttpError(handle.code, errorRaw)
@@ -784,17 +788,5 @@ class GeminiProvider(
         }
         if (models.isEmpty()) throw ModelFetchEmptyResultException()
         models
-    }
-
-    private fun buildGeminiFunctionResponse(result: String): JsonObject {
-        return try {
-            val parsed = json.parseToJsonElement(result)
-            when (parsed) {
-                is JsonObject -> parsed
-                else -> JsonObject(mapOf("result" to parsed))
-            }
-        } catch (_: Exception) {
-            JsonObject(mapOf("result" to JsonPrimitive(result)))
-        }
     }
 }

@@ -132,13 +132,15 @@ fun assistantErrorContent(
     mergedSegments: List<MessageSegment>,
     fallbackErrorText: String,
 ): AssistantErrorContent? {
+    val persistedErrorSegment = mergedSegments
+        .lastOrNull { it.type == "error" && it.content.isNotBlank() }
+    val stoppedWithRetryError = message.status == com.newoether.agora.model.MessageStatus.STOPPED &&
+        persistedErrorSegment != null
     if (message.status != com.newoether.agora.model.MessageStatus.ERROR &&
-        message.participant != com.newoether.agora.model.Participant.ERROR
+        message.participant != com.newoether.agora.model.Participant.ERROR && !stoppedWithRetryError
     ) {
         return null
     }
-    val persistedErrorSegment = mergedSegments
-        .lastOrNull { it.type == "error" && it.content.isNotBlank() }
     val persistedError = persistedErrorSegment?.content
     val hasPersistedAnswer = mergedSegments.any { it.isVisibleAnswerSegment() }
     return AssistantErrorContent(

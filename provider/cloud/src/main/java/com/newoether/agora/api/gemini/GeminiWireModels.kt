@@ -4,9 +4,11 @@ import com.newoether.agora.model.TokenUsage
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 @Serializable
 internal data class ApiGenerateContentRequest(
@@ -79,6 +81,18 @@ internal data class GeminiFunctionResponse(
     val name: String,
     val response: JsonObject
 )
+
+internal fun Json.buildGeminiFunctionResponse(result: String): JsonObject {
+    return try {
+        val parsed = parseToJsonElement(result)
+        when (parsed) {
+            is JsonObject -> parsed
+            else -> JsonObject(mapOf("result" to parsed))
+        }
+    } catch (_: Exception) {
+        JsonObject(mapOf("result" to JsonPrimitive(result)))
+    }
+}
 
 @Serializable
 internal data class ApiResponseContent(val role: String? = null, val parts: List<ApiResponsePart>)

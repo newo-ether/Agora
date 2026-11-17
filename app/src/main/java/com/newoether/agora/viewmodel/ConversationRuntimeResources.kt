@@ -27,6 +27,7 @@ data class ConversationGenerationSnapshot(
 
 private fun ChatMessage.toStoppedRuntimeSnapshot(): ChatMessage = copy(
     status = MessageStatus.STOPPED,
+    retryText = null,
     segments = segments?.let(RunRecoveryPolicy::stopIncompleteTools),
 )
 

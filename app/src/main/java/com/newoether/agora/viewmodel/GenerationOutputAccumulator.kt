@@ -133,6 +133,18 @@ internal class GenerationOutputAccumulator(
         publishStreamUpdate: suspend (Boolean) -> Unit,
         publishRetrySnapshot: suspend () -> Unit,
     ) {
+        val resumesOutput = when (event) {
+            is StreamEvent.TextChunk -> event.text.isNotEmpty()
+            is StreamEvent.ThoughtChunk -> event.thought.isNotEmpty()
+            is StreamEvent.ToolCallUpdate, is StreamEvent.ToolCallRequest,
+            is StreamEvent.ToolCallsRequest, is StreamEvent.HostedToolCallUpdate -> true
+            else -> false
+        }
+        if (resumesOutput) {
+            generationErrorMessage = null
+            generationErrorCode = null
+            retryText = null
+        }
         when (event) {
             is StreamEvent.TextChunk -> if (event.text.isNotEmpty()) tokenUsageAccumulator.observeGenerationContent()
             is StreamEvent.ThoughtChunk -> if (event.thought.isNotEmpty()) tokenUsageAccumulator.observeGenerationContent()
@@ -149,7 +161,6 @@ internal class GenerationOutputAccumulator(
             is StreamEvent.TextChunk -> {
                 val answerText = if (currentStatus == MessageStatus.THINKING) event.text.trimStart() else event.text
                 if (currentStatus == MessageStatus.THINKING && answerText.isBlank()) {
-                    retryText = null
                     return
                 }
                 if (currentStatus == MessageStatus.THINKING) {
@@ -220,10 +231,20 @@ internal class GenerationOutputAccumulator(
                 }
             }
             is StreamEvent.Retrying -> {
+                val previousError = generationErrorMessage
+                val previousCode = generationErrorCode
                 if (event.resetCurrentAttempt) {
                     checkNotNull(restoreProviderAttempt) {
                         "Provider attempt reset arrived without a request baseline"
                     }.invoke()
+                }
+                val retryError = event.error
+                if (retryError != null) {
+                    generationErrorMessage = localizedGenerationError(context, retryError)
+                    generationErrorCode = (retryError as? GenerationError.LocalModel)?.code
+                } else {
+                    generationErrorMessage = previousError
+                    generationErrorCode = previousCode
                 }
                 retryText = context.getString(R.string.generation_retry_attempt, event.attempt, event.maxAttempts)
                 publishRetrySnapshot()

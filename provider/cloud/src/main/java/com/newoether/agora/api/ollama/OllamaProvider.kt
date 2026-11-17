@@ -286,7 +286,7 @@ class OllamaProvider : LlmProvider {
                 } catch (e: Exception) {
                     val retryable = e.asRetryableTransportError()
                     if (retryable != null && attempt < maxAttempts) {
-                        emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES))
+                        emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES, error = retryable))
                         delay(ProviderRetryPolicy.delayMillis(attempt))
                         continue
                     }
@@ -445,6 +445,7 @@ class OllamaProvider : LlmProvider {
                                     ProviderRetryPolicy.MAX_RETRIES,
                                     resetCurrentAttempt = termination.producedContent ||
                                         ProviderRetryPolicy.requiresResponseReadRetry(termination.streamError),
+                                    error = termination.toError(name),
                                 ),
                             )
                             delay(ProviderRetryPolicy.delayMillis(attempt))
@@ -467,7 +468,10 @@ class OllamaProvider : LlmProvider {
                                 retryableCodes,
                             ) && attempt < maxAttempts
                         ) {
-                            emit(StreamEvent.Retrying(attempt, ProviderRetryPolicy.MAX_RETRIES))
+                            emit(StreamEvent.Retrying(
+                                attempt, ProviderRetryPolicy.MAX_RETRIES,
+                                error = providerHttpError(handle.code, errorRaw),
+                            ))
                             delay(ProviderRetryPolicy.delayMillis(attempt, handle.retryAfter))
                         } else {
                             val genError = providerHttpError(handle.code, errorRaw)

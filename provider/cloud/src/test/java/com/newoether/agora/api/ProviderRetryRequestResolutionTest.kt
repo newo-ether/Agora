@@ -248,7 +248,7 @@ class ProviderRetryRequestResolutionTest {
             listOf(IOException("The server response could not be read.")) + successReads,
         )
         assertEquals(2, retried.second)
-        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), retried.first.filterIsInstance<StreamEvent.Retrying>().single())
+        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), retried.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) }.single())
         assertEquals("ok", retried.first.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text })
         assertTrue(retried.first.none { it is StreamEvent.Error })
 
@@ -260,7 +260,7 @@ class ProviderRetryRequestResolutionTest {
         assertEquals(2, partial.second)
         assertEquals(
             StreamEvent.Retrying(1, 5, resetCurrentAttempt = true),
-            partial.first.filterIsInstance<StreamEvent.Retrying>().single(),
+            partial.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) }.single(),
         )
         assertEquals(listOf("partial", "ok"), partial.first.filterIsInstance<StreamEvent.TextChunk>().map { it.text })
         assertTrue(partial.first.none { it is StreamEvent.Error })
@@ -277,7 +277,7 @@ class ProviderRetryRequestResolutionTest {
     ) {
         val result = collectWithMockedStream(provider, config, listOf(malformedRead) + successReads)
         assertEquals(2, result.second)
-        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), result.first.filterIsInstance<StreamEvent.Retrying>().single())
+        assertEquals(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) }.single())
         assertEquals("ok", result.first.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text })
         assertTrue(result.first.none { it is StreamEvent.Error })
     }

@@ -128,6 +128,11 @@ creation, context/API-path assembly, Provider execution, streaming/checkpoints, 
 terminal settlement, recovery, and queue release.
 
 Compact's frozen request parameters are separate from the ordinary conversation preferences.
+At admission it inherits the current effective reasoning toggle, reasoning level and budget,
+sampling controls, output limit, service tier and prompt-cache controls. Manual Compact, automatic
+Compact and Recompact must not force thinking off or reset those controls. The selected Compact
+model still uses its ordinary Provider capability mapping; preserving parameters reduces unnecessary
+request-prefix changes but does not promise cache reuse across different models or tool sets.
 Manual Compact, automatic Compact, and Recompact use their selected model in the request snapshot
 and output message's model identity, but must not overwrite the conversation's ordinary model,
 System Prompt, or saved generation controls. The shared admission transaction accepts an explicit
@@ -307,6 +312,13 @@ durable message identity and cannot become a parallel message graph.
 - Input queued while another generation owns the slot stays memory-owned until a legal boundary.
 - Claim failure returns the exact batch to the front; durable success transfers ownership exactly
   once. No item may be lost, duplicated, reordered, or attached to the terminal origin Run.
+- During a Provider retry, the ordinary typed `StreamEvent.Retrying.error` carries the last actual
+  failure. The existing generation error fields and persisted `error` segment retain its localized
+  detail while the message remains in flight. Stop still cancels through the mailbox, settles the
+  message and Run as `STOPPED` / `USER_STOPPED`, and waits for both existing barriers. Its terminal
+  presentation shows the retained error instead of the generic stopped label, including after
+  reopening and in later Provider context. A Stop without a retained retry error keeps the ordinary
+  stopped label. New output clears the retry diagnostic; retry labels are never parsed as errors.
 - Normal completion and Stop settlement emit one shared process queue-drain signal. UI owner
   detachment/rebinding may hand that signal off, but it cannot replace it with a Stop-only callback
   or discard a pending FIFO batch.
