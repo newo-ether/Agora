@@ -210,7 +210,11 @@ and the required permission is available. Clearing app data or uninstalling lose
 ### 4.2 Capsules and Stop
 
 Initially top-left, below the status bar: duration, status and Stop form one joined strip with
-small inner corners and rounded outer ends. A successful claim fades this strip from zero opacity
+small inner corners and rounded outer ends. The painted strip's physical left edge stays at its
+placed horizontal inset as status or duration width changes, including in RTL. Width changes grow
+or shrink to the right; press-size reservation is on the right, and press/visibility scales pivot
+at the physical left edge. Dragging and safe-frame clamping may still change the placed position.
+A successful claim fades this strip from zero opacity
 and scale 0.96 to one over 240 ms FastOutSlowIn, including its first composition. Release reverses
 that transition from the current progress. Retain the outgoing epoch's last duration, status and
 question presentation until the fade completes; later action/question updates and replacement leases

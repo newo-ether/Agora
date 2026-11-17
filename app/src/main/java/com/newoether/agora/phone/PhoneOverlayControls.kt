@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -122,6 +123,7 @@ internal fun PhoneControls(
                     alpha = progress
                     val scale = if (reduce) 1f else 0.96f + 0.04f * progress
                     scaleX = scale; scaleY = scale
+                    transformOrigin = TransformOrigin(0f, 0.5f)
                 }.then(phoneTouchBounds("strip", bounds)),
             enabled = active,
             thinking = questions.isEmpty() && displayedAction == null,
@@ -173,7 +175,7 @@ internal fun PhoneControlStrip(
     )
     Row(
         modifier.layout { measurable, constraints ->
-            // Reserve the maximum press size so drawing and hit bounds remain inside the safe frame.
+            // Reserve press growth to the right so content width never changes the physical left inset.
             val child = measurable.measure(constraints.copy(
                 minWidth = 0, minHeight = 0,
                 maxWidth = (constraints.maxWidth / 1.05f).toInt(),
@@ -181,8 +183,11 @@ internal fun PhoneControlStrip(
             ))
             val width = constraints.constrainWidth(ceil(child.width * 1.05f).toInt())
             val height = constraints.constrainHeight(ceil(child.height * 1.05f).toInt())
-            layout(width, height) { child.place((width - child.width) / 2, (height - child.height) / 2) }
-        }.graphicsLayer { scaleX = scale; scaleY = scale }
+            layout(width, height) { child.place(0, (height - child.height) / 2) }
+        }.graphicsLayer {
+            scaleX = scale; scaleY = scale
+            transformOrigin = TransformOrigin(0f, 0.5f)
+        }
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
                 // Observe before children consume events; dragging and Stop keep their own input owners.

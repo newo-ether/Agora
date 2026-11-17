@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -64,7 +65,8 @@ class PhoneControlStripTest {
                     baseColor = MaterialTheme.colorScheme.primaryContainer
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     Box(Modifier.size(360.dp, 240.dp).background(background)) {
-                        PhoneControlStrip(elapsed, status, { stops++ }, Modifier.testTag("strip"),
+                        PhoneControlStrip(elapsed, status, { stops++ },
+                            Modifier.align(AbsoluteAlignment.TopLeft).testTag("strip"),
                             onDrag = { movement += it })
                     }
                 }
@@ -290,6 +292,53 @@ class PhoneControlStripTest {
             assertEquals("Stop hit target follows its painted edge", stop.left, runs[2].first.toFloat(), 1f)
             runs
         } finally { bitmap.recycle() }
+    }
+
+    private fun paintedStripLeft(containerColor: Color = baseColor): Int {
+        val stop = stopButton().fetchSemanticsNode().boundsInRoot
+        val view = compose.activity.window.decorView
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        return try {
+            compose.runOnUiThread { view.draw(Canvas(bitmap)) }
+            val expected = containerColor.toArgb()
+            (0 until view.width).first { x ->
+                val actual = bitmap.getPixel(x, stop.center.y.toInt())
+                listOf(16, 8, 0).all { shift ->
+                    kotlin.math.abs(((actual shr shift) and 255) - ((expected shr shift) and 255)) <= 2
+                }
+            }
+        } finally { bitmap.recycle() }
+    }
+
+    @Test fun paintedLeftEdgeStaysFixedThroughWidthChangesAndPressInBothDirections() {
+        start()
+        for (layoutDirection in listOf(LayoutDirection.Ltr, LayoutDirection.Rtl)) {
+            compose.runOnIdle { direction = layoutDirection }
+            frames(48)
+            val left = paintedStripLeft()
+            for (label in listOf("Waiting for your answer", "Tap", "Swipe")) {
+                compose.runOnIdle { status = label }
+                repeat(32) {
+                    frames(16)
+                    assertEquals("$layoutDirection status $label", left, paintedStripLeft())
+                }
+            }
+            for (seconds in listOf(599L, 600L, 3599L, 3600L, 0L)) {
+                compose.runOnIdle { elapsed = seconds }
+                repeat(32) {
+                    frames(16)
+                    assertEquals("$layoutDirection elapsed $seconds", left, paintedStripLeft())
+                }
+            }
+            stopButton().performTouchInput { down(center) }
+            frames()
+            assertEquals(left, paintedStripLeft(lerp(baseColor, contentColor, 0.06f)))
+            stopButton().performTouchInput { cancel() }
+            frames()
+            assertEquals(left, paintedStripLeft())
+        }
+        assertEquals(0, stops)
+        assertEquals(Offset.Zero, movement)
     }
 
     @Test fun statusPaintAndStopStayAdjacentOnEveryExpansionShrinkAndInterruptedFrame() {

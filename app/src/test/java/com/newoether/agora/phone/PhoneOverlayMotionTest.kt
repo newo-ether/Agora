@@ -133,6 +133,37 @@ class PhoneOverlayMotionTest {
         verify(exactly = 0) { runtime.revoke(any(), any()) }
     }
 
+    private fun paintedLeft(): Int {
+        val y = stop().fetchSemanticsNode().boundsInRoot.center.y.toInt()
+        val view = compose.activity.window.decorView
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        return try {
+            compose.runOnUiThread { view.draw(Canvas(bitmap)) }
+            (0 until view.width).first { x -> android.graphics.Color.green(bitmap.getPixel(x, y)) < 250 }
+        } finally { bitmap.recycle() }
+    }
+
+    @Test fun visibilityScaleKeepsThePaintedLeftEdgeAtTheHostInset() {
+        start()
+        frames(80)
+        assertEquals(12, paintedLeft())
+        compose.runOnIdle { action.value = "Waiting for your answer" }
+        repeat(30) {
+            frames(16)
+            assertEquals(12, paintedLeft())
+        }
+        compose.runOnIdle { action.value = "Tap" }
+        repeat(30) {
+            frames(16)
+            assertEquals(12, paintedLeft())
+        }
+        release()
+        repeat(8) {
+            frames(16)
+            assertEquals(12, paintedLeft())
+        }
+    }
+
     @Test fun appReducedMotionRetainsFadesWithoutAnyStripScale() {
         start(reduced = true)
         val width = duration().width
