@@ -4,6 +4,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** Disk-read formatting and backend lifetime, independent of shell command execution. */
 internal suspend fun executeDiskFileRead(
@@ -31,15 +33,47 @@ internal suspend fun executeDiskFileRead(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                return withMemoryEntryHint(path, jsonError("file_read", error.message ?: "Read failed", server = serverLabel))
+                return withMemoryEntryHint(path, fileReadErrorJson(serverLabel, path, error.message ?: "Read failed"))
             }
-            if (result.error != null) jsonError("file_read", result.error, server = serverLabel)
+            if (result.error != null) fileReadErrorJson(serverLabel, path, result.error)
             else boundedFileReadJson(server = serverLabel, path = path, result = result)
         }
         return withMemoryEntryHint(path, output)
     } finally {
         backend.close()
     }
+}
+
+/** Normalize only explicit failed reads. The backend diagnostic remains available for inspection. */
+internal fun fileReadErrorJson(server: String, path: String, diagnostic: String): String {
+    val reason = diagnostic.trim()
+    val missingReasons = setOf(
+        "The system cannot find the file specified.",
+        "The system cannot find the path specified.",
+        "no such file or directory",
+        "file does not exist",
+    )
+    val missing = reason.equals("File not found: $path", ignoreCase = true) ||
+        listOf("open", "stat", "lstat").any { operation ->
+            // Conch wraps an OS PathError in the operation name: "open: open <path>: <reason>".
+            listOf("$operation $path: ", "$operation: $operation $path: ").any { prefix ->
+                reason.startsWith(prefix) && reason.removePrefix(prefix).let { suffix ->
+                    missingReasons.any { it.equals(suffix, ignoreCase = true) }
+                }
+            }
+        } || listOf(
+            "$path (No such file or directory)",
+            "$path (The system cannot find the file specified)",
+        ).any { reason.equals(it, ignoreCase = true) }
+    val message = if (missing) "File not found: $path" else diagnostic
+    return buildJsonObject {
+        put("type", "file_read")
+        put("error", "error")
+        put("message", message)
+        put("server", server)
+        put("path", path)
+        if (missing && diagnostic != message) put("detail", diagnostic)
+    }.toString()
 }
 
 /** A bare Markdown name is legal on disk: add a hint without preventing a relative read. */

@@ -28,6 +28,12 @@ Display names use title case and contain no lifecycle state. Active summaries us
 
 Failed summaries show a concrete error reason directly whenever one is available. Remove generic `Error:` and tool-execution wrapper prefixes from the summary, capitalize the initial natural-language word, and preserve paths, identifiers and the original result/detail text. For example, `Error: command timeout` becomes `Command timeout`. Only failures without a concrete reason use a localized attempted-action fallback such as `Failed to read <path>`.
 
+New native `file_read` failures in both byte and line modes normalize an explicit backend
+missing-file diagnostic to `File not found: <requested path>` before result persistence. Match only
+a known missing-file reason tied to the requested path; permission, transport and unknown errors
+retain their original reason. Preserve a differing original diagnostic in `detail`, along with server
+and path. Successful file content and historical results are never reclassified or rewritten.
+
 Execution failure is declared by provider error metadata or a structured protocol error, never by the spelling of successful text. A JSON `error:null` is absent error evidence, not the string error code `"null"`; explicit provider errors and `failed:true` remain authoritative. Historical FAILED rows cannot be reclassified from `ok:true,error:null` alone because older persistence did not retain the provider error flag separately. Active memory, saved memory files, and skill file bodies are arbitrary content, including bodies beginning with `Error` or containing JSON error fields. Stopped summaries use past tense. Background summaries state only that the job is running in the background and do not include its ID.
 
 Reliable subjects and counts are shown. An unavailable count is not zero and must use a count-free default. Paths, commands, file names, IDs explicitly required by an action, and user input preserve their original case. Summary text describes lifecycle only. Result content and compact detail status must not replace it.
