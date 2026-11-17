@@ -5,30 +5,24 @@ import android.os.Build
 import android.os.Environment
 import com.newoether.agora.R
 import com.newoether.agora.data.repository.SettingsRepository
-import com.newoether.agora.util.SHELL_COMMAND_OUTPUT_MAX_BYTES
 import com.newoether.agora.util.ShellFileEdit
 import com.newoether.agora.util.ShellFileEditResult
 import com.newoether.agora.util.ShellFileReadResult
 import com.newoether.agora.util.ShellGrepOptions
 import com.newoether.agora.util.ShellGrepResult
-import com.newoether.agora.util.readBoundedShellOutput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -89,13 +83,6 @@ class ProotSandboxManager(
         sharedStorageHostDir = { sharedStorageHostDir() },
     )
 
-    private val prootExecPath: String by lazy {
-        // Force System.loadLibrary to trigger extraction from APK.
-        // Without this, the .so may not be in nativeLibraryDir at runtime.
-        try { System.loadLibrary("agora_proot") } catch (_: Throwable) {}
-        "${context.applicationInfo.nativeLibraryDir}/libproot_exec.so"
-    }
-
     override var lastError: String? = null
 
     /**
@@ -141,6 +128,7 @@ class ProotSandboxManager(
     }
 
     override suspend fun isAvailable(): Boolean = withContext(Dispatchers.IO) {
+        shellJobs.recover()
         mutationMutex.withLock { prepareAvailability() }
     }
 
@@ -157,6 +145,7 @@ class ProotSandboxManager(
     }
 
     override suspend fun install(): Boolean = withContext(Dispatchers.IO) {
+        shellJobs.recover()
         mutationMutex.withLock {
             try {
                 if (rootfsDir.exists()) { rootfsDir.deleteRecursively(); if (rootfsDir.exists()) { error("Cannot delete stale rootfs") } }
@@ -255,6 +244,7 @@ class ProotSandboxManager(
     }
 
     private suspend fun ensureShellForDisplay() = withContext(NonCancellable) {
+        shellJobs.recover()
         mutationMutex.withLock { ensureShell() }
     }
 
@@ -327,7 +317,9 @@ class ProotSandboxManager(
 
     override fun resolveHostFile(path: String): File = resolvePath(path)
 
-    override suspend fun reset(): Boolean = withContext(Dispatchers.IO + NonCancellable) {
+    override suspend fun reset(): Boolean = shellJobs.reset { resetRootfs() }
+
+    private suspend fun resetRootfs(): Boolean = withContext(Dispatchers.IO + NonCancellable) {
         // Quiesce manager jobs before deletion; cancellation alone does not finish their IO.
         val previousScope = sandboxScope
         previousScope.cancel()
@@ -356,118 +348,43 @@ class ProotSandboxManager(
     /** Path to proot binary, extracted from assets — Termux-style. */
     private val prootBin: File = File(context.filesDir, "bin/proot")
 
-    private val prootPath: String by lazy {
-        "${context.applicationInfo.nativeLibraryDir}/libproot_exec.so"
-    }
-
-    // Copy libtalloc.so -> libtalloc.so.2 in writable dir for linker resolution.
-    // Android linker searches by exact filename, not SONAME.
-    // Kai's proot DT_NEEDED is "libtalloc.so.2" but jniLibs has "libtalloc.so".
-    private val tallocDir: File by lazy {
-        File(context.filesDir, "lib").apply { mkdirs() }
-    }
-    private fun ensureTalloc(): String {
-        val src = File(context.applicationInfo.nativeLibraryDir, "libtalloc.so")
-        val dst = File(tallocDir, "libtalloc.so.2")
-        if (!dst.exists() && src.exists()) {
-            src.copyTo(dst)
-        }
-        return tallocDir.absolutePath
+    private val processRunner = ProotProcessRunner(context, rootfsDir, homeMountDir, ::sharedStorageHostDir)
+    private val shellJobs by lazy {
+        SandboxJobStore(File(context.filesDir, "sandbox-jobs"), mutationMutex,
+            processBuilder = { command, workdir ->
+                check(prepareAvailability()) { lastError ?: "Sandbox not installed" }
+                processRunner.builder(command, workdir)
+            }, recoverProcess = processRunner::interruptOrphan)
     }
 
     private suspend fun executeRaw(command: String, workdir: String = homeMountPath, timeoutMs: Int = 30000): SandboxManager.SandboxResult {
         ensureShell()
         ensureSandboxMountTargets()
-        val tmpDir = File(rootfsDir, "tmp").apply { mkdirs() }.absolutePath
-        val resolvedWorkdir = workdir.ifBlank { homeMountPath }
-        val args = mutableListOf(prootPath,
-            "--rootfs=" + rootfsDir.absolutePath,
-            "--bind=/dev", "--bind=/proc", "--bind=/sys",
-            "--bind=/dev/urandom:/dev/random",
-            "--bind=${homeMountDir.absolutePath}:$homeMountPath",
-        ).apply {
-            sharedStorageHostDir()?.let { host ->
-                add("--bind=${host.absolutePath}:$sharedStorageMountPath")
-            }
-            addAll(listOf(
-            "-w", resolvedWorkdir,
-            "-0", "--link2symlink", "--kill-on-exit", "-L",
-            "/bin/sh", "-c", command
-            ))
-        }
         return try {
-            val libDir = context.applicationInfo.nativeLibraryDir
-            val tallocLibDir = ensureTalloc()
-            val ldPath = "$tallocLibDir:$libDir"
-            val pb = ProcessBuilder(args).redirectErrorStream(true)
-            pb.environment()["LD_LIBRARY_PATH"] = ldPath
-            pb.environment()["PROOT_LOADER"] = "$libDir/libproot_loader.so"
-            pb.environment()["PROOT_TMP_DIR"] = tmpDir
-            pb.environment()["HOME"] = homeMountPath
-            pb.environment()["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-            val p = pb.start()
-            coroutineScope {
-                val output = async(Dispatchers.IO) {
-                    p.inputStream.use { it.readBoundedShellOutput() }
-                }
-                try {
-                    val exitCode = withTimeoutOrNull(timeoutMs.toLong().coerceAtLeast(1L)) {
-                        var code: Int? = null
-                        while (code == null) {
-                            code = runCatching { p.exitValue() }.getOrNull()
-                            if (code == null) delay(PROCESS_POLL_INTERVAL_MS)
-                        }
-                        code
-                    }
-                    if (exitCode == null) {
-                        p.destroy()
-                        runCatching { p.inputStream.close() }
-                        val partial = try {
-                            withTimeoutOrNull(PROCESS_OUTPUT_CLOSE_GRACE_MS) { output.await() }
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (_: Exception) {
-                            null
-                        }
-                        output.cancel()
-                        SandboxManager.SandboxResult(
-                            stdout = partial?.first.orEmpty(),
-                            stderr = "Timed out",
-                            exitCode = -1,
-                            warning = partial?.second?.takeIf { it }?.let {
-                                "Local Sandbox output was truncated at $SHELL_COMMAND_OUTPUT_MAX_BYTES UTF-8 bytes."
-                            },
-                        )
-                    } else {
-                        val (stdout, truncated) = output.await()
-                        SandboxManager.SandboxResult(
-                            stdout = stdout,
-                            stderr = "",
-                            exitCode = exitCode,
-                            warning = truncated.takeIf { it }?.let {
-                                "Local Sandbox output was truncated at $SHELL_COMMAND_OUTPUT_MAX_BYTES UTF-8 bytes."
-                            },
-                        )
-                    }
-                } catch (error: Throwable) {
-                    p.destroy()
-                    runCatching { p.inputStream.close() }
-                    output.cancel()
-                    throw error
-                }
-            }
+            SandboxProcessRunner.execute(processRunner.builder(command, workdir), timeoutMs)
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (e: Throwable) {
-            SandboxManager.SandboxResult("", e.message ?: "proot failed", -1)
+        } catch (error: Throwable) {
+            SandboxManager.SandboxResult("", error.message ?: "proot failed", -1)
         }
     }
+
+    override suspend fun startJob(command: String, workdir: String, timeoutMs: Int, description: String): String {
+        check(isAvailableSync()) { "Sandbox not installed" }
+        return shellJobs.start(command, workdir, timeoutMs, description)
+    }
+
+    override suspend fun listJobs(offset: Int, limit: Int): String = shellJobs.list(offset, limit)
+    override suspend fun getJob(jobId: String): String = shellJobs.get(jobId)
+    override suspend fun stopJob(jobId: String): String = shellJobs.stop(jobId)
+    override suspend fun acknowledgeJob(jobId: String): String = shellJobs.acknowledge(jobId)
 
     override suspend fun executeCommand(
         command: String,
         workdir: String,
         timeoutMs: Int,
     ): SandboxManager.SandboxResult = withContext(Dispatchers.IO) {
+        shellJobs.recover()
         mutationMutex.withLock {
             if (!prepareAvailability()) return@withLock SandboxManager.SandboxResult("", "Sandbox not installed", -1)
             executeRaw(command, workdir.ifBlank { homeMountPath }, timeoutMs)
@@ -482,8 +399,10 @@ class ProotSandboxManager(
         limit: Long,
     ): ShellFileReadResult = pathResolver.fileRead(path, offset, limit)
 
-    override suspend fun fileWrite(path: String, content: String, expectedSha256: String): String? =
-        pathResolver.fileWrite(path, content, mutationMutex, expectedSha256)
+    override suspend fun fileWrite(path: String, content: String, expectedSha256: String): String? {
+        shellJobs.recover()
+        return pathResolver.fileWrite(path, content, mutationMutex, expectedSha256)
+    }
 
     override suspend fun fileGlob(
         pattern: String,
@@ -503,14 +422,17 @@ class ProotSandboxManager(
         path: String,
         edits: List<ShellFileEdit>,
         expectedSha256: String,
-    ): ShellFileEditResult =
-        pathResolver.fileEdit(path, edits, mutationMutex, expectedSha256)
+    ): ShellFileEditResult {
+        shellJobs.recover()
+        return pathResolver.fileEdit(path, edits, mutationMutex, expectedSha256)
+    }
 
     // ── Package Management ──────────────────────────────
     // Downloads target + all transitive deps + stale base-package upgrades via
     // Android HTTP (works with VPN/Clash), then single apk add --no-network.
 
     override suspend fun apkInstall(packageName: String, onProgress: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
+        shellJobs.recover()
         mutationMutex.withLock {
             if (!prepareAvailability()) { onProgress("Sandbox not installed"); return@withLock false }
             val requested = try {
@@ -624,6 +546,7 @@ class ProotSandboxManager(
     }
 
     override suspend fun apkDelete(packageName: String): Boolean = withContext(Dispatchers.IO) {
+        shellJobs.recover()
         mutationMutex.withLock {
             if (!prepareAvailability()) { _terminalOutput.value += "Sandbox not available\n"; return@withLock false }
             val requested = try {
@@ -672,6 +595,7 @@ class ProotSandboxManager(
     }
 
     override suspend fun apkUpgrade(onProgress: (String) -> Unit): Int = withContext(Dispatchers.IO) {
+        shellJobs.recover()
         mutationMutex.withLock {
             if (!prepareAvailability()) return@withLock 0
             lastError = null
@@ -791,8 +715,4 @@ class ProotSandboxManager(
             ?.takeIf { it.isDirectory && it.canRead() }
     }
 
-    private companion object {
-        const val PROCESS_POLL_INTERVAL_MS = 25L
-        const val PROCESS_OUTPUT_CLOSE_GRACE_MS = 250L
-    }
 }

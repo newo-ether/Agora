@@ -42,7 +42,7 @@ class ShellToolProvider(
 ) : ToolProvider {
 
     private val sandbox = sandboxFactory?.create()
-    private val durableJobs = ShellDurableJobExecutor()
+    private val durableJobs = ShellDurableJobExecutor(sandbox)
 
     /**
      * Optional user-confirmation gate for state-changing operations. The isolated local sandbox
@@ -62,7 +62,7 @@ class ShellToolProvider(
             acknowledgements.map { acknowledgement ->
                 async {
                     withTimeoutOrNull(JOB_ACK_TIMEOUT_MS) {
-                        val backend = getConchBackend(acknowledgement.serverName, context)
+                        val backend = getStandardBackend(acknowledgement.serverName, context)
                             ?: return@withTimeoutOrNull
                         try {
                             backend.acknowledgeJob(acknowledgement.jobId)
@@ -98,47 +98,17 @@ class ShellToolProvider(
 
     // ── Helpers ────────────────────────────────────────────
 
-    private fun resolveShellDevice(serverName: String, ctx: GenerationContext): ShellDeviceConfig? {
-        if (serverName.equals("Local Sandbox", ignoreCase = true)) return null
-        return if (serverName.isNotBlank()) {
-            ctx.shellDevices.find { it.name.equals(serverName, ignoreCase = true) }
-        } else if (ctx.shellDevices.size == 1) {
-            ctx.shellDevices.first()
-        } else null
-    }
+    private fun serverNotFoundMessage(serverName: String, ctx: GenerationContext): String =
+        shellServerNotFoundMessage(serverName, ctx)
 
-    private fun serverNotFoundMessage(serverName: String, ctx: GenerationContext): String {
-        val hasSandbox = ctx.sandboxEnabled && sandboxFactory?.isAvailable() == true
-        val allNames = buildList {
-            if (hasSandbox) add("\"Local Sandbox\"")
-            addAll(ctx.shellDevices.map { "\"${it.name}\"" })
-        }
-        return if (allNames.size == 1) {
-            "Unknown server: $serverName. Use ${allNames[0]} or omit the server parameter."
-        } else {
-            val names = allNames.joinToString(", ")
-            if (serverName.isBlank()) "Multiple servers available. Use shell_list to see them, then specify one: $names."
-            else "Unknown server: $serverName. Available: $names."
-        }
-    }
+    private fun getBackend(serverName: String, ctx: GenerationContext): Backend? =
+        openShellBackend(serverName, ctx, sandbox)
 
-    private suspend fun getBackend(serverName: String, ctx: GenerationContext): Backend? {
-        // Local Sandbox
-        if (serverName.equals("Local Sandbox", ignoreCase = true) && ctx.sandboxEnabled) {
-            if (sandbox?.isAvailable() == true) return SandboxBackend(sandbox)
-            if (sandbox != null) return null
-        }
-        if (serverName.isBlank()) {
-            if (ctx.sandboxEnabled && sandbox?.isAvailable() == true) {
-                return SandboxBackend(sandbox)
-            }
-        }
-        val device = resolveShellDevice(serverName, ctx) ?: return null
-        return when (device.type) {
-            "ssh" -> SshBackend(device)
-            else -> ConchBackend(device)
-        }
-    }
+    private fun getStandardBackend(serverName: String, ctx: GenerationContext): Backend? =
+        openShellBackend(serverName, ctx, sandbox, standardOnly = true)
+
+    private fun standardServerNotFound(serverName: String, ctx: GenerationContext): String =
+        shellServerNotFoundMessage(serverName, ctx, standardOnly = true)
 
     // ── ToolProvider interface ─────────────────────────────
 
@@ -169,7 +139,12 @@ class ShellToolProvider(
         name: String,
         arguments: String,
         ctx: GenerationContext,
-    ): ToolExecutionResult = shellModelFacingResult(name, arguments, ToolExecutionResult(execute(name, arguments, ctx)))
+    ): ToolExecutionResult {
+        val result = if (BuiltInToolNames.canonical(name) == "file_view_image") {
+            executeViewImage(arguments, ctx)
+        } else ToolExecutionResult(execute(name, arguments, ctx))
+        return shellModelFacingResult(name, arguments, result)
+    }
 
     override fun executeEvents(
         name: String,
@@ -205,7 +180,7 @@ class ShellToolProvider(
 
     private suspend fun listShells(ctx: GenerationContext): String {
         val items = buildList {
-            val sandboxOk = ctx.sandboxEnabled && sandbox?.isAvailable() == true
+            val sandboxOk = ctx.sandboxEnabled && sandbox?.isAvailableSync() == true
             if (sandboxOk) {
                 add(buildJsonObject {
                     put("name", "Local Sandbox")
@@ -261,19 +236,25 @@ class ShellToolProvider(
                 command = command,
             )).coerceIn(1000, timeoutMax)
         if (background) {
-            val backend = getConchBackend(serverName, ctx)
+            val target = resolveShellServerName(serverName, ctx)
+            val backend = target?.let { getStandardBackend(it, ctx) }
                 ?: return jsonError(
                     "shell_exec",
-                    conchServerNotFoundMessage(serverName, ctx),
+                    if (target == null) serverNotFoundMessage(serverName, ctx)
+                    else standardServerNotFound(serverName, ctx),
                     server = serverName,
                     command = command,
                 )
             return try {
-                if (!confirmTarget(ctx, backend.device, "start background job: $ $command")) {
+                if (!confirmTarget(
+                        ctx, backend.device, "start background job: $ $command",
+                        localSharedStorageExposed = backend.device == null && ctx.sandboxSharedStorageEnabled,
+                    )
+                ) {
                     return jsonError(
                         "shell_exec",
                         "denied_by_user: the user declined to run this background command",
-                        server = backend.device.name,
+                        server = backend.serverName,
                         command = command,
                     )
                 }
@@ -284,7 +265,7 @@ class ShellToolProvider(
                 jsonError(
                     "shell_exec",
                     e.message ?: "Failed to start background job",
-                    server = backend.device.name,
+                    server = backend.serverName,
                     command = command,
                 )
             } finally {
@@ -295,8 +276,7 @@ class ShellToolProvider(
         val backend = getBackend(serverName, ctx)
             ?: return jsonError("shell_exec", serverNotFoundMessage(serverName, ctx))
         return try {
-            // Gate on the backend's ACTUAL target: with a blank server name the sandbox wins
-            // resolution, while resolveShellDevice() would name an unrelated remote device.
+            // Confirmation follows the resolved target, including shared local storage.
             if (!confirmTarget(
                     ctx,
                     backend.device,
@@ -307,7 +287,7 @@ class ShellToolProvider(
             ) {
                 return jsonError("shell_exec", "denied_by_user: the user declined to run this command", server = serverName, command = command)
             }
-            if (backend is ConchBackend) {
+            if (backend.supportsStandardTools) {
                 durableJobs.executeDurableForeground(
                     backend = backend,
                     command = command,
@@ -324,7 +304,7 @@ class ShellToolProvider(
     }
 
     /**
-     * Starts a Conch command as a durable job, then treats foreground execution as a bounded wait
+     * Starts a standard-server command as a durable job, then treats foreground execution as a bounded wait
      * on that same process. A wait expiry returns ownership to the model through job_id; it never
      * kills or replays the command.
      */
@@ -350,13 +330,14 @@ class ShellToolProvider(
             return@flow
         }
         if (boolArg(args, "background")) {
-            val device = resolveShellDevice(serverName, ctx)?.takeIf { it.type != "ssh" }
-            if (device == null) {
+            val target = resolveShellServerName(serverName, ctx)
+            if (target == null || target !in shellServerNames(ctx, standardOnly = true)) {
                 emit(
                     ToolExecutionEvent.Completed(
                         jsonError(
                             "shell_exec",
-                            conchServerNotFoundMessage(serverName, ctx),
+                            if (target == null) serverNotFoundMessage(serverName, ctx)
+                            else standardServerNotFound(serverName, ctx),
                             server = serverName,
                             command = command,
                         ),
@@ -364,7 +345,7 @@ class ShellToolProvider(
                 )
                 return@flow
             }
-            emit(ToolExecutionEvent.TargetResolved(device.name))
+            emit(ToolExecutionEvent.TargetResolved(target))
             emit(ToolExecutionEvent.Progress("Starting durable background job"))
             // executeShellCommand owns the one confirmation and backend lifecycle.
             emit(ToolExecutionEvent.Completed(executeShellCommand(arguments, ctx)))
@@ -432,7 +413,7 @@ class ShellToolProvider(
                 )
                 return@flow
             }
-            if (backend is ConchBackend) {
+            if (backend.supportsStandardTools) {
                 emit(ToolExecutionEvent.Progress("Running as a durable foreground job"))
                 emit(
                     ToolExecutionEvent.Completed(
@@ -462,8 +443,8 @@ class ShellToolProvider(
         ctx: GenerationContext,
     ): Flow<ToolExecutionEvent> = flow {
         val serverName = arg(parseToolArgs(arguments), "server")
-        resolveConchDevice(serverName, ctx)?.let { device ->
-            emit(ToolExecutionEvent.TargetResolved(device.name))
+        resolveShellServerName(serverName, ctx, standardOnly = true)?.let { target ->
+            emit(ToolExecutionEvent.TargetResolved(target))
         }
         emit(ToolExecutionEvent.Progress("Waiting for durable job"))
         emit(
@@ -482,18 +463,22 @@ class ShellToolProvider(
         val jobId = arg(args, "job_id")
         if (jobId.isBlank()) return jsonError("shell_job_stop", "job_id is required")
         val serverName = arg(args, "server")
-        val backend = getConchBackend(serverName, ctx)
+        val backend = getStandardBackend(serverName, ctx)
             ?: return jsonError(
                 "shell_job_stop",
-                conchServerNotFoundMessage(serverName, ctx),
+                standardServerNotFound(serverName, ctx),
                 server = serverName,
             )
         return try {
-            if (!confirmTarget(ctx, backend.device, "stop background shell job: $jobId")) {
+            if (!confirmTarget(
+                    ctx, backend.device, "stop background shell job: $jobId",
+                    localSharedStorageExposed = backend.device == null && ctx.sandboxSharedStorageEnabled,
+                )
+            ) {
                 return jsonError(
                     "shell_job_stop",
                     "denied_by_user: the user declined to stop this job",
-                    server = backend.device.name,
+                    server = backend.serverName,
                 )
             }
             backend.stopJob(jobId)
@@ -503,7 +488,7 @@ class ShellToolProvider(
             jsonError(
                 "shell_job_stop",
                 e.message ?: "Failed to stop shell job",
-                server = backend.device.name,
+                server = backend.serverName,
             )
         } finally {
             backend.close()
@@ -534,38 +519,24 @@ class ShellToolProvider(
                 ),
                 isError = true,
             )
-        val backend = getConchBackend(serverName, ctx)
+        val backend = getStandardBackend(serverName, ctx)
             ?: return ToolExecutionResult(
                 text = jsonError(
                     "file_view_image",
-                    conchServerNotFoundMessage(serverName, ctx),
+                    standardServerNotFound(serverName, ctx),
                     server = serverName,
                 ),
                 isError = true,
             )
+        var prepared: com.newoether.agora.model.ToolImageAttachment? = null
         return try {
-            val remote = backend.viewImage(path)
-            if (remote.error != null) {
-                return ToolExecutionResult(
-                    text = jsonError(
-                        "file_view_image",
-                        remote.error,
-                        server = backend.device.name,
-                    ),
-                    isError = true,
-                )
-            }
             val attachment = withContext(Dispatchers.IO) {
-                store.persistBase64(
-                    data = remote.data,
-                    mimeType = remote.mimeType,
-                    filePrefix = "conch",
-                )
+                backend.loadImage(path, store).also { prepared = it }
             }
             ToolExecutionResult(
                 text = buildJsonObject {
                     put("type", "file_view_image")
-                    put("server", backend.device.name)
+                    put("server", backend.serverName)
                     put("path", path)
                     put("mime_type", attachment.mimeType)
                     put("size", attachment.sizeBytes)
@@ -576,12 +547,15 @@ class ShellToolProvider(
                 images = listOf(attachment),
                 transcribeImages = true,
             )
+        } catch (cancelled: CancellationException) {
+            prepared?.let { java.io.File(it.path).delete() }
+            throw cancelled
         } catch (error: Exception) {
             ToolExecutionResult(
                 text = jsonError(
                     "file_view_image",
                     error.message ?: "Failed to load image",
-                    server = backend.device.name,
+                    server = backend.serverName,
                 ),
                 isError = true,
             )

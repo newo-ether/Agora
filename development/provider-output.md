@@ -292,13 +292,24 @@ square; it does not remove container margins or cap the square by sheet height. 
 result text, and the image therefore share the same outer edges. Non-generation Tool images retain
 their existing aspect-ratio sizing and `ContentScale.Fit` behavior.
 
-Local Sandbox and Conch share one shell-tool baseline: foreground command/workdir validation,
-bounded retained output and cancellation propagation; bounded typed `file_read`; 1MB UTF-8
-`file_write`; backend-native `file_edit`; and home-default glob/grep with the documented caps,
-truncation metadata, regex failures, and line-content bounds. Conch durable background jobs,
-foreground continuation after the client wait budget, and `file_view_image` are explicit extensions rather
-than baseline behavior that Local must imitate. SSH may implement the transport-neutral interfaces,
-but it is not the authority for the Local/Conch baseline.
+Local Sandbox is a standard shell/file server alongside Conch. Both expose foreground and
+background commands, retained job list/get/wait/stop, explicit `file_view_image`, file transfer,
+bounded typed file reads, 1MB UTF-8 writes, native edits, and home-default glob/grep with documented
+caps and truncation metadata. Schemas and execution resolve the same enabled server set; omission
+is allowed only when a tool has exactly one eligible server. SSH retains its supported subset.
+
+A foreground wait budget expires without killing or restarting its job. Background execution is
+owned by the server, independent of a tool/provider instance; Local Sandbox retains job records and
+bounded cumulative output in private storage. After app process death, unfinished local jobs become
+`interrupted`, never silently replayed. Explicit Stop during foreground execution stops the process
+tree and waits for settlement; cancelling a job read/wait only cancels observation. Sandbox reset
+quiesces its jobs before deleting the rootfs. Shared-storage command and stop confirmation follows
+the existing Local Sandbox target gate. Terminal job acknowledgement follows the existing Room
+commit boundary and does not delete retained records.
+
+Explicit local image reads use the existing sandbox path/mount resolver and shared `ToolImageStore`
+processing, with the same byte bounds, image attachments, and cancellation behavior as remote reads.
+Ordinary sandbox attachments remain path projections until explicitly read as images.
 
 Local Sandbox package installation and upgrade share one dependency download closure. APKINDEX
 records are read completely through their blank-line boundary or EOF. Virtual dependency providers

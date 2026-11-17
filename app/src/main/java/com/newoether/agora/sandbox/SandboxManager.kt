@@ -76,6 +76,24 @@ interface SandboxManager {
         timeoutMs: Int = 30000
     ): SandboxResult
 
+    /** Admit a retained shell job; its runtime limit is independent of any client's wait budget. */
+    suspend fun startJob(command: String, workdir: String, timeoutMs: Int, description: String): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
+    suspend fun listJobs(offset: Int, limit: Int): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
+    suspend fun getJob(jobId: String): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
+    /** Stop the process tree and wait for its output and retained state to settle. */
+    suspend fun stopJob(jobId: String): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
+    /** Record result delivery without deleting the retained job or its output. */
+    suspend fun acknowledgeJob(jobId: String): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
     /** Read a bounded file slice and return transport-neutral metadata. */
     suspend fun fileRead(path: String, offset: Long = 0, limit: Long = 0): ShellFileReadResult
 

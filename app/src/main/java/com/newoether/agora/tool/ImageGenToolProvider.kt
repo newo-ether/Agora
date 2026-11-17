@@ -248,11 +248,10 @@ class ImageGenToolProvider(
             return file.inputStream().use { imageStore.persistStream(it, "image/unknown", "image_reference") }
         }
         require(ctx.shellEnabled) { "Shell access is disabled for image references" }
-        val backend = getConchBackend(server, ctx) ?: throw IOException("Unknown or unavailable Conch reference server: $server")
+        val backend = openShellBackend(server, ctx, sandbox = null, standardOnly = true)
+            ?: throw IOException(shellServerNotFoundMessage(server, ctx, standardOnly = true))
         return try {
-            val remote = backend.viewImage(path)
-            if (remote.error != null) throw IOException(remote.error)
-            imageStore.persistBase64(remote.data, remote.mimeType, "image_reference")
+            backend.loadImage(path, imageStore)
         } finally {
             backend.close()
         }

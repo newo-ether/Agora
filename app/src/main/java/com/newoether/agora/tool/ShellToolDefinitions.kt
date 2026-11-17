@@ -23,13 +23,8 @@ private const val SHELL_DESCRIPTION =
 internal object ShellToolDefinitions {
     fun build(ctx: GenerationContext): List<ToolDefinition> {
         if (!ctx.shellEnabled) return emptyList()
-        if (ctx.shellDevices.isEmpty() && !ctx.sandboxEnabled) return emptyList()
-
-        val hasLocal = ctx.sandboxEnabled
-        val allDeviceNames = buildList {
-            if (hasLocal) add("Local Sandbox")
-            addAll(ctx.shellDevices.map { d -> "\"${d.name}\"" })
-        }
+        val allDeviceNames = shellServerNames(ctx)
+        if (allDeviceNames.isEmpty()) return emptyList()
         val deviceNamesStr = allDeviceNames.joinToString(", ")
 
         val serverPropDesc = if (allDeviceNames.size == 1) {
@@ -37,16 +32,18 @@ internal object ShellToolDefinitions {
         } else {
             "The shell server name. Use shell_list to see available servers: $deviceNamesStr."
         }
-        // timeout_ms is REQUIRED: the model must decide how long the tool call should wait. Conch
-        // foreground execution is durable from the start, so expiry returns its job id without
-        // killing or restarting the command.
+        // Local Sandbox and Conch keep foreground execution durable when its wait budget expires.
+        // timeout_ms is required so the model chooses how long this observation should wait.
         val shellRequiredParams =
             if (allDeviceNames.size == 1) listOf("description", "command", "timeout_ms")
             else listOf("description", "command", "server", "timeout_ms")
 
-        val conchDeviceNames = ctx.shellDevices
-            .filter { it.type != "ssh" }
-            .map { it.name.ifBlank { "Untitled" } }
+        val standardServerNames = shellServerNames(ctx, standardOnly = true)
+        val standardServerDescription = if (standardServerNames.size == 1) {
+            "Shell server name (optional; defaults to ${standardServerNames.single()})."
+        } else {
+            "Shell server name. Available: ${standardServerNames.joinToString(", ")}."
+        }
         val shellTools = buildList {
             add(ToolDefinition(function = ToolFunction(
                 name = "shell_list",
@@ -58,39 +55,34 @@ internal object ShellToolDefinitions {
             )))
             add(ToolDefinition(function = ToolFunction(
                 name = "shell_exec",
-                description = "Execute a shell command with a 64KB UTF-8 command limit, a 32KB UTF-8 workdir limit, and at most 1MB of retained foreground output. Set background=true for a durable Conch job that survives client disconnects.",
+                description = "Execute a shell command with a 64KB UTF-8 command limit, a 32KB UTF-8 workdir limit, and at most 1MB of retained foreground output. Local Sandbox and Conch retain jobs and bounded output independently of the tool/provider instance. Set background=true to return the job_id immediately; foreground wait expiry also returns the same continuing job. After app process death, unfinished Local Sandbox jobs are marked interrupted and are never replayed.",
                 parameters = ToolParameters(
                     properties = mapOf(
                         "description" to ToolProperty("string", SHELL_DESCRIPTION),
                         "command" to ToolProperty("string", "The shell command to execute (64KB UTF-8 maximum)."),
                         "server" to ToolProperty("string", serverPropDesc),
-                        "timeout_ms" to ToolProperty("integer", "Required. Foreground wait budget in milliseconds (hard ceiling 295000ms inside the tool call). On Conch, a command still running at that point continues as the same durable job and returns its job_id; it is never killed or restarted. With background=true this instead bounds the durable job's runtime (up to Conch policy)."),
+                        "timeout_ms" to ToolProperty("integer", "Required. Foreground wait budget in milliseconds (hard ceiling 295000ms inside the tool call). On Local Sandbox and Conch, a command still running at that point continues as the same durable job and returns its job_id; it is never killed or restarted. With background=true this instead bounds the durable job's runtime (up to server policy)."),
                         "workdir" to ToolProperty("string", "Working directory (optional, 32KB UTF-8 maximum)."),
-                        "background" to ToolProperty("boolean", "Start a durable background job on Conch and return its job_id immediately (optional, default false)."),
+                        "background" to ToolProperty("boolean", "Start a durable background job on Local Sandbox or Conch and return its job_id immediately (optional, default false). Jobs and bounded output remain available through shell_job_list/get/wait/stop independently of this tool/provider instance. After app process death, unfinished Local Sandbox jobs are marked interrupted and are never replayed."),
                         "head_lines" to ToolProperty("integer", HEAD_LINES_DESCRIPTION),
                         "tail_lines" to ToolProperty("integer", TAIL_LINES_DESCRIPTION),
                     ),
                     required = shellRequiredParams
                 )
             )))
-            if (conchDeviceNames.isNotEmpty()) {
-                val jobServerDescription = if (conchDeviceNames.size == 1) {
-                    "Conch server name (optional; defaults to ${conchDeviceNames.single()})."
-                } else {
-                    "Conch server name. Available: ${conchDeviceNames.joinToString(", ")}."
-                }
-                val jobRequired = if (conchDeviceNames.size == 1) {
+            if (standardServerNames.isNotEmpty()) {
+                val jobRequired = if (standardServerNames.size == 1) {
                     listOf("description")
                 } else {
                     listOf("description", "server")
                 }
                 add(ToolDefinition(function = ToolFunction(
                     name = "shell_job_list",
-                    description = "List a page of retained shell jobs on a Conch server, including completed foreground commands. Continue with next_offset when has_more is true.",
+                    description = "List a page of retained shell jobs on Local Sandbox or a Conch server, including completed foreground commands. Continue with next_offset when has_more is true.",
                     parameters = ToolParameters(
                         properties = mapOf(
                             "description" to ToolProperty("string", SHELL_DESCRIPTION),
-                            "server" to ToolProperty("string", jobServerDescription),
+                            "server" to ToolProperty("string", standardServerDescription),
                             "offset" to ToolProperty("integer", "Zero-based page offset (default 0)."),
                             "limit" to ToolProperty("integer", "Maximum jobs in this page (default and maximum 100). Stored jobs are not deleted."),
                         ),
@@ -99,27 +91,27 @@ internal object ShellToolDefinitions {
                 )))
                 add(ToolDefinition(function = ToolFunction(
                     name = "shell_job_get",
-                    description = "Get status and bounded output for a durable Conch shell job. Prefer shell_job_wait for blocking use.",
+                    description = "Get status and bounded output for a durable shell job on Local Sandbox or Conch. Prefer shell_job_wait for blocking use.",
                     parameters = ToolParameters(
                         properties = mapOf(
                             "head_lines" to ToolProperty("integer", HEAD_LINES_DESCRIPTION),
                             "tail_lines" to ToolProperty("integer", TAIL_LINES_DESCRIPTION),
-                            "job_id" to ToolProperty("string", "The Conch job id."),
+                            "job_id" to ToolProperty("string", "The shell job id."),
                             "description" to ToolProperty("string", SHELL_DESCRIPTION),
-                            "server" to ToolProperty("string", jobServerDescription),
+                            "server" to ToolProperty("string", standardServerDescription),
                         ),
                         required = listOf("job_id") + jobRequired,
                     ),
                 )))
                 add(ToolDefinition(function = ToolFunction(
                     name = "shell_job_wait",
-                    description = "Block until a durable Conch shell job finishes or timeout_ms elapses while updating one shell-style output block with bounded full cumulative snapshots. A timed-out result includes the current full retained output and leaves the job running; call shell_job_wait again to keep waiting.",
+                    description = "Block until a durable shell job on Local Sandbox or Conch finishes or timeout_ms elapses while updating one shell-style output block with bounded full cumulative snapshots. A timed-out result includes the current full retained output and leaves the job running; call shell_job_wait again to keep waiting.",
                     parameters = ToolParameters(
                         properties = mapOf(
-                            "job_id" to ToolProperty("string", "The Conch job id."),
+                            "job_id" to ToolProperty("string", "The shell job id."),
                             "timeout_ms" to ToolProperty("integer", "Required. Maximum time to block in milliseconds before returning (whether or not the job finished). The hard ceiling for a single call is ${ShellDurableJobExecutor.maxWaitMs(ctx)}ms; larger values are clamped to it and the result says so. To wait longer, call shell_job_wait again."),
                             "description" to ToolProperty("string", SHELL_DESCRIPTION),
-                            "server" to ToolProperty("string", jobServerDescription),
+                            "server" to ToolProperty("string", standardServerDescription),
                             "head_lines" to ToolProperty("integer", HEAD_LINES_DESCRIPTION),
                             "tail_lines" to ToolProperty("integer", TAIL_LINES_DESCRIPTION),
                         ),
@@ -128,12 +120,12 @@ internal object ShellToolDefinitions {
                 )))
                 add(ToolDefinition(function = ToolFunction(
                     name = "shell_job_stop",
-                    description = "Stop a running durable Conch shell job and its process tree.",
+                    description = "Stop a running durable shell job on Local Sandbox or Conch and its process tree.",
                     parameters = ToolParameters(
                         properties = mapOf(
-                            "job_id" to ToolProperty("string", "The Conch job id."),
+                            "job_id" to ToolProperty("string", "The shell job id."),
                             "description" to ToolProperty("string", SHELL_DESCRIPTION),
-                            "server" to ToolProperty("string", jobServerDescription),
+                            "server" to ToolProperty("string", standardServerDescription),
                         ),
                         required = listOf("job_id") + jobRequired,
                     ),
@@ -141,11 +133,7 @@ internal object ShellToolDefinitions {
             }
         }
 
-        val fileServerProperty = if (allDeviceNames.size == 1) {
-            ToolProperty("string", "The shell server name (optional, defaults to the only available server).")
-        } else {
-            ToolProperty("string", "The shell server name. Available: $deviceNamesStr.")
-        }
+        val fileServerProperty = ToolProperty("string", serverPropDesc)
         val fileRequired = if (allDeviceNames.size == 1) emptyList<String>() else listOf("server")
 
         val fileTools = listOf(
@@ -248,15 +236,10 @@ internal object ShellToolDefinitions {
             ))
         )
 
-        val imageTools = if (conchDeviceNames.isEmpty()) {
+        val imageTools = if (standardServerNames.isEmpty()) {
             emptyList()
         } else {
-            val imageServerDescription = if (conchDeviceNames.size == 1) {
-                "Conch server name (optional; defaults to ${conchDeviceNames.single()})."
-            } else {
-                "Conch server name. Available: ${conchDeviceNames.joinToString(", ")}."
-            }
-            val imageRequired = if (conchDeviceNames.size == 1) {
+            val imageRequired = if (standardServerNames.size == 1) {
                 listOf("path")
             } else {
                 listOf("path", "server")
@@ -266,14 +249,14 @@ internal object ShellToolDefinitions {
                     function = ToolFunction(
                         name = "file_view_image",
                         description =
-                            "Load an image from a Conch device and return it as visual context.",
+                            "Load an image from Local Sandbox or a Conch server and return it as visual context.",
                         parameters = ToolParameters(
                             properties = mapOf(
                                 "path" to ToolProperty(
                                     "string",
                                     "Absolute path to the image file.",
                                 ),
-                                "server" to ToolProperty("string", imageServerDescription),
+                                "server" to ToolProperty("string", standardServerDescription),
                             ),
                             required = imageRequired,
                         ),

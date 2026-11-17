@@ -5,6 +5,7 @@ import com.newoether.agora.model.ToolCallData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -14,44 +15,22 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
-internal fun resolveConchDevice(
-    serverName: String,
-    ctx: GenerationContext,
-) = ctx.shellDevices.filter { it.type != "ssh" }.let { conchDevices ->
-    if (serverName.isNotBlank()) {
-        conchDevices.find { it.name.equals(serverName, ignoreCase = true) }
-    } else {
-        conchDevices.singleOrNull()
-    }
-}
-
-internal fun getConchBackend(
-    serverName: String,
-    ctx: GenerationContext,
-): ConchBackend? = resolveConchDevice(serverName, ctx)?.let(::ConchBackend)
-
-internal fun conchServerNotFoundMessage(serverName: String, ctx: GenerationContext): String {
-    val names = ctx.shellDevices
-        .filter { it.type != "ssh" }
-        .map { it.name.ifBlank { "Untitled" } }
-    return when {
-        names.isEmpty() -> "No Conch server is configured. Background jobs require Conch."
-        serverName.isNotBlank() ->
-            "Unknown Conch server \"$serverName\". Available: ${names.joinToString(", ")}."
-        names.size > 1 ->
-            "Multiple Conch servers are available. Specify one: ${names.joinToString(", ")}."
-        else -> "Conch server is unavailable."
-    }
-}
-
 internal fun interface ShellJobPoller {
     suspend fun getJob(): String
 }
 
 internal const val DURABLE_JOB_CANCELLATION_STOP_TIMEOUT_MS = 5_000L
-internal class ShellDurableJobExecutor {
+internal class ShellDurableJobExecutor(
+    private val sandbox: com.newoether.agora.sandbox.SandboxManager? = null,
+) {
+    private fun getJobBackend(name: String, ctx: GenerationContext): Backend? =
+        openShellBackend(name, ctx, sandbox, standardOnly = true)
+
+    private fun jobServerNotFound(name: String, ctx: GenerationContext): String =
+        shellServerNotFoundMessage(name, ctx, standardOnly = true)
+
     suspend fun executeDurableForeground(
-        backend: ConchBackend,
+        backend: Backend,
         command: String,
         workdir: String,
         waitMs: Int,
@@ -66,7 +45,7 @@ internal class ShellDurableJobExecutor {
             return jsonError(
                 "shell_exec",
                 e.message ?: "Failed to start durable foreground job",
-                server = backend.device.name,
+                server = backend.serverName,
                 command = command,
             )
         }
@@ -80,8 +59,8 @@ internal class ShellDurableJobExecutor {
             ?.takeIf(String::isNotBlank)
             ?: return jsonError(
                 "shell_exec",
-                "Conch started a job without returning job_id",
-                server = backend.device.name,
+                "Server started a job without returning job_id",
+                server = backend.serverName,
                 command = command,
             )
 
@@ -91,7 +70,8 @@ internal class ShellDurableJobExecutor {
         var lastFailure: String? = null
         val outputCursor = ConchJobOutputCursor()
         try {
-        while (currentCoroutineContext().isActive) {
+        while (true) {
+            currentCoroutineContext().ensureActive()
             val raw = try {
                 backend.getJob(jobId).also { consecutiveFailures = 0 }
             } catch (cancelled: CancellationException) {
@@ -108,7 +88,7 @@ internal class ShellDurableJobExecutor {
                             "Durable job could not be polled $consecutiveFailures times: " +
                                 lastFailure,
                         )
-                        put("server", backend.device.name)
+                        put("server", backend.serverName)
                         put("command", command)
                         put("job_id", jobId)
                         put("durable", true)
@@ -126,7 +106,7 @@ internal class ShellDurableJobExecutor {
                 val outputUpdate = outputCursor.consume(raw)
                 if (outputUpdate.lostBytes > 0) {
                     onOutput(
-                        "[Conch output gap: ${outputUpdate.lostBytes} earlier UTF-8 bytes " +
+                        "[${backend.serverName} output gap: ${outputUpdate.lostBytes} earlier UTF-8 bytes " +
                             "were evicted before Agora could read them.]\n",
                     )
                 }
@@ -137,7 +117,7 @@ internal class ShellDurableJobExecutor {
                     val result = runCatching { Json.parseToJsonElement(raw) }.getOrNull()
                     return buildJsonObject {
                         put("type", "shell_exec")
-                        put("server", backend.device.name)
+                        put("server", backend.serverName)
                         put("command", command)
                         put("job_id", jobId)
                         put("durable", true)
@@ -149,7 +129,7 @@ internal class ShellDurableJobExecutor {
             if (elapsed >= waitMs) {
                 return buildJsonObject {
                     put("type", "shell_exec")
-                    put("server", backend.device.name)
+                    put("server", backend.serverName)
                     put("command", command)
                     put("job_id", jobId)
                     put("background", true)
@@ -175,21 +155,15 @@ internal class ShellDurableJobExecutor {
             }
             throw cancelled
         }
-        return jsonError(
-            "shell_exec",
-            "cancelled while durable job $jobId continues on ${backend.device.name}",
-            server = backend.device.name,
-            command = command,
-        )
     }
 
     suspend fun listShellJobs(arguments: String, ctx: GenerationContext): String {
         val args = parseToolArgs(arguments)
         val serverName = arg(args, "server")
-        val backend = getConchBackend(serverName, ctx)
+        val backend = getJobBackend(serverName, ctx)
             ?: return jsonError(
                 "shell_job_list",
-                conchServerNotFoundMessage(serverName, ctx),
+                jobServerNotFound(serverName, ctx),
                 server = serverName,
             )
         return try {
@@ -202,7 +176,7 @@ internal class ShellDurableJobExecutor {
             jsonError(
                 "shell_job_list",
                 e.message ?: "Failed to list shell jobs",
-                server = backend.device.name,
+                server = backend.serverName,
             )
         } finally {
             backend.close()
@@ -214,10 +188,10 @@ internal class ShellDurableJobExecutor {
         val jobId = arg(args, "job_id")
         if (jobId.isBlank()) return jsonError("shell_job_get", "job_id is required")
         val serverName = arg(args, "server")
-        val backend = getConchBackend(serverName, ctx)
+        val backend = getJobBackend(serverName, ctx)
             ?: return jsonError(
                 "shell_job_get",
-                conchServerNotFoundMessage(serverName, ctx),
+                jobServerNotFound(serverName, ctx),
                 server = serverName,
             )
         return try {
@@ -228,7 +202,7 @@ internal class ShellDurableJobExecutor {
             jsonError(
                 "shell_job_get",
                 e.message ?: "Failed to get shell job",
-                server = backend.device.name,
+                server = backend.serverName,
             )
         } finally {
             backend.close()
@@ -254,10 +228,10 @@ internal class ShellDurableJobExecutor {
                 "timeout_ms must be an integer, got \"$rawTimeout\"",
                 server = serverName,
             )
-        val backend = getConchBackend(serverName, ctx)
+        val backend = getJobBackend(serverName, ctx)
             ?: return jsonError(
                 "shell_job_wait",
-                conchServerNotFoundMessage(serverName, ctx),
+                jobServerNotFound(serverName, ctx),
                 server = serverName,
             )
         return try {
@@ -270,7 +244,7 @@ internal class ShellDurableJobExecutor {
             val clampedFrom = requestedMs.takeIf { it > ceilingMs }
             waitForShellJobPolling(
                 jobId = jobId,
-                serverName = backend.device.name,
+                serverName = backend.serverName,
                 timeoutMs = timeoutMs,
                 clampedFrom = clampedFrom,
                 ceilingMs = ceilingMs,

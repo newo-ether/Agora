@@ -20,11 +20,75 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import com.newoether.agora.model.ToolImageAttachment
+import com.newoether.agora.viewmodel.GenerationContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.put
 
+/** Schema and dispatch share the same eligible target set, including the local server. */
+internal fun shellServerNames(ctx: GenerationContext, standardOnly: Boolean = false): List<String> =
+    buildList {
+        if (ctx.sandboxEnabled) add("Local Sandbox")
+        addAll(ctx.shellDevices.filter { !standardOnly || it.type != "ssh" }.map { it.name })
+    }
+
+internal fun resolveShellServerName(
+    name: String,
+    ctx: GenerationContext,
+    standardOnly: Boolean = false,
+): String? {
+    val names = shellServerNames(ctx, standardOnly)
+    return if (name.isBlank()) names.singleOrNull()
+    else names.singleOrNull { it.equals(name, ignoreCase = true) }
+}
+
+internal fun openShellBackend(
+    name: String,
+    ctx: GenerationContext,
+    sandbox: SandboxManager?,
+    standardOnly: Boolean = false,
+): Backend? {
+    val resolved = resolveShellServerName(name, ctx, standardOnly) ?: return null
+    if (resolved == "Local Sandbox") {
+        // Availability discovery must not wait for a running command's rootfs mutation lock.
+        return sandbox?.takeIf { it.isAvailableSync() }?.let(::SandboxBackend)
+    }
+    val device = ctx.shellDevices.singleOrNull { it.name == resolved } ?: return null
+    return if (device.type == "ssh") SshBackend(device) else ConchBackend(device)
+}
+
+internal fun shellServerNotFoundMessage(
+    name: String,
+    ctx: GenerationContext,
+    standardOnly: Boolean = false,
+): String {
+    val names = shellServerNames(ctx, standardOnly)
+    return when {
+        names.isEmpty() -> "No supported shell server is enabled."
+        name.isBlank() && names.size > 1 ->
+            "Multiple servers available. Specify one: ${names.joinToString(", ")}."
+        name.isBlank() || names.any { it.equals(name, ignoreCase = true) } ->
+            "Shell server ${name.ifBlank { names.single() }} is unavailable."
+        else -> "Unknown or unsupported server: $name. Available: ${names.joinToString(", ")}."
+    }
+}
+
 internal sealed interface Backend {
-    /** The remote device this backend targets, or null for the local sandbox (never gated). */
+    /** Null denotes the local target; shared-storage mutations still require confirmation. */
     val device: ShellDeviceConfig?
+    val serverName: String get() = device?.name ?: "Local Sandbox"
+    val supportsStandardTools: Boolean get() = device?.type != "ssh"
+    suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int, description: String = ""): String =
+        error("Durable jobs are not supported on $serverName")
+    suspend fun listJobs(offset: Int = 0, limit: Int = 100): String =
+        error("Durable jobs are not supported on $serverName")
+    suspend fun getJob(jobId: String): String = error("Durable jobs are not supported on $serverName")
+    suspend fun stopJob(jobId: String, callTimeoutMillis: Long? = null): String =
+        error("Durable jobs are not supported on $serverName")
+    suspend fun acknowledgeJob(jobId: String): String = error("Durable jobs are not supported on $serverName")
+    suspend fun loadImage(path: String, store: ToolImageStore): ToolImageAttachment =
+        error("Image reads are not supported on $serverName")
     suspend fun executeCommand(cmd: String, workdir: String, timeoutMs: Int): String
     fun executeCommandEvents(
         cmd: String,
@@ -200,22 +264,28 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
 
     override fun close() {}
 
-    suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int, description: String = ""): String =
+    override suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int, description: String): String =
         client.startJob(cmd, timeoutMs, workdir, description)
 
-    suspend fun listJobs(offset: Int = 0, limit: Int = 100): String = client.listJobs(offset, limit)
+    override suspend fun listJobs(offset: Int, limit: Int): String = client.listJobs(offset, limit)
 
-    suspend fun getJob(jobId: String): String = client.getJob(jobId)
+    override suspend fun getJob(jobId: String): String = client.getJob(jobId)
 
-    suspend fun stopJob(
+    override suspend fun stopJob(
         jobId: String,
-        callTimeoutMillis: Long? = null,
+        callTimeoutMillis: Long?,
     ): String = client.stopJob(jobId, callTimeoutMillis)
 
-    suspend fun acknowledgeJob(jobId: String): String = client.acknowledgeJob(jobId)
+    override suspend fun acknowledgeJob(jobId: String): String = client.acknowledgeJob(jobId)
 
-    suspend fun viewImage(path: String): ShellClient.FileImageResult =
-        client.fileImage(path)
+    suspend fun viewImage(path: String): ShellClient.FileImageResult = client.fileImage(path)
+
+    override suspend fun loadImage(path: String, store: ToolImageStore): ToolImageAttachment {
+        val remote = viewImage(path)
+        remote.error?.let { error(it) }
+        currentCoroutineContext().ensureActive()
+        return store.persistBase64(remote.data, remote.mimeType, "conch")
+    }
 }
 
 internal class SshBackend(override val device: ShellDeviceConfig) : Backend {
@@ -291,6 +361,24 @@ internal class SshBackend(override val device: ShellDeviceConfig) : Backend {
 internal class SandboxBackend(sandbox: SandboxManager?) : Backend {
     override val device: ShellDeviceConfig? get() = null
     private val mgr = sandbox ?: throw IllegalStateException("Sandbox not available")
+
+    override suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int, description: String): String =
+        mgr.startJob(cmd, workdir, timeoutMs, description)
+    override suspend fun listJobs(offset: Int, limit: Int): String = mgr.listJobs(offset, limit)
+    override suspend fun getJob(jobId: String): String = mgr.getJob(jobId)
+    override suspend fun stopJob(jobId: String, callTimeoutMillis: Long?): String =
+        if (callTimeoutMillis == null) mgr.stopJob(jobId)
+        else withTimeout(callTimeoutMillis) { mgr.stopJob(jobId) }
+    override suspend fun acknowledgeJob(jobId: String): String = mgr.acknowledgeJob(jobId)
+
+    override suspend fun loadImage(path: String, store: ToolImageStore): ToolImageAttachment {
+        require(path.startsWith('/')) { "Local Sandbox image path must be absolute" }
+        val file = mgr.resolveHostFile(path) ?: error("Sandbox path is unavailable")
+        require(file.isFile && file.canRead()) { "Image file is missing or unreadable: $path" }
+        require(file.length() <= ToolImageStore.MAX_IMAGE_BYTES) { "Tool image exceeds its byte bound" }
+        currentCoroutineContext().ensureActive()
+        return file.inputStream().use { store.persistStream(it, "image/unknown", "sandbox") }
+    }
 
     override suspend fun executeCommand(cmd: String, workdir: String, timeoutMs: Int): String {
         if (!mgr.isAvailable()) return jsonError("shell_exec", "Local Sandbox is not installed.")

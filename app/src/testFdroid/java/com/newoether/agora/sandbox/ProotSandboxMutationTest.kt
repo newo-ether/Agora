@@ -30,6 +30,39 @@ class ProotSandboxMutationTest {
     val temporaryFolder = TemporaryFolder()
 
     @Test
+    fun ordinaryMutationsCannotBypassFailedJobRecovery() = runBlocking {
+        val directory = temporaryFolder.newFolder("sandbox-recovery")
+        val marker = File(directory, "alpine-rootfs/etc/marker")
+        marker.parentFile!!.mkdirs()
+        marker.writeText("keep rootfs")
+        val id = java.util.UUID.randomUUID().toString()
+        val jobs = File(directory, "sandbox-jobs").apply { mkdirs() }
+        File(jobs, "$id.json").writeText("""{"jobId":"$id","command":"old job","description":"recovery","workdir":"/home/agora","timeoutMs":1000,"createdAt":1,"state":"running"}""")
+        File(jobs, "$id.output").writeText("")
+        // A blocked metadata publication makes recovery fail without invoking an OS process.
+        File(jobs, "$id.json.tmp/blocked").apply { parentFile!!.mkdirs(); writeText("blocked") }
+        val context = mockk<Context>()
+        every { context.filesDir } returns directory
+        val manager = ProotSandboxManager(context, mockk<SettingsRepository>(relaxed = true))
+        val actions: List<suspend () -> Any?> = listOf(
+            { manager.isAvailable() },
+            { manager.install() },
+            { manager.executeCommand("true", "/", 1000) },
+            { manager.fileWrite("/etc/new-file", "new") },
+            { manager.fileEdit("/etc/marker", emptyList(), "") },
+            { manager.apkInstall("fixture") {} },
+            { manager.apkDelete("fixture") },
+            { manager.apkUpgrade {} },
+            { manager.reset() },
+        )
+        for (action in actions) {
+            assertTrue("Rootfs mutation must fail when recovery cannot settle", runCatching { action() }.isFailure)
+            org.junit.Assert.assertEquals("keep rootfs", marker.readText())
+            org.junit.Assert.assertFalse(File(directory, "alpine-rootfs/etc/new-file").exists())
+        }
+    }
+
+    @Test
     fun resetWaitsForAnInFlightAtomicFileWriteBeforeRemovingRootfs() = runBlocking {
         val directory = temporaryFolder.newFolder("sandbox-mutation")
         val marker = File(directory, "alpine-rootfs/etc/marker")
