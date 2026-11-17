@@ -282,6 +282,6 @@ internal object ShellToolDefinitions {
             )
         }
 
-        return shellTools + fileTools + imageTools
+        return shellTools + fileTools + imageTools + fileTransferDefinition()
     }
 }

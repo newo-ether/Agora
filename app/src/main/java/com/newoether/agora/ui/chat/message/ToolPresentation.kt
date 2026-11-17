@@ -37,6 +37,7 @@ internal enum class ToolKind {
     SHELL_JOB_STOP,
     FILE_READ,
     FILE_WRITE,
+    FILE_TRANSFER,
     FILE_EDIT,
     FILE_GLOB,
     FILE_GREP,
@@ -96,6 +97,7 @@ internal data class ToolPresentation(
     val destination: String? = null,
     val outcome: String? = null,
     val answeredCount: Int? = null,
+    val transferBytes: Long? = null,
 ) {
     /**
      * Drives the group loading indicator. BACKGROUND_RUNNING is deliberately excluded: a
@@ -202,12 +204,18 @@ internal object ToolPresentationResolver {
         // completed card just because the payload has no readable content field. The one exception
         // is a provider-declared empty result (`no_results`), which is an explicit success even when
         // the protocol row carries a terminal FAILED state.
-        val declaredEmpty = errorCode == "no_results"
+        val declaredEmpty = kind != ToolKind.FILE_TRANSFER && errorCode == "no_results"
         val failureCode = errorCode?.takeIf { it.isNotBlank() && !declaredEmpty }
         val failedFlag = resultObject.boolean("failed") == true ||
             resultEnvelope.boolean("failed") == true
         val wireFailure = explicitState == ToolPresentationState.FAILED
-        val failed = !declaredEmpty && (failureCode != null || failedFlag || wireFailure)
+        val invalidTransferReceipt = kind == ToolKind.FILE_TRANSFER &&
+            explicitState != ToolPresentationState.STOPPED &&
+            (segment.toolResult != null || segment.toolStructuredResult != null ||
+                explicitState in setOf(ToolPresentationState.COMPLETED, ToolPresentationState.EMPTY)) &&
+            !validFileTransferReceipt(resultObject)
+        val failed = !declaredEmpty && (failureCode != null || failedFlag || wireFailure ||
+            kind == ToolKind.FILE_TRANSFER && (fileTransferFailed(resultObject) || invalidTransferReceipt))
         val semanticEmpty = !failed && isSemanticEmpty(
             kind = kind,
             rawResult = segment.toolResult.orEmpty(),
@@ -218,6 +226,8 @@ internal object ToolPresentationResolver {
         )
         val error = if (!failed) {
             null
+        } else if (kind == ToolKind.FILE_TRANSFER) {
+            fileTransferError(resultObject, segment.toolResultText ?: segment.toolResult)
         } else {
             failureCode?.let { code ->
                 (resultObject.string("message") ?: resultEnvelope.string("message")
@@ -232,6 +242,13 @@ internal object ToolPresentationResolver {
                     }
         }
         val state = when {
+            kind == ToolKind.FILE_TRANSFER -> when {
+                explicitState == ToolPresentationState.STOPPED -> ToolPresentationState.STOPPED
+                failed -> ToolPresentationState.FAILED
+                segment.toolResult != null || segment.toolStructuredResult != null -> ToolPresentationState.COMPLETED
+                else -> explicitState ?: if (segment.toolProgress.isNullOrEmpty()) ToolPresentationState.CALLING
+                    else ToolPresentationState.RUNNING
+            }
             segment.toolResult == null -> explicitState ?: run {
                 if (segment.toolProgress.isNullOrEmpty()) ToolPresentationState.CALLING
                 else ToolPresentationState.RUNNING
@@ -271,7 +288,10 @@ internal object ToolPresentationResolver {
             outputLength = resultObject.string("output")?.length,
             jobState = jobState,
             operation = (args.string("operation") ?: streamingHints.operation)?.trim()?.lowercase(),
-            destination = normalizeToolSummarySubject(args.string("new_name") ?: streamingHints.destination),
+            destination = normalizeToolSummarySubject(if (kind == ToolKind.FILE_TRANSFER) {
+                fileTransferEndpoint(resultObject.transferText("destination_server") ?: args.string("destination_server"),
+                    resultObject.transferText("destination_path") ?: args.string("destination_path")) ?: streamingHints.destination
+            } else args.string("new_name") ?: streamingHints.destination),
             outcome = when (kind) {
                 ToolKind.ASK_USER -> when {
                     resultObject.string("delivery") == "queued" -> "queued"
@@ -280,9 +300,14 @@ internal object ToolPresentationResolver {
                     resultObject.array("answers") != null -> "answers"
                     else -> null
                 }
+                ToolKind.FILE_TRANSFER -> if (invalidTransferReceipt && !fileTransferFailed(resultObject)) "invalid_receipt"
+                    else resultObject.transferText("status")
                 ToolKind.LOOP_STOP -> resultObject.string("status")
                 else -> null
             },
+            transferBytes = if (kind == ToolKind.FILE_TRANSFER && validFileTransferReceipt(resultObject)) {
+                resultObject?.get("bytes")?.let { (it as? JsonPrimitive)?.contentOrNull?.toLongOrNull() }
+            } else null,
             answeredCount = if (kind == ToolKind.ASK_USER) resultObject.array("answers")?.count {
                 (it as? JsonObject).boolean("answered") == true
             } else null,
@@ -325,6 +350,7 @@ internal object ToolPresentationResolver {
         "shell_job_stop" -> ToolKind.SHELL_JOB_STOP
         "file_read" -> ToolKind.FILE_READ
         "file_write" -> ToolKind.FILE_WRITE
+        "file_transfer" -> ToolKind.FILE_TRANSFER
         "file_edit", "file_multi_edit" -> ToolKind.FILE_EDIT
         "file_glob" -> ToolKind.FILE_GLOB
         "file_grep" -> ToolKind.FILE_GREP
@@ -453,6 +479,10 @@ internal object ToolPresentationResolver {
         ToolKind.FILE_EDIT,
         ToolKind.IMAGE_VIEW -> arguments.string("path")
             ?: result.string("path")
+        ToolKind.FILE_TRANSFER -> fileTransferEndpoint(
+            result.transferText("source_server") ?: arguments.string("source_server"),
+            result.transferText("source_path") ?: arguments.string("source_path"),
+        )
         ToolKind.FILE_GLOB,
         ToolKind.FILE_GREP -> arguments.string("pattern")
             ?: result.string("pattern")

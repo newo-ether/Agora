@@ -197,7 +197,8 @@ private fun Resources.toolDetailBody(presentation: ToolPresentation): ToolDetail
             toolSummary(presentation), presentation.liveOutput ?: (presentation.result as? JsonObject).string("output"),
         )
         ToolPresentationState.FAILED -> ToolDetailBody.Failed(
-            presentation.errorMessage ?: getString(R.string.tool_call_failed), presentation.liveOutput,
+            presentation.errorMessage ?: if (presentation.kind == ToolKind.FILE_TRANSFER) fileTransferSummary(presentation)
+                else getString(R.string.tool_call_failed), presentation.liveOutput,
         )
         ToolPresentationState.STOPPED -> ToolDetailBody.Stopped(stoppedToolSummary(presentation))
         ToolPresentationState.EMPTY,

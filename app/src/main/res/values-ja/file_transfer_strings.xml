@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_file_transfer">ファイルを転送</string>
+    <string name="tool_transferring_file">%1$s を転送中…</string>
+    <string name="tool_transferring_file_default">ファイルを転送中…</string>
+    <string name="tool_transferred_file">%1$s を転送しました（%2$d バイト）</string>
+    <string name="tool_transfer_unchanged">%1$s は変更されていません</string>
+    <string name="tool_transfer_failed">ファイルの転送に失敗しました</string>
+    <string name="tool_transfer_unconfirmed">ファイル転送の完了を確認できませんでした</string>
+</resources>

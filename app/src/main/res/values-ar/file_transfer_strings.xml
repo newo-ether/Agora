@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_file_transfer">نقل ملف</string>
+    <string name="tool_transferring_file">جارٍ نقل %1$s…</string>
+    <string name="tool_transferring_file_default">جارٍ نقل الملف…</string>
+    <string name="tool_transferred_file">تم نقل %1$s (%2$d بايت)</string>
+    <string name="tool_transfer_unchanged">لم يتغير %1$s</string>
+    <string name="tool_transfer_failed">فشل نقل الملف</string>
+    <string name="tool_transfer_unconfirmed">تعذر تأكيد اكتمال نقل الملف</string>
+</resources>

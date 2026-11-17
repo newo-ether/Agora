@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_file_transfer">Transferir archivo</string>
+    <string name="tool_transferring_file">Transfiriendo %1$s…</string>
+    <string name="tool_transferring_file_default">Transfiriendo archivo…</string>
+    <string name="tool_transferred_file">%1$s transferido (%2$d bytes)</string>
+    <string name="tool_transfer_unchanged">%1$s sin cambios</string>
+    <string name="tool_transfer_failed">Error al transferir el archivo</string>
+    <string name="tool_transfer_unconfirmed">No se pudo confirmar la finalización de la transferencia</string>
+</resources>

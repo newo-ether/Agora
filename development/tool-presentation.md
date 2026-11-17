@@ -40,6 +40,25 @@ The active-memory reader is a distinct display target, not an ordinary saved mem
 
 Memory/skill rename summaries show old and new names when known; description edits name the description action. `ask_user` distinguishes waiting for answers, queued questions, answered questions and skipped questions using actual returned facts. A mixed set shows answered count against returned question count without claiming every question was answered. Question outcomes are natural sentences with quantity grammar (`Answered 1 question`, `Answered 3 questions`, `Answered 2 of 3 questions`, `Skipped 2 questions`, `Queued 2 questions`), never label-colon-count text. `loop_stop` distinguishes a new stop from an already stopped Loop.
 
+## File Transfer
+
+`file_transfer` uses its own built-in kind within the existing summary and detail owners.
+Calling/running summaries say `Transferring <source server:path> → <destination server:path>…`;
+bounded prefix hints keep both endpoints visible while arguments stream. Terminal summaries prefer
+actual receipt endpoints and show `Transferred <route> (<bytes> bytes)` or `Unchanged <route>`.
+Zero bytes is a successful empty-file transfer, not an empty result. Completion requires `ok:true`,
+a copied/unchanged status, both endpoint pairs, a nonnegative byte count and matching SHA-256 values.
+A missing or malformed receipt never claims success. Explicit failed/stopped lifecycle remains
+authoritative even when a receipt contains success-shaped fields.
+
+Transfer errors recognize `ok:false`, nonnull structured error objects and ordinary tool error
+strings. Resolve nested `error.message`, top-level message/reason/detail and then the specific
+error code; decode a recognized JSON diagnostic embedded in a message without displaying its
+wrapper as the reason. Preserve OS, permission, conflict and uncertain-commit instructions.
+Unknown non-JSON diagnostics stay readable. Summary normalization remains presentation-only;
+original arguments and successful result receipts remain unchanged in the shared JSON detail.
+Native and WebUI consume this same resolver, localized summary and detail projection.
+
 ## Detail Bodies
 Shell execute, get/wait and stop-job details use the same shell body, including stopped or interrupted
 server results. The compact status remains distinct from command output. A failed call with no real

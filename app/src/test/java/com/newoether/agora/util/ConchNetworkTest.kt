@@ -10,6 +10,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ConchNetworkTest {
+    @Test fun onlyTransferReadsCanBeReplayed() {
+        for (action in listOf("capabilities", "info", "read", "status")) {
+            assertTrue(action, ConchNetwork.isReadOnly("/file/transfer/$action"))
+        }
+        for (action in listOf("begin", "chunk", "commit", "abort")) {
+            assertFalse(action, ConchNetwork.isReadOnly("/file/transfer/$action"))
+        }
+    }
+
     @Test fun unsignedChunkedHandshakeIsBoundedBeforeVerification() {
         withServer(200, ByteArray(65_537) { 'x'.code.toByte() }) { url ->
             assertThrows(IOException::class.java) { ConchNetwork.getTextResponse(url, emptyMap()) }

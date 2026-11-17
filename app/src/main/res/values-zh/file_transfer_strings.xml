@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_file_transfer">传输文件</string>
+    <string name="tool_transferring_file">正在传输 %1$s…</string>
+    <string name="tool_transferring_file_default">正在传输文件…</string>
+    <string name="tool_transferred_file">已传输 %1$s（%2$d 字节）</string>
+    <string name="tool_transfer_unchanged">未更改 %1$s</string>
+    <string name="tool_transfer_failed">文件传输失败</string>
+    <string name="tool_transfer_unconfirmed">无法确认文件传输是否完成</string>
+</resources>

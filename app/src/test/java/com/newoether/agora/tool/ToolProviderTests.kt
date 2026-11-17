@@ -102,7 +102,7 @@ class ShellToolProviderTest {
             )
         )
         val defs = provider.definitions(ctx)
-        assertEquals(13, defs.size)
+        assertEquals(14, defs.size)
         val names = defs.map { it.function.name }.toSet()
         assertEquals(
             setOf(
@@ -114,6 +114,7 @@ class ShellToolProviderTest {
                 "shell_job_stop",
                 "file_read",
                 "file_write",
+                "file_transfer",
                 "file_edit",
                 "file_multi_edit",
                 "file_glob",

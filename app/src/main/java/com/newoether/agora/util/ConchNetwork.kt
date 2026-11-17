@@ -26,6 +26,7 @@ internal object ConchNetwork {
 
     private val readOnlyPaths = setOf(
         "/file/read", "/file/image", "/file/glob", "/file/grep", "/jobs/list", "/jobs/get",
+        "/file/transfer/capabilities", "/file/transfer/info", "/file/transfer/read", "/file/transfer/status",
     )
 
     fun isReadOnly(path: String): Boolean = path in readOnlyPaths

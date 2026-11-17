@@ -155,6 +155,7 @@ class ShellToolProvider(
             "shell_job_stop" -> stopShellJob(arguments, ctx)
             "file_read" -> executeFileRead(arguments, ctx)
             "file_write" -> executeFileWrite(arguments, ctx)
+            "file_transfer" -> executeFileTransfer(arguments, ctx)
             "file_edit" -> executeFileEdit(arguments, ctx, "file_edit")
             "file_multi_edit" -> executeFileEdit(arguments, ctx, "file_multi_edit")
             "file_glob" -> executeFileGlob(arguments, ctx)
@@ -197,7 +198,7 @@ class ShellToolProvider(
     override fun handles(name: String): Boolean = BuiltInToolNames.canonical(name) in setOf(
         "shell_list", "shell_exec",
         "shell_job_list", "shell_job_get", "shell_job_wait", "shell_job_stop",
-        "file_read", "file_write", "file_edit", "file_multi_edit", "file_glob", "file_grep", "file_view_image"
+        "file_read", "file_write", "file_transfer", "file_edit", "file_multi_edit", "file_glob", "file_grep", "file_view_image"
     )
 
     // ── shell_list ────────────────────────────────────────
@@ -595,6 +596,11 @@ class ShellToolProvider(
             openBackend = { server -> getBackend(server, ctx) },
             missingServer = { server -> serverNotFoundMessage(server, ctx) },
         )
+
+    private suspend fun executeFileTransfer(arguments: String, ctx: GenerationContext): String =
+        executeShellFileTransfer(arguments, ctx, sandbox) { device, summary, local ->
+            confirmTarget(ctx, device, summary, local)
+        }
 
     private suspend fun executeFileWrite(arguments: String, ctx: GenerationContext): String {
         val args = parseToolArgs(arguments)

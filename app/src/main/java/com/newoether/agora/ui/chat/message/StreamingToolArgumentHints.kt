@@ -67,6 +67,7 @@ internal object StreamingToolArgumentHintResolver {
             ToolKind.FILE_WRITE,
             ToolKind.FILE_EDIT,
             ToolKind.IMAGE_VIEW -> root.scalar("path")
+            ToolKind.FILE_TRANSFER -> fileTransferEndpoint(root.scalar("source_server"), root.scalar("source_path"))
             ToolKind.FILE_GLOB,
             ToolKind.FILE_GREP -> root.scalar("pattern")
             ToolKind.IMAGE_GENERATE -> root.scalar("prompt")
@@ -82,7 +83,9 @@ internal object StreamingToolArgumentHintResolver {
             server = normalizeToolSummarySubject(root.scalar("server")),
             count = if (namesSelected && namesArray.complete) names.size else null,
             operation = root.scalar("operation"),
-            destination = normalizeToolSummarySubject(root.scalar("new_name")),
+            destination = normalizeToolSummarySubject(if (kind == ToolKind.FILE_TRANSFER) {
+                fileTransferEndpoint(root.scalar("destination_server"), root.scalar("destination_path"))
+            } else root.scalar("new_name")),
         )
     }
 

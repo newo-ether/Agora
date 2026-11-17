@@ -434,7 +434,7 @@ class ShellClient(
         val after: List<String> = emptyList(),
     )
 
-    private suspend fun encryptedPost(
+    internal suspend fun encryptedPost(
         path: String,
         payload: String,
         callTimeoutMillis: Long? = null,

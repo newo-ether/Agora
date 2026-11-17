@@ -21,6 +21,7 @@ internal val PLAIN_TEXT_SHELL_TOOLS = setOf(
     "shell_job_stop",
     "file_read",
     "file_write",
+    "file_transfer",
     "file_edit",
     "file_multi_edit",
     "file_glob",

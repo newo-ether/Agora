@@ -151,6 +151,7 @@ private fun Resources.toolBaseDisplayName(
     ToolKind.SHELL_JOB_STOP -> getString(R.string.tool_stop_shell_job)
     ToolKind.FILE_READ -> getString(R.string.tool_file_read)
     ToolKind.FILE_WRITE -> getString(R.string.tool_file_write)
+    ToolKind.FILE_TRANSFER -> getString(R.string.tool_file_transfer)
     ToolKind.FILE_EDIT -> getString(R.string.tool_file_edit)
     ToolKind.FILE_GLOB -> getString(R.string.tool_file_glob)
     ToolKind.FILE_GREP -> getString(R.string.tool_file_grep)
@@ -306,6 +307,7 @@ private fun Resources.runningSummary(
         R.string.tool_reading_file,
         R.string.tool_progress_reading,
     )
+    ToolKind.FILE_TRANSFER -> fileTransferSummary(presentation)
     ToolKind.FILE_WRITE -> optionalSubjectSummary(
         subject,
         R.string.tool_writing_file,
@@ -655,6 +657,7 @@ private fun Resources.completedSummary(
         R.string.tool_read_file_done,
         R.string.tool_read_file_done_default,
     )
+    ToolKind.FILE_TRANSFER -> fileTransferSummary(presentation)
     ToolKind.FILE_WRITE -> optionalSubjectSummary(
         subject,
         R.string.tool_wrote_file,
@@ -734,6 +737,7 @@ private fun Resources.failedSummary(
         ToolKind.MEMORY_DELETE, ToolKind.SKILL_DELETE, ToolKind.TASK_DELETE ->
             target?.let { getString(R.string.tool_failed_to_delete, it) }
                 ?: getString(R.string.tool_delete_failed_default)
+        ToolKind.FILE_TRANSFER -> fileTransferSummary(presentation)
         ToolKind.FILE_WRITE -> target?.let { getString(R.string.tool_failed_to_write, it) }
             ?: getString(R.string.tool_write_failed_default)
         ToolKind.WEB_SEARCH, ToolKind.MCP_SEARCH, ToolKind.CONVERSATION_SEARCH, ToolKind.FILE_GREP ->
