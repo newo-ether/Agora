@@ -373,7 +373,9 @@ class GenerationRequestBuilder(
                 assistantPrepend = null,
                 assistantPostpend = null,
                 promptTemplate = promptTemplate,
-                requestResolver = createRequestResolver(promptTemplate, selectedModelId),
+                requestResolver = createRequestResolver(
+                    promptTemplate, selectedModelId, baseConfig.phoneMaxScreenshots,
+                ),
             )
         }
         return GenerationAdmissionSnapshot(
@@ -392,6 +394,7 @@ class GenerationRequestBuilder(
             automaticCompact = automaticCompact.copy(
                 mainModelId = ordinaryConfig.modelId,
                 mainImageTranscriptionEnabled = context.imageTranscriptionEnabled,
+                mainPhoneMaxScreenshots = ordinaryConfig.phoneMaxScreenshots,
                 userPrepend = ordinaryConfig.userPrepend,
                 userPostpend = ordinaryConfig.userPostpend,
                 assistantPrepend = ordinaryConfig.assistantPrepend,
@@ -500,6 +503,7 @@ class GenerationRequestBuilder(
             customProviders = settings.customProviders.value,
         )
         val apiModelId = ModelId.parse(providerRegistry.canonicalModelId(modelId)).modelName
+        val phoneConfig = settings.phoneUse.value
         val config = GenerationConfig(
             anthropicCacheEnabled = isAnthropicCacheEnabledForProvider(providerName, cacheEnabled, cacheProviders),
             anthropicCacheTtl = anthropicCacheTtlForProvider(providerName, cacheTtl, cacheProviders),
@@ -538,12 +542,12 @@ class GenerationRequestBuilder(
             maxTokens = effectiveSettings.maxTokens,
             topP = effectiveSettings.topP,
             frequencyPenalty = effectiveSettings.frequencyPenalty,
-            presencePenalty = effectiveSettings.presencePenalty
+            presencePenalty = effectiveSettings.presencePenalty,
+            phoneMaxScreenshots = phoneConfig.maxScreenshots,
         )
         val enabledModelIds = settings.enabledModels.value.toSet()
         val subagentModelIds = settings.subagentEnabledModels.value.orEmpty()
             .intersect(enabledModelIds).sorted()
-        val phoneConfig = settings.phoneUse.value
         val genCtx = GenerationContext(
             phoneEnabled = phoneToolsEnabled && phoneConfig.enabled,
             phoneMode = phoneConfig.mode,
@@ -687,6 +691,7 @@ class GenerationRequestBuilder(
     private fun createRequestResolver(
         promptTemplate: GenerationPromptTemplate,
         activeModel: String,
+        phoneMaxScreenshots: Int,
     ): ProviderRequestResolver = ProviderRequestResolver { messages, providerConfig ->
         val resolved = resolvePromptTemplate(promptTemplate, activeModel)
         // One cost model per request: the fixed cost, the trimming and the indicator must agree.
@@ -710,6 +715,7 @@ class GenerationRequestBuilder(
             userPostpend = resolved.userPostpend,
             assistantPrepend = resolved.assistantPrepend,
             assistantPostpend = resolved.assistantPostpend,
+            phoneMaxScreenshots = phoneMaxScreenshots,
         )
         ProviderRequestInput(
             messages = prepareMessages(

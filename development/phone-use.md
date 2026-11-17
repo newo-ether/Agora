@@ -35,8 +35,13 @@ Sub-page, top to bottom:
    trailing slot with the shared 250 ms crossfade. Tapping an item requests the permission directly
    when the platform allows it, otherwise deep-links to the most specific system page. Refresh only
    on page entry, resume, mode change or permission-item click; no periodic settings probes.
-4. Automation access: one switch `Allow Task and Loop runs`, default off (section 5).
-5. App access control (section 6).
+4. Screenshot history: a `Max Screenshots` integer slider, range 0..20, default 5. Reuse the
+   shared persisted slider feedback gate; commit on release, with no Save action. Zero sends no
+   Phone tool images. Supporting copy explains that only the newest Phone tool images are sent
+   to the model and older images remain in the conversation. This is device-local Phone Use
+   configuration, like its existing mode/access settings, and is not a portable archive field.
+5. Automation access: one switch `Allow Task and Loop runs`, default off (section 5).
+6. App access control (section 6).
 
 Required permissions:
 
@@ -122,6 +127,17 @@ Rules:
   clipboard content.
 - Any `phone_*` call other than `phone_claim` without a lease held by the caller fails with
   `not_claimed` and performs no side effect.
+- For each Provider request, the shared immutable message projection retains at most the configured
+  number of images returned by built-in Phone Control tools, counted from the newest message,
+  then newest tool result and image, backwards. The limit counts images, not messages or calls.
+  Older Phone tool images are omitted before provider payload encoding/upload while tool identity, arguments,
+  text results, order and pairing remain intact. User attachments, generated images and images from
+  every other tool are unchanged and do not consume this budget. Apply the same projection to
+  initial requests and tool continuations, including retained legacy tool-image representations.
+  Stored messages, local image files, UI history and exports are never mutated by this request-only
+  limit. Capture the setting with the immutable Run admission configuration and use that same value
+  for initial requests, continuations, context accounting and automatic Compact threshold checks.
+  Changing the setting applies to newly admitted Runs without deleting screenshots.
 
 ## 3. Global control lease
 

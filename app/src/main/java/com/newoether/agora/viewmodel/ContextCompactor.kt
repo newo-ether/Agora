@@ -182,6 +182,7 @@ internal fun automaticCompactNeeded(
     assistantPrepend: String? = null,
     assistantPostpend: String? = null,
     costs: ContextCostModel = ContextCostModel.Default,
+    phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
 ): Boolean {
     val selectedPath = ConversationUiState.resolvePath(
         allMessages = entities.map { it.toUiChatMessage { text -> text } },
@@ -209,6 +210,7 @@ internal fun automaticCompactNeeded(
         // Stored descriptions remove only their own images before admission accounting.
         includeImages = true,
         costs = costs,
+        phoneMaxScreenshots = phoneMaxScreenshots,
     )
 }
 
@@ -224,6 +226,7 @@ internal fun automaticCompactNeeded(
     assistantPostpend: String? = null,
     includeImages: Boolean = true,
     costs: ContextCostModel = ContextCostModel.Default,
+    phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
 ): Boolean {
     if (path.isEmpty() || retainLogicalMessages < 0) return false
     val semanticPath = path.filterNot { it.isContextCompact() && !it.isSuccessfulContextCompact() }
@@ -241,6 +244,7 @@ internal fun automaticCompactNeeded(
                 userPostpend = userPostpend,
                 assistantPrepend = assistantPrepend,
                 assistantPostpend = assistantPostpend,
+                phoneMaxScreenshots = phoneMaxScreenshots,
             ),
             contextLimit.coerceAtLeast(1),
             fixedTokenCost = fixedTokenCost,
@@ -293,6 +297,7 @@ internal class ContextCompactor(
             assistantPrepend = mainPrompt?.assistantPrepend ?: config.assistantPrepend,
             assistantPostpend = mainPrompt?.assistantPostpend ?: config.assistantPostpend,
             includeImages = true,
+            phoneMaxScreenshots = config.mainPhoneMaxScreenshots,
         )
     }
 }

@@ -69,4 +69,6 @@
     <string name="phone_done_app_list">アプリを一覧表示しました</string>
     <string name="phone_write_settings_permission">システム設定の変更</string>
     <string name="phone_write_settings_description">操作中は画面のタイムアウトを一時的に 30 分以上に延長し、終了後に元に戻します。途中で変更した設定は保持します。</string>
+    <string name="phone_max_screenshots">スクリーンショットの最大数</string>
+    <string name="phone_max_screenshots_description">モデルに送信するスマートフォン操作ツールの画像のみを、新しい順に制限します。0 は送信しません。古い画像は会話に保存されたままで、他の画像には影響しません。</string>
 </resources>

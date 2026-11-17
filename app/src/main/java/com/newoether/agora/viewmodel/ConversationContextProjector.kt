@@ -143,6 +143,7 @@ internal class ConversationContextProjector(
                     userPostpend = it.config.userPostpend,
                     assistantPrepend = it.config.assistantPrepend,
                     assistantPostpend = it.config.assistantPostpend,
+                    phoneMaxScreenshots = it.config.phoneMaxScreenshots,
                 )
             } ?: durableProviderMessages
             val fixedTokenCost = snapshot?.let {

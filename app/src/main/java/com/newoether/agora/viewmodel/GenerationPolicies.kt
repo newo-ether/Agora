@@ -252,11 +252,14 @@ internal fun projectGenerationInputMessages(
     assistantPrepend: String? = null,
     assistantPostpend: String? = null,
     initialUserPrompt: String? = null,
+    phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
 ): List<ChatMessage> {
     val projected = applyMessageTemplatesToMessages(
         messages = projectToolResultImagesToUserMessage(
             messages = projectAssistantImagesToLatestUserMessage(
-                projectAutomaticMessagesForApi(messages.map(::projectSandboxGeneratedImages)),
+                projectAutomaticMessagesForApi(
+                    projectPhoneToolImages(messages, phoneMaxScreenshots).map(::projectSandboxGeneratedImages),
+                ),
                 includeImages,
             ),
             includeImages = includeImages,

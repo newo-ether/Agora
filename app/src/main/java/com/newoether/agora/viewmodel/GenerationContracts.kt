@@ -63,7 +63,9 @@ data class GenerationConfig(
     val maxTokens: Int? = null,
     val topP: Float? = null,
     val frequencyPenalty: Float? = null,
-    val presencePenalty: Float? = null
+    val presencePenalty: Float? = null,
+    /** Phone tool image budget frozen at Run admission; other image sources are unaffected. */
+    val phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
 )
 
 /** Frozen automatic-Compact policy and provider access captured with one generation. */
@@ -92,6 +94,8 @@ internal data class AutomaticCompactConfig(
     val mainPromptTemplate: GenerationPromptTemplate? = null,
     /** Main-request transcription policy. Compact's policy applies only to its summary request. */
     val mainImageTranscriptionEnabled: Boolean = false,
+    /** Main-request Phone image budget, captured independently from Compact's configuration. */
+    val mainPhoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
     /** Filled by the effect owner that has the exact frozen tool-definition set. */
     val fixedTokenCost: Int = 0,
     /**

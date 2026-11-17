@@ -21,6 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,10 +37,14 @@ import com.newoether.agora.phone.PhoneApp
 import com.newoether.agora.phone.PhonePermissions
 import com.newoether.agora.phone.PhoneUseIcon
 import com.newoether.agora.phone.PhoneUseRuntime
+import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_MAX
+import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_MIN
+import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.components.optionClickable
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
@@ -82,6 +89,11 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     }
                     revision++
                 }
+                SettingsGroup(title = stringResource(R.string.phone_max_screenshots), items = listOf {
+                    PhoneMaxScreenshotsSlider(config.maxScreenshots) { value ->
+                        scope.launch { settings.phoneUseStore.setMaxScreenshots(value) }
+                    }
+                })
                 SettingsGroup(title = stringResource(R.string.phone_automation), items = listOf {
                     PhoneSwitch(R.string.phone_automation, R.string.phone_automation_description, config.allowAutomation) {
                         scope.launch { settings.phoneUseStore.setAutomation(it) }
@@ -107,6 +119,57 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     }
     if (picker && config.enabled && config.accessMode != "off") runtime?.let {
         PhoneAppPicker(it, config.packages, config.accessMode, onDismiss = { picker = false })
+    }
+}
+
+@Composable
+internal fun PhoneMaxScreenshotsSlider(value: Int, onValueChange: (Int) -> Unit) {
+    val range = PHONE_MAX_SCREENSHOTS_MIN..PHONE_MAX_SCREENSHOTS_MAX
+    val persisted = value.coerceIn(range)
+    val gate = remember {
+        PersistedSliderFeedbackGate(initialPersisted = persisted, toDisplay = Int::toFloat)
+    }
+    LaunchedEffect(persisted) { gate.reconcile(persisted) }
+    val selected = gate.displayed.roundToInt().coerceIn(range)
+    val title = stringResource(R.string.phone_max_screenshots)
+    val valueText = selected.toString()
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Icon(Icons.Default.Screenshot, null, tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 2.dp))
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        modifier = Modifier.weight(1f))
+                    Text(valueText, style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+                Text(stringResource(R.string.phone_max_screenshots_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp))
+                Slider(
+                    value = selected.toFloat(),
+                    onValueChange = gate::updateFromGesture,
+                    onValueChangeFinished = {
+                        val committed = gate.displayed.roundToInt().coerceIn(range)
+                        if (committed != persisted) {
+                            gate.expectPersisted(committed, committed.toFloat())
+                            onValueChange(committed)
+                        } else {
+                            gate.settleWithoutWrite(persisted)
+                        }
+                    },
+                    valueRange = range.first.toFloat()..range.last.toFloat(),
+                    steps = range.last - range.first - 1,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).semantics {
+                        contentDescription = title
+                        stateDescription = valueText
+                    },
+                )
+            }
+        }
     }
 }
 

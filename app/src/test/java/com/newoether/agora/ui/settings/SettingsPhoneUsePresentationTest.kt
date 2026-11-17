@@ -13,6 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -213,6 +215,49 @@ class SettingsPhoneUsePresentationTest {
         compose.onNodeWithText(text(R.string.phone_shizuku_permission)).performScrollTo().assertIsDisplayed()
         verify(exactly = 1) { permissions.granted("shizuku", any()) }
     }
+
+    @Test fun screenshotLimitCommitsOnReleaseAndKeepsPendingValueThroughStalePersistence() {
+        var persisted by mutableStateOf(5)
+        val changes = mutableListOf<Int>()
+        compose.setContent {
+            MaterialTheme {
+                Column(Modifier.width(360.dp)) {
+                    PhoneMaxScreenshotsSlider(persisted) { changes += it }
+                }
+            }
+        }
+        val slider = compose.onNodeWithContentDescription(text(R.string.phone_max_screenshots))
+        slider.assert(screenshotRange(5f))
+        compose.onNodeWithText(text(R.string.phone_max_screenshots_description)).assertIsDisplayed()
+        slider.performTouchInput {
+            down(center)
+            moveTo(Offset(width + 32f, center.y), delayMillis = 200)
+        }
+        compose.runOnIdle {
+            assertTrue(changes.isEmpty())
+            persisted = 12
+        }
+        slider.assert(screenshotRange(20f))
+        slider.performTouchInput { up() }
+        compose.runOnIdle { assertEquals(listOf(20), changes) }
+        compose.runOnIdle { persisted = 10 }
+        slider.assert(screenshotRange(20f))
+        compose.runOnIdle { persisted = 20 }
+        slider.assert(screenshotRange(20f))
+        compose.runOnIdle { persisted = 5 }
+        slider.assert(screenshotRange(5f))
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(0f)) }
+        slider.assert(screenshotRange(0f))
+        compose.runOnIdle { assertEquals(listOf(20, 0), changes) }
+        compose.runOnIdle { persisted = 0 }
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertFalse(it(0f)) }
+        compose.runOnIdle { assertEquals(listOf(20, 0), changes) }
+    }
+
+    private fun screenshotRange(current: Float) = SemanticsMatcher.expectValue(
+        SemanticsProperties.ProgressBarRangeInfo,
+        ProgressBarRangeInfo(current, 0f..20f, 19),
+    )
 
     private fun text(id: Int) = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>().getString(id)
 

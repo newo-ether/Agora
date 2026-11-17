@@ -69,4 +69,6 @@
     <string name="phone_done_app_list">Apps aufgelistet</string>
     <string name="phone_write_settings_permission">Systemeinstellungen ändern</string>
     <string name="phone_write_settings_description">Verlängert das Bildschirm-Zeitlimit während der Steuerung vorübergehend auf mindestens 30 Minuten und stellt es danach wieder her, sofern du es nicht änderst.</string>
+    <string name="phone_max_screenshots">Maximale Screenshots</string>
+    <string name="phone_max_screenshots_description">Begrenzt nur Bilder aus Telefonwerkzeugen, die an das Modell gesendet werden, beginnend mit den neuesten. 0 sendet keine. Ältere Bilder bleiben im Gespräch gespeichert; andere Bilder sind nicht betroffen.</string>
 </resources>

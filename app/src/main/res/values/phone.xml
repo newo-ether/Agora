@@ -69,4 +69,6 @@
     <string name="phone_done_app_list">Listed apps</string>
     <string name="phone_write_settings_permission">Modify System Settings</string>
     <string name="phone_write_settings_description">Temporarily extend the screen timeout to at least 30 minutes during control, then restore it unless you change it.</string>
+    <string name="phone_max_screenshots">Max Screenshots</string>
+    <string name="phone_max_screenshots_description">Limit only Phone tool images sent to the model, keeping the newest first. 0 sends none. Older images remain saved in the conversation; other images are unaffected.</string>
 </resources>

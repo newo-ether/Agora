@@ -69,4 +69,6 @@
     <string name="phone_done_app_list">Applications listées</string>
     <string name="phone_write_settings_permission">Modifier les paramètres système</string>
     <string name="phone_write_settings_description">Prolonge temporairement la mise en veille de l’écran à au moins 30 minutes pendant le contrôle, puis rétablit le réglage initial si vous ne le modifiez pas.</string>
+    <string name="phone_max_screenshots">Nombre maximal de captures</string>
+    <string name="phone_max_screenshots_description">Limite uniquement les images des outils du téléphone envoyées au modèle, en commençant par les plus récentes. 0 ne transmet aucune image de ces outils. Les anciennes restent enregistrées dans la conversation ; les autres images ne sont pas affectées.</string>
 </resources>

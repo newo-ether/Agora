@@ -17,7 +17,8 @@ class PhoneLocaleResourcesTest {
         val parser = DocumentBuilderFactory.newInstance().newDocumentBuilder()
         val expected = parser.parse(File(root, "values/phone.xml")).getElementsByTagName("string")
             .let { nodes -> (0 until nodes.length).map { nodes.item(it).attributes.getNamedItem("name").nodeValue }.toSet() }
-        assertEquals(69, expected.size)
+        assertEquals(71, expected.size)
+        assertTrue(expected.containsAll(listOf("phone_max_screenshots", "phone_max_screenshots_description")))
         for (directory in directories) {
             val files = File(root, directory).listFiles { file -> file.extension == "xml" }!!
             val translations = files.flatMap { file ->

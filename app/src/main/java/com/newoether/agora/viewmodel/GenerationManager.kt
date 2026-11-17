@@ -464,6 +464,7 @@ class GenerationManager(
                     assistantPrepend = config.assistantPrepend,
                     assistantPostpend = config.assistantPostpend,
                     initialUserPrompt = config.initialUserPrompt,
+                    phoneMaxScreenshots = config.phoneMaxScreenshots,
                 )
             }
             requestTrace?.mark("provider_dispatch")
@@ -566,6 +567,7 @@ class GenerationManager(
                         userPostpend = config.userPostpend,
                         assistantPrepend = config.assistantPrepend,
                         assistantPostpend = config.assistantPostpend,
+                        phoneMaxScreenshots = config.phoneMaxScreenshots,
                     )
                 }
                 acceptProviderPass(collectProviderRequest(apiToolPath))

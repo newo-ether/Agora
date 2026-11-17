@@ -4,6 +4,7 @@ import androidx.datastore.core.okio.OkioStorage
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.PreferencesSerializer
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,8 @@ class PhoneUseSettingsStoreTest {
         try {
             val store = PhoneUseSettingsStore(preferences)
             assertEquals(PhoneUseSettings(), store.values.first())
+            assertEquals(5, store.values.first().maxScreenshots)
+            store.setMaxScreenshots(11)
             store.setEnabled(true)
             store.setMode("shizuku")
             store.setAutomation(true)
@@ -44,7 +47,7 @@ class PhoneUseSettingsStoreTest {
             assertEquals(setOf("private"), reopened.values.first().packages)
             reopened.setAccessMode("allowlist")
             assertEquals(PhoneUseSettings(true, "shizuku", true, "allowlist",
-                setOf("private"), setOf("public")), reopened.values.first())
+                setOf("private"), setOf("public"), maxScreenshots = 11), reopened.values.first())
             reopened.setEnabled(false)
             assertEquals(setOf("public"), reopened.values.first().packages)
             preferences.edit {
@@ -53,6 +56,22 @@ class PhoneUseSettingsStoreTest {
             }
             assertEquals("accessibility", reopened.values.first().mode)
             assertEquals("off", reopened.values.first().accessMode)
+            assertEquals(11, reopened.values.first().maxScreenshots)
+            reopened.setEnabled(true)
+            assertEquals(11, reopened.values.first().maxScreenshots)
+            val beforeLimitChanges = reopened.values.first()
+            val screenshotKey = intPreferencesKey("phone_use_max_screenshots")
+            for ((input, expected) in listOf(Int.MIN_VALUE to 0, 0 to 0, 20 to 20, Int.MAX_VALUE to 20)) {
+                reopened.setMaxScreenshots(input)
+                assertEquals(expected, preferences.data.first()[screenshotKey])
+                assertEquals(beforeLimitChanges.copy(maxScreenshots = expected), reopened.values.first())
+            }
+            for ((input, expected) in listOf(-1 to 0, 21 to 20)) {
+                preferences.edit { it[screenshotKey] = input }
+                assertEquals(beforeLimitChanges.copy(maxScreenshots = expected), reopened.values.first())
+            }
+            preferences.edit { it.remove(screenshotKey) }
+            assertEquals(beforeLimitChanges.copy(maxScreenshots = 5), reopened.values.first())
         } finally {
             job.cancelAndJoin()
             directory.deleteRecursively()
