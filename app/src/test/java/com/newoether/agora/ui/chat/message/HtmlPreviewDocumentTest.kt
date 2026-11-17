@@ -137,6 +137,20 @@ class HtmlPreviewDocumentTest {
     }
 
     @Test
+    fun explicitDeclarationsUseTheSameBoundedPerDocumentImageCapabilities() {
+        val link = "shell://Local%20Sandbox/home/a%20b.png"
+        val document = HtmlPreviewDocument("", listOf(link, link))
+        assertEquals("", document.html)
+        assertEquals(mapOf("${document.origin}/image/0" to link), document.images)
+        assertThrows(IllegalArgumentException::class.java) {
+            HtmlPreviewDocument("", listOf("shell://Quantum/%GG.png"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            HtmlPreviewDocument("", List(HtmlPreviewDocument.MAX_IMAGES + 1) { "shell://Quantum/F:/$it.png" })
+        }
+    }
+
+    @Test
     fun languageRecognitionIsLimitedToTheTwoHtmlFenceKinds() {
         listOf("html", "HTML", "html-preview", "HTML-PREVIEW").forEach {
             assertTrue(htmlPreviewLanguage(it))

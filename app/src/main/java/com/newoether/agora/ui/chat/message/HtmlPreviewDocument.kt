@@ -4,7 +4,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.util.UUID
 
 /** Per-card documents and explicit image capabilities; never a general filesystem URL router. */
-internal class HtmlPreviewDocument(source: String) {
+internal class HtmlPreviewDocument(source: String, declaredImages: List<String> = emptyList()) {
     val origin = "https://${UUID.randomUUID()}.preview.agora.invalid"
     val rootUrl = "$origin/index.html"
     val frameUrl = "$origin/frame.html"
@@ -14,14 +14,17 @@ internal class HtmlPreviewDocument(source: String) {
     init {
         require(source.length <= MAX_SOURCE_CHARS) { "HTML preview is too large" }
         val references = linkedMapOf<String, String>()
-        html = rewriteHtmlPreviewImages(source) { link ->
+        fun capability(link: String): String? {
             val existing = references.entries.firstOrNull { it.value == link }?.key
-            when {
+            return when {
                 existing != null -> existing
                 parseShellMediaLink(link) == null || references.size >= MAX_IMAGES -> null
                 else -> "$origin/image/${references.size}".also { references[it] = link }
             }
         }
+        require(declaredImages.size <= MAX_IMAGES) { "Too many HTML images" }
+        declaredImages.forEach { require(capability(it) != null) { "Invalid HTML image" } }
+        html = rewriteHtmlPreviewImages(source, ::capability)
         images = references.toMap()
     }
 

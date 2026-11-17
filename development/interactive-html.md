@@ -103,9 +103,12 @@ reuses HtmlPreviewResources URL/type/DNS/redirect/credential limits, request/byt
 cancellation, and forwards no app/session credentials. Resources have CORS authorization for opaque
 script/module/image loads, but response framing is denied. Generated fetch, WebSocket, workers,
 frames, forms, popups, navigation to app APIs and unrestricted external loads remain blocked.
-CSS URL/import syntax, JavaScript-created absolute URLs, module import specifiers and `shell://`
-images are not rewritten by WebUI; these references may fail under the restrictive policy. This is
-a supported static-resource subset, not full native resource parity. No arbitrary file proxy exists.
+Browser literal quoted `img[src="shell://..."]` attributes use the same validated display-only loader
+and 16-path limit as native, including Local Sandbox and percent-encoded paths. Admission declares only
+the bounded image links, never the HTML source. A fresh card returns image capabilities scoped to that
+entry; only its image endpoint serves inspected raster bytes, without CORS pixel authorization. Release
+cancels image preparation and closes resource streams. CSS URL/import syntax, JavaScript-created URLs
+and module import specifiers remain outside the supported static subset. No arbitrary file proxy exists.
 
 ## Transparent instructions
 

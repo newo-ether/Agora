@@ -79,9 +79,10 @@ internal class WebUiServer(
     private val httpsRedirectPort: () -> Int? = { null },
     private val clock: () -> Long = System::currentTimeMillis,
     private val toolImages: WebUiToolImages? = null,
+    private val htmlPreviewImage: suspend (String) -> com.newoether.agora.model.ToolImageAttachment? = { null },
 ) {
     fun install(application: Application) = with(application) {
-        val htmlPreview = WebUiHtmlPreview(auth)
+        val htmlPreview = WebUiHtmlPreview(auth, htmlPreviewImage)
         monitor.subscribe(io.ktor.server.application.ApplicationStopped) { htmlPreview.close() }
         install(webUiSecurityHeaders(secureCookies))
         val httpsGate = createApplicationPlugin("WebUiHttpsGate") {
@@ -540,7 +541,7 @@ internal class WebUiServer(
 private fun webUiSecurityHeaders(secureCookies: (ApplicationCall) -> Boolean) = createApplicationPlugin("WebUiSecurityHeaders") {
     onCall { call ->
         val previewId = WebUiHtmlPreview.id(call.request.local.uri)
-        val previewDocument = previewId != null && !call.request.local.uri.contains("/resource/")
+        val previewDocument = previewId != null && call.request.local.uri.endsWith("/frame")
         val authority = call.request.headers[HttpHeaders.Host].orEmpty()
         val protocol = if (secureCookies(call)) "https" else "http"
         val previewPrefix = "$protocol://$authority${WebUiHtmlPreview.ROOT}/$previewId"

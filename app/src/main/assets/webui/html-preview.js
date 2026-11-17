@@ -5,7 +5,7 @@ import { html, useDialog } from "./html.js";
 import { MoreMenu } from "./menu.js";
 import { Spinner } from "./material/progress.js";
 import { t } from "./i18n.js";
-import { previewResourceSource } from "./html-preview-resources.js";
+import { previewImageDeclarations, previewResourceSource } from "./html-preview-resources.js";
 import { icon, ICON_CONTENT_COPY, ICON_DOWNLOAD, ICON_REFRESH, ICON_FULLSCREEN, ICON_CLOSE,
   ICON_MORE_VERT, ICON_CODE, ICON_PLAY_ARROW } from "./icons.js";
 
@@ -45,7 +45,7 @@ function Viewport({ source, revision, reduceMotion }) {
     if (!active) return;
     const element = host.current;
     let disposed = false, posted = false, documentLoaded = false, failed = false;
-    let release = () => {}, frame, timer;
+    let release = () => {}, frame, timer, images = {};
     const abort = new AbortController();
     const fail = () => {
       if (disposed || failed) return;
@@ -62,7 +62,7 @@ function Viewport({ source, revision, reduceMotion }) {
         posted = true;
         clearTimeout(timer);
         const prefix = new URL(frame.src).href.replace(/\/frame$/, "");
-        frame.contentWindow.postMessage({ source: previewResourceSource(source, prefix) }, "*");
+        frame.contentWindow.postMessage({ source: previewResourceSource(source, prefix, images) }, "*");
         timer = setTimeout(fail, 25000);
         return;
       }
@@ -76,9 +76,12 @@ function Viewport({ source, revision, reduceMotion }) {
       try {
         if (source.length > MAX_SOURCE_CHARS) throw new Error("Source limit");
         const response = await fetch("/api/html-preview", { method: "POST", credentials: "same-origin",
-          headers: { "Content-Type": "application/json" }, body: "{}", signal: abort.signal });
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ images: previewImageDeclarations(source) }), signal: abort.signal });
         if (!response.ok) throw new Error("Preview admission failed");
-        const { id } = await response.json();
+        const admission = await response.json();
+        const { id } = admission;
+        images = admission.images || {};
         release = () => {
           fetch(`/api/html-preview?release=${encodeURIComponent(id)}`, { method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" }, body: "{}", keepalive: true }).catch(() => {});

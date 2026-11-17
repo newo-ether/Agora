@@ -1,5 +1,15 @@
 package com.newoether.agora.webui
 
+import com.newoether.agora.model.ToolImageAttachment
+import io.ktor.client.statement.bodyAsBytes
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.encodeToString
+import org.junit.Assert.assertArrayEquals
+import org.robolectric.annotation.GraphicsMode
 import android.app.Application
 import androidx.datastore.core.okio.OkioStorage
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
@@ -38,6 +48,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WebUiHtmlPreviewTest {
     @get:Rule val temporary = TemporaryFolder()
 
@@ -145,6 +156,138 @@ class WebUiHtmlPreviewTest {
         assertEquals(HttpStatusCode.OK, create(token).status)
     }
 
+    @Test
+    fun declaredShellImagesUsePerCardRasterCapabilitiesWithoutCors() {
+        val bytes = webUiSameLengthPngs().first
+        val file = temporary.newFile("preview.png").apply { writeBytes(bytes) }
+        val link = "shell://Local%20Sandbox/home/a%20b.png"
+        val loads = mutableListOf<String>()
+        webUi(loadImage = { value ->
+            loads += value
+            ToolImageAttachment(file.path, "text/html", 1)
+        }) { _, token ->
+            val admission = declare(token, listOf(link, link))
+            assertEquals(HttpStatusCode.OK, admission.status)
+            val json = Json.parseToJsonElement(admission.bodyAsText()).jsonObject
+            val id = json.getValue("id").jsonPrimitive.content
+            val images = json.getValue("images").jsonObject
+            assertEquals(setOf(link), images.keys)
+            val route = images.getValue(link).jsonPrimitive.content
+            assertEquals("/html-preview/$id/image/0", route)
+            assertTrue(loads.isEmpty())
+            val response = client.get(route)
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("image/png", response.headers[HttpHeaders.ContentType])
+            assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+            assertEquals("nosniff", response.headers["X-Content-Type-Options"])
+            assertEquals("DENY", response.headers["X-Frame-Options"])
+            assertEquals(null, response.headers["Access-Control-Allow-Origin"])
+            assertArrayEquals(bytes, response.bodyAsBytes())
+            assertEquals(listOf(link), loads)
+            assertEquals(HttpStatusCode.NotFound, client.get(route + "?path=/private.png").status)
+            assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/image/1").status)
+            val other = createId(token)
+            assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$other/image/0").status)
+            release(token, id)
+            assertEquals(HttpStatusCode.NotFound, client.get(route).status)
+            assertEquals(listOf(link), loads)
+        }
+    }
+
+    @Test
+    fun declarationsRejectNonShellOversizedAndUnexpectedPayloads() = webUi { _, token ->
+        val invalid = listOf(
+            "[]", "{\"html\":\"<img>\"}", "{\"images\":null}", "{\"images\":[1]}",
+            Json.encodeToString(mapOf("images" to listOf("https://example.invalid/a.png"))),
+            Json.encodeToString(mapOf("images" to listOf("shell://Quantum/%GG.png"))),
+            Json.encodeToString(mapOf("images" to listOf("shell://Quantum/" + "x".repeat(WebUiHtmlPreview.MAX_LINK_CHARS)))),
+            Json.encodeToString(mapOf("images" to List(17) { "shell://Quantum/F:/image-$it.png" })),
+            " ".repeat(WebUiHtmlPreview.MAX_BODY_BYTES + 1),
+        )
+        for (body in invalid) {
+            assertEquals(HttpStatusCode.BadRequest, client.post("/api/html-preview") {
+                header(HttpHeaders.Cookie, cookie(token))
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }.status)
+        }
+        assertEquals(HttpStatusCode.OK, declare(token, List(16) { "shell://Quantum/F:/image-$it.png" }).status)
+    }
+
+    @Test
+    fun missingAndNonRasterImagesCannotServeClaimedImageMetadata() {
+        val file = temporary.newFile("fake.png").apply { writeText("<svg xmlns='http://www.w3.org/2000/svg'/>") }
+        webUi(loadImage = { link ->
+            if (link.contains("missing")) null else ToolImageAttachment(file.path, "image/png", file.length())
+        }) { _, token ->
+            val admission = declare(token, listOf("shell://Unknown/home/missing.png", "shell://Quantum/F:/fake.png"))
+            val images = Json.parseToJsonElement(admission.bodyAsText()).jsonObject.getValue("images").jsonObject
+            for (route in images.values) {
+                val response = client.get(route.jsonPrimitive.content)
+                assertEquals(HttpStatusCode.Forbidden, response.status)
+                assertEquals(null, response.headers["Access-Control-Allow-Origin"])
+                assertTrue(response.bodyAsBytes().isEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun releaseCancelsSuspendedPreparationAndRevokesImageCapability() {
+        val started = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
+        webUi(loadImage = {
+            started.complete(Unit)
+            try { awaitCancellation() } finally { cancelled.complete(Unit) }
+        }) { _, token ->
+            coroutineScope {
+                val admission = declare(token, listOf("shell://Quantum/F:/slow.png"))
+                val json = Json.parseToJsonElement(admission.bodyAsText()).jsonObject
+                val id = json.getValue("id").jsonPrimitive.content
+                val route = json.getValue("images").jsonObject.values.single().jsonPrimitive.content
+                val request = async { client.get(route) }
+                withTimeout(5_000) { started.await() }
+                assertEquals(HttpStatusCode.NoContent, release(token, id).status)
+                withTimeout(5_000) { cancelled.await() }
+                assertEquals(HttpStatusCode.NotFound, withTimeout(5_000) { request.await() }.status)
+                assertEquals(HttpStatusCode.NotFound, client.get(route).status)
+            }
+        }
+    }
+
+    @Test
+    fun sessionRevocationCancelsPreparationBeforeReadingTheNextImage() {
+        val started = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
+        val loads = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val first = "shell://Quantum/F:/slow.png"
+        webUi(loadImage = { link ->
+            loads += link
+            started.complete(Unit)
+            try { awaitCancellation() } finally { cancelled.complete(Unit) }
+        }) { auth, token ->
+            coroutineScope {
+                val admission = declare(token, listOf(first, "shell://Quantum/F:/second.png"))
+                val json = Json.parseToJsonElement(admission.bodyAsText()).jsonObject
+                val id = json.getValue("id").jsonPrimitive.content
+                val route = json.getValue("images").jsonObject.getValue(first).jsonPrimitive.content
+                val request = async { client.get(route) }
+                withTimeout(5_000) { started.await() }
+                auth.revokeAllSessions()
+                withTimeout(5_000) { cancelled.await() }
+                assertEquals(HttpStatusCode.NotFound, withTimeout(5_000) { request.await() }.status)
+                assertEquals(listOf(first), loads.toList())
+                assertEquals(HttpStatusCode.NotFound, client.get(route).status)
+                assertEquals(HttpStatusCode.NotFound, client.get("/html-preview/$id/frame").status)
+            }
+        }
+    }
+
+    private suspend fun ApplicationTestBuilder.declare(token: String, images: List<String>) = client.post("/api/html-preview") {
+        header(HttpHeaders.Cookie, cookie(token))
+        contentType(ContentType.Application.Json)
+        setBody(Json.encodeToString(mapOf("images" to images)))
+    }
+
     private fun cookie(token: String) = "${WebUiServer.SESSION_COOKIE}=$token"
 
     private suspend fun ApplicationTestBuilder.create(token: String) = client.post("/api/html-preview") {
@@ -165,7 +308,10 @@ class WebUiHtmlPreviewTest {
         setBody("{}")
     }
 
-    private fun webUi(block: suspend ApplicationTestBuilder.(WebUiAuth, String) -> Unit) {
+    private fun webUi(
+        loadImage: suspend (String) -> ToolImageAttachment? = { null },
+        block: suspend ApplicationTestBuilder.(WebUiAuth, String) -> Unit,
+    ) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val path = temporary.newFolder().resolve("auth.preferences_pb")
         val store = WebUiSettingsStore(PreferenceDataStoreFactory.create(
@@ -182,7 +328,7 @@ class WebUiHtmlPreviewTest {
             testApplication {
                 application {
                     WebUiServer(auth, readAsset = { "<!doctype html><title>Agora</title>".toByteArray() },
-                        syncSession = { _, _, _ -> },
+                        syncSession = { _, _, _ -> }, htmlPreviewImage = loadImage,
                     ).install(this)
                 }
                 block(auth, token)

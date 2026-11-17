@@ -444,6 +444,13 @@ class AppContainer(
     }
     // WebUI remote control: settings, authentication and the embedded server.
     internal val webUi: WebUiController by lazy {
+        val previewMedia = com.newoether.agora.ui.chat.message.ShellMarkdownMedia(
+            context = appContext,
+            devices = { settingsRepository.shellDevices.value },
+            sandboxEnabled = { settingsRepository.sandboxEnabled.value },
+            sandbox = { sandboxManagerFactory?.takeIf { it.isAvailable() }?.create() },
+            scope = appScope,
+        )
         WebUiController(
             appContext = appContext,
             store = WebUiSettingsStore(appContext.dataStore),
@@ -463,13 +470,7 @@ class AppContainer(
             toolImages = com.newoether.agora.webui.WebUiToolImages(
                 directory = java.io.File(appContext.filesDir, "tool-media"),
                 attachmentDirectory = appContext.filesDir,
-                markdownImage = com.newoether.agora.ui.chat.message.ShellMarkdownMedia(
-                    context = appContext,
-                    devices = { settingsRepository.shellDevices.value },
-                    sandboxEnabled = { settingsRepository.sandboxEnabled.value },
-                    sandbox = { sandboxManagerFactory?.takeIf { it.isAvailable() }?.create() },
-                    scope = appScope,
-                )::previewImage,
+                markdownImage = previewMedia::previewImage,
                 loadMessage = { conversationId, messageId ->
                     val persisted = conversationRepository.getMessagesByIds(listOf(messageId))
                         .any { it.id == messageId && it.conversationId == conversationId }
@@ -482,6 +483,7 @@ class AppContainer(
                     else null
                 },
             ),
+            htmlPreviewImage = { previewMedia.previewImage(it) },
         )
     }
     // Built on the first browser connection, so app start never touches conversation data here.
