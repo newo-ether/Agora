@@ -23,8 +23,10 @@ import com.newoether.agora.viewmodel.ConversationWorkspaceStore
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -54,7 +56,7 @@ internal class ProcessTextComposerRecoveryTest {
     }
 
     @After fun close() {
-        scopes.forEach { it.cancel() }
+        stopControllers()
         database.close()
     }
 
@@ -205,9 +207,16 @@ internal class ProcessTextComposerRecoveryTest {
     private fun load(controller: ConversationComposerController): String =
         runBlocking { controller.loadSelected("owner").text }
 
-    private fun reopen() {
+    private fun stopControllers() = runBlocking {
+        val jobs = scopes.mapNotNull { it.coroutineContext[Job] }
         scopes.forEach { it.cancel() }
+        // Room collectors must finish before their connection pool is closed or reopened.
+        jobs.joinAll()
         scopes.clear()
+    }
+
+    private fun reopen() {
+        stopControllers()
         database.close()
         database = ChatDatabase.build(app)
     }

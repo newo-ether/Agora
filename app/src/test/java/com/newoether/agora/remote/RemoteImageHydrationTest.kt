@@ -101,7 +101,14 @@ class RemoteImageHydrationTest {
             assertEquals(text, shown.text)
             assertEquals(mapOf(link to MarkdownImage(attachment)), shown.markdownImages)
             assertEquals(1, reads)
-            assertEquals(shown, hydration.observeMessage(owner, "group").filterNotNull().first())
+            val repeated = hydration.observeMessage(owner, "group").filterNotNull().first()
+            // Reprojection may rebuild parser objects; compare their content, not AST identity.
+            assertEquals(shown.copy(preparedMarkdown = emptyMap()), repeated.copy(preparedMarkdown = emptyMap()))
+            assertTrue(shown.preparedMarkdown.isNotEmpty())
+            assertEquals(
+                shown.preparedMarkdown.mapValues { it.value.content },
+                repeated.preparedMarkdown.mapValues { it.value.content },
+            )
             assertEquals(1, reads)
             hydration.accept(owner, RemoteConversationPage(listOf(message), null, emptyList(), nodes = listOf(node)),
                 state.value.messageGroups)
