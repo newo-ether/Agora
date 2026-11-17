@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { readWebUiStyles } from "./webui-test-sources.mjs";
 import { h } from "../../main/assets/webui/vendor/preact.mjs";
 import htm from "../../main/assets/webui/vendor/htm.mjs";
 
@@ -330,7 +331,7 @@ test("returning from a child restores pending parent questions without a new rev
 });
 
 test("real interaction fold frames reserve card height and neighbor space without outer cropping", () => {
-  const css = fs.readFileSync(new URL("../../main/assets/webui/style.css", import.meta.url), "utf8");
+  const css = readWebUiStyles();
   assert.match(css, /\.interaction-card \{[^}]*border-radius: 24px;[^}]*overflow: hidden/);
   assert.doesNotMatch(css, /\.interaction-host \{[^}]*overflow:\s*hidden/);
   for (const reduced of [false, true]) {

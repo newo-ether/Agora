@@ -7,7 +7,9 @@ import htm from "../../main/assets/webui/vendor/htm.mjs";
 
 const root = new URL("../../main/assets/webui/", import.meta.url);
 const source = name => fs.readFileSync(new URL(name, root), "utf8");
-const prepare = code => code.replace(/^import\b[\s\S]*?;\r?\n/gm, "").replace(/\bexport /g, "");
+const prepare = code => code.replace(/^import\b[\s\S]*?;\r?\n/gm, "")
+  .replace(/^export\s+\{[^}]*\}\s+from\s+["'][^"']+["'];\r?\n/gm, "")
+  .replace(/\bexport /g, "");
 const rawTitle = "  Child stored title\t";
 const chatState = (patch = {}) => ({
   connected: true, connectionId: "session", openId: "child", openStatus: "ready",
@@ -83,7 +85,8 @@ function harness(name, { state = chatState(), effects = false } = {}) {
       conversationSearch: query => commands.push({ type: "search", query }),
     },
   });
-  for (const file of ["icons.js", "i18n.js", "menu.js", "shell.js"]) {
+  for (const file of ["icons.js", "i18n.js", "menu.js", "shell-drawer.js", "shell-topbar.js",
+    "shell-dialogs.js", "shell.js"]) {
     vm.runInContext(prepare(source(file)), context, { filename: file });
   }
   const render = (nextProps = props) => {

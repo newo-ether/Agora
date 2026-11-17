@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { readWebUiStyles } from "./webui-test-sources.mjs";
 import { Fragment, h } from "../../main/assets/webui/vendor/preact.mjs";
 import htm from "../../main/assets/webui/vendor/htm.mjs";
 
@@ -280,7 +281,7 @@ test("same-family capsules retain admitted node identity through a closed conver
 });
 
 test("selection colors fade for 250ms without spatial or Reduced Motion overrides", () => {
-  const css = fs.readFileSync(new URL("../../main/assets/webui/style.css", import.meta.url), "utf8");
+  const css = readWebUiStyles();
   const declarations = selector => {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const matches = [...css.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, "g"))];

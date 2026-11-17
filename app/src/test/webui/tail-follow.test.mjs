@@ -202,10 +202,13 @@ test("nested scroll hosts consume their own wheel and control keys", () => {
   f.input.dispose();
 });
 
-const source = fs.readFileSync(new URL("../../main/assets/webui/messages.js", import.meta.url), "utf8");
+const source = fs.readFileSync(new URL("../../main/assets/webui/message-scroll.js", import.meta.url), "utf8")
+  .replaceAll("\r\n", "\n");
 const start = source.indexOf("  useLayoutEffect(() => {\n    const root = scroller.current;\n    const column = root?.firstElementChild;");
-const end = source.indexOf("  useLayoutEffect(() => {\n    const node = cover.current;", start);
-assert.ok(start > 0 && end > start);
+const effectEnd = "    pageLoading, state.display?.reduceMotion, state.display?.stickToBottom]);";
+const endMarker = source.indexOf(effectEnd, start);
+assert.ok(start > 0 && endMarker > start);
+const end = endMarker + effectEnd.length;
 function listFixture({ remaining = 0, generating = true, setting = true, stopping = false, reduced = false } = {}) {
   let now = 0, height = 1500, top = 1000 - remaining, sequence = 0, cleanup;
   const frames = new Map();
