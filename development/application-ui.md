@@ -561,7 +561,10 @@ There is no durable request receipt: if Android restores saved state captured be
 write, its still-pending request can append again to the newer disk draft. This action therefore does
 not promise exactly-once delivery across arbitrary stale saved-state/process-death boundaries.
 The action presents native chat and only prefills editable, unsent text: it neither submits a message
-nor invokes a Provider, and it never returns replacement text to the source application.
+nor invokes a Provider, and it never returns replacement text to the source application. Requesting
+Chat while it is already visible is valid and does not add an overlay. If the action dismisses a
+covering surface or nested preview, that surface keeps presentation and haptic exclusion until its
+normal exit callback releases it; late exits cannot restore a dismissed surface or release a newer one.
 
 Every Composer attachment enters one durable, conversation-owned import lifecycle at selection
 time. The attachment tile appears immediately, Agora copies the source into app-private staging,
