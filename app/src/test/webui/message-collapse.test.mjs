@@ -68,7 +68,7 @@ function fixture({ height = 800, ...initial } = {}) {
   return {
     render,
     events,
-    settle() { tree.props.onTransitionEnd({ target: viewport, propertyName: "height" }); },
+    settle(propertyName = "height") { tree.props.onTransitionEnd({ target: viewport, propertyName }); },
     get tree() { return tree; },
     get control() { return nodes(tree).find(node => node.props.class === "message-expand"); },
     get button() { return nodes(tree).find(node => node.type === "button" && !node.props["aria-hidden"]); },
@@ -168,6 +168,10 @@ test("disclosure changes only viewport height and brackets reversals with one la
   assert.equal(f.events.length, 1);
   assert.equal(f.events[0].type, "agora-layout-mutation");
   assert.equal(f.events[0].detail.active, true);
+  // Faster fades must not release the list anchor before the height reveal settles.
+  f.settle("opacity");
+  f.settle("--message-mask-alpha");
+  assert.equal(f.events.length, 1);
   const labels = nodes(f.tree).filter(node => node.type === "button").map(node => node.props.children);
   assert.deepEqual(labels, ["Collapse", "Expand"]);
   f.button.props.onClick(); f.render();

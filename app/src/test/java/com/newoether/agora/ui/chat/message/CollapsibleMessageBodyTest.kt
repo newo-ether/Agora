@@ -182,28 +182,40 @@ class CollapsibleMessageBodyTest {
             return try { Color(bitmap.getPixel(292, bitmap.height - 10)).red }
             finally { bitmap.recycle() }
         }
-        fun click(label: String) {
+        fun click(label: String, startAnimation: Boolean = true) {
             compose.onNodeWithText(label).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
             androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
-            compose.mainClock.advanceTimeByFrame()
-            compose.waitForIdle()
-            compose.mainClock.advanceTimeByFrame()
-            compose.waitForIdle()
+            if (startAnimation) {
+                compose.mainClock.advanceTimeByFrame()
+                compose.waitForIdle()
+                compose.mainClock.advanceTimeByFrame()
+                compose.waitForIdle()
+            }
         }
         assertEquals(0f, redAtBottom(), 0.02f)
         click("Expand")
-        advance(100)
+        // Drawn pixels advance on 16ms frames; sample whole frames within the 180ms fade.
+        advance(48)
         val early = redAtBottom()
-        advance(100)
+        advance(48)
         val midpoint = redAtBottom()
-        assertEquals("Quarter-time mask is linear", 0.25f, early, 0.06f)
-        assertEquals("Half-time mask is linear", 0.5f, midpoint, 0.06f)
-        click("Collapse")
+        assertEquals("Early mask is linear", 48f / 180f, early, 0.06f)
+        assertEquals("Midpoint mask is linear", 96f / 180f, midpoint, 0.06f)
+        click("Collapse", startAnimation = false)
         assertEquals("Mask reversal retains its current alpha", midpoint, redAtBottom(), 0.06f)
-        advance(100)
-        assertTrue(redAtBottom() < midpoint)
-        advance(500)
+        // Let composition admit the reversed target, then measure its linear motion separately.
+        advance(16)
+        advance(16)
+        val reversalStart = redAtBottom()
+        advance(48)
+        assertEquals("Reversed mask remains linear", reversalStart * (1f - 48f / 180f), redAtBottom(), 0.06f)
+        advance(512)
         assertEquals(0f, redAtBottom(), 0.02f)
+        click("Expand")
+        advance(192)
+        assertEquals("The mask clears before the height animation finishes", 1f, redAtBottom(), 0.02f)
+        assertTrue("The body still follows its 400ms reveal", height() < 600f)
+        advance(300)
         compose.runOnIdle {
             assertEquals(1, mounts)
             assertEquals(0, disposals)

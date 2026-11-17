@@ -521,8 +521,9 @@ The localized Expand/Collapse control is a full capsule, physically left-aligned
 The bottom 64 dp/px gradient and 48 dp/px Expand control area are draw overlays. Neither
 contributes width or height to text/bubble measurement or changes text wrapping. Their shared
 opacity decreases linearly from 1 to 0 during expansion and increases linearly from 0 to 1 during
-collapse. The Collapse capsule follows the full body in normal layout, contributing its footer
-height to the expanded target; it remains visible when expanded. User disclosure follows the existing
+collapse, completing in 180ms so the mask and controls clear or appear before the height motion
+settles. The Collapse capsule uses the same 180ms linear fade and follows the full body in normal
+layout, contributing its footer height to the expanded target; it remains visible when expanded. User disclosure follows the existing
 Thinking card's 400ms vertical reveal/collapse curve and interruption behavior in both clients.
 The reveal alone animates actual occupied height while keeping the full text mounted at its stable
 layout size. Following messages and the existing MessageList scroll owner follow each measured frame;

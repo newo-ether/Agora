@@ -89,10 +89,10 @@ internal fun CollapsibleMessageBody(
     val expandedTarget = if (!searchActive && expanded) 1f else 0f
     // Unlike Transition's interruption spring, opacity must remain linear even on reversal.
     LaunchedEffect(collapsedTarget) {
-        collapsedOpacity.animateTo(collapsedTarget, tween(400, easing = LinearEasing))
+        collapsedOpacity.animateTo(collapsedTarget, tween(180, easing = LinearEasing))
     }
     LaunchedEffect(expandedTarget) {
-        expandedOpacity.animateTo(expandedTarget, tween(400, easing = LinearEasing))
+        expandedOpacity.animateTo(expandedTarget, tween(180, easing = LinearEasing))
     }
 
     LaunchedEffect(transition, mutationKey) {

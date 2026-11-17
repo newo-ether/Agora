@@ -112,7 +112,7 @@
   --message-mask-alpha: 1;
   mask-image: linear-gradient(to bottom, #000 calc(100% - 112px),
     rgb(0 0 0 / var(--message-mask-alpha)) calc(100% - 48px));
-  transition: --message-mask-alpha 400ms linear;
+  transition: --message-mask-alpha 180ms linear;
 }
 .message-preview[data-collapsed="true"] { --message-mask-alpha: 0; }
 .message-preview-body { display: flow-root; }
@@ -134,8 +134,8 @@
   user-select: none;
   opacity: 0;
   pointer-events: none;
-  --md-component-transition: opacity 400ms linear;
-  transition: opacity 400ms linear;
+  --md-component-transition: opacity 180ms linear;
+  transition: opacity 180ms linear;
 }
 .message-expand { position: absolute; left: 0; bottom: 0; }
 .message-collapse { position: relative; }
