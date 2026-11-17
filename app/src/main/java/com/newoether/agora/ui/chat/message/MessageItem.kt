@@ -398,6 +398,8 @@ internal fun MessageItem(
                         onShowInfo = { showInfoDialog = true },
                         onShowDelete = onShowDelete,
                         searchHighlight = searchHighlight,
+                        onLayoutMutationStarted = onLayoutMutationStarted,
+                        onLayoutMutationSettled = onLayoutMutationSettled,
                     )
                 } else {
                     AssistantMessageContent(

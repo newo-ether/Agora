@@ -31,6 +31,9 @@ import org.robolectric.annotation.Config
 class UserMessageBubbleDisclosureMotionTest {
     @get:Rule val compose = createComposeRule()
     private val raw = (1..20).joinToString("\n") { "Input line $it" }
+    private val starts = mutableListOf<Pair<String, Float>>()
+    private val settlements = mutableListOf<String>()
+    private var measuredHeight = 0f
 
     private fun host(reduceMotion: Boolean = false, sizeAnimationReady: Boolean = true) {
         compose.mainClock.autoAdvance = false
@@ -38,7 +41,6 @@ class UserMessageBubbleDisclosureMotionTest {
             CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = reduceMotion)) {
                 MaterialTheme {
                     Column {
-                        // The wrap-content host measures the production bubble's animated outer size.
                         Box(Modifier.width(360.dp).testTag("bubble-size")) {
                             UserMessageBubble(
                                 message = ChatMessage(id = "motion-input", text = raw, participant = Participant.USER),
@@ -66,6 +68,8 @@ class UserMessageBubbleDisclosureMotionTest {
                                 onShowInfo = {},
                                 onShowDelete = {},
                                 searchHighlight = null,
+                                onLayoutMutationStarted = { starts += it to measuredHeight },
+                                onLayoutMutationSettled = { settlements += it },
                             )
                         }
                         Spacer(Modifier.width(1.dp).height(1.dp).testTag("following-message"))
@@ -74,7 +78,6 @@ class UserMessageBubbleDisclosureMotionTest {
             }
         }
         compose.waitForIdle()
-        // Overflow is published during measurement; its disclosure needs the next recomposition.
         compose.mainClock.advanceTimeUntil(timeoutMillis = 1_000) {
             compose.onAllNodesWithText("Expand").fetchSemanticsNodes().isNotEmpty()
         }
@@ -84,8 +87,8 @@ class UserMessageBubbleDisclosureMotionTest {
     private fun height(): Float {
         val bubble = compose.onNodeWithTag("bubble-size").fetchSemanticsNode().boundsInRoot
         val following = compose.onNodeWithTag("following-message").fetchSemanticsNode().boundsInRoot
-        assertEquals("Following content tracks the bubble's occupied layout height",
-            bubble.bottom, following.top, 0.1f)
+        assertEquals("Following content tracks actual occupied height", bubble.bottom, following.top, 0.1f)
+        measuredHeight = bubble.height
         return bubble.height
     }
 
@@ -95,100 +98,114 @@ class UserMessageBubbleDisclosureMotionTest {
     }
 
     private fun disclose(label: String) {
-        compose.onNodeWithText(label).performClick()
+        height()
+        compose.onNodeWithText(label).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
         Snapshot.sendApplyNotifications()
-        // One frame recomposes the new target; measurement then schedules the size animation.
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
-        // The following frame establishes play time zero rather than consuming tween time.
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
     }
 
     @Test
-    fun bothDirectionsUseEaseInAndContinuouslyMoveFollowingContentWithTheOccupiedHeight() {
+    fun thinkingCurveMovesTheOccupiedHeightAndFollowingContentInBothDirections() {
         host()
         val firstLayout = height()
         advance(600)
         val collapsed = height()
-        assertEquals("A ready bubble still starts at its final collapsed height", firstLayout, collapsed, 0.1f)
+        assertEquals("First layout is settled", firstLayout, collapsed, 0.1f)
         disclose("Expand")
-        assertEquals("Expansion begins at its existing occupied height", collapsed, height(), 1f)
+        assertEquals("Anchor is captured before changing layout", collapsed, starts.single().second, 0.1f)
+        assertEquals(collapsed, height(), 2f)
         advance(100)
-        val expandingEarly = height()
-        advance(150)
-        val expandingMidpoint = height()
-        advance(150)
-        val expandingLate = height()
-        advance(200)
+        val early = height()
+        advance(100)
+        val midpoint = height()
+        advance(100)
+        val late = height()
+        advance(100)
         val expanded = height()
-        assertTrue("Occupied height grows continuously through expansion",
-            collapsed < expandingEarly && expandingEarly < expandingMidpoint &&
-                expandingMidpoint < expandingLate && expandingLate < expanded)
-        assertTrue("Expansion must reveal the full twenty-line body", expanded > collapsed + 100f)
-        assertEquals("Ease-in has completed about 32% of expansion at 250ms",
-            0.3154f, (expandingMidpoint - collapsed) / (expanded - collapsed), 0.055f)
+        assertTrue(collapsed < early && early < midpoint && midpoint < late && late < expanded)
+        assertTrue(expanded > collapsed + 100f)
+        assertEquals("Thinking's 400ms default tween is about 78% complete at 200ms",
+            0.7756f, (midpoint - collapsed) / (expanded - collapsed), 0.055f)
         val body = compose.onNodeWithText(raw, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val footer = compose.onNode(hasClickAction() and hasText("Collapse")).fetchSemanticsNode().boundsInRoot
-        assertTrue("Expanded disclosure follows all original text", footer.top >= body.bottom)
-        assertTrue("Full expanded text remains inside the bubble", expanded >= body.height + footer.height)
-        advance(500)
-        assertEquals("Expansion finishes at a stable full height", expanded, height(), 0.1f)
+        val control = compose.onNode(hasClickAction() and hasText("Collapse")).fetchSemanticsNode().boundsInRoot
+        assertTrue("Collapse occupies the row after the full body", control.top >= body.bottom)
+        advance(100)
+        assertEquals(listOf("user-disclosure:motion-input"), settlements)
+        assertEquals("No outer size animation trails the reveal", expanded, height(), 0.1f)
 
         disclose("Collapse")
-        assertEquals("Collapse begins at its existing occupied height", expanded, height(), 1f)
+        assertEquals(expanded, height(), 2f)
         advance(100)
-        val collapsingEarly = height()
-        advance(150)
-        val collapsingMidpoint = height()
-        advance(150)
-        val collapsingLate = height()
-        assertTrue("Occupied height shrinks continuously through collapse",
-            expanded > collapsingEarly && collapsingEarly > collapsingMidpoint &&
-                collapsingMidpoint > collapsingLate && collapsingLate > collapsed)
-        assertEquals("Ease-in has completed about 32% of collapse at 250ms",
-            0.3154f, (expanded - collapsingMidpoint) / (expanded - collapsed), 0.055f)
+        val shrinkingEarly = height()
+        advance(100)
+        val shrinkingMidpoint = height()
+        advance(100)
+        val shrinkingLate = height()
+        assertTrue(expanded > shrinkingEarly && shrinkingEarly > shrinkingMidpoint &&
+            shrinkingMidpoint > shrinkingLate && shrinkingLate > collapsed)
+        assertEquals(0.7756f, (expanded - shrinkingMidpoint) / (expanded - collapsed), 0.055f)
         advance(200)
-        assertEquals("Collapse returns to its original viewport height", collapsed, height(), 0.1f)
+        assertEquals(collapsed, height(), 0.1f)
+        assertEquals(2, settlements.size)
         compose.onNodeWithText(raw, useUnmergedTree = true).assertExists()
-        advance(500)
-        assertEquals("Collapse remains settled", collapsed, height(), 0.1f)
     }
 
     @Test
-    fun reducedMotionSnapsBothDisclosureDirectionsWithoutIntermediateHeight() {
+    fun reversalUsesCurrentHeightAndKeepsTheMutationOpenUntilTheFinalTarget() {
+        host()
+        val collapsed = height()
+        disclose("Expand")
+        advance(160)
+        val interrupted = height()
+        assertTrue(interrupted > collapsed + 20f)
+        assertTrue(settlements.isEmpty())
+        compose.onNodeWithText("Collapse").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+        Snapshot.sendApplyNotifications()
+        compose.waitForIdle()
+        assertEquals("Retargeting must not synchronously jump to either endpoint", interrupted, height(), 1f)
+        advance(120)
+        val reversed = height()
+        assertTrue(reversed < interrupted && reversed > collapsed)
+        advance(500)
+        assertEquals(collapsed, height(), 0.1f)
+        assertEquals(listOf("user-disclosure:motion-input", "user-disclosure:motion-input"), starts.map { it.first })
+        assertEquals("One release after interrupted motion", listOf("user-disclosure:motion-input"), settlements)
+    }
+
+    @Test
+    fun reducedMotionSnapsSpatialChangesWhileOverlayTransitionStillSettles() {
         host(reduceMotion = true)
         val collapsed = height()
         disclose("Expand")
         val expanded = height()
         assertTrue(expanded > collapsed + 100f)
-        advance(250)
-        assertEquals("Reduced Motion is already fully expanded", expanded, height(), 0.1f)
-        advance(350)
+        assertTrue("Opacity is still transitioning", settlements.isEmpty())
+        advance(200)
         assertEquals(expanded, height(), 0.1f)
+        advance(300)
+        assertEquals(1, settlements.size)
         disclose("Collapse")
-        assertEquals("Reduced Motion is immediately collapsed", collapsed, height(), 0.1f)
-        advance(250)
         assertEquals(collapsed, height(), 0.1f)
-        advance(350)
+        advance(500)
         assertEquals(collapsed, height(), 0.1f)
+        assertEquals(2, settlements.size)
     }
 
     @Test
-    fun firstLayoutHasItsFinalCollapsedHeightAndKeepsDisclosureUnanimatedUntilReady() {
+    fun firstLayoutHasItsFinalCollapsedHeightAndSnapsUntilSizeReadiness() {
         host(sizeAnimationReady = false)
         val initial = height()
-        assertTrue("First layout already contains the 320dp preview", initial >= 320f)
-        compose.onNodeWithText("Expand").assertIsDisplayed()
-        advance(250)
-        assertEquals("Initial layout must not grow from zero", initial, height(), 0.1f)
-        advance(350)
+        assertTrue(initial >= 320f)
+        advance(600)
         assertEquals(initial, height(), 0.1f)
         disclose("Expand")
         val expanded = height()
         assertTrue(expanded > initial + 100f)
-        advance(250)
-        assertEquals("Before size readiness there is no disclosure animation", expanded, height(), 0.1f)
+        advance(500)
+        assertEquals(expanded, height(), 0.1f)
         disclose("Collapse")
         assertEquals(initial, height(), 0.1f)
     }

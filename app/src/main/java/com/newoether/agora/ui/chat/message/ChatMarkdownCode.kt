@@ -75,6 +75,7 @@ internal fun ChatMarkdownCodeBlock(
     copyEnabled: Boolean = true,
     canCopy: () -> Boolean = { true },
     copyModifier: Modifier = Modifier,
+    headerContainerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
     val assets = rememberChatMarkdownAssets(MaterialTheme.colorScheme.onSurface)
     CompositionLocalProvider(
@@ -88,6 +89,7 @@ internal fun ChatMarkdownCodeBlock(
                 enabled = copyEnabled,
                 canCopy = canCopy,
                 copyModifier = copyModifier,
+                containerColor = headerContainerColor,
             )
             val codeStyle = assets.renderContext.typography.code.copy(
                 color = MaterialTheme.colorScheme.onSurface,
@@ -308,13 +310,14 @@ internal fun ChatCodeBlockHeader(
     canCopy: () -> Boolean = { true },
     copyModifier: Modifier = Modifier,
     showCopy: Boolean = true,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     actions: @Composable () -> Unit = {},
     trailingActions: @Composable () -> Unit = {},
 ) {
     val clipboardManager = LocalClipboardManager.current
     // Header controls and their popup/dialog roots are not part of the message's text selection.
     DisableSelection {
-        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Surface(color = containerColor) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,

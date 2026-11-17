@@ -1,7 +1,6 @@
 package com.newoether.agora.ui.chat.message
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -62,11 +61,6 @@ internal fun userBubbleSizeAnimationEnabled(
     sizeAnimationReady: Boolean,
     allowSpatialTransitions: Boolean,
 ): Boolean = sizeAnimationReady && allowSpatialTransitions
-
-internal fun userBubbleDisclosureEasing(expanding: Boolean?) = when (expanding) {
-    true, false -> CubicBezierEasing(0.42f, 0f, 1f, 1f)
-    null -> FastOutSlowInEasing
-}
 
 internal data class StoredMediaOccurrenceProjection(
     val urls: List<String>,
@@ -148,6 +142,8 @@ internal fun UserMessageBubble(
     onShowDelete: () -> Unit,
     searchHighlight: SearchHighlightSpec?,
     allowMutations: Boolean = true,
+    onLayoutMutationStarted: (String) -> Unit = {},
+    onLayoutMutationSettled: (String) -> Unit = {},
 ) {
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
@@ -159,7 +155,7 @@ internal fun UserMessageBubble(
         message.source?.subagentResultDisplay(message.text)
     }
     var showMenu by remember { mutableStateOf(false) }
-    var disclosureExpanding by remember(message.id) { mutableStateOf<Boolean?>(null) }
+    var disclosureAnimating by remember(message.id) { mutableStateOf(false) }
     val editFocusRequester = remember(message.id) { FocusRequester() }
     LaunchedEffect(showEditor, editFocusRequester) {
         if (showEditor) editFocusRequester.requestFocus()
@@ -168,11 +164,11 @@ internal fun UserMessageBubble(
     Column(
         horizontalAlignment = Alignment.End,
         modifier = Modifier.then(
-            if (userBubbleSizeAnimationEnabled(sizeAnimationReady, allowSpatialTransitions)) {
+            if (!disclosureAnimating &&
+                userBubbleSizeAnimationEnabled(sizeAnimationReady, allowSpatialTransitions)
+            ) {
                 Modifier.animateContentSize(
-                    animationSpec = tween(durationMillis = 500,
-                        easing = userBubbleDisclosureEasing(disclosureExpanding)),
-                    finishedListener = { _, _ -> disclosureExpanding = null },
+                    animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
                 )
             } else {
                 Modifier
@@ -355,7 +351,10 @@ internal fun UserMessageBubble(
                         CollapsibleMessageBody(
                             messageKey = message.id,
                             searchActive = !searchHighlight?.query.isNullOrBlank(),
-                            onExpansionChange = { disclosureExpanding = it },
+                            sizeAnimationReady = sizeAnimationReady,
+                            onLayoutMutationStarted = onLayoutMutationStarted,
+                            onLayoutMutationSettled = onLayoutMutationSettled,
+                            onMotionChanged = { disclosureAnimating = it },
                         ) {
                             AskUserAnswerBlocks(
                                 source = askUser,
@@ -369,7 +368,10 @@ internal fun UserMessageBubble(
                         CollapsibleMessageBody(
                             messageKey = message.id,
                             searchActive = !searchHighlight?.query.isNullOrBlank(),
-                            onExpansionChange = { disclosureExpanding = it },
+                            sizeAnimationReady = sizeAnimationReady,
+                            onLayoutMutationStarted = onLayoutMutationStarted,
+                            onLayoutMutationSettled = onLayoutMutationSettled,
+                            onMotionChanged = { disclosureAnimating = it },
                         ) {
                             SearchHighlightedPlainText(
                                 text = message.text,

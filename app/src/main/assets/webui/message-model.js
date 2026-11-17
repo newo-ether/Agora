@@ -216,6 +216,33 @@ function InfoGroup({ group, messageId, display, expansion, expansionController, 
     setExpanded(!expanded);
   }
   const targetExpanded = expanded && !opensSheet;
+  const previousExpanded = useRef(targetExpanded);
+  useLayoutEffect(() => {
+    if (previousExpanded.current === targetExpanded) return undefined;
+    previousExpanded.current = targetExpanded;
+    const node = surface.current;
+    if (!node) return undefined;
+    // CSS owns the reveal. Notify the existing list owner before its first remeasure.
+    node.dispatchEvent(new CustomEvent("agora-layout-mutation", {
+      bubbles: true, detail: { key, active: true },
+    }));
+    let frame = requestAnimationFrame(function settled() {
+      if (node.getAnimations({ subtree: true }).some(animation =>
+        animation.playState === "running" && animation.transitionProperty === "grid-template-rows")) {
+        frame = requestAnimationFrame(settled);
+      } else {
+        node.dispatchEvent(new CustomEvent("agora-layout-mutation", {
+          bubbles: true, detail: { key, active: false },
+        }));
+      }
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      node.dispatchEvent(new CustomEvent("agora-layout-mutation", {
+        bubbles: true, detail: { key, active: false },
+      }));
+    };
+  }, [targetExpanded]);
   // retainExpandedLayoutDuringFade: the header and items keep the expanded layout width while the
   // card collapses, so the header's press wave is clipped only by the shrinking card, never by a
   // header that already jumped to its collapsed width. The layout is released when the card's

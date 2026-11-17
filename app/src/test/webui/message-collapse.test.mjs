@@ -19,22 +19,20 @@ function fixture({ height = 800, ...initial } = {}) {
   const hooks = [], pending = [], observers = [];
   let cursor = 0, dirty, props = { messageKey: "message", children: h("p", {}, "Original body"), ...initial };
   let tree;
-  const animations = [];
-  const viewport = {
-    getBoundingClientRect: () => ({ height: tree?.props["data-collapsed"] ? Math.min(height, 320) : height + 48 }),
-    animate(frames, options) {
-      const animation = { frames, options, cancelled: false, cancel() { this.cancelled = true; } };
-      animations.push(animation);
-      return animation;
-    },
-  };
+  const events = [], frames = new Map();
+  const viewport = { dispatchEvent: event => events.push(event), getAnimations: () => [] };
+  const footer = { getBoundingClientRect: () => ({ height: 48 }) };
   const body = { getBoundingClientRect: () => ({ height }) };
   const context = vm.createContext({
     html: htm.bind(h), t: { expand: "Expand", collapse: "Collapse" },
+    CustomEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } },
+    requestAnimationFrame: callback => { frames.set(callback, callback); return callback; },
+    cancelAnimationFrame: frame => frames.delete(frame),
     useRef(value) { const at = cursor++; return hooks[at] ??= { current: value }; },
     useState(value) {
       const at = cursor++, hook = hooks[at] ??= { value };
       return [hook.value, next => {
+        if (typeof next === "function") next = next(hook.value);
         if (next !== hook.value) { hook.value = next; dirty = true; }
       }];
     },
@@ -47,7 +45,7 @@ function fixture({ height = 800, ...initial } = {}) {
     },
     ResizeObserver: class {
       constructor(callback) { this.callback = callback; observers.push(this); }
-      observe(node) { assert.equal(node, body); }
+      observe(node) { assert.ok(node === body || node === footer); }
       disconnect() { this.disconnected = true; }
     },
   });
@@ -58,7 +56,8 @@ function fixture({ height = 800, ...initial } = {}) {
       cursor = 0; dirty = false;
       tree = context.CollapsibleMessageBody(props);
       nodes(tree).filter(node => node.ref).forEach(node => {
-        node.ref.current = node.props.class === "collapsible-message" ? viewport : body;
+        node.ref.current = node.props.class === "collapsible-message" ? viewport :
+          node.props.class === "message-collapse" ? footer : body;
       });
       pending.splice(0).forEach(effect => effect());
       if (!dirty) return tree;
@@ -68,9 +67,11 @@ function fixture({ height = 800, ...initial } = {}) {
   render();
   return {
     render,
-    animations,
+    events,
+    settle() { tree.props.onTransitionEnd({ target: viewport, propertyName: "height" }); },
     get tree() { return tree; },
-    get button() { return nodes(tree).find(node => node.type === "button"); },
+    get control() { return nodes(tree).find(node => node.props.class === "message-expand"); },
+    get button() { return nodes(tree).find(node => node.type === "button" && !node.props["aria-hidden"]); },
     get collapsed() { return nodes(tree).find(node => node.props.class === "message-preview").props["data-collapsed"]; },
     get children() { return nodes(tree).find(node => node.props.class === "message-preview-body").props.children; },
     resize(next) { height = next; observers.forEach(observer => observer.callback()); render(); },
@@ -158,31 +159,37 @@ test("search temporarily reveals the full content without overwriting the manual
   f.dispose();
 });
 
-test("disclosure animates layout height with ease-in in both directions and cancels interrupted motion", () => {
+test("disclosure changes only viewport height and brackets reversals with one layout mutation", () => {
   const f = fixture();
-  assert.equal(f.animations.length, 0);
+  assert.equal(f.events.length, 0);
+  assert.equal(f.tree.props.style.height, "320px");
   f.button.props.onClick(); f.render();
-  assert.equal(f.animations.length, 1);
-  assert.equal(f.animations[0].options.duration, 500);
-  assert.equal(f.animations[0].options.easing, "ease-in");
-  assert.equal(f.animations[0].frames[0].height, "320px");
-  assert.equal(f.animations[0].frames[1].height, "848px");
+  assert.equal(f.tree.props.style.height, "848px");
+  assert.equal(f.events.length, 1);
+  assert.equal(f.events[0].type, "agora-layout-mutation");
+  assert.equal(f.events[0].detail.active, true);
+  const labels = nodes(f.tree).filter(node => node.type === "button").map(node => node.props.children);
+  assert.deepEqual(labels, ["Collapse", "Expand"]);
   f.button.props.onClick(); f.render();
-  assert.equal(f.animations[0].cancelled, true);
-  assert.equal(f.animations[1].options.easing, "ease-in");
-  assert.equal(f.animations[1].options.duration, 500);
-  assert.equal(f.animations[1].frames[0].height, "848px");
-  assert.equal(f.animations[1].frames[1].height, "320px");
+  assert.equal(f.tree.props.style.height, "320px");
+  assert.equal(f.events.length, 1);
+  f.settle();
+  assert.equal(f.events.length, 2);
+  assert.equal(f.events[1].detail.active, false);
+  assert.equal(f.events[0].detail.key, f.events[1].detail.key);
   f.dispose();
-  assert.equal(f.animations[1].cancelled, true);
 });
 
-test("reduced motion and search changes do not animate disclosure", () => {
+test("reduced motion retains overlay labels without admitting spatial mutation", () => {
   const f = fixture({ reduceMotion: true });
   f.button.props.onClick(); f.render();
+  assert.equal(f.tree.props.style.height, "848px");
   f.render({ searchActive: true });
+  assert.equal(f.control.props.inert, true);
+  assert.equal(nodes(f.tree).filter(node => node.type === "button").length, 2);
+  assert.equal(f.tree.props.style.height, "800px");
   f.render({ searchActive: false, reduceMotion: false });
-  assert.equal(f.animations.length, 0);
+  assert.equal(f.events.length, 0);
   f.dispose();
 });
 

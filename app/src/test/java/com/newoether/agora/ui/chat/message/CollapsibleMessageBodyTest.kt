@@ -44,6 +44,10 @@ class CollapsibleMessageBodyTest {
     private var drawingView: View? = null
     private var mounts = 0
     private var disposals = 0
+    private val shown = mutableStateOf(true)
+    private val motionEvents = mutableListOf<Boolean>()
+    private val started = mutableListOf<String>()
+    private val settled = mutableListOf<String>()
 
     private fun host(body: @Composable () -> Unit) {
         compose.setContent {
@@ -51,16 +55,21 @@ class CollapsibleMessageBodyTest {
             CompositionLocalProvider(LocalLayoutDirection provides direction.value) {
                 MaterialTheme {
                     Box(Modifier.background(Color.Blue)) {
-                        CollapsibleMessageBody(
-                            messageKey = "message",
-                            searchActive = searching.value,
-                            modifier = Modifier.width(300.dp).testTag("viewport"),
-                        ) {
-                            DisposableEffect(Unit) {
-                                mounts++
-                                onDispose { disposals++ }
+                        if (shown.value) {
+                            CollapsibleMessageBody(
+                                messageKey = "message",
+                                searchActive = searching.value,
+                                modifier = Modifier.width(300.dp).testTag("viewport"),
+                                onLayoutMutationStarted = { started += it },
+                                onLayoutMutationSettled = { settled += it },
+                                onMotionChanged = { motionEvents += it },
+                            ) {
+                                DisposableEffect(Unit) {
+                                    mounts++
+                                    onDispose { disposals++ }
+                                }
+                                body()
                             }
-                            body()
                         }
                     }
                 }
@@ -91,7 +100,7 @@ class CollapsibleMessageBodyTest {
     }
 
     @Test
-    fun disclosureStaysOnThePhysicalLeftInsideThe320DpViewportAndAfterTheFullBody() {
+    fun expandOverlayStaysPhysicalLeftAndCollapseFollowsTheFullBody() {
         host { Box(Modifier.width(300.dp).height(600.dp).testTag("full-body")) }
         for (layoutDirection in listOf(LayoutDirection.Ltr, LayoutDirection.Rtl)) {
             compose.runOnIdle { direction.value = layoutDirection }
@@ -100,10 +109,8 @@ class CollapsibleMessageBodyTest {
                 .fetchSemanticsNode().boundsInRoot
             assertEquals(320f, viewport.height, 0.1f)
             assertEquals(viewport.left, expand.left, 0.1f)
-            // Material exposes its 40dp inner button in semantics, centered in a 48dp touch target.
             compose.onNode(hasClickAction() and hasText("Expand")).assertTouchHeightIsEqualTo(48.dp)
             assertEquals(viewport.bottom - 24f, expand.center.y, 0.1f)
-            assertTrue(expand.top >= viewport.bottom - 48f && expand.bottom <= viewport.bottom)
 
             compose.onNodeWithText("Expand").performClick()
             val fullBody = compose.onNodeWithTag("full-body").fetchSemanticsNode().boundsInRoot
@@ -114,8 +121,10 @@ class CollapsibleMessageBodyTest {
             assertEquals(bounds().left, collapse.left, 0.1f)
             compose.onNode(hasClickAction() and hasText("Collapse")).assertTouchHeightIsEqualTo(48.dp)
             assertEquals(bounds().bottom - 24f, collapse.center.y, 0.1f)
-            assertEquals(fullBody.bottom + 48f, bounds().bottom, 0.1f)
-            compose.onNodeWithText("Collapse").performClick()
+            assertEquals("Only Collapse contributes its footer height", fullBody.bottom + 48f, bounds().bottom, 0.1f)
+            compose.onNodeWithText("Collapse").performTouchInput { click() }
+            compose.waitForIdle()
+            assertEquals("Transparent Expand must not intercept the footer", 320f, height(), 0.1f)
         }
     }
 
@@ -161,6 +170,47 @@ class CollapsibleMessageBodyTest {
     }
 
     @Test
+    fun maskAndControlPixelsFadeContinuouslyAndReverseFromTheirCurrentAlpha() {
+        host { Box(Modifier.width(300.dp).height(600.dp).background(Color.Red)) }
+        compose.mainClock.autoAdvance = false
+        fun advance(milliseconds: Long) {
+            compose.mainClock.advanceTimeBy(milliseconds, ignoreFrameDuration = true)
+            compose.waitForIdle()
+        }
+        fun redAtBottom(): Float {
+            val bitmap = pixels()
+            return try { Color(bitmap.getPixel(292, bitmap.height - 10)).red }
+            finally { bitmap.recycle() }
+        }
+        fun click(label: String) {
+            compose.onNodeWithText(label).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+            androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+        }
+        assertEquals(0f, redAtBottom(), 0.02f)
+        click("Expand")
+        advance(100)
+        val early = redAtBottom()
+        advance(100)
+        val midpoint = redAtBottom()
+        assertEquals("Quarter-time mask is linear", 0.25f, early, 0.06f)
+        assertEquals("Half-time mask is linear", 0.5f, midpoint, 0.06f)
+        click("Collapse")
+        assertEquals("Mask reversal retains its current alpha", midpoint, redAtBottom(), 0.06f)
+        advance(100)
+        assertTrue(redAtBottom() < midpoint)
+        advance(500)
+        assertEquals(0f, redAtBottom(), 0.02f)
+        compose.runOnIdle {
+            assertEquals(1, mounts)
+            assertEquals(0, disposals)
+        }
+    }
+
+    @Test
     fun searchRevealsTheFullBodyAndRestoresThePreviousManualChoice() {
         host()
         val collapsedHeight = height()
@@ -174,6 +224,39 @@ class CollapsibleMessageBodyTest {
         compose.runOnIdle { searching.value = true }
         compose.runOnIdle { searching.value = false }
         compose.onNodeWithText("Collapse").assertExists()
+    }
+
+    @Test
+    fun searchAndInterruptedUnmountReleaseTheirLayoutMutation() {
+        host { Box(Modifier.width(300.dp).height(600.dp)) }
+        assertTrue(started.isEmpty())
+        assertTrue(settled.isEmpty())
+        compose.runOnIdle { searching.value = true }
+        compose.waitForIdle()
+        assertEquals(listOf("user-disclosure:message"), started)
+        assertEquals(started, settled)
+        assertEquals(listOf(true, false), motionEvents)
+        compose.runOnIdle { searching.value = false }
+        compose.waitForIdle()
+        assertEquals(2, started.size)
+        assertEquals(started, settled)
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithText("Expand")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+        compose.mainClock.advanceTimeBy(100)
+        compose.waitForIdle()
+        assertEquals(3, started.size)
+        assertEquals("The active mutation cannot settle before its latest target", 2, settled.size)
+        compose.runOnIdle {
+            shown.value = false
+            androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        compose.onNodeWithTag("viewport").assertDoesNotExist()
+        assertEquals(1, disposals)
+        assertEquals(started, settled)
+        assertEquals(listOf(true, false, true, false, true, false), motionEvents)
     }
 
     @Test

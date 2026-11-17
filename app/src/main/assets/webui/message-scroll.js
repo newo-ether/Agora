@@ -113,6 +113,43 @@ export function useMessageScroll({
     const coveredOpen = ["open", "fork"].includes(switching?.command.type);
     const pending = state.openStatus === "ready" && settledOpenId !== state.openId && (!covered || coveredOpen);
     const fading = switching?.phase === "covering" || switching?.phase === "revealing";
+    // Both Thinking and user disclosure enter this existing scroll owner. ResizeObserver performs
+    // the correction in the same measured frame; settlement never starts a final seek.
+    const mutations = new Map();
+    let mutationAnchor = null;
+    const priorOverflowAnchor = root.style?.overflowAnchor ?? "";
+    const finishMutation = (key) => {
+      mutations.delete(key);
+      if (!mutations.size) {
+        mutationAnchor = null;
+        if (root.style) root.style.overflowAnchor = priorOverflowAnchor;
+      }
+    };
+    const layoutMutation = ({ detail }) => {
+      if (!detail?.key) return;
+      const old = mutations.get(detail.key);
+      if (old) cancelAnimationFrame(old);
+      if (detail.active) {
+        if (!mutationAnchor && !pinned.current && !tailInput.current?.scrolling && !pending &&
+            !covered && !branch && !search?.query.trim() && !bottomMotion.current) {
+          const top = root.getBoundingClientRect().top;
+          // scrollTop rounds to CSS pixels; a subpixel sliver above the reading row is not an anchor.
+          const row = [...column.querySelectorAll(".message-row")].find(node =>
+            node.getBoundingClientRect().bottom > top + 1);
+          if (row) {
+            mutationAnchor = { row, offset: row.getBoundingClientRect().top - top };
+            if (root.style) root.style.overflowAnchor = "none";
+          }
+        }
+        mutations.set(detail.key, 0);
+      } else if (mutations.has(detail.key)) {
+        // Keep the pre-mutation anchor through propagation of the final parent measurement.
+        mutations.set(detail.key, requestAnimationFrame(() => {
+          mutations.set(detail.key, requestAnimationFrame(() => finishMutation(detail.key)));
+        }));
+      }
+    };
+    root.addEventListener?.("agora-layout-mutation", layoutMutation);
     const request = state.scrollRequest;
     let seekRequested = false;
     if (request && requestedReady && state.openStatus === "ready" &&
@@ -324,6 +361,11 @@ export function useMessageScroll({
       }
     };
     const followBottom = (fromFrame = false) => {
+      if (mutationAnchor && !pinned.current && !tailInput.current?.scrolling &&
+          !covered && !branch && !search?.query.trim() && !bottomMotion.current) {
+        const { row, offset } = mutationAnchor;
+        root.scrollTop += row.getBoundingClientRect().top - root.getBoundingClientRect().top - offset;
+      }
       updateTail();
       if (fading) return;
       if (branch) {
@@ -442,6 +484,8 @@ export function useMessageScroll({
       if (pending && !frame) frame = requestAnimationFrame(settle);
     };
     const release = () => {
+      mutationAnchor = null;
+      if (root.style) root.style.overflowAnchor = priorOverflowAnchor;
       tailFollow.current.userDrag();
       if (branch && !branch.request.scrollFinished && !branchScroll.current?.done) {
         branchScroll.current = { id: branch.request.id, target: branchTarget, done: true };
@@ -469,6 +513,9 @@ export function useMessageScroll({
     follow.observe(root);
     followBottom();
     return () => {
+      root.removeEventListener?.("agora-layout-mutation", layoutMutation);
+      mutations.forEach(frame => cancelAnimationFrame(frame));
+      if (root.style) root.style.overflowAnchor = priorOverflowAnchor;
       follow.disconnect();
       cancelAnimationFrame(frame);
       cancelAnimationFrame(motionFrame);

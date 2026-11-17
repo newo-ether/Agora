@@ -516,15 +516,20 @@ The bytes and receipts never enter Provider context, Room or the message graph; 
 their own images.
 
 Only native and WebUI user-message bodies taller than 320 dp/px start with a collapsed viewport.
-The localized Expand/Collapse control belongs inside the user capsule at its bottom, aligned to the
-physical left in both LTR and RTL, including the expanded footer after the complete body. A collapsed
-body fades to transparent over 64 dp/px above its clear bottom 48 dp/px control area; the control
-itself remains opaque and interactive. Expanded content has no fade. User disclosure retains its
-500ms size transition: expansion and collapse both use ease-in `cubic-bezier(0.42, 0, 1, 1)` in both clients.
-Both directions animate the actual occupied layout height continuously, moving following messages
-with the container instead of jumping to its final height beneath a draw-only transition.
-A reversal begins from the current drawn height; Reduced Motion and first layout snap. Native
-reuses the existing user-bubble size owner instead of adding a second layout animation.
+The localized Expand/Collapse control is a full capsule, physically left-aligned in both LTR and RTL.
+The bottom 64 dp/px gradient and 48 dp/px Expand control area are draw overlays. Neither
+contributes width or height to text/bubble measurement or changes text wrapping. Their shared
+opacity decreases linearly from 1 to 0 during expansion and increases linearly from 0 to 1 during
+collapse. The Collapse capsule follows the full body in normal layout, contributing its footer
+height to the expanded target; it remains visible when expanded. User disclosure follows the existing
+Thinking card's 400ms vertical reveal/collapse curve and interruption behavior in both clients.
+The reveal alone animates actual occupied height while keeping the full text mounted at its stable
+layout size. Following messages and the existing MessageList scroll owner follow each measured frame;
+there is no target-height jump, end-of-animation scroll correction, or second scroll owner. The same
+layout-mutation start/settled admission used by Thinking cards brackets user disclosure. Reversal starts
+from current geometry and alpha. First layout is settled; Reduced Motion snaps spatial changes while
+retaining the Thinking card's opacity behavior. The outer user-bubble size animation must not duplicate
+this reveal animation.
 Short bodies have neither a mask nor a disclosure control. Assistant output,
 including HTML previews, Thinking/Tool cards and terminal labels, is never wrapped in this viewport.
 The complete user body remains mounted through disclosure changes; collapsing never truncates

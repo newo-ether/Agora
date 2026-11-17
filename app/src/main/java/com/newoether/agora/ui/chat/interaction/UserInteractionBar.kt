@@ -385,7 +385,11 @@ private fun ShellBody(
             .heightIn(max = ScrollableContentMaxHeight)
             .verticalScroll(rememberScrollState()),
     ) {
-        ChatMarkdownCodeBlock(code = pending.summary, autoWrap = autoWrapCodeBlocks)
+        ChatMarkdownCodeBlock(
+            code = pending.summary,
+            autoWrap = autoWrapCodeBlocks,
+            headerContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
     }
     Spacer(Modifier.height(10.dp))
     Row(
