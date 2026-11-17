@@ -14,14 +14,17 @@ import kotlinx.coroutines.withContext
 internal class WebUiToolImages(
     private val directory: File,
     private val attachmentDirectory: File? = null,
-    private val markdownImage: suspend (String) -> com.newoether.agora.model.ToolImageAttachment? = { null },
+    private val markdownImage: suspend (String, String) -> com.newoether.agora.model.ToolImageAttachment? = { _, _ -> null },
     private val loadMessage: suspend (String, String) -> ChatMessage?,
 ) {
-    suspend fun openMarkdown(conversationId: String, messageId: String, link: String): WebUiToolImageFile? {
+    suspend fun openMarkdown(conversationId: String, messageId: String, link: String,
+        sourceStart: Int = 0, ordinal: Int = 0, document: String = "answer"): WebUiToolImageFile? {
         if (link.length > 8_192) return null
         val message = loadMessage(conversationId, messageId)?.takeIf { it.id == messageId } ?: return null
-        if (!withContext(Dispatchers.Default) { message.ownsShellMarkdownImage(link) }) return null
-        val image = markdownImage(link) ?: return null
+        val occurrence = withContext(Dispatchers.Default) {
+            message.shellMarkdownImageOccurrence(link, sourceStart, ordinal, document)
+        } ?: return null
+        val image = markdownImage(link, "$messageId:$occurrence") ?: return null
         return withContext(Dispatchers.IO) {
             try {
                 val file = File(image.path)
@@ -58,7 +61,9 @@ internal class WebUiToolImages(
             try {
                 val root = rootDirectory.toPath().toRealPath()
                 val path = File(stored.removePrefix("file://")).toPath().toRealPath()
-                val allowed = allowedAttachmentPath(root, path)
+                val sandboxRoot = root.resolve("sandbox-home").resolve("attachments")
+                val allowed = allowedAttachmentPath(root, path) ||
+                    (meta?.storage?.isLocalSandbox == true && path.startsWith(sandboxRoot) && path != sandboxRoot)
                 val file = path.toFile()
                 if (!allowed || !file.isFile || file.length() !in 1..AttachmentFiles.MAX_ATTACHMENT_BYTES) {
                     return@withContext false
@@ -108,12 +113,14 @@ internal class WebUiToolImages(
     }
 
     private fun allowedAttachmentPath(root: java.nio.file.Path, path: java.nio.file.Path): Boolean =
-        (path.parent == root && GENERATED_IMAGE.matches(path.fileName.toString())) ||
+        (path.parent == root && (GENERATED_IMAGE.matches(path.fileName.toString()) ||
+            SANDBOX_IMAGE_SNAPSHOT.matches(path.fileName.toString()))) ||
             listOf("images", "attachments", "run-inputs", "fork-attachments").any { child ->
                 path.startsWith(root.resolve(child)) && path != root.resolve(child)
             }
 
     companion object {
+        private val SANDBOX_IMAGE_SNAPSHOT = Regex("img_[A-Za-z0-9_-]+\\.img", RegexOption.IGNORE_CASE)
         private val GENERATED_IMAGE = Regex("(?:img|pdf|vid|tool|phone)_[A-Za-z0-9_-]+\\.(?:jpg|jpeg|png)", RegexOption.IGNORE_CASE)
     }
 }

@@ -273,20 +273,23 @@ internal fun LazyMarkdownTextContent(
     contentPadding: PaddingValues = PaddingValues(),
     includeFirstSpacer: Boolean = true,
     onReady: () -> Unit = {},
+    imageDocument: String = LocalMarkdownImageDocument.current,
 ) {
     val markdownText = remember(text, renderContext.parseInlineDollarMath) {
         text.toRenderableMarkdownText(renderContext.parseInlineDollarMath)
     }
-    MarkdownPreparedTextContent(
-        text = markdownText,
-        renderContext = renderContext,
-        immediate = false,
-        includeFirstSpacer = includeFirstSpacer,
-        onReady = onReady,
-        modifier = modifier,
-        lazyListState = listState,
-        lazyContentPadding = contentPadding,
-    )
+    androidx.compose.runtime.CompositionLocalProvider(LocalMarkdownImageDocument provides imageDocument) {
+        MarkdownPreparedTextContent(
+            text = markdownText,
+            renderContext = renderContext,
+            immediate = false,
+            includeFirstSpacer = includeFirstSpacer,
+            onReady = onReady,
+            modifier = modifier,
+            lazyListState = listState,
+            lazyContentPadding = contentPadding,
+        )
+    }
 }
 
 @Composable
@@ -333,6 +336,20 @@ private fun MarkdownPreparedTextContent(
         if (state is State.Success || state is State.Error) currentOnReady()
     }
 
+    val document = LocalMarkdownImageDocument.current
+    val ordinalOffset = LocalMarkdownImageOrdinalOffset.current
+    val occurrences = remember(documentState, document, ordinalOffset) {
+        (documentState as? State.Success)?.let {
+            markdownImageOccurrences(it.content, it.node, it.referenceLinkHandler, document, ordinalOffset)
+        }.orEmpty()
+    }
+    LaunchedEffect(occurrences, renderContext.imageTransformer) {
+        (documentState as? State.Success)?.let { parsed ->
+            (renderContext.imageTransformer as? com.newoether.agora.ui.components.LatexImageTransformer)
+                ?.loadParsedImages(parsed.content, occurrences, parsed.referenceLinkHandler)
+        }
+    }
+    androidx.compose.runtime.CompositionLocalProvider(LocalMarkdownImageOccurrences provides occurrences) {
     com.mikepenz.markdown.compose.Markdown(
         state = documentState,
         modifier = modifier,
@@ -364,6 +381,7 @@ private fun MarkdownPreparedTextContent(
             }
         }
     )
+    }
 }
 
 @Composable

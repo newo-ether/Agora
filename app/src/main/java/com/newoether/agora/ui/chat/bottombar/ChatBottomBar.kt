@@ -231,16 +231,48 @@ internal fun ChatBottomBar(
         object : ReceiveContentListener {
             override fun onReceive(transferableContent: TransferableContent): TransferableContent? {
                 val imageUris = mutableListOf<Uri>()
+                val pastedTexts = mutableListOf<String>()
+                val sandboxPaste = composer.acceptsLocalSandboxAttachments()
                 val advertisesImages = transferableContent.hasMediaType(MediaType.Image)
                 val remaining = transferableContent.consume { item ->
+                    val text = item.text?.toString()
+                    if (sandboxPaste && text != null &&
+                        text.length >= com.newoether.agora.util.SANDBOX_PASTE_MIN_CHARS
+                    ) {
+                        pastedTexts += text
+                        return@consume true
+                    }
                     val uri = item.uri ?: return@consume false
-                    val resolvedMime = context.contentResolver.getType(uri)
+                    val resolvedMime = runCatching { context.contentResolver.getType(uri) }.getOrNull()
                     val isImage = resolvedMime?.startsWith("image/") == true ||
                         (resolvedMime == null && advertisesImages)
-                    if (isImage) imageUris += uri
-                    isImage
+                    if (isImage || sandboxPaste) imageUris += uri
+                    isImage || sandboxPaste
                 }
-                importUris(composerOwnerId, imageUris, "image", emitSuccessHaptic = false)
+                importUris(composerOwnerId, imageUris, if (sandboxPaste) null else "image", emitSuccessHaptic = false)
+                if (pastedTexts.isNotEmpty()) {
+                    val ownerId = composerOwnerId
+                    activityLaunchScope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                        for (text in pastedTexts) {
+                            var admitted = false
+                            try {
+                                withContext(NonCancellable) {
+                                    withOwner(ownerId) {
+                                        admitted = composerController.importAttachment(
+                                            ownerId, com.newoether.agora.util.sandboxPastedAttachment(text),
+                                        )
+                                    }
+                                }
+                            } finally {
+                                if (!admitted) {
+                                    // The clipboard still owns the original. Refuse admission visibly;
+                                    // inserting it into the field would silently restore inline sending.
+                                    composer.rejectedMessage = context.getString(com.newoether.agora.R.string.attachment_copy_failed_image)
+                                }
+                            }
+                        }
+                    }
+                }
                 return remaining
             }
         }

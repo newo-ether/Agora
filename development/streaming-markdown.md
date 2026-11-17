@@ -228,6 +228,13 @@ text-to-terminal separation is exactly 8 dp. Timeline mode derives adjacency fro
 segment; the mere existence of an earlier card does not add spacing. Compact capsule error/stopped
 chrome and detail-sheet defaults are independent and unchanged.
 
+Stopping during Retry preserves the last actual retry error in the existing error segment while the
+durable message remains STOPPED. The shared presentation renders that nonblank detail using the
+ordinary error text and suppresses the additional `Generation Stopped` label. An ordinary Stop with
+no nonblank error retains its usual stopped label; answer text and blank error segments are never
+promoted into an error. Pending retry errors are not terminal content while generation is active,
+and resumed Provider output clears the pending retry error through the generation owner.
+
 Generation activity and terminal presentation are resolved from one current assistant-message
 snapshot. Body content, Thought/Tool/Transcription visibility, pre-output activity, answer-tail
 activity, stopping, stopped, and error state must never be computed from separately collected or
@@ -257,8 +264,11 @@ inline presenter retains its 24 dp minimum slot until terminal content takes own
 keep these same slots in its existing message presenter without a parallel freeze, extra settlement
 delay, compensating scroll, or duplicate Markdown subtree. Their alpha-bearing graphics layers use
 `CompositingStrategy.ModulateAlpha`, set `clip = false`, and never rasterize a breathing circle into
-tight rectangular bounds. Continuous-motion policy may own breathing; it never owns placement or
-layout geometry.
+tight rectangular bounds. The pre-output/Retry handoff to stopped or error text fades the dot and
+Retry glyph paint colors directly, without an alpha-bearing activity wrapper or default Crossfade.
+The outgoing dot retains its circular outline at every breathing scale and fade frame; it must never
+become a clipped square after Stop. Only the terminal content measures the slot during this handoff.
+Continuous-motion policy may own breathing; it never owns placement or layout geometry.
 
 Retry still fades its label in by Unicode grapheme at 27 ms per grapheme, bounded to
 225-600 ms, with the fast-start, slow-finish `LinearOutSlowInEasing` curve. The entrance plays only
@@ -467,7 +477,8 @@ up to 300 dp and constrained by the current content width. The same dimensions
 remain through pending, failed and decoded states. A known intrinsic viewport
 lets the shared Markdown renderer measure images as blocks instead of allowing
 large images to escape a text line's height. Each image keeps its rounded corners
-and the existing fading circular overlay. Load local attachments as files.
+and the existing fading circular overlay. Inline image corners are 16 dp/px in native and WebUI.
+Load local attachments as files.
 Regression coverage must decode real images and compare the entire message and
 both image rectangles before, between and after asynchronous loads at phone density
 and narrow large-font width; failed placeholders alone do not qualify this behavior.
@@ -478,11 +489,46 @@ starting with a drive (`F:/…`) stays a Windows path, anything else is rooted a
 `Local Sandbox` reads the host file through the sandbox path resolver and its mount
 rules; any other name selects a configured Conch device and uses `/file/image`
 (images only, 20 MB). SSH devices, videos and plain local paths are not resolved.
-`ShellMarkdownMedia` loads a slot when it is rendered, into a bounded disposable cache under
-`cacheDir/markdown-media`, without model preparation. Native chat provides it around its Markdown;
-WebUI serves authenticated, same-origin image reads through the same loader. A browser request must
-identify the owning conversation/message and an actual shell image destination in its Markdown AST;
-it cannot proxy arbitrary paths. Percent-encoded server names, POSIX and Windows paths retain native
-semantics. WebUI reserves the same square loading/failure viewport and opens AttachmentViewer on a
-loaded image. The bytes never enter Provider context, Room or the message graph; Remote sessions keep
-their own images. Failed slots keep their failed state until re-entry retries.
+Ordinary HTTP(S) Markdown images use the same per-occurrence snapshot store as shell images.
+Their first read uses the shared bounded HTTP client (20 MiB), validates the raster bytes and
+persists them without model preparation. Native and WebUI count only valid shell destinations
+and absolute HTTP(S) destinations with a nonempty authority in the same parsed-image ordinal set;
+invalid shell links, ordinary links and code do not consume an ordinal. HTTP identity retains the
+parsed URL spelling. HTML code-fence previews retain their disposable shell-only resource cache.
+`ShellMarkdownMedia` starts reads for parsed occurrences, including images below the current
+viewport. Admitted reads survive streaming reparses and row disposal within their owning scope.
+Each message/document/image ordinal plus destination owns an immutable first-successful-read
+snapshot under `filesDir/markdown-media`. Repeated destinations at different positions are independent;
+native full, incremental and timeline rendering and authenticated WebUI use the same identity.
+A small durable receipt records the local artifact and a SHA-256 resource marker. Reopening reads
+that receipt and local bytes without contacting or revalidating the source or recomputing its hash.
+Snapshots have no age, count or size eviction. Missing committed bytes show a broken image; they
+must not be replaced with newer remote bytes. Failed uncommitted reads can retry on re-entry.
+These display snapshots stay separate from Provider image processing and its no-digest contract.
+They currently remain app-local: native conversation archives and forks do not transport this
+sidecar snapshot store. Deleting a conversation does not reclaim these explicitly retained snapshots.
+Native chat provides the loader around its Markdown. WebUI serves authenticated, same-origin image
+reads through the same store. A browser request identifies the owning conversation/message,
+document and image ordinal, and the destination must match that exact parsed occurrence; it cannot
+proxy arbitrary paths. Percent-encoded server names, POSIX and Windows paths retain native semantics.
+WebUI reserves the same square loading/failure viewport and opens AttachmentViewer on a loaded image.
+The bytes and receipts never enter Provider context, Room or the message graph; Remote sessions keep
+their own images.
+
+Only native and WebUI user-message bodies taller than 320 dp/px start with a collapsed viewport.
+The localized Expand/Collapse control belongs inside the user capsule at its bottom, aligned to the
+physical left in both LTR and RTL, including the expanded footer after the complete body. A collapsed
+body fades to transparent over 64 dp/px above its clear bottom 48 dp/px control area; the control
+itself remains opaque and interactive. Expanded content has no fade. User disclosure retains its
+500ms size transition: expansion and collapse both use ease-in `cubic-bezier(0.42, 0, 1, 1)` in both clients.
+Both directions animate the actual occupied layout height continuously, moving following messages
+with the container instead of jumping to its final height beneath a draw-only transition.
+A reversal begins from the current drawn height; Reduced Motion and first layout snap. Native
+reuses the existing user-bubble size owner instead of adding a second layout animation.
+Short bodies have neither a mask nor a disclosure control. Assistant output,
+including HTML previews, Thinking/Tool cards and terminal labels, is never wrapped in this viewport.
+The complete user body remains mounted through disclosure changes; collapsing never truncates
+durable text, Provider input, action copy, source mapping or media identity. Active search temporarily
+reveals the complete body without replacing the user's disclosure choice. Input attachment strips
+and message actions retain their existing presentation outside the text viewport. Subagent completion
+summaries and full detail sheets retain their existing visibility rules.

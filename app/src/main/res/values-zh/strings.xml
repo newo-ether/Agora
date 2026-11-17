@@ -687,6 +687,7 @@
     <string name="context_part_free">空闲</string>
     <string name="context_part_reserved">预留</string>
     <string name="context_part_used">已用</string>
+    <string name="ask_agora_action">询问 Agora</string>
     <string name="context_compact_streaming">正在压缩上下文…</string>
     <string name="context_compact_error">压缩出错</string>
     <string name="context_compact_stopped">压缩已停止</string>

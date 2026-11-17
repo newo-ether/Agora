@@ -39,6 +39,15 @@ internal fun parseShellMediaLink(link: String): ShellMediaLink? {
     return ShellMediaLink(server, path)
 }
 
+/** The same supported destination set determines native and browser occurrence ordinals. */
+internal fun markdownImageSnapshotKey(link: String): String? {
+    parseShellMediaLink(link)?.let { return it.key }
+    val raw = link.trim().removeSurrounding("<", ">")
+    return raw.takeIf { HTTP_MARKDOWN_IMAGE.matches(it) }
+}
+
+private val HTTP_MARKDOWN_IMAGE = Regex("""https?://[^\s/?#]+(?:[/?#][^\s]*)?""", RegexOption.IGNORE_CASE)
+
 /** Strict RFC 3986 percent decoding; `+` stays literal because these are paths, not forms. */
 private fun percentDecode(value: String): String? {
     if ('%' !in value) return value

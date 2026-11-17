@@ -95,6 +95,7 @@ class ChatViewModel(
         devices = { settingsRepository.shellDevices.value },
         sandboxEnabled = { settingsRepository.sandboxEnabled.value },
         sandbox = { sandboxFactory?.takeIf { it.isAvailable() }?.create() },
+        scope = viewModelScope,
     )
     private val attachmentProcessor = AttachmentImportProcessor(application)
     private val composerDrafts = ComposerDraftController(

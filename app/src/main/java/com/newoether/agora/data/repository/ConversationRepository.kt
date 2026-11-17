@@ -50,7 +50,7 @@ class ConversationRepository(
     /** Non-null in production; null is an explicit DAO-isolated unit-test seam. */
     internal val database: ChatDatabase?,
     internal val scheduleMaintenance: () -> Unit = { MaintenanceDebtWorker.schedule() },
-    private val maintenanceDebtDao: MaintenanceDebtDao? = database?.maintenanceDebtDao(),
+    internal val maintenanceDebtDao: MaintenanceDebtDao? = database?.maintenanceDebtDao(),
     internal val generationErrorFormatter: (String) -> String = { it.ifBlank { "Failed to generate" } },
     private val semanticModelSnapshotProvider: suspend () -> SemanticModelSnapshot = {
         semanticModelSnapshot("", emptyList())
@@ -230,6 +230,7 @@ class ConversationRepository(
         require(entity.runSequence >= 0) { "Message ${entity.id} has no Run sequence" }
         withSemanticTransaction(listOf(entity.id)) {
             chatDao.upsertMessage(entity)
+            claimMessageDirectories(listOf(entity))
             check(chatDao.touchConversationData(entity.conversationId, System.currentTimeMillis()) == 1)
         }
     }
@@ -252,7 +253,7 @@ class ConversationRepository(
             conversationModelId,
             at,
             touchConversationOnAdmission,
-        )
+        ).also { claimMessageDirectories(it.messages) }
     }
 
     suspend fun createConversationRunWithMessages(
@@ -280,6 +281,7 @@ class ConversationRepository(
                 expectedNewChatPersist,
                 at,
             )
+            claimMessageDirectories(graph.messages)
             scheduled = when {
                 previousRaw == null -> false
                 previous == null -> enqueueAttachmentReconcile()
@@ -320,6 +322,7 @@ class ConversationRepository(
         sourceToForkMessageIds: Map<String, String>,
     ) = withSemanticTransaction {
         chatDao.createForkGraph(conversation, runs, messages, sourceToForkMessageIds)
+        claimMessageDirectories(messages)
     }
 
     internal var onSubagentWaitCommitted: (suspend (String, Map<String, String>) -> Unit)? = null
@@ -331,6 +334,7 @@ class ConversationRepository(
         val receipts = linkedMapOf<String, String>()
         val commit = withSemanticTransaction(messages.map(MessageEntity::id)) {
             chatDao.appendToolRoundToRun(messages, expectedPass).also { commit ->
+                claimMessageDirectories(commit.messages)
                 if (commit.inserted) {
                     commitSubagentWaitReceipts(messages, receipts)
                     check(
@@ -382,6 +386,7 @@ class ConversationRepository(
             } else {
                 chatDao.getMessagesByIds(staleMessageIds)
             }
+            claimMessageDirectories(staleMessages)
             deleted = chatDao.deleteMessageSubtree(
                 conversationId = conversationId,
                 rootMessageId = rootMessageId,
@@ -448,7 +453,7 @@ class ConversationRepository(
                 conversationId = stored.conversationId,
                 checkpoint = message.toStreamCheckpoint(),
                 at = System.currentTimeMillis(),
-            )
+            ).also { if (it) claimMessageDirectories(listOfNotNull(chatDao.getMessage(message.id))) }
         }
 
     var onSubagentTerminal: ((String) -> Unit)? = null
@@ -473,7 +478,10 @@ class ConversationRepository(
                 at = at,
                 markConversationUnread = markConversationUnread,
             )
-            if (committed) persistSubagentTerminal(conversationId, at, message.id)
+            if (committed) {
+                claimMessageDirectories(listOfNotNull(chatDao.getMessage(message.id)))
+                persistSubagentTerminal(conversationId, at, message.id)
+            }
             committed
         }
         if (applied) onSubagentTerminal?.invoke(conversationId)
@@ -504,7 +512,10 @@ class ConversationRepository(
                 runId = runId,
                 at = at,
             )
-            if (committed) persistSubagentTerminal(conversationId, at, messages.lastOrNull()?.id)
+            if (committed) {
+                claimMessageDirectories(messages.mapNotNull { chatDao.getMessage(it.id) })
+                persistSubagentTerminal(conversationId, at, messages.lastOrNull()?.id)
+            }
             committed
         }
         if (applied) {
@@ -516,8 +527,7 @@ class ConversationRepository(
         return runId == null || chatDao.getRun(runId)?.status?.isTerminal != false
     }
 
-    suspend fun deleteMessagesByIds(ids: List<String>) =
-        withSemanticTransaction(ids) { chatDao.deleteMessagesByIds(ids) }
+    suspend fun deleteMessagesByIds(ids: List<String>) = deleteMessagesWithAttachments(ids)
 
     suspend fun beginRecompactContextCompact(
         replacementRun: RunEntity,
@@ -539,6 +549,7 @@ class ConversationRepository(
         var scheduled = false
         withDatabaseTransaction {
             val message = chatDao.getMessage(messageId)
+            claimMessageDirectories(listOfNotNull(message))
             removed = chatDao.removeContextCompact(messageId)
             if (removed && message != null) {
                 scheduled = enqueueMessageAttachmentDebt(listOf(message.toAttachmentReference())) or
@@ -755,43 +766,6 @@ class ConversationRepository(
     internal suspend fun enqueueAttachmentReconcile(): Boolean = enqueueAttachmentDebt(
         listOf(MaintenanceDebtEntity.RECONCILE_IDENTITY),
     )
-
-    private suspend fun enqueueReconcileDebt(): Boolean {
-        var scheduled = false
-        for (kind in MaintenanceDebtEntity.RECONCILE_KINDS) {
-            scheduled = enqueueDebt(
-                kind,
-                listOf(MaintenanceDebtEntity.RECONCILE_IDENTITY),
-            ) or scheduled
-        }
-        return scheduled
-    }
-
-    internal suspend fun enqueueMessageAttachmentDebt(
-        references: List<MessageAttachmentReference>,
-    ): Boolean {
-        if (references.any { reference ->
-                val metadata = reference.attachmentMeta
-                (metadata == null && reference.images.isNotEmpty()) ||
-                    (metadata != null && metadata.decodeAttachmentMeta() == null)
-            }
-        ) {
-            return enqueueAttachmentReconcile()
-        }
-        return enqueueAttachmentDebt(references.messageReclaimablePaths())
-    }
-
-    private suspend fun enqueueDebt(kind: String, identities: Collection<String>): Boolean {
-        val dao = maintenanceDebtDao ?: return false
-        val exact = identities.asSequence()
-            .filter(String::isNotBlank)
-            .distinct()
-            .toList()
-        if (exact.isEmpty()) return false
-        val at = System.currentTimeMillis()
-        exact.forEach { identity -> dao.enqueue(kind, identity, at) }
-        return true
-    }
 
     private companion object {
         const val ATTACHMENT_REFERENCE_PAGE_SIZE = 128

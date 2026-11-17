@@ -100,12 +100,11 @@ class AttachmentReferenceWriteTest {
         }
     }
 
-    @Test fun installedVersion45TriggersAreReplacedWithoutLosingExistingReferences() = runBlocking {
+    @Test fun installedVersion45TriggersAreReplacedAndReferencesRebuildWithoutLosingSource() = runBlocking {
         val path = java.io.File(context.filesDir, "img_preserved").canonicalPath
         dao.insertMessage(message().copy(images = listOf(path)))
         val index = AttachmentReferenceIndex(database)
         index.refresh()
-        val token = ownerToken(0, "message")
         val revision = index.prepareCheck(path)
         val raw = database.openHelper.writableDatabase
         raw.beginTransaction()
@@ -130,13 +129,13 @@ class AttachmentReferenceWriteTest {
         } finally { raw.endTransaction() }
         database.close()
         database = ChatDatabase.build(context)
-        assertEquals(46, database.openHelper.readableDatabase.version)
-        assertEquals(token, ownerToken(0, "message"))
+        assertEquals(47, database.openHelper.readableDatabase.version)
+        assertNull(ownerToken(0, "message"))
+        assertEquals(listOf(path), dao.getMessage("message")?.images)
         val reopened = AttachmentReferenceIndex(database)
-        database.withTransaction {
-            assertTrue(reopened.isCurrent(revision))
-            assertTrue(reopened.contains(path))
-        }
+        database.withTransaction { assertFalse(reopened.isCurrent(revision)) }
+        reopened.refresh()
+        assertTrue(reopened.contains(path))
         assertEquals(1, dao.updateMessageCheckpoint(checkpoint(1).copy(images = listOf(path))))
         reopened.refresh()
         assertTrue(reopened.contains(path))

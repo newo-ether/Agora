@@ -8,13 +8,18 @@ source offsets. Raw HTML outside fences is still literal Markdown text. Remote s
 source-only. No second Markdown parser or generation lifecycle is introduced.
 
 Cards reuse the shared Material 3 Expressive code shell, header and actions defined in
-[streaming-markdown.md](streaming-markdown.md), retaining Source/Preview and Copy. Both inline and
-fullscreen headers expose Save HTML directly as a download icon. In reading order, inline actions
-are Source/Run, Copy, Save HTML, More; fullscreen actions are Source, Reload, Copy, Save HTML, Close.
-More and Close stay last, including when whole actions wrap at narrow widths.
-The overflow menu contains Reload and Full Screen with 24 dp leading icons; native also exposes Share HTML.
-It does not duplicate Save HTML. Browser banners and overflow actions use the same Code,
-PlayArrow, Download and Fullscreen icon shapes as Compose. The loading overlay includes the
+[streaming-markdown.md](streaming-markdown.md), with distinct controls for source and preview states.
+In reading order, source/text actions are Run, Copy, Save HTML; native adds More for Share HTML,
+while WebUI has no empty overflow menu. Source never exposes Full Screen or Reload. Search forces
+this source toolbar, disables Run and keeps exact Copy and Save HTML available.
+Inline preview actions are Source, Full Screen, Save HTML, More. Its overflow contains Reload with
+a 24 dp leading icon; native also exposes Share HTML. Copy belongs to the source toolbar and does
+not appear in the preview menu. Fullscreen is preview-only with Reload, Save HTML, Close; it has no
+Code/Source toggle, Copy or More. Close returns to inline preview, where Source can open the text.
+More and Close stay last, including when whole actions wrap at narrow widths. Ordinary source-only
+blocks keep their direct Copy action. The overflow menu does not duplicate Full Screen or Save HTML.
+Browser banners and overflow actions use the same Code, PlayArrow, Download and Fullscreen icon
+shapes as Compose. The loading overlay includes the
 localized `Loading HTML preview…` text beneath its indicator with a 12px gap in WebUI.
 The inline viewport is 360 dp with internal scrolling;
 fullscreen fills the safe window inside an 8 dp inset using the same rounded shell. The fixed viewport avoids positive feedback for `vh`
@@ -87,7 +92,8 @@ first `document.write` document load may become ready. Any successor document
 load, including a browser error document from blocked navigation, removes the browsing context,
 releases its resource capability and shows the existing localized fallback. Failure is terminal
 for that entry; only an explicit reload or a normal fresh entry starts another load.
-Load failures keep Source, exact Copy and Save HTML available.
+Load failures retain the controls for their current state: inline Source can reveal exact Copy;
+fullscreen retains Reload, Save HTML and Close.
 
 Literal HTTPS `script[src]`, `link[href]` and `img[src]` attributes for the approved CDN hosts and
 numeric OSM tiles are rewritten using inert parsing of literal resource start tags. Complete

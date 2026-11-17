@@ -633,6 +633,51 @@ class AttachmentImportProcessorTest {
         assertEquals(listOf(staged.absolutePath), result.obsoletePaths)
     }
 
+    @Test
+    fun pastedTextStagesCompleteUtf8WithoutReadingAnExternalSource() = runTest {
+        val text = "原文\r\n😀".repeat(2000)
+        val source = com.newoether.agora.util.sandboxPastedAttachment(text)
+        val processor = processor(openSource = { error("Pasted text has no external source") },
+            readText = { path, max -> File(path).readText(Charsets.UTF_8).take(max) })
+        val staged = processor.stage(source) as AttachmentImportProcessor.StageResult.Success
+        assertEquals(text, File(staged.attachment.localPath!!).readText(Charsets.UTF_8))
+        assertNull(staged.attachment.sourceText)
+        val home = temporaryFolder.newFolder("pasted-home")
+        val ready = processor.process(staged.attachment, home) as AttachmentImportProcessor.ProcessResult.Ready
+        assertEquals(text, File(ready.attachment.localPath!!).readText(Charsets.UTF_8))
+        assertEquals(text.take(Constants.MAX_FILE_CONTENT_READ_LENGTH), ready.attachment.preparedText)
+        assertEquals("/home/agora/attachments/${source.localId}/pasted-text.txt", ready.attachment.sandboxPath)
+    }
+
+    @Test
+    fun sandboxImageKeepsOriginalBytesAndMeasuresDisplayWithoutNormalization() = runTest {
+        val home = temporaryFolder.newFolder("raw-home")
+        val bytes = byteArrayOf(0, -1, -2, 0, 5)
+        val processor = processor(
+            openSource = { ByteArrayInputStream(bytes) },
+            normalizeImage = { error("Sandbox original must not be normalized") },
+        )
+        val source = com.newoether.agora.util.FileValidator.inspectAttachment(
+            "content://source", "raw.png", "image/png", bytes.size.toLong(), "sandbox", true,
+        )!!
+        assertEquals("image", source.type)
+        val staged = processor.stage(source) as AttachmentImportProcessor.StageResult.Success
+        val ready = processor.process(staged.attachment, home) as AttachmentImportProcessor.ProcessResult.Ready
+        org.junit.Assert.assertArrayEquals(bytes, File(ready.attachment.localPath!!).readBytes())
+        assertNull(ready.attachment.preparedText)
+        val snapshot = File(ready.attachment.imageArtifacts.single().path)
+        org.junit.Assert.assertNotEquals(ready.attachment.localPath, snapshot.path)
+        org.junit.Assert.assertArrayEquals(bytes, snapshot.readBytes())
+        assertEquals(setOf(snapshot.path, ready.attachment.localPath), ready.createdPaths.toSet())
+        File(ready.attachment.localPath!!).writeText("tool edit")
+        org.junit.Assert.assertArrayEquals(bytes, snapshot.readBytes())
+        assertTrue(File(ready.attachment.localPath!!).delete())
+        org.junit.Assert.assertArrayEquals(bytes, snapshot.readBytes())
+        assertEquals(listOf(snapshot.path), MessagePayloadBuilder().buildComposerPayload(listOf(ready.attachment)).allImages)
+        assertEquals(640, ready.attachment.pixelWidth)
+        assertEquals(480, ready.attachment.pixelHeight)
+    }
+
     private fun processor(
         normalizeImage: suspend (String) -> String? = { null },
         extractVideoFrames: suspend (String, VideoSliceConfig) -> List<String> = { _, _ -> emptyList() },

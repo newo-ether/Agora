@@ -694,6 +694,7 @@
     <string name="context_part_free">متاح</string>
     <string name="context_part_reserved">محجوز</string>
     <string name="context_part_used">المستخدم</string>
+    <string name="ask_agora_action">اسأل Agora</string>
     <string name="context_compact_streaming">جارٍ ضغط السياق…</string>
     <string name="context_compact_error">خطأ في ضغط السياق</string>
     <string name="context_compact_stopped">تم إيقاف ضغط السياق</string>

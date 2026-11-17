@@ -44,7 +44,7 @@ private val IMAGE_MODEL_KEYWORDS = listOf(
     // OpenAI
     "dall-e", "dalle", "gpt-image",
     // Google
-    "imagen", "image-generation", "imagegeneration", "nano-banana",
+    "imagen", "image-generation", "imagegeneration", "nano-banana", "flash-image", "pro-image",
     // Stability AI
     "stable-diffusion", "stablediffusion", "stable-image", "stable-cascade",
     "sdxl", "sd3", "sd-turbo", "sd1.5", "sd-1", "sd-2", "sd2.",

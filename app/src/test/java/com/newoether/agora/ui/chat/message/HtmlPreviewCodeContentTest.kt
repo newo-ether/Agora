@@ -98,6 +98,18 @@ class HtmlPreviewCodeContentTest {
     private val sourceLabel get() = context.getString(R.string.html_preview_source)
     private val copyLabel get() = context.getString(R.string.copy)
     private val moreLabel get() = context.getString(R.string.more)
+    private val fullscreenLabel get() = context.getString(R.string.html_preview_fullscreen)
+
+    private fun copyFromSource() {
+        compose.onNodeWithContentDescription(copyLabel).assertIsEnabled().performClick()
+    }
+
+    private fun assertSourceActions() {
+        assertActionOrder(listOf(runLabel, copyLabel, context.getString(R.string.html_preview_save), moreLabel)
+            .map { compose.onNodeWithContentDescription(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot })
+        compose.onNodeWithContentDescription(fullscreenLabel).assertDoesNotExist()
+        compose.onNodeWithContentDescription(context.getString(R.string.html_preview_reload)).assertDoesNotExist()
+    }
 
     @Test
     fun htmlPreviewAutomaticallyMountsTheBrowserAndSourceToggleReleasesIt() {
@@ -105,7 +117,8 @@ class HtmlPreviewCodeContentTest {
         compose.onNodeWithTag(SOURCE).assertDoesNotExist()
         compose.onNodeWithContentDescription(sourceLabel).assertIsEnabled()
         compose.onNodeWithContentDescription(runLabel).assertDoesNotExist()
-        assertActionOrder(listOf(sourceLabel, copyLabel, context.getString(R.string.html_preview_save), moreLabel)
+        compose.onNodeWithContentDescription(copyLabel).assertDoesNotExist()
+        assertActionOrder(listOf(sourceLabel, fullscreenLabel, context.getString(R.string.html_preview_save), moreLabel)
             .map { compose.onNodeWithContentDescription(it).fetchSemanticsNode().boundsInRoot })
         val browser = awaitBrowser()
 
@@ -113,6 +126,7 @@ class HtmlPreviewCodeContentTest {
 
         compose.onNodeWithTag(SOURCE).assertIsDisplayed().assertTextEquals(code.value)
         compose.onNodeWithContentDescription(runLabel).assertIsEnabled()
+        assertSourceActions()
         compose.runOnIdle {
             assertTrue(previewViews().isEmpty())
             assertTrue(shadowOf(browser).wasDestroyCalled())
@@ -126,8 +140,12 @@ class HtmlPreviewCodeContentTest {
         compose.onNodeWithTag(SOURCE).assertIsDisplayed().assertTextEquals(code.value)
         compose.onNodeWithContentDescription(runLabel).assertIsEnabled()
         compose.onNodeWithContentDescription(sourceLabel).assertDoesNotExist()
-        compose.runOnIdle { assertTrue(previewViews().isEmpty()) }
-
+        assertSourceActions()
+        copyFromSource()
+        compose.runOnIdle {
+            assertEquals(code.value, clipboard.getText()?.text)
+            assertTrue(previewViews().isEmpty())
+        }
         compose.onNodeWithContentDescription(runLabel).performClick()
 
         compose.onNodeWithTag(SOURCE).assertDoesNotExist()
@@ -158,7 +176,8 @@ class HtmlPreviewCodeContentTest {
         compose.onNodeWithTag(SOURCE).assertIsDisplayed().assertTextEquals(code.value)
         compose.onNodeWithContentDescription(runLabel).assertIsNotEnabled().performClick()
         compose.onNodeWithContentDescription(sourceLabel).assertDoesNotExist()
-        compose.onNodeWithContentDescription(copyLabel).assertIsEnabled().performClick()
+        assertSourceActions()
+        copyFromSource()
         compose.runOnIdle {
             assertEquals(code.value, clipboard.getText()?.text)
             assertTrue(previewViews().isEmpty())
@@ -189,17 +208,18 @@ class HtmlPreviewCodeContentTest {
         val original = code.value
         host()
         awaitBrowser()
-        compose.onNodeWithContentDescription(copyLabel).performClick()
-        compose.runOnIdle { assertEquals(original, clipboard.getText()?.text) }
+        compose.onNodeWithContentDescription(copyLabel).assertDoesNotExist()
 
         compose.onNodeWithContentDescription(sourceLabel).performClick()
         compose.onNodeWithTag(SOURCE).assertTextEquals(original)
-        compose.onNodeWithContentDescription(copyLabel).performClick()
+        copyFromSource()
         compose.runOnIdle { assertEquals(original, clipboard.getText()?.text) }
 
         compose.onNodeWithContentDescription(runLabel).performClick()
         awaitBrowser()
-        compose.onNodeWithContentDescription(copyLabel).performClick()
+        compose.onNodeWithContentDescription(copyLabel).assertDoesNotExist()
+        compose.onNodeWithContentDescription(sourceLabel).performClick()
+        copyFromSource()
         compose.runOnIdle {
             assertEquals(original, clipboard.getText()?.text)
             assertEquals(original, code.value)
@@ -249,8 +269,7 @@ class HtmlPreviewCodeContentTest {
         code.value = "<h1>Visible preview</h1>"
         host()
         val inline = awaitBrowser()
-        compose.onNodeWithContentDescription(moreLabel).performClick()
-        compose.onNodeWithText(context.getString(R.string.html_preview_fullscreen)).performClick()
+        compose.onNodeWithContentDescription(fullscreenLabel).performClick()
         var fullscreen: HtmlPreviewWebView? = null
         compose.waitUntil(5_000) {
             compose.runOnIdle {
@@ -271,7 +290,10 @@ class HtmlPreviewCodeContentTest {
             assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, browser.layoutParams.width)
             assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, browser.layoutParams.height)
         }
-        assertActionOrder(listOf(sourceLabel, context.getString(R.string.html_preview_reload), copyLabel,
+        listOf(sourceLabel, copyLabel, runLabel, moreLabel).forEach { label ->
+            compose.onNode(hasContentDescription(label) and hasAnyAncestor(isDialog())).assertDoesNotExist()
+        }
+        assertActionOrder(listOf(context.getString(R.string.html_preview_reload),
             context.getString(R.string.html_preview_save), context.getString(R.string.provider_close))
             .map { label ->
                 compose.onNode(hasContentDescription(label) and hasAnyAncestor(isDialog()))
@@ -291,15 +313,14 @@ class HtmlPreviewCodeContentTest {
             }
         }
         awaitBrowser()
-        compose.onNodeWithContentDescription(moreLabel).performClick()
-        compose.onNodeWithText(context.getString(R.string.html_preview_fullscreen)).performClick()
+        compose.onNodeWithContentDescription(fullscreenLabel).performClick()
         compose.onNode(
             androidx.compose.ui.test.hasText("HTML-PREVIEW") and hasAnyAncestor(isDialog()),
         ).performTouchInput { longClick() }
         compose.onNodeWithContentDescription(context.getString(R.string.provider_close)).performClick()
         compose.onNodeWithContentDescription(sourceLabel).performClick()
         compose.onNodeWithTag(SOURCE).assertIsDisplayed().assertTextEquals(code.value)
-        compose.onNodeWithContentDescription(copyLabel).performClick()
+        copyFromSource()
         compose.runOnIdle { assertEquals(code.value, clipboard.getText()?.text) }
     }
 
@@ -310,10 +331,19 @@ class HtmlPreviewCodeContentTest {
                 Column(Modifier.width(360.dp)) { content() }
             }
         }
-        awaitBrowser()
+        val browser = awaitBrowser()
         compose.onNodeWithContentDescription(moreLabel).performClick()
-        compose.onNodeWithText(context.getString(R.string.html_preview_fullscreen))
+        compose.onNodeWithText(copyLabel).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.html_preview_share)).assertIsDisplayed()
+        // A long press still releases Reload's click and dismisses the menu. Its label must
+        // remain isolated from the message selection across that popup-root gesture.
+        compose.onNodeWithText(context.getString(R.string.html_preview_reload)).assertIsDisplayed()
             .performTouchInput { longClick() }
+        assertNotSame(browser, awaitBrowser())
+        compose.onNodeWithContentDescription(sourceLabel).performClick()
+        compose.onNodeWithTag(SOURCE).assertIsDisplayed().assertTextEquals(code.value)
+        copyFromSource()
+        compose.runOnIdle { assertEquals(code.value, clipboard.getText()?.text) }
     }
 
     @Test
@@ -325,8 +355,7 @@ class HtmlPreviewCodeContentTest {
             }
         }
         awaitBrowser()
-        compose.onNodeWithContentDescription(moreLabel).performClick()
-        compose.onNodeWithText(context.getString(R.string.html_preview_fullscreen)).performClick()
+        compose.onNodeWithContentDescription(fullscreenLabel).performClick()
         var browser: HtmlPreviewWebView? = null
         compose.waitUntil(5_000) {
             compose.runOnIdle {
@@ -507,11 +536,12 @@ class HtmlPreviewCodeContentTest {
                 assertFalse("Independent code actions must not overlap", rect.overlaps(other))
             }
         }
-        compose.onNodeWithContentDescription(copyLabel).performClick()
+        copyFromSource()
         compose.runOnIdle { assertEquals(code.value, clipboard.getText()?.text) }
         compose.onNodeWithContentDescription(moreLabel).performClick()
-        compose.onNodeWithText(context.getString(R.string.html_preview_reload)).assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.html_preview_fullscreen)).assertIsDisplayed()
+        compose.onNodeWithText(copyLabel).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.html_preview_reload)).assertDoesNotExist()
+        compose.onNodeWithText(fullscreenLabel).assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.html_preview_share)).assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.html_preview_save)).assertDoesNotExist()
     }
@@ -646,8 +676,10 @@ class HtmlPreviewCodeContentTest {
         CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
             MaterialTheme {
                 val assets = rememberChatMarkdownAssets(MaterialTheme.colorScheme.onSurface)
+                val mediaScope = androidx.compose.runtime.rememberCoroutineScope()
                 val media = remember {
-                    ShellMarkdownMedia(context, devices = { emptyList() }, sandboxEnabled = { false }, sandbox = { null })
+                    ShellMarkdownMedia(context, devices = { emptyList() }, sandboxEnabled = { false }, sandbox = { null },
+                        scope = mediaScope)
                 }
                 CompositionLocalProvider(
                     LocalMarkdownColors provides assets.renderContext.colors,

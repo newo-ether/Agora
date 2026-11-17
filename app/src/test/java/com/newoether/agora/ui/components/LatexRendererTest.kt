@@ -249,7 +249,9 @@ class LatexRendererTest {
         assertTrue(source.contains("inlineImage = { model -> ChatMarkdownInlineImage(model) }"))
         val inline = images.substringAfter("internal fun ChatMarkdownInlineImage(")
             .substringBefore("internal fun markdownImageLink(")
-        assertTrue(inline.contains("?.renderInlineImage(model.content) != true"))
+        assertTrue(inline.contains(
+            "?.renderInlineImage(model.content, LocalMarkdownImageOccurrences.current[model.node]) != true",
+        ))
         assertTrue(inline.contains("MarkdownInlineImage(model.content, model.node)"))
     }
 

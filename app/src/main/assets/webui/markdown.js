@@ -14,6 +14,20 @@ import { mountMarkdownImage } from "./markdown-images.js";
 const escapeHtml = (text) =>
   text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
+// Keep occurrence admission aligned with markdownImageSnapshotKey / parseShellMediaLink.
+function supportsImageSnapshot(link) {
+  const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
+  if (/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(raw)) return true;
+  if (!/^shell:\/\//i.test(raw)) return false;
+  const rest = raw.slice("shell://".length), slash = rest.indexOf("/");
+  if (slash <= 0) return false;
+  try {
+    const decode = value => value.includes("%") ? decodeURIComponent(value) : value;
+    return !!decode(rest.slice(0, slash)).trim() &&
+      !!decode(rest.slice(slash + 1)).trim() && !decode(rest.slice(slash + 1)).includes("\u0000");
+  } catch { return false; }
+}
+
 const SAFE_LINK = /^(https?:|mailto:)/i;
 // Nested lists indent 8 dp per level; style.css has one rule per level up to this depth.
 const MAX_LIST_DEPTH = 6;
@@ -38,8 +52,8 @@ marked.use({
       return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>`;
     },
     image(token) {
-      if (!/^shell:\/\//i.test(token.href)) return Renderer.prototype.image.call(this, token);
-      return `<span class="markdown-image-slot" data-shell-image="${escapeHtml(token.href)}" data-image-label="${escapeHtml(token.text || "")}"></span>`;
+      if (!supportsImageSnapshot(token.href)) return Renderer.prototype.image.call(this, token);
+      return `<span class="markdown-image-slot" data-shell-image="${escapeHtml(token.href)}" data-image-ordinal="${token.imageOrdinal}" data-image-label="${escapeHtml(token.text || "")}"></span>`;
     },
     // MarkdownListItems: the marker ("• " or "<n>. ") beside a column that holds the item.
     list(token) {
@@ -116,6 +130,7 @@ function renderHtml(markdown, math, sourceMap = [], citations = [], streaming = 
     normalizedPositions.push(positions[start]);
   }
   const tokens = marked.lexer(normalized);
+  let imageOrdinal = 0;
   function locate(tokens, raw, positions, fragments) {
     let cursor = 0;
     for (const token of tokens) {
@@ -129,6 +144,7 @@ function renderHtml(markdown, math, sourceMap = [], citations = [], streaming = 
         cursor = found + 1;
       }
       token.sourcePositions = selected;
+      if (token.type === "image" && supportsImageSnapshot(token.href)) token.imageOrdinal = imageOrdinal++;
       token.previewFragments = selectedFragments;
       token.previewStreaming = streaming;
       token.previewLineComplete = raw[cursor] === "\n";
@@ -359,7 +375,8 @@ export function highlightSearch(element, search, matches, sourceStart = 0) {
  * code block wrapping setting (off scrolls long lines sideways).
  */
 export function Markdown({ text, variant = "answer", wrap = true, search, matches = [], sourceStart = 0,
-  streaming = false, reduceMotion = false, births, emptyStreamingText = null, onCitation, conversationId, messageId }) {
+  streaming = false, reduceMotion = false, births, emptyStreamingText = null, onCitation, conversationId, messageId,
+  imageDocument = "answer" }) {
   const root = useRef(null);
   const previews = useRef(new Map());
   const images = useRef(new Map());
@@ -407,7 +424,8 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
           existing.dataset.htmlLanguage === incoming.dataset.htmlLanguage;
         const sameImage = existing?.nodeType === Node.ELEMENT_NODE && incoming.nodeType === Node.ELEMENT_NODE &&
           existing.matches("[data-shell-image]") && incoming.matches("[data-shell-image]") &&
-          existing.dataset.shellImage === incoming.dataset.shellImage && existing.dataset.imageLabel === incoming.dataset.imageLabel;
+          existing.dataset.shellImage === incoming.dataset.shellImage && existing.dataset.imageLabel === incoming.dataset.imageLabel &&
+          existing.dataset.imageOrdinal === incoming.dataset.imageOrdinal;
         if (sameImage) incoming.remove();
         else if (samePreview) {
           const code = existing.querySelector("pre code"), freshCode = incoming.querySelector("pre code");
@@ -424,7 +442,7 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
       }
       while (current.childNodes.length > index) current.lastChild.remove();
     };
-    const owner = JSON.stringify([conversationId, messageId]);
+    const owner = JSON.stringify([conversationId, messageId, imageDocument, sourceStart]);
     if (imageOwner.current !== owner) {
       for (const dispose of images.current.values()) dispose();
       images.current.clear();
@@ -441,9 +459,9 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
       if (!root.current.contains(node)) { dispose(); images.current.delete(node); }
     }
     for (const node of root.current.querySelectorAll("[data-shell-image]")) {
-      if (!images.current.has(node)) images.current.set(node, mountMarkdownImage(node, conversationId, messageId));
+      if (!images.current.has(node)) images.current.set(node, mountMarkdownImage(node, conversationId, messageId, sourceStart, imageDocument));
     }
-  }, [markup, conversationId, messageId]);
+  }, [markup, conversationId, messageId, sourceStart, imageDocument]);
   const forceSource = !!search?.query.trim();
   useLayoutEffect(() => {
     for (const island of previews.current.values()) island.update(reduceMotion, forceSource);

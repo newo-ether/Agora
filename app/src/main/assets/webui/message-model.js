@@ -39,7 +39,7 @@ export function sheetItemsForMessage(message, groupKey) {
  * onSurfaceVariant at 80 % when the compact failed) and is never tinted primary. Its menu is the
  * phone's two items, Recompat and Delete.
  */
-function CompactPill({ message, reduceMotion, generating, display, wrap, onRecompact, onDelete }) {
+function CompactPill({ message, conversationId, reduceMotion, generating, display, wrap, onRecompact, onDelete }) {
   const running = !["SUCCESS", "ERROR", "STOPPED"].includes(message.status);
   const presentation = running ? "running" : message.status.toLowerCase();
   const label = running ? t.compactRunning : message.status === "SUCCESS" ? t.compactDone
@@ -70,6 +70,7 @@ function CompactPill({ message, reduceMotion, generating, display, wrap, onRecom
       </div>
       ${detail && html`<${DetailSheet} title=${t.compact} display=${display} onClose=${() => setDetail(false)}>
         <div class="detail-sheet-markdown"><${Markdown} text=${message.text} variant="thought" wrap=${wrap}
+          conversationId=${conversationId} messageId=${message.id}
           streaming=${running} reduceMotion=${reduceMotion} emptyStreamingText=${t.compactStreaming} />
           ${message.presentation?.compactDetailErrorText != null && html`<div class="generation-activity generation-terminal">${message.presentation.compactDetailErrorText}</div>`}
         </div>
@@ -389,7 +390,7 @@ export function ModelMessage({ message, wrap, display, expansion, expansionContr
   // The compact summary never reads as prose: MessageItem owns a pill for it instead.
   if (message.compact) {
     return html`<div class="model-message">
-      <${CompactPill} message=${message} reduceMotion=${reduceMotion} generating=${generating}
+      <${CompactPill} message=${message} conversationId=${conversationId} reduceMotion=${reduceMotion} generating=${generating}
         display=${display} wrap=${wrap}
         onRecompact=${() => sync.rowCommand("recompact", message.id)}
         onDelete=${onDelete} />${dialogs}</div>`;
@@ -429,7 +430,8 @@ export function ModelMessage({ message, wrap, display, expansion, expansionContr
   }
   // The fixed native action slot owns layout; availability changes only paint and interaction.
   const actionsVisible = !error && !streaming && !stopping;
-  return html`<div class=${error ? "model-message error" : "model-message"}>${body}<${GenerationActivity}
+  return html`<div class=${error ? "model-message error" : "model-message"}>
+    ${body}<${GenerationActivity}
     activity=${presentation?.inlineActivity} terminal=${presentation?.inlineTerminalText}
     stopping=${stopping} precededByCard=${presentation?.terminalFollowsCard} failed=${message.status === "ERROR"}
     reduceMotion=${!!display?.reduceMotion} />

@@ -63,7 +63,7 @@ internal class ImageArtifactHydration(context: Context) {
             imageArtifacts = artifacts,
             attachmentMeta = message.attachmentMeta?.let { meta ->
                 meta.copy(items = meta.items.map { item ->
-                    if (item.storage.isLocalSandbox) item else item.copy(
+                    item.copy(
                         imageArtifacts = item.imageArtifacts.map { it.canonical() },
                     )
                 })
@@ -131,7 +131,7 @@ internal class ImageArtifactHydration(context: Context) {
         sources: List<String>,
         images: List<ImageArtifact>,
     ): AttachmentItem {
-        if (item.storage.isLocalSandbox || item.type !in setOf("image", "pdf", "video")) return item
+        if (item.type !in setOf("image", "pdf", "video")) return item
         val start = item.imageIndex
         val artifacts = if (start != null && start in images.indices) {
             val count = if (item.type == "image") 1 else {

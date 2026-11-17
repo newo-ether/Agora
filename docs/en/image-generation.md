@@ -1,17 +1,33 @@
 # Image Generation
 
-Open **Settings → Image Generation** to choose the model and default image size used by the image-generation tool.
+Open **Settings → Image Generation** to choose a configured `Provider:model` and the default image size. The model can be synchronized or added manually even when it is not enabled for ordinary chat. The picker favors image models; **Show all** covers other names.
 
-## Model and credentials
+Agora reuses that provider's protocol, Base URL and credentials. No separate image secret or endpoint is stored. OpenAI-compatible providers use `/images/generations` and multipart `/images/edits`; Google-protocol providers use native Gemini `generateContent` with image output enabled. An image-looking model name does not establish endpoint compatibility. Native Imagen, vendor-specific asynchronous APIs and arbitrary ComfyUI workflows do not use the same protocol.
 
-The selected value identifies a configured `Provider:model`. Agora resolves the API key and base URL from that provider; this page does not maintain a separate image-generation key or endpoint. The picker favors image-capable models and can show all configured models when needed.
+## Generation and editing
 
-A model may be synchronized from a provider even if it is not enabled for ordinary chat. Whether it can actually generate images depends on the provider and model.
+The model calls `image_generate` with a prompt. To edit or use reference images, it can supply an ordered `images` array of `{ "server": "Local Sandbox", "path": "/absolute/image/path.png" }`, or name an enabled Conch device. The corresponding sandbox or Shell access must be enabled. Up to ten references are admitted; the selected model may accept fewer. Bytes are read through the existing file/image ingress and prepared through Agora's shared image processor. They never need to appear as Base64 in tool arguments. A PNG edit mask is available on OpenAI-compatible edit endpoints; it must match the first prepared reference's dimensions.
 
-## Size
+OpenAI-compatible calls support optional `size`, `n` (1–4), `quality`, `background`, `output_format`, `output_compression`, `input_fidelity`, `moderation`, legacy `response_format`, and a local-endpoint `seed`. Omitted controls stay omitted. Supported values depend on the endpoint/model. Native Gemini calls instead expose `aspect_ratio` and `image_size`; OpenAI controls and `n > 1` are rejected before submission. The default `1024x1024` size applies to OpenAI-compatible endpoints; Gemini retains its native default unless its own controls are supplied.
 
-The default size is `1024x1024`. Available sizes and accepted options depend on the selected endpoint.
+Every returned final image is retained in order on the owning tool result. Gemini thought images are excluded. With Local Sandbox enabled, prepared outputs are written under `/home/agora/attachments/generated_…/`; the result includes ordered server/path references, MIME types, sizes and dimensions for further edits or file tools. An unavailable sandbox fails before generation instead of silently changing storage. Generation and image download retain the ten-minute execution budget. Provider failures do not trigger a second paid request with altered parameters. Source images and already-published conversation media are never overwritten by edits.
+
+## Local image services and Qwen Image 2.1
+
+Add a custom **OpenAI** provider pointing to the local service's API root, for example `http://<computer-address>:8000/v1`, and add its exact model ID. A service without authentication can leave its API key empty; Agora omits Authorization rather than requiring a fake key. Use an address reachable from the phone: `localhost` on Android means the phone, not the computer. Choose that provider/model on this page.
+
+Qwen Image 2.1 has official Diffusers `QwenImage21Pipeline` and ComfyUI integrations, and a documented vLLM-Omni online service. The vLLM-Omni recipe uses `vllm serve Qwen/Qwen-Image-2.1 --omni --port 8091` and exposes JSON `/v1/images/generations` plus multipart `/v1/images/edits`, returning `data[].b64_json`. This command describes the upstream serving option; Agora does not execute it.
+
+The documented vLLM-Omni request differs from Agora's current OpenAI request: edits repeat the field `image`, while Agora sends `image[]`; the recipe also requires `num_inference_steps=40` and recommends `true_cfg_scale=1.0` on every request. Its server defaults are different, and that recipe accepts at most four references. Agora currently has no controls for those two sampling fields. Route names alone therefore do not establish direct compatibility.
+
+A concrete integration path is **Agora custom OpenAI provider → Images compatibility adapter → vLLM-Omni**. Configure the provider root as `http://<phone-reachable-host>:<adapter-port>/v1` and the model ID as `Qwen/Qwen-Image-2.1`. The adapter must map ordered `image[]` uploads to repeated `image` fields, inject the documented sampling values, enforce the four-reference bound, and preserve the `data[].b64_json` response. It must explicitly reject masks or other controls it cannot implement rather than silently discard them. An adapter can be omitted only after the chosen backend's accepted fields and sampling defaults have been verified. No adapter implementation, host installation directory or listening port is selected by this documentation.
+
+A raw ComfyUI server needs a workflow adapter instead: upload references through `/upload/image`, submit its API-format workflow to `/prompt`, track that prompt's history, then fetch its output through `/view`. It does not acquire OpenAI `/images/*` routes by loading a checkpoint. Sandbox server/path pairs identify input files on their named device; Agora reads those bytes and uploads them, rather than passing phone paths to the GPU host.
+
+The official model card demonstrates 2048×2048 generation, image editing, seeded inference and transparent RGBA output. GPU memory and dependencies must be checked for the chosen runtime; the vLLM-Omni recipe requires NVIDIA GPUs and explicitly leaves full image-quality qualification pending. Those upstream examples are not a qualification of the local machine. Agora's shared image-quality settings still control the completed preview/model-input artifact; choose High or suitable Custom settings when retaining larger outputs matters. No model download, Python package installation or service start happens in Agora's settings.
 
 ## Data flow
 
-The prompt and relevant request parameters are sent to the selected provider, and generated media is saved with the conversation/tool output on the device. See [Privacy & Security](privacy.md).
+Prompts, reference-image bytes and the selected parameters are sent to the configured image provider. Generated media is saved with its conversation/tool output. Reference reads use the selected enabled device's credentials; image-provider credentials are not sent to reference servers or returned image URLs. See [Privacy & Security](privacy.md).
+
+Protocol references: [OpenAI image generation](https://developers.openai.com/api/docs/guides/image-generation), [Gemini image generation](https://ai.google.dev/gemini-api/docs/image-generation), [Qwen Image 2.1 model card](https://huggingface.co/Qwen/Qwen-Image-2.1), [vLLM-Omni Qwen Image 2.1 recipe](https://recipes.vllm.ai/Qwen/Qwen-Image-2.1), [ComfyUI integration](https://comfy.org/qwen-image-2.1/), and [ComfyUI server routes](https://docs.comfy.org/development/comfyui-server/comms_routes).

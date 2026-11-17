@@ -700,6 +700,7 @@
     <string name="context_part_free">Còn trống</string>
     <string name="context_part_reserved">Dự trữ</string>
     <string name="context_part_used">Đã dùng</string>
+    <string name="ask_agora_action">Hỏi Agora</string>
     <string name="context_compact_streaming">Đang thu gọn ngữ cảnh…</string>
     <string name="context_compact_error">Lỗi thu gọn</string>
     <string name="context_compact_stopped">Đã dừng thu gọn</string>

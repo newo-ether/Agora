@@ -53,7 +53,7 @@ class WebUiMarkdownImageRouteTest {
         val image = temporary.newFile("image.png").apply { writeBytes(bytes) }
         val link = "shell://Local%20Sandbox/home/a%20b.png"
         var loads = 0
-        val images = WebUiToolImages(temporary.root, markdownImage = {
+        val images = WebUiToolImages(temporary.root, markdownImage = { _, _ ->
             loads++
             ToolImageAttachment(image.path, "image/png", bytes.size.toLong())
         }) { conversation, message ->

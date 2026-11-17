@@ -10,4 +10,5 @@ internal data class ConversationComposerSnapshot(
     val textProjectionVersion: Long = 0L,
     val textProjectionExpectedText: String? = null,
     val loaded: Boolean = false,
+    val ingressRetryVersion: Long = 0L,
 )

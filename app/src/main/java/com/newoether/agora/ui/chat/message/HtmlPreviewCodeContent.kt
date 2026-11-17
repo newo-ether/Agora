@@ -65,13 +65,18 @@ internal fun HtmlPreviewCodeContent(
         Toast.makeText(context, R.string.html_preview_export_failed, Toast.LENGTH_SHORT).show()
     }
     val showingPreview = preview && !searching
-    ChatCodeBlockHeader(language = language, code = code, actions = {
+    ChatCodeBlockHeader(language = language, code = code, showCopy = !showingPreview, actions = {
         ChatCodeBlockAction(
             icon = if (showingPreview) Icons.Default.Code else Icons.Default.PlayArrow,
             label = stringResource(if (showingPreview) R.string.html_preview_source else R.string.html_preview_run),
             onClick = { preview = !showingPreview },
             enabled = !searching,
             emphasized = true,
+        )
+        if (showingPreview) ChatCodeBlockAction(
+            icon = Icons.Default.Fullscreen,
+            label = stringResource(R.string.html_preview_fullscreen),
+            onClick = { fullScreen = true },
         )
     }, trailingActions = {
         ChatCodeBlockAction(
@@ -86,15 +91,10 @@ internal fun HtmlPreviewCodeContent(
                 onClick = { menu = true },
             )
             AgoraDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                AgoraDropdownMenuItem(
+                if (showingPreview) AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_reload)) },
                     leadingIcon = { Icon(Icons.Default.Refresh, null, Modifier.size(24.dp)) },
-                    onClick = { menu = false; preview = true; revision++ }, enabled = !searching,
-                )
-                AgoraDropdownMenuItem(
-                    text = { Text(stringResource(R.string.html_preview_fullscreen)) },
-                    leadingIcon = { Icon(Icons.Default.Fullscreen, null, Modifier.size(24.dp)) },
-                    onClick = { menu = false; fullScreen = true }, enabled = !searching,
+                    onClick = { menu = false; revision++ },
                 )
                 AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_share)) },
@@ -121,13 +121,7 @@ internal fun HtmlPreviewCodeContent(
                 Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
                         ChatCodeBlockSurface(modifier = Modifier.weight(1f)) {
-                            ChatCodeBlockHeader(language = language, code = code, actions = {
-                                ChatCodeBlockAction(
-                                    icon = Icons.Default.Code,
-                                    label = stringResource(R.string.html_preview_source),
-                                    onClick = { fullScreen = false; preview = false },
-                                    emphasized = true,
-                                )
+                            ChatCodeBlockHeader(language = language, code = code, showCopy = false, actions = {
                                 ChatCodeBlockAction(
                                     icon = Icons.Default.Refresh,
                                     label = stringResource(R.string.html_preview_reload),

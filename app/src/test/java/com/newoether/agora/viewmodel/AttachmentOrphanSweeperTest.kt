@@ -67,6 +67,49 @@ class AttachmentOrphanSweeperTest {
         } finally { AttachmentFiles.releaseLivePaths(live) }
     }
 
+    @Test fun conversationDeletionRetainsGeneratedRuntimeFilesAndReclaimsOrdinaryImages() = runBlocking {
+        val generated = oldFile("sandbox-home/attachments/generated_owned/generated_image.png")
+        val ordinary = oldFile("img_ordinary_deleted")
+        val descriptor = """{"type":"image_generation","status":"ok","images":[{"server":"Local Sandbox","path":"/home/agora/attachments/generated_owned/generated_image.png","mime_type":"image/png","size_bytes":4,"width":40,"height":30}]}"""
+        val call = ToolCallData(
+            toolName = "image_generate", arguments = "{}", result = descriptor,
+            toolCallId = "generated", resultImages = listOf(artifact(generated.path)),
+        )
+        val round = GenerationToolRoundBuilder().build(
+            previousMessageId = null, conversationId = "owner", runId = "run",
+            modelName = "model", providerName = "OpenAI", calls = listOf(call), completedSegments = emptyList(),
+        )
+        val runtime = requireNotNull(round.pathMessages.last().attachmentMeta).items.single()
+        assertEquals(AttachmentStorage.LOCAL_SANDBOX_RUNTIME, runtime.storage)
+        assertEquals(0, runtime.imageIndex)
+        assertNull(runtime.sandboxPath)
+        assertEquals(
+            round.pathMessages.last().attachmentMeta,
+            Json.decodeFromString<AttachmentMeta>(requireNotNull(round.entities.last().attachmentMeta)),
+        )
+        round.entities.forEach { dao.insertMessage(it) }
+        dao.insertMessage(message("ordinary", listOf(ordinary.path)).copy(
+            attachmentMeta = Json.encodeToString(AttachmentMeta(listOf(AttachmentItem(type = "image", imageIndex = 0)))),
+        ))
+        var scheduled = 0
+        val repository = com.newoether.agora.data.repository.ConversationRepository(
+            dao, database, scheduleMaintenance = { scheduled++ },
+        )
+
+        repository.deleteConversation("owner")
+
+        assertNull(dao.getConversationDraftAttachmentReference("owner"))
+        val debt = database.maintenanceDebtDao()
+        assertNull(debt.getDebt(MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS, generated.canonicalPath))
+        val ordinaryDebt = requireNotNull(debt.getDebt(MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS, ordinary.canonicalPath))
+        assertEquals(1, scheduled)
+        assertTrue(generated.exists())
+        assertTrue(sweeper().deleteExact(ordinaryDebt.identity))
+        assertFalse(ordinary.exists())
+        assertTrue(sweeper().sweep())
+        assertTrue(generated.exists())
+    }
+
     @Test fun messageToolMetadataAndBothDraftKindsProtectFiles() = runBlocking {
         val image = oldFile("att_image")
         val metadata = oldFile("images/camera_metadata")
@@ -164,7 +207,10 @@ class AttachmentOrphanSweeperTest {
                 error("rollback")
             }
         }
-        database.withTransaction { assertTrue(index.isCurrent(revision)); assertTrue(index.contains(image.path)) }
+        database.withTransaction {
+            assertTrue(index.isCurrent(revision))
+            assertTrue(index.contains(image.canonicalPath))
+        }
         sweeper().deleteExact(image.path)
         assertTrue(image.exists())
     }
@@ -265,7 +311,7 @@ class AttachmentOrphanSweeperTest {
             reclamations.forEach { it.join() }
             assertEquals(1, scheduled)
             val debt = database.maintenanceDebtDao()
-            val pending = requireNotNull(debt.getDebt(MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS, image.path))
+            val pending = requireNotNull(debt.getDebt(MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS, image.canonicalPath))
             assertTrue(sweeper().deleteExact(pending.identity))
             assertTrue(image.exists())
             dao.deleteMessagesByIds(listOf("sent"))
@@ -378,8 +424,9 @@ class AttachmentOrphanSweeperTest {
         }
         val index = AttachmentReferenceIndex(database)
         index.refresh()
-        assertFalse(index.contains(previous.path))
-        assertTrue(index.contains(current.path))
+        // The index stores canonical paths, including expanded Windows short directory names.
+        assertFalse(index.contains(previous.canonicalPath))
+        assertTrue(index.contains(current.canonicalPath))
         assertTrue(sweeper().deleteExact(current.path))
         assertTrue(current.exists())
     }

@@ -92,12 +92,15 @@ internal fun retryCaretPosition(
 internal fun RetryActivityIndicator(
     label: String,
     modifier: Modifier = Modifier,
+    opacity: Float = 1f,
 ) {
     val allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val textStyle = ChatType.body
-    val baseColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+    val baseColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+        alpha = 0.55f * opacity.coerceIn(0f, 1f),
+    )
     val graphemeBoundaries = remember(label) { retryGraphemeBoundaries(label) }
     val graphemeCount = (graphemeBoundaries.size - 1).coerceAtLeast(0)
     val entranceLabel = remember { label }
@@ -213,6 +216,7 @@ internal fun RetryActivityIndicator(
             softWrap = false,
         )
         GenerationActivityDot(
+            opacity = opacity,
             modifier = Modifier.graphicsLayer {
                 translationX = dotTranslationPx
                 translationY = dotVerticalOffsetPx

@@ -1,6 +1,8 @@
 package com.newoether.agora.ui.chat.message
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -61,6 +63,11 @@ internal fun userBubbleSizeAnimationEnabled(
     allowSpatialTransitions: Boolean,
 ): Boolean = sizeAnimationReady && allowSpatialTransitions
 
+internal fun userBubbleDisclosureEasing(expanding: Boolean?) = when (expanding) {
+    true, false -> CubicBezierEasing(0.42f, 0f, 1f, 1f)
+    null -> FastOutSlowInEasing
+}
+
 internal data class StoredMediaOccurrenceProjection(
     val urls: List<String>,
     val indexByDisplayItem: List<Int?>,
@@ -72,7 +79,8 @@ private fun storedMediaUnavailable(
     imageArtifacts: Map<String, ImageArtifact>,
 ): Boolean {
     val occurrences = item?.imageArtifacts.orEmpty()
-    if (item?.type == "pdf" && occurrences.isNotEmpty()) {
+    val browsesSavedFrames = item?.type == "video" && item.storage.isLocalSandbox
+    if ((item?.type == "pdf" || browsesSavedFrames) && occurrences.isNotEmpty()) {
         return occurrences.all { it.unavailable || it.path.isBlank() }
     }
     if (item?.unavailable == true) return true
@@ -88,6 +96,12 @@ internal fun projectStoredMediaOccurrences(
     val urls = mutableListOf<String>()
     val indices = displayItems.map { (imagePath, item) ->
         val unavailable = storedMediaUnavailable(imagePath, item, imageArtifacts)
+        if (resolveAttachmentType(imagePath, item) == "video" && item?.storage?.isLocalSandbox == true) {
+            val frames = if (item.imageArtifacts.isNotEmpty()) {
+                item.imageArtifacts.filterNot { it.unavailable || it.path.isBlank() }.map { it.path }
+            } else listOfNotNull(imagePath.takeIf { it.isNotBlank() && !unavailable })
+            return@map if (frames.isEmpty()) null else urls.size.also { urls += frames }
+        }
         val url = when (resolveAttachmentType(imagePath, item)) {
             "image" -> imagePath.takeIf {
                 it.isNotEmpty() && !unavailable
@@ -145,6 +159,7 @@ internal fun UserMessageBubble(
         message.source?.subagentResultDisplay(message.text)
     }
     var showMenu by remember { mutableStateOf(false) }
+    var disclosureExpanding by remember(message.id) { mutableStateOf<Boolean?>(null) }
     val editFocusRequester = remember(message.id) { FocusRequester() }
     LaunchedEffect(showEditor, editFocusRequester) {
         if (showEditor) editFocusRequester.requestFocus()
@@ -154,7 +169,11 @@ internal fun UserMessageBubble(
         horizontalAlignment = Alignment.End,
         modifier = Modifier.then(
             if (userBubbleSizeAnimationEnabled(sizeAnimationReady, allowSpatialTransitions)) {
-                Modifier.animateContentSize(animationSpec = tween(durationMillis = 500))
+                Modifier.animateContentSize(
+                    animationSpec = tween(durationMillis = 500,
+                        easing = userBubbleDisclosureEasing(disclosureExpanding)),
+                    finishedListener = { _, _ -> disclosureExpanding = null },
+                )
             } else {
                 Modifier
             },
@@ -303,7 +322,10 @@ internal fun UserMessageBubble(
 
                                 AttachmentThumbnailItem(
                                     type = type,
-                                    imagePath = imagePath,
+                                    imagePath = if (type == "video" && metaItem?.storage?.isLocalSandbox == true) {
+                                        metaItem.imageArtifacts.firstOrNull { !it.unavailable && it.path.isNotBlank() }?.path
+                                            ?: imagePath
+                                    } else imagePath,
                                     fileName = fileName,
                                     originalUri = metaItem?.originalUri,
                                     textContent = metaItem?.textContent,
@@ -330,20 +352,32 @@ internal fun UserMessageBubble(
                     if (subagentResult != null) {
                         SubagentResultSummary(result = subagentResult, textColor = textColor)
                     } else if (askUser != null) {
-                        AskUserAnswerBlocks(
-                            source = askUser,
-                            unansweredLabel = stringResource(R.string.message_source_unanswered),
-                            bodyStyle = ChatType.userBody,
-                            textColor = textColor,
-                            searchHighlight = searchHighlight,
-                        )
+                        CollapsibleMessageBody(
+                            messageKey = message.id,
+                            searchActive = !searchHighlight?.query.isNullOrBlank(),
+                            onExpansionChange = { disclosureExpanding = it },
+                        ) {
+                            AskUserAnswerBlocks(
+                                source = askUser,
+                                unansweredLabel = stringResource(R.string.message_source_unanswered),
+                                bodyStyle = ChatType.userBody,
+                                textColor = textColor,
+                                searchHighlight = searchHighlight,
+                            )
+                        }
                     } else if (message.text.isNotEmpty()) {
-                        SearchHighlightedPlainText(
-                            text = message.text,
-                            style = ChatType.userBody,
-                            color = textColor,
-                            spec = searchHighlight,
-                        )
+                        CollapsibleMessageBody(
+                            messageKey = message.id,
+                            searchActive = !searchHighlight?.query.isNullOrBlank(),
+                            onExpansionChange = { disclosureExpanding = it },
+                        ) {
+                            SearchHighlightedPlainText(
+                                text = message.text,
+                                style = ChatType.userBody,
+                                color = textColor,
+                                spec = searchHighlight,
+                            )
+                        }
                     }
                 }
                 }

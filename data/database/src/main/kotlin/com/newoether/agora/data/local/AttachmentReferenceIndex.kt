@@ -139,6 +139,11 @@ class AttachmentReferenceIndex(private val database: ChatDatabase) {
     fun contains(path: String): Boolean =
         db.query("SELECT 1 FROM attachment_references WHERE path = ? LIMIT 1", arrayOf<Any>(path)).use { it.moveToFirst() }
 
+    fun containsWithin(directory: String): Boolean = db.query(
+        "SELECT 1 FROM attachment_references WHERE path = ? OR substr(path, 1, ?) = ? LIMIT 1",
+        arrayOf<Any>(directory, directory.length + 1, directory + File.separator),
+    ).use { it.moveToFirst() }
+
     private fun revision(): Long =
         db.query("SELECT revision FROM attachment_reference_state WHERE id = 0").use { check(it.moveToFirst()); it.getLong(0) }
 
@@ -217,16 +222,25 @@ class AttachmentReferenceIndex(private val database: ChatDatabase) {
             decode("attachmentMeta") { input ->
                 json.decodeFromStream<AttachmentMeta>(input).items.forEach { item ->
                     item.originalUri?.takeIf { it.startsWith("file://") }?.let(::path)
+                    item.sandboxPath?.takeIf { ManagedAttachmentDirectories.fromSandboxPath(it) != null }?.let(::path)
                     artifacts(item.imageArtifacts)
                 }
             }
             decode("toolCallJson") { input ->
-                json.decodeFromStream<List<MessageSegment>>(input).forEach { artifacts(it.toolImages) }
+                json.decodeFromStream<List<MessageSegment>>(input).forEach { segment ->
+                    artifacts(segment.toolImages)
+                    com.newoether.agora.model.sandboxGeneratedOutputImages(segment.toolName, segment.toolResult)
+                        .forEach { image ->
+                            val original = (image["path"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                            original?.takeIf { ManagedAttachmentDirectories.fromSandboxPath(it) != null }?.let(::path)
+                        }
+                }
             }
         } else {
             decode("draftAttachments") { input ->
                 json.decodeFromStream<List<SelectedAttachment>>(input).forEach { attachment ->
                     attachment.localPath?.let(::path)
+                    attachment.sandboxPath?.takeIf { ManagedAttachmentDirectories.fromSandboxPath(it) != null }?.let(::path)
                     attachment.processedFrames.orEmpty().forEach(::path)
                     attachment.preRenderedPaths.orEmpty().forEach(::path)
                     artifacts(attachment.imageArtifacts)

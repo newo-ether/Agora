@@ -93,7 +93,7 @@ internal class GenerationToolExecutor private constructor(
             confirmShellCommand: suspend (server: String, summary: String, conversationId: String?) -> Boolean,
             generatingConversationIds: () -> Set<String> = { emptySet() },
         ): GenerationToolExecutor {
-            val imageGenProvider = ImageGenToolProvider(app)
+            val imageGenProvider = ImageGenToolProvider(app, sandboxFactory)
             val shellProvider = ShellToolProvider(
                 sandboxFactory = sandboxFactory,
                 imageStore = ToolImageStore(app),

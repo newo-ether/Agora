@@ -64,6 +64,7 @@ private fun fullScreenPreviewExitTransition(allowSpatialTransitions: Boolean): E
 class MainActivity : ComponentActivity() {
 
     private val notificationConversationId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    private val processTextInbox = ProcessTextInbox()
 
     companion object {
         const val EXTRA_CONVERSATION_ID = "com.newoether.agora.extra.CONVERSATION_ID"
@@ -83,6 +84,10 @@ class MainActivity : ComponentActivity() {
         var startupReady = false
         splashScreen.setKeepOnScreenCondition { !startupReady }
         super.onCreate(savedInstanceState)
+        val restoredProcessText = savedStateRegistry.consumeRestoredStateForKey(ProcessTextInbox.SAVED_STATE_KEY)
+        processTextInbox.restore(restoredProcessText)
+        savedStateRegistry.registerSavedStateProvider(ProcessTextInbox.SAVED_STATE_KEY, processTextInbox::save)
+        if (restoredProcessText == null) processTextInbox.receive(intent)
         handleNavigationIntent(intent)
 
         com.newoether.agora.util.DebugLog.init(this)
@@ -226,6 +231,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         false -> {
+                            val processTextRequests by processTextInbox.requests.collectAsState()
                             MainNavigation(
                                 viewModel = viewModel,
                                 settingsManager = settingsManager,
@@ -234,6 +240,8 @@ class MainActivity : ComponentActivity() {
                                     consumeNotificationTarget(notificationConversationId, expectedId)
                                 },
                                 screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
+                                processTextRequest = processTextRequests.firstOrNull(),
+                                onProcessTextConsumed = processTextInbox::consume,
                             )
                         }
                     }
@@ -262,6 +270,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        processTextInbox.receive(intent)
         handleNavigationIntent(intent)
     }
 
@@ -282,6 +291,8 @@ fun MainNavigation(
     notificationConversationId: kotlinx.coroutines.flow.StateFlow<String?>,
     onNotificationConversationConsumed: (String) -> Unit,
     screenshotDestination: String? = null,
+    processTextRequest: ProcessTextRequest? = null,
+    onProcessTextConsumed: (String) -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
     val motionPolicy = LocalAgoraMotionPolicy.current
@@ -376,6 +387,19 @@ fun MainNavigation(
         pdfViewerSelection = selection
     }
     var pdfPreviewFromDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(processTextRequest?.id) {
+        if (processTextRequest != null) {
+            showSettings = false
+            showRemote = false
+            showTasks = false
+            taskToOpen = null
+            taskEditorSession.clear()
+            viewModel.mediaPreview.clear()
+            mediaPreviewTarget = null
+            pdfPreviewFromDialog = false
+            topLevelPresentation.present(TopLevelPresentation.CHAT)
+        }
+    }
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
     val pdfPages by viewModel.mediaPreview.pdfPages.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -465,6 +489,8 @@ fun MainNavigation(
                 ChatApp(
                     viewModel = viewModel,
                     initialComposerFocusReady = initialComposerFocusReady,
+                    processTextRequest = processTextRequest,
+                    onProcessTextConsumed = onProcessTextConsumed,
                     onNavigateBack = subagentParentId?.takeIf { !isNewChatMode }?.let { parent ->
                         { viewModel.selectConversation(parent); Unit }
                     } ?: taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode)

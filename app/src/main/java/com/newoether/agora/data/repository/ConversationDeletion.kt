@@ -9,6 +9,7 @@ internal suspend fun ConversationRepository.deleteConversationWithChildren(id: S
             var afterId: String? = null
             while (true) {
                 val page = chatDao.getConversationMessageAttachmentReferencesPage(ownedId, afterId, 128)
+                claimLegacyDirectories(ownedId, page)
                 scheduled = enqueueMessageAttachmentDebt(page) or scheduled
                 if (page.size < 128) break
                 afterId = page.last().id
@@ -19,6 +20,10 @@ internal suspend fun ConversationRepository.deleteConversationWithChildren(id: S
                 raw != null && draft == null -> enqueueAttachmentReconcile()
                 else -> enqueueAttachmentDebt(draft.orEmpty().reclaimablePaths())
             }
+            val directories = database?.conversationAttachmentDirectoryDao()?.directories(ownedId).orEmpty()
+            scheduled = enqueueDebt(
+                com.newoether.agora.data.local.MaintenanceDebtEntity.KIND_ATTACHMENT_DIRECTORIES, directories,
+            ) or scheduled
             // The canonical deletion removes vectors once and cascades messages and derived rows.
             chatDao.deleteConversation(ownedId)
         }

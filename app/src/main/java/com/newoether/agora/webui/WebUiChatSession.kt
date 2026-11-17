@@ -118,32 +118,6 @@ internal class WebUiChatSession(
         val movedByServer: Boolean,
     )
 
-    /** The composer owner the browser shows and that owner's submission phase. */
-    data class ComposerState(
-        val conversationId: String?,
-        val snapshot: ConversationComposerSubmissionSnapshot,
-        val seq: Long = 0L,
-        val text: String = "",
-        val editRevision: Long = 0L,
-        val actionId: Long = 0L,
-        val modelValid: Boolean = false,
-        val generating: Boolean = false,
-        val stopping: Boolean = false,
-        val modelId: String = "",
-        val models: Map<String, String> = emptyMap(),
-        val queue: List<QueuedSend> = emptyList(),
-        val attachments: List<SelectedAttachment> = emptyList(),
-        val pdfProgress: Map<String, Pair<Int, Int>> = emptyMap(),
-        val controls: EffectiveConversationControls? = null,
-        val generationParameters: ConversationSettings = ConversationSettings(),
-        val generationDefaults: ConversationSettings = ConversationSettings(),
-        val compactDefaults: CompactRequest? = null,
-        val compacting: Boolean = false,
-        val systemPromptId: String? = null,
-        val systemPrompts: List<com.newoether.agora.data.SystemPromptEntry> = emptyList(),
-        val activeSystemPromptId: String? = null,
-    )
-
     private val target = MutableStateFlow(OpenTarget(null, browserSeq = 0L, movedByServer = false))
     val openTarget: StateFlow<OpenTarget> = target.asStateFlow()
     // Updated together with [target] so a send right after an open captures the new target.
@@ -209,7 +183,7 @@ internal class WebUiChatSession(
         settings.thinkingEnabled, settings.thinkingLevel, settings.thinkingBudgetEnabled, settings.thinkingBudgetTokens,
         settings.openAiServiceTierEnabled, settings.openAiServiceTier, settings.openAiResponsesApiEnabled,
         settings.webSearchEnabled, settings.shellEnabled, settings.localLowContextModeEnabled, settings.maxContextWindow,
-        settings.customProviders,
+        settings.customProviders, settings.sandboxEnabled,
         settings.defaultTemperature, settings.defaultMaxTokens, settings.defaultTopP,
         settings.defaultFrequencyPenalty, settings.defaultPresencePenalty,
         settings.contextCompactModel, settings.contextCompactPrompt, settings.contextCompactRetainCount,
@@ -279,7 +253,7 @@ internal class WebUiChatSession(
     private var closed = false
     private val uploadedSources = mutableListOf<SelectedAttachment>()
     private val ownerState = MutableStateFlow<Pair<String, StateFlow<ConversationComposerSubmissionSnapshot>>?>(null)
-    val composerState: Flow<ComposerState> = combine(ownerState, target) { owner, selected ->
+    val composerState: Flow<WebUiComposerState> = combine(ownerState, target) { owner, selected ->
         owner?.takeIf { it.first == (selected.conversationId ?: NEW_CHAT_WORKSPACE_ID) }?.let { it to selected }
     }.filterNotNull().flatMapLatest { (owned, _) ->
         val (owner, state) = owned
@@ -300,7 +274,7 @@ internal class WebUiChatSession(
                     if (retainedOwner != owner || owner != (selected.conversationId ?: NEW_CHAT_WORKSPACE_ID)) {
                         null
                     } else {
-                        ComposerState(
+                        WebUiComposerState(
                             selected.conversationId, state.value, selected.browserSeq, draft.value.text,
                             editRevision.value, actionId.value,
                             activeModel.value?.let { it.first == selected.conversationId && it.second.isNotBlank() } == true,
@@ -320,6 +294,7 @@ internal class WebUiChatSession(
                             compacting,
                             selectedSystemPrompt.value?.takeIf { it.first == selected.conversationId }?.second,
                             settings.systemPrompts.value, settings.activeSystemPromptId.value,
+                            sandboxAttachments = allowLocalSandbox(),
                         )
                     }
                 }
@@ -569,7 +544,7 @@ internal class WebUiChatSession(
                     if (closed || seq != target.value.browserSeq || index < 0) return@withLock null
                     val owner = retainedOwner ?: return@withLock null
                     val attachment = composers.state(owner).value.attachments.firstOrNull { it.localId == id }
-                        ?.takeIf { it.storage == com.newoether.agora.model.AttachmentStorage.APP_PRIVATE }
+                        ?.takeIf { it.storage.canPreview }
                         ?: return@withLock null
                     val artifact = attachmentPreviewArtifact(attachment, kind, index)
                     artifact?.let { selected ->

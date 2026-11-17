@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.model.ImageArtifact
+import com.newoether.agora.model.previewImagePath
 import com.newoether.agora.util.AttachmentFiles
 import com.newoether.agora.util.ImageArtifactProcessor
 import java.io.File
@@ -51,8 +52,12 @@ internal fun attachmentPreviewArtifact(
         "page" -> attachment.takeIf { it.type == "pdf" }?.preRenderedPaths?.getOrNull(index)
         "frame" -> attachment.takeIf { it.type == "video" }?.processedFrames?.getOrNull(index)
         "source" -> if (index != 0) null else when (attachment.type) {
-            "image" -> attachment.localPath.takeIf { attachment.importState == AttachmentImportState.READY }
-            "video" -> return attachment.localPath?.let { source ->
+            "image" -> attachment.previewImagePath.takeIf { attachment.importState == AttachmentImportState.READY }
+            "video" -> if (attachment.storage.isLocalSandbox &&
+                (attachment.storage != com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING ||
+                    attachment.importState != AttachmentImportState.PROCESSING || attachment.frameCount != null ||
+                    attachment.sandboxPath != null)
+            ) null else return attachment.localPath?.let { source ->
                 attachment.mimeType?.takeIf { VIDEO_MIME.matches(it) }?.let { source to it }
             }
             else -> null

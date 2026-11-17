@@ -196,6 +196,27 @@ class AutomaticUserMessageBubbleTest {
     }
 
     @Test
+    fun collapsedLongInputKeepsFullCopyTextAndExistingSelectionAction() {
+        val raw = (1..20).joinToString("\n") { "Original input line $it" }
+        var selected = 0
+        lateinit var clipboard: ClipboardManager
+        content {
+            clipboard = LocalClipboardManager.current
+            bubble(message(null, raw), onSelectText = { selected++ })
+        }
+        compose.onNodeWithText(label(R.string.expand)).assertIsDisplayed()
+        openMenu()
+        compose.onNodeWithText(label(R.string.copy)).performClick()
+        compose.runOnIdle { assertEquals(raw, clipboard.getText()?.text) }
+        openMenu()
+        compose.onNodeWithText(label(R.string.select_text)).performClick()
+        assertEquals(1, selected)
+        compose.onNodeWithText(label(R.string.expand)).performClick()
+        compose.onNodeWithText(label(R.string.collapse)).assertIsDisplayed()
+        compose.onNodeWithText(raw, useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
     fun completionSummaryHidesOriginalBodyAndKeepsCopySelectionAndDeleteCallbacks() {
         val raw = "Worker (8f13ce72-8888-4444-9999-82cd77c4e890) [failed]\nPRIVATE RESULT BODY\n\nLast line."
         var selected = 0

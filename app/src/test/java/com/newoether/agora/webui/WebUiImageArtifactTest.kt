@@ -14,6 +14,17 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.imageio.ImageIO
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -68,6 +79,9 @@ class WebUiImageArtifactTest {
             val message = ChatMessage(id = "m", text = "", participant = Participant.USER, images = paths,
                 imageArtifacts = mapOf(first.path to artifacts.first()), attachmentMeta = AttachmentMeta(listOf(item)))
             val resolver = WebUiToolImages(root, root) { _, _ -> message }
+            assertEquals(listOf(true, false, false), message.toWeb(null).attachments.map {
+                it["unavailable"] == kotlinx.serialization.json.JsonPrimitive(true)
+            })
             assertFalse(resolver.consumeAttachment("c", "m", 0) { _, _ -> fail("Rejected occurrence") })
             for (index in listOf(1, 2)) assertTrue(resolver.consumeAttachment("c", "m", index) { file, mime ->
                 assertEquals("image/png", mime)
@@ -212,6 +226,169 @@ class WebUiImageArtifactTest {
         catch (_: kotlinx.coroutines.CancellationException) { }
         assertTrue("Image fixture must be deleted before checking the missing-file path", file.delete())
         assertNull(inspectWebUiImageArtifact(file, artifact))
+    }
+
+    @Test
+    fun sandboxOriginalAndDerivedPreviewsRequireOwnedMetadataAndPrivateRoot() = runTest {
+        val root = temporary.newFolder("sandbox-private")
+        val original = png(File(File(root, "sandbox-home/attachments/id").apply { mkdirs() }, "original.png"))
+        val page = png(File(root, "pdf_00000000-0000-0000-0000-000000000009.png"))
+        for ((type, artifact) in listOf("image" to original, "pdf" to page, "video" to page)) {
+            val selected = SelectedAttachment(uri = "source", type = type, localPath = original.path,
+                preRenderedPaths = listOf(artifact.path), processedFrames = listOf(artifact.path),
+                imageArtifacts = listOf(artifact), storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING)
+            val kind = when (type) { "pdf" -> "page"; "video" -> "frame"; else -> "source" }
+            assertEquals(artifact.path to "image/png", attachmentPreviewArtifact(selected, kind, 0))
+            val item = AttachmentItem(type = type, imageIndex = 0, pageCount = 1,
+                storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_RUNTIME,
+                sandboxPath = "/home/agora/attachments/id/original.png", imageArtifacts = listOf(artifact))
+            val message = ChatMessage(id = "m", text = "", participant = Participant.USER,
+                images = listOf(artifact.path), attachmentMeta = AttachmentMeta(listOf(item)))
+            assertTrue(WebUiToolImages(root, root) { _, _ -> message }.consumeAttachment("c", "m", 0) { actual, mime ->
+                assertEquals("image/png", mime)
+                assertArrayEquals(File(artifact.path).readBytes(), actual.readBytes())
+            })
+        }
+        val untagged = ChatMessage(id = "m", text = "", participant = Participant.USER, images = listOf(original.path))
+        assertFalse(WebUiToolImages(root, root) { _, _ -> untagged }.consumeAttachment("c", "m", 0) { _, _ ->
+            fail("Sandbox root requires explicit attachment ownership")
+        })
+        val outside = png(temporary.newFile("sandbox-outside.png"))
+        val escaped = untagged.copy(images = listOf(outside.path), attachmentMeta = AttachmentMeta(listOf(
+            AttachmentItem(type = "image", imageIndex = 0,
+                storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_RUNTIME,
+                imageArtifacts = listOf(outside)))))
+        assertFalse(WebUiToolImages(root, root) { _, _ -> escaped }.consumeAttachment("c", "m", 0) { _, _ ->
+            fail("Sandbox storage must not admit an outside file")
+        })
+    }
+
+    @Test
+    fun resolvedSandboxImagePreviewSurvivesOriginalMutationAndDeletionThroughHydrationAndWebReads() = runTest {
+        val root = temporary.newFolder("snapshot-private")
+        val home = File(root, "sandbox-home").apply { mkdirs() }
+        val source = png(File(root, "source.webp"))
+        val bytes = File(source.path).readBytes()
+        val app = io.mockk.mockk<Application>()
+        io.mockk.every { app.filesDir } returns root
+        io.mockk.every { app.applicationContext } returns app
+        val processor = com.newoether.agora.viewmodel.AttachmentImportProcessor(app = app,
+            measureArtifact = { com.newoether.agora.util.ImageArtifactProcessor(app).inspect(it) })
+        val ready = processor.process(SelectedAttachment(localId = "id", uri = source.path,
+            type = "image", fileName = "source.webp", localPath = source.path, fileSize = bytes.size.toLong(),
+            storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING), home)
+            as com.newoether.agora.viewmodel.AttachmentImportProcessor.ProcessResult.Ready
+        val original = File(ready.attachment.localPath!!)
+        val snapshot = ready.attachment.imageArtifacts.single()
+        assertNotEquals(original.path, snapshot.path)
+        assertEquals("img", File(snapshot.path).extension)
+        assertEquals("image/png", snapshot.mimeType)
+        for (delete in listOf(false, true)) {
+            if (delete) assertTrue(original.delete()) else original.writeText("tool edit")
+            val hydrated = processor.hydrateDraftAttachment(ready.attachment)
+            assertFalse(hydrated.unavailable)
+            assertEquals(original.path, hydrated.localPath)
+            val preview = requireNotNull(attachmentPreviewArtifact(hydrated, "source", 0))
+            assertEquals(snapshot.path, preview.first)
+            assertArrayEquals(bytes, File(preview.first).readBytes())
+            val payload = com.newoether.agora.viewmodel.MessagePayloadBuilder().buildComposerPayload(listOf(hydrated))
+            val message = ChatMessage(id = "m", text = "", participant = Participant.USER,
+                images = payload.allImages, attachmentMeta = payload.attachmentMeta)
+            assertEquals("file://${original.path}", message.attachmentMeta!!.items.single().originalUri)
+            assertTrue(WebUiToolImages(root, root) { _, _ -> message }.consumeAttachment("c", "m", 0) { file, mime ->
+                assertEquals("image/png", mime)
+                assertArrayEquals(bytes, file.readBytes())
+            })
+        }
+        val video = ready.attachment.copy(type = "video", mimeType = "video/mp4")
+        assertNull(attachmentPreviewArtifact(video, "source", 0))
+    }
+
+    @Test
+    fun sentTextProjectionIncludesSavedSnapshotWithoutFilesystemPath() {
+        val item = AttachmentItem(type = "file", fileName = "notes.txt", textContent = "saved preview",
+            storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_RUNTIME,
+            sandboxPath = "/home/agora/attachments/id/notes.txt")
+        val wire = ChatMessage(id = "text", text = "", participant = Participant.USER,
+            attachmentMeta = AttachmentMeta(listOf(item))).toWeb(null)
+        val attachment = wire.attachments.single()
+        assertEquals(kotlinx.serialization.json.JsonPrimitive("saved preview"), attachment["text"])
+        assertEquals(kotlinx.serialization.json.JsonPrimitive("file"), attachment["type"])
+        assertFalse(attachment.toString().contains("/home/agora"))
+    }
+
+    @Test
+    fun sandboxVideoConfigurationReadsPrivateStagingAndReadyPreviewReadsOnlySavedFrames() = runBlocking {
+        val root = temporary.newFolder("video-session-private")
+        val home = File(root, "sandbox-home").apply { mkdirs() }
+        val frame = png(File(root, "vid_configuration.png"))
+        val bytes = "private staged video".toByteArray()
+        val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+        val settings = webUiChatSessionSettings().apply {
+            every { sandboxEnabled } returns MutableStateFlow(true)
+        }
+        val conversations = mockk<com.newoether.agora.data.repository.ConversationRepository>(relaxed = true) {
+            every { observeConversation(any()) } returns flowOf(null)
+            every { observeMessageTopology(any()) } returns flowOf(emptyList())
+            coEvery { getConversation(any()) } returns null
+            coEvery { recoverConversationRuntime(any(), any()) } returns 0
+        }.apply { stubOpenRecovery() }
+        val state = mockk<com.newoether.agora.viewmodel.ConversationGenerationState> {
+            every { generationSnapshot } returns MutableStateFlow(com.newoether.agora.viewmodel.ConversationGenerationSnapshot())
+            every { generating } returns MutableStateFlow(false)
+            every { stopping } returns MutableStateFlow(false)
+            every { queuedSends } returns MutableStateFlow(emptyList())
+            every { streamingMessage } returns MutableStateFlow(null)
+        }
+        val app = mockk<Application> { every { filesDir } returns root }
+        val processor = com.newoether.agora.viewmodel.AttachmentImportProcessor(app,
+            readVideoDurationMs = { 15_000L }, measureArtifact = { frame.copy(path = it) },
+            extractVideoFrames = { _, _, owner ->
+                com.newoether.agora.util.AttachmentFiles.retainLivePath(requireNotNull(owner), frame.path)
+                listOf(frame.path)
+            })
+        val session = WebUiChatSession(
+            generation = mockk(relaxed = true), generationStop = mockk(relaxed = true),
+            clients = com.newoether.agora.viewmodel.ChatClients(), conversations = conversations,
+            registry = mockk { every { getOrCreate(any()) } returns state },
+            executionCoordinator = com.newoether.agora.automation.ConversationExecutionCoordinator(),
+            settings = settings, transfers = mockk(relaxed = true), attachmentProcessor = processor,
+            scope = scope, uploadDirectory = root, compactFailureMessage = { it.reason.name },
+            allowLocalSandbox = { true }, sandboxHomeDir = { home },
+        )
+        try {
+            session.start()
+            assertEquals(io.ktor.http.HttpStatusCode.Accepted, session.upload(0, "clip.mp4", "video/mp4", "video",
+                bytes.size.toLong(), io.ktor.utils.io.ByteReadChannel(bytes)))
+            val pending = withTimeout(5_000) {
+                session.composerState.first { it.attachments.singleOrNull()?.videoDurationMs == 15_000L }
+            }.attachments.single()
+            assertEquals(com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING, pending.storage)
+            assertEquals(AttachmentImportState.PROCESSING, pending.importState)
+            assertNull(pending.frameCount)
+            assertTrue(File(pending.localPath!!).canonicalPath.startsWith(File(root, "attachments/staged").canonicalPath))
+            assertTrue(session.previewAttachment(0, pending.localId, "source", 0) { file, mime ->
+                assertEquals("video/mp4", mime)
+                assertArrayEquals(bytes, file.readBytes())
+            })
+            session.attachmentCommand(WebSyncCommand("attachment_video", attachmentId = pending.localId,
+                frameCount = 3, intervalMs = 5000))
+            val ready = withTimeout(5_000) {
+                session.composerState.first { it.attachments.singleOrNull()?.importState == AttachmentImportState.READY }
+            }.attachments.single()
+            val original = File(ready.localPath!!)
+            assertTrue(original.canonicalPath.startsWith(home.canonicalPath))
+            original.writeText("edited sandbox video")
+            assertTrue(original.delete())
+            assertFalse(session.previewAttachment(0, ready.localId, "source", 0) { _, _ -> fail("READY source") })
+            assertTrue(session.previewAttachment(0, ready.localId, "frame", 0) { file, mime ->
+                assertEquals("image/png", mime)
+                assertArrayEquals(File(frame.path).readBytes(), file.readBytes())
+            })
+        } finally {
+            session.close()
+            scope.cancel()
+        }
     }
 
     private fun png(file: File): ImageArtifact {

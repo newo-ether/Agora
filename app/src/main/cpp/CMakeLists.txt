@@ -96,7 +96,8 @@ find_program(LLVM_OBJCOPY llvm-objcopy
 # System.loadLibrary("agora_proot") triggers APK extraction of native libs.
 # Actual proot execution uses ProcessBuilder on libproot_exec.so (GNUmakefile-built).
 # This lightweight library also owns atomic file publication without loading Llama.
-add_library(agora_proot SHARED proot_jni.cpp atomic_file_jni.cpp)
+add_library(agora_proot SHARED proot_jni.cpp atomic_file_jni.cpp
+    managed_directory_files.cpp managed_directory_jni.cpp)
 target_link_options(agora_proot PRIVATE
     -Wl,--build-id=none -Wl,--hash-style=gnu -Wl,--icf=all
 )

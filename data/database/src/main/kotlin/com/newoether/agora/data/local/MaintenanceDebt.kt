@@ -47,6 +47,7 @@ data class MaintenanceDebtEntity(
         const val STATE_CLAIMED = "CLAIMED"
         const val RECONCILE_IDENTITY = "*"
 
+        const val KIND_ATTACHMENT_DIRECTORIES = "ATTACHMENT_DIRECTORIES"
         const val KIND_ATTACHMENT_ORPHANS = "ATTACHMENT_ORPHANS"
         const val KIND_EMBEDDING_ORPHANS = "EMBEDDING_ORPHANS"
         const val KIND_STALE_EMBEDDINGS = "STALE_EMBEDDINGS"

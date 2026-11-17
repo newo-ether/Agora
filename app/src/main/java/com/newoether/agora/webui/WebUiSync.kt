@@ -279,7 +279,7 @@ internal class WebUiSync(
                                                     put("intervalMs", attachment.sliceIntervalMs)
                                                     put("staged", attachment.localPath != null)
                                                     if (attachment.type == "file" && attachment.importState == com.newoether.agora.model.AttachmentImportState.READY &&
-                                                        attachment.storage == com.newoether.agora.model.AttachmentStorage.APP_PRIVATE && !attachment.unavailable) {
+                                                        !attachment.unavailable) {
                                                         put("text", attachment.preparedText)
                                                     }
                                                     attachment.selectedPages?.let { pages ->
@@ -356,6 +356,7 @@ internal class WebUiSync(
                                                     put("title", prompt.title)
                                                 } }))
                                             },
+                                            sandboxAttachments = it.sandboxAttachments,
                                         )
                                     }.distinctUntilChanged().collect { outbound.send(it) }
                             }

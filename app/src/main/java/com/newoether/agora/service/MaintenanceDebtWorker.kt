@@ -77,6 +77,7 @@ class MaintenanceDebtWorker(
         attachmentSweeper: AttachmentOrphanSweeper,
     ): Boolean {
         return when (claim.kind) {
+            MaintenanceDebtEntity.KIND_ATTACHMENT_DIRECTORIES -> attachmentSweeper.deleteDirectory(claim.identity)
             MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS -> {
                 if (claim.identity == MaintenanceDebtEntity.RECONCILE_IDENTITY) {
                     attachmentSweeper.sweep()

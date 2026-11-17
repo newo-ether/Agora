@@ -519,21 +519,7 @@ internal class MessageGenerationController(
                 preparedAttachmentMetaJson = payload.attachmentMeta?.let(Json::encodeToString),
                 generationSnapshot = admissionSnapshot,
             )
-            // Guidance acceptance is intentionally memory-only. The current provider pass
-            // observes it through hasQueuedSends(), but Room, the selected tree, and LazyColumn
-            // cannot expose a bubble before the next durable boundary.
-            state.enqueueSend(queued)
-            try {
-                acceptanceNotifier.notify(
-                    acceptance = SendAcceptance.Queued(queued.id, genId),
-                    onAccepted = onAccepted,
-                    origin = origin,
-                )
-            } catch (error: Exception) {
-                state.removeQueuedSend(queued.id)
-                throw error
-            }
-            return queued
+            return state.acceptQueuedSend(convRepo, genId, queued, acceptanceNotifier, onAccepted, origin)
         }
 
         var placement: SendPlacement? = null

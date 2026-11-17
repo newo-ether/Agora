@@ -12,6 +12,7 @@ import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.model.hasMeasuredFactsFor
+import com.newoether.agora.model.previewImagePath
 import com.newoether.agora.util.AttachmentFiles
 import com.newoether.agora.util.AttachmentSourceReader
 import com.newoether.agora.util.Constants
@@ -98,19 +99,19 @@ internal class AttachmentImportProcessor(
     /** Measures completed selected-draft bytes without entering staging or pixel processing. */
     suspend fun hydrateDraftAttachment(attachment: SelectedAttachment): SelectedAttachment =
         withContext(Dispatchers.IO) {
-            if (attachment.unavailable || attachment.storage.isLocalSandbox ||
+            if (attachment.unavailable ||
                 attachment.importState != AttachmentImportState.READY ||
                 attachment.type !in setOf("image", "pdf", "video")
             ) return@withContext attachment
             val source = attachment.localPath?.takeIf(String::isNotBlank) ?: return@withContext attachment
             val paths = when (attachment.type) {
-                "image" -> listOf(source)
+                "image" -> listOfNotNull(attachment.previewImagePath)
                 "pdf" -> attachment.preRenderedPaths.orEmpty()
                 else -> attachment.processedFrames.orEmpty()
             }
             if (paths.isEmpty()) return@withContext attachment
             val hydration = ImageArtifactHydration(app)
-            val primary = try {
+            val primary = if (attachment.storage.isLocalSandbox) source else try {
                 hydration.canonicalPath(source).takeIf { File(it).isFile && File(it).canRead() }
             } catch (_: Exception) {
                 null
@@ -125,12 +126,16 @@ internal class AttachmentImportProcessor(
             val item = checkNotNull(hydrated.attachmentMeta).items.single()
             val first = item.imageArtifacts.firstOrNull()
             attachment.copy(
-                localPath = if (attachment.type == "image") hydrated.images.single() else primary,
+                localPath = if (attachment.type == "image" && !attachment.storage.isLocalSandbox) {
+                    hydrated.images.single()
+                } else primary,
                 processedFrames = if (attachment.type == "video") hydrated.images else attachment.processedFrames,
                 preRenderedPaths = if (attachment.type == "pdf") hydrated.images else attachment.preRenderedPaths,
                 imageArtifacts = item.imageArtifacts,
                 mimeType = if (attachment.type == "image") first?.mimeType else attachment.mimeType,
-                fileSize = if (attachment.type == "image") first?.sizeBytes else attachment.fileSize,
+                fileSize = if (attachment.type == "image" && !attachment.storage.isLocalSandbox) {
+                    first?.sizeBytes
+                } else attachment.fileSize,
                 pixelWidth = first?.width,
                 pixelHeight = first?.height,
                 unavailable = item.unavailable,
@@ -153,7 +158,7 @@ internal class AttachmentImportProcessor(
             AttachmentFiles.retainLivePath(it, partial.absolutePath)
         }
         try {
-            val input = openSource(source)
+            val input = attachment.sourceText?.byteInputStream(Charsets.UTF_8) ?: openSource(source)
                 ?: return@withContext StageResult.Failure(
                     IllegalStateException("Unable to open attachment source"),
                 )
@@ -208,6 +213,7 @@ internal class AttachmentImportProcessor(
                             videoDurationMs = videoDurationMs,
                             importState = AttachmentImportState.PROCESSING,
                             preparedText = null,
+                            sourceText = null,
                             unavailable = false,
                         ),
                         createdPaths = listOf(target.absolutePath)
@@ -447,7 +453,7 @@ internal class AttachmentImportProcessor(
         )
     }
 
-    private fun processSandbox(
+    private suspend fun processSandbox(
         attachment: SelectedAttachment,
         stagedFile: File,
         sandboxHomeDir: File?,
@@ -455,32 +461,77 @@ internal class AttachmentImportProcessor(
     ): ProcessResult {
         val home = sandboxHomeDir
             ?: return ProcessResult.Failure(IllegalStateException("Local Sandbox is unavailable"))
+        // Resolve display data through the ordinary owners, keeping the sandbox original byte-exact.
+        val resolved = when (attachment.type) {
+            "image" -> snapshotSandboxImage(attachment, stagedFile, outputOwner)
+            "pdf" -> processPdf(attachment, stagedFile.absolutePath, outputOwner)
+            "video" -> processVideo(attachment, stagedFile.absolutePath, outputOwner)
+            "file" -> if (com.newoether.agora.util.FileValidator.routeForMimeType(attachment.mimeType) ==
+                com.newoether.agora.util.FileValidator.AttachmentRoute.TEXT
+            ) processFile(attachment, stagedFile.absolutePath)
+            else ProcessResult.Ready(attachment.copy(importState = AttachmentImportState.READY))
+            else -> return ProcessResult.Failure(IllegalArgumentException("Unsupported attachment type"))
+        }
+        if (resolved !is ProcessResult.Ready) return resolved
         val fileName = AttachmentFiles.sanitizeFileName(attachment.fileName)
         val relativePath = "attachments/${attachment.localId}/$fileName"
         val target = File(home, relativePath)
         outputOwner?.let { AttachmentFiles.retainLivePath(it, target.absolutePath) }
-        return when (
-            val copy = AttachmentFiles.copyBounded(
-                input = stagedFile.inputStream(),
-                target = target,
-                expectedSize = attachment.fileSize,
-                maxBytes = maxAttachmentBytes,
-            )
-        ) {
-            is AttachmentFiles.CopyResult.Success -> ProcessResult.Ready(
-                attachment = attachment.copy(
-                    fileName = fileName,
-                    fileSize = copy.bytesCopied,
-                    localPath = target.absolutePath,
-                    sandboxPath = "/home/agora/$relativePath",
+        var published = false
+        try {
+            return when (val copy = AttachmentFiles.copyBounded(
+                input = stagedFile.inputStream(), target = target,
+                expectedSize = attachment.fileSize, maxBytes = maxAttachmentBytes,
+            )) {
+                is AttachmentFiles.CopyResult.Success -> {
+                    published = true
+                    ProcessResult.Ready(
+                        attachment = resolved.attachment.copy(
+                            fileName = fileName, fileSize = copy.bytesCopied,
+                            localPath = target.absolutePath, sandboxPath = "/home/agora/$relativePath",
+                        ),
+                        createdPaths = resolved.createdPaths + target.absolutePath,
+                        obsoletePaths = listOf(stagedFile.absolutePath),
+                    )
+                }
+                AttachmentFiles.CopyResult.TooLarge ->
+                    ProcessResult.Failure(IllegalStateException("Attachment exceeds size limit"))
+                is AttachmentFiles.CopyResult.Failure -> ProcessResult.Failure(copy.cause)
+            }
+        } finally {
+            if (!published) resolved.createdPaths.forEach { File(it).delete() }
+        }
+    }
+
+    private suspend fun snapshotSandboxImage(
+        attachment: SelectedAttachment,
+        source: File,
+        outputOwner: Any?,
+    ): ProcessResult {
+        val preview = File(app.filesDir, "img_${UUID.randomUUID()}.img")
+        outputOwner?.let { AttachmentFiles.retainLivePath(it, preview.absolutePath) }
+        var completed = false
+        try {
+            when (val copy = AttachmentFiles.copyBounded(
+                source.inputStream(), preview, attachment.fileSize, maxAttachmentBytes,
+            )) {
+                AttachmentFiles.CopyResult.TooLarge ->
+                    return ProcessResult.Failure(IllegalStateException("Attachment exceeds size limit"))
+                is AttachmentFiles.CopyResult.Failure -> return ProcessResult.Failure(copy.cause)
+                is AttachmentFiles.CopyResult.Success -> Unit
+            }
+            val artifact = measureCompleteArtifact(preview.absolutePath)
+            completed = true
+            return ProcessResult.Ready(
+                attachment.copy(
+                    mimeType = artifact.mimeType, imageArtifacts = listOf(artifact),
+                    pixelWidth = artifact.width, pixelHeight = artifact.height,
                     importState = AttachmentImportState.READY,
                 ),
-                createdPaths = listOf(target.absolutePath),
-                obsoletePaths = listOf(stagedFile.absolutePath),
+                createdPaths = listOf(preview.absolutePath),
             )
-            AttachmentFiles.CopyResult.TooLarge ->
-                ProcessResult.Failure(IllegalStateException("Attachment exceeds size limit"))
-            is AttachmentFiles.CopyResult.Failure -> ProcessResult.Failure(copy.cause)
+        } finally {
+            if (!completed) preview.delete()
         }
     }
 

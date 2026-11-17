@@ -9,10 +9,10 @@ interface ChatMediaReferencesDao {
     @Query("SELECT id, draftAttachments FROM conversations WHERE id = :id")
     suspend fun getConversationDraftAttachmentReference(id: String): ConversationDraftAttachmentReference?
 
-    @Query("SELECT id, images, attachmentMeta FROM messages WHERE conversationId = :conversationId ORDER BY id LIMIT :limit")
+    @Query("SELECT id, images, attachmentMeta, toolCallJson FROM messages WHERE conversationId = :conversationId ORDER BY id LIMIT :limit")
     suspend fun getConversationAttachmentFirstPage(conversationId: String, limit: Int): List<MessageAttachmentReference>
 
-    @Query("SELECT id, images, attachmentMeta FROM messages WHERE conversationId = :conversationId AND id > :afterId ORDER BY id LIMIT :limit")
+    @Query("SELECT id, images, attachmentMeta, toolCallJson FROM messages WHERE conversationId = :conversationId AND id > :afterId ORDER BY id LIMIT :limit")
     suspend fun getConversationAttachmentNextPage(conversationId: String, afterId: String, limit: Int): List<MessageAttachmentReference>
 
     suspend fun getConversationMessageAttachmentReferencesPage(

@@ -1,6 +1,9 @@
 package com.newoether.agora.viewmodel
 
 import com.newoether.agora.data.local.MessageEntity
+import com.newoether.agora.model.AttachmentItem
+import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.AttachmentStorage
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessagePersistenceGuard
 import com.newoether.agora.model.MessageSegment
@@ -48,6 +51,7 @@ internal class GenerationToolRoundBuilder(
                 parentId = toolMessageId,
                 text = call.result,
                 images = call.resultImages.map { it.path },
+                attachmentMeta = call.sandboxRuntimeImageMetadata(),
                 participant = Participant.USER,
                 status = MessageStatus.SUCCESS,
                 toolCall = call,
@@ -81,7 +85,7 @@ internal class GenerationToolRoundBuilder(
                     runId = runId,
                 ),
             )
-            resultMessages.forEachIndexed { index, (resultId, _) ->
+            resultMessages.forEachIndexed { index, (resultId, resultMessage) ->
                 val call = calls[index]
                 add(
                     MessageEntity(
@@ -92,6 +96,7 @@ internal class GenerationToolRoundBuilder(
                         thoughts = null,
                         status = MessageStatus.SUCCESS,
                         images = call.resultImages.map { it.path },
+                        attachmentMeta = resultMessage.attachmentMeta?.let { Json.encodeToString(it) },
                         participant = Participant.USER,
                         timestamp = timestamp + index + 1,
                         modelName = modelName,
@@ -108,6 +113,20 @@ internal class GenerationToolRoundBuilder(
             entities = entities,
             lastResultId = resultMessages.last().first,
         )
+    }
+
+    /** The descriptor owns API-visible paths; metadata marks only these preview indices as runtime files. */
+    private fun ToolCallData.sandboxRuntimeImageMetadata(): AttachmentMeta? {
+        val descriptors = sandboxGeneratedOutputImages(toolName, result)
+        if (descriptors.size != resultImages.size || descriptors.isEmpty()) return null
+        return AttachmentMeta(resultImages.mapIndexed { index, image ->
+            AttachmentItem(
+                type = "image", imageIndex = index,
+                storage = AttachmentStorage.LOCAL_SANDBOX_RUNTIME,
+                mimeType = image.mimeType, fileSize = image.sizeBytes,
+                pixelWidth = image.width, pixelHeight = image.height,
+            )
+        })
     }
 
     private fun ToolCallData.toSegment(

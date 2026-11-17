@@ -468,6 +468,7 @@ class AppContainer(
                     devices = { settingsRepository.shellDevices.value },
                     sandboxEnabled = { settingsRepository.sandboxEnabled.value },
                     sandbox = { sandboxManagerFactory?.takeIf { it.isAvailable() }?.create() },
+                    scope = appScope,
                 )::previewImage,
                 loadMessage = { conversationId, messageId ->
                     val persisted = conversationRepository.getMessagesByIds(listOf(messageId))

@@ -628,6 +628,13 @@ internal fun IncrementalStreamingMarkdownContent(
     val referenceHandler = remember(snapshot.references) {
         MarkdownDocumentReferenceHandler(snapshot.references)
     }
+    val imageDocument = LocalMarkdownImageDocument.current
+    val imageOffset = LocalMarkdownImageOrdinalOffset.current
+    val imageBlockCounts = remember(snapshot.stableBlocks, snapshot.references, imageDocument) {
+        snapshot.stableBlocks.map { block ->
+            markdownImageOccurrences(block.sourceContent, block.root, referenceHandler, imageDocument).size
+        }
+    }
     androidx.compose.runtime.CompositionLocalProvider(
         LocalStreamingMarkdownInteractionController provides state,
         LocalHtmlPreviewStreaming provides isStreaming,
@@ -640,6 +647,7 @@ internal fun IncrementalStreamingMarkdownContent(
                         // block) keeps aging its tail instead of snapping to solid.
                         androidx.compose.runtime.CompositionLocalProvider(
                             LocalStreamingGlyphFadeSpec provides blockFadeSpecs.getOrNull(index),
+                            LocalMarkdownImageOrdinalOffset provides imageOffset + imageBlockCounts.take(index).sum(),
                             LocalHtmlPreviewStreaming provides false,
                         ) {
                             StableMarkdownBlockContent(
@@ -656,6 +664,7 @@ internal fun IncrementalStreamingMarkdownContent(
                     key("live-tail", block.startOffset) {
                         androidx.compose.runtime.CompositionLocalProvider(
                             LocalStreamingGlyphFadeSpec provides blockFadeSpecs.lastOrNull(),
+                            LocalMarkdownImageOrdinalOffset provides imageOffset + imageBlockCounts.sum(),
                         ) {
                             ParsedMarkdownBlockContent(
                                 sourceContent = block.sourceContent,
@@ -721,6 +730,16 @@ private fun ParsedMarkdownBlockContent(
     val visibleNodes = remember(root, preserveTrailingSpacing) {
         markdownVisibleBlocks(root, preserveTrailingSpacing)
     }
+    val document = LocalMarkdownImageDocument.current
+    val ordinalOffset = LocalMarkdownImageOrdinalOffset.current
+    val occurrences = remember(root, sourceContent, referenceHandler, document, ordinalOffset) {
+        markdownImageOccurrences(sourceContent, root, referenceHandler, document, ordinalOffset)
+    }
+    LaunchedEffect(occurrences, renderContext.imageTransformer) {
+        (renderContext.imageTransformer as? com.newoether.agora.ui.components.LatexImageTransformer)
+            ?.loadParsedImages(sourceContent, occurrences, referenceHandler)
+    }
+    androidx.compose.runtime.CompositionLocalProvider(LocalMarkdownImageOccurrences provides occurrences) {
     com.mikepenz.markdown.compose.Markdown(
         state = state,
         modifier = Modifier.fillMaxWidth(),
@@ -747,4 +766,5 @@ private fun ParsedMarkdownBlockContent(
             }
         },
     )
+    }
 }

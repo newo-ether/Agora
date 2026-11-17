@@ -97,6 +97,38 @@
 /* No estimated rows: a page is drawn once its bodies have arrived, so a body-less row only exists
    for the instant a conversation opens behind its cover. */
 .row-placeholder { min-height: 0; }
+/* Keep the real body mounted; expanding changes only its viewport, never message content. */
+.collapsible-message { position: relative; min-width: 0; max-width: 100%; overflow: clip; }
+.message-preview[data-collapsed="true"] {
+  max-height: 320px;
+  overflow: clip;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 112px), transparent calc(100% - 48px));
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 112px), transparent calc(100% - 48px));
+}
+.message-preview-body { display: flow-root; }
+.collapsible-message[data-collapsed="true"] > .message-expand {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}
+.message-expand {
+  display: block;
+  min-height: 48px;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: auto;
+  border: 0;
+  border-radius: 20px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--md-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+.message-expand:hover { background: color-mix(in srgb, var(--md-primary) 8%, transparent); }
 /* UserMessageBubble: at the end, UserBubbleShape (27 dp corners, a 6 dp bottom-end tail). */
 .user-row { display: flex; flex-direction: column; align-items: flex-end; }
 .user-message-content { position: relative; display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; align-items: flex-end; max-width: 100%; }

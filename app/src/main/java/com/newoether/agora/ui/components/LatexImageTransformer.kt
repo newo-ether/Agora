@@ -47,6 +47,7 @@ internal class LatexImageTransformer(
     private val onMediaClick: (List<String>, Int) -> Unit = { _, _ -> },
     /** Native-chat loader for `shell://` images; Remote passes null and keeps its own images. */
     private val shellMedia: ShellMarkdownMedia? = null,
+    private val imageOwnerId: String? = null,
 ) : ImageTransformer {
     private fun messageImage(link: String): MarkdownImage? {
         fun decoded(value: String) = android.net.Uri.decode(value.removeSurrounding("<", ">"))
@@ -55,11 +56,12 @@ internal class LatexImageTransformer(
     private fun inlineImage(link: String): MarkdownImage? = messageImage(link) ?: shellMedia?.peek(link)
 
     @Composable
-    fun renderInlineImage(link: String): Boolean {
+    fun renderInlineImage(link: String, slot: String? = null): Boolean {
         val owned = messageImage(link)
-        val image = owned ?: shellMedia?.peek(link) ?: return false
-        if (owned == null && shellMedia != null) {
-            LaunchedEffect(shellMedia, link) { shellMedia.load(link) }
+        val occurrence = imageOwnerId?.let { owner -> slot?.let { "$owner:$it" } }
+        val image = owned ?: shellMedia?.peek(link, occurrence) ?: return false
+        if (owned == null && shellMedia != null && occurrence != null) {
+            LaunchedEffect(shellMedia, link, occurrence) { shellMedia.load(link, occurrence) }
         }
         val paths = remember(inlineImages) {
             inlineImages.values.mapNotNull { it.attachment?.path }.distinct()
@@ -72,6 +74,17 @@ internal class LatexImageTransformer(
             }
         }
         return true
+    }
+
+    /** Starts every parsed occurrence, including slots below the viewport, once per owner. */
+    suspend fun loadParsedImages(content: String, occurrences: Map<org.intellij.markdown.ast.ASTNode, String>,
+        references: com.mikepenz.markdown.model.ReferenceLinkHandler?) {
+        val owner = imageOwnerId ?: return
+        val media = shellMedia ?: return
+        for ((node, slot) in occurrences) {
+            val link = com.newoether.agora.ui.chat.message.markdownImageLink(content, node, references) ?: continue
+            media.preload(link, "$owner:$slot")
+        }
     }
 
     /**

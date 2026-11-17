@@ -19,6 +19,27 @@ The owner requires three invariants:
 3. Image token estimates use the actual transmitted dimensions, with the most accurate
    reproducible model rules available. Encoded file size is not a substitute for pixel size.
 
+Sandbox-owned attachments follow application-ui.md: import keeps original file bytes and sends
+metadata/path markers rather than model image inputs. Their MIME resolution, page/frame selection,
+bounded text resolution and native/browser previews follow the ordinary attachment lifecycle.
+Image resolve freezes a separate app-private byte-exact raster copy without re-encoding; PDF/video
+preview artifacts use the shared processor, and text retains its bounded resolved string. Native and
+browser thumbnails/full-screen viewers read these saved snapshots, with video browsing its saved
+frames. The editable original remains at `localPath`/`sandboxPath`; later original edits or deletion
+cannot change the preview. Unsupported files have no preview duplicate. These display-only artifacts
+and resolved text remain excluded from Provider projection until an explicit tool read. Message
+removal reclaims only unreferenced private snapshots; pending abandonment also reclaims the unsent
+original. Fork remaps copied snapshot references while retaining the original Sandbox descriptor.
+Conversation-owned directory claims govern accepted originals independently of message lifetime.
+Legacy rows are not reconstructed from a changed or missing original. Generated outputs carrying the
+persisted Local Sandbox descriptor in provider-output.md keep their completed app-private `tool-media`
+preview artifacts and copy those same prepared bytes to the editable Sandbox output. The descriptor
+continues to identify that Sandbox original. Later original edits or deletion cannot change the saved
+preview; failed or cancelled unpublished batches remove both copies. Fork copies and remaps the private
+preview while retaining the original output descriptor. API projection sends result paths without image
+payloads. A later explicit file image read uses
+the ordinary shared image-processing boundary. Historical artifacts keep their recorded ownership.
+
 External Remote sessions retain their independent execution and media ownership defined in
 [remote-sessions.md](remote-sessions.md). Loading a Remote image preserves its received bytes,
 encoding and dimensions. It does not invoke Agora's model-input image processing or apply
@@ -64,6 +85,23 @@ the caller. Schema 46 replaces the released trigger bodies atomically, preservin
 bootstrap cursors, source revisions and user data. Production-builder tests must cover repeated
 checkpoint writes, rollback, deletion, all owner kinds and upgrade of an existing version-45 database.
 
+Schema 47 adds conversation-to-managed-directory claims for originals under
+`/home/agora/attachments/<id>/`. Ordinary message, Run, fork and generated-output persistence records
+claims in its existing transaction; queued input records them before acceptance. Message deletion
+preserves claims. Conversation deletion queues the exact claimed directories and releases its claims
+in the same transaction. Shared claims, durable references and live owners prevent reclamation.
+Selected-owner legacy reads can recover provable claims; moved originals and unprovable historical
+leftovers are not searched for or removed. The migration reads no message payload, invalidates only
+the derived reference cache, and resumes its existing bounded rebuild with Sandbox paths and strict
+generated-output descriptors included.
+
+The existing maintenance worker owns exact directory debt. Reclamation rechecks the reference
+revision, claims and live owners before each bounded operation. A no-follow descriptor-relative
+native boundary detaches an unowned directory into app-private quarantine, then removes its entries
+without following links. Pending-original exact unlink uses the same no-follow boundary; a path
+check followed by ordinary path-based deletion is insufficient. Cancellation or an incomplete batch
+keeps durable debt retryable. There is no startup filesystem scan or second cleanup worker.
+
 ## Processing and artifact ownership
 
 The shared image processor owns dimensions, orientation, resizing, encoding and validation of
@@ -73,8 +111,10 @@ raster inputs through this same boundary; they cannot maintain independent outpu
 constants. PDF's opaque-white initialization remains required by application-ui.md.
 
 Each completed artifact has one path, actual MIME type, measured width and height and encoded
-byte length. Image metadata, preview/cache keys and request validation do not contain or compute
-SHA or another content digest. Old serialized image hash fields are ignored on read and omitted
+byte length. Model-input image metadata, preview/cache keys and request validation do not contain or compute
+SHA or another content digest. Display-only immutable Markdown snapshots have their separate
+resource marker and lifetime in streaming-markdown.md; they do not modify ImageArtifact or model inputs.
+Old serialized image hash fields are ignored on read and omitted
 from new writes. Metadata describes the output bytes, never the source file's extension, MIME,
 dimensions or length. Every PDF page and video frame has its own descriptor.
 Reordering, merging, deduplicating or projecting images must carry the matching metadata.

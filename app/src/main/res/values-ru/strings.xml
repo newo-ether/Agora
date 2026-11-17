@@ -694,6 +694,7 @@
     <string name="context_part_free">Свободно</string>
     <string name="context_part_reserved">Резерв</string>
     <string name="context_part_used">Использовано</string>
+    <string name="ask_agora_action">Спросить Agora</string>
     <string name="context_compact_streaming">Сжатие контекста…</string>
     <string name="context_compact_error">Ошибка сжатия</string>
     <string name="context_compact_stopped">Сжатие остановлено</string>

@@ -49,6 +49,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.newoether.agora.R
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.model.SelectedAttachment
+import com.newoether.agora.model.previewImagePath
 import com.newoether.agora.ui.chat.FileThumbnail
 import com.newoether.agora.ui.chat.MEDIA_LOADING_INDICATOR_STROKE_WIDTH
 import com.newoether.agora.ui.chat.MediaLoadPresentation
@@ -114,10 +115,20 @@ internal fun AttachmentPreviewRow(
         }
     }
     val allMediaUrls = remember(mediaAttachments) {
-        mediaAttachments.map { it.localPath ?: it.uri }
+        mediaAttachments.flatMap {
+            if (it.type == "video" && it.storage.isLocalSandbox) it.processedFrames.orEmpty()
+            else listOfNotNull(if (it.type == "image") it.previewImagePath else it.localPath ?: it.uri)
+        }
     }
     val mediaIndexById = remember(mediaAttachments) {
-        mediaAttachments.mapIndexed { index, attachment -> attachment.localId to index }.toMap()
+        var index = 0
+        mediaAttachments.associate { attachment ->
+            val first = index
+            index += if (attachment.type == "video" && attachment.storage.isLocalSandbox) {
+                attachment.processedFrames.orEmpty().size
+            } else 1
+            attachment.localId to first
+        }
     }
     LazyRow(
         modifier = Modifier
@@ -142,7 +153,7 @@ internal fun AttachmentPreviewRow(
                 unavailable || !isReady -> null
                 isVideo -> attachment.processedFrames?.firstOrNull()
                 isFile || isPdf -> null
-                else -> attachment.localPath ?: uriString
+                else -> attachment.previewImagePath ?: uriString
             }
             val mediaPainter = rememberAsyncImagePainter(model = mediaModel)
             val mediaLoadState = mediaPainter.state.toMediaLoadPresentation()

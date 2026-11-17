@@ -480,6 +480,8 @@ internal fun AssistantMessageContent(
                         precededByCard = terminalImmediatelyFollowsCard,
                     )
                 }
+            }
+            Column {
                 if (message.participant == Participant.MODEL && message.images.isNotEmpty()) {
                     val genImages = message.images
                     // Generated images are primary output, not input references:

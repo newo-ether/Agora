@@ -48,11 +48,12 @@ object FileValidator {
         allowLocalSandbox: Boolean,
     ): SelectedAttachment? {
         val route = routeForMimeType(mimeType)
-        val sandbox = forcedType == null && route == AttachmentRoute.LOCAL_SANDBOX
-        if (sandbox && !allowLocalSandbox) return null
+        val sandbox = allowLocalSandbox
+        if (forcedType == "sandbox" && !sandbox) return null
+        if (!sandbox && forcedType == null && route == AttachmentRoute.LOCAL_SANDBOX) return null
         return SelectedAttachment(
             uri = source,
-            type = forcedType ?: when (route) {
+            type = forcedType?.takeUnless { it == "sandbox" } ?: when (route) {
                 AttachmentRoute.IMAGE -> "image"
                 AttachmentRoute.VIDEO -> "video"
                 AttachmentRoute.PDF -> "pdf"

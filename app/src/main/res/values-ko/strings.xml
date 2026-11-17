@@ -694,6 +694,7 @@
     <string name="context_part_free">여유</string>
     <string name="context_part_reserved">예약됨</string>
     <string name="context_part_used">사용됨</string>
+    <string name="ask_agora_action">Agora에 질문</string>
     <string name="context_compact_streaming">컨텍스트 압축 중…</string>
     <string name="context_compact_error">압축 오류</string>
     <string name="context_compact_stopped">압축 중지됨</string>

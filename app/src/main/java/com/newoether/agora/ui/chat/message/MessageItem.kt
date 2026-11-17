@@ -303,6 +303,7 @@ internal fun MessageItem(
         onMediaClick,
         message.preparedMarkdown,
         autoWrapCodeBlocks,
+        imageOwnerId = message.id,
     )
     val markdownRenderContext = markdownAssets.renderContext
     val thoughtMarkdownRenderContext = markdownAssets.thoughtRenderContext

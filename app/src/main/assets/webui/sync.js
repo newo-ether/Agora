@@ -46,6 +46,7 @@ let state = {
   initialToolsReady: 0,
   interactions: [],
   interactionPending: 0,
+  pendingPastes: [],
   snackbar: null,
   scrollRequest: null,
   branchReplacement: null,
@@ -548,7 +549,8 @@ export const sync = {
     send({ type: "draft", text, revision: ++editRevision, seq: openSeq });
   },
   submit() {
-    if (!state.connected || !state.composer || state.pendingAction) return;
+    if (!state.connected || !state.composer || state.pendingAction ||
+        state.pendingPastes.some(item => item.conversationId === state.openId && item.uploading)) return;
     const phase = state.composer.phase;
     if (phase !== "IDLE" && phase !== "WAITING") return;
     const drain = phase === "IDLE" && !state.text.trim() && !state.composer.attachments?.length && !state.generating && state.composer.queue?.length;
@@ -566,12 +568,54 @@ export const sync = {
   },
   attachmentTarget() {
     return state.connected && state.connectionId && state.composer?.seq === openSeq
-      ? { connectionId: state.connectionId, seq: openSeq } : null;
+      ? { connectionId: state.connectionId, seq: openSeq, conversationId: state.openId } : null;
+  },
+  pasteText(text, target = this.attachmentTarget()) {
+    return this.retainSandboxFiles([new File([text], "pasted-text.txt", { type: "text/plain" })], target);
+  },
+  retainSandboxFiles(files, target = this.attachmentTarget()) {
+    if (!target || !files.length) return false;
+    const current = this.attachmentTarget();
+    const selected = current && target.connectionId === current.connectionId && target.seq === current.seq &&
+      target.conversationId === current.conversationId;
+    const pending = files.map(file => ({ id: ++noticeId, file, target,
+      conversationId: target.conversationId, uploading: false }));
+    update({ pendingPastes: [...state.pendingPastes, ...pending] });
+    if (selected && state.composer?.sandboxAttachments && state.composer.phase === "IDLE") {
+      const upload = async () => { for (const item of pending) await this.retryPaste(item.id); };
+      upload();
+    }
+    return true;
+  },
+  async retryPaste(id) {
+    const paste = state.pendingPastes.find(item => item.id === id);
+    const target = this.attachmentTarget();
+    if (!paste || paste.uploading || !target || paste.conversationId !== state.openId ||
+        !state.composer?.sandboxAttachments || state.composer.phase !== "IDLE" ||
+        (paste.conversationId === null && (paste.target.connectionId !== target.connectionId || paste.target.seq !== target.seq))) return false;
+    // Retry is explicit. Bind it to the currently selected original conversation, never a new owner.
+    update({ pendingPastes: state.pendingPastes.map(item => item === paste ? { ...paste, uploading: true } : item) });
+    const uploaded = await this.uploadFiles([paste.file], "sandbox", target);
+    update({ pendingPastes: uploaded ? state.pendingPastes.filter(item => item.id !== id)
+      : state.pendingPastes.map(item => item.id === id ? { ...item, uploading: false } : item) });
+    return uploaded;
+  },
+  downloadPaste(id) {
+    const paste = state.pendingPastes.find(item => item.id === id);
+    if (!paste) return;
+    const url = URL.createObjectURL(paste.file);
+    const link = document.createElement("a");
+    link.href = url; link.download = paste.file.name; link.click();
+    URL.revokeObjectURL(url);
+  },
+  discardPaste(id) {
+    update({ pendingPastes: state.pendingPastes.filter(item => item.id !== id) });
   },
   async uploadFiles(files, forcedType, target) {
-    if (!target || target.connectionId !== state.connectionId || !state.connected) return;
+    if (!target || target.connectionId !== state.connectionId || !state.connected) return false;
+    let succeeded = true;
     for (const file of files) {
-      if (target.connectionId !== state.connectionId || !state.connected) return;
+      if (target.connectionId !== state.connectionId || !state.connected) return false;
       const controller = new AbortController();
       uploads.add(controller);
       try {
@@ -583,11 +627,13 @@ export const sync = {
         });
         if (!response.ok) throw new Error(response.status === 413 ? t.fileTooLarge : t.fileLoadFailed);
       } catch (error) {
+        succeeded = false;
         if (error.name !== "AbortError" && target.connectionId === state.connectionId) {
           update({ snackbar: { id: ++noticeId, message: error.message } });
         }
       } finally { uploads.delete(controller); }
     }
+    return succeeded;
   },
   attachmentCommand(type, attachmentId, config = {}, target = this.attachmentTarget()) {
     if (!target || target.connectionId !== state.connectionId || target.seq !== openSeq ||

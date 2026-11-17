@@ -9,7 +9,7 @@ import { sync } from "./sync.js";
 import { Markdown } from "./markdown.js";
 
 export function AttachmentTile({ attachment: a, editable, onPreview }) {
-  const source = a.state === "READY" && !a.unavailable && a.storage === "APP_PRIVATE"
+  const source = a.state === "READY" && !a.unavailable
     ? a.type === "image" ? sync.attachmentUrl(a.id, "source") : a.type === "video" && a.framePreviewCount ? sync.attachmentUrl(a.id, "frame") : null : null;
   const decoder = useRef(null);
   const host = useRef(null);
@@ -21,7 +21,7 @@ export function AttachmentTile({ attachment: a, editable, onPreview }) {
   const decoded = !!source && loadedSource === source;
   const failed = !!source && failedSource === source;
   const [loading, setLoading] = useState(false);
-  const blocked = a.unavailable || a.storage !== "APP_PRIVATE";
+  const blocked = a.unavailable;
   const presentation = blocked ? "unavailable" : a.state === "PROCESSING" ? "import-loading"
     : a.state === "FAILED" ? "import-failed" : a.type === "file" || a.type === "pdf" ? "file"
     : a.type === "video" && !source ? "video" : failed ? "media-error" : decoded ? "media-success" : "media-loading";

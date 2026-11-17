@@ -212,7 +212,7 @@ internal class WebUiServer(
                     val rawSize = call.request.headers[HttpHeaders.ContentLength]
                     val size = rawSize?.toLongOrNull()
                     if (seq == null || name == null || (rawSize != null && (size == null || size < 0)) ||
-                        (forced != null && forced !in setOf("image", "video"))) {
+                        (forced != null && forced !in setOf("image", "video", "sandbox"))) {
                         return@post call.respond(HttpStatusCode.BadRequest)
                     }
                     if (size != null && size > com.newoether.agora.util.AttachmentFiles.MAX_ATTACHMENT_BYTES) {
@@ -274,7 +274,11 @@ internal class WebUiServer(
                     val token = call.request.cookies[SESSION_COOKIE] ?: return@get
                     val link = call.request.queryParameters["link"] ?: return@get call.respond(HttpStatusCode.NotFound)
                     val image = toolImages?.openMarkdown(call.parameters["conversationId"].orEmpty(),
-                        call.parameters["messageId"].orEmpty(), link) ?: return@get call.respond(HttpStatusCode.NotFound)
+                        call.parameters["messageId"].orEmpty(), link,
+                        sourceStart = call.request.queryParameters["start"]?.toIntOrNull() ?: 0,
+                        ordinal = call.request.queryParameters["ordinal"]?.toIntOrNull() ?: 0,
+                        document = call.request.queryParameters["document"] ?: "answer",
+                    ) ?: return@get call.respond(HttpStatusCode.NotFound)
                     if (!auth.isValidSession(token)) return@get call.respond(HttpStatusCode.Forbidden)
                     call.respondOutputStream(ContentType.parse(image.mimeType), contentLength = image.size) {
                         withContext(Dispatchers.IO) {

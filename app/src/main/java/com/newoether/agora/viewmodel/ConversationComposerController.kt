@@ -106,22 +106,15 @@ internal class ConversationComposerController(
                 }
                 val current = session.state.value
                 val revisionBeforeFreeze = session.durable.revision
-                val result = drafts.persist(
-                    ownerId, revisionBeforeFreeze, current.text, session.durable.attachments,
-                )
-                if (!result.succeeded) return@withLock null
-                if (!result.matchesRequested) {
+                if (!session.persistSubmissionSources(ownerId, drafts) {
                     reloadAndMergeLocked(ownerId, session)
-                    return@withLock null
-                }
-                session.durable = session.durable.copy(text = current.text, revision = result.revision)
-                session.publish(current.copy(revision = result.revision))
+                }) return@withLock null
                 session.frozenSubmissionId = requestId
                 // Preparation uses tap-time text. If newer text was already visible, accepted clear
                 // compares against the pre-persist revision and therefore preserves that edit.
                 session.state.value.copy(
                     text = text,
-                    revision = if (current.text != text) revisionBeforeFreeze else result.revision,
+                    revision = if (current.text != text) revisionBeforeFreeze else session.durable.revision,
                 )
             }
         }
@@ -132,6 +125,8 @@ internal class ConversationComposerController(
             session.mutex.withLock {
                 if (session.frozenSubmissionId != requestId) return@withLock false
                 session.frozenSubmissionId = null
+                session.ingressRetryVersion += 1L
+                session.publish(session.state.value)
                 true
             }
         }
@@ -189,7 +184,8 @@ internal class ConversationComposerController(
                 session.retainCount != 0 ||
                 session.commandCount != 0 ||
                 session.jobCount.get() != 0 ||
-                session.frozenSubmissionId != null
+                session.frozenSubmissionId != null ||
+                session.state.value.unsavedPastedSources(session.durable).isNotEmpty()
             ) {
                 return@withLock
             }
@@ -230,7 +226,18 @@ internal class ConversationComposerController(
                     "Attachment identity already belongs to this composer"
                 }
                 val processing = attachment.asProcessing()
-                session.transientAttachmentIds += attachment.localId
+                // Keep source ownership durable before a sandbox upload can be acknowledged.
+                if (processing.sourceText != null || processing.storage.isLocalSandbox) {
+                    when (session.persistSandboxSource(ownerId, processing, drafts) {
+                        reloadAndMergeLocked(ownerId, session)
+                    }) {
+                        SandboxSourceAdmission.REJECTED -> return@withLock false
+                        SandboxSourceAdmission.RECOVERY -> return@withLock true
+                        SandboxSourceAdmission.IMPORT -> Unit
+                    }
+                } else {
+                    session.transientAttachmentIds += attachment.localId
+                }
                 session.publish(session.state.value.copy(
                     attachments = session.state.value.attachments + processing,
                 ))
@@ -254,25 +261,16 @@ internal class ConversationComposerController(
     suspend fun persistText(ownerId: String, text: String): Boolean =
         withSession(ownerId) { session ->
             ensureLoaded(ownerId, session)
-            withContext(NonCancellable) {
-                session.mutex.withLock {
-                    val current = session.state.value
-                    if (current.text != text) return@withLock false
-                    val result = drafts.persist(
-                        conversationId = ownerId,
-                        expectedRevision = session.durable.revision,
-                        text = text,
-                        attachments = session.durable.attachments,
-                    )
-                    if (!result.succeeded) return@withLock false
-                    if (!result.matchesRequested) {
-                        reloadAndMergeLocked(ownerId, session)
-                        return@withLock false
-                    }
-                    session.durable = session.durable.copy(text = text, revision = result.revision)
-                    session.publish(session.state.value.copy(revision = result.revision))
-                    true
-                }
+            session.persistText(ownerId, text, drafts) {
+                reloadAndMergeLocked(ownerId, session)
+            }
+        }
+
+    suspend fun persistIngressText(ownerId: String, text: String): Boolean =
+        withSession(ownerId) { session ->
+            ensureLoaded(ownerId, session)
+            session.persistText(ownerId, text, drafts, replaceText = true) {
+                reloadAndMergeLocked(ownerId, session)
             }
         }
 

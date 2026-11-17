@@ -163,6 +163,7 @@ internal sealed interface WebSyncEvent {
         val advanced: JsonObject? = null,
         val compact: JsonObject? = null,
         val systemPrompt: JsonObject? = null,
+        val sandboxAttachments: Boolean = false,
     ) : WebSyncEvent
 
     /**

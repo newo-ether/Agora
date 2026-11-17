@@ -694,6 +694,7 @@
     <string name="context_part_free">Livre</string>
     <string name="context_part_reserved">Reservado</string>
     <string name="context_part_used">Usado</string>
+    <string name="ask_agora_action">Perguntar ao Agora</string>
     <string name="context_compact_streaming">Compactando contexto…</string>
     <string name="context_compact_error">Erro de compactação</string>
     <string name="context_compact_stopped">Compactação interrompida</string>

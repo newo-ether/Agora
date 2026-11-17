@@ -88,6 +88,9 @@ internal fun TimelineSegmentsContent(
                                 ) {
                                     CompositionLocalProvider(
                                         LocalSearchHighlightSpec provides answerSearchHighlight,
+                                        LocalMarkdownImageOrdinalOffset provides remember(message.id, answerOffset, message.text) {
+                                            shellMarkdownImageCount(message.text, answerOffset)
+                                        },
                                     ) {
                                         StreamingMarkdownMessage(
                                             content = presentedContent,

@@ -256,7 +256,7 @@ internal fun projectGenerationInputMessages(
     val projected = applyMessageTemplatesToMessages(
         messages = projectToolResultImagesToUserMessage(
             messages = projectAssistantImagesToLatestUserMessage(
-                projectAutomaticMessagesForApi(messages),
+                projectAutomaticMessagesForApi(messages.map(::projectSandboxGeneratedImages)),
                 includeImages,
             ),
             includeImages = includeImages,

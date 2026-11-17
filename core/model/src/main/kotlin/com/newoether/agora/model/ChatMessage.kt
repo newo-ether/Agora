@@ -38,6 +38,8 @@ typealias ToolImageAttachment = ImageArtifact
 data class MarkdownImage(
     val attachment: ToolImageAttachment? = null,
     val failed: Boolean = false,
+    /** First-read display snapshot marker; never used to revalidate model input. */
+    val snapshotSha256: String? = null,
 )
 
 @Immutable

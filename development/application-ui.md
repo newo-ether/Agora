@@ -263,17 +263,20 @@ long press must not introduce a one-frame opaque dim flash before the scrim fade
 ## 14. Composer clipboard images
 
 The Chat composer TextField participates in Compose Foundation receive-content dispatch for
-`image/*`. A clipboard paste may contribute one or multiple URI-backed images. Handled image items
-immediately enter the existing `ChatComposerState.onPickImages` private-copy, progress, rejection,
-preview, removal, draft, and send lifecycle; transient clipboard URIs are never persisted as the
-attachment's durable path.
+images and text. With Local Sandbox enabled and available, pasted text of at least 8,000 UTF-16
+code units becomes a UTF-8 `pasted-text.txt` attachment. Typing and shorter pastes retain native
+cursor replacement, undo, IME and accessibility behavior. The complete pasted source belongs to
+the captured draft owner until its immutable private staging file commits. Failure leaves a
+retryable attachment; it never silently inserts the source into inline Provider text. A failed
+draft write retains the source in the live owner and prevents sending until it can be saved.
+Clipboard admission rejection leaves the original clipboard unchanged and reports failure.
 
-Only supported image URI items are consumed. Text and every unsupported clipboard item are returned
-to the TextField/platform so native text paste, cursor replacement, selection, undo, IME, and
-accessibility behavior remain intact. A mixed clipboard payload can therefore insert its text at the
-current selection and add its images as attachments. MIME resolution is defensive and copy failure
-uses localized existing/new attachment rejection presentation without crashing or leaving a phantom
-attachment.
+A clipboard paste may also contribute one or multiple URI-backed images, and sandbox mode accepts
+other URI-backed files. Handled items enter the shared attachment import, rejection, removal,
+draft and send lifecycle; transient clipboard URIs are never the final attachment path.
+Short text and unsupported items return to the TextField/platform. Mixed short text and image
+payloads can insert text at the selection while adding attachments. MIME resolution is defensive;
+copy failure uses the existing localized attachment rejection presentation.
 
 ## 16. Drawer conversation-list loading and search progress
 
@@ -540,6 +543,26 @@ the outline, focus and error presentation. Digit filtering, defaults, minimum co
 Confirm disablement, the numeric keyboard, mode selection, extraction calculations and callbacks
 remain unchanged. This presentation rule does not change attachment-import ownership.
 
+Android's selected-text menu exposes the localized **Ask Agora** action through an exported
+`ACTION_PROCESS_TEXT` entry accepting `text/plain`. The entry forwards the selected CharSequence
+as plain text to the existing Agora task. Cold launch and `onNewIntent` use the same pending-request
+inbox; identical selections are separate actions, and saved-state restoration retains pending
+requests without replaying an already consumed launch. After the current conversation owner's
+draft is restored and switching has settled, the action appends the exact selected text to the
+Composer with a paragraph separator when needed. Existing draft text and attachments remain owned
+by the same Composer. The action synchronously saves the current text through that owner's serialized,
+revision-checked draft persistence before consuming its pending request; write failure retains the
+request. A later text edit, replacement TextField or recreated composition retries it; releasing the
+owner's frozen submission also retries pending ingress without requiring an edit. A request ID saved
+after that write
+prevents replay within that saved-state lineage. A fresh controller loading an older disk draft must
+reapply an uncommitted pending selection rather than trusting an earlier display-only marker.
+There is no durable request receipt: if Android restores saved state captured before a successful
+write, its still-pending request can append again to the newer disk draft. This action therefore does
+not promise exactly-once delivery across arbitrary stale saved-state/process-death boundaries.
+The action presents native chat and only prefills editable, unsent text: it neither submits a message
+nor invokes a Provider, and it never returns replacement text to the source application.
+
 Every Composer attachment enters one durable, conversation-owned import lifecycle at selection
 time. The attachment tile appears immediately, Agora copies the source into app-private staging,
 and all required image normalization, video frame extraction, PDF rendering, ordinary-file text
@@ -554,14 +577,46 @@ legacy row is upgraded to `PROCESSING` and re-enters staging/import instead of b
 omitted by Send. The existing `unavailable` value remains reserved for backup/import restoration
 when the attachment resource cannot be restored and never represents import failure.
 
-An image's `READY` private path is its final normalized artifact. The immutable staged image remains
-separate until the `READY` draft write succeeds, then becomes reclaimable. A crash after output
+An ordinary image's `READY` private path is its final normalized artifact. The immutable staged image
+remains separate until the `READY` draft write succeeds, then becomes reclaimable. A crash after output
 creation but before that write therefore restarts from the original staged bytes rather than
 compressing the output again. `READY` video frames, selected PDF page images, bounded ordinary-file
 text, and Local Sandbox paths are likewise complete import results. Send performs no decoding,
 scaling, compression, frame extraction, PDF rendering, file text read, or additional ownership copy.
 Provider file reads, Base64, JSON serialization, and upload remain request encoding after accepted
 input and are not attachment import work.
+
+When Local Sandbox is enabled and available at admission, every new attachment (including camera,
+picker, clipboard and browser image/PDF/video/text files) is a sandbox file. Import preserves the
+original bytes at `/home/agora/attachments/<id>/<name>`. Storage ownership does not bypass the ordinary
+attachment MIME classification, PDF page selection, video slicing, bounded text resolution, or
+Composer/message/full-screen/WebUI preview. Resolve freezes display data before `READY`: images
+receive a separate app-private byte-exact raster copy without re-encoding; PDF pages and video frames
+keep their completed derived artifacts, and text keeps its bounded resolved string. Unsupported files
+have no preview duplicate. `localPath` and `sandboxPath` continue to describe the editable original;
+all preview surfaces read the saved snapshot, including video frame browsing. Editing or deleting the
+Sandbox original does not replace or invalidate that snapshot. Send only serializes these completed
+results and never reads the original again. Provider requests carry only file metadata and the sandbox
+path, never resolved text or preview images; tools read the contents. Turning Sandbox off preserves
+legacy admission behavior and never changes existing draft/message storage identities. Sandbox
+failure stays visible and retryable with its original source; accepted sends clear only sandbox files
+actually accepted, leaving failed files in the exact draft owner. No failure silently falls back to
+inline Provider bytes or text.
+
+Deleting a message reclaims its unreferenced private preview snapshots while preserving accepted
+Sandbox originals. Abandoning an unsent attachment reclaims both its pending original and snapshots.
+Fork copies private snapshots and remaps their image/artifact references while preserving the original
+Sandbox descriptor. Conversation deletion owns the managed attachment directories through the durable
+conversation-directory claims; shared claims protect originals still owned by another conversation.
+Existing legacy previews are not reconstructed from a later version of an original.
+
+Before a sandbox picker or clipboard upload, WebUI retains each original browser `File` in the
+existing owner-bound recovery list, including long-text paste files. Only a successful upload
+acknowledgement removes that record. Failure keeps Retry, Download and Remove available without
+inline fallback. Picker results retain the owner captured when the picker opened; navigation,
+disconnect or a later Sandbox toggle cannot redirect them. Retry requires the original conversation;
+New Chat additionally requires its exact connection/workspace sequence. These browser recovery
+records survive navigation and disconnect in the current page, but not page reload or close.
 
 Each attachment tile has one canonical fixed-64-dp presentation Crossfade with a 200 ms duration.
 Its keyed states include a neutral initial frame, unavailable, import loading/failure, ready
@@ -1393,6 +1448,14 @@ removes its lookup and reclaims abandoned session attachments through the existi
 cleanup. Queued or sent attachments keep their canonical ownership. Reconnect never replays uploads.
 Session-local draft retention uses the shared AttachmentFiles lifecycle in section23; it never
 persists a browser draft into the phone's Room draft merely to protect files.
+Browser long pastes use the same 8,000-code-unit sandbox threshold as native. Uploads captured in
+sandbox mode carry an explicit sandbox route; if sandbox access becomes unavailable before server
+admission, reject the upload instead of reclassifying it as an inline ordinary file. A UTF-8 file copy
+stays in browser memory until upload succeeds. Transport failure/disconnect retains explicit retry,
+download and remove actions, without restoring the text to the inline input. Retry is bound to the
+original conversation; a different New Chat workspace cannot inherit it. Pending upload blocks Send
+until admission settles. Recovery copies survive navigation/reconnect but not closing/reloading the
+browser page. Successful server admission enters the ordinary sandbox draft/import lifecycle.
 The browser attachment menu follows Photos, Videos and Files; the owner removed its Camera entry.
 This browser-only menu difference does not change the native Compose attachment menu. Its Add entry is always
 enabled and phase/pending changes do not close it. Inner picker items and uploads retain exact-session
@@ -1409,8 +1472,9 @@ Only image loading delays its indicator by 200ms, including continuous import-to
 other import indicators appear immediately. Source replacement, retry and disposal fence prior
 callbacks. Removal, retry and authenticated preview admission retain the existing exact identities.
 Preview requests identify the authenticated live connection, captured selection sequence, attachment
-ID and artifact index, never a browser-supplied private file path. Files outside app-private storage,
-Local Sandbox assets, stale selections, unavailable attachments and revoked sessions are refused.
+ID and artifact index, never a browser-supplied private file path. Sandbox attachment previews use
+that same exact-owner admission and the app-private sandbox attachment root. Files outside the
+permitted private roots, stale selections, unavailable attachments and revoked sessions are refused.
 The same preview stream supports one HTTP byte range for native video playback and seeking. Range
 responses preserve authentication, file pinning, recorded-size bounds and revocation cancellation;
 they do not buffer a complete file or introduce another download endpoint.

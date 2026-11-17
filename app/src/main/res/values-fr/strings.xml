@@ -694,6 +694,7 @@
     <string name="context_part_free">Libre</string>
     <string name="context_part_reserved">Réservé</string>
     <string name="context_part_used">Utilisé</string>
+    <string name="ask_agora_action">Demander à Agora</string>
     <string name="context_compact_streaming">Compactage du contexte…</string>
     <string name="context_compact_error">Erreur de compactage</string>
     <string name="context_compact_stopped">Compactage arrêté</string>

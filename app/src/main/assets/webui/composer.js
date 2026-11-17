@@ -19,17 +19,15 @@ function contextUsagePercent(estimatedTokens, tokenBudget) {
 function contextShare(tokens, tokenBudget) {
   return tokenBudget <= 0 ? 0 : Math.min(100, tokens * 100 / tokenBudget);
 }
-/**
- * What a paste into the field contributes. Exactly one kind of clipboard item is consumed, an image:
- * text and anything unsupported go back to the platform, as on the phone, so caret, selection, undo,
- * IME and accessibility stay native and a mixed payload types its text at the caret while its images
- * become attachments beside it. A payload that carries no text at all is stopped, because otherwise a
- * browser may leave a bare file name where the image should have gone.
- */
-export function splitPaste(data) {
+export const SANDBOX_PASTE_MIN_CHARS = 8_000;
+/** Long sandbox text becomes a recoverable file; short text keeps native selection/undo. */
+export function splitPaste(data, sandboxAttachments = false) {
   const files = data?.files ? [...data.files] : [];
   const images = files.filter((file) => file.type?.startsWith("image/"));
-  return { images, toPlatform: images.length === 0 || Boolean(data.getData("text/plain")) };
+  const text = data?.getData("text/plain") ?? "";
+  const pastedText = sandboxAttachments && text.length >= SANDBOX_PASTE_MIN_CHARS ? text : null;
+  const attachments = sandboxAttachments ? files : images;
+  return { images, attachments, pastedText, toPlatform: !pastedText && (attachments.length === 0 || Boolean(text)) };
 }
 const CONTEXT_PART_LABEL = {
   system: t.contextPartSystem, tools: t.contextPartTools, messages: t.contextPartMessages,
@@ -118,6 +116,7 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
   const [addOpen, setAddOpen] = useState(false);
   const [retainedAdd, setRetainedAdd] = useState(false);
   const [viewer, setViewer] = useState(null);
+  const pendingPastes = (state.pendingPastes ?? []).filter(item => item.conversationId === state.openId);
   const attachments = state.composer?.attachments ?? [];
   const queue = state.composer?.queue ?? [];
   const queueKey = JSON.stringify(queue.map(item => item.id));
@@ -271,13 +270,13 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
   useEffect(() => { setAddOpen(false); }, [state.openId, state.connectionId]);
   const viewedId = viewer?.file?.id ?? viewer?.items?.[viewer.index]?.id;
   const currentViewer = viewer && viewer.connectionId === state.connectionId && viewer.seq === state.composer?.seq &&
-    attachments.some(a => a.id === viewedId && !a.unavailable && a.storage === "APP_PRIVATE");
+    attachments.some(a => a.id === viewedId && !a.unavailable);
   useEffect(() => { if (viewer && !currentViewer) setViewer(null); }, [viewer, currentViewer]);
   const pending = state.connected && phase === "IDLE" && (attachments.find(a => a.type === "pdf" && a.state === "PROCESSING" && a.pageCount > 0 && a.selectedPages == null)
     ?? attachments.find(a => a.type === "video" && a.state === "PROCESSING" && a.staged && a.frameCount == null));
   function choose(kind) {
     const node = picker.current;
-    pickerTarget.current = { target: sync.attachmentTarget(), forced: kind === "videos" ? "video" : kind === "files" ? null : "image" };
+    pickerTarget.current = { target: sync.attachmentTarget(), forced: state.composer?.sandboxAttachments ? "sandbox" : kind === "videos" ? "video" : kind === "files" ? null : "image" };
     node.accept = kind === "videos" ? "video/*" : kind === "files" ? "*/*" : "image/*";
     node.multiple = true;
     node.value = "";
@@ -286,11 +285,13 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
   }
   function preview(a) {
     const media = a.type === "pdf" ? Array.from({ length: a.pagePreviewCount }, (_, index) => ({ ...a, kind: "page", index }))
-      : attachments.filter(item => ["image", "video"].includes(item.type) && item.state === "READY" && !item.unavailable && item.storage === "APP_PRIVATE")
-        .map(item => ({ ...item, kind: "source", index: 0 }));
+      : attachments.filter(item => ["image", "video"].includes(item.type) && item.state === "READY" && !item.unavailable)
+        .flatMap(item => item.type === "video" && item.storage !== "APP_PRIVATE"
+          ? Array.from({ length: item.framePreviewCount || 0 }, (_, index) => ({ ...item, kind: "frame", index }))
+          : [{ ...item, kind: "source", index: 0 }]);
     setViewer({ ...sync.attachmentTarget(), ...(a.type === "file" ? { file: a } : { items: media, index: Math.max(0, media.findIndex(item => item.id === a.id)) }) });
   }
-  const actionable = composerReady && !state.pendingAction && !state.composer.stopping &&
+  const actionable = composerReady && !pendingPastes.some(item => item.uploading) && !state.pendingAction && !state.composer.stopping &&
     !["loading", "failed", "deleted"].includes(state.openStatus) &&
     (waiting || (phase === "IDLE" && (stop || ((state.text.trim() || attachments.length || canDrain) && state.composer.modelValid))));
   function submit() {
@@ -566,19 +567,34 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
         ${attachments.length > 0 && html`<div class="attachment-row" aria-label=${t.attachments}>
           ${attachments.map(a => html`<${AttachmentTile} key=${`${state.connectionId}:${state.composer.seq}:${a.id}`} attachment=${a} editable=${editable} onPreview=${() => preview(a)} />`)}
         </div>`}
+        ${pendingPastes.map(paste => html`<div class="queued-send" key=${paste.id} role="status">
+          <span class="queued-text">${paste.file.name} · ${paste.uploading ? t.loading : t.fileLoadFailed}</span>
+          <button type="button" disabled=${!editable || paste.uploading || !state.composer?.sandboxAttachments} onClick=${() => sync.retryPaste(paste.id)}>${t.retry}</button>
+          <button type="button" onClick=${() => sync.downloadPaste(paste.id)}>${t.download}</button>
+          <button type="button" aria-label=${t.remove} disabled=${paste.uploading} onClick=${() => sync.discardPaste(paste.id)}>${icon(ICON_CLOSE)}</button>
+        </div>`)}
         <input class="attachment-input" type="file" ref=${picker} onChange=${event => {
           const captured = pickerTarget.current;
-          if (captured) sync.uploadFiles([...event.currentTarget.files], captured.forced, captured.target);
+          if (captured) {
+            const files = [...event.currentTarget.files];
+            if (captured.forced === "sandbox") sync.retainSandboxFiles(files, captured.target);
+            else sync.uploadFiles(files, captured.forced, captured.target);
+          }
           event.currentTarget.value = "";
         }} />
         <div class="composer-field">
           <textarea ref=${field} rows="1" placeholder=${t.askAgora} aria-label=${t.askAgora}
             value=${state.text} onInput=${(event) => sync.edit(event.currentTarget.value)}
             onPaste=${(event) => {
-              const { images, toPlatform } = splitPaste(event.clipboardData);
-              if (!images.length) return;
+              if (!editable) return;
+              const { attachments: pastedFiles, pastedText, toPlatform } = splitPaste(event.clipboardData, state.composer?.sandboxAttachments);
               if (!toPlatform) event.preventDefault();
-              sync.uploadFiles(images, "image", sync.attachmentTarget());
+              const target = sync.attachmentTarget();
+              if (pastedText) sync.pasteText(pastedText, target);
+              if (pastedFiles.length) {
+                if (state.composer?.sandboxAttachments) sync.retainSandboxFiles(pastedFiles, target);
+                else sync.uploadFiles(pastedFiles, "image", target);
+              }
             }}
             oncompositionstart=${() => { composing.current = true; }} oncompositionend=${() => { composing.current = false; }}
             onKeyDown=${event => {

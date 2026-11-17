@@ -16,7 +16,7 @@ class ImageGenPendingImagesTest {
         val httpClient = source("api/HttpClient.kt", module = "provider/cloud")
 
         assertTrue(provider.contains("override fun executeEvents("))
-        assertTrue(provider.contains("images = listOfNotNull(textAndImage.second)"))
+        assertTrue(provider.contains("images = outputs.toList()"))
         assertTrue(provider.contains("imageStore.persistGeneratedBytes("))
         assertTrue(provider.contains("callTimeoutMillis = Constants.IMAGE_GENERATION_TIMEOUT_MS"))
         assertTrue(

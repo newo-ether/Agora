@@ -9,7 +9,7 @@ import com.newoether.agora.util.AttachmentFiles
 internal class ComposerOwnerSession {
     fun publish(snapshot: ConversationComposerSnapshot) {
         AttachmentFiles.setLivePaths(this, AttachmentFiles.ownedPaths(snapshot.attachments))
-        state.value = snapshot
+        state.value = snapshot.copy(ingressRetryVersion = ingressRetryVersion)
     }
     val mutex = Mutex()
     val state = kotlinx.coroutines.flow.MutableStateFlow(ConversationComposerSnapshot())
@@ -23,6 +23,7 @@ internal class ComposerOwnerSession {
     val generations = mutableMapOf<String, Long>()
     val jobs = mutableMapOf<String, Job>()
     var frozenSubmissionId: Long? = null
+    var ingressRetryVersion = 0L
 
     fun completeRemovalLocked(attachmentId: String) {
         transientAttachmentIds -= attachmentId

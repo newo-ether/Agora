@@ -288,6 +288,7 @@ internal fun rememberGenerationActivityDotBreathingScale(): Float {
 internal fun GenerationActivityDot(
     modifier: Modifier = Modifier,
     breathingScale: Float = rememberGenerationActivityDotBreathingScale(),
+    opacity: Float = 1f,
 ) {
     Box(
         modifier = modifier
@@ -298,7 +299,9 @@ internal fun GenerationActivityDot(
                 clip = false
             }
             .background(
-                color = MaterialTheme.colorScheme.onBackground,
+                color = MaterialTheme.colorScheme.onBackground.let {
+                    it.copy(alpha = it.alpha * opacity.coerceIn(0f, 1f))
+                },
                 shape = CircleShape,
             ),
     )

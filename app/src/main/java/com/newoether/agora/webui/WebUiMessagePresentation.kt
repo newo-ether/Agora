@@ -450,11 +450,22 @@ internal fun ChatMessage.toWeb(presentation: WebPresentation?, modelDisplay: Str
     },
     attachments = images.mapIndexed { index, path ->
         val meta = findMetaForIndex(attachmentMeta, index)
+        val occurrence = meta?.imageIndex?.let { meta.imageArtifacts.getOrNull(index - it) } ?: imageArtifacts[path]
         buildJsonObject {
             put("index", index)
             put("type", resolveAttachmentType(path, meta))
             put("fileName", meta?.fileName ?: path.substringAfterLast('/'))
-            put("unavailable", meta?.unavailable == true || meta?.storage?.canPreview == false)
+            put("unavailable", path.isBlank() || occurrence?.unavailable == true ||
+                meta?.storage?.canPreview == false ||
+                meta?.unavailable == true && meta.type !in listOf("pdf", "video"))
+        }
+    } + attachmentMeta?.items.orEmpty().filter { it.type == "file" }.mapIndexed { index, meta ->
+        buildJsonObject {
+            put("index", images.size + index)
+            put("type", "file")
+            put("fileName", meta.fileName.orEmpty())
+            put("unavailable", meta.unavailable || !meta.storage.canPreview)
+            meta.textContent?.let { put("text", it) }
         }
     },
 )

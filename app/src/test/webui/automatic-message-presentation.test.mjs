@@ -60,7 +60,7 @@ function harness(name = "UserBubble", language = "en-US") {
     MoreMenu() {}, DetailSheet() {}, AttachmentViewer() {}, CircularProgress() {}, Spinner() {},
     sync: { rowCommand(...args) { commands.push(args); return true; }, notify() {} },
   });
-  for (const file of ["icons.js", "i18n.js", "messages.js"]) {
+  for (const file of ["icons.js", "i18n.js", "message-actions.js", "message-collapse.js", "message-user.js"]) {
     vm.runInContext(prepare(source(file)), context, { filename: file });
   }
   function render(nextProps = props) {
@@ -99,6 +99,21 @@ function openMenu(f) {
 }
 const menuItem = (items, label) => items.find(node => node.type?.name === "RowMenuItem" && node.props.label === label);
 const mountedText = f => f.find(node => node.type === "div" && node.props.class === "user-text").ref.current;
+
+test("long ordinary input keeps the full copy body and attachment strip outside its viewport", () => {
+  const raw = Array.from({ length: 30 }, (_, index) => `Original line ${index}`).join("\n");
+  const f = bubble({ message: message({ text: { markdown: raw },
+    attachments: [{ index: 0, type: "file", fileName: "report.txt", unavailable: true }] }) });
+  const preview = f.component("CollapsibleMessageBody");
+  assert.ok(preview);
+  assert.equal(preview.props.messageKey, "row");
+  assert.equal(preview.props.searchActive, false);
+  assert.equal(mountedText(f).textContent, raw);
+  assert.equal(nodes(preview.props.children).some(node => node.props.class === "user-attachments"), false);
+  menuItem(openMenu(f), "Copy").props.onClick();
+  assert.equal(f.copied[0], raw);
+  f.dispose();
+});
 
 test("completion timeline has compact metadata only, without a hidden body or expansion action", () => {
   const f = bubble({ message: message({ source: receipt() }), search: { query: "hidden", matches: [], index: 0 },

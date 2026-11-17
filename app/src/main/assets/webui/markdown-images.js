@@ -19,8 +19,10 @@ function MarkdownImage({ url, label }) {
 }
 
 /** URLs carry message identity; the phone admits only destinations parsed from that message. */
-export function mountMarkdownImage(node, conversationId, messageId) {
-  const url = conversationId && messageId ? `/api/markdown-images/${encodeURIComponent(conversationId)}/${encodeURIComponent(messageId)}?link=${encodeURIComponent(node.dataset.shellImage)}` : null;
+export function mountMarkdownImage(node, conversationId, messageId, sourceStart = 0, document = "answer") {
+  const query = new URLSearchParams({ link: node.dataset.shellImage, start: String(sourceStart),
+    ordinal: node.dataset.imageOrdinal || "0", document });
+  const url = conversationId && messageId ? `/api/markdown-images/${encodeURIComponent(conversationId)}/${encodeURIComponent(messageId)}?${query}` : null;
   render(html`<${MarkdownImage} url=${url} label=${node.dataset.imageLabel || t.attachments} />`, node);
   return () => render(null, node);
 }

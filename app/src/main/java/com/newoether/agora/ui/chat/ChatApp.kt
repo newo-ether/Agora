@@ -75,7 +75,9 @@ fun ChatApp(
     onInitPdfSelection: ((Set<Int>) -> Unit)? = null,
     fullScreenViewerUrls: List<String>? = null,
     topLevelPresentation: TopLevelPresentation = TopLevelPresentation.CHAT,
-    onSnackbarOffsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {}
+    onSnackbarOffsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {},
+    processTextRequest: com.newoether.agora.ProcessTextRequest? = null,
+    onProcessTextConsumed: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -306,6 +308,16 @@ fun ChatApp(
         controller = viewModel.conversationComposer,
         viewModel = viewModel,
         textFieldState = textFieldState,
+    )
+    ProcessTextComposerEffect(
+        ownerId = composerOwnerId,
+        draftLoaded = composerSnapshot.loaded,
+        switching = isSwitching,
+        request = processTextRequest,
+        textFieldState = textFieldState,
+        onConsumed = onProcessTextConsumed,
+        persistText = viewModel.conversationComposer::persistIngressText,
+        ingressRetryVersion = composerSnapshot.ingressRetryVersion,
     )
 
     val animatedScrollRequest by viewModel.scrollRequests.request.collectAsState()

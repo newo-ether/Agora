@@ -30,6 +30,7 @@ internal fun webUiChatSessionSettings(): SettingsRepository = mockk<SettingsRepo
     every { openAiResponsesApiEnabled } returns MutableStateFlow(false)
     every { webSearchEnabled } returns MutableStateFlow(true)
     every { shellEnabled } returns MutableStateFlow(true)
+    every { sandboxEnabled } returns MutableStateFlow(false)
     every { localLowContextModeEnabled } returns MutableStateFlow(false)
     every { maxContextWindow } returns MutableStateFlow(32768)
     every { defaultTemperature } returns MutableStateFlow(null)

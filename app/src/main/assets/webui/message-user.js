@@ -1,6 +1,7 @@
 // User-message bodies preserve raw text, source labels, attachment occurrences and action state.
 import { useLayoutEffect, useRef, useState } from "./vendor/preact-hooks.mjs";
 import { html } from "./html.js";
+import { CollapsibleMessageBody } from "./message-collapse.js";
 import { highlightSearch } from "./markdown.js";
 import {
   icon, ICON_ACCOUNT_TREE, ICON_QUESTION_ANSWER, ICON_REPEAT, ICON_SCHEDULE,
@@ -82,7 +83,7 @@ export function UserBubble({ message, search, matches, reduceMotion, generating,
   const [failedImages, setFailedImages] = useState(new Set());
   const attachments = message.attachments ?? [];
   const media = attachments.filter(item => !item.unavailable && item.type !== "file").map(item => ({
-    ...item, name: item.fileName, kind: "source",
+    ...item, name: item.fileName, kind: item.type === "video" ? "frame" : item.type === "pdf" ? "page" : "source",
     url: `/api/message-attachments/${encodeURIComponent(conversationId)}/${encodeURIComponent(message.id)}/${item.index}`,
   }));
   const askUser = message.source?.kind === "ask_user" ? message.source.askUser : null;
@@ -129,13 +130,14 @@ export function UserBubble({ message, search, matches, reduceMotion, generating,
           ${attachments.length > 0 && html`<div class="user-attachments" data-body-gap=${hasBody}>
             ${attachments.map(item => {
               const index = media.findIndex(current => current.index === item.index);
-              const failed = item.unavailable || failedImages.has(item.index);
+              const file = item.type === "file";
+              const failed = item.unavailable || (!file && failedImages.has(item.index));
               // Captioned media keeps its filename outside the thumbnail's indication and hit box.
               const captioned = item.type === "file" || item.type === "pdf" || item.unavailable;
               const thumbnail = html`<button key=${item.index} class=${`user-attachment${captioned ? " captioned-thumbnail" : ""}`} type="button" title=${item.fileName}
-                aria-label=${item.fileName || t.attachments} disabled=${failed || index < 0}
-                onClick=${() => setPreview(index)}>
-                ${!failed && index >= 0 ? html`<img src=${media[index].url} alt=${item.fileName || t.attachments}
+                aria-label=${item.fileName || t.attachments} disabled=${failed || (file ? item.text == null : index < 0)}
+                onClick=${() => setPreview(file ? { file: { name: item.fileName, text: item.text } } : { items: media, index })}>
+                ${!file && !failed && index >= 0 ? html`<img src=${media[index].url} alt=${item.fileName || t.attachments}
                   onError=${() => setFailedImages(current => new Set([...current, item.index]))} />`
                   : html`<span class="attachment-missing">${icon(ICON_IMAGE)}</span>`}
               </button>`;
@@ -145,7 +147,8 @@ export function UserBubble({ message, search, matches, reduceMotion, generating,
             })}
           </div>`}
           ${result ? html`<${SubagentResult} result=${result} />`
-            : (hasText || askUser) && html`<div class="user-text" ref=${text}></div>`}
+            : (hasText || askUser) && html`<${CollapsibleMessageBody} key=${message.id} messageKey=${message.id}
+              searchActive=${!!search?.query.trim()} reduceMotion=${reduceMotion}><div class="user-text" ref=${text}></div></${CollapsibleMessageBody}>`}
         </div>
       </div>
       ${branchControl}
@@ -171,8 +174,8 @@ export function UserBubble({ message, search, matches, reduceMotion, generating,
         <div class="detail-sheet-select-text">${visible}</div>
       </${DetailSheet}>`}
       ${info && html`<${MessageInfoDialog} message=${message} onClose=${() => setInfo(false)} />`}
-      ${preview != null && html`<${AttachmentViewer} viewer=${{ items: media, index: preview }}
-        onNavigate=${setPreview} onClose=${() => setPreview(null)} />`}
+      ${preview != null && html`<${AttachmentViewer} viewer=${preview}
+        onNavigate=${index => setPreview(current => ({ ...current, index }))} onClose=${() => setPreview(null)} />`}
       ${editing && editable && html`<${MessageEditDialog} message=${message} canEdit=${canEdit} onClose=${() => setEditing(false)} />`}
     </div>`;
 }

@@ -78,8 +78,8 @@ internal fun projectProviderMessages(
         }
         val attachmentText = attachmentMeta?.items?.mapNotNull { item ->
             when {
-                item.storage.isLocalSandbox && !item.sandboxPath.isNullOrBlank() ->
-                    sandboxAttachmentInstruction(item)
+                item.storage.isLocalSandbox -> item.sandboxPath?.takeIf(String::isNotBlank)
+                    ?.let { sandboxAttachmentInstruction(item) }
                 item.textContent != null -> {
                     val label = item.fileName ?: "file"
                     "\n\n--- File: $label ---\n${item.textContent}"
@@ -91,11 +91,7 @@ internal fun projectProviderMessages(
                 else -> null
             }
         }?.joinToString("").orEmpty()
-        val media = if (includeStoredTranscriptions) {
-            withoutStoredTranscriptionImages(entity.images, attachmentMeta)
-        } else {
-            ProviderMediaProjection(entity.images, attachmentMeta)
-        }
+        val media = withoutStoredTranscriptionImages(entity.images, attachmentMeta, includeStoredTranscriptions)
         ChatMessage(
             id = entity.id,
             parentId = entity.parentId,
@@ -126,7 +122,7 @@ internal fun projectProviderMessages(
             runSequence = entity.runSequence,
             consumedAtPass = entity.consumedAtPass,
             source = MessageSource.decode(entity.sourceJson),
-        ).let { message ->
+        ).let(::projectSandboxGeneratedImages).let { message ->
             val projected = if (includeStoredTranscriptions) {
                 withoutStoredToolTranscriptionImages(message)
             } else message
@@ -173,11 +169,12 @@ private data class ProviderMediaProjection(
 private fun withoutStoredTranscriptionImages(
     images: List<String>,
     metadata: AttachmentMeta?,
+    includeStoredTranscriptions: Boolean,
 ): ProviderMediaProjection {
     if (metadata == null) return ProviderMediaProjection(images, null)
     val claimed = mutableSetOf<Int>()
     val ranges = metadata.items.map { item ->
-        if (item.storage.isLocalSandbox || item.type !in setOf("image", "pdf", "video")) {
+        if (item.type !in setOf("image", "pdf", "video")) {
             emptyList()
         } else {
             val start = item.imageIndex?.takeIf { it in images.indices }
@@ -199,15 +196,19 @@ private fun withoutStoredTranscriptionImages(
     }
     val describedItems = metadata.items.indices.filter { index ->
         val item = metadata.items[index]
-        !item.transcription.isNullOrBlank() && item.textContent == null &&
-            !item.storage.isLocalSandbox && item.type in setOf("image", "pdf", "video")
+        item.storage.isLocalSandbox || (includeStoredTranscriptions &&
+            !item.transcription.isNullOrBlank() && item.textContent == null &&
+            item.type in setOf("image", "pdf", "video"))
     }.toSet()
     if (describedItems.isEmpty()) return ProviderMediaProjection(images, metadata)
     val removed = describedItems.flatMap { ranges[it] }.toSet()
     val retained = images.indices.filterNot(removed::contains)
     val oldToNew = retained.withIndex().associate { it.value to it.index }
     val remapped = metadata.copy(items = metadata.items.mapIndexed { index, item ->
-        if (item.storage.isLocalSandbox || item.type !in setOf("image", "pdf", "video")) {
+        if (item.storage.isLocalSandbox) {
+            item.copy(originalUri = null, textContent = null, transcription = null,
+                imageIndex = null, pageCount = 0, imageArtifacts = emptyList())
+        } else if (item.type !in setOf("image", "pdf", "video")) {
             item
         } else {
             val remaining = if (index in describedItems) emptyList() else {

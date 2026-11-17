@@ -185,6 +185,57 @@ text-recovery batch follows the same publication rule even though no earlier str
 The batch executor's later per-call running updates do not own creation visibility. UI placeholders,
 delays, retries, or shadow Tool state must not substitute for this overlay publication boundary.
 
+`image_generate` reuses the selected Provider's captured protocol, effective Base URL, model ID
+and optional credential. OpenAI-compatible endpoints use JSON `/images/generations` for text-only
+requests and multipart `/images/edits` when ordered references are supplied. Google-protocol
+Providers use native Gemini `generateContent`, inline prepared image parts, `responseModalities`
+TEXT/IMAGE and optional `imageConfig.aspectRatio`/`imageSize`. Protocol selection comes from
+Provider configuration, not model-name guessing. Unsupported protocols fail before network work;
+no provider fallback or parameter-removal retry may spend another request. Empty API keys omit
+authentication headers so explicitly configured local image services work without dummy secrets.
+
+References use explicit server/path pairs. Local Sandbox requires enabled sandbox access; Conch
+requires enabled Shell access and a selected configured device. Both enter the same ToolImageStore
+processing boundary as other model images. Temporary prepared references are deleted after the
+call; original source files remain unchanged. OpenAI masks retain PNG alpha and must match the
+first prepared image's dimensions. Model arguments never contain reference-image Base64.
+OpenAI options are omitted unless supplied; Gemini rejects incompatible OpenAI controls before
+submission. Each request admits at most ten references and four output images, subject to lower
+model-specific limits; native Gemini accepts n=1. Every final response image is attached in wire
+order, excluding Gemini thought images. When Local Sandbox is enabled, ToolImageStore publishes
+prepared outputs directly under `/home/agora/attachments/generated_<id>/` through the existing
+SandboxManager path resolver. Tool result text includes ordered server/path, MIME, byte-length and
+measured-dimension descriptors so later edits and file tools can reuse them. ProviderMessageProjector
+and current-round request projection recognize this persisted descriptor and omit the generated
+`images`, `toolImages` and `resultImages` from Provider input. Tool result JSON retains its sandbox
+paths; Room segments and native/browser previews retain the prepared image artifacts. Canonical
+GenerationToolRoundBuilder persistence marks each generated preview image index with the existing
+`LOCAL_SANDBOX_RUNTIME` attachment storage in both the current path and Room. Deleting its message
+or conversation does not enqueue those runtime files for reclamation. The result descriptor remains
+the sole API-visible path; ownership metadata does not add a second attachment instruction. Legacy
+outputs without sandbox descriptors and later explicit `file_view_image` results retain their
+existing visual-input behavior. An unavailable sandbox
+fails before a generation request; it never silently falls back to private media storage.
+Failed or cancelled calls remove unpublished generated
+artifacts and temporary references. Image-provider credentials never accompany returned URL downloads.
+Generation JSON is byte-bounded, image downloads and decoded image ingress retain their byte bounds,
+and non-success responses expose bounded provider details. Neither these limits nor the existing
+shared image-quality settings establish a model's native resolution or API compatibility.
+
+Official protocol references: OpenAI image-generation guide, Gemini image-generation guide,
+Qwen/Qwen-Image-2.1 model card, vLLM-Omni's Qwen Image 2.1 recipe and ComfyUI server routes.
+vLLM-Omni documents JSON generation and multipart editing, but its repeated `image` field differs
+from Agora's `image[]`, and the recipe requires explicit `num_inference_steps=40` with
+`true_cfg_scale=1.0` and at most four references. Agora does not expose these sampling controls;
+direct compatibility is unverified. A configured Images compatibility adapter must translate
+fields, supply the documented sampling values, enforce the backend's reference bound and reject
+controls it cannot implement rather than discard them. A raw ComfyUI server instead needs a
+workflow adapter using upload/prompt/history/view routes. Agora does not install or start a model.
+Focused verification covers JSON/multipart/native Gemini request capture, reference ordering,
+optional local credentials, multi-image ordering and thought exclusion, invalid controls,
+provider errors, byte limits and cancellation cleanup. Paid upstream calls and real GPU serving
+remain separate, explicitly reported evidence.
+
 `image_generate` alone uses a 600,000 ms outer execution budget and the same 600,000 ms budget for
 its generation request and returned-image download. Every other Tool keeps its ordinary configured
 execution timeout. A successful image is persisted through `ToolImageStore` and returned in the

@@ -74,7 +74,7 @@ class WebUiConversationMenuTest {
         every { openTarget } returns this@WebUiConversationMenuTest.openTarget
         every { snackbars } returns MutableSharedFlow<String>(extraBufferCapacity = 4)
         every { scrollRequests } returns MutableSharedFlow<WebSyncEvent.ScrollToBottom>(extraBufferCapacity = 4)
-        every { composerState } returns MutableSharedFlow<WebUiChatSession.ComposerState>(extraBufferCapacity = 4)
+        every { composerState } returns MutableSharedFlow<WebUiComposerState>(extraBufferCapacity = 4)
         every { branchTransitions } returns transitions
         coEvery { rowCommand(any(), any(), any()) } just Runs
         every { openConversationId } answers { this@WebUiConversationMenuTest.openTarget.value.conversationId }

@@ -11,8 +11,8 @@ import java.io.InputStream
  * generation queue don't duplicate — and drift on — the same delete logic.
  *
  * Ownership rule: app-private copies remain reference-managed by drafts/messages. A Local Sandbox
- * copy is reclaimable only while it is pending; its Send transfer makes it a runtime asset that this
- * owner must never delete, even if a queued send or generation is later discarded.
+ * copy is reclaimable only while it is pending. Send transfers the original to its conversation;
+ * private preview snapshots remain reference-managed by drafts/messages.
  *
  * Never touches the original content:// [SelectedAttachment.uri] — that isn't ours to delete.
  */
@@ -57,10 +57,28 @@ object AttachmentFiles {
     }
 
     /** Called at the final unlink boundary, after the caller's durable reference check. */
-    internal fun deleteIfUnowned(file: File): Boolean = synchronized(ownershipLock) {
-        if (livePaths.values.any { file.canonicalPath in it }) return false
+    internal fun deleteIfUnowned(file: File): Boolean = withUnownedFile(file) {
         check(!file.exists() || file.delete()) { "Unable to delete attachment file" }
         true
+    }
+
+    /** Serializes live admission with a caller-supplied descriptor-relative exact unlink. */
+    internal fun withUnownedFile(file: File, action: () -> Boolean): Boolean = synchronized(ownershipLock) {
+        val absolute = file.absoluteFile.toPath().normalize().toString()
+        val canonical = file.canonicalPath
+        if (livePaths.values.any { absolute in it || canonical in it }) return false
+        action()
+    }
+
+    /** Keeps live-owner admission serialized with directory detachment and each safe unlink. */
+    internal fun withUnownedDirectory(directory: File, action: () -> Boolean): Boolean = synchronized(ownershipLock) {
+        val absolute = directory.absoluteFile.toPath().normalize().toString()
+        val canonical = directory.canonicalPath
+        if (livePaths.values.any { paths -> paths.any { path ->
+                path == absolute || path.startsWith(absolute + File.separator) ||
+                    path == canonical || path.startsWith(canonical + File.separator)
+            } }) return false
+        action()
     }
 
     internal fun ownedPaths(attachments: List<SelectedAttachment>): Set<String> = attachments
@@ -69,6 +87,23 @@ object AttachmentFiles {
                 attachment.preRenderedPaths.orEmpty() + attachment.imageArtifacts
                     .filterNot { it.unavailable }.map { it.path }).filter(String::isNotBlank)
         }
+
+    /** Runtime originals outlive messages; only their separate private previews are reclaimable. */
+    internal fun reclaimablePaths(attachment: SelectedAttachment): Set<String> =
+        if (attachment.storage.reclaimWhenAbandoned) ownedPaths(listOf(attachment))
+        else {
+            val original = attachment.localPath?.let(::canonicalAttachmentPath)
+            (attachment.processedFrames.orEmpty() + attachment.preRenderedPaths.orEmpty() +
+                attachment.imageArtifacts.filterNot { it.unavailable }.map { it.path })
+                .filter(String::isNotBlank)
+                .filterNot { canonicalAttachmentPath(it) == original || isSandboxAttachmentPath(it) }.toSet()
+        }
+
+    private fun canonicalAttachmentPath(path: String): String =
+        File(path.removePrefix("file://")).canonicalPath
+
+    internal fun isSandboxAttachmentPath(path: String): Boolean =
+        canonicalAttachmentPath(path).replace('\\', '/').contains("/sandbox-home/attachments/")
 
     const val MAX_ATTACHMENT_BYTES: Long = com.newoether.agora.model.ImageArtifactLimits.MAX_ATTACHMENT_BYTES
 
@@ -149,8 +184,7 @@ object AttachmentFiles {
     /** Delete every private file backing [att]: extracted video frames, rendered PDF pages, and the
      *  copied-to-private image/file. Best-effort and exception-safe per file. */
     fun deleteBacking(att: SelectedAttachment) {
-        if (!att.storage.reclaimWhenAbandoned) return
-        ownedPaths(listOf(att)).forEach(::deleteQuietly)
+        reclaimablePaths(att).forEach(::deleteQuietly)
         if (att.storage == AttachmentStorage.LOCAL_SANDBOX_PENDING) {
             att.localPath?.takeIf(String::isNotBlank)?.let(::deleteEmptyParent)
         }

@@ -560,17 +560,30 @@ object HttpClient {
         bodyText: String,
         headers: Map<String, String> = emptyMap(),
         callTimeoutMillis: Long? = null,
+    ): TextResponse = postBodyResponse(url, bodyText.toRequestBody(JSON), headers, callTimeoutMillis)
+
+    /** Buffered binary/multipart POST with the same cancellation and retry ownership as JSON. */
+    fun postBodyResponse(
+        url: String,
+        body: RequestBody,
+        headers: Map<String, String> = emptyMap(),
+        callTimeoutMillis: Long? = null,
+        readTimeoutMillis: Long? = null,
+        replaySafe: Boolean = true,
+        maxResponseBytes: Long? = null,
     ): TextResponse {
         guardCleartextCredentials(url, headers)
-        val body = bodyText.toRequestBody(JSON)
         val requestBuilder = Request.Builder().url(url).post(body)
         headers.forEach { (key, value) -> requestBuilder.addHeader(key, value) }
-        return executeBuffered(requestBuilder.build(), callTimeoutMillis) { response ->
-            TextResponse(
-                code = response.code,
-                body = response.body?.string().orEmpty(),
-                isSuccessful = response.isSuccessful,
-            )
+        return executeBuffered(requestBuilder.build(), callTimeoutMillis, readTimeoutMillis, replaySafe) { response ->
+            val responseBody = response.body
+            val text = if (responseBody == null) "" else if (maxResponseBytes == null) responseBody.string() else {
+                val limit = if (response.isSuccessful) maxResponseBytes else minOf(maxResponseBytes, 64L * 1024L)
+                val source = responseBody.source()
+                if (source.request(limit + 1L)) throw IOException("Image API response exceeds its byte bound")
+                source.readUtf8()
+            }
+            TextResponse(code = response.code, body = text, isSuccessful = response.isSuccessful)
         }
     }
 
@@ -621,12 +634,18 @@ object HttpClient {
         headers: Map<String, String> = emptyMap(),
         callTimeoutMillis: Long? = null,
         readTimeoutMillis: Long? = null,
+        maxBytes: Long? = null,
     ): ByteArray? {
         guardCleartextCredentials(url, headers)
         val requestBuilder = Request.Builder().url(url).get()
         headers.forEach { (k, v) -> requestBuilder.addHeader(k, v) }
         return executeBuffered(requestBuilder.build(), callTimeoutMillis, readTimeoutMillis) {
-            if (it.isSuccessful) it.body?.bytes() else null
+            if (!it.isSuccessful) return@executeBuffered null
+            val body = it.body ?: return@executeBuffered null
+            if (maxBytes != null && body.source().request(maxBytes + 1L)) {
+                throw IOException("Image download exceeds its byte bound")
+            }
+            body.bytes()
         }
     }
 }

@@ -25,7 +25,7 @@ enum class AttachmentStorage {
         get() = this != APP_PRIVATE
 
     val canPreview: Boolean
-        get() = !isLocalSandbox
+        get() = true
 
     val reclaimWhenAbandoned: Boolean
         get() = this != LOCAL_SANDBOX_RUNTIME
@@ -101,7 +101,15 @@ data class SelectedAttachment(
     val sandboxPath: String? = null,
     val importState: AttachmentImportState = AttachmentImportState.READY,
     val preparedText: String? = null,
+    /** Complete pasted source until staging commits; never projected into a Provider request. */
+    val sourceText: String? = null,
     val unavailable: Boolean = false,
     /** One measured artifact per image, page or frame, in the same order as its image range. */
     val imageArtifacts: List<ImageArtifact> = emptyList(),
 )
+
+/** Sandbox originals remain tool-editable; display reads the completed private image occurrence. */
+val SelectedAttachment.previewImagePath: String?
+    get() = if (storage.isLocalSandbox && type == "image") {
+        imageArtifacts.firstOrNull()?.path ?: localPath
+    } else localPath

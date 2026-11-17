@@ -118,6 +118,7 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
 .html-preview-host .code-header, .html-preview-fullscreen .code-header { flex-wrap: wrap; }
 .html-actions { display: flex; flex-wrap: wrap; margin-inline-start: auto; }
 .html-actions .html-action { margin-inline-start: 0; }
+.html-actions .html-action:disabled { opacity: .38; cursor: default; }
 .html-actions .primary { color: var(--md-primary); }
 .code-header { user-select: none; }
 .html-preview-viewport { position: relative; height: 360px; width: 100%; background: var(--md-surface-container-low); }

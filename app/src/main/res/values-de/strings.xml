@@ -694,6 +694,7 @@
     <string name="context_part_free">Frei</string>
     <string name="context_part_reserved">Reserviert</string>
     <string name="context_part_used">Verwendet</string>
+    <string name="ask_agora_action">Agora fragen</string>
     <string name="context_compact_streaming">Kontext wird komprimiert…</string>
     <string name="context_compact_error">Komprimierungsfehler</string>
     <string name="context_compact_stopped">Komprimierung gestoppt</string>

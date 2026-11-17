@@ -201,6 +201,7 @@
 .tool-search-url { margin-top: 6px; color: var(--md-primary); font-size: 11px; line-height: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .markdown-image-slot { display: block; width: min(300px, 100%); }
 .markdown-device-image { width: 100%; }
+.tool-image.markdown-device-image { border-radius: 16px; }
 .tool-images { display: grid; gap: 10px; margin-bottom: 12px; }
 .tool-image { position: relative; display: block; width: 100%; min-height: 140px; max-height: 420px; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: color-mix(in srgb, var(--md-surface-container-highest) 45%, transparent); }
 .tool-image.square { aspect-ratio: 1 !important; min-height: 0; max-height: none; }

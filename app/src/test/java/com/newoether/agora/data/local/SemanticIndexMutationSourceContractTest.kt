@@ -87,7 +87,23 @@ class SemanticIndexMutationSourceContractTest {
         }
         assertTrue(repository.contains("withSemanticTransaction(listOf(entity.id))"))
         assertTrue(repository.contains("withSemanticTransaction(staleMessageIds, at)"))
-        assertTrue(repository.contains("withSemanticTransaction(ids) { chatDao.deleteMessagesByIds(ids) }"))
+        assertTrue(repository.contains("suspend fun deleteMessagesByIds(ids: List<String>) = deleteMessagesWithAttachments(ids)"))
+        val attachmentMaintenance = source(
+            "app/src/main/java/com/newoether/agora/data/repository/ConversationAttachmentMaintenance.kt",
+        )
+        val messageDeletion = attachmentMaintenance.section(
+            "internal suspend fun ConversationRepository.deleteMessagesWithAttachments(ids: List<String>) {",
+            "\n}",
+        )
+        val deletionTransaction = messageDeletion.section("withSemanticTransaction(ids) {", "\n    }")
+        assertOrdered(
+            deletionTransaction,
+            "chatDao.getMessagesByIds(it)",
+            "claimMessageDirectories(messages)",
+            "chatDao.deleteMessagesByIds(ids)",
+            "enqueueMessageAttachmentDebt(messages.map { it.toAttachmentReference() })",
+        )
+        assertOrdered(messageDeletion, "withSemanticTransaction(ids) {", "\n    }", "scheduleMaintenance()")
         assertTrue(repository.contains("room.withSemanticSourceMutation"))
         assertTrue(repository.contains("room.withSemanticEligibilityMutation"))
         assertTrue(repository.contains("room.withSemanticGraphMutation"))

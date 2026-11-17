@@ -545,6 +545,7 @@ export function DetailSheet({ group, items, page, detailIndex, selectedItem, con
                 ${selectedItem.type === "transcription" && !selectedItem.content?.markdown
                   ? html`<p class="detail-sheet-empty">Image transcription is empty.</p>`
                   : html`<${Markdown} text=${selectedItem.content} variant="thought" wrap=${wrap}
+                      conversationId=${conversationId} messageId=${messageId} imageDocument=${`segment:${detailIndex}`}
                       streaming=${selectedItem.streaming} reduceMotion=${reduceMotion} />`}
               </div>`}
           </div>`}

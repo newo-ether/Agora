@@ -151,6 +151,54 @@ class MessageAttachmentCloneSessionTest {
         assertTrue(AttachmentFiles.releaseLivePaths(session).isEmpty())
     }
 
+    @Test
+    fun sandboxForkCopiesSnapshotAndKeepsOriginalDescriptorAcrossRollback() {
+        val original = temporaryFolder.newFile("sandbox-original.png").apply { writeText("editable original") }
+        val snapshot = temporaryFolder.newFile("img_snapshot.png").apply { writeText("frozen preview") }
+        val item = AttachmentItem(type = "image", imageIndex = 0, originalUri = "file://${original.path}",
+            storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_RUNTIME,
+            sandboxPath = "/home/agora/attachments/id/original.png", imageArtifacts = listOf(artifact(snapshot.path)))
+        val session = MessageAttachmentCloneSession(temporaryFolder.newFolder("sandbox-fork"))
+        try {
+            val cloned = session.cloneMessage(message(snapshot, Json.encodeToString(AttachmentMeta(listOf(item)))))
+            val copied = cloned.images.single()
+            val metadata = Json.decodeFromString<AttachmentMeta>(cloned.attachmentMeta!!).items.single()
+            assertNotEquals(snapshot.path, copied)
+            assertEquals(item.copy(imageArtifacts = listOf(artifact(copied))), metadata)
+            assertEquals("frozen preview", File(copied).readText())
+            original.writeText("changed by tool")
+            assertEquals("frozen preview", File(copied).readText())
+            session.rollback()
+            assertFalse(File(copied).exists())
+            assertEquals("frozen preview", snapshot.readText())
+            assertEquals("changed by tool", original.readText())
+        } finally {
+            session.rollback()
+        }
+    }
+
+    @Test
+    fun sandboxForkPreservesReadablePagesWhenAnotherPageIsUnavailable() {
+        val snapshot = temporaryFolder.newFile("pdf_readable.png").apply { writeText("page") }
+        val artifacts = listOf(artifact("").copy(unavailable = true), artifact(snapshot.path))
+        val item = AttachmentItem(type = "pdf", imageIndex = 0, pageCount = 2, unavailable = true,
+            storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_RUNTIME,
+            sandboxPath = "/home/agora/attachments/id/document.pdf", imageArtifacts = artifacts)
+        val session = MessageAttachmentCloneSession(temporaryFolder.newFolder("mixed-sandbox-fork"))
+        try {
+            val cloned = session.cloneMessage(message(snapshot, Json.encodeToString(AttachmentMeta(listOf(item))))
+                .copy(images = listOf("", snapshot.path)))
+            val metadata = Json.decodeFromString<AttachmentMeta>(cloned.attachmentMeta!!).items.single()
+            assertTrue(metadata.imageArtifacts.first().unavailable)
+            assertEquals(cloned.images.last(), metadata.imageArtifacts.last().path)
+            assertFalse(metadata.imageArtifacts.last().unavailable)
+            assertEquals("page", File(cloned.images.last()).readText())
+            assertEquals(item.sandboxPath, metadata.sandboxPath)
+        } finally {
+            session.rollback()
+        }
+    }
+
     private fun artifact(path: String) = ImageArtifact(
         path = path, mimeType = "image/png", sizeBytes = 5, width = 320, height = 240,
         policyVersion = 1,

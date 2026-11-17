@@ -150,6 +150,7 @@ internal fun rememberChatMarkdownAssets(
     onMediaClick: (List<String>, Int) -> Unit = { _, _ -> },
     preparedMarkdown: Map<String, com.mikepenz.markdown.model.State.Success> = emptyMap(),
     autoWrapCodeBlocks: Boolean = true,
+    imageOwnerId: String? = null,
 ): ChatMarkdownAssets {
     val linkColor = MaterialTheme.colorScheme.primary
     val linkTextStyles = remember(linkColor) { chatLinkTextStyles(linkColor) }
@@ -395,13 +396,14 @@ internal fun rememberChatMarkdownAssets(
 
     val latexTextSize = with(LocalDensity.current) { 20.sp.toPx() }
     val shellMedia = LocalShellMarkdownMedia.current
-    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick, latexTextSize, shellMedia) {
+    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick, latexTextSize, shellMedia, imageOwnerId) {
         LatexImageTransformer(
             textSize = latexTextSize,
             color = textColor.toArgb(),
             inlineImages = inlineImages,
             onMediaClick = onMediaClick,
             shellMedia = shellMedia,
+            imageOwnerId = imageOwnerId,
         )
     }
     val markdownFlavour = remember { GFMFlavourDescriptor() }

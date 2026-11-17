@@ -141,6 +141,7 @@ internal fun MessageSegmentDetailHost(
         textColor = MaterialTheme.colorScheme.onSurface,
         parseInlineDollarMath = parseInlineDollarMath,
         autoWrapCodeBlocks = autoWrapCodeBlocks,
+        imageOwnerId = message.id,
     ).thoughtRenderContext
 
     SegmentDetailSheet(
@@ -421,6 +422,7 @@ internal fun SegmentDetailSheet(
                                             bottom = 32.dp,
                                         ),
                                         onReady = onReady,
+                                        imageDocument = "segment:$selectedLiveIndex",
                                     )
                                 }
                             }
@@ -501,6 +503,7 @@ internal fun SegmentDetailSheet(
                                                     content = detailSeg.content,
                                                     isStreaming = detailIsStreaming,
                                                     renderContext = markdownRenderContext,
+                                                    imageDocument = "segment:$detailIndex",
                                                 )
                                             }
                                         }
@@ -562,6 +565,8 @@ internal fun SegmentDetailSheet(
                                             content = seg.content,
                                             isStreaming = isStreaming,
                                             renderContext = markdownRenderContext,
+                                            imageDocument = if (directMarkdownContent != null) "answer"
+                                                else "segment:$selectedLiveIndex",
                                             emptyStreamingText = emptyStreamingText,
                                         )
                                     }
@@ -687,24 +692,29 @@ private fun StreamingDetailMarkdownReveal(
     content: String,
     isStreaming: Boolean,
     renderContext: ChatMarkdownRenderContext,
+    imageDocument: String,
     emptyStreamingText: String? = null,
 ) {
     DetailContentReveal(
         revealKey = revealKey,
         modifier = Modifier.fillMaxWidth(),
     ) { revealModifier, onReady ->
-        StreamingMarkdownMessage(
-            content = content,
-            isStreaming = isStreaming,
-            renderContext = renderContext,
-            modifier = revealModifier
-                .fillMaxWidth()
-                .onSizeChanged { size ->
-                    if (size.height > 0 || content.isEmpty()) onReady()
-                },
-            selectionEnabled = !isStreaming,
-            emptyStreamingText = emptyStreamingText,
-        )
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalMarkdownImageDocument provides imageDocument,
+        ) {
+            StreamingMarkdownMessage(
+                content = content,
+                isStreaming = isStreaming,
+                renderContext = renderContext,
+                modifier = revealModifier
+                    .fillMaxWidth()
+                    .onSizeChanged { size ->
+                        if (size.height > 0 || content.isEmpty()) onReady()
+                    },
+                selectionEnabled = !isStreaming,
+                emptyStreamingText = emptyStreamingText,
+            )
+        }
     }
 }
 

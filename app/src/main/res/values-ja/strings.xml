@@ -694,6 +694,7 @@
     <string name="context_part_free">空き</string>
     <string name="context_part_reserved">予約済み</string>
     <string name="context_part_used">使用済み</string>
+    <string name="ask_agora_action">Agora に質問</string>
     <string name="context_compact_streaming">コンテキストを圧縮中…</string>
     <string name="context_compact_error">圧縮エラー</string>
     <string name="context_compact_stopped">圧縮を停止しました</string>

@@ -327,13 +327,15 @@ data class MessageStreamCheckpoint(
 
 /** Attachment-only projection used by sweeps and media export.
  *
- * These callers do not need message bodies, thoughts, or tool payloads. Returning a full
+ * These callers do not need message bodies or thoughts. Tool segments are included only for
+ * strict generated-original descriptor ownership. Returning a full
  * [MessageEntity] for every row can otherwise expand a large database past Android's heap limit.
  */
 data class MessageAttachmentReference(
     val id: String,
     val images: List<String>,
     val attachmentMeta: String? = null,
+    val toolCallJson: String? = null,
 )
 
 /** Minimal payload needed to generate an embedding. */

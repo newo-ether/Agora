@@ -86,7 +86,12 @@ internal fun cloneAttachmentMeta(
     val meta = cloneJson.decodeFromString<AttachmentMeta>(raw)
     return cloneJson.encodeToString(
         meta.copy(items = meta.items.map { item ->
-            if (!item.storage.reclaimWhenAbandoned) return@map item
+            if (!item.storage.reclaimWhenAbandoned) return@map item.copy(
+                imageArtifacts = item.imageArtifacts.map { artifact ->
+                    if (item.unavailable && item.type == "image") artifact.asUnavailablePlaceholder()
+                    else artifact.cloneArtifact(cloneBackingPath)
+                },
+            )
             val uri = item.originalUri
             val original = when {
                 item.unavailable -> null

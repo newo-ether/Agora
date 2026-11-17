@@ -189,7 +189,9 @@ class GenerationRequestBuilder(
 
     private fun resolveImageGenBaseUrl(model: String?): String {
         model ?: return ""
-        return providerRegistry.getEffectiveBaseUrl(providerRegistry.providerForModel(model)) ?: ""
+        val provider = providerRegistry.providerForModel(model)
+        return providerRegistry.getEffectiveBaseUrl(provider)
+            ?: providerRegistry.getInstanceOrNull(provider)?.defaultBaseUrl.orEmpty()
     }
 
     fun buildEffectiveConversationSettings(conversationId: String): ConversationSettings {
@@ -579,6 +581,15 @@ class GenerationRequestBuilder(
             askUserTimeoutMinutes = settings.askUserTimeoutMinutes.value,
             imageGenApiKey = resolveImageGenApiKey(imageGenModel),
             imageGenBaseUrl = resolveImageGenBaseUrl(imageGenModel),
+            imageGenProtocol = imageGenModel?.let { selected ->
+                val provider = providerRegistry.providerForModel(selected)
+                settings.customProviders.value.firstOrNull { it.name == provider || it.ownsIdentity(provider) }?.protocol?.wireValue
+                    ?: when (provider) {
+                        Constants.PROVIDER_GOOGLE -> "google"
+                        Constants.PROVIDER_LOCAL, Constants.PROVIDER_ANTHROPIC -> "unsupported"
+                        else -> "openai"
+                    }
+            } ?: "openai",
             imageGenModel = resolveImageGenModelId(imageGenModel),
             imageGenSize = settings.imageGenSize.value,
             automationToolsEnabled = settings.automationToolsEnabled.value,

@@ -307,6 +307,7 @@ internal fun ChatCodeBlockHeader(
     enabled: Boolean = true,
     canCopy: () -> Boolean = { true },
     copyModifier: Modifier = Modifier,
+    showCopy: Boolean = true,
     actions: @Composable () -> Unit = {},
     trailingActions: @Composable () -> Unit = {},
 ) {
@@ -334,7 +335,7 @@ internal fun ChatCodeBlockHeader(
                     horizontalArrangement = Arrangement.End,
                 ) {
                     actions()
-                    ChatCodeBlockAction(
+                    if (showCopy) ChatCodeBlockAction(
                         icon = Icons.Default.ContentCopy,
                         label = stringResource(R.string.copy),
                         enabled = enabled,

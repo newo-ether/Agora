@@ -76,7 +76,7 @@ internal fun MarkdownImageThumbnail(link: String, image: MarkdownImage, onClick:
     val background = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
     Box(
         modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth().aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp)).background(background),
+            .clip(RoundedCornerShape(16.dp)).background(background),
         contentAlignment = Alignment.Center,
     ) {
         if (request != null) Image(
@@ -121,7 +121,7 @@ internal fun MarkdownImageThumbnail(link: String, image: MarkdownImage, onClick:
 internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
     val link = markdownImageLink(model.content, model.node, LocalReferenceLinkHandler.current)
     if (link != null && (LocalImageTransformer.current as? LatexImageTransformer)
-            ?.renderInlineImage(link) == true) return
+            ?.renderInlineImage(link, LocalMarkdownImageOccurrences.current[model.node]) == true) return
     // Any formula on its own line, display or inline promoted out of its paragraph, is one
     // selectable unit that copies its source.
     val latexSource = link?.let(::latexSourceForLink)
@@ -134,7 +134,9 @@ internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
 
 @Composable
 internal fun ChatMarkdownInlineImage(model: MarkdownComponentModel) {
-    if ((LocalImageTransformer.current as? LatexImageTransformer)?.renderInlineImage(model.content) != true) {
+    // Inline callbacks receive the resolved URL, while the node retains document offsets.
+    if ((LocalImageTransformer.current as? LatexImageTransformer)
+            ?.renderInlineImage(model.content, LocalMarkdownImageOccurrences.current[model.node]) != true) {
         MarkdownInlineImage(model.content, model.node)
     }
 }
