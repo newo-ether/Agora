@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">صندوق رمل محلي</string>
     <string name="sandbox_enable">تفعيل الصندوق الرملي المحلي</string>
-    <string name="sandbox_enable_desc">تشغيل الأوامر في Alpine Linux معزول على الجهاز</string>
+    <string name="sandbox_enable_desc">تشغيل الأوامر في بيئة Linux معزولة على الجهاز</string>
     <string name="shell_device_host">مضيف SSH</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">المنفذ</string>
@@ -295,12 +295,12 @@
     <string name="sandbox_package_name">اسم الحزمة</string>
     <string name="sandbox_quick_install">تثبيت سريع</string>
     <string name="sandbox_installed">الحزم المثبتة</string>
-    <string name="sandbox_no_packages">لا توجد حزم مثبتة. قاعدة Alpine فقط.</string>
+    <string name="sandbox_no_packages">لا توجد حزم مثبتة لعرضها.</string>
     <string name="sandbox_danger_zone">منطقة الخطر</string>
     <string name="sandbox_reset">إعادة تعيين البيئة</string>
     <string name="sandbox_reset_title">إعادة تعيين البيئة؟</string>
-    <string name="sandbox_reset_desc">إزالة نظام ملفات Alpine الجذري وجميع الحزم</string>
-    <string name="sandbox_reset_confirm">سيؤدي هذا إلى حذف نظام ملفات Alpine Linux الجذري وجميع الحزم المثبتة. لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="sandbox_reset_desc">حذف نظام Linux المحدد وحزمه المثبتة</string>
+    <string name="sandbox_reset_confirm">سيتم حذف نظام Linux المحدد وحزمه المثبتة. ستبقى ملفات المجلد الشخصي المشترك والتوزيعات الأخرى. لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="sandbox_not_supported">الصندوق الرملي المحلي غير مدعوم</string>
     <string name="sandbox_snackbar_installed">تم تثبيت %s</string>
     <string name="sandbox_snackbar_install_failed">فشل تثبيت %s</string>
@@ -314,8 +314,8 @@
     <string name="sandbox_snackbar_error">خطأ: %s</string>
     <string name="sandbox_not_supported_desc">هذه الميزة غير متاحة في هذا الإصدار</string>
     <string name="sandbox_not_installed">غير مثبت</string>
-    <string name="sandbox_extracting_rootfs">جارٍ استخراج نظام ملفات Alpine الجذري...</string>
-    <string name="sandbox_downloading_rootfs">جارٍ تنزيل نظام ملفات Alpine الجذري… %d%%</string>
+    <string name="sandbox_extracting_rootfs">جارٍ استخراج نظام Linux...</string>
+    <string name="sandbox_downloading_rootfs">جارٍ تنزيل نظام Linux… %d%%</string>
     <string name="sandbox_install_failed">فشل التثبيت</string>
     <string name="sandbox_installed_label">مثبت</string>
     <string name="sandbox_failed_label">فشل</string>

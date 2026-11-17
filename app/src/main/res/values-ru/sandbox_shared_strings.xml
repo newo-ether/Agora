@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">Включено · требуется доступ к хранилищу</string>
     <string name="sandbox_shared_storage_grant">Предоставить доступ к хранилищу</string>
     <string name="sandbox_shared_storage_warning">Команды песочницы смогут читать и изменять фотографии, загрузки и другие общие файлы. Для изменяющих вызовов инструментов требуется подтверждение.</string>
+    <string name="sandbox_distribution">Дистрибутив</string>
+    <string name="sandbox_distribution_desc">Выберите окружение Linux и при необходимости установите его отдельно.</string>
+    <string name="sandbox_distribution_busy">Перед сменой дистрибутива остановите задания песочницы и дождитесь завершения текущих операций.</string>
+    <string name="sandbox_distribution_switch_failed">Не удалось сменить дистрибутив. Повторите попытку.</string>
 </resources>

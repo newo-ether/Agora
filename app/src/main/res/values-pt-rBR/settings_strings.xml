@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Sandbox local</string>
     <string name="sandbox_enable">Ativar sandbox local</string>
-    <string name="sandbox_enable_desc">Executar comandos em um Alpine Linux isolado no dispositivo</string>
+    <string name="sandbox_enable_desc">Executar comandos em um ambiente Linux isolado no dispositivo</string>
     <string name="shell_device_host">Host SSH</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Porta</string>
@@ -295,12 +295,12 @@
     <string name="sandbox_package_name">Nome do pacote</string>
     <string name="sandbox_quick_install">Instalação rápida</string>
     <string name="sandbox_installed">Pacotes instalados</string>
-    <string name="sandbox_no_packages">Nenhum pacote instalado. Apenas a base do Alpine.</string>
+    <string name="sandbox_no_packages">Nenhum pacote instalado para exibir.</string>
     <string name="sandbox_danger_zone">Zona de perigo</string>
     <string name="sandbox_reset">Redefinir ambiente</string>
     <string name="sandbox_reset_title">Redefinir ambiente?</string>
-    <string name="sandbox_reset_desc">Remover o rootfs do Alpine e todos os pacotes</string>
-    <string name="sandbox_reset_confirm">Isso excluirá o rootfs do Alpine Linux e todos os pacotes instalados. Esta ação não pode ser desfeita.</string>
+    <string name="sandbox_reset_desc">Excluir o sistema Linux selecionado e seus pacotes instalados</string>
+    <string name="sandbox_reset_confirm">O sistema Linux selecionado e seus pacotes instalados serão excluídos. Os arquivos da pasta pessoal compartilhada e as outras distribuições serão mantidos. Esta ação não pode ser desfeita.</string>
     <string name="sandbox_not_supported">Sandbox local não suportado</string>
     <string name="sandbox_snackbar_installed">%s instalado</string>
     <string name="sandbox_snackbar_install_failed">Falha ao instalar %s</string>
@@ -314,8 +314,8 @@
     <string name="sandbox_snackbar_error">Erro: %s</string>
     <string name="sandbox_not_supported_desc">Este recurso não está disponível na build atual</string>
     <string name="sandbox_not_installed">Não instalado</string>
-    <string name="sandbox_extracting_rootfs">Extraindo o rootfs do Alpine...</string>
-    <string name="sandbox_downloading_rootfs">Baixando o rootfs do Alpine… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Extraindo o sistema Linux...</string>
+    <string name="sandbox_downloading_rootfs">Baixando o sistema Linux… %d%%</string>
     <string name="sandbox_install_failed">Falha na instalação</string>
     <string name="sandbox_installed_label">Instalado</string>
     <string name="sandbox_failed_label">Falhou</string>

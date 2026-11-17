@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Bac à sable local</string>
     <string name="sandbox_enable">Activer le bac à sable local</string>
-    <string name="sandbox_enable_desc">Exécuter des commandes dans un Alpine Linux isolé sur l\'appareil</string>
+    <string name="sandbox_enable_desc">Exécuter des commandes dans un environnement Linux isolé sur l\'appareil</string>
     <string name="shell_device_host">Hôte SSH</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Port</string>
@@ -295,12 +295,12 @@
     <string name="sandbox_package_name">Nom du paquet</string>
     <string name="sandbox_quick_install">Installation rapide</string>
     <string name="sandbox_installed">Paquets installés</string>
-    <string name="sandbox_no_packages">Aucun paquet installé. Base Alpine uniquement.</string>
+    <string name="sandbox_no_packages">Aucun paquet installé à afficher.</string>
     <string name="sandbox_danger_zone">Zone de danger</string>
     <string name="sandbox_reset">Réinitialiser l\'environnement</string>
     <string name="sandbox_reset_title">Réinitialiser l\'environnement ?</string>
-    <string name="sandbox_reset_desc">Supprimer le rootfs Alpine et tous les paquets</string>
-    <string name="sandbox_reset_confirm">Cela supprimera le rootfs Alpine Linux et tous les paquets installés. Cette action est irréversible.</string>
+    <string name="sandbox_reset_desc">Supprimer le système Linux sélectionné et ses paquets installés</string>
+    <string name="sandbox_reset_confirm">Le système Linux sélectionné et ses paquets installés seront supprimés. Les fichiers du dossier personnel partagé et les autres distributions seront conservés. Cette action est irréversible.</string>
     <string name="sandbox_not_supported">Bac à sable local non pris en charge</string>
     <string name="sandbox_snackbar_installed">%s installé</string>
     <string name="sandbox_snackbar_install_failed">Échec de l\'installation de %s</string>
@@ -314,8 +314,8 @@
     <string name="sandbox_snackbar_error">Erreur : %s</string>
     <string name="sandbox_not_supported_desc">Cette fonctionnalité n\'est pas disponible dans la version actuelle</string>
     <string name="sandbox_not_installed">Non installé</string>
-    <string name="sandbox_extracting_rootfs">Extraction du rootfs Alpine...</string>
-    <string name="sandbox_downloading_rootfs">Téléchargement du rootfs Alpine… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Extraction du système Linux...</string>
+    <string name="sandbox_downloading_rootfs">Téléchargement du système Linux… %d%%</string>
     <string name="sandbox_install_failed">Échec de l\'installation</string>
     <string name="sandbox_installed_label">Installé</string>
     <string name="sandbox_failed_label">Échec</string>

@@ -91,6 +91,30 @@ layout, states, density, or interaction design has been approved.
   There is no Save action or save-on-exit draft. The existing Generation scaffold/navigation and
   shared SettingsGroup own spacing and navigation. All supported locales define the complete copy.
 
+## Sandbox distributions
+
+The F-Droid sandbox supports Alpine, Debian and Ubuntu arm64 userlands. Existing installations
+remain on Alpine by default without moving or deleting their root filesystem. Each distribution
+retains its own root filesystem and installed packages; the existing `/home/agora` directory and
+optional `/mnt/shared` mount remain shared. Exactly one distribution is selected globally.
+Selection is device-local sandbox state and is not included in portable settings archives.
+
+The Environment group starts with an immediate-apply Distribution SettingsItem. Reuse the
+Appearance-style AgoraDropdownMenu and selected checkmark, with a leading terminal icon, a title,
+a supporting explanation and the selected distribution value. No Save action is shown. Selection
+of an uninstalled distribution shows the existing Install action and never starts a download by
+itself. Installed distributions show their own package list, version and quick-install packages.
+Changing distribution clears stale operation output and package projections. Installation and
+package work disable selection; the backend also refuses a switch while shell jobs or filesystem
+mutations are active. A refused switch leaves the persisted selection unchanged and reports why.
+
+Reset deletes only the selected distribution's system and installed packages after existing job
+settlement. Its confirmation states that shared home files and other distributions remain intact.
+Installation verifies a pinned archive before extraction, stages a complete filesystem before
+publication, and never overwrites an existing system to recover from an error. The existing
+scaffold, groups, dashboard, storage display, file access and documentation entry remain owners.
+All supported locales define the new choice and reset copy.
+
 ## Sandbox storage usage
 
 The Sandbox dashboard displays approximate private regular-file usage from the root filesystem

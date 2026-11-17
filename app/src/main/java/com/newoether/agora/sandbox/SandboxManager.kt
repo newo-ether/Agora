@@ -10,13 +10,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Manages an on-device Linux sandbox (proot + Alpine).
+ * Manages an on-device Linux sandbox (PRoot with Alpine, Debian or Ubuntu).
  * Available only in the fdroid flavor; play flavor gets a no-op stub.
  *
  * File operations (read/write/glob/grep/edit) operate directly on the
  * rootfs filesystem without proot — only shell commands go through proot.
  */
 interface SandboxManager {
+
+    /** Device-local active userland; existing installations default to Alpine. */
+    val distribution: StateFlow<SandboxDistribution>
+
+    /** Select without installing. Refuses active work and preserves every installed rootfs. */
+    suspend fun selectDistribution(distribution: SandboxDistribution): Boolean
 
     /** Real-time terminal output stream for install/uninstall operations. */
     val terminalOutput: StateFlow<String>
@@ -66,7 +72,7 @@ interface SandboxManager {
     /** Whether the sandbox rootfs is installed and ready. */
     suspend fun isAvailable(): Boolean
 
-    /** Extract proot + rootfs from assets. Returns true on success. */
+    /** Download, verify and install the selected rootfs without replacing existing data. */
     suspend fun install(): Boolean
 
     /** Execute a shell command inside the sandbox via proot. */
@@ -129,13 +135,13 @@ interface SandboxManager {
         expectedSha256: String = "",
     ): ShellFileEditResult
 
-    /** Install a package via Alpine apk. */
+    /** Install using the selected distribution's package manager. */
     suspend fun apkInstall(packageName: String, onProgress: (String) -> Unit = {}): Boolean
 
     /** Upgrade all installed packages to latest repo versions. Returns upgrade count. */
     suspend fun apkUpgrade(onProgress: (String) -> Unit = {}): Int
 
-    /** List installed Alpine packages. */
+    /** List packages installed in the selected distribution. */
     suspend fun apkList(): List<PackageInfo>
 
     /** Remove a package from the sandbox. */
@@ -144,10 +150,10 @@ interface SandboxManager {
     /** Approximate private rootfs + home regular-file usage in MiB, excluding shared storage. */
     suspend fun getDiskUsageMB(): Long
 
-    /** Delete rootfs and proot binary, returning to uninstalled state. */
+    /** Delete the selected rootfs after settling jobs; keep home, other systems and job history. */
     suspend fun reset(): Boolean
 
-    /** Physical directory mounted as /home inside the sandbox, or null if not available. */
+    /** Physical directory mounted as /home/agora, or null if not available. */
     fun getSandboxHomeDir(): File?
 
     /**
@@ -155,6 +161,9 @@ interface SandboxManager {
      * file tools. Null when the flavor has no sandbox; throws when the path is outside every mount.
      */
     fun resolveHostFile(path: String): File? = null
+
+    /** Resolve a retained document against its original distribution, independent of current selection. */
+    fun resolveHostFile(path: String, distribution: SandboxDistribution): File? = null
 
     // ── Nested types ───────────────────────────────────────
 

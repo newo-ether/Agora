@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Entorno aislado local</string>
     <string name="sandbox_enable">Activar entorno aislado local</string>
-    <string name="sandbox_enable_desc">Ejecuta comandos en Alpine Linux aislado en el dispositivo</string>
+    <string name="sandbox_enable_desc">Ejecuta comandos en un entorno Linux aislado en el dispositivo</string>
     <string name="shell_device_host">Host SSH</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Puerto</string>
@@ -295,12 +295,12 @@
     <string name="sandbox_package_name">Nombre del paquete</string>
     <string name="sandbox_quick_install">Instalación rápida</string>
     <string name="sandbox_installed">Paquetes instalados</string>
-    <string name="sandbox_no_packages">No hay paquetes instalados. Solo la base de Alpine.</string>
+    <string name="sandbox_no_packages">No hay paquetes instalados que mostrar.</string>
     <string name="sandbox_danger_zone">Zona de peligro</string>
     <string name="sandbox_reset">Restablecer entorno</string>
     <string name="sandbox_reset_title">¿Restablecer entorno?</string>
-    <string name="sandbox_reset_desc">Eliminar el rootfs de Alpine y todos los paquetes</string>
-    <string name="sandbox_reset_confirm">Esto eliminará el rootfs de Alpine Linux y todos los paquetes instalados. Esta acción no se puede deshacer.</string>
+    <string name="sandbox_reset_desc">Eliminar el sistema Linux seleccionado y sus paquetes instalados</string>
+    <string name="sandbox_reset_confirm">Se eliminarán el sistema Linux seleccionado y sus paquetes instalados. Los archivos del directorio personal compartido y las otras distribuciones se conservarán. Esta acción no se puede deshacer.</string>
     <string name="sandbox_not_supported">Entorno aislado local no compatible</string>
     <string name="sandbox_snackbar_installed">%s instalado</string>
     <string name="sandbox_snackbar_install_failed">Error al instalar %s</string>
@@ -314,8 +314,8 @@
     <string name="sandbox_snackbar_error">Error: %s</string>
     <string name="sandbox_not_supported_desc">Esta función no está disponible en la compilación actual</string>
     <string name="sandbox_not_installed">No instalado</string>
-    <string name="sandbox_extracting_rootfs">Extrayendo el rootfs de Alpine...</string>
-    <string name="sandbox_downloading_rootfs">Descargando el rootfs de Alpine… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Extrayendo el sistema Linux...</string>
+    <string name="sandbox_downloading_rootfs">Descargando el sistema Linux… %d%%</string>
     <string name="sandbox_install_failed">Error en la instalación</string>
     <string name="sandbox_installed_label">Instalado</string>
     <string name="sandbox_failed_label">Falló</string>

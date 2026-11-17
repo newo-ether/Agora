@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">Đã bật · vẫn cần quyền truy cập bộ nhớ</string>
     <string name="sandbox_shared_storage_grant">Cấp quyền truy cập bộ nhớ</string>
     <string name="sandbox_shared_storage_warning">Lệnh trong sandbox có thể đọc và sửa ảnh, tệp tải xuống cùng các tệp dùng chung khác. Lời gọi công cụ làm thay đổi dữ liệu cần được xác nhận.</string>
+    <string name="sandbox_distribution">Bản phân phối</string>
+    <string name="sandbox_distribution_desc">Chọn môi trường Linux và cài đặt riêng nếu cần.</string>
+    <string name="sandbox_distribution_busy">Hãy dừng các tác vụ hộp cát đang chạy và đợi thao tác hiện tại hoàn tất trước khi đổi bản phân phối.</string>
+    <string name="sandbox_distribution_switch_failed">Không thể đổi bản phân phối. Vui lòng thử lại.</string>
 </resources>

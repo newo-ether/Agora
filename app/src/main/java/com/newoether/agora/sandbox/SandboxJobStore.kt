@@ -240,6 +240,28 @@ internal class SandboxJobStore(
         }
     }
 
+    /** Refuse live executions and close admission while the caller changes the active rootfs. */
+    suspend fun <T> whileIdle(action: suspend () -> T): T = withContext(Dispatchers.IO) {
+        initialize()
+        check(lifecycleMutex.tryLock()) { "Sandbox maintenance is in progress" }
+        try {
+            synchronized(lock) {
+                check(!resetting) { "Sandbox maintenance is in progress" }
+                check(entries.values.none {
+                    it.record.state in LIVE_STATES || it.job?.isCompleted == false || it.persistenceFailure != null
+                }) { "Stop active sandbox jobs before changing distribution" }
+                resetting = true
+            }
+            try {
+                action()
+            } finally {
+                synchronized(lock) { resetting = false }
+            }
+        } finally {
+            lifecycleMutex.unlock()
+        }
+    }
+
     /** Holds admission closed through rootfs deletion, while get/list remain available. */
     suspend fun <T> reset(action: suspend () -> T): T = withContext(NonCancellable + Dispatchers.IO) {
         initialize()

@@ -26,8 +26,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileOutputStream
 internal suspend fun SandboxPathResolver.fileRead(
@@ -123,30 +121,28 @@ private fun writeSandboxFileAtomically(
     return null
 }
 
+/** The manager owns the mutation boundary and creates this resolver inside it. */
 internal suspend fun SandboxPathResolver.fileWrite(
     path: String,
     content: String,
-    mutationMutex: Mutex,
     expectedSha256: String = "",
 ): String? = withContext(Dispatchers.IO) {
-    mutationMutex.withLock {
-        try {
-            val contentBytes = content.toByteArray(Charsets.UTF_8)
-            if (contentBytes.size > SHELL_FILE_WRITE_MAX_BYTES) {
-                return@withLock "content exceeds 1MB limit"
-            }
-            val file = resolvePath(path)
-            if (expectedSha256.isNotBlank()) {
-                if (file.exists() && !file.isFile) return@withLock "path is not a regular file"
-                val current = if (file.exists()) file.readBytes() else null
-                shellExpectedSha256Error(expectedSha256, current)?.let { return@withLock it }
-            }
-            writeSandboxFileAtomically(file, contentBytes)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (e: Exception) {
-            "Sandbox file write failed: ${e.message}"
+    try {
+        val contentBytes = content.toByteArray(Charsets.UTF_8)
+        if (contentBytes.size > SHELL_FILE_WRITE_MAX_BYTES) {
+            return@withContext "content exceeds 1MB limit"
         }
+        val file = resolvePath(path)
+        if (expectedSha256.isNotBlank()) {
+            if (file.exists() && !file.isFile) return@withContext "path is not a regular file"
+            val current = if (file.exists()) file.readBytes() else null
+            shellExpectedSha256Error(expectedSha256, current)?.let { return@withContext it }
+        }
+        writeSandboxFileAtomically(file, contentBytes)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (e: Exception) {
+        "Sandbox file write failed: ${e.message}"
     }
 }
 
@@ -157,13 +153,17 @@ internal suspend fun SandboxPathResolver.fileGlob(
     depth: Int?,
 ): Pair<List<String>, Boolean> = withContext(Dispatchers.IO) {
     currentCoroutineContext().ensureActive()
-    val base = resolveSandboxPath(basePath.ifBlank { homeMountPath })
+    val virtualBase = basePath.ifBlank { homeMountPath }
+    val base = resolveSandboxPath(virtualBase)
     val files = mutableListOf<String>()
     // null = legacy full recursion; <=0 = explicit unlimited; >=1 = max levels.
     val remaining = if (depth == null || depth <= 0) -1 else depth
-    walkVirtualFiles(base.file, files, base.physicalRoot.canonicalPath, base.virtualRoot, remaining)
+    walkVirtualFiles(
+        base.file, files, base.physicalRoot.canonicalPath, base.virtualRoot, remaining,
+        virtualBasePath = virtualBase,
+    )
     currentCoroutineContext().ensureActive()
-    val matches = globMatch(files, pattern, basePath.ifBlank { homeMountPath })
+    val matches = globMatch(files, pattern, virtualBase)
     matches.take(SHELL_FILE_GLOB_MAX_MATCHES) to
         (matches.size > SHELL_FILE_GLOB_MAX_MATCHES)
 }
@@ -190,6 +190,7 @@ internal suspend fun SandboxPathResolver.fileGrep(
             allFiles,
             base.physicalRoot.canonicalPath,
             base.virtualRoot,
+            virtualBasePath = virtualBase,
         )
         currentCoroutineContext().ensureActive()
         val files = if (fileGlob.isBlank()) allFiles else globMatch(allFiles, fileGlob, virtualBase)
@@ -230,57 +231,55 @@ internal suspend fun SandboxPathResolver.fileGrep(
     }
 }
 
+/** The manager owns the mutation boundary and creates this resolver inside it. */
 internal suspend fun SandboxPathResolver.fileEdit(
     path: String,
     edits: List<ShellFileEdit>,
-    mutationMutex: Mutex,
     expectedSha256: String = "",
 ): ShellFileEditResult = withContext(Dispatchers.IO) {
-    mutationMutex.withLock {
-        try {
-            val file = resolvePath(path)
-            if (!file.exists()) {
-                return@withLock ShellFileEditResult(0, error = "File not found: $path")
-            }
-            if (!file.isFile) {
-                return@withLock ShellFileEditResult(0, error = "path is not a regular file")
-            }
-            if (file.length() > SHELL_FILE_EDIT_MAX_BYTES) {
-                return@withLock ShellFileEditResult(0, error = "file exceeds 16MB edit limit")
-            }
-
-            val originalBytes = file.readBytes()
-            if (originalBytes.size > SHELL_FILE_EDIT_MAX_BYTES) {
-                return@withLock ShellFileEditResult(0, error = "file exceeds 16MB edit limit")
-            }
-            shellExpectedSha256Error(expectedSha256, originalBytes)?.let {
-                return@withLock ShellFileEditResult(0, error = it)
-            }
-            val (editedContent, editResult) = editShellFileContent(
-                content = originalBytes.toString(Charsets.UTF_8),
-                edits = edits,
-            )
-            if (editedContent == null) return@withLock editResult
-
-            val editedBytes = editedContent.toByteArray(Charsets.UTF_8)
-            if (editedBytes.size > SHELL_FILE_EDIT_MAX_BYTES) {
-                return@withLock ShellFileEditResult(0, error = "edited file exceeds 16MB limit")
-            }
-            val writeError = writeSandboxFileAtomically(file, editedBytes) {
-                if (!file.readBytes().contentEquals(originalBytes)) {
-                    "file changed concurrently before edit could be applied"
-                } else {
-                    null
-                }
-            }
-            if (writeError != null) {
-                return@withLock ShellFileEditResult(0, error = writeError)
-            }
-            editResult.copy(sha256 = shellFileSha256(editedBytes))
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (e: Exception) {
-            ShellFileEditResult(0, error = "Sandbox file edit failed: ${e.message}")
+    try {
+        val file = resolvePath(path)
+        if (!file.exists()) {
+            return@withContext ShellFileEditResult(0, error = "File not found: $path")
         }
+        if (!file.isFile) {
+            return@withContext ShellFileEditResult(0, error = "path is not a regular file")
+        }
+        if (file.length() > SHELL_FILE_EDIT_MAX_BYTES) {
+            return@withContext ShellFileEditResult(0, error = "file exceeds 16MB edit limit")
+        }
+
+        val originalBytes = file.readBytes()
+        if (originalBytes.size > SHELL_FILE_EDIT_MAX_BYTES) {
+            return@withContext ShellFileEditResult(0, error = "file exceeds 16MB edit limit")
+        }
+        shellExpectedSha256Error(expectedSha256, originalBytes)?.let {
+            return@withContext ShellFileEditResult(0, error = it)
+        }
+        val (editedContent, editResult) = editShellFileContent(
+            content = originalBytes.toString(Charsets.UTF_8),
+            edits = edits,
+        )
+        if (editedContent == null) return@withContext editResult
+
+        val editedBytes = editedContent.toByteArray(Charsets.UTF_8)
+        if (editedBytes.size > SHELL_FILE_EDIT_MAX_BYTES) {
+            return@withContext ShellFileEditResult(0, error = "edited file exceeds 16MB limit")
+        }
+        val writeError = writeSandboxFileAtomically(file, editedBytes) {
+            if (!file.readBytes().contentEquals(originalBytes)) {
+                "file changed concurrently before edit could be applied"
+            } else {
+                null
+            }
+        }
+        if (writeError != null) {
+            return@withContext ShellFileEditResult(0, error = writeError)
+        }
+        editResult.copy(sha256 = shellFileSha256(editedBytes))
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (e: Exception) {
+        ShellFileEditResult(0, error = "Sandbox file edit failed: ${e.message}")
     }
 }

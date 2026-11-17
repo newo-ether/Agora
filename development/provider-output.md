@@ -311,7 +311,23 @@ Explicit local image reads use the existing sandbox path/mount resolver and shar
 processing, with the same byte bounds, image attachments, and cancellation behavior as remote reads.
 Ordinary sandbox attachments remain path projections until explicitly read as images.
 
-Local Sandbox package installation and upgrade share one dependency download closure. APKINDEX
+Local Sandbox supports Alpine, Debian and Ubuntu arm64 userlands in the F-Droid flavor, with
+one device-local selected distribution and independent root filesystems. Missing selection means
+legacy Alpine; its existing rootfs and shared home are preserved. Downloads use pinned SHA-256
+archives and stage the complete filesystem before publication. Failure/cancellation must not
+replace a previous installation. Guest symbolic links and merged-/usr directories retain their
+Linux semantics; direct file tools resolve links within the guest and authorized mounts and reject
+host escapes and cycles. Switching is refused while retained jobs or filesystem mutations are
+active, and cannot retarget an already admitted job. Reset deletes only the selected rootfs and
+retains shared home, other installed distributions and retained job history.
+
+Debian and Ubuntu package operations use apt/dpkg for signed repository verification, dependency
+resolution and transactions. Settings operations are noninteractive, report command failures,
+protect base packages and never silently autoremove user packages. Package lists and quick-install
+names match the selected distribution. Existing shared job recovery and mutation ownership remain
+authoritative for installation, package operations and selection.
+
+Alpine package installation and upgrade share one dependency download closure. APKINDEX
 records are read completely through their blank-line boundary or EOF. Virtual dependency providers
 prefer an already-installed candidate present in the index, otherwise the highest repository
 provider priority, with stable name ordering for ties. Index order must not pull a competing shell

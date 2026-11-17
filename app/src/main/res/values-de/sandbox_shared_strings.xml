@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">Aktiviert · Speicherzugriff ist noch erforderlich</string>
     <string name="sandbox_shared_storage_grant">Speicherzugriff gewähren</string>
     <string name="sandbox_shared_storage_warning">Damit können Sandbox-Befehle Fotos, Downloads und andere gemeinsame Dateien lesen und ändern. Verändernde Tool-Aufrufe müssen bestätigt werden.</string>
+    <string name="sandbox_distribution">Distribution</string>
+    <string name="sandbox_distribution_desc">Linux-Umgebung auswählen und bei Bedarf separat installieren.</string>
+    <string name="sandbox_distribution_busy">Beenden Sie laufende Sandbox-Aufträge und warten Sie, bis aktuelle Vorgänge abgeschlossen sind, bevor Sie die Distribution wechseln.</string>
+    <string name="sandbox_distribution_switch_failed">Die Distribution konnte nicht gewechselt werden. Versuchen Sie es erneut.</string>
 </resources>

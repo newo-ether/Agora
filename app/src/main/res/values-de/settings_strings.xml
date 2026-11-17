@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Lokale Sandbox</string>
     <string name="sandbox_enable">Lokale Sandbox aktivieren</string>
-    <string name="sandbox_enable_desc">Befehle in isoliertem Alpine Linux auf dem Gerät ausführen</string>
+    <string name="sandbox_enable_desc">Befehle in einer isolierten Linux-Umgebung auf dem Gerät ausführen</string>
     <string name="shell_device_host">SSH-Host</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Port</string>
@@ -295,12 +295,12 @@
     <string name="sandbox_package_name">Paketname</string>
     <string name="sandbox_quick_install">Schnellinstallation</string>
     <string name="sandbox_installed">Installierte Pakete</string>
-    <string name="sandbox_no_packages">Keine Pakete installiert. Nur Alpine-Basis.</string>
+    <string name="sandbox_no_packages">Keine installierten Pakete zum Anzeigen.</string>
     <string name="sandbox_danger_zone">Gefahrenzone</string>
     <string name="sandbox_reset">Umgebung zurücksetzen</string>
     <string name="sandbox_reset_title">Umgebung zurücksetzen?</string>
-    <string name="sandbox_reset_desc">Alpine-rootfs und alle Pakete entfernen</string>
-    <string name="sandbox_reset_confirm">Dadurch werden das Alpine-Linux-rootfs und alle installierten Pakete gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="sandbox_reset_desc">Ausgewähltes Linux-System und seine installierten Pakete löschen</string>
+    <string name="sandbox_reset_confirm">Das ausgewählte Linux-System und seine installierten Pakete werden gelöscht. Gemeinsame Home-Dateien und andere Distributionen bleiben erhalten. Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="sandbox_not_supported">Lokale Sandbox nicht unterstützt</string>
     <string name="sandbox_snackbar_installed">%s installiert</string>
     <string name="sandbox_snackbar_install_failed">Installation von %s fehlgeschlagen</string>
@@ -314,8 +314,8 @@
     <string name="sandbox_snackbar_error">Fehler: %s</string>
     <string name="sandbox_not_supported_desc">Diese Funktion ist im aktuellen Build nicht verfügbar</string>
     <string name="sandbox_not_installed">Nicht installiert</string>
-    <string name="sandbox_extracting_rootfs">Alpine-rootfs wird extrahiert...</string>
-    <string name="sandbox_downloading_rootfs">Alpine-rootfs wird heruntergeladen… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Linux-System wird entpackt...</string>
+    <string name="sandbox_downloading_rootfs">Linux-System wird heruntergeladen… %d%%</string>
     <string name="sandbox_install_failed">Installation fehlgeschlagen</string>
     <string name="sandbox_installed_label">Installiert</string>
     <string name="sandbox_failed_label">Fehlgeschlagen</string>

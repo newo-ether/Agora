@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.emptyFlow
  */
 class PlaySandboxManager : SandboxManager {
 
+    override val distribution: StateFlow<SandboxDistribution> = MutableStateFlow(SandboxDistribution.ALPINE)
+    override suspend fun selectDistribution(distribution: SandboxDistribution): Boolean = false
     override val lastError: String? = null
     private val _terminalOutput = MutableStateFlow("Sandbox not available in this build.")
     override val terminalOutput: StateFlow<String> = _terminalOutput

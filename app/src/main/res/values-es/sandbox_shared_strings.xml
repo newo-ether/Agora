@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">Activado · aún se requiere acceso al almacenamiento</string>
     <string name="sandbox_shared_storage_grant">Conceder acceso al almacenamiento</string>
     <string name="sandbox_shared_storage_warning">Esto permite que los comandos del entorno lean y modifiquen fotos, descargas y otros archivos compartidos. Las llamadas que modifican datos requieren confirmación.</string>
+    <string name="sandbox_distribution">Distribución</string>
+    <string name="sandbox_distribution_desc">Elige el entorno Linux e instálalo por separado si es necesario.</string>
+    <string name="sandbox_distribution_busy">Detén las tareas del entorno aislado y espera a que terminen las operaciones actuales antes de cambiar de distribución.</string>
+    <string name="sandbox_distribution_switch_failed">No se pudo cambiar de distribución. Inténtalo de nuevo.</string>
 </resources>

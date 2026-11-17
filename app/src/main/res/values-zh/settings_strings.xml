@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">本地沙箱</string>
     <string name="sandbox_enable">启用本地沙箱</string>
-    <string name="sandbox_enable_desc">在设备上运行隔离的 Alpine Linux 环境</string>
+    <string name="sandbox_enable_desc">在设备上的隔离 Linux 环境中运行命令</string>
     <string name="shell_device_host">SSH 主机</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">端口</string>
@@ -296,12 +296,12 @@
     <string name="sandbox_package_name">包名</string>
     <string name="sandbox_quick_install">快速安装</string>
     <string name="sandbox_installed">已安装包</string>
-    <string name="sandbox_no_packages">未安装任何包，仅 Alpine 基础系统。</string>
+    <string name="sandbox_no_packages">未安装任何可显示的包。</string>
     <string name="sandbox_danger_zone">危险区域</string>
     <string name="sandbox_reset">重置环境</string>
     <string name="sandbox_reset_title">重置环境？</string>
-    <string name="sandbox_reset_desc">删除 Alpine rootfs 及所有包</string>
-    <string name="sandbox_reset_confirm">这将删除 Alpine Linux rootfs 和所有已安装的包。此操作不可撤销。</string>
+    <string name="sandbox_reset_desc">删除所选 Linux 系统及其已安装的包</string>
+    <string name="sandbox_reset_confirm">这将删除所选 Linux 系统及其已安装的包。共享 home 文件和其他发行版将保留。此操作不可撤销。</string>
     <string name="sandbox_not_supported">本地沙箱不可用</string>
     <string name="sandbox_snackbar_installed">已安装 %s</string>
     <string name="sandbox_snackbar_install_failed">安装失败: %s</string>
@@ -315,8 +315,8 @@
     <string name="sandbox_snackbar_error">错误: %s</string>
     <string name="sandbox_not_supported_desc">当前版本不支持此功能</string>
     <string name="sandbox_not_installed">未安装</string>
-    <string name="sandbox_extracting_rootfs">正在解压 Alpine rootfs…</string>
-    <string name="sandbox_downloading_rootfs">正在下载 Alpine rootfs… %d%%</string>
+    <string name="sandbox_extracting_rootfs">正在解压 Linux 系统…</string>
+    <string name="sandbox_downloading_rootfs">正在下载 Linux 系统… %d%%</string>
     <string name="sandbox_install_failed">安装失败</string>
     <string name="sandbox_installed_label">已安装</string>
     <string name="sandbox_failed_label">失败</string>

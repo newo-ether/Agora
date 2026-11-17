@@ -260,7 +260,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Hộp cát cục bộ (Sandbox)</string>
     <string name="sandbox_enable">Bật hộp cát cục bộ</string>
-    <string name="sandbox_enable_desc">Chạy các lệnh trong môi trường Alpine Linux cô lập trên thiết bị</string>
+    <string name="sandbox_enable_desc">Chạy các lệnh trong môi trường Linux cô lập trên thiết bị</string>
     <string name="shell_device_host">Host SSH</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Cổng</string>
@@ -287,12 +287,12 @@
     <string name="sandbox_package_name">Tên gói</string>
     <string name="sandbox_quick_install">Cài đặt nhanh</string>
     <string name="sandbox_installed">Các gói đã cài đặt</string>
-    <string name="sandbox_no_packages">Không có gói nào được cài đặt. Chỉ có nền tảng Alpine.</string>
+    <string name="sandbox_no_packages">Không có gói đã cài đặt để hiển thị.</string>
     <string name="sandbox_danger_zone">Vùng nguy hiểm</string>
     <string name="sandbox_reset">Đặt lại môi trường</string>
     <string name="sandbox_reset_title">Đặt lại môi trường?</string>
-    <string name="sandbox_reset_desc">Xóa Alpine rootfs và tất cả các gói</string>
-    <string name="sandbox_reset_confirm">Thao tác này sẽ xóa rootfs Alpine Linux và tất cả các gói đã cài đặt. Hành động này không thể hoàn tác.</string>
+    <string name="sandbox_reset_desc">Xóa hệ thống Linux đã chọn và các gói đã cài đặt trong đó</string>
+    <string name="sandbox_reset_confirm">Hệ thống Linux đã chọn và các gói đã cài đặt trong đó sẽ bị xóa. Các tệp trong thư mục home dùng chung và các bản phân phối khác sẽ được giữ lại. Không thể hoàn tác hành động này.</string>
     <string name="sandbox_not_supported">Không hỗ trợ hộp cát cục bộ</string>
     <string name="sandbox_snackbar_installed">Đã cài đặt %s</string>
     <string name="sandbox_snackbar_install_failed">Cài đặt %s thất bại</string>
@@ -306,8 +306,8 @@
     <string name="sandbox_snackbar_error">Lỗi: %s</string>
     <string name="sandbox_not_supported_desc">Tính năng này không khả dụng trong phiên bản hiện tại</string>
     <string name="sandbox_not_installed">Chưa cài đặt</string>
-    <string name="sandbox_extracting_rootfs">Đang giải nén Alpine rootfs...</string>
-    <string name="sandbox_downloading_rootfs">Đang tải xuống Alpine rootfs… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Đang giải nén hệ thống Linux...</string>
+    <string name="sandbox_downloading_rootfs">Đang tải xuống hệ thống Linux… %d%%</string>
     <string name="sandbox_install_failed">Cài đặt thất bại</string>
     <string name="sandbox_installed_label">Đã cài đặt</string>
     <string name="sandbox_failed_label">Thất bại</string>

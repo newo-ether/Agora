@@ -133,6 +133,30 @@ class SandboxJobStoreTest {
         }
     }
 
+    @Test fun selectionGateRejectsQueuedJobsAndClosesAdmissionWithoutDiscardingHistory(): Unit = runBlocking {
+        val mutation = Mutex(locked = true)
+        val store = SandboxJobStore(temporary.newFolder(), mutation, fixtureBuilder())
+        val id = parse(store.start("success", "", 5_000, "queued before selection")).string("job_id")
+        try {
+            var selected = false
+            assertTrue(runCatching { store.whileIdle { selected = true } }.isFailure)
+            assertFalse(selected)
+            store.stop(id)
+            store.whileIdle {
+                assertTrue(runCatching { store.start("success", "", 5_000, "during selection") }.isFailure)
+                selected = true
+            }
+            assertTrue(selected)
+            assertEquals(1, parse(store.list(0, 100))["jobs"]!!.jsonArray.size)
+            assertTrue(runCatching { store.whileIdle { error("selection publication failed") } }.isFailure)
+            val next = parse(store.start("success", "", 5_000, "after failed selection")).string("job_id")
+            store.stop(next)
+        } finally {
+            mutation.unlock()
+            store.stop(id)
+        }
+    }
+
     @Test fun resetStopsAndJoinsBeforeDestructionAndKeepsJobHistory() = runBlocking {
         val store = SandboxJobStore(temporary.newFolder(), Mutex(), fixtureBuilder())
         val id = parse(store.start("running", "", 10_000, "reset")).string("job_id")

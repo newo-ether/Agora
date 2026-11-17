@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">ローカルサンドボックス</string>
     <string name="sandbox_enable">ローカルサンドボックスを有効にする</string>
-    <string name="sandbox_enable_desc">デバイス上の隔離された Alpine Linux でコマンドを実行</string>
+    <string name="sandbox_enable_desc">デバイス上の隔離された Linux 環境でコマンドを実行</string>
     <string name="shell_device_host">SSH ホスト</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">ポート</string>
@@ -295,12 +295,12 @@
     <string name="sandbox_package_name">パッケージ名</string>
     <string name="sandbox_quick_install">クイックインストール</string>
     <string name="sandbox_installed">インストール済みパッケージ</string>
-    <string name="sandbox_no_packages">パッケージがインストールされていません。Alpine ベースのみ。</string>
+    <string name="sandbox_no_packages">表示できるインストール済みパッケージがありません。</string>
     <string name="sandbox_danger_zone">危険ゾーン</string>
     <string name="sandbox_reset">環境をリセット</string>
     <string name="sandbox_reset_title">環境をリセットしますか？</string>
-    <string name="sandbox_reset_desc">Alpine rootfs とすべてのパッケージを削除</string>
-    <string name="sandbox_reset_confirm">これにより Alpine Linux の rootfs とインストール済みのすべてのパッケージが削除されます。この操作は取り消せません。</string>
+    <string name="sandbox_reset_desc">選択した Linux システムとそのインストール済みパッケージを削除</string>
+    <string name="sandbox_reset_confirm">選択した Linux システムとそのインストール済みパッケージを削除します。共有ホームのファイルと他のディストリビューションは保持されます。この操作は取り消せません。</string>
     <string name="sandbox_not_supported">ローカルサンドボックスは未対応です</string>
     <string name="sandbox_snackbar_installed">%s をインストールしました</string>
     <string name="sandbox_snackbar_install_failed">%s のインストールに失敗しました</string>
@@ -314,8 +314,8 @@
     <string name="sandbox_snackbar_error">エラー: %s</string>
     <string name="sandbox_not_supported_desc">この機能は現在のビルドでは利用できません</string>
     <string name="sandbox_not_installed">未インストール</string>
-    <string name="sandbox_extracting_rootfs">Alpine rootfs を展開中...</string>
-    <string name="sandbox_downloading_rootfs">Alpine rootfs をダウンロード中… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Linux システムを展開中...</string>
+    <string name="sandbox_downloading_rootfs">Linux システムをダウンロード中… %d%%</string>
     <string name="sandbox_install_failed">インストールに失敗しました</string>
     <string name="sandbox_installed_label">インストール済み</string>
     <string name="sandbox_failed_label">失敗</string>

@@ -49,9 +49,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.sandbox.openSandboxRoot
+import com.newoether.agora.sandbox.SandboxDistribution
 import com.newoether.agora.sandbox.SandboxManager
 import com.newoether.agora.sandbox.SandboxSharedStorageAccess
 import com.newoether.agora.util.DebugLog
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,66 +94,77 @@ fun SettingsSandboxPage(
         }
     }
 
-    // Core state — use fast sync check for instant first paint, confirm async
-    var available by remember { mutableStateOf(sandboxManager.isAvailableSync()) }
-    var backendPackagesLoading by remember { mutableStateOf(false) }
-    var attemptedInstall by remember { mutableStateOf(false) } // set when user taps Install (this session)
-    var installError by remember { mutableStateOf<String?>(null) }
-    var installPkg by rememberSaveable { mutableStateOf(sandboxManager.pendingPkgName) }
-    var lastInstallResult by remember { mutableStateOf<Boolean?>(null) } // local: success/fail for button state
-    var deleteConfirm by remember { mutableStateOf<String?>(null) }
-    var resetConfirm by remember { mutableStateOf(false) }
-    // Sync persisted text field back to sandbox manager
+    // Each distribution owns a fresh dashboard snapshot; the manager owns persisted selection.
+    val distribution by sandboxManager.distribution.collectAsState()
+    var available by remember(distribution) { mutableStateOf(sandboxManager.isAvailableSync()) }
+    var backendPackagesLoading by remember(distribution) { mutableStateOf(true) }
+    var selectingDistribution by remember { mutableStateOf(false) }
+    var distributionError by remember(distribution) { mutableStateOf<String?>(null) }
+    val selectionFailedMessage = stringResource(R.string.sandbox_distribution_switch_failed)
+    var attemptedInstall by remember(distribution) { mutableStateOf(false) }
+    var installError by remember(distribution) { mutableStateOf<String?>(null) }
+    var installPkg by rememberSaveable(distribution.id) { mutableStateOf(sandboxManager.pendingPkgName) }
+    var lastInstallResult by remember(distribution) { mutableStateOf<Boolean?>(null) }
+    var deleteConfirm by remember(distribution) { mutableStateOf<String?>(null) }
+    var resetConfirm by remember(distribution) { mutableStateOf(false) }
     LaunchedEffect(installPkg) { sandboxManager.pendingPkgName = installPkg }
 
-    // Collected from sandbox manager backend
     val terminalOutput by sandboxManager.terminalOutput.collectAsState()
     val isBusy by sandboxManager.isBusy.collectAsState()
-    // Rootfs install runs on the manager's own scope, so its state survives leaving/re-entering.
+    // Rootfs installation belongs to the manager and survives navigation.
     val installingRootfs by sandboxManager.isInstallingRootfs.collectAsState()
     val downloadProgress by sandboxManager.downloadProgress.collectAsState()
+    val canManage = !isBusy && !installingRootfs && !selectingDistribution
     val showTerminal = terminalOutput.isNotBlank()
 
     fun clearAllState() { installPkg = ""; installError = null; deleteConfirm = null; lastInstallResult = null }
 
     fun installPackage(name: String) {
-        if (isBusy) return
+        if (!canManage) return
         installPkg = name; lastInstallResult = null; sandboxManager.installPackage(name)
     }
 
     fun upgradePackages() {
-        if (isBusy) return
+        if (!canManage) return
         lastInstallResult = null
         sandboxManager.upgradePackages()
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(distribution) {
         try {
-            val confirmed = sandboxManager.isAvailable()
-            if (available != confirmed) available = confirmed
+            available = sandboxManager.isAvailable()
             if (available) sandboxManager.refreshPackageList()
-        } catch (_: Exception) {}
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            installError = e.message
+        } finally {
+            backendPackagesLoading = false
+        }
     }
 
-    // When a user-initiated rootfs install finishes, re-check availability and surface any error.
-    LaunchedEffect(installingRootfs) {
+    // Confirm the selected environment after its user-initiated installation settles.
+    LaunchedEffect(installingRootfs, distribution) {
         if (!installingRootfs && attemptedInstall) {
             attemptedInstall = false
             try {
                 available = sandboxManager.isAvailable()
                 if (available) { installError = null; sandboxManager.refreshPackageList() }
                 else installError = sandboxManager.lastError ?: installFailedMessage
-            } catch (e: Exception) { installError = e.message }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                installError = e.message
+            }
         }
     }
 
-    // Package list comes directly from backend — always live
-    val backendPackages by sandboxManager.packageList.collectAsState()
-
-    val quickPkgs = listOf("python3", "git", "curl", "wget", "openssh", "nodejs", "build-base", "htop")
+    val packageSnapshot by sandboxManager.packageList.collectAsState()
+    val backendPackages = if (backendPackagesLoading) emptyList() else packageSnapshot
+    val quickPkgs = distribution.quickPackages
     val pkgCount = backendPackages.size
-    var diskUsageMB by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(backendPackages.size, available, isBusy) {
+    var diskUsageMB by remember(distribution) { mutableLongStateOf(0L) }
+    LaunchedEffect(distribution, backendPackages.size, available, isBusy) {
         if (!isBusy) {
             try { diskUsageMB = sandboxManager.getDiskUsageMB() } catch (_: Exception) {}
         }
@@ -166,12 +179,38 @@ fun SettingsSandboxPage(
             // ═══ Dashboard ═══
                 item {
                     SettingsGroup(title = stringResource(R.string.sandbox_env), items = listOf({
+                        SettingsSandboxDistributionItem(
+                            distribution = distribution,
+                            enabled = canManage,
+                            error = distributionError,
+                            onSelect = { selected ->
+                                selectingDistribution = true
+                                distributionError = null
+                                scope.launch {
+                                    try {
+                                        if (sandboxManager.selectDistribution(selected)) {
+                                            clearAllState()
+                                            resetConfirm = false
+                                        } else {
+                                            distributionError = sandboxManager.lastError ?: selectionFailedMessage
+                                        }
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        distributionError = e.message ?: selectionFailedMessage
+                                    } finally {
+                                        selectingDistribution = false
+                                    }
+                                }
+                            },
+                        )
+                    }, {
                         if (!available) {
                             // Not installed
                             SettingsItem(
                                 headlineContent = {
                                     Text(
-                                        stringResource(R.string.sandbox_alpine_version),
+                                        "${distribution.displayName} ${distribution.versionLabel}",
                                         fontWeight = FontWeight.Medium
                                     )
                                 },
@@ -213,14 +252,10 @@ fun SettingsSandboxPage(
                                     }
                                 },
                                 leadingContent = {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_alpine_linux),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
+                                    SandboxDistributionIcon(distribution)
                                 },
                                 trailingContent = {
-                                    if (!installingRootfs && !isBusy) {
+                                    if (canManage) {
                                         TextButton(onClick = {
                                             clearAllState()
                                             attemptedInstall = true
@@ -234,7 +269,7 @@ fun SettingsSandboxPage(
                             SettingsItem(
                                 headlineContent = {
                                     Text(
-                                        stringResource(R.string.sandbox_alpine_version),
+                                        "${distribution.displayName} ${distribution.versionLabel}",
                                         fontWeight = FontWeight.Medium
                                     )
                                 },
@@ -255,16 +290,12 @@ fun SettingsSandboxPage(
                                     }
                                 },
                                 leadingContent = {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_alpine_linux),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
+                                    SandboxDistributionIcon(distribution)
                                 },
                                 trailingContent = {
                                     TextButton(
                                         onClick = { upgradePackages() },
-                                        enabled = !isBusy
+                                        enabled = canManage
                                     ) {
                                         Text(stringResource(R.string.sandbox_upgrade), style = MaterialTheme.typography.labelMedium)
                                     }
@@ -419,7 +450,7 @@ fun SettingsSandboxPage(
                                     val installDone = installPkg.isNotBlank() && lastInstallResult != null && !isBusy
                                     val btnBgColor by animateColorAsState(
                                         targetValue = when {
-                                            isBusy || installPkg.isBlank() -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                            !canManage || installPkg.isBlank() -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                             lastInstallResult == true -> MaterialTheme.colorScheme.secondaryContainer
                                             lastInstallResult == false -> MaterialTheme.colorScheme.errorContainer
                                             else -> MaterialTheme.colorScheme.primary
@@ -428,7 +459,7 @@ fun SettingsSandboxPage(
                                     )
                                     val btnContentColor by animateColorAsState(
                                         targetValue = when {
-                                            isBusy || installPkg.isBlank() -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            !canManage || installPkg.isBlank() -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                             lastInstallResult == true -> MaterialTheme.colorScheme.onSecondaryContainer
                                             lastInstallResult == false -> MaterialTheme.colorScheme.onErrorContainer
                                             else -> MaterialTheme.colorScheme.onPrimary
@@ -436,8 +467,8 @@ fun SettingsSandboxPage(
                                         animationSpec = tween(400)
                                     )
                                     Button(
-                                        onClick = { if (installPkg.isNotBlank() && !isBusy && lastInstallResult == null) installPackage(installPkg.trim()) },
-                                        enabled = true,
+                                        onClick = { installPackage(installPkg.trim()) },
+                                        enabled = canManage && installPkg.isNotBlank() && lastInstallResult == null,
                                         shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 28.dp, bottomEnd = 28.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = btnBgColor,
@@ -526,7 +557,7 @@ fun SettingsSandboxPage(
                                         FilterChip(
                                             selected = false,
                                             onClick = { installPackage(pkg) },
-                                            enabled = !isBusy,
+                                            enabled = canManage,
                                             label = { Text(pkg, style = MaterialTheme.typography.labelSmall) }
                                         )
                                     }
@@ -604,7 +635,7 @@ fun SettingsSandboxPage(
                                     },
                                     leadingContent = { Icon(Icons.Default.Inventory2, null, tint = MaterialTheme.colorScheme.primary) },
                                     trailingContent = {
-                                        IconButton(onClick = { deleteConfirm = pkg.name }, enabled = !isBusy, modifier = Modifier.size(32.dp)) {
+                                        IconButton(onClick = { deleteConfirm = pkg.name }, enabled = canManage, modifier = Modifier.size(32.dp)) {
                                             Icon(Icons.Default.Close, stringResource(R.string.sandbox_remove_content_desc), modifier = Modifier.size(16.dp))
                                         }
                                     }
@@ -638,7 +669,7 @@ fun SettingsSandboxPage(
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                 },
-                                modifier = Modifier.clickable { resetConfirm = true }
+                                modifier = Modifier.clickable(enabled = canManage) { resetConfirm = true }
                             )
                         }))
                         Spacer(Modifier.height(16.dp))
@@ -661,12 +692,11 @@ fun SettingsSandboxPage(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (isBusy) return@TextButton
-                        scope.launch {
-                            deleteConfirm = null
-                            sandboxManager.removePackage(pkgName)
-                        }
+                        if (!canManage) return@TextButton
+                        deleteConfirm = null
+                        sandboxManager.removePackage(pkgName)
                     },
+                    enabled = canManage,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) { Text(stringResource(R.string.delete)) }
             },
@@ -686,12 +716,16 @@ fun SettingsSandboxPage(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        scope.launch {
-                            sandboxManager.reset(); available = false
-                            clearAllState()
-                        }
+                        if (!canManage) return@TextButton
                         resetConfirm = false
+                        scope.launch {
+                            if (sandboxManager.reset()) {
+                                available = false
+                                clearAllState()
+                            }
+                        }
                     },
+                    enabled = canManage,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) { Text(stringResource(R.string.delete)) }
             },

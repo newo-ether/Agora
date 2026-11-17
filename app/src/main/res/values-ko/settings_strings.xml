@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">로컬 샌드박스</string>
     <string name="sandbox_enable">로컬 샌드박스 활성화</string>
-    <string name="sandbox_enable_desc">기기에서 격리된 Alpine Linux로 명령 실행</string>
+    <string name="sandbox_enable_desc">기기의 격리된 Linux 환경에서 명령 실행</string>
     <string name="shell_device_host">SSH 호스트</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">포트</string>
@@ -295,12 +295,12 @@
     <string name="sandbox_package_name">패키지 이름</string>
     <string name="sandbox_quick_install">빠른 설치</string>
     <string name="sandbox_installed">설치된 패키지</string>
-    <string name="sandbox_no_packages">설치된 패키지가 없습니다. Alpine 기본만 있습니다.</string>
+    <string name="sandbox_no_packages">표시할 설치된 패키지가 없습니다.</string>
     <string name="sandbox_danger_zone">위험 구역</string>
     <string name="sandbox_reset">환경 재설정</string>
     <string name="sandbox_reset_title">환경을 재설정할까요?</string>
-    <string name="sandbox_reset_desc">Alpine rootfs 및 모든 패키지 제거</string>
-    <string name="sandbox_reset_confirm">Alpine Linux rootfs와 설치된 모든 패키지가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</string>
+    <string name="sandbox_reset_desc">선택한 Linux 시스템과 설치된 패키지 삭제</string>
+    <string name="sandbox_reset_confirm">선택한 Linux 시스템과 설치된 패키지가 삭제됩니다. 공유 홈 파일과 다른 배포판은 유지됩니다. 이 작업은 되돌릴 수 없습니다.</string>
     <string name="sandbox_not_supported">로컬 샌드박스가 지원되지 않습니다</string>
     <string name="sandbox_snackbar_installed">%s 설치됨</string>
     <string name="sandbox_snackbar_install_failed">%s 설치 실패</string>
@@ -314,8 +314,8 @@
     <string name="sandbox_snackbar_error">오류: %s</string>
     <string name="sandbox_not_supported_desc">이 기능은 현재 빌드에서 사용할 수 없습니다</string>
     <string name="sandbox_not_installed">설치되지 않음</string>
-    <string name="sandbox_extracting_rootfs">Alpine rootfs 추출 중...</string>
-    <string name="sandbox_downloading_rootfs">Alpine rootfs 다운로드 중… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Linux 시스템 압축 해제 중...</string>
+    <string name="sandbox_downloading_rootfs">Linux 시스템 다운로드 중… %d%%</string>
     <string name="sandbox_install_failed">설치 실패</string>
     <string name="sandbox_installed_label">설치됨</string>
     <string name="sandbox_failed_label">실패</string>

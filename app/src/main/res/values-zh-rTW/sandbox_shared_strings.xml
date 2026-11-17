@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">已啟用 · 仍需授予儲存空間存取權</string>
     <string name="sandbox_shared_storage_grant">授予儲存空間存取權</string>
     <string name="sandbox_shared_storage_warning">啟用後，沙箱命令可讀取及修改相片、下載項目和其他共用檔案。會變更資料的工具呼叫需要確認。</string>
+    <string name="sandbox_distribution">發行版</string>
+    <string name="sandbox_distribution_desc">選擇 Linux 環境；尚未安裝時需另外安裝。</string>
+    <string name="sandbox_distribution_busy">請先停止執行中的沙箱工作，並等待目前操作完成後再切換發行版。</string>
+    <string name="sandbox_distribution_switch_failed">無法切換發行版，請重試。</string>
 </resources>

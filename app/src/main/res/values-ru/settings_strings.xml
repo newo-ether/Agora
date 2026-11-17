@@ -269,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Локальная песочница</string>
     <string name="sandbox_enable">Включить локальную песочницу</string>
-    <string name="sandbox_enable_desc">Выполнять команды в изолированном Alpine Linux на устройстве</string>
+    <string name="sandbox_enable_desc">Выполнять команды в изолированном окружении Linux на устройстве</string>
     <string name="shell_device_host">SSH-хост</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Порт</string>
@@ -295,12 +295,12 @@
     <string name="sandbox_package_name">Имя пакета</string>
     <string name="sandbox_quick_install">Быстрая установка</string>
     <string name="sandbox_installed">Установленные пакеты</string>
-    <string name="sandbox_no_packages">Пакеты не установлены. Только база Alpine.</string>
+    <string name="sandbox_no_packages">Нет установленных пакетов для отображения.</string>
     <string name="sandbox_danger_zone">Опасная зона</string>
     <string name="sandbox_reset">Сбросить окружение</string>
     <string name="sandbox_reset_title">Сбросить окружение?</string>
-    <string name="sandbox_reset_desc">Удалить rootfs Alpine и все пакеты</string>
-    <string name="sandbox_reset_confirm">Это удалит rootfs Alpine Linux и все установленные пакеты. Это действие нельзя отменить.</string>
+    <string name="sandbox_reset_desc">Удалить выбранную систему Linux и установленные в ней пакеты</string>
+    <string name="sandbox_reset_confirm">Выбранная система Linux и установленные в ней пакеты будут удалены. Файлы общего домашнего каталога и другие дистрибутивы сохранятся. Это действие нельзя отменить.</string>
     <string name="sandbox_not_supported">Локальная песочница не поддерживается</string>
     <string name="sandbox_snackbar_installed">%s установлен</string>
     <string name="sandbox_snackbar_install_failed">Не удалось установить %s</string>
@@ -314,8 +314,8 @@
     <string name="sandbox_snackbar_error">Ошибка: %s</string>
     <string name="sandbox_not_supported_desc">Эта функция недоступна в текущей сборке</string>
     <string name="sandbox_not_installed">Не установлено</string>
-    <string name="sandbox_extracting_rootfs">Извлечение rootfs Alpine...</string>
-    <string name="sandbox_downloading_rootfs">Загрузка rootfs Alpine… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Распаковка системы Linux...</string>
+    <string name="sandbox_downloading_rootfs">Загрузка системы Linux… %d%%</string>
     <string name="sandbox_install_failed">Не удалось установить</string>
     <string name="sandbox_installed_label">Установлено</string>
     <string name="sandbox_failed_label">Ошибка</string>
