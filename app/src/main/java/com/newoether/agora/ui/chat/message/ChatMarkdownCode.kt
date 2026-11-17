@@ -75,7 +75,6 @@ internal fun ChatMarkdownCodeBlock(
     copyEnabled: Boolean = true,
     canCopy: () -> Boolean = { true },
     copyModifier: Modifier = Modifier,
-    headerContainerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
     val assets = rememberChatMarkdownAssets(MaterialTheme.colorScheme.onSurface)
     CompositionLocalProvider(
@@ -89,7 +88,6 @@ internal fun ChatMarkdownCodeBlock(
                 enabled = copyEnabled,
                 canCopy = canCopy,
                 copyModifier = copyModifier,
-                containerColor = headerContainerColor,
             )
             val codeStyle = assets.renderContext.typography.code.copy(
                 color = MaterialTheme.colorScheme.onSurface,
@@ -310,7 +308,7 @@ internal fun ChatCodeBlockHeader(
     canCopy: () -> Boolean = { true },
     copyModifier: Modifier = Modifier,
     showCopy: Boolean = true,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     actions: @Composable () -> Unit = {},
     trailingActions: @Composable () -> Unit = {},
 ) {
@@ -323,15 +321,13 @@ internal fun ChatCodeBlockHeader(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(modifier = Modifier.weight(1f).padding(start = 8.dp, end = 4.dp)) {
-                    if (!language.isNullOrBlank()) {
-                        Text(
-                            text = language.uppercase(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    Text(
+                        text = language?.takeIf { it.isNotBlank() }?.uppercase() ?: "CODE",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
                 FlowRow(
                     modifier = Modifier.widthIn(max = 200.dp),

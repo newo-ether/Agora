@@ -39,8 +39,9 @@ typography and wrapping. Its copy header stays enabled by default. A host that a
 copy action may omit that header without changing other consumers or duplicating the code renderer.
 Native fenced and standalone code share `ChatCodeBlockSurface`, `ChatCodeBlockHeader` and
 `ChatCodeBlockAction` in ChatMarkdownCode. This Material 3 Expressive presentation uses a 24 dp
-rounded surfaceContainerLow shell, a surfaceContainerHigh header and no legacy hairline divider.
-The language uses theme labelMedium with the app's default font and single-line ellipsis; it
+rounded surfaceContainerLow shell with the same background on its header and body, and no legacy
+hairline divider. An absent, empty or whitespace-only language displays the literal `CODE`; a
+nonblank language keeps its existing uppercase label. The language uses theme labelMedium with the app's default font and single-line ellipsis; it
 yields width to the end-aligned actions. Single-row headers are 40 dp high with no vertical
 padding. Uncontained IconButtons occupy independent 40 dp squares with 16 dp glyphs and the
 standard Material indication. Secondary actions use onSurfaceVariant; Source/Run uses primary.

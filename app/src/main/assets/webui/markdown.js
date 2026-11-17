@@ -68,11 +68,11 @@ marked.use({
       const tag = token.ordered ? "ol" : "ul";
       return `<${tag} class="md-list" data-depth="${depth}">${items}</${tag}>`;
     },
-    // ChatCodeBlockHeader: the language (when given) and Copy in a SpaceBetween row, then the code.
+    // ChatCodeBlockHeader: the language (or CODE) and Copy, then the code body.
     code(token) {
       const { text, lang, raw } = token;
       const language = (lang ?? "").trim().split(/\s+/)[0];
-      const label = language ? `<span class="code-language">${escapeHtml(language.toUpperCase())}</span>` : "";
+      const label = `<span class="code-language">${escapeHtml(language ? language.toUpperCase() : "CODE")}</span>`;
       const preview = htmlPreviewFence(token, !!token.previewStreaming);
       const previewAttributes = preview ? ` data-html-language="${preview.language}" data-html-source="${escapeHtml(JSON.stringify(preview.source))}"` : "";
       return `<div class="code-block"${previewAttributes}><div class="code-header">${label}` +

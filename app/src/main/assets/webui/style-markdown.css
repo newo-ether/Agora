@@ -82,7 +82,7 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
   align-items: center;
   justify-content: space-between;
   padding: 0 8px;
-  background: var(--md-surface-container-high);
+  background: var(--code-background);
 }
 .code-language {
   min-width: 0;

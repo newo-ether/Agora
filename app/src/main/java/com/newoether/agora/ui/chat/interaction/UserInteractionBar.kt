@@ -388,7 +388,6 @@ private fun ShellBody(
         ChatMarkdownCodeBlock(
             code = pending.summary,
             autoWrap = autoWrapCodeBlocks,
-            headerContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
     }
     Spacer(Modifier.height(10.dp))

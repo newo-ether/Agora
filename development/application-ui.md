@@ -1958,9 +1958,10 @@ FastOutSlowIn curve. This reveal takes priority over geometry-anchor preservatio
 a minimized card or switching its current request page. Request removal, ordinary recomposition and
 other owners' requests do not retrigger it. User input cancels programmatic travel; Reduced Motion
 snaps to the start. Shell confirmation remains the first page followed by questions in request order;
-its native code-block header uses `surfaceContainerHighest` against the card's
-`surfaceContainerHigh`, preserving a distinct theme-adaptive surface in light, dark and AMOLED modes.
-Ordinary code blocks retain their default header color. Request-kind-prefixed identity, drafts and exact independent actions prevent one kind from resolving
+its native code block uses the shared `surfaceContainerLow` background for both header and body
+against the card's `surfaceContainerHigh`, preserving a distinct theme-adaptive code surface.
+Language-label fallback and header styling follow the shared streaming Markdown contract without a
+shell-only color override. Request-kind-prefixed identity, drafts and exact independent actions prevent one kind from resolving
 the other. Reduced Motion snaps spatial changes and retains permitted fades. Tests cover list/search exclusion without deleting children,
 narrow/wide horizontal overflow, interrupted motion, click/return, parent highlight/reselection,
 drawer drag/pinning, stale events, clear/disconnect and native measurement release. Phone UI
