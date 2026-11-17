@@ -123,7 +123,7 @@ interface SandboxManager {
     /** Remove a package from the sandbox. */
     suspend fun apkDelete(packageName: String): Boolean
 
-    /** Get rootfs disk usage in MB. */
+    /** Approximate private rootfs + home regular-file usage in MiB, excluding shared storage. */
     suspend fun getDiskUsageMB(): Long
 
     /** Delete rootfs and proot binary, returning to uninstalled state. */

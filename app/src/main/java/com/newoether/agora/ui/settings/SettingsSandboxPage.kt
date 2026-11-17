@@ -6,9 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -154,18 +151,11 @@ fun SettingsSandboxPage(
     val quickPkgs = listOf("python3", "git", "curl", "wget", "openssh", "nodejs", "build-base", "htop")
     val pkgCount = backendPackages.size
     var diskUsageMB by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(backendPackages.size) {
-        try { diskUsageMB = sandboxManager.getDiskUsageMB() } catch (_: Exception) {}
+    LaunchedEffect(backendPackages.size, available, isBusy) {
+        if (!isBusy) {
+            try { diskUsageMB = sandboxManager.getDiskUsageMB() } catch (_: Exception) {}
+        }
     }
-    val diskUsageProgress by animateFloatAsState(
-        targetValue = (diskUsageMB.toFloat() / 2048f).coerceIn(0f, 1f),
-        animationSpec = if (motionPolicy.allowSpatialTransitions) {
-            tween(durationMillis = 500, easing = FastOutSlowInEasing)
-        } else {
-            snap()
-        },
-        label = "sandboxDiskUsageProgress",
-    )
 
     CollapsingSettingsLazyScaffold(
         title = stringResource(R.string.sandbox_mgmt_title),
@@ -250,20 +240,12 @@ fun SettingsSandboxPage(
                                 },
                                 supportingContent = {
                                     Column {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            LinearProgressIndicator(
-                                                progress = { diskUsageProgress },
-                                                modifier = Modifier.weight(0.3f).height(6.dp),
-                                                trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                            )
-                                            Spacer(Modifier.width(10.dp))
-                                            Text(
-                                                if (diskUsageMB < 1000) stringResource(R.string.sandbox_disk_usage_mb, diskUsageMB.coerceAtLeast(1))
-                                                else stringResource(R.string.sandbox_disk_usage_gb, diskUsageMB / 1024f),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        Text(
+                                            if (diskUsageMB < 1024) stringResource(R.string.sandbox_disk_usage_mb, diskUsageMB)
+                                            else stringResource(R.string.sandbox_disk_usage_gb, diskUsageMB / 1024f),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                         Spacer(Modifier.height(2.dp))
                                         Text(
                                             stringResource(R.string.sandbox_dashboard_summary, pkgCount),

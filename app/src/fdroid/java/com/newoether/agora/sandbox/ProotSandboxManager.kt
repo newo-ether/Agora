@@ -753,7 +753,7 @@ class ProotSandboxManager(
     }
 
     override suspend fun getDiskUsageMB(): Long = withContext(Dispatchers.IO) {
-        try { rootfsDir.walkTopDown().sumOf { it.length() } / (1024 * 1024) } catch (_: Throwable) { 0L }
+        sandboxPrivateUsageBytes(rootfsDir, homeMountDir) / (1024 * 1024)
     }
 
     // ── Helpers ────────────────────────────────────────

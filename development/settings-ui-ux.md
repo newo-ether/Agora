@@ -91,6 +91,14 @@ layout, states, density, or interaction design has been approved.
   There is no Save action or save-on-exit draft. The existing Generation scaffold/navigation and
   shared SettingsGroup own spacing and navigation. All supported locales define the complete copy.
 
+## Sandbox storage usage
+
+The Sandbox dashboard displays approximate private regular-file usage from the root filesystem
+and the separate home directory, including attachments. It does not follow symbolic links or count
+`/mnt/shared`. Show the used size only; there is no enforced 2 GiB sandbox quota, capacity denominator
+or quota progress bar. Refresh on page entry and after package/backend operations settle. This is
+a best-effort file-size snapshot, not allocated filesystem blocks or a live storage meter.
+
 ## Appearance defaults
 
 - When no appearance preference has been persisted, the app uses the Forest color scheme with the

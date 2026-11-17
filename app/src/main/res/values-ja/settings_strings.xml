@@ -320,8 +320,8 @@
     <string name="sandbox_installed_label">インストール済み</string>
     <string name="sandbox_failed_label">失敗</string>
     <string name="sandbox_dashboard_summary">%d 個のパッケージをインストール済み · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">%s を削除しますか？</string>
     <string name="sandbox_remove_pkg_desc">%s をサンドボックスから削除しますか? ディスク領域が解放されます。</string>
     <string name="sandbox_remove_content_desc">パッケージを削除</string>

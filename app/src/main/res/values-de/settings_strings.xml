@@ -320,8 +320,8 @@
     <string name="sandbox_installed_label">Installiert</string>
     <string name="sandbox_failed_label">Fehlgeschlagen</string>
     <string name="sandbox_dashboard_summary">%d Pakete installiert · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">%s entfernen?</string>
     <string name="sandbox_remove_pkg_desc">%s aus der Sandbox entfernen? Dadurch wird der Speicherplatz freigegeben.</string>
     <string name="sandbox_remove_content_desc">Paket entfernen</string>

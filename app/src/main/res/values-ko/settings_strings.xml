@@ -320,8 +320,8 @@
     <string name="sandbox_installed_label">설치됨</string>
     <string name="sandbox_failed_label">실패</string>
     <string name="sandbox_dashboard_summary">%d개의 패키지 설치됨 · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">%s을(를) 제거할까요?</string>
     <string name="sandbox_remove_pkg_desc">샌드박스에서 %s을(를) 제거하시겠습니까? 디스크 공간이 확보됩니다.</string>
     <string name="sandbox_remove_content_desc">패키지 제거</string>

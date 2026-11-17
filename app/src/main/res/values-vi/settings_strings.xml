@@ -312,8 +312,8 @@
     <string name="sandbox_installed_label">Đã cài đặt</string>
     <string name="sandbox_failed_label">Thất bại</string>
     <string name="sandbox_dashboard_summary">Đã cài đặt %d gói · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">Xóa %s?</string>
     <string name="sandbox_remove_pkg_desc">Xóa %s khỏi hộp cát? Các gói không còn cần thiết cũng sẽ bị xóa bỏ.</string>
     <string name="sandbox_remove_content_desc">Xóa gói</string>

@@ -320,8 +320,8 @@
     <string name="sandbox_installed_label">Установлено</string>
     <string name="sandbox_failed_label">Ошибка</string>
     <string name="sandbox_dashboard_summary">Установлено пакетов: %d · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d МБ / 2 ГБ</string>
-    <string name="sandbox_disk_usage_gb">~%.1f ГБ / 2 ГБ</string>
+    <string name="sandbox_disk_usage_mb">~%d МБ</string>
+    <string name="sandbox_disk_usage_gb">~%.1f ГБ</string>
     <string name="sandbox_remove_pkg_title">Удалить %s?</string>
     <string name="sandbox_remove_pkg_desc">Удалить %s из песочницы? Это освободит место на диске.</string>
     <string name="sandbox_remove_content_desc">Удалить пакет</string>

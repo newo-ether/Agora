@@ -320,8 +320,8 @@
     <string name="sandbox_installed_label">مثبت</string>
     <string name="sandbox_failed_label">فشل</string>
     <string name="sandbox_dashboard_summary">%d حزمة مثبتة · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d ميجابايت / 2 جيجابايت</string>
-    <string name="sandbox_disk_usage_gb">~%.1f جيجابايت / 2 جيجابايت</string>
+    <string name="sandbox_disk_usage_mb">~%d ميجابايت</string>
+    <string name="sandbox_disk_usage_gb">~%.1f جيجابايت</string>
     <string name="sandbox_remove_pkg_title">إزالة %s؟</string>
     <string name="sandbox_remove_pkg_desc">إزالة %s من الصندوق الرملي؟ سيؤدي ذلك إلى تحرير مساحة القرص الخاصة به.</string>
     <string name="sandbox_remove_content_desc">إزالة الحزمة</string>

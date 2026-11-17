@@ -320,8 +320,8 @@
     <string name="sandbox_installed_label">Installé</string>
     <string name="sandbox_failed_label">Échec</string>
     <string name="sandbox_dashboard_summary">%d paquets installés · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d Mo / 2 Go</string>
-    <string name="sandbox_disk_usage_gb">~%.1f Go / 2 Go</string>
+    <string name="sandbox_disk_usage_mb">~%d Mo</string>
+    <string name="sandbox_disk_usage_gb">~%.1f Go</string>
     <string name="sandbox_remove_pkg_title">Supprimer %s ?</string>
     <string name="sandbox_remove_pkg_desc">Supprimer %s du bac à sable ? Cela libérera son espace disque.</string>
     <string name="sandbox_remove_content_desc">Supprimer le paquet</string>

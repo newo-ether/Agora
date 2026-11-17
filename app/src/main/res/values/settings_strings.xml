@@ -329,8 +329,8 @@
     <string name="sandbox_installed_label">Installed</string>
     <string name="sandbox_failed_label">Failed</string>
     <string name="sandbox_dashboard_summary">%d packages installed · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">Remove %s?</string>
     <string name="sandbox_remove_pkg_desc">Remove %s from the sandbox? Packages that are no longer needed will also be removed.</string>
     <string name="sandbox_remove_content_desc">Remove package</string>

@@ -321,8 +321,8 @@
     <string name="sandbox_installed_label">已安装</string>
     <string name="sandbox_failed_label">失败</string>
     <string name="sandbox_dashboard_summary">已安装 %d 个包 · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">移除 %s？</string>
     <string name="sandbox_remove_pkg_desc">从沙箱中移除 %s？不再需要的依赖也会一起移除。</string>
     <string name="sandbox_remove_content_desc">移除包</string>
