@@ -11,6 +11,7 @@
 - Voyage AI：`voyage-3-large`、`voyage-3-lite`、`voyage-code-3`
 - SiliconFlow：`BAAI/bge-m3`、`BAAI/bge-large-en-v1.5`
 - OpenRouter 的 OpenAI 嵌入模型路由
+- Requesty 的 OpenAI 嵌入模型路由
 - Ollama、本地嵌入模型或自定义端点
 
 远程嵌入使用所选提供商的凭据和 Base URL，待嵌入文本会离开设备；本地嵌入留在设备上。

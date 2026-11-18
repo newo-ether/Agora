@@ -47,6 +47,41 @@ class OpenAiCompatibleGenerationParameterForwardingTest {
     }
 
     @Test
+    fun requestyForwardsEffortBudgetAndExplicitNone() = withServer { server ->
+        val effort = server.capture(RequestyProvider(), config(server, "openai/gpt-4o-mini").copy(
+            thinkingLevel = "max",
+        ))
+        assertEquals("max", effort["reasoning_effort"]!!.jsonPrimitive.content)
+        assertFalse(effort.containsKey("reasoning"))
+        assertStandardParameters(effort)
+
+        withServer { minimalServer ->
+            val minimal = minimalServer.capture(RequestyProvider(), config(minimalServer, "openai/gpt-4o-mini").copy(
+                thinkingLevel = "minimal",
+            ))
+            assertEquals("min", minimal["reasoning_effort"]!!.jsonPrimitive.content)
+        }
+
+        withServer { budgetServer ->
+            val budget = budgetServer.capture(
+                RequestyProvider(),
+                config(budgetServer, "anthropic/claude-sonnet-5").copy(
+                    thinkingBudgetEnabled = true,
+                    thinkingBudgetTokens = 8192,
+                ),
+            )
+            assertEquals("8192", budget["reasoning_effort"]!!.jsonPrimitive.content)
+        }
+
+        withServer { offServer ->
+            val off = offServer.capture(RequestyProvider(), config(offServer, "openai/gpt-4o-mini").copy(
+                thinkingEnabled = false,
+            ))
+            assertEquals("none", off["reasoning_effort"]!!.jsonPrimitive.content)
+        }
+    }
+
+    @Test
     fun chatForwardsConfiguredServiceTier() = withServer { server ->
         val body = server.capture(OpenAiProvider(), config(server, "gpt-4o").copy(
             thinkingEnabled = false,
