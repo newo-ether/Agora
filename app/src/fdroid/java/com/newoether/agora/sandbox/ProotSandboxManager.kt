@@ -34,10 +34,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-class ProotSandboxManager(
+class ProotSandboxManager internal constructor(
     private val context: Context,
     private val settings: SettingsRepository,
+    private val rootfsInstaller: ProotRootfsInstaller,
 ) : SandboxManager {
+    constructor(context: Context, settings: SettingsRepository) : this(context, settings, ProotRootfsInstaller())
     // One authority serializes rootfs selection, commands and filesystem/package mutations.
     private val mutationMutex = Mutex()
     private val operationLock = Any()
@@ -166,14 +168,20 @@ class ProotSandboxManager(
 
     override suspend fun isAvailable(): Boolean = withContext(Dispatchers.IO) {
         shellJobs.recover()
-        mutationMutex.withLock { prepareAvailability() }
+        // A status refresh must not overwrite the failure from the action it observes.
+        mutationMutex.withLock { prepareAvailability(recordError = false) }
     }
 
     /** Caller holds the mutation boundary, including these small legacy repair writes. */
-    private fun prepareAvailability(): Boolean {
-        if (!rootfs().isDirectory) { lastError = "Sandbox rootfs not installed"; return false }
-        if (!ensureShell()) { lastError = "/bin/sh missing"; return false }
-        if (!linkerExists(_distribution.value)) { lastError = "Sandbox dynamic linker missing"; return false }
+    private fun prepareAvailability(recordError: Boolean = true): Boolean {
+        fun unavailable(message: String): Boolean {
+            if (recordError) lastError = message
+            return false
+        }
+
+        if (!rootfs().isDirectory) return unavailable("Sandbox rootfs not installed")
+        if (!ensureShell()) return unavailable("/bin/sh missing")
+        if (!linkerExists(_distribution.value)) return unavailable("Sandbox dynamic linker missing")
         resolver().ensureSandboxMountTargets()
         if (_distribution.value.usesApt) aptPackages().prepare()
         else AlpinePackageMetadataStore(rootfs()).ensurePackageMetadata()
@@ -187,12 +195,15 @@ class ProotSandboxManager(
         return true
     }
 
-    override suspend fun install(): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun install(): Boolean = install(notifyFailure = false)
+
+    private suspend fun install(notifyFailure: Boolean): Boolean = withContext(Dispatchers.IO) {
         shellJobs.recover()
         mutationMutex.withLock {
             val selected = _distribution.value
             val destination = rootfs(selected)
             val staging = File(context.filesDir, "${selected.id}-rootfs.installing")
+            lastError = null
             try {
                 if (destination.exists()) {
                     check(isAvailableSync()) { "Existing sandbox is incomplete; reset this distribution before reinstalling" }
@@ -200,32 +211,33 @@ class ProotSandboxManager(
                 }
                 deleteSandboxTree(staging)
                 check(staging.mkdirs()) { "Cannot create sandbox staging directory" }
-                ProotRootfsInstaller().install(selected, staging,
+                rootfsInstaller.install(selected, staging,
                     progress = { _downloadProgress.value = it },
-                    output = { _terminalOutput.value += "$it\n" })
+                    output = { _terminalOutput.value += it })
                 val paths = SandboxPathResolver(staging, homeMountDir, homeMountPath,
                     sharedStorageMountPath, ::sharedStorageHostDir)
                 check(paths.resolvePath("/bin/sh").isFile) { "Installed sandbox has no shell" }
                 check(linkerExists(selected, paths)) { "Installed sandbox has no dynamic linker" }
-                if (!selected.usesApt) {
-                    AlpinePackageMetadataStore(staging).apply {
-                        captureBaseWorld(force = true)
-                        writeExplicitPackages(emptySet())
-                    }
-                }
+                paths.ensureSandboxMountTargets()
                 currentCoroutineContext().ensureActive()
                 Files.move(staging.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
-                check(prepareAvailability()) { lastError ?: "Installed sandbox is incomplete" }
-                lastError = null
                 true
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                lastError = error.message
-                _terminalOutput.value += "Installation failed: ${error.message}\n"
+                val message = error.message ?: error.javaClass.simpleName
+                lastError = message
+                _terminalOutput.value += "Installation failed: $message\n"
+                if (notifyFailure) emitSnackbar(context.getString(R.string.sandbox_snackbar_error, message))
                 false
             } finally {
-                withContext(NonCancellable) { deleteSandboxTree(staging) }
+                try {
+                    withContext(NonCancellable) { deleteSandboxTree(staging) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    _terminalOutput.value += "Cannot remove rootfs staging directory: ${error.message}\n"
+                }
             }
         }
     }
@@ -235,7 +247,7 @@ class ProotSandboxManager(
             _terminalOutput.value = ""
             _downloadProgress.value = null
             _packageList.value = emptyList()
-            if (install()) refreshPackageList()
+            if (install(notifyFailure = true)) refreshPackageList()
         }
     }
 
@@ -250,9 +262,10 @@ class ProotSandboxManager(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Exception) {
-                    lastError = error.message
-                    _terminalOutput.value += "Error: ${error.message}\n"
-                    emitSnackbar(context.getString(R.string.sandbox_snackbar_error, error.message ?: ""))
+                    val message = error.message ?: error.javaClass.simpleName
+                    lastError = message
+                    _terminalOutput.value += "Error: $message\n"
+                    emitSnackbar(context.getString(R.string.sandbox_snackbar_error, message))
                 } finally {
                     synchronized(operationLock) {
                         _isBusy.value = false
@@ -296,7 +309,9 @@ class ProotSandboxManager(
 
     override suspend fun refreshPackageList() = withContext(Dispatchers.IO) {
         shellJobs.recover()
-        mutationMutex.withLock { _packageList.value = if (prepareAvailability()) readPackages() else emptyList() }
+        mutationMutex.withLock {
+            _packageList.value = if (prepareAvailability(recordError = false)) readPackages() else emptyList()
+        }
     }
 
     override fun getSandboxHomeDir(): File = homeMountDir

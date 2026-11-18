@@ -73,6 +73,7 @@ fun SettingsShellPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         showDocFab = showDocFab,
                         sharedStorageEnabled = sandboxSharedStorageEnabled,
                         onSharedStorageEnabledChange = viewModel.settings::setSandboxSharedStorageEnabled,
+                        onSnackbar = { viewModel.emitSnackbar(it) },
                     )
                 }
             }

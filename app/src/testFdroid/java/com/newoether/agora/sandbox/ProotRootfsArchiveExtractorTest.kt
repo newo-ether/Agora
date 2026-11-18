@@ -46,21 +46,24 @@ class ProotRootfsArchiveExtractorTest {
     }
 
     @Test
-    fun hardLinksCanPrecedeTheirTargetsAndChainWithoutCopying() {
+    fun hardLinkEntriesCanPrecedeTheirTargetsAndBecomeIndependentExecutableFiles() {
         val destination = temporaryFolder.newFolder("hardlinks")
         extract(destination) {
             hardLink("third", "second")
             hardLink("second", "usr/bin/tool")
-            file("usr/bin/tool", "first version")
+            file("usr/bin/tool", "first version", executable = true)
         }
 
         val source = File(destination, "usr/bin/tool")
         val second = File(destination, "second")
         val third = File(destination, "third")
-        assertTrue(Files.isSameFile(source.toPath(), second.toPath()))
-        assertTrue(Files.isSameFile(source.toPath(), third.toPath()))
+        assertFalse(Files.isSameFile(source.toPath(), second.toPath()))
+        assertFalse(Files.isSameFile(second.toPath(), third.toPath()))
+        assertTrue(second.canExecute())
+        assertTrue(third.canExecute())
+        assertEquals("first version", second.readText())
         source.writeText("updated")
-        assertEquals("updated", third.readText())
+        assertEquals("first version", third.readText())
     }
 
     @Test

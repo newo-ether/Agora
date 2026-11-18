@@ -8,9 +8,9 @@ Sandbox support is available in the F-Droid flavor. Google Play builds do not pr
 
 ## Choose and install a distribution
 
-Open **Settings → Terminal → Manage Local Sandbox**. In **Environment**, open **Distribution** and choose Alpine, Debian, or Ubuntu. The selection applies immediately and is remembered on this device. Existing installations continue using Alpine until you choose another distribution.
+Open **Settings → Terminal → Manage Local Sandbox**. If the selected system is not installed, open **Environment → Distribution** and choose Alpine, Debian, or Ubuntu. The selection applies immediately and is remembered on this device. Alpine is the default.
 
-Selecting an uninstalled distribution does not download it. Use **Install** on its dashboard to download and install its Linux system. You can switch back to an installed distribution without reinstalling it. Only one distribution is active at a time; stop running sandbox jobs and wait for installation or package operations to finish before switching.
+Choosing a distribution does not download it. Tap the **Install** row to download and install the selected Linux system. If installation fails, a temporary message explains why; use **Install** again to retry. Once the selected system is ready, the setup rows disappear and the dashboard shows the installed system. To choose a different distribution from an installed system, first reset the current environment; resetting deletes that system and its packages.
 
 ## Packages and files
 

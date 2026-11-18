@@ -11,6 +11,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import java.io.File
+import java.net.HttpURLConnection
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.CountDownLatch
@@ -18,7 +19,10 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -27,14 +31,19 @@ import org.junit.rules.TemporaryFolder
 class ProotDistributionSelectionTest {
     @get:Rule val temporary = TemporaryFolder()
 
-    private fun manager(directory: File): ProotSandboxManager {
+    private fun manager(
+        directory: File,
+        rootfsInstaller: ProotRootfsInstaller = ProotRootfsInstaller(),
+    ): ProotSandboxManager {
         val context = mockk<Context>()
         every { context.filesDir } returns directory
         every { context.getString(R.string.sandbox_distribution_busy) } returns "Sandbox is busy"
         every { context.getString(R.string.sandbox_snackbar_reset) } returns "Reset"
+        every { context.getString(R.string.sandbox_snackbar_error, "HTTP 503 fetching rootfs") } returns
+            "Error: HTTP 503 fetching rootfs"
         val settings = mockk<SettingsRepository>()
         every { settings.sandboxSharedStorageEnabled } returns MutableStateFlow(false)
-        return ProotSandboxManager(context, settings)
+        return ProotSandboxManager(context, settings, rootfsInstaller)
     }
 
     private fun marker(directory: File, path: String): File = File(directory, path).apply {
@@ -94,6 +103,38 @@ class ProotDistributionSelectionTest {
         assertTrue(manager.lastError!!.contains("reset"))
         assertEquals("ubuntu-rootfs/etc/keep", data.readText())
         assertFalse(File(directory, "ubuntu-rootfs.installing").exists())
+    }
+
+    @Test fun failedRootfsDownloadBuffersActualCauseOnceAndRefreshDoesNotOverwriteIt() = runBlocking {
+        val directory = temporary.newFolder()
+        val alpine = marker(directory, "alpine-rootfs/etc/keep")
+        val home = marker(directory, "sandbox-home/attachments/keep")
+        val installer = ProotRootfsInstaller { url ->
+            object : HttpURLConnection(url) {
+                override fun connect() = Unit
+                override fun disconnect() = Unit
+                override fun usingProxy() = false
+                override fun getResponseCode() = 503
+            }
+        }
+        val manager = manager(directory, installer)
+        assertTrue(manager.selectDistribution(SandboxDistribution.DEBIAN))
+
+        manager.installRootfs()
+        withTimeout(5_000) { manager.isInstallingRootfs.first { !it } }
+        assertFalse(manager.isAvailable())
+        manager.refreshPackageList()
+
+        assertEquals("HTTP 503 fetching rootfs", manager.lastError)
+        assertEquals("Error: HTTP 503 fetching rootfs", withTimeout(1_000) { manager.snackbarMessage.first() })
+        assertNull(withTimeoutOrNull(100) { manager.snackbarMessage.first() })
+        assertTrue(manager.terminalOutput.value.contains("Installation failed: HTTP 503 fetching rootfs"))
+        assertFalse(File(directory, "debian-rootfs.installing").exists())
+        assertFalse(File(directory, "debian-rootfs").exists())
+        assertTrue(alpine.isFile)
+        assertTrue(home.isFile)
+        assertTrue(manager.selectDistribution(SandboxDistribution.UBUNTU))
+        assertNull(manager.lastError)
     }
 
     @Test fun glibcReadinessDoesNotRequireMuslOrMutateLegacyAlpine() = runBlocking {

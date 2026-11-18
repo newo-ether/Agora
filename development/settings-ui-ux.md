@@ -99,21 +99,31 @@ retains its own root filesystem and installed packages; the existing `/home/agor
 optional `/mnt/shared` mount remain shared. Exactly one distribution is selected globally.
 Selection is device-local sandbox state and is not included in portable settings archives.
 
-The Environment group starts with an immediate-apply Distribution SettingsItem. Reuse the
-Appearance-style AgoraDropdownMenu and selected checkmark, with a leading terminal icon, a title,
-a supporting explanation and the selected distribution value. No Save action is shown. Selection
-of an uninstalled distribution shows the existing Install action and never starts a download by
-itself. Installed distributions show their own package list, version and quick-install packages.
+Before the selected system is available, Environment shows Distribution and Install as whole-row
+SettingsItems with the same headline, supporting text and primary trailing-label hierarchy. Reuse
+Appearance's end-aligned value treatment, AgoraDropdownMenu and selected checkmark. The selector
+uses a list icon; the version row uses the selected distribution's brand mark. Selection
+applies immediately and does not start a download. Once the selected system is ready, show only
+its installed dashboard, with its own version, packages and quick-install suggestions. A completed
+reset returns to the setup rows. There is no Save action.
+
 Changing distribution clears stale operation output and package projections. Installation and
 package work disable selection; the backend also refuses a switch while shell jobs or filesystem
 mutations are active. A refused switch leaves the persisted selection unchanged and reports why.
+An uninstalled system is a normal state, not a failure. A failed Install operation emits one
+localized message with the actual failure reason through the existing app snackbar path. A
+background availability check or recomposition must not post or replace that outcome. Do not show
+an inline error block. When the operation settles without installing a system, Install is available
+again for an explicit retry.
 
 Reset deletes only the selected distribution's system and installed packages after existing job
 settlement. Its confirmation states that shared home files and other distributions remain intact.
 Installation verifies a pinned archive before extraction, stages a complete filesystem before
 publication, and never overwrites an existing system to recover from an error. The existing
 scaffold, groups, dashboard, storage display, file access and documentation entry remain owners.
-All supported locales define the new choice and reset copy.
+All supported locales define the choice, install, failure and reset copy. Focused verification covers
+matching setup row typography, disabled actions and progress during installation, hiding setup
+controls after success, restoring them after reset, and retry with exactly one failure snackbar.
 
 ## Sandbox storage usage
 
