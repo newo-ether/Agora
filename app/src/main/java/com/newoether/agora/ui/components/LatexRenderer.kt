@@ -14,7 +14,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.scilab.forge.jlatexmath.DefaultTeXFont
 import org.scilab.forge.jlatexmath.TeXConstants
-import ru.noties.jlatexmath.JLatexMathDrawable
+import org.scilab.forge.jlatexmath.TeXFormula
+import org.scilab.forge.jlatexmath.TeXIcon
+import ru.noties.jlatexmath.awt.AndroidGraphics2D
+import ru.noties.jlatexmath.awt.Color as LatexColor
 import com.newoether.agora.util.DebugLog
 import kotlin.io.encoding.Base64
 import kotlin.math.roundToInt
@@ -379,27 +382,26 @@ fun renderLatexToBitmap(
     latex: String,
     textSize: Float = 48f,
     color: Int = 0xFF000000.toInt(),
+    display: Boolean = true,
     fallbackW: Int = 800,
     fallbackH: Int = 200,
     minW: Int = 0,
 ): Bitmap? {
     return try {
-        val drawable = JLatexMathDrawable.builder(latex)
-            .textSize(textSize)
-            .color(color)
-            .build()
-        val iw = drawable.intrinsicWidth
-        val ih = drawable.intrinsicHeight
+        val icon = latexIcon(latex, textSize, color, display)
+        val iw = icon.iconWidth
+        val ih = icon.iconHeight
         val w = maxOf(iw.takeIf { it > 0 } ?: fallbackW, minW)
         val h = ih.takeIf { it > 0 } ?: fallbackH
-        // Placeholders are centered on the text, so pad above or below until the TeX math axis
-        // (where fraction bars and the minus sign sit) is the bitmap's vertical center.
-        val padding = if (ih > 0) mathAxisCenteringPadding(drawable, textSize, h) else AxisPadding(0, 0)
+        // The padding below centres the formula's math axis in the bitmap, so the same axis has to
+        // carry the line's vertical alignment for inline math and block math alike.
+        val padding = if (ih > 0) latexVerticalPadding(icon, textSize, h, display) else AxisPadding(0, 0)
         val bmp = Bitmap.createBitmap(w, h + padding.top + padding.bottom, Bitmap.Config.ARGB_8888)
         val canvas = FilledTextCanvas(bmp)
         canvas.translate(0f, padding.top.toFloat())
-        drawable.setBounds(0, 0, w, h)
-        drawable.draw(canvas)
+        val graphics = AndroidGraphics2D()
+        graphics.setCanvas(canvas)
+        icon.paintIcon(null, graphics, 0, 0)
         bmp
     } catch (e: Exception) {
         // A swallowed exception here is what turns a formula back into its own source text, so the
@@ -414,13 +416,26 @@ fun renderLatexToBitmap(
 internal data class AxisPadding(val top: Int, val bottom: Int)
 
 /**
- * The transparent rows to add so the math axis lands on the vertical center of a formula of
- * [height] pixels. The axis is the formula font's axis height above the icon's baseline.
+ * Builds the TeX icon itself so the style follows the delimiter: inline math is typeset in text
+ * style (compact fractions, side-set limits) and display math in display style.
  */
-private fun mathAxisCenteringPadding(drawable: JLatexMathDrawable, textSize: Float, height: Int): AxisPadding {
-    val icon = drawable.icon()
+internal fun latexIcon(latex: String, textSize: Float, color: Int, display: Boolean): TeXIcon =
+    TeXFormula(latex).TeXIconBuilder()
+        .setStyle(if (display) TeXConstants.STYLE_DISPLAY else TeXConstants.STYLE_TEXT)
+        .setSize(textSize)
+        .setFGColor(LatexColor(color))
+        .build()
+
+/**
+ * The transparent rows to add around a formula. Every formula is centered on the math axis, so a
+ * `TextCenter` placeholder puts that axis on the text's centre line. Inline math therefore sits
+ * vertically centred in its line instead of riding above the baseline. The axis height follows the
+ * typesetting style, so text style uses the smaller text-style axis.
+ */
+internal fun latexVerticalPadding(icon: TeXIcon, textSize: Float, height: Int, display: Boolean): AxisPadding {
     val baselineY = icon.baseLine * height
-    val axisHeight = DefaultTeXFont(textSize).getAxisHeight(TeXConstants.STYLE_DISPLAY) * textSize
+    val style = if (display) TeXConstants.STYLE_DISPLAY else TeXConstants.STYLE_TEXT
+    val axisHeight = DefaultTeXFont(textSize).getAxisHeight(style) * textSize
     return axisCenteringPadding(axisY = baselineY - axisHeight, height = height)
 }
 
@@ -437,7 +452,7 @@ internal fun axisCenteringPadding(axisY: Float, height: Int): AxisPadding {
 
 fun canRenderLatex(latex: String): Boolean {
     return try {
-        JLatexMathDrawable.builder(latex).textSize(48f).color(0).build()
+        latexIcon(latex, 48f, 0, display = false)
         true
     } catch (_: Exception) { false }
 }
@@ -477,6 +492,16 @@ internal fun isDisplayLatexLink(link: String?): Boolean {
 
 /** The original text a rendered formula stands for, or null when [link] is not a LaTeX link. */
 internal fun latexSourceForLink(link: String): String? = decodeLatexLink(link)?.source
+
+/**
+ * The same formula re-encoded as display math. A formula promoted out of a paragraph is now a
+ * block, so it is typeset in display style rather than carrying its inline text style there.
+ */
+internal fun displayLatexLink(link: String): String? {
+    val request = latexImageRequest(link) ?: return null
+    if (request.display) return link
+    return LATEX_URL_PREFIX + encodeLatexUrl(request.latex, display = true, source = request.source)
+}
 
 /**
  * The formula an image stands for, from its latex:// URL or from its source text. The markdown
@@ -519,6 +544,7 @@ internal data class LatexRenderKey(
     val latex: String,
     val textSize: Float,
     val color: Int,
+    val display: Boolean,
 )
 
 internal object LatexBitmapCache {
@@ -591,6 +617,7 @@ internal object LatexBitmapCache {
             key.latex,
             key.textSize,
             key.color,
+            display = key.display,
             fallbackW = fw,
             fallbackH = fh,
             minW = 0,
@@ -602,8 +629,8 @@ internal fun estimateLatexPlaceholderSize(latex: String, textSize: Float, displa
     val charCount = latex.length.coerceAtLeast(1)
     val minWidth = textSize * if (display) 4f else 1.4f
     val maxWidth = textSize * if (display) 18f else 8f
-    val width = (charCount * textSize * if (display) 0.46f else 0.38f)
+    val width = (charCount * textSize * if (display) 0.46f else 0.36f)
         .coerceIn(minWidth, maxWidth)
-    val height = textSize * if (display) 1.45f else 1.05f
+    val height = textSize * if (display) 1.45f else 1f
     return Size(width, height)
 }

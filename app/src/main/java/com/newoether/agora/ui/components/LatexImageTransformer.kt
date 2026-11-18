@@ -93,7 +93,7 @@ internal class LatexImageTransformer(
      */
     fun formulaSize(link: String): Size? {
         val request = latexImageRequest(link) ?: return null
-        val key = LatexRenderKey(request.latex, textSize, color)
+        val key = LatexRenderKey(request.latex, textSize, color, request.display)
         return LatexBitmapCache.observedSize(key)
             ?: estimateLatexPlaceholderSize(request.latex, textSize, request.display)
     }
@@ -128,7 +128,7 @@ internal class LatexImageTransformer(
             return ImageData(painter = viewport)
         }
         val request = latexImageRequest(link) ?: return null
-        val key = LatexRenderKey(request.latex, textSize, color)
+        val key = LatexRenderKey(request.latex, textSize, color, request.display)
         var bitmap by remember(key) { mutableStateOf(LatexBitmapCache.get(key)) }
         val fade = remember(key) { Animatable(if (bitmap != null) 1f else 0f) }
         LaunchedEffect(key) {
@@ -191,7 +191,7 @@ internal class LatexImageTransformer(
         val request = latexImageRequest(link) ?: return super.placeholderConfig(
             link, density, containerSize, imageWidth, imageSize, imageSizeChanged
         )
-        val key = LatexRenderKey(request.latex, textSize, color)
+        val key = LatexRenderKey(request.latex, textSize, color, request.display)
         val resolvedSize = if (imageSize.isUnspecified) {
             LatexBitmapCache.get(key)?.let { bmp ->
                 Size(bmp.width.toFloat(), bmp.height.toFloat())
@@ -205,6 +205,8 @@ internal class LatexImageTransformer(
                 height = resolvedSize.height.toDp().value,
             )
         }
+        // The bitmap's transparent rows centre the formula's math axis, so centring the placeholder
+        // on the text line keeps inline math level with the words around it.
         return PlaceholderConfig(size = sizeDp, verticalAlign = PlaceholderVerticalAlign.TextCenter)
     }
 }

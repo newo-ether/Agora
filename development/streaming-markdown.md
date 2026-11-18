@@ -68,20 +68,26 @@ R8 retention. The minified release must also pass the reported matrix's parsing 
 Standalone/display LaTeX uses that same shared Markdown component graph. It remains start-aligned and
 renders at its intrinsic formula width inside a message-width horizontal viewport. A formula wider
 than that viewport scrolls horizontally so all content remains inspectable; a formula that fits has
-no effective scroll range. Every formula on its own line (display, height-promoted, or an inline
-formula wider than 80% of its paragraph width, decided at display time from that paragraph's width)
-renders as one single-line selectable Text holding one inline placeholder, so a covering selection
-highlights the whole formula. Every formula's alternate text is its exact original source slice,
+no effective scroll range. Every formula on its own line (display, or an inline formula that cannot
+fit the full paragraph width or exceeds the block height threshold) renders as one single-line
+selectable Text holding one inline placeholder, so a covering selection highlights the whole
+formula. A formula that merely looks wide stays inline and wraps like a long word; it is never
+pulled out of its sentence. A promoted inline formula is re-encoded as display math, so the block
+uses display style. Every formula's alternate text is its exact original source slice,
 delimiters included, carried in its `latex://` link, so selection copies the original text and never
 a URL. Copied text must equal the original message text. Because a placeholder cannot lay out
 alternate text with line breaks, a source's `\n` and `\r` are stored in the alternate text as
 U+E000 and U+E001; the chat selection host's clipboard (`FormulaSourceClipboard`) restores them on
 copy, and the source parser restores them before resolving the formula. System text actions other
-than copy (for example Translate or Speak) receive the stored marks. Formula bitmaps render at `20 sp` and are padded with transparent rows so the TeX math axis
-sits on the bitmap's vertical center, which `TextCenter` placeholder alignment puts on the text
-center. Other inline LaTeX and ordinary Markdown images retain their existing layout; once a paragraph
-splits for a wide formula, its other images use their block presentation and search positions are
-not reported for that paragraph.
+than copy (for example Translate or Speak) receive the stored marks. Formula bitmaps render at `20 sp`
+in the style its delimiter selects: inline formulas use TeX text style (compact fractions and
+side-set limits), display formulas use display style. An inline bitmap is padded with transparent
+rows below its baseline by exactly the formula's descender depth, and its `AboveBaseline`
+placeholder alignment puts that baseline on the surrounding text baseline. A display bitmap is
+padded so the TeX math axis sits on the bitmap's vertical center, and `TextCenter` alignment puts
+the axis on the text center. Other inline LaTeX and ordinary Markdown images retain their existing
+layout; once a paragraph splits because a formula cannot fit, its other images use their block
+presentation and search positions are not reported for that paragraph.
 During active streaming, display-formula scrolling uses the same interaction commit gate as code-block
 scrolling so an in-progress gesture is not replaced by a newer parsed Markdown snapshot.
 
