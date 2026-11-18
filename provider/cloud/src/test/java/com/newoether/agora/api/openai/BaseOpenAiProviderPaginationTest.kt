@@ -102,7 +102,7 @@ class BaseOpenAiProviderPaginationTest {
     }
 
     @Test
-    fun laterPageFailureRetriesFiveTimesAndReturnsModelsFromCompletedPages() {
+    fun laterPageFailureRetriesThreeTimesAndReturnsModelsFromCompletedPages() {
         mockkObject(NetworkRetryPolicy)
         every { NetworkRetryPolicy.delayMillis(any(), any(), any(), any()) } returns 0L
         try {
@@ -113,7 +113,7 @@ class BaseOpenAiProviderPaginationTest {
                             {"data":[{"id":"model-a"}],"has_more":true,"last_id":"cursor"}
                         """.trimIndent(),
                     ),
-                ) + List(6) {
+                ) + List(4) {
                     TestResponse(
                         status = "500 Internal Server Error",
                         body = """{"error":{"message":"temporary failure"}}""",
@@ -125,9 +125,9 @@ class BaseOpenAiProviderPaginationTest {
                 }
 
                 assertEquals(listOf("model-a"), models)
-                assertEquals(7, requests.size)
+                assertEquals(5, requests.size)
                 assertEquals(
-                    List(6) { "GET /v1/models?after=cursor HTTP/1.1" },
+                    List(4) { "GET /v1/models?after=cursor HTTP/1.1" },
                     requests.drop(1).map { it.first },
                 )
             }

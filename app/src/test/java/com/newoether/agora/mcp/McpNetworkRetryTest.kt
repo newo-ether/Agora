@@ -65,24 +65,24 @@ class McpNetworkRetryTest {
     }
 
     @Test
-    fun initializationAndNotificationRecoverOnTheSixthAttempt() = runTest {
+    fun initializationAndNotificationRecoverOnTheFourthAttempt() = runTest {
         respond = { method, count, _ ->
-            if (method != "tools/list" && count < 6) throw EOFException()
+            if (method != "tools/list" && count < 4) throw EOFException()
         }
         assertTrue(client.listTools().isEmpty())
-        assertEquals(6, attempts["initialize"])
-        assertEquals(6, attempts["notifications/initialized"])
+        assertEquals(4, attempts["initialize"])
+        assertEquals(4, attempts["notifications/initialized"])
         assertEquals(1, attempts["tools/list"])
     }
 
     @Test
-    fun listExhaustsFiveRetriesBeforeExposingFailure() = runTest {
+    fun listExhaustsThreeRetriesBeforeExposingFailure() = runTest {
         respond = { method, _, _ -> if (method == "tools/list") throw EOFException() }
         try {
             client.listTools()
             fail("Expected exhaustion")
         } catch (_: EOFException) { }
-        assertEquals(6, attempts["tools/list"])
+        assertEquals(4, attempts["tools/list"])
     }
 
     @Test
@@ -90,8 +90,8 @@ class McpNetworkRetryTest {
         respond = { method, _, _ -> if (method == "tools/list") throw NetworkHttpException(503, "120", "Busy") }
         val start = testScheduler.currentTime
         try { client.listTools(); fail("Expected exhaustion") } catch (_: NetworkHttpException) { }
-        assertEquals(6, attempts["tools/list"])
-        assertEquals(600_000L, testScheduler.currentTime - start)
+        assertEquals(4, attempts["tools/list"])
+        assertEquals(360_000L, testScheduler.currentTime - start)
         attempts.clear()
         respond = { method, _, _ -> if (method == "tools/list") throw NetworkHttpException(401, null, "Socket is closed") }
         try { client.listTools(); fail("Expected authentication error") } catch (_: NetworkHttpException) { }
@@ -116,9 +116,9 @@ class McpNetworkRetryTest {
 
     @Test
     fun toolCallCanRecoverBeforeAnyHeadersWereSent() = runTest {
-        respond = { method, count, _ -> if (method == "tools/call" && count < 6) throw ConnectException() }
+        respond = { method, count, _ -> if (method == "tools/call" && count < 4) throw ConnectException() }
         client.callTool("edit", buildJsonObject {})
-        assertEquals(6, attempts["tools/call"])
+        assertEquals(4, attempts["tools/call"])
     }
 
     @Test

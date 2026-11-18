@@ -51,7 +51,7 @@ class NetworkRetryPolicyTest {
     }
 
     @Test
-    fun sixAttemptsThenOneFailureAndFiveNotifications() = runTest {
+    fun fourAttemptsThenOneFailureAndThreeNotifications() = runTest {
         var attempts = 0
         val retries = mutableListOf<Int>()
         val failure = EOFException()
@@ -61,8 +61,8 @@ class NetworkRetryPolicyTest {
         } catch (actual: EOFException) {
             assertSame(failure, actual)
         }
-        assertEquals(6, attempts)
-        assertEquals(listOf(1, 2, 3, 4, 5), retries)
+        assertEquals(4, attempts)
+        assertEquals(listOf(1, 2, 3), retries)
     }
 
     @Test
@@ -96,6 +96,18 @@ class NetworkRetryPolicyTest {
         assertEquals(1, attempts)
         job.cancelAndJoin()
         assertEquals(1, attempts)
+    }
+
+    @Test
+    fun providerBackoffCoversFiveRetriesAndHonorsRetryAfter() {
+        assertEquals(5, NetworkRetryPolicy.PROVIDER_MAX_RETRIES)
+        (1..5).forEach { retry ->
+            val ceiling = 1_000L shl (retry - 1)
+            repeat(20) {
+                assertTrue(NetworkRetryPolicy.providerDelayMillis(retry) in ceiling / 2..ceiling)
+            }
+        }
+        assertEquals(120_000L, NetworkRetryPolicy.providerDelayMillis(1, "120", 0))
     }
 
     @Test

@@ -4,10 +4,10 @@ import com.newoether.agora.api.GenerationError
 import com.newoether.agora.api.providerHttpError
 import com.newoether.agora.util.NetworkRetryPolicy
 
-/** One initial provider request plus five retries. */
+/** One initial provider request plus five retries; the shared network budget is three. */
 internal object ProviderRetryPolicy {
-    const val MAX_RETRIES = NetworkRetryPolicy.MAX_RETRIES
-    const val MAX_ATTEMPTS = NetworkRetryPolicy.MAX_ATTEMPTS
+    const val MAX_RETRIES = NetworkRetryPolicy.PROVIDER_MAX_RETRIES
+    const val MAX_ATTEMPTS = MAX_RETRIES + 1
 
     private val retryableUpstreamMessages = listOf(
         "failed to generate",
@@ -48,11 +48,11 @@ internal object ProviderRetryPolicy {
         "resource_exhausted", "failed_to_generate", "408", "425", "429", "500", "502", "503", "504", "529",
     )
 
-    /** Delay before retry number [retryNumber], where valid retries are 1 through 5. */
-    fun delayMillis(retryNumber: Int): Long = NetworkRetryPolicy.delayMillis(retryNumber)
+    /** Delay before retry number [retryNumber], where valid retries are 1 through [MAX_RETRIES]. */
+    fun delayMillis(retryNumber: Int): Long = NetworkRetryPolicy.providerDelayMillis(retryNumber)
 
     fun delayMillis(retryNumber: Int, retryAfter: String?): Long =
-        NetworkRetryPolicy.delayMillis(retryNumber, retryAfter)
+        NetworkRetryPolicy.providerDelayMillis(retryNumber, retryAfter)
 
     /** Relay outcome used when the upstream accepted a request but failed to produce a generation. */
     fun isFailedToGenerateOutcome(raw: String?): Boolean =

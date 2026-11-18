@@ -45,6 +45,7 @@ class ProviderInterruptionQuotaRetryTest {
         every { CloudDebugLog.e(any(), any()) } just Runs
         every { CloudDebugLog.w(any(), any()) } just Runs
         every { NetworkRetryPolicy.delayMillis(any(), any(), any(), any()) } returns 1L
+        every { NetworkRetryPolicy.providerDelayMillis(any(), any(), any(), any()) } returns 1L
     }
 
     @After
@@ -326,10 +327,10 @@ class ProviderInterruptionQuotaRetryTest {
     fun eofAndRateLimitExhaustOnlyTheExistingFiveRetriesAndReportOnce() {
         cases().forEach { case ->
             listOf(
-                collect(case, reads = List(NetworkRetryPolicy.MAX_ATTEMPTS) { EOFException() }),
+                collect(case, reads = List(NetworkRetryPolicy.PROVIDER_MAX_ATTEMPTS) { EOFException() }),
                 collect(
                     case,
-                    reads = List(NetworkRetryPolicy.MAX_ATTEMPTS) {
+                    reads = List(NetworkRetryPolicy.PROVIDER_MAX_ATTEMPTS) {
                         case.formattingOnlyLines().first() +
                             (if (case.name == "Ollama") "not-json" else "data: not-json")
                     }.flatten(),
@@ -337,15 +338,15 @@ class ProviderInterruptionQuotaRetryTest {
                 collect(case, status = 429, errorBody = "Too many requests, retry later"),
                 collect(
                     case,
-                    reads = List(NetworkRetryPolicy.MAX_ATTEMPTS) {
+                    reads = List(NetworkRetryPolicy.PROVIDER_MAX_ATTEMPTS) {
                         case.errorLine("rate_limit_exceeded", "rate_limit_error", "Rate limit exceeded")
                     },
                 ),
             ).forEachIndexed { failureIndex, result ->
-                assertEquals(case.name, NetworkRetryPolicy.MAX_ATTEMPTS, result.second)
+                assertEquals(case.name, NetworkRetryPolicy.PROVIDER_MAX_ATTEMPTS, result.second)
                 assertEquals(
                     case.name,
-                    (1..NetworkRetryPolicy.MAX_RETRIES).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = failureIndex <= 1) },
+                    (1..NetworkRetryPolicy.PROVIDER_MAX_RETRIES).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = failureIndex <= 1) },
                     result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) },
                 )
                 assertEquals(case.name, 1, result.first.filterIsInstance<StreamEvent.Error>().size)

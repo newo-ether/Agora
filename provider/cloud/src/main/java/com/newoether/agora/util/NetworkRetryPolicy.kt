@@ -19,10 +19,16 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.currentCoroutineContext
 import kotlin.random.Random
 
-/** Shared budget and classification; request owners decide whether replay is safe. */
+/** Shared budget and classification; request owners decide whether replay is safe. Non-LLM
+ *  callers (Conch, MCP, web tools, downloads) get three retries; LLM streams keep their own
+ *  five-retry [com.newoether.agora.api.util.ProviderRetryPolicy]. */
 object NetworkRetryPolicy {
-    const val MAX_RETRIES = 5
+    const val MAX_RETRIES = 3
     const val MAX_ATTEMPTS = MAX_RETRIES + 1
+
+    /** LLM provider streams replay up to five times, on top of the shared three. */
+    const val PROVIDER_MAX_RETRIES = 5
+    const val PROVIDER_MAX_ATTEMPTS = PROVIDER_MAX_RETRIES + 1
     val HTTP_CODES = setOf(408, 425, 429, 500, 502, 503, 504, 529)
     private val messages = listOf(
         "unexpected end of stream", "unexpected end of file", "eofexception",
@@ -65,7 +71,7 @@ object NetworkRetryPolicy {
     fun isBeforeSendFailure(failure: Throwable): Boolean =
         isTransient(failure) && causes(failure).any { it is ConnectException || it is UnknownHostException }
 
-    /** Equal jitter: 0.5–1, 1–2, 2–4, 4–8, 8–16 seconds. */
+    /** Equal jitter: 0.5–1, 1–2, 2–4 seconds. */
     fun delayMillis(
         retryNumber: Int,
         retryAfter: String? = null,
@@ -73,6 +79,19 @@ object NetworkRetryPolicy {
         random: Random = Random.Default,
     ): Long {
         require(retryNumber in 1..MAX_RETRIES)
+        val ceiling = 1_000L shl (retryNumber - 1)
+        val backoff = random.nextLong(ceiling / 2, ceiling + 1)
+        return maxOf(backoff, retryAfterMillis(retryAfter, nowMillis) ?: 0L)
+    }
+
+    /** Equal jitter for LLM provider replays: 0.5–1, 1–2, 2–4, 4–8, 8–16 seconds. */
+    fun providerDelayMillis(
+        retryNumber: Int,
+        retryAfter: String? = null,
+        nowMillis: Long = System.currentTimeMillis(),
+        random: Random = Random.Default,
+    ): Long {
+        require(retryNumber in 1..PROVIDER_MAX_RETRIES)
         val ceiling = 1_000L shl (retryNumber - 1)
         val backoff = random.nextLong(ceiling / 2, ceiling + 1)
         return maxOf(backoff, retryAfterMillis(retryAfter, nowMillis) ?: 0L)

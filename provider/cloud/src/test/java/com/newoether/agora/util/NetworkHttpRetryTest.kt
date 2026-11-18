@@ -26,16 +26,16 @@ class NetworkHttpRetryTest {
         val client = OkHttpClient.Builder().addInterceptor { response(it, 200) }.build()
         val retries = mutableListOf<Int>()
         val result = client.executeWithNetworkRetry(request, wait = { n, _, _ -> retries += n }) {
-            if (attempts.incrementAndGet() < 6) throw EOFException()
+            if (attempts.incrementAndGet() < 4) throw EOFException()
             it.body.string()
         }
         assertEquals("complete", result)
-        assertEquals(6, attempts.get())
-        assertEquals(listOf(1, 2, 3, 4, 5), retries)
+        assertEquals(4, attempts.get())
+        assertEquals(listOf(1, 2, 3), retries)
     }
 
     @Test
-    fun transientHttpConsumesFiveSilentRetriesAndPreservesRetryAfter() {
+    fun transientHttpConsumesThreeSilentRetriesAndPreservesRetryAfter() {
         listOf(408, 425, 429, 500, 502, 503, 504, 529).forEach { code ->
             var attempts = 0
             val client = OkHttpClient.Builder().addInterceptor { attempts++; response(it, code) }.build()
@@ -45,8 +45,8 @@ class NetworkHttpRetryTest {
                 retries += n
             }) { it.code }
             assertEquals(code, result)
-            assertEquals(6, attempts)
-            assertEquals(listOf(1, 2, 3, 4, 5), retries)
+            assertEquals(4, attempts)
+            assertEquals(listOf(1, 2, 3), retries)
         }
     }
 
@@ -87,7 +87,7 @@ class NetworkHttpRetryTest {
             assertThrows(ConnectException::class.java) {
                 client.executeWithNetworkRetry(request, replaySafe = false, wait = noWait) { it.code }
             }
-            assertEquals(if (headersStarted) 1 else 6, attempts)
+            assertEquals(if (headersStarted) 1 else 4, attempts)
         }
     }
 
@@ -110,8 +110,8 @@ class NetworkHttpRetryTest {
                         wait = { _, _, _ -> retries++ },
                     ) { it.code }
                 }
-                assertEquals(5, retries)
-                assertEquals(6, sockets.size)
+                assertEquals(3, retries)
+                assertEquals(4, sockets.size)
             } finally {
                 server.close()
                 sockets.forEach { it.close() }
