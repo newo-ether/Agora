@@ -298,18 +298,6 @@ class LatexRendererTest {
         assertTrue(scanners.contains("text.indexOf('$', startIndex = i + 1)"))
     }
 
-    @Test
-    fun promotedInlineFormulaBecomesDisplayMathAndKeepsItsSource() {
-        val inline = latexToMarkdown("x + y", display = false, source = "\\(x + y\\)")
-            .substringAfter("](")
-            .substringBefore(')')
-        val promoted = requireNotNull(displayLatexLink(inline))
-
-        assertTrue(isDisplayLatexLink(promoted))
-        assertEquals("\\(x + y\\)", latexSourceForLink(promoted))
-        assertEquals(promoted, displayLatexLink(promoted))
-    }
-
     private fun imageNode(markdown: String): ASTNode {
         val root = MarkdownParser(GFMFlavourDescriptor()).buildMarkdownTreeFromString(markdown)
         return root.findDescendant(MarkdownElementTypes.IMAGE)

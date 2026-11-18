@@ -494,16 +494,6 @@ internal fun isDisplayLatexLink(link: String?): Boolean {
 internal fun latexSourceForLink(link: String): String? = decodeLatexLink(link)?.source
 
 /**
- * The same formula re-encoded as display math. A formula promoted out of a paragraph is now a
- * block, so it is typeset in display style rather than carrying its inline text style there.
- */
-internal fun displayLatexLink(link: String): String? {
-    val request = latexImageRequest(link) ?: return null
-    if (request.display) return link
-    return LATEX_URL_PREFIX + encodeLatexUrl(request.latex, display = true, source = request.source)
-}
-
-/**
  * The formula an image stands for, from its latex:// URL or from its source text. The markdown
  * renderer hands an inline image's alternate text, not its URL, to the image transformer, and a
  * formula's alternate text is its source (so copying it reproduces the original). The source

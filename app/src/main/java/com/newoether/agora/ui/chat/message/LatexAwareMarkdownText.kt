@@ -17,7 +17,6 @@ import com.mikepenz.markdown.compose.components.MarkdownComponentModel
 import com.mikepenz.markdown.model.MarkdownAnnotatorConfig
 import com.mikepenz.markdown.utils.MARKDOWN_TAG_IMAGE_URL
 import com.newoether.agora.ui.components.LatexImageTransformer
-import com.newoether.agora.ui.components.displayLatexLink
 import com.newoether.agora.ui.components.latexSourceForLink
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.ASTNode
@@ -54,6 +53,9 @@ internal fun inlineImageSlots(content: AnnotatedString, node: ASTNode): List<Inl
  * ordinary inline element and wraps like a long word, so it is never pulled out of its sentence.
  * Every other image leaves the line too once the paragraph splits, because text segments can no
  * longer map their images back to AST nodes.
+ *
+ * A promoted formula keeps the paragraph's inline text style: it moves onto its own line so it can
+ * be selected and scrolled as one unit, not because it becomes display math.
  */
 internal fun blockImageSlots(
     slots: List<InlineImageSlot>,
@@ -119,7 +121,8 @@ internal fun LatexAwareMarkdownText(
                     AnimatedMarkdownText(content.subSequence(cursor, block.start), node, Modifier, style, sourceContent)
                 }
                 if (block.latexSource != null) {
-                    DisplayLatexBlock(displayLatexLink(block.link) ?: block.link, block.latexSource, style)
+                    // Keep the original inline link so the promoted line is typeset in text style.
+                    DisplayLatexBlock(block.link, block.latexSource, style)
                 } else if (block.node != null) {
                     components.image(MarkdownComponentModel(sourceContent, block.node, typography))
                 }
