@@ -20,4 +20,12 @@ class SearxngSearchUrlTest {
         assertFalse(url.contains(".test//search"))
     }
 
+    @Test
+    fun configuredLimitIsThePerCallCeiling() {
+        assertEquals(5, webSearchResultLimit(5))
+        assertEquals(1, webSearchResultLimit(0))
+        assertEquals(1, webSearchResultLimit(-3))
+        assertEquals(10, webSearchResultLimit(50))
+    }
+
 }

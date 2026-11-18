@@ -94,6 +94,9 @@ internal fun webSearchProviderDisplayName(provider: String): String = when (prov
     else -> "Brave Search"
 }
 
+/** The configured Max Results value is the per-call ceiling the model cannot exceed. */
+internal fun webSearchResultLimit(configured: Int): Int = configured.coerceIn(1, 10)
+
 class WebSearchToolProvider : ToolProvider {
     private val webClient = HttpClient.client.newBuilder()
         .callTimeout(Constants.NETWORK_TOOL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
@@ -102,6 +105,7 @@ class WebSearchToolProvider : ToolProvider {
 
     override fun definitions(ctx: GenerationContext): List<ToolDefinition> {
         if (!ctx.webSearchEnabled) return emptyList()
+        val resultLimit = webSearchResultLimit(ctx.webSearchNumResults)
         return listOf(
             ToolDefinition(function = ToolFunction(
                 name = "web_search",
@@ -109,7 +113,7 @@ class WebSearchToolProvider : ToolProvider {
                 parameters = ToolParameters(
                     properties = mapOf(
                         "query" to ToolProperty("string", "The search query to execute."),
-                        "num_results" to ToolProperty("integer", "Number of results to return (1-10, default 5).")
+                        "num_results" to ToolProperty("integer", "Number of results to return (1-$resultLimit, default $resultLimit).")
                     ),
                     required = listOf("query")
                 )
@@ -147,7 +151,9 @@ class WebSearchToolProvider : ToolProvider {
         val args = Json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(argsStr)
         val query = (args["query"] as? JsonPrimitive)?.content
             ?: return buildJsonObject { put("type", "web_search"); put("error", "no_query") }.toString()
-        val numResults = ((args["num_results"] as? JsonPrimitive)?.content?.toIntOrNull() ?: ctx.webSearchNumResults).coerceIn(1, 10)
+        val resultLimit = webSearchResultLimit(ctx.webSearchNumResults)
+        val numResults = ((args["num_results"] as? JsonPrimitive)?.content?.toIntOrNull() ?: resultLimit)
+            .coerceIn(1, resultLimit)
         val provider = normalizeWebSearchProvider(ctx.webSearchProvider)
 
         return try {
