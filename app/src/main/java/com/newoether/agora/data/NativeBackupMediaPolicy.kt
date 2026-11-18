@@ -117,7 +117,10 @@ internal object NativeBackupMediaPolicy {
         archiveEntryForSource: (String) -> String?,
     ): String? {
         if (raw.isNullOrBlank()) return raw
-        val segments = json.decodeFromString<List<MessageSegment>>(raw)
+        // A legacy or damaged payload cannot be scanned for device paths, so it is dropped rather
+        // than copied verbatim. One unreadable message must never abort the whole backup (#184).
+        val segments = runCatching { json.decodeFromString<List<MessageSegment>>(raw) }.getOrNull()
+            ?: return null
         return json.encodeToString(
             segments.map { segment ->
                 segment.copy(
@@ -194,7 +197,9 @@ internal object NativeBackupMediaPolicy {
         restoredPathForArchiveEntry: (String) -> String?,
     ): String? {
         if (raw.isNullOrBlank()) return raw
-        val segments = json.decodeFromString<List<MessageSegment>>(raw)
+        // Same contract as export: an unreadable payload is dropped instead of aborting the import.
+        val segments = runCatching { json.decodeFromString<List<MessageSegment>>(raw) }.getOrNull()
+            ?: return null
         return json.encodeToString(
             segments.map { segment ->
                 segment.copy(

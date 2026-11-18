@@ -38,6 +38,7 @@ class AutoBackupManager(
         private val backupMutex = Mutex()
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "auto_backup"
+        private const val DEFAULT_BACKUP_DIRECTORY = "Download/Agora/Backup"
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -68,10 +69,10 @@ class AutoBackupManager(
 
             val backup = performBackup()
             if (backup != null) {
-                val missingResourceCount = backup.second.missingResourceCount
+                val missingResourceCount = backup.export.missingResourceCount
                 runCatching { settingsManager.saveLastBackupTimestamp(now) }
                     .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
-                cleanupOldBackups()
+                cleanupOldBackups(backup.target)
                 if (missingResourceCount > 0) {
                     sendMissingResourceNotification(missingResourceCount)
                 }
@@ -101,89 +102,101 @@ class AutoBackupManager(
 
     // ── Private ───────────────────────────────────────────────
 
-    private suspend fun performBackup(): Pair<File, DataExporter.ExportResult>? =
+    private data class BackupOutcome(
+        val export: DataExporter.ExportResult,
+        val target: AutoBackupTarget,
+    )
+
+    private suspend fun performBackup(): BackupOutcome? =
         withContext(Dispatchers.IO) {
-        var cleanupTarget: File? = null
-        try {
-            val dir = resolveBackupDir() ?: return@withContext null
-            if (!dir.exists() && !dir.mkdirs()) return@withContext null
-
-            val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
-            val filename = "Agora_backup_${sdf.format(Date())}.agora"
-            val file = File(dir, filename)
-            val tmpFile = File(dir, "$filename.tmp")
-            cleanupTarget = tmpFile
-            val baselineFile = dir.listFiles { candidate ->
-                candidate.isFile &&
-                    candidate.name.startsWith("Agora_backup_") &&
-                    candidate.name.endsWith(".agora")
-            }?.maxByOrNull(File::lastModified)
-
-            val categoryKeys = settingsManager.autoBackupCategories.safeRead("conversations,memories,system_prompts,settings")
-                .split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
-
-            val categories = categoryKeys
-                .mapNotNull { DataExporter.ExportCategory.fromManifestKey(it) }
-                .toSet()
-
-            if (categories.isEmpty()) return@withContext null
-
-            // Honor the user's auto-backup category selection, including API keys (the dialog
-            // shows an explicit warning when that box is checked).
-            val includeApiKeys = DataExporter.ExportCategory.API_KEYS in categories
-
-            val exporter = DataExporter(
-                context,
-                settingsManager,
-                memoryManager,
-                skillManager,
-            )
-            val exportResult = exporter.export(
-                uri = Uri.fromFile(tmpFile),
-                categories = categories,
-                includeApiKeys = includeApiKeys,
-                baselineFile = baselineFile,
-                onProgress = {}
-            )
-
-            // Atomic: rename temp to final
-            if (tmpFile.renameTo(file)) {
-                DebugLog.d("AutoBackup", "Backup created")
-                file to exportResult
-            } else {
-                // renameTo may fail across filesystems — try direct write as fallback
-                tmpFile.delete()
-                sendFailureNotification("Failed to finalize backup file")
+            try {
+                val target = resolveBackupTarget() ?: return@withContext null
+                val baseline = target.baseline()
+                try {
+                    exportBackup(target, baseline)
+                } finally {
+                    target.releaseBaseline(baseline)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                DebugLog.e("AutoBackup", "Backup failed", e)
+                sendFailureNotification(e.localizedMessage ?: "Auto backup failed")
                 null
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            cleanupTarget?.let { runCatching { it.delete() } }
-            throw e
-        } catch (e: Exception) {
-            DebugLog.e("AutoBackup", "Backup failed", e)
-            cleanupTarget?.let { runCatching { it.delete() } }
-            sendFailureNotification(e.localizedMessage ?: "Auto backup failed")
-            null
         }
+
+    private suspend fun exportBackup(
+        target: AutoBackupTarget,
+        baseline: File?,
+    ): BackupOutcome? {
+        val categoryKeys = settingsManager.autoBackupCategories.safeRead("conversations,memories,system_prompts,settings")
+            .split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+
+        val categories = categoryKeys
+            .mapNotNull { DataExporter.ExportCategory.fromManifestKey(it) }
+            .toSet()
+
+        if (categories.isEmpty()) return null
+
+        // Honor the user's auto-backup category selection, including API keys (the dialog
+        // shows an explicit warning when that box is checked).
+        val includeApiKeys = DataExporter.ExportCategory.API_KEYS in categories
+
+        val exporter = DataExporter(
+            context,
+            settingsManager,
+            memoryManager,
+            skillManager,
+        )
+        val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
+        val filename = "Agora_backup_${sdf.format(Date())}.agora"
+
+        var result: DataExporter.ExportResult? = null
+        val written = target.write(filename) { uri ->
+            result = exporter.export(
+                uri = uri,
+                categories = categories,
+                includeApiKeys = includeApiKeys,
+                baselineFile = baseline,
+                onProgress = {},
+            )
+        }
+        val export = result.takeIf { written }
+        if (export == null) {
+            sendFailureNotification("Failed to finalize backup file")
+            return null
+        }
+        DebugLog.d("AutoBackup", "Backup created")
+        return BackupOutcome(export, target)
     }
 
-    private suspend fun resolveBackupDir(): File? {
-        val stored = settingsManager.autoBackupDirectory.safeRead("Download/Agora/Backup")
+    private suspend fun resolveBackupTarget(): AutoBackupTarget? {
+        val stored = settingsManager.autoBackupDirectory
+            .safeRead(DEFAULT_BACKUP_DIRECTORY)
+            .trim()
+
+        // Storage Access Framework tree picked in settings.
+        if (stored.startsWith("content://")) {
+            val tree = runCatching { SafBackupTarget(context, Uri.parse(stored)) }.getOrNull()
+            if (tree != null && runCatching { tree.entries() }.isSuccess) return tree
+            return backupDirectoryUnavailable()
+        }
 
         // Filesystem path
-        if (!stored.startsWith("content://")) {
-            val dir = File(stored)
-            if ((dir.exists() && dir.canWrite()) || dir.mkdirs()) return dir
+        if (stored.isNotEmpty()) {
+            val target = FileBackupTarget(File(stored))
+            if (target.prepare()) return target
         }
 
-        // Fallback: default directory
-        val fallback = defaultBackupDir()
-        if (fallback.exists() || fallback.mkdirs()) {
-            runCatching { settingsManager.saveAutoBackupDirectory(fallback.absolutePath) }
-                .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
-            return fallback
-        }
+        // Fallback for this run only: rewriting the setting would erase the user's choice (#211).
+        val fallback = FileBackupTarget(defaultBackupDir())
+        if (fallback.prepare()) return fallback
 
+        return backupDirectoryUnavailable()
+    }
+
+    private fun backupDirectoryUnavailable(): AutoBackupTarget? {
         sendFailureNotification("Backup directory unavailable")
         return null
     }
@@ -195,7 +208,15 @@ class AutoBackupManager(
         )
     }
 
-    private suspend fun cleanupOldBackups() {
+    private suspend fun cleanupOldBackups(target: AutoBackupTarget) {
+        val entries = runCatching { target.entries() }.getOrElse { error ->
+            DebugLog.e("AutoBackup", "Failed to list backups for cleanup", error)
+            return
+        }
+
+        // An interrupted write is never a valid backup, so it goes regardless of retention.
+        entries.filter { isTemporaryBackupName(it.name) }.forEach(target::delete)
+
         val deleteEnabled = settingsManager.autoDeleteEnabled.safeRead(true)
         if (!deleteEnabled) return
 
@@ -206,22 +227,11 @@ class AutoBackupManager(
         if (deletePeriodHours <= backupPeriodHours) return
 
         val cutoffTime = System.currentTimeMillis() - deletePeriodHours.toLong() * 3600_000L
-        val dir = resolveBackupDir() ?: return
 
-        dir.listFiles { f ->
-            f.isFile && f.name.startsWith("Agora_backup_") && f.name.endsWith(".agora")
-        }?.forEach { file ->
-            if (file.lastModified() < cutoffTime) {
-                runCatching { file.delete() }
-            }
-        }
-
-        // Clean orphaned .tmp files from interrupted backups
-        dir.listFiles { f ->
-            f.isFile && f.name.startsWith("Agora_backup_") && f.name.endsWith(".agora.tmp")
-        }?.forEach { tmpFile ->
-            runCatching { tmpFile.delete() }
-        }
+        // Providers may withhold the modified time; such files are kept rather than guessed at.
+        entries.filter { isCompleteBackupName(it.name) }
+            .filter { entry -> entry.lastModified != null && entry.lastModified < cutoffTime }
+            .forEach(target::delete)
     }
 
     private fun sendFailureNotification(message: String) {

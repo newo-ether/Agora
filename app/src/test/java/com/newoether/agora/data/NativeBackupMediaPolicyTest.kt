@@ -535,10 +535,10 @@ class NativeBackupMediaPolicyTest {
     }
 
     @Test
-    fun malformedToolPayloadFailsTransportWithoutReturningDevicePaths() {
+    fun malformedToolPayloadIsDroppedWithoutReturningDevicePaths() {
         val malformed = "not-json:/private/tool.png"
-        assertTrue(runCatching { NativeBackupMediaPolicy.rewriteToolImagePathsForExport(malformed) { null } }.isFailure)
-        assertTrue(runCatching { NativeBackupMediaPolicy.restoreToolImagePaths(malformed, 6) { null } }.isFailure)
+        assertNull(NativeBackupMediaPolicy.rewriteToolImagePathsForExport(malformed) { null })
+        assertNull(NativeBackupMediaPolicy.restoreToolImagePaths(malformed, 6) { null })
     }
 
     private fun artifact(path: String, width: Int, height: Int) = ImageArtifact(
@@ -619,6 +619,32 @@ class NativeBackupMediaPolicyTest {
         assertEquals(
             listOf(imageA, imageB, imageB).map { it.asUnavailablePlaceholder() },
             json.decodeFromString<List<MessageSegment>>(legacy).single().toolImages,
+        )
+    }
+
+    @Test
+    fun unreadableToolPayloadDoesNotAbortExportOrRestore() {
+        // A legacy or truncated payload must not fail the whole backup (#184).
+        val legacy = "{\"name\":\"web_search\",\"arguments\":{\"query\":\"agora\"}}"
+        val truncated = "[{\"type\":\"tool_call\",\"content\":\""
+        assertNull(
+            NativeBackupMediaPolicy.rewriteToolImagePathsForExport(
+                raw = legacy,
+                archiveEntryForSource = { error("nothing to rewrite") },
+            ),
+        )
+        assertNull(
+            NativeBackupMediaPolicy.rewriteToolImagePathsForExport(
+                raw = truncated,
+                archiveEntryForSource = { error("nothing to rewrite") },
+            ),
+        )
+        assertNull(
+            NativeBackupMediaPolicy.restoreToolImagePaths(
+                raw = legacy,
+                archiveVersion = 5,
+                restoredPathForArchiveEntry = { error("nothing to restore") },
+            ),
         )
     }
 }
