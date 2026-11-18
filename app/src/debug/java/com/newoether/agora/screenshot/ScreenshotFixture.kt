@@ -33,7 +33,7 @@ object ScreenshotFixture {
         settings.saveSelectedModel(MODEL_ID)
         settings.saveAvailableModels(DebugProvider.PROVIDER_NAME, listOf(MODEL_ID))
         settings.saveEnabledModels(setOf(MODEL_ID))
-        settings.saveModelAliases(mapOf(MODEL_ID to "GPT 5.6 Sol"))
+        settings.saveModelAliases(mapOf(MODEL_ID to "GPT 6.2 Sol"))
         settings.saveModelProviderNames(mapOf(MODEL_ID to false))
         settings.saveShellEnabled(true)
         settings.saveShellDevices(
