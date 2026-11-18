@@ -433,6 +433,95 @@ class ProviderThoughtBoundaryNormalizerTest {
         assertTrue(thoughts.any { it.title == "Thinking" && it.signature == "sig" })
     }
 
+    @Test
+    fun `tool call inside unclosed reasoning is executed`() = runTest {
+        val events = normalize(
+            listOf(
+                StreamEvent.ThoughtChunk(
+                    "I need to read the file first.\n" +
+                        "<tool_call>{\"id\":\"call_1\",\"name\":\"file_read\"," +
+                        "\"arguments\":{\"path\":\"a.txt\"}}</tool_call>"
+                )
+            ),
+            TOOLS,
+        )
+
+        assertEquals(
+            "I need to read the file first.\n",
+            events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                .joinToString("") { it.thought },
+        )
+        val call = events.filterIsInstance<StreamEvent.ToolCallRequest>().single()
+        assertEquals("call_1", call.id)
+        assertEquals("file_read", call.name)
+        assertEquals("{\"path\":\"a.txt\"}", call.arguments)
+        assertTrue(events.none { it is StreamEvent.Error })
+    }
+
+    @Test
+    fun `tool call opener ends reasoning at every transport boundary`() = runTest {
+        val source = "reason<tool_call>{\"name\":\"file_read\",\"arguments\":{}}</tool_call>"
+        for (split in 0..source.length) {
+            val events = normalize(
+                listOf(
+                    StreamEvent.ThoughtChunk(source.substring(0, split)),
+                    StreamEvent.ThoughtChunk(source.substring(split)),
+                ),
+                TOOLS,
+            )
+
+            assertEquals(
+                "split=$split",
+                "reason",
+                events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                    .joinToString("") { it.thought },
+            )
+            assertEquals(
+                "split=$split",
+                "file_read",
+                events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
+            )
+        }
+    }
+
+    @Test
+    fun `tool call markers inside reasoning code stay thought`() = runTest {
+        val code = "`<tool_call>`\n```\n<tool_call>{\"name\":\"file_read\"}</tool_call>\n```\n"
+        val events = normalize(
+            (code + "reason<tool_call>{\"name\":\"file_read\",\"arguments\":{}}</tool_call>")
+                .map { character -> StreamEvent.ThoughtChunk(character.toString()) },
+            TOOLS,
+        )
+
+        assertEquals(
+            code + "reason",
+            events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                .joinToString("") { it.thought },
+        )
+        assertEquals(
+            "file_read",
+            events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
+        )
+    }
+
+    @Test
+    fun `unterminated tool call inside reasoning fails as a malformed call`() = runTest {
+        val events = normalize(
+            listOf(StreamEvent.ThoughtChunk("reason<tool_call>{\"name\":\"file_read\"}")),
+            TOOLS,
+        )
+
+        assertEquals(
+            "reason",
+            events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                .joinToString("") { it.thought },
+        )
+        assertEquals(
+            MALFORMED_TOOL_CALL_NAME,
+            events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
+        )
+    }
+
     private suspend fun normalize(
         events: List<StreamEvent>,
         tools: List<ToolDefinition>? = null,

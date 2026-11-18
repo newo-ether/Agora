@@ -160,6 +160,21 @@ internal class IncrementalThinkingParser(
                         switchDestination()
                         continue
                     }
+                    if (closing.implicit) {
+                        val opener = toolCallOpenerMatch(remainder)
+                        if (opener.partial && !final) break
+                        if (opener.matched) {
+                            // A tool call inside an unclosed reasoning block ends the thought
+                            // channel but stays in the stream: the tagged parser needs the literal
+                            // opener to turn the payload into an executable call.
+                            emitThought()
+                            markerStack.removeLast()
+                            implicitBoundaryClosed = true
+                            resetMarkdownStateAtSegmentBoundary()
+                            switchDestination()
+                            continue
+                        }
+                    }
                     val nested = findStartMatch(remainder)
                     if (nested.partial && !final) break
                     nested.marker?.let { marker ->
@@ -252,6 +267,20 @@ internal class IncrementalThinkingParser(
             }
         }
         return EndMatch(partial = partial)
+    }
+
+    private data class OpenerMatch(val matched: Boolean = false, val partial: Boolean = false)
+
+    private fun toolCallOpenerMatch(remainder: String): OpenerMatch {
+        var partial = false
+        for (opener in implicitThinkingToolCallOpeners) {
+            when (markerMatch(remainder, opener)) {
+                Match.FULL -> return OpenerMatch(matched = true)
+                Match.PARTIAL -> partial = true
+                Match.NONE -> Unit
+            }
+        }
+        return OpenerMatch(partial = partial)
     }
 
     private data class CodeRun(val length: Int, val nextState: CodeState)

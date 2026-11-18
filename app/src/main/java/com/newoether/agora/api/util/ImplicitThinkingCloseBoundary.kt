@@ -5,6 +5,20 @@ internal data class ImplicitThinkingCloseBoundary(
     val endExclusive: Int,
 )
 
+/**
+ * Tool-call openers that end implicit thinking without being consumed.
+ *
+ * The marker itself must survive into the answer channel because
+ * [com.newoether.agora.api.openai.StreamingTextToolCallParser] needs the literal tag to turn the
+ * payload into an executable call. Thinking models that were opened by their chat template rely on
+ * this: without it the call is displayed as reasoning and never runs (issue #163).
+ */
+internal val implicitThinkingToolCallOpeners = listOf(
+    "<tool_" + "call>",
+    "<invoke",
+    "<antml:invoke",
+)
+
 internal val implicitThinkingCloseMarkers = listOf(
     "</think>",
     "</thinking>",
