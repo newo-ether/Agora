@@ -70,5 +70,5 @@
     <string name="phone_write_settings_permission">修改系统设置</string>
     <string name="phone_write_settings_description">接管期间临时将屏幕超时延长至至少 30 分钟，结束后恢复；保留你中途修改的设置。</string>
     <string name="phone_max_screenshots">最多保留截图</string>
-    <string name="phone_max_screenshots_description">仅限制发送给模型的手机操作工具图片，从最新向前保留。设为 0 时不发送此类图片。较早图片仍保存在本地对话中，其他图片不受影响。</string>
+    <string name="phone_max_screenshots_description">仅限制发送给模型的内置手机操作工具图片，从最新向前保留。较早图片仍保存在本地对话中，其他图片不受影响。</string>
 </resources>

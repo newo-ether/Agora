@@ -126,11 +126,9 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
 internal fun PhoneMaxScreenshotsSlider(value: Int, onValueChange: (Int) -> Unit) {
     val range = PHONE_MAX_SCREENSHOTS_MIN..PHONE_MAX_SCREENSHOTS_MAX
     val persisted = value.coerceIn(range)
-    val gate = remember {
-        PersistedSliderFeedbackGate(initialPersisted = persisted, toDisplay = Int::toFloat)
-    }
+    val gate = remember { PersistedSliderFeedbackGate(initialPersisted = persisted, toDisplay = { it }) }
     LaunchedEffect(persisted) { gate.reconcile(persisted) }
-    val selected = gate.displayed.roundToInt().coerceIn(range)
+    val selected = gate.displayed
     val title = stringResource(R.string.phone_max_screenshots)
     val valueText = selected.toString()
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
@@ -151,11 +149,11 @@ internal fun PhoneMaxScreenshotsSlider(value: Int, onValueChange: (Int) -> Unit)
                     modifier = Modifier.padding(top = 4.dp))
                 Slider(
                     value = selected.toFloat(),
-                    onValueChange = gate::updateFromGesture,
+                    onValueChange = { gate.updateFromGesture(it.roundToInt().coerceIn(range)) },
                     onValueChangeFinished = {
-                        val committed = gate.displayed.roundToInt().coerceIn(range)
+                        val committed = gate.displayed
                         if (committed != persisted) {
-                            gate.expectPersisted(committed, committed.toFloat())
+                            gate.expectPersisted(committed)
                             onValueChange(committed)
                         } else {
                             gate.settleWithoutWrite(persisted)

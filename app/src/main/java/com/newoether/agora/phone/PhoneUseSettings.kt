@@ -10,8 +10,8 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import kotlinx.coroutines.flow.map
 
 const val PHONE_MAX_SCREENSHOTS_DEFAULT = 5
-const val PHONE_MAX_SCREENSHOTS_MIN = 0
-const val PHONE_MAX_SCREENSHOTS_MAX = 20
+const val PHONE_MAX_SCREENSHOTS_MIN = 1
+const val PHONE_MAX_SCREENSHOTS_MAX = 16
 
 /** A single DataStore snapshot keeps the mode and its app access decision consistent. */
 data class PhoneUseSettings(

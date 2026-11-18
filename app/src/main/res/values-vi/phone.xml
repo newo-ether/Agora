@@ -70,5 +70,5 @@
     <string name="phone_write_settings_permission">Thay đổi cài đặt hệ thống</string>
     <string name="phone_write_settings_description">Tạm tăng thời gian chờ màn hình lên ít nhất 30 phút trong khi điều khiển, sau đó khôi phục trừ khi bạn thay đổi cài đặt.</string>
     <string name="phone_max_screenshots">Số ảnh chụp màn hình tối đa</string>
-    <string name="phone_max_screenshots_description">Chỉ giới hạn ảnh từ công cụ điện thoại gửi đến mô hình, giữ ảnh mới nhất trước. 0 không gửi ảnh nào từ các công cụ này. Ảnh cũ vẫn được lưu trong cuộc trò chuyện; các ảnh khác không bị ảnh hưởng.</string>
+    <string name="phone_max_screenshots_description">Chỉ giới hạn ảnh từ công cụ điện thoại gửi đến mô hình, giữ ảnh mới nhất trước. Ảnh cũ vẫn được lưu trong cuộc trò chuyện; các ảnh khác không bị ảnh hưởng.</string>
 </resources>

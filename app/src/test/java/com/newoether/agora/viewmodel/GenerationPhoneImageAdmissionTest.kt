@@ -37,17 +37,18 @@ class GenerationPhoneImageAdmissionTest {
         assertEquals(2, admitted.automaticCompact.generationConfig.phoneMaxScreenshots)
         assertEquals(images.takeLast(2).map { it.path }.toSet(), visibleImages(first.messages))
 
-        settings.value = settings.value.copy(maxScreenshots = 0)
+        settings.value = settings.value.copy(maxScreenshots = 1)
         repeat(2) {
             assertEquals(first, requestConfig.resolveRequest(history))
         }
         val next = fixture.builder.captureAdmissionSnapshot("conversation", "next-run", fixture.modelId)
         val preview = fixture.builder.captureContextProjectionSnapshot("conversation", fixture.modelId)
 
-        assertEquals(0, next.config.phoneMaxScreenshots)
-        assertEquals(0, next.automaticCompact.mainPhoneMaxScreenshots)
-        assertEquals(0, preview.config.phoneMaxScreenshots)
-        assertTrue(visibleImages(providerConfigFor(next).resolveRequest(history).messages).isEmpty())
+        assertEquals(1, next.config.phoneMaxScreenshots)
+        assertEquals(1, next.automaticCompact.mainPhoneMaxScreenshots)
+        assertEquals(1, next.automaticCompact.generationConfig.phoneMaxScreenshots)
+        assertEquals(1, preview.config.phoneMaxScreenshots)
+        assertEquals(setOf(images.last().path), visibleImages(providerConfigFor(next).resolveRequest(history).messages))
         assertEquals(original, history)
         assertEquals(images, history[1].toolCall!!.resultImages)
     }
@@ -80,7 +81,7 @@ class GenerationPhoneImageAdmissionTest {
         val unaffected = setOf(attachment.path, generated.path, otherTool.path, remotePhone.path)
         assertEquals(unaffected + oldPhone.path, visibleImages(first.messages))
 
-        settings.value = settings.value.copy(maxScreenshots = 0)
+        settings.value = settings.value.copy(maxScreenshots = 16)
         val continuation = history + round("next", listOf(call("phone-next", listOf(newPhone), "phone_tap")))
         val originalContinuation = continuation.toList()
         val continued = requestConfig.resolveRequest(continuation)
@@ -94,10 +95,10 @@ class GenerationPhoneImageAdmissionTest {
         assertEquals(listOf(newPhone), continuation.last().toolCall!!.resultImages)
         assertEquals(first, requestConfig.resolveRequest(history))
 
-        val next = fixture.builder.captureAdmissionSnapshot("conversation", "zero-run", fixture.modelId)
-        val zero = providerConfigFor(next).resolveRequest(continuation)
-        assertEquals(unaffected, visibleImages(zero.messages))
-        assertToolProtocolPreserved(continuation, zero.messages)
+        val next = fixture.builder.captureAdmissionSnapshot("conversation", "next-run", fixture.modelId)
+        val widened = providerConfigFor(next).resolveRequest(continuation)
+        assertEquals(unaffected + oldPhone.path + newPhone.path, visibleImages(widened.messages))
+        assertToolProtocolPreserved(continuation, widened.messages)
         assertEquals(originalContinuation, continuation)
     }
 

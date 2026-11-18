@@ -35,11 +35,13 @@ Sub-page, top to bottom:
    trailing slot with the shared 250 ms crossfade. Tapping an item requests the permission directly
    when the platform allows it, otherwise deep-links to the most specific system page. Refresh only
    on page entry, resume, mode change or permission-item click; no periodic settings probes.
-4. Screenshot history: a `Max Screenshots` integer slider, range 0..20, default 5. Reuse the
-   shared persisted slider feedback gate; commit on release, with no Save action. Zero sends no
-   Phone tool images. Supporting copy explains that only the newest Phone tool images are sent
-   to the model and older images remain in the conversation. This is device-local Phone Use
-   configuration, like its existing mode/access settings, and is not a portable archive field.
+4. Screenshot history: a `Max Screenshots` integer slider, range 1..16, default 5. Reuse the
+   shared persisted slider feedback gate; commit on release, with no Save action. The displayed
+   value and accessibility progress use the same integer stops. Previously stored limits below 1
+   or above 16 are clamped on read; new writes use the same bounds. Supporting copy explains that
+   only the newest built-in Phone tool images are sent to the model and older images remain in the
+   conversation. This is device-local Phone Use configuration, like its existing mode/access
+   settings, and is not a portable archive field.
 5. Automation access: one switch `Allow Task and Loop runs`, default off (section 5).
 6. App access control (section 6).
 
@@ -446,5 +448,9 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
 - Handoff: both durable/Job barrier orders, empty and suppressed queue drains, scheduled Compact
   continuation versus FIFO guidance, failed admission, direct bound successor, stale cleanup and
   old effects, disposal during the idle gap, and Ask pause changes under one retained epoch.
+- Max Screenshots: default and legacy bounds on read/write, integer slider and accessibility
+  progress, a single release commit through stale persistence updates, newest-first request
+  projection at both bounds, no effect on other images or stored history, and the frozen Run
+  budget across continuations and automatic Compact accounting.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.

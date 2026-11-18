@@ -61,14 +61,15 @@ class PhoneUseSettingsStoreTest {
             assertEquals(11, reopened.values.first().maxScreenshots)
             val beforeLimitChanges = reopened.values.first()
             val screenshotKey = intPreferencesKey("phone_use_max_screenshots")
-            for ((input, expected) in listOf(Int.MIN_VALUE to 0, 0 to 0, 20 to 20, Int.MAX_VALUE to 20)) {
+            for ((input, expected) in listOf(Int.MIN_VALUE to 1, 0 to 1, 1 to 1, 16 to 16, 20 to 16, Int.MAX_VALUE to 16)) {
                 reopened.setMaxScreenshots(input)
                 assertEquals(expected, preferences.data.first()[screenshotKey])
                 assertEquals(beforeLimitChanges.copy(maxScreenshots = expected), reopened.values.first())
             }
-            for ((input, expected) in listOf(-1 to 0, 21 to 20)) {
+            for ((input, expected) in listOf(-1 to 1, 0 to 1, 17 to 16, 20 to 16)) {
                 preferences.edit { it[screenshotKey] = input }
                 assertEquals(beforeLimitChanges.copy(maxScreenshots = expected), reopened.values.first())
+                assertEquals(input, preferences.data.first()[screenshotKey])
             }
             preferences.edit { it.remove(screenshotKey) }
             assertEquals(beforeLimitChanges.copy(maxScreenshots = 5), reopened.values.first())

@@ -70,5 +70,5 @@
     <string name="phone_write_settings_permission">Modificar ajustes del sistema</string>
     <string name="phone_write_settings_description">Amplía temporalmente el tiempo de espera de la pantalla a un mínimo de 30 minutos durante el control y lo restaura al terminar, salvo que lo cambies.</string>
     <string name="phone_max_screenshots">Máximo de capturas</string>
-    <string name="phone_max_screenshots_description">Limita solo las imágenes de las herramientas del teléfono enviadas al modelo, empezando por las más recientes. 0 no envía ninguna. Las antiguas siguen guardadas en la conversación; las demás imágenes no se ven afectadas.</string>
+    <string name="phone_max_screenshots_description">Limita solo las imágenes de las herramientas del teléfono enviadas al modelo, empezando por las más recientes. Las antiguas siguen guardadas en la conversación; las demás imágenes no se ven afectadas.</string>
 </resources>

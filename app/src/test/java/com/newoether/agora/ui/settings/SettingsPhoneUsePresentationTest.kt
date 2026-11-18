@@ -237,26 +237,51 @@ class SettingsPhoneUsePresentationTest {
             assertTrue(changes.isEmpty())
             persisted = 12
         }
-        slider.assert(screenshotRange(20f))
+        slider.assert(screenshotRange(16f))
         slider.performTouchInput { up() }
-        compose.runOnIdle { assertEquals(listOf(20), changes) }
+        compose.runOnIdle { assertEquals(listOf(16), changes) }
         compose.runOnIdle { persisted = 10 }
-        slider.assert(screenshotRange(20f))
-        compose.runOnIdle { persisted = 20 }
-        slider.assert(screenshotRange(20f))
+        slider.assert(screenshotRange(16f))
+        compose.runOnIdle { persisted = 16 }
+        slider.assert(screenshotRange(16f))
         compose.runOnIdle { persisted = 5 }
         slider.assert(screenshotRange(5f))
-        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(0f)) }
-        slider.assert(screenshotRange(0f))
-        compose.runOnIdle { assertEquals(listOf(20, 0), changes) }
-        compose.runOnIdle { persisted = 0 }
-        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertFalse(it(0f)) }
-        compose.runOnIdle { assertEquals(listOf(20, 0), changes) }
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(1f)) }
+        slider.assert(screenshotRange(1f))
+        compose.runOnIdle { assertEquals(listOf(16, 1), changes) }
+        compose.runOnIdle { persisted = 1 }
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertFalse(it(1f)) }
+        compose.runOnIdle { assertEquals(listOf(16, 1), changes) }
+    }
+
+    @Test fun screenshotLimitAccessibilitySnapsToIntegerAndClampsLegacyValues() {
+        var persisted by mutableStateOf(0)
+        val changes = mutableListOf<Int>()
+        compose.setContent {
+            MaterialTheme { PhoneMaxScreenshotsSlider(persisted) { changes += it } }
+        }
+        val slider = compose.onNodeWithContentDescription(text(R.string.phone_max_screenshots))
+        slider.assert(screenshotRange(1f))
+        slider.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "1"))
+        compose.runOnIdle { persisted = 20 }
+        slider.assert(screenshotRange(16f))
+        slider.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "16"))
+
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(7.7f)) }
+        slider.assert(screenshotRange(8f))
+        slider.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "8"))
+        compose.onNodeWithText("8").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(listOf(8), changes)
+            persisted = 8
+        }
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertFalse(it(8f)) }
+        compose.runOnIdle { assertEquals(listOf(8), changes) }
     }
 
     private fun screenshotRange(current: Float) = SemanticsMatcher.expectValue(
         SemanticsProperties.ProgressBarRangeInfo,
-        ProgressBarRangeInfo(current, 0f..20f, 19),
+        ProgressBarRangeInfo(current, 1f..16f, 14),
     )
 
     private fun text(id: Int) = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>().getString(id)
