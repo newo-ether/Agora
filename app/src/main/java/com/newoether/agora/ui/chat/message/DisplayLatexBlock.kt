@@ -1,5 +1,7 @@
 package com.newoether.agora.ui.chat.message
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Row
@@ -10,6 +12,7 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -23,6 +26,7 @@ import com.mikepenz.markdown.model.ImageWidth
 import com.newoether.agora.ui.components.formulaAlternateText
 import com.newoether.agora.ui.components.isDisplayLatexLink
 import com.newoether.agora.ui.components.latexSourceForLink
+import com.newoether.agora.util.horizontalEdgeFade
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
@@ -79,9 +83,18 @@ internal fun DisplayLatexBlock(
     )
     val scrollState = rememberScrollState()
     TrackStreamingHorizontalScroll(scrollState)
+    // Match the drawer's edge fade: the mask follows what is still off screen, so a formula that
+    // fits or has reached its end never looks dimmed.
+    val leftFade by animateFloatAsState(if (scrollState.canScrollBackward) 1f else 0f, tween(200))
+    val rightFade by animateFloatAsState(if (scrollState.canScrollForward) 1f else 0f, tween(200))
     // A formula that fits has nothing to scroll; leaving the gesture unclaimed lets a horizontal
     // swipe reach the drawer instead of being consumed here.
-    Row(modifier = modifier.fillMaxWidth().horizontalScroll(scrollState, enabled = scrollState.maxValue > 0)) {
+    Row(
+        modifier = modifier
+            // The mask must wrap the viewport, so it sits outside the scroll modifier.
+            .horizontalEdgeFade(edgeFadeDp = 40f, leftWeight = leftFade, rightWeight = rightFade)
+            .fillMaxWidth().horizontalScroll(scrollState, enabled = scrollState.maxValue > 0),
+    ) {
         Text(
             text = text,
             style = style,
