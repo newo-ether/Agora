@@ -4,13 +4,9 @@ import android.app.Application
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.R
 import com.newoether.agora.sandbox.RootfsInstallPhase
@@ -23,7 +19,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -81,35 +76,26 @@ class SettingsSandboxPresentationTest {
         }
     }
 
-    @Test fun uninstalledRowsMatchTypographyAndChoosingADistributionDoesNotInstall() {
+    @Test fun uninstalledRowShowsAnInstallButtonAndChoosingADistributionDoesNotInstall() {
         showPage()
-        val selectedLabel = compose.onNodeWithText("Debian", useUnmergedTree = true)
-        val installLabel = compose.onNodeWithText(text(R.string.sandbox_install), useUnmergedTree = true)
-        val selectedStyle = layout(selectedLabel).layoutInput.style
-        val installStyle = layout(installLabel).layoutInput.style
-        assertEquals(14.sp, installStyle.fontSize)
-        assertEquals(selectedStyle.fontSize, installStyle.fontSize)
-        assertEquals(selectedStyle.fontWeight, installStyle.fontWeight)
-        assertEquals(selectedStyle.color, installStyle.color)
-        assertEquals(TextAlign.End, installStyle.textAlign)
-        assertEquals(selectedLabel.getUnclippedBoundsInRoot().right, installLabel.getUnclippedBoundsInRoot().right)
-        val rowBounds = row(debianVersion).getUnclippedBoundsInRoot()
-        assertTrue(rowBounds.bottom - rowBounds.top >= 48.dp)
         compose.onNodeWithText(text(R.string.sandbox_not_installed)).assertIsDisplayed()
         compose.onNodeWithText(NOT_INSTALLED_DETAIL).assertDoesNotExist()
+        installButton().assertIsDisplayed()
+        val rowBounds = compose.onNodeWithText(debianVersion).getUnclippedBoundsInRoot()
+        assertTrue(rowBounds.bottom - rowBounds.top >= 48.dp)
 
         row(text(R.string.sandbox_distribution)).performClick()
         val ubuntu = SandboxDistribution.UBUNTU
         compose.onNode(hasText("${ubuntu.displayName} ${ubuntu.versionLabel}") and hasAnyAncestor(isPopup()))
             .performClick()
-        row("${ubuntu.displayName} ${ubuntu.versionLabel}").assertIsEnabled()
+        compose.onNodeWithText("${ubuntu.displayName} ${ubuntu.versionLabel}").assertIsDisplayed()
         verify(exactly = 0) { manager.installRootfs() }
         compose.runOnIdle { assertTrue(pageMessages.isEmpty()) }
     }
 
     @Test fun failedInstallRestoresRetryWithoutRenderingOrPostingTheProbeError() {
         showPage()
-        row(debianVersion).performClick()
+        installButton().performClick()
         row(text(R.string.sandbox_distribution)).assertIsNotEnabled()
         compose.onNodeWithText(text(R.string.sandbox_install)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.sandbox_preparing_rootfs)).assertIsDisplayed()
@@ -133,13 +119,13 @@ class SettingsSandboxPresentationTest {
         compose.onNodeWithText(NOT_INSTALLED_DETAIL).assertDoesNotExist()
         compose.onNodeWithText("Download or verification failed").assertDoesNotExist()
         compose.runOnIdle { assertTrue(pageMessages.isEmpty()) }
-        row(debianVersion).assertIsEnabled().performClick()
+        installButton().assertIsEnabled().performClick()
         verify(exactly = 2) { manager.installRootfs() }
     }
 
     @Test fun successfulInstallHidesSetupAndResetRestoresIt() {
         showPage()
-        row(debianVersion).performClick()
+        installButton().performClick()
         row(text(R.string.sandbox_distribution)).assertIsNotEnabled()
         compose.runOnIdle {
             installed = true
@@ -157,7 +143,7 @@ class SettingsSandboxPresentationTest {
         compose.onNode(hasText(text(R.string.delete)) and hasAnyAncestor(isDialog())).performClick()
         list.performScrollToIndex(0)
         row(text(R.string.sandbox_distribution)).assertIsEnabled()
-        row(debianVersion).assertIsEnabled()
+        installButton().assertIsEnabled()
         compose.onNodeWithText(text(R.string.sandbox_not_installed)).assertIsDisplayed()
         compose.runOnIdle { assertTrue(pageMessages.isEmpty()) }
     }
@@ -169,7 +155,7 @@ class SettingsSandboxPresentationTest {
             installing.value = false
         }
         showPage()
-        row(debianVersion).performClick()
+        installButton().performClick()
         compose.onNodeWithText(text(R.string.sandbox_distribution)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.sandbox_not_installed)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.sandbox_upgrade)).assertIsDisplayed()
@@ -188,38 +174,6 @@ class SettingsSandboxPresentationTest {
         compose.onNodeWithText(text(R.string.sandbox_distribution)).assertDoesNotExist()
         compose.onNodeWithText(text(R.string.sandbox_upgrade)).assertIsDisplayed()
         verify(exactly = 0) { manager.installRootfs() }
-    }
-
-    @Test fun dashboardActionsAreCompactCapsulesWithUnchangedTrailingPadding() {
-        showPage()
-        row(debianVersion).performClick()
-        compose.runOnIdle {
-            installed = true
-            busy.value = false
-            installing.value = false
-        }
-
-        val contentRight = compose.onRoot().getUnclippedBoundsInRoot().right - 24.dp
-
-        val upgrade = row(text(R.string.sandbox_upgrade)).getUnclippedBoundsInRoot()
-        // 16 dp row inset plus the 4 dp label offset the trailing text already had.
-        assertEquals((contentRight - 20.dp).value, upgrade.right.value, 0.5f)
-        assertTrue(
-            "upgrade capsule height ${upgrade.bottom - upgrade.top}",
-            upgrade.bottom - upgrade.top in 28.dp..44.dp,
-        )
-
-        compose.onNode(hasScrollToIndexAction())
-            .performScrollToNode(hasText(text(R.string.sandbox_install)))
-        val install = compose
-            .onNode(hasText(text(R.string.sandbox_install)) and hasClickAction())
-            .getUnclippedBoundsInRoot()
-        // The install row's own 16 dp column inset is unchanged by the capsule.
-        assertEquals((contentRight - 16.dp).value, install.right.value, 0.5f)
-        assertTrue(
-            "install capsule height ${install.bottom - install.top}",
-            install.bottom - install.top in 28.dp..44.dp,
-        )
     }
 
     @org.junit.Before fun setUpStoragePermission() {
@@ -248,14 +202,11 @@ class SettingsSandboxPresentationTest {
 
     private fun row(label: String) = compose.onNode(hasText(label) and hasClickAction())
 
+    private fun installButton() =
+        compose.onNode(hasText(text(R.string.sandbox_install)) and hasClickAction())
+
     private fun text(id: Int, vararg arguments: Any) =
         ApplicationProvider.getApplicationContext<Application>().getString(id, *arguments)
-
-    private fun layout(node: SemanticsNodeInteraction): TextLayoutResult {
-        val results = mutableListOf<TextLayoutResult>()
-        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
-        return results.single()
-    }
 
     private companion object {
         const val NOT_INSTALLED_DETAIL = "Sandbox rootfs not installed"

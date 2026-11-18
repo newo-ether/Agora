@@ -15,7 +15,7 @@ enum class SandboxMirror(val id: String) {
     ;
 
     companion object {
-        val DEFAULT = TUNA
+        val DEFAULT = OFFICIAL
 
         fun fromId(id: String?): SandboxMirror = entries.firstOrNull { it.id == id } ?: DEFAULT
     }

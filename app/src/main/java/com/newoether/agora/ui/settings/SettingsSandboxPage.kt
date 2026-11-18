@@ -118,21 +118,13 @@ fun SettingsSandboxPage(
     // deletes the rootfs, which is the only recovery from a stuck install or package command.
     val canReset = !selectingDistribution
     val showTerminal = terminalOutput.isNotBlank()
-    val mirrorAppliedMessage = stringResource(R.string.sandbox_mirror_applied)
-    val mirrorFailedMessage = stringResource(R.string.sandbox_mirror_failed)
 
     fun chooseMirror(selected: SandboxMirror) {
         if (!canManage || selected == mirror) return
         onMirrorChange(selected)
         // Persist first, then rewrite the installed guest so its next package operation uses it.
         if (available) {
-            scope.launch {
-                if (sandboxManager.applyMirror(selected)) {
-                    showSnackbar(mirrorAppliedMessage)
-                } else {
-                    showSnackbar(sandboxManager.lastError?.takeIf(String::isNotBlank) ?: mirrorFailedMessage)
-                }
-            }
+            scope.launch { sandboxManager.applyMirror(selected) }
         }
     }
 
@@ -212,12 +204,12 @@ fun SettingsSandboxPage(
                                 },
                                 leadingContent = { SandboxDistributionIcon(distribution) },
                                 trailingContent = {
-                                    SandboxActionCapsule(
-                                        label = stringResource(R.string.sandbox_upgrade),
-                                        enabled = canManage,
-                                        modifier = Modifier.padding(end = 4.dp),
+                                    Button(
                                         onClick = { upgradePackages() },
-                                    )
+                                        enabled = canManage,
+                                    ) {
+                                        Text(stringResource(R.string.sandbox_upgrade))
+                                    }
                                 },
                             )
                         }, {
@@ -422,26 +414,24 @@ fun SettingsSandboxPage(
                                         },
                                         animationSpec = tween(400)
                                     )
-                                    SandboxActionCapsule(
-                                        enabled = canManage && installPkg.isNotBlank() && lastInstallResult == null,
-                                        containerColor = btnBgColor,
-                                        contentColor = btnContentColor,
+                                    Button(
                                         onClick = { installPackage(installPkg.trim()) },
+                                        enabled = canManage && installPkg.isNotBlank() && lastInstallResult == null,
+                                        shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 28.dp, bottomEnd = 28.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = btnBgColor,
+                                            contentColor = btnContentColor,
+                                            disabledContainerColor = btnBgColor,
+                                            disabledContentColor = btnContentColor
+                                        ),
+                                        modifier = Modifier.height(56.dp).widthIn(min = 110.dp).offset(y = 4.dp)
                                     ) {
                                         if (isBusy) {
-                                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = btnContentColor)
+                                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = MaterialTheme.colorScheme.primary)
+                                        } else if (installDone) {
+                                            Text(if (lastInstallResult == true) stringResource(R.string.sandbox_installed_label) else stringResource(R.string.sandbox_failed_label))
                                         } else {
-                                            Text(
-                                                text = if (installDone) {
-                                                    if (lastInstallResult == true) stringResource(R.string.sandbox_installed_label)
-                                                    else stringResource(R.string.sandbox_failed_label)
-                                                } else {
-                                                    stringResource(R.string.sandbox_install)
-                                                },
-                                                style = MaterialTheme.typography.labelLarge,
-                                                color = btnContentColor,
-                                                maxLines = 1,
-                                            )
+                                            Text(stringResource(R.string.sandbox_install))
                                         }
                                     }
                                 }
