@@ -70,5 +70,6 @@
     <string name="phone_write_settings_permission">Modify System Settings</string>
     <string name="phone_write_settings_description">Temporarily extend the screen timeout to at least 30 minutes during control, then restore it unless you change it.</string>
     <string name="phone_max_screenshots">Max Screenshots</string>
-    <string name="phone_max_screenshots_description">Limit only images from built-in Phone tools sent to the model, keeping the newest first. Older images remain saved in the conversation; other images are unaffected.</string>
+    <string name="phone_max_screenshots_description">Choose a limit from 1 to 16, or select Unlimited at the far right. The limit applies only to images from built-in Phone tools sent to the model, newest first. Older images stay saved in the conversation; other images are unaffected.</string>
+    <string name="phone_max_screenshots_unlimited">Unlimited</string>
 </resources>

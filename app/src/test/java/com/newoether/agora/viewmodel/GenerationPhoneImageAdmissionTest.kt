@@ -8,6 +8,7 @@ import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.ToolCallData
+import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_UNLIMITED
 import com.newoether.agora.phone.PhoneUseSettings
 import com.newoether.agora.util.Constants
 import io.mockk.every
@@ -51,6 +52,37 @@ class GenerationPhoneImageAdmissionTest {
         assertEquals(setOf(images.last().path), visibleImages(providerConfigFor(next).resolveRequest(history).messages))
         assertEquals(original, history)
         assertEquals(images, history[1].toolCall!!.resultImages)
+    }
+
+    @Test
+    fun unlimitedAdmissionRetainsAllScreenshotsInContinuationsAfterSettingChanges() = runTest {
+        val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
+        val settings = MutableStateFlow(PhoneUseSettings(maxScreenshots = PHONE_MAX_SCREENSHOTS_UNLIMITED))
+        every { fixture.settings.phoneUse } returns settings
+        val screenshots = (1..25).map { image("unlimited-$it") }
+        val paths = screenshots.map { it.path }
+        val history = listOf(user("prompt")) + round("unlimited-history", listOf(call("before", screenshots.take(21))))
+        val continuation = history + round("unlimited-next", listOf(call("after", screenshots.drop(21))))
+        val admitted = fixture.builder.captureAdmissionSnapshot("conversation", "run", fixture.modelId)
+        val config = providerConfigFor(admitted)
+
+        assertEquals(PHONE_MAX_SCREENSHOTS_UNLIMITED, admitted.config.phoneMaxScreenshots)
+        assertEquals(PHONE_MAX_SCREENSHOTS_UNLIMITED, admitted.automaticCompact.mainPhoneMaxScreenshots)
+        assertEquals(PHONE_MAX_SCREENSHOTS_UNLIMITED, admitted.automaticCompact.generationConfig.phoneMaxScreenshots)
+        assertEquals(paths.take(21).toSet(), visibleImages(config.resolveRequest(history).messages))
+
+        settings.value = settings.value.copy(maxScreenshots = 16)
+        val continued = config.resolveRequest(continuation)
+        assertEquals(paths.toSet(), visibleImages(continued.messages))
+        assertToolProtocolPreserved(continuation, continued.messages)
+        assertTrue(visibleImages(config.copy(includeImages = false).resolveRequest(continuation).messages).isEmpty())
+
+        val next = fixture.builder.captureAdmissionSnapshot("conversation", "next-run", fixture.modelId)
+        val preview = fixture.builder.captureContextProjectionSnapshot("conversation", fixture.modelId)
+        assertEquals(16, next.config.phoneMaxScreenshots)
+        assertEquals(16, preview.config.phoneMaxScreenshots)
+        assertEquals(paths.takeLast(16).toSet(), visibleImages(providerConfigFor(next).resolveRequest(continuation).messages))
+        assertEquals(screenshots.take(21), history[1].toolCall!!.resultImages)
     }
 
     @Test
@@ -107,7 +139,7 @@ class GenerationPhoneImageAdmissionTest {
         val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false)
         val settings = MutableStateFlow(PhoneUseSettings(maxScreenshots = 1))
         every { fixture.settings.phoneUse } returns settings
-        val screenshots = (1..3).map { image("accounting-$it") }
+        val screenshots = (1..25).map { image("accounting-$it") }
         val path = listOf(user("old")) + round("accounting", listOf(call("capture", screenshots))) +
             user("current")
         val original = path.toList()
@@ -135,7 +167,7 @@ class GenerationPhoneImageAdmissionTest {
 
         assertTrue(needed(admitted, projectedUsage))
         assertFalse(needed(admitted))
-        settings.value = settings.value.copy(maxScreenshots = 3)
+        settings.value = settings.value.copy(maxScreenshots = PHONE_MAX_SCREENSHOTS_UNLIMITED)
         assertFalse(needed(admitted))
         assertEquals(dispatched, providerConfigFor(admitted).resolveRequest(path))
         val next = fixture.builder.captureAdmissionSnapshot("conversation", "next-run", fixture.modelId)

@@ -4,9 +4,9 @@ import com.newoether.agora.api.util.projectedImageOccurrences
 import com.newoether.agora.api.util.withProjectedImages
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.ImageArtifact
-import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_MAX
-import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_MIN
+import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_UNLIMITED
 import com.newoether.agora.phone.PHONE_TOOL_NAMES
+import com.newoether.agora.phone.normalizePhoneMaxScreenshots
 import com.newoether.agora.util.Constants
 
 /** Request-only Phone image budget. Durable messages and every non-Phone image stay untouched. */
@@ -14,6 +14,9 @@ internal fun projectPhoneToolImages(
     messages: List<ChatMessage>,
     maxScreenshots: Int,
 ): List<ChatMessage> {
+    var remaining = normalizePhoneMaxScreenshots(maxScreenshots)
+    // Skip only count filtering; the shared provider projection still handles pairing and image gates.
+    if (remaining == PHONE_MAX_SCREENSHOTS_UNLIMITED) return messages
     if (messages.none { message ->
         message.toolCall?.toolName in PHONE_TOOL_NAMES || message.segments.orEmpty().any {
             it.type == "tool" && it.toolName in PHONE_TOOL_NAMES
@@ -110,7 +113,6 @@ internal fun projectPhoneToolImages(
     }
     val seen = mutableSetOf<Pair<PhoneImageCall, Int>>()
     val kept = mutableSetOf<Pair<PhoneImageCall, Int>>()
-    var remaining = maxScreenshots.coerceIn(PHONE_MAX_SCREENSHOTS_MIN, PHONE_MAX_SCREENSHOTS_MAX)
     projections.asReversed().forEach { projection ->
         projection.groups.asReversed().filter { it.isPhone }.forEach { group ->
             group.images.indices.reversed().forEach { index ->

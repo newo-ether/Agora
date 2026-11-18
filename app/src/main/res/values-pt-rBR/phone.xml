@@ -70,5 +70,6 @@
     <string name="phone_write_settings_permission">Alterar configurações do sistema</string>
     <string name="phone_write_settings_description">Durante o controle, aumenta temporariamente o tempo limite da tela para pelo menos 30 minutos e o restaura ao terminar, a menos que você o altere.</string>
     <string name="phone_max_screenshots">Máximo de capturas de tela</string>
-    <string name="phone_max_screenshots_description">Limita apenas as imagens das ferramentas do telefone enviadas ao modelo, começando pelas mais recentes. As antigas continuam salvas na conversa; as demais imagens não são afetadas.</string>
+    <string name="phone_max_screenshots_description">Escolha um limite de 1 a 16 ou selecione “Sem limite” na extremidade direita. O limite se aplica apenas às imagens das ferramentas do telefone enviadas ao modelo, começando pelas mais recentes. As antigas continuam salvas na conversa; as demais imagens não são afetadas.</string>
+    <string name="phone_max_screenshots_unlimited">Sem limite</string>
 </resources>

@@ -70,5 +70,6 @@
     <string name="phone_write_settings_permission">تعديل إعدادات النظام</string>
     <string name="phone_write_settings_description">تمديد مهلة الشاشة مؤقتًا إلى 30 دقيقة على الأقل أثناء التحكم، ثم استعادتها ما لم تغيّر الإعداد.</string>
     <string name="phone_max_screenshots">الحد الأقصى للقطات الشاشة</string>
-    <string name="phone_max_screenshots_description">يقتصر الحد على صور أدوات الهاتف المرسلة إلى النموذج، بدءًا من الأحدث. تبقى الصور الأقدم محفوظة في المحادثة، ولا تتأثر الصور الأخرى.</string>
+    <string name="phone_max_screenshots_description">اختر حدًا من 1 إلى 16، أو اختر «غير محدود» في أقصى اليمين. يقتصر الحد على صور أدوات الهاتف المرسلة إلى النموذج، بدءًا من الأحدث. تبقى الصور الأقدم محفوظة في المحادثة، ولا تتأثر الصور الأخرى.</string>
+    <string name="phone_max_screenshots_unlimited">غير محدود</string>
 </resources>

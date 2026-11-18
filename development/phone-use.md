@@ -35,13 +35,13 @@ Sub-page, top to bottom:
    trailing slot with the shared 250 ms crossfade. Tapping an item requests the permission directly
    when the platform allows it, otherwise deep-links to the most specific system page. Refresh only
    on page entry, resume, mode change or permission-item click; no periodic settings probes.
-4. Screenshot history: a `Max Screenshots` integer slider, range 1..16, default 5. Reuse the
-   shared persisted slider feedback gate; commit on release, with no Save action. The displayed
-   value and accessibility progress use the same integer stops. Previously stored limits below 1
-   or above 16 are clamped on read; new writes use the same bounds. Supporting copy explains that
-   only the newest built-in Phone tool images are sent to the model and older images remain in the
-   conversation. This is device-local Phone Use configuration, like its existing mode/access
-   settings, and is not a portable archive field.
+4. Screenshot history: `Max Screenshots` offers integer stops 1..16 (default 5), followed
+   by `Unlimited` at the far right. Display and accessibility use the same selected value.
+   Use the shared persisted slider feedback gate and commit on release, with no Save action.
+   Keep `Unlimited` distinct from legacy numeric limits: old 0 maps to 1 and old 17..20
+   map to 16. Only an explicit `Unlimited` selection removes the Phone image count limit.
+   This device-local setting does not delete conversation images and is not a portable
+   archive field.
 5. Automation access: one switch `Allow Task and Loop runs`, default off (section 5).
 6. App access control (section 6).
 
@@ -139,7 +139,9 @@ Rules:
   Stored messages, local image files, UI history and exports are never mutated by this request-only
   limit. Capture the setting with the immutable Run admission configuration and use that same value
   for initial requests, continuations, context accounting and automatic Compact threshold checks.
-  Changing the setting applies to newly admitted Runs without deleting screenshots.
+  With `Unlimited`, do not trim Phone images by count; the same image pairing, provider
+  constraints and context accounting still apply. Changing the setting applies to newly
+  admitted Runs without deleting screenshots.
 
 ## 3. Global control lease
 
@@ -448,9 +450,10 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
 - Handoff: both durable/Job barrier orders, empty and suppressed queue drains, scheduled Compact
   continuation versus FIFO guidance, failed admission, direct bound successor, stale cleanup and
   old effects, disposal during the idle gap, and Ask pause changes under one retained epoch.
-- Max Screenshots: default and legacy bounds on read/write, integer slider and accessibility
-  progress, a single release commit through stale persistence updates, newest-first request
-  projection at both bounds, no effect on other images or stored history, and the frozen Run
-  budget across continuations and automatic Compact accounting.
+- Max Screenshots: default, legacy bounds and Unlimited persistence; visible and accessible
+  rightmost stop; a single release commit through stale persistence updates. Check newest-first
+  projection at both finite bounds and more than 16 images with Unlimited; other images and
+  stored history stay unchanged. Verify the frozen Run budget across continuations and
+  automatic Compact accounting.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.

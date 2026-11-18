@@ -18,7 +18,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -27,6 +29,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -39,11 +42,14 @@ import com.newoether.agora.phone.PhoneUseIcon
 import com.newoether.agora.phone.PhoneUseRuntime
 import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_MAX
 import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_MIN
+import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_UNLIMITED
+import com.newoether.agora.phone.normalizePhoneMaxScreenshots
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.components.optionClickable
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 @Composable
@@ -124,13 +130,23 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
 
 @Composable
 internal fun PhoneMaxScreenshotsSlider(value: Int, onValueChange: (Int) -> Unit) {
-    val range = PHONE_MAX_SCREENSHOTS_MIN..PHONE_MAX_SCREENSHOTS_MAX
-    val persisted = value.coerceIn(range)
-    val gate = remember { PersistedSliderFeedbackGate(initialPersisted = persisted, toDisplay = { it }) }
+    val unlimitedPosition = PHONE_MAX_SCREENSHOTS_MAX + 1
+    val range = PHONE_MAX_SCREENSHOTS_MIN..unlimitedPosition
+    val persisted = normalizePhoneMaxScreenshots(value)
+    val gate = remember {
+        PersistedSliderFeedbackGate(initialPersisted = persisted, toDisplay = {
+            if (it == PHONE_MAX_SCREENSHOTS_UNLIMITED) unlimitedPosition else it
+        })
+    }
     LaunchedEffect(persisted) { gate.reconcile(persisted) }
-    val selected = gate.displayed
+    val selectedPosition = gate.displayed
     val title = stringResource(R.string.phone_max_screenshots)
-    val valueText = selected.toString()
+    val valueText = if (selectedPosition == unlimitedPosition) {
+        stringResource(R.string.phone_max_screenshots_unlimited)
+    } else {
+        val locale = LocalConfiguration.current.locales[0]
+        remember(locale, selectedPosition) { NumberFormat.getIntegerInstance(locale).format(selectedPosition) }
+    }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Icon(Icons.Default.Screenshot, null, tint = MaterialTheme.colorScheme.primary,
@@ -147,25 +163,29 @@ internal fun PhoneMaxScreenshotsSlider(value: Int, onValueChange: (Int) -> Unit)
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp))
-                Slider(
-                    value = selected.toFloat(),
-                    onValueChange = { gate.updateFromGesture(it.roundToInt().coerceIn(range)) },
-                    onValueChangeFinished = {
-                        val committed = gate.displayed
-                        if (committed != persisted) {
-                            gate.expectPersisted(committed)
-                            onValueChange(committed)
-                        } else {
-                            gate.settleWithoutWrite(persisted)
-                        }
-                    },
-                    valueRange = range.first.toFloat()..range.last.toFloat(),
-                    steps = range.last - range.first - 1,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).semantics {
-                        contentDescription = title
-                        stateDescription = valueText
-                    },
-                )
+                // Unlimited is the physical right stop; the surrounding row still follows the locale.
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Slider(
+                        value = selectedPosition.toFloat(),
+                        onValueChange = { gate.updateFromGesture(it.roundToInt().coerceIn(range)) },
+                        onValueChangeFinished = {
+                            val position = gate.displayed
+                            val committed = if (position == unlimitedPosition) PHONE_MAX_SCREENSHOTS_UNLIMITED else position
+                            if (committed != persisted) {
+                                gate.expectPersisted(committed)
+                                onValueChange(committed)
+                            } else {
+                                gate.settleWithoutWrite(persisted)
+                            }
+                        },
+                        valueRange = range.first.toFloat()..range.last.toFloat(),
+                        steps = range.last - range.first - 1,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).semantics {
+                            contentDescription = title
+                            stateDescription = valueText
+                        },
+                    )
+                }
             }
         }
     }

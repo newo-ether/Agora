@@ -17,7 +17,7 @@ Depending on settings, build, and provider support, tools include:
 
 ## Phone Use
 
-In Settings → Tools → Phone Use, **Max Screenshots** accepts whole numbers from 1 to 16 and defaults to 5. It limits how many of the newest images from built-in phone tools are sent to the model. Older screenshots stay in the conversation, and images from other tools, user attachments, and generated images are unaffected. Changes apply to new generations.
+In Settings → Tools → Phone Use, **Max Screenshots** defaults to 5. The slider offers 1 to 16 images, with **Unlimited** to the right of 16. A numeric limit sends only the most recent images from built-in phone tools; Unlimited removes that count limit. Changes apply to new generations. Neither option deletes screenshots from the conversation or affects user attachments, generated images, or images from other tools.
 
 ## Ask User
 

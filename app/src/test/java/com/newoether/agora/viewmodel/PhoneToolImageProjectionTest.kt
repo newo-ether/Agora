@@ -10,12 +10,34 @@ import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.ToolCallData
+import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_UNLIMITED
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PhoneToolImageProjectionTest {
+    @Test
+    fun `Unlimited keeps all eligible images while shared projection still deduplicates`() {
+        val images = (1..25).map { image("unlimited-$it") }
+        val unavailable = image("unavailable").copy(unavailable = true)
+        val otherTool = image("ordinary-tool")
+        val older = round("unlimited-old", listOf(call("older", images.take(10))))
+        val newer = round("unlimited-new", listOf(
+            call("newer", images.drop(10) + listOf(images.last(), unavailable), "phone_tap"),
+            call("other", listOf(otherTool), "file_view_image"),
+        ))
+        val live = older.pathMessages + newer.pathMessages
+        val replay = projectProviderMessages(older.entities + newer.entities, includeStoredTranscriptions = false)
+        listOf(live, replay).forEach { messages ->
+            val projected = projectPhoneToolImages(messages, PHONE_MAX_SCREENSHOTS_UNLIMITED)
+            assertSame(messages, projected)
+            assertEquals((images + otherTool).map { it.path }, contextImages(projected))
+            assertTrue(projectToolResultImagesToUserMessage(projected, false)
+                .filter { it.id.startsWith("image_context_") }.all { it.images.isEmpty() })
+        }
+    }
+
     @Test
     fun `live builder and Room replay count image occurrences once across all mirrors`() {
         val first = image("first")

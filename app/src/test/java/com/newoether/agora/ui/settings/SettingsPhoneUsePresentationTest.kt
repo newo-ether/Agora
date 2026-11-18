@@ -34,6 +34,7 @@ import com.newoether.agora.R
 import com.newoether.agora.phone.PhoneApp
 import com.newoether.agora.phone.PhonePermissions
 import com.newoether.agora.phone.PhoneUseIcon
+import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_UNLIMITED
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -227,6 +228,7 @@ class SettingsPhoneUsePresentationTest {
             }
         }
         val slider = compose.onNodeWithContentDescription(text(R.string.phone_max_screenshots))
+        val unlimited = text(R.string.phone_max_screenshots_unlimited)
         slider.assert(screenshotRange(5f))
         compose.onNodeWithText(text(R.string.phone_max_screenshots_description)).assertIsDisplayed()
         slider.performTouchInput {
@@ -237,21 +239,24 @@ class SettingsPhoneUsePresentationTest {
             assertTrue(changes.isEmpty())
             persisted = 12
         }
-        slider.assert(screenshotRange(16f))
+        assertScreenshotSelection(slider, 17f, unlimited)
         slider.performTouchInput { up() }
-        compose.runOnIdle { assertEquals(listOf(16), changes) }
-        compose.runOnIdle { persisted = 10 }
-        slider.assert(screenshotRange(16f))
+        compose.runOnIdle { assertEquals(listOf(PHONE_MAX_SCREENSHOTS_UNLIMITED), changes) }
+        // The slider position 17 is not an acknowledgement of the stored Unlimited value.
+        compose.runOnIdle { persisted = 17 }
+        assertScreenshotSelection(slider, 17f, unlimited)
+        compose.runOnIdle { persisted = PHONE_MAX_SCREENSHOTS_UNLIMITED }
+        assertScreenshotSelection(slider, 17f, unlimited)
+
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(16f)) }
+        assertScreenshotSelection(slider, 16f, "16")
+        compose.onNodeWithText(unlimited).assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf(PHONE_MAX_SCREENSHOTS_UNLIMITED, 16), changes) }
         compose.runOnIdle { persisted = 16 }
-        slider.assert(screenshotRange(16f))
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertFalse(it(16f)) }
+        compose.runOnIdle { assertEquals(listOf(PHONE_MAX_SCREENSHOTS_UNLIMITED, 16), changes) }
         compose.runOnIdle { persisted = 5 }
-        slider.assert(screenshotRange(5f))
-        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(1f)) }
-        slider.assert(screenshotRange(1f))
-        compose.runOnIdle { assertEquals(listOf(16, 1), changes) }
-        compose.runOnIdle { persisted = 1 }
-        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertFalse(it(1f)) }
-        compose.runOnIdle { assertEquals(listOf(16, 1), changes) }
+        assertScreenshotSelection(slider, 5f, "5")
     }
 
     @Test fun screenshotLimitAccessibilitySnapsToIntegerAndClampsLegacyValues() {
@@ -261,16 +266,15 @@ class SettingsPhoneUsePresentationTest {
             MaterialTheme { PhoneMaxScreenshotsSlider(persisted) { changes += it } }
         }
         val slider = compose.onNodeWithContentDescription(text(R.string.phone_max_screenshots))
-        slider.assert(screenshotRange(1f))
-        slider.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "1"))
-        compose.runOnIdle { persisted = 20 }
-        slider.assert(screenshotRange(16f))
-        slider.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "16"))
+        assertScreenshotSelection(slider, 1f, "1")
+        for (oldValue in 17..20) {
+            compose.runOnIdle { persisted = oldValue }
+            assertScreenshotSelection(slider, 16f, "16")
+        }
+        compose.runOnIdle { assertTrue(changes.isEmpty()) }
 
         slider.performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(7.7f)) }
-        slider.assert(screenshotRange(8f))
-        slider.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "8"))
-        compose.onNodeWithText("8").assertIsDisplayed()
+        assertScreenshotSelection(slider, 8f, "8")
         compose.runOnIdle {
             assertEquals(listOf(8), changes)
             persisted = 8
@@ -279,9 +283,51 @@ class SettingsPhoneUsePresentationTest {
         compose.runOnIdle { assertEquals(listOf(8), changes) }
     }
 
+    @Test
+    @Config(qualifiers = "ar-ldrtl-mdpi")
+    fun screenshotLimitKeepsUnlimitedAtThePhysicalRightInRtl() {
+        var persisted by mutableStateOf(16)
+        val changes = mutableListOf<Int>()
+        compose.setContent {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                MaterialTheme {
+                    Column(Modifier.width(360.dp)) {
+                        PhoneMaxScreenshotsSlider(persisted) {
+                            changes += it
+                            persisted = it
+                        }
+                    }
+                }
+            }
+        }
+        val slider = compose.onNodeWithContentDescription(text(R.string.phone_max_screenshots))
+        slider.assert(screenshotRange(16f))
+        slider.performTouchInput {
+            down(center)
+            moveTo(Offset(width - 1f, center.y), delayMillis = 200)
+            up()
+        }
+        assertScreenshotSelection(slider, 17f, "غير محدود")
+        compose.runOnIdle { assertEquals(listOf(PHONE_MAX_SCREENSHOTS_UNLIMITED), changes) }
+        slider.performTouchInput {
+            down(center)
+            moveTo(Offset(1f, center.y), delayMillis = 200)
+            up()
+        }
+        slider.assert(screenshotRange(1f))
+        compose.onNodeWithText("غير محدود").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf(PHONE_MAX_SCREENSHOTS_UNLIMITED, 1), changes) }
+    }
+
+    private fun assertScreenshotSelection(slider: SemanticsNodeInteraction, position: Float, label: String) {
+        slider.assert(screenshotRange(position))
+        slider.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, label))
+        compose.onNodeWithText(label).assertIsDisplayed()
+    }
+
     private fun screenshotRange(current: Float) = SemanticsMatcher.expectValue(
         SemanticsProperties.ProgressBarRangeInfo,
-        ProgressBarRangeInfo(current, 1f..16f, 14),
+        ProgressBarRangeInfo(current, 1f..17f, 15),
     )
 
     private fun text(id: Int) = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>().getString(id)

@@ -70,5 +70,6 @@
     <string name="phone_write_settings_permission">システム設定の変更</string>
     <string name="phone_write_settings_description">操作中は画面のタイムアウトを一時的に 30 分以上に延長し、終了後に元に戻します。途中で変更した設定は保持します。</string>
     <string name="phone_max_screenshots">スクリーンショットの最大数</string>
-    <string name="phone_max_screenshots_description">モデルに送信するスマートフォン操作ツールの画像のみを、新しい順に制限します。古い画像は会話に保存されたままで、他の画像には影響しません。</string>
+    <string name="phone_max_screenshots_description">1〜16 の上限を選ぶか、右端の「無制限」を選択できます。上限はモデルに送信するスマートフォン操作ツールの画像だけに適用され、新しい画像が優先されます。古い画像は会話に保存されたままで、他の画像には影響しません。</string>
+    <string name="phone_max_screenshots_unlimited">無制限</string>
 </resources>

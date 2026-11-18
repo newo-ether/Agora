@@ -66,13 +66,32 @@ class PhoneUseSettingsStoreTest {
                 assertEquals(expected, preferences.data.first()[screenshotKey])
                 assertEquals(beforeLimitChanges.copy(maxScreenshots = expected), reopened.values.first())
             }
-            for ((input, expected) in listOf(-1 to 1, 0 to 1, 17 to 16, 20 to 16)) {
+            for ((input, expected) in listOf(-1 to 1, 0 to 1) + (17..20).map { it to 16 }) {
                 preferences.edit { it[screenshotKey] = input }
                 assertEquals(beforeLimitChanges.copy(maxScreenshots = expected), reopened.values.first())
                 assertEquals(input, preferences.data.first()[screenshotKey])
             }
             preferences.edit { it.remove(screenshotKey) }
             assertEquals(beforeLimitChanges.copy(maxScreenshots = 5), reopened.values.first())
+
+            reopened.setMaxScreenshots(16)
+            reopened.setMaxScreenshots(PHONE_MAX_SCREENSHOTS_UNLIMITED)
+            val unlimited = beforeLimitChanges.copy(maxScreenshots = PHONE_MAX_SCREENSHOTS_UNLIMITED)
+            assertEquals(unlimited, reopened.values.first())
+            assertEquals(16, preferences.data.first()[screenshotKey])
+
+            job.cancelAndJoin()
+            job = SupervisorJob()
+            preferences = openStore()
+            val afterRestart = PhoneUseSettingsStore(preferences)
+            assertEquals(unlimited, afterRestart.values.first())
+            afterRestart.setMaxScreenshots(16)
+            assertEquals(beforeLimitChanges.copy(maxScreenshots = 16), afterRestart.values.first())
+
+            job.cancelAndJoin()
+            job = SupervisorJob()
+            assertEquals(beforeLimitChanges.copy(maxScreenshots = 16),
+                PhoneUseSettingsStore(openStore()).values.first())
         } finally {
             job.cancelAndJoin()
             directory.deleteRecursively()
