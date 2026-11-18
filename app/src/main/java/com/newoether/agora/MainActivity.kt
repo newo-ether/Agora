@@ -389,6 +389,8 @@ fun MainNavigation(
     var pdfPreviewFromDialog by remember { mutableStateOf(false) }
     LaunchedEffect(processTextRequest?.id) {
         if (processTextRequest != null) {
+            // Selected text always starts its own conversation, never the one already open.
+            viewModel.createNewChat()
             showSettings = false
             showRemote = false
             showTasks = false

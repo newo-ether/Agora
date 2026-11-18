@@ -317,6 +317,7 @@ fun ChatApp(
         onConsumed = onProcessTextConsumed,
         persistText = viewModel.conversationComposer::persistIngressText,
         ingressRetryVersion = composerSnapshot.ingressRetryVersion,
+        newChatOnly = true,
     )
 
     val animatedScrollRequest by viewModel.scrollRequests.request.collectAsState()

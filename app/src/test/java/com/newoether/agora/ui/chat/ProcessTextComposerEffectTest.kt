@@ -139,6 +139,26 @@ class ProcessTextComposerEffectTest {
         }
     }
 
+    @Test fun selectedTextWaitsForTheNewChatOwnerInsteadOfJoiningTheOpenConversation() {
+        val field = TextFieldState()
+        val consumed = mutableListOf<String>()
+        var owner by mutableStateOf("conversation")
+        compose.setContent {
+            ProcessTextComposerEffect(owner, true, false,
+                ProcessTextRequest("request", "selected text"), field, consumed::add,
+                persistText = { _, _ -> true }, newChatOnly = true)
+        }
+        compose.runOnIdle {
+            assertEquals("", field.text.toString())
+            assertTrue(consumed.isEmpty())
+            owner = com.newoether.agora.viewmodel.NEW_CHAT_WORKSPACE_ID
+        }
+        compose.runOnIdle {
+            assertEquals("selected text", field.text.toString())
+            assertEquals(listOf("request"), consumed)
+        }
+    }
+
     @Test fun appendingPreservesAllDraftAndSelectionWhitespace() {
         assertEquals("  selection  ", appendSelectedText("", "  selection  "))
         assertEquals("draft\n\nselection", appendSelectedText("draft", "selection"))

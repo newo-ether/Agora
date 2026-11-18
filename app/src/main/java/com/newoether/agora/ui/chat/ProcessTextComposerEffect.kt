@@ -31,6 +31,8 @@ internal fun ProcessTextComposerEffect(
     onConsumed: (String) -> Unit,
     persistText: suspend (String, String) -> Boolean,
     ingressRetryVersion: Long = 0L,
+    /** Selected text always starts a conversation instead of joining the open one. */
+    newChatOnly: Boolean = false,
 ) {
     val consume by rememberUpdatedState(onConsumed)
     val persist by rememberUpdatedState(persistText)
@@ -38,7 +40,8 @@ internal fun ProcessTextComposerEffect(
     var persistedRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     // Uncommitted display state must not survive a fresh controller loading an older disk draft.
     var displayedRequestId by remember(ownerId, textFieldState) { mutableStateOf<String?>(null) }
-    val ready = draftLoaded && !switching
+    val ready = draftLoaded && !switching &&
+        (!newChatOnly || ownerId == com.newoether.agora.viewmodel.NEW_CHAT_WORKSPACE_ID)
     LaunchedEffect(ownerId, ready, request?.id, textFieldState) {
         if (!ready || request == null) return@LaunchedEffect
         if (persistedRequestId != request.id) {
