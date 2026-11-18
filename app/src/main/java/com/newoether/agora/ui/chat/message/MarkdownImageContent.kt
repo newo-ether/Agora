@@ -120,6 +120,15 @@ internal fun MarkdownImageThumbnail(link: String, image: MarkdownImage, onClick:
 @Composable
 internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
     val link = markdownImageLink(model.content, model.node, LocalReferenceLinkHandler.current)
+    markdownVideoLink(link ?: "").let { video ->
+        if (video != null) {
+            MarkdownVideoCard(
+                link = video,
+                modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth().aspectRatio(16f / 9f),
+            )
+            return
+        }
+    }
     if (link != null && (LocalImageTransformer.current as? LatexImageTransformer)
             ?.renderInlineImage(link, LocalMarkdownImageOccurrences.current[model.node]) == true) return
     // Any formula on its own line, display or inline promoted out of its paragraph, is one
@@ -134,7 +143,13 @@ internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
 
 @Composable
 internal fun ChatMarkdownInlineImage(model: MarkdownComponentModel) {
-    // Inline callbacks receive the resolved URL, while the node retains document offsets.
+    // Inline image components receive the resolved destination as their content.
+    markdownVideoLink(model.content).let { video ->
+        if (video != null) {
+            MarkdownVideoCard(link = video, modifier = Modifier.size(width = 160.dp, height = 90.dp))
+            return
+        }
+    }
     if ((LocalImageTransformer.current as? LatexImageTransformer)
             ?.renderInlineImage(model.content, LocalMarkdownImageOccurrences.current[model.node]) != true) {
         MarkdownInlineImage(model.content, model.node)

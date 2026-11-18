@@ -13,7 +13,7 @@ internal fun SelectedAttachment.hasCanonicalReadyArtifact(): Boolean =
         when (type) {
             "image" -> !previewImagePath.isNullOrBlank()
             "video" -> !localPath.isNullOrBlank() &&
-                hasPreparedImageSlots(processedFrames.orEmpty())
+                (storage.isLocalSandbox || hasPreparedImageSlots(processedFrames.orEmpty()))
             "pdf" -> !localPath.isNullOrBlank() &&
                 hasPreparedImageSlots(preRenderedPaths.orEmpty())
             "file" -> if (unavailable) false else if (storage.isLocalSandbox) {
@@ -70,7 +70,9 @@ internal class MessagePayloadBuilder {
                 fileName = attachment.fileName,
                 mimeType = attachment.mimeType ?: "application/pdf".takeIf { attachment.type == "pdf" },
                 imageIndex = imageIndex,
-                pageCount = paths.size.takeIf { attachment.type == "pdf" || attachment.type == "video" },
+                pageCount = paths.size.takeIf {
+                    (attachment.type == "pdf" || attachment.type == "video") && paths.isNotEmpty()
+                },
                 pixelWidth = attachment.pixelWidth,
                 pixelHeight = attachment.pixelHeight,
                 fileSize = attachment.fileSize,

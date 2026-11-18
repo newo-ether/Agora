@@ -581,8 +581,9 @@
     <string name="shell_confirm_allow">한 번 허용</string>
     <string name="shell_confirm_always">이 서버 항상 허용</string>
     <string name="shell_confirm_deny">거부</string>
-    <string name="shell_confirm_setting">원격 셸 작업 확인</string>
-    <string name="shell_confirm_setting_desc">어시스턴트가 원격 SSH/Conch 서버에서 명령을 실행하거나 파일을 쓰기 전에 확인</string>
+    <string name="shell_confirm_setting">셸 작업 확인</string>
+    <string name="shell_confirm_setting_desc">어시스턴트가 명령을 실행하거나 파일을 쓰기 전에 확인(로컬 Linux 샌드박스 포함)</string>
+    <string name="shell_confirm_detail_truncated">미리보기가 잘렸습니다. 전체 내용이 기록됩니다.</string>
     <string name="shell_confirm_notification_channel">명령 승인</string>
     <string name="shell_confirm_notification_desc">Agora가 백그라운드에 있을 때 원격 명령을 허용하거나 거부하도록 묻습니다</string>
     <string name="ask_user_title">어시스턴트의 질문</string>
@@ -884,4 +885,8 @@
     <string name="tool_todo_empty">할 일 목록이 비어 있습니다</string>
     <string name="tool_agents_empty">하위 에이전트가 없습니다</string>
     <string name="tool_agent_results_empty">반환된 하위 에이전트 결과가 없습니다</string>
+    <string name="markdown_link_file_missing">파일을 찾을 수 없습니다</string>
+    <string name="markdown_link_file_unavailable">이 파일을 열 수 없습니다</string>
+    <string name="markdown_link_shared_storage_required">공유 저장소 링크를 열려면 모든 파일 접근 권한을 허용하세요</string>
+    <string name="markdown_link_no_handler">이 링크를 열 수 있는 앱이 없습니다</string>
 </resources>

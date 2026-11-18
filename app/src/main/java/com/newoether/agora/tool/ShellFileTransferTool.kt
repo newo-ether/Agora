@@ -32,7 +32,7 @@ internal suspend fun executeShellFileTransfer(
     arguments: String,
     ctx: GenerationContext,
     sandbox: SandboxManager?,
-    confirm: suspend (ShellDeviceConfig?, String, Boolean) -> Boolean,
+    confirm: suspend (ShellDeviceConfig?, String) -> Boolean,
 ): String {
     val args = parseToolArgs(arguments)
     val sourceName = arg(args, "source_server")
@@ -61,10 +61,7 @@ internal suspend fun executeShellFileTransfer(
     return try {
         val source = endpoint(sourceName)
         val destination = endpoint(destinationName)
-        // Mounted paths can traverse into shared storage via aliases. Match command confirmation
-        // whenever shared storage is exposed, rather than relying on a textual path prefix.
-        if (!confirm(device(destinationName), "copy $sourceName:$sourcePath to $destinationName:$destinationPath",
-                destinationName.equals("Local Sandbox", true) && ctx.sandboxSharedStorageEnabled)) {
+        if (!confirm(device(destinationName), "copy $sourceName:$sourcePath to $destinationName:$destinationPath")) {
             return jsonError("file_transfer", "denied_by_user: the user declined this file transfer")
         }
         transferShellFile(source, sourcePath, destination, destinationPath, boolArg(args, "overwrite"))

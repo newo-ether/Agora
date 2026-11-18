@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.sandbox.openSandboxRoot
 import com.newoether.agora.sandbox.SandboxManager
+import com.newoether.agora.sandbox.SandboxMirror
 import com.newoether.agora.sandbox.SandboxSharedStorageAccess
 import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.CancellationException
@@ -57,6 +58,8 @@ fun SettingsSandboxPage(
     showDocFab: Boolean = false,
     sharedStorageEnabled: Boolean = false,
     onSharedStorageEnabledChange: (Boolean) -> Unit = {},
+    mirror: SandboxMirror = SandboxMirror.DEFAULT,
+    onMirrorChange: (SandboxMirror) -> Unit = {},
     onSnackbar: (String) -> Unit,
 ) {
     val motionPolicy = LocalAgoraMotionPolicy.current
@@ -106,8 +109,26 @@ fun SettingsSandboxPage(
     // Rootfs installation belongs to the manager and survives navigation.
     val installingRootfs by sandboxManager.isInstallingRootfs.collectAsState()
     val downloadProgress by sandboxManager.downloadProgress.collectAsState()
+    val rootfsPhase by sandboxManager.rootfsPhase.collectAsState()
     val canManage = !isBusy && !installingRootfs && !selectingDistribution
     val showTerminal = terminalOutput.isNotBlank()
+    val mirrorAppliedMessage = stringResource(R.string.sandbox_mirror_applied)
+    val mirrorFailedMessage = stringResource(R.string.sandbox_mirror_failed)
+
+    fun chooseMirror(selected: SandboxMirror) {
+        if (!canManage || selected == mirror) return
+        onMirrorChange(selected)
+        // Persist first, then rewrite the installed guest so its next package operation uses it.
+        if (available) {
+            scope.launch {
+                if (sandboxManager.applyMirror(selected)) {
+                    showSnackbar(mirrorAppliedMessage)
+                } else {
+                    showSnackbar(sandboxManager.lastError?.takeIf(String::isNotBlank) ?: mirrorFailedMessage)
+                }
+            }
+        }
+    }
 
     fun clearPackageState() {
         installPkg = ""
@@ -183,10 +204,12 @@ fun SettingsSandboxPage(
                                 leadingContent = { SandboxDistributionIcon(distribution) },
                                 trailingContent = {
                                     TextButton(onClick = ::upgradePackages, enabled = canManage) {
-                                        Text(stringResource(R.string.sandbox_upgrade), style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.sandbox_upgrade), style = MaterialTheme.typography.labelLarge)
                                     }
                                 },
                             )
+                        }, {
+                            SettingsSandboxMirrorItem(mirror, canManage, ::chooseMirror)
                         }) else listOf({
                             SettingsSandboxDistributionItem(distribution, enabled = canManage) { selected ->
                                 selectingDistribution = true
@@ -212,6 +235,7 @@ fun SettingsSandboxPage(
                                 distribution = distribution,
                                 enabled = canManage,
                                 installing = installingRootfs,
+                                phase = rootfsPhase,
                                 downloadProgress = downloadProgress,
                                 onInstall = {
                                     clearPackageState()
@@ -219,6 +243,8 @@ fun SettingsSandboxPage(
                                     installRequests++
                                 },
                             )
+                        }, {
+                            SettingsSandboxMirrorItem(mirror, canManage, ::chooseMirror)
                         }),
                     )
                 }

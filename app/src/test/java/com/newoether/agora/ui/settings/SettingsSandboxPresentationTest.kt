@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.R
+import com.newoether.agora.sandbox.RootfsInstallPhase
 import com.newoether.agora.sandbox.SandboxDistribution
 import com.newoether.agora.sandbox.SandboxManager
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
@@ -42,6 +43,7 @@ class SettingsSandboxPresentationTest {
     private val busy = MutableStateFlow(false)
     private val installing = MutableStateFlow(false)
     private val progress = MutableStateFlow<Float?>(null)
+    private val phase = MutableStateFlow<RootfsInstallPhase?>(null)
     private val sharedStorage = mutableStateOf(false)
     private val pageMessages = mutableListOf<String>()
     private var installed = false
@@ -52,6 +54,7 @@ class SettingsSandboxPresentationTest {
         every { isBusy } returns busy
         every { isInstallingRootfs } returns installing
         every { downloadProgress } returns progress
+        every { rootfsPhase } returns phase
         every { terminalOutput } returns MutableStateFlow("")
         every { packageList } returns packages
         every { pendingPkgName } returns ""
@@ -109,8 +112,13 @@ class SettingsSandboxPresentationTest {
         row(debianVersion).performClick()
         row(text(R.string.sandbox_distribution)).assertIsNotEnabled()
         compose.onNodeWithText(text(R.string.sandbox_install)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.sandbox_preparing_rootfs)).assertIsDisplayed()
+        compose.runOnIdle { phase.value = RootfsInstallPhase.EXTRACTING }
         compose.onNodeWithText(text(R.string.sandbox_extracting_rootfs)).assertIsDisplayed()
-        compose.runOnIdle { progress.value = 0.42f }
+        compose.runOnIdle {
+            phase.value = RootfsInstallPhase.DOWNLOADING
+            progress.value = 0.42f
+        }
         compose.onNodeWithText(text(R.string.sandbox_downloading_rootfs, 42)).assertIsDisplayed()
 
         compose.runOnIdle {
@@ -118,6 +126,7 @@ class SettingsSandboxPresentationTest {
             busy.value = false
             installing.value = false
             progress.value = null
+            phase.value = null
             sharedStorage.value = true
         }
         compose.onNodeWithText(text(R.string.sandbox_not_installed)).assertIsDisplayed()

@@ -109,7 +109,7 @@ class ConchNetworkRetryTest {
     }
 
     @Test
-    fun readOnlyOwnerRebuildsSixAttemptsButNeverReplaysMutations() = kotlinx.coroutines.test.runTest {
+    fun readOnlyOwnerStopsAfterThreeRetriesButNeverReplaysMutations() = kotlinx.coroutines.test.runTest {
         listOf("/file/read", "/jobs/list", "/file/write", "/execute").forEach { path ->
             var envelopes = 0
             try {
@@ -118,7 +118,7 @@ class ConchNetworkRetryTest {
                     throw java.io.EOFException()
                 }
             } catch (_: java.io.EOFException) { }
-            assertEquals(path, if (ConchNetwork.isReadOnly(path)) 6 else 1, envelopes)
+            assertEquals(path, if (ConchNetwork.isReadOnly(path)) 4 else 1, envelopes)
         }
     }
 

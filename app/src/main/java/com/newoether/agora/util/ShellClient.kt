@@ -455,7 +455,7 @@ class ShellClient(
                     mapOf("Content-Type" to "application/json"),
                     callTimeoutMillis,
                     replaySafe = ConchNetwork.isReadOnly(path),
-                    maxRetries = if (ConchNetwork.isReadOnly(path)) 0 else NetworkRetryPolicy.MAX_RETRIES,
+                    maxRetries = if (ConchNetwork.isReadOnly(path)) 0 else ConchNetwork.MAX_RETRIES,
                 )
             } catch (e: Exception) {
                 NetworkRetryPolicy.throwIfCancelled(e)
@@ -508,7 +508,7 @@ class ShellClient(
                 headers,
                 callTimeoutMillis,
                 replaySafe = ConchNetwork.isReadOnly(path),
-                maxRetries = if (ConchNetwork.isReadOnly(path)) 0 else NetworkRetryPolicy.MAX_RETRIES,
+                maxRetries = if (ConchNetwork.isReadOnly(path)) 0 else ConchNetwork.MAX_RETRIES,
             )
         } catch (e: Exception) {
             NetworkRetryPolicy.throwIfCancelled(e)

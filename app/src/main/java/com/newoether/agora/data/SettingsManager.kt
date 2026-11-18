@@ -230,6 +230,7 @@ class SettingsManager(private val context: Context) {
     val sandboxEnabled: Flow<Boolean> = context.dataStore.data.map { it[SANDBOX_ENABLED] ?: false }
     val sandboxSharedStorageEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[SANDBOX_SHARED_STORAGE_ENABLED] ?: false }
+    val sandboxMirror: Flow<String> = context.dataStore.data.map { it[SANDBOX_MIRROR].orEmpty() }
 
     val themeMode: Flow<String> = context.dataStore.data.map { it[THEME_MODE] ?: "FOLLOW_DEVICE" }
     val amoledEnabled: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_ENABLED] ?: false }
@@ -689,6 +690,9 @@ class SettingsManager(private val context: Context) {
     }
     suspend fun saveSandboxSharedStorageEnabled(enabled: Boolean) {
         context.dataStore.edit { it[SANDBOX_SHARED_STORAGE_ENABLED] = enabled }
+    }
+    suspend fun saveSandboxMirror(id: String) {
+        context.dataStore.edit { it[SANDBOX_MIRROR] = id }
     }
     suspend fun saveThemeMode(mode: String) {
         context.dataStore.edit { it[THEME_MODE] = mode }

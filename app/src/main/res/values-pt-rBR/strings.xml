@@ -581,8 +581,9 @@
     <string name="shell_confirm_allow">Permitir uma vez</string>
     <string name="shell_confirm_always">Sempre permitir este servidor</string>
     <string name="shell_confirm_deny">Negar</string>
-    <string name="shell_confirm_setting">Confirmar ações de shell remoto</string>
-    <string name="shell_confirm_setting_desc">Perguntar antes de o assistente executar comandos ou gravar arquivos em servidores SSH/Conch remotos</string>
+    <string name="shell_confirm_setting">Confirmar ações de shell</string>
+    <string name="shell_confirm_setting_desc">Perguntar antes de o assistente executar comandos ou gravar arquivos, incluindo no sandbox Linux local</string>
+    <string name="shell_confirm_detail_truncated">Prévia truncada; o conteúdo completo será gravado.</string>
     <string name="shell_confirm_notification_channel">Aprovação de comandos</string>
     <string name="shell_confirm_notification_desc">Pede para permitir ou negar um comando remoto enquanto o Agora está em segundo plano</string>
     <string name="ask_user_title">O assistente está perguntando</string>
@@ -884,4 +885,8 @@
     <string name="tool_todo_empty">A lista de tarefas está vazia</string>
     <string name="tool_agents_empty">Nenhum subagente</string>
     <string name="tool_agent_results_empty">Nenhum resultado de subagente retornado</string>
+    <string name="markdown_link_file_missing">Arquivo não encontrado</string>
+    <string name="markdown_link_file_unavailable">Não é possível abrir este arquivo</string>
+    <string name="markdown_link_shared_storage_required">Conceda acesso a todos os arquivos para abrir links de armazenamento compartilhado</string>
+    <string name="markdown_link_no_handler">Nenhum aplicativo pode abrir este link</string>
 </resources>

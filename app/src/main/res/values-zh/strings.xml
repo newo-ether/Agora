@@ -632,8 +632,9 @@
     <string name="shell_confirm_allow">允许一次</string>
     <string name="shell_confirm_always">总是允许此服务器</string>
     <string name="shell_confirm_deny">拒绝</string>
-    <string name="shell_confirm_setting">确认远程 Shell 操作</string>
-    <string name="shell_confirm_setting_desc">在助手于远程 SSH/Conch 服务器上运行命令或写入文件前询问</string>
+    <string name="shell_confirm_setting">确认 Shell 操作</string>
+    <string name="shell_confirm_setting_desc">在助手运行命令或写入文件前询问，包括本地 Linux 沙箱</string>
+    <string name="shell_confirm_detail_truncated">预览已截断，将写入完整内容。</string>
     <string name="shell_confirm_notification_channel">命令审批</string>
     <string name="shell_confirm_notification_desc">Agora 在后台时，请求你允许或拒绝远程命令</string>
     <string name="ask_user_title">助手正在提问</string>
@@ -877,4 +878,8 @@
     <string name="tool_todo_empty">待办清单为空</string>
     <string name="tool_agents_empty">暂无子代理</string>
     <string name="tool_agent_results_empty">未返回子代理结果</string>
+    <string name="markdown_link_file_missing">未找到文件</string>
+    <string name="markdown_link_file_unavailable">无法打开此文件</string>
+    <string name="markdown_link_shared_storage_required">授予所有文件访问权限以打开共享存储链接</string>
+    <string name="markdown_link_no_handler">没有可打开此链接的应用</string>
 </resources>

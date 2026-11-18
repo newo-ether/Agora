@@ -522,6 +522,7 @@ internal class WebUiChatSession(
                     val frames = command.frameCount
                     val interval = command.intervalMs
                     if (attachment.type == "video" && attachment.importState == com.newoether.agora.model.AttachmentImportState.PROCESSING &&
+                        attachment.storage != com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING &&
                         attachment.frameCount == null && frames != null && frames >= 2 && interval != null && interval in 0..Long.MAX_VALUE / 1000) {
                         composers.configureVideo(owner, id, frames, interval)
                     }

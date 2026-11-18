@@ -3,4 +3,5 @@
     <files-path name="images" path="images/" />
     <files-path name="sandbox-home" path="sandbox-home/" />
     <cache-path name="shared" path="shared/" />
+    <external-path name="shared-storage" path="." />
 </paths>

@@ -90,6 +90,7 @@ object NetworkRetryPolicy {
     }
 
     suspend fun <T> retry(
+        maxRetries: Int = MAX_RETRIES,
         canRetry: (Throwable) -> Boolean = {
             isTransient(it) || (it is NetworkHttpException && it.statusCode in HTTP_CODES)
         },
@@ -97,6 +98,7 @@ object NetworkRetryPolicy {
         onRetry: suspend (Int) -> Unit = {},
         block: suspend () -> T,
     ): T {
+        require(maxRetries in 0..MAX_RETRIES) { "maxRetries must be within 0..$MAX_RETRIES" }
         var retries = 0
         while (true) {
             currentCoroutineContext().ensureActive()
@@ -105,7 +107,7 @@ object NetworkRetryPolicy {
             } catch (failure: Exception) {
                 throwIfCancelled(failure)
                 currentCoroutineContext().ensureActive()
-                if (retries == MAX_RETRIES || !canRetry(failure)) throw failure
+                if (retries == maxRetries || !canRetry(failure)) throw failure
                 retries++
                 onRetry(retries)
                 delay(delayMillis(retries, retryAfter()))

@@ -581,8 +581,9 @@
     <string name="shell_confirm_allow">السماح مرة واحدة</string>
     <string name="shell_confirm_always">السماح دائمًا لهذا الخادم</string>
     <string name="shell_confirm_deny">رفض</string>
-    <string name="shell_confirm_setting">تأكيد إجراءات الصدفة البعيدة</string>
-    <string name="shell_confirm_setting_desc">الطلب قبل أن يشغّل المساعد أوامر أو يكتب ملفات على خوادم SSH/Conch البعيدة</string>
+    <string name="shell_confirm_setting">تأكيد إجراءات Shell</string>
+    <string name="shell_confirm_setting_desc">الطلب قبل أن يشغّل المساعد أوامر أو يكتب ملفات، بما في ذلك داخل صندوق Linux المحلي</string>
+    <string name="shell_confirm_detail_truncated">المعاينة مبتورة؛ سيتم كتابة المحتوى الكامل.</string>
     <string name="shell_confirm_notification_channel">الموافقة على الأوامر</string>
     <string name="shell_confirm_notification_desc">يطلب السماح بأمر عن بُعد أو رفضه عندما يكون Agora في الخلفية</string>
     <string name="ask_user_title">المساعد يسأل</string>
@@ -884,4 +885,8 @@
     <string name="tool_todo_empty">قائمة المهام فارغة</string>
     <string name="tool_agents_empty">لا يوجد وكلاء فرعيون</string>
     <string name="tool_agent_results_empty">لم تُرجع أي نتائج من الوكلاء الفرعيين</string>
+    <string name="markdown_link_file_missing">لم يتم العثور على الملف</string>
+    <string name="markdown_link_file_unavailable">لا يمكن فتح هذا الملف</string>
+    <string name="markdown_link_shared_storage_required">امنح إذن الوصول إلى جميع الملفات لفتح روابط وحدة التخزين المشتركة</string>
+    <string name="markdown_link_no_handler">لا يوجد تطبيق يمكنه فتح هذا الرابط</string>
 </resources>

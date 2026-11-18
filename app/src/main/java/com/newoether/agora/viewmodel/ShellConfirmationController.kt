@@ -2,6 +2,7 @@ package com.newoether.agora.viewmodel
 
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.util.Constants
+import com.newoether.agora.util.ShellFileEdit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +15,22 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Coordinates user confirmation of shell commands issued by remote MCP / shell servers.
+ * Structured payload behind a confirmation prompt, so the card can show the file change itself
+ * instead of a one-line summary. Null for ordinary commands and transfers.
+ */
+sealed interface ShellActionDetail {
+    val path: String
+
+    /** Whole-file write: [content] is the text that will replace the file. */
+    data class Write(override val path: String, val content: String) : ShellActionDetail
+
+    /** One or more replacements; the UI renders them as a diff. */
+    data class Edit(override val path: String, val edits: List<ShellFileEdit>) : ShellActionDetail
+}
+
+/**
+ * Coordinates user confirmation of shell commands issued by remote MCP / shell servers and the
+ * local sandbox.
  *
  * Owns the pending-confirmation [StateFlow], the per-session trust set, and the
  * suspend/await handshake between the generation pipeline (which asks) and the UI
@@ -36,6 +52,8 @@ class ShellConfirmationController internal constructor(
         val deferred: CompletableDeferred<Boolean>,
         /** Conversation whose tool call is waiting; a notification tap opens it. */
         val conversationId: String? = null,
+        /** File contents or edit hunks for write/edit prompts; null for other actions. */
+        val detail: ShellActionDetail? = null,
     )
     val notificationSessionId: String = java.util.UUID.randomUUID().toString()
 
@@ -58,7 +76,12 @@ class ShellConfirmationController internal constructor(
     private val promptMutex = Mutex()
 
     /** Suspends until the user resolves the prompt; returns whether the command may run. */
-    suspend fun confirm(server: String, summary: String, conversationId: String? = null): Boolean {
+    suspend fun confirm(
+        server: String,
+        summary: String,
+        conversationId: String? = null,
+        detail: ShellActionDetail? = null,
+    ): Boolean {
         if (!confirmEnabled.value) return true
         if (sessionAllowedServers.contains(server)) return true
         return promptMutex.withLock {
@@ -67,7 +90,8 @@ class ShellConfirmationController internal constructor(
             if (sessionAllowedServers.contains(server)) return@withLock true
             val deferred = CompletableDeferred<Boolean>()
             val promptId = nextPromptId.getAndIncrement()
-            _pendingShellCommand.value = PendingShellCommand(promptId, server, summary, deferred, conversationId)
+            _pendingShellCommand.value =
+                PendingShellCommand(promptId, server, summary, deferred, conversationId, detail)
             try {
                 // Backgrounding the app does not answer the request. There is no visible dialog
                 // there, so the app layer re-surfaces the wait as a notification with the same

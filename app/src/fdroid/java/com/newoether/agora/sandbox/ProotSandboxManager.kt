@@ -56,6 +56,8 @@ class ProotSandboxManager internal constructor(
     override val isInstallingRootfs = _isInstallingRootfs.asStateFlow()
     private val _downloadProgress = MutableStateFlow<Float?>(null)
     override val downloadProgress = _downloadProgress.asStateFlow()
+    private val _rootfsPhase = MutableStateFlow<RootfsInstallPhase?>(null)
+    override val rootfsPhase = _rootfsPhase.asStateFlow()
     private val _packageList = MutableStateFlow<List<SandboxManager.PackageInfo>>(emptyList())
     override val packageList = _packageList.asStateFlow()
     private val snackbarMessages = Channel<String>(Channel.UNLIMITED)
@@ -211,13 +213,17 @@ class ProotSandboxManager internal constructor(
                 }
                 deleteSandboxTree(staging)
                 check(staging.mkdirs()) { "Cannot create sandbox staging directory" }
-                rootfsInstaller.install(selected, staging,
+                rootfsInstaller.install(selected, settings.sandboxMirror.value, staging,
+                    phase = { _rootfsPhase.value = it },
                     progress = { _downloadProgress.value = it },
                     output = { _terminalOutput.value += it })
+                _rootfsPhase.value = RootfsInstallPhase.VALIDATING
                 val paths = SandboxPathResolver(staging, homeMountDir, homeMountPath,
                     sharedStorageMountPath, ::sharedStorageHostDir)
                 check(paths.resolvePath("/bin/sh").isFile) { "Installed sandbox has no shell" }
+                _terminalOutput.value += "Shell verified: /bin/sh\n"
                 check(linkerExists(selected, paths)) { "Installed sandbox has no dynamic linker" }
+                _terminalOutput.value += "Dynamic linker verified.\n"
                 paths.ensureSandboxMountTargets()
                 currentCoroutineContext().ensureActive()
                 Files.move(staging.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
@@ -246,6 +252,7 @@ class ProotSandboxManager internal constructor(
         launchOperation(installing = true) {
             _terminalOutput.value = ""
             _downloadProgress.value = null
+            _rootfsPhase.value = RootfsInstallPhase.DOWNLOADING
             _packageList.value = emptyList()
             if (install(notifyFailure = true)) refreshPackageList()
         }
@@ -271,6 +278,7 @@ class ProotSandboxManager internal constructor(
                         _isBusy.value = false
                         _isInstallingRootfs.value = false
                         _downloadProgress.value = null
+                        _rootfsPhase.value = null
                     }
                 }
             }
@@ -303,6 +311,25 @@ class ProotSandboxManager internal constructor(
             upgraded > 0 -> context.getString(R.string.sandbox_snackbar_upgrade_done, upgraded)
             else -> context.getString(R.string.sandbox_snackbar_upgrade_none)
         })
+    }
+
+    override suspend fun applyMirror(mirror: SandboxMirror): Boolean = withContext(Dispatchers.IO) {
+        shellJobs.recover()
+        mutationMutex.withLock {
+            if (!prepareAvailability()) return@withLock false
+            try {
+                rootfsInstaller.configurePackageSources(
+                    _distribution.value, rootfs(), mirror,
+                )
+                lastError = null
+                true
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                lastError = error.message ?: error.javaClass.simpleName
+                false
+            }
+        }
     }
 
     private fun emitSnackbar(message: String) = check(snackbarMessages.trySend(message).isSuccess)
@@ -345,6 +372,7 @@ class ProotSandboxManager internal constructor(
                     resetting = false
                     _isBusy.value = false
                     _isInstallingRootfs.value = false
+                    _rootfsPhase.value = null
                 }
             }
         }
@@ -401,7 +429,9 @@ class ProotSandboxManager internal constructor(
         return mutationMutex.withLock { resolver().fileEdit(path, edits, expectedSha256) }
     }
 
-    private fun alpinePackages() = ProotAlpinePackages(rootfs(), context.filesDir) { command, timeout ->
+    private fun alpinePackages() = ProotAlpinePackages(
+        rootfs(), context.filesDir, settings.sandboxMirror.value,
+    ) { command, timeout ->
         executeRaw(command, timeoutMs = timeout)
     }
     private fun aptPackages() = ProotAptPackages(rootfs()) { command, timeout ->

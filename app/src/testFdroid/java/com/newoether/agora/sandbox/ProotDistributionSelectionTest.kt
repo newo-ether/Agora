@@ -43,6 +43,7 @@ class ProotDistributionSelectionTest {
             "Error: HTTP 503 fetching rootfs"
         val settings = mockk<SettingsRepository>()
         every { settings.sandboxSharedStorageEnabled } returns MutableStateFlow(false)
+        every { settings.sandboxMirror } returns MutableStateFlow(SandboxMirror.OFFICIAL)
         return ProotSandboxManager(context, settings, rootfsInstaller)
     }
 

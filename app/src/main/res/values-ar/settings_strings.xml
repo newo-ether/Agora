@@ -316,6 +316,16 @@
     <string name="sandbox_not_installed">غير مثبت</string>
     <string name="sandbox_extracting_rootfs">جارٍ استخراج نظام Linux...</string>
     <string name="sandbox_downloading_rootfs">جارٍ تنزيل نظام Linux… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">جارٍ تنزيل نظام Linux…</string>
+    <string name="sandbox_verifying_rootfs">جارٍ التحقق من التنزيل…</string>
+    <string name="sandbox_validating_rootfs">جارٍ التحقق من نظام Linux…</string>
+    <string name="sandbox_preparing_rootfs">جارٍ التحضير…</string>
+    <string name="sandbox_mirror">مصدر البرامج</string>
+    <string name="sandbox_mirror_desc">تنزيل نظام Linux والحزم من هذا المصدر</string>
+    <string name="sandbox_mirror_official">المصدر الرسمي</string>
+    <string name="sandbox_mirror_tuna">مرآة الصين (TUNA)</string>
+    <string name="sandbox_mirror_applied">تم تحديث مصادر الحزم</string>
+    <string name="sandbox_mirror_failed">تعذّر تحديث مصادر الحزم</string>
     <string name="sandbox_install_failed">فشل التثبيت</string>
     <string name="sandbox_installed_label">مثبت</string>
     <string name="sandbox_failed_label">فشل</string>

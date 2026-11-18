@@ -65,12 +65,58 @@ class SandboxAttachmentResolveTest {
     }
 
     @Test
-    fun videoUsesOrdinaryDurationAndSliceConfigurationBeforePublishingOriginal() = runTest {
+    fun videoStaysOriginalFileWithoutSlicingInSandbox() = runTest {
         val raw = source("clip.mp4")
-        val frames = listOf(source("vid_0.png"), source("vid_1.png"))
         var slices = 0
         val processor = AttachmentImportProcessor(
             app = app(), readVideoDurationMs = { assertTrue(File(it).isFile); 9000L },
+            extractVideoFrames = { _, _, _ -> slices++; error("Sandbox videos must not be sliced") },
+            measureArtifact = { measured(it) },
+        )
+        val staged = processor.stage(selected("video", raw)) as AttachmentImportProcessor.StageResult.Success
+        assertEquals(9000L, staged.attachment.videoDurationMs)
+        val home = temporary.newFolder("video-home")
+        val ready = processor.process(staged.attachment, home) as AttachmentImportProcessor.ProcessResult.Ready
+        assertEquals(0, slices)
+        assertEquals(AttachmentImportState.READY, ready.attachment.importState)
+        assertTrue(ready.attachment.processedFrames.isNullOrEmpty())
+        assertTrue(ready.attachment.imageArtifacts.isEmpty())
+        assertEquals("/home/agora/attachments/id/clip.mp4", ready.attachment.sandboxPath)
+        assertArrayEquals(raw.readBytes(), File(requireNotNull(ready.attachment.localPath)).readBytes())
+        val payload = MessagePayloadBuilder().buildComposerPayload(listOf(ready.attachment))
+        assertTrue(payload.allImages.isEmpty())
+        val item = requireNotNull(payload.attachmentMeta).items.single()
+        assertEquals("video", item.type)
+        assertEquals(ready.attachment.sandboxPath, item.sandboxPath)
+        assertNull(item.imageIndex)
+        assertNull(item.pageCount)
+    }
+
+    @Test
+    fun sandboxIgnoresStaleSliceConfiguration() = runTest {
+        val raw = source("sliced.mp4")
+        var slices = 0
+        val processor = AttachmentImportProcessor(
+            app = app(), readVideoDurationMs = { 9000L },
+            extractVideoFrames = { _, _, _ -> slices++; error("Sandbox videos must not be sliced") },
+            measureArtifact = { measured(it) },
+        )
+        val staged = processor.stage(selected("video", raw)) as AttachmentImportProcessor.StageResult.Success
+        val home = temporary.newFolder("sliced-home")
+        val ready = processor.process(staged.attachment.copy(frameCount = 2, sliceIntervalMs = 4500L), home)
+            as AttachmentImportProcessor.ProcessResult.Ready
+        assertEquals(0, slices)
+        assertTrue(ready.attachment.processedFrames.isNullOrEmpty())
+        assertArrayEquals(raw.readBytes(), File(requireNotNull(ready.attachment.localPath)).readBytes())
+    }
+
+    @Test
+    fun nonSandboxVideoKeepsOrdinarySlicing() = runTest {
+        val raw = source("private.mp4")
+        val frames = listOf(source("private_0.png"), source("private_1.png"))
+        var slices = 0
+        val processor = AttachmentImportProcessor(
+            app = app(), readVideoDurationMs = { 9000L },
             extractVideoFrames = { staged, config, _ ->
                 assertArrayEquals(raw.readBytes(), File(staged).readBytes())
                 assertEquals(2, config.frameCount)
@@ -79,17 +125,13 @@ class SandboxAttachmentResolveTest {
                 frames.map { it.path }
             }, measureArtifact = { measured(it) },
         )
-        val staged = processor.stage(selected("video", raw)) as AttachmentImportProcessor.StageResult.Success
-        assertEquals(9000L, staged.attachment.videoDurationMs)
-        val home = temporary.newFolder("video-home")
-        assertTrue(processor.process(staged.attachment, home) is AttachmentImportProcessor.ProcessResult.Failure)
-        assertEquals(0, slices)
-        val ready = processor.process(staged.attachment.copy(frameCount = 2, sliceIntervalMs = 4500L), home)
+        val staged = processor.stage(selected("video", raw, sandbox = false))
+            as AttachmentImportProcessor.StageResult.Success
+        val ready = processor.process(staged.attachment.copy(frameCount = 2, sliceIntervalMs = 4500L))
             as AttachmentImportProcessor.ProcessResult.Ready
         assertEquals(1, slices)
         assertEquals(frames.map { it.path }, ready.attachment.processedFrames)
         assertEquals(2, ready.attachment.imageArtifacts.size)
-        assertArrayEquals(raw.readBytes(), File(requireNotNull(ready.attachment.localPath)).readBytes())
     }
 
     @Test
@@ -112,16 +154,15 @@ class SandboxAttachmentResolveTest {
     }
 
     @Test
-    fun failedPublicationDeletesNewFramesButKeepsStagedSource() = runTest {
+    fun failedSandboxVideoPublicationKeepsStagedSource() = runTest {
         val raw = source("oversize.mp4")
-        val frames = listOf(source("new-frame.png"))
+        val home = temporary.newFolder("failed-home")
         val processor = AttachmentImportProcessor(app = app(), maxAttachmentBytes = 2L,
-            extractVideoFrames = { _, _, _ -> frames.map { it.path } }, measureArtifact = { measured(it) })
-        val result = processor.process(selected("video", raw).copy(frameCount = 2, sliceIntervalMs = 1000L),
-            temporary.newFolder("failed-home"))
+            measureArtifact = { measured(it) })
+        val result = processor.process(selected("video", raw), home)
         assertTrue(result is AttachmentImportProcessor.ProcessResult.Failure)
         assertTrue(raw.isFile)
-        assertFalse(frames.single().exists())
+        assertFalse(File(home, "attachments/id/oversize.mp4").exists())
     }
 
     @Test
@@ -143,19 +184,19 @@ class SandboxAttachmentResolveTest {
     fun cancelledFrameMeasurementDeletesNewFramesAndNeverPublishesOriginal() = runTest {
         val raw = source("cancelled.mp4")
         val frames = listOf(source("cancelled-frame.png"))
-        val home = temporary.newFolder("cancelled-home")
         val processor = AttachmentImportProcessor(app = app(),
             extractVideoFrames = { _, _, _ -> frames.map { it.path } },
             measureArtifact = { throw CancellationException("cancelled resolve") })
         try {
-            processor.process(selected("video", raw).copy(frameCount = 2, sliceIntervalMs = 1000L), home)
+            processor.process(
+                selected("video", raw, sandbox = false).copy(frameCount = 2, sliceIntervalMs = 1000L),
+            )
             fail("Cancellation must propagate")
         } catch (cancelled: CancellationException) {
             assertEquals("cancelled resolve", cancelled.message)
         }
         assertTrue(raw.isFile)
         assertFalse(frames.single().exists())
-        assertFalse(File(home, "attachments/id/cancelled.mp4").exists())
     }
 
     @Test
@@ -193,9 +234,10 @@ class SandboxAttachmentResolveTest {
         assertFalse(File(home, "attachments/id/cancelled.png").exists())
     }
 
-    private fun selected(type: String, raw: File) = SelectedAttachment(
+    private fun selected(type: String, raw: File, sandbox: Boolean = true) = SelectedAttachment(
         localId = "id", uri = raw.path, localPath = raw.path, type = type, fileName = raw.name,
-        fileSize = raw.length(), storage = AttachmentStorage.LOCAL_SANDBOX_PENDING,
+        fileSize = raw.length(),
+        storage = if (sandbox) AttachmentStorage.LOCAL_SANDBOX_PENDING else AttachmentStorage.APP_PRIVATE,
         importState = AttachmentImportState.PROCESSING,
     )
 

@@ -100,6 +100,18 @@ internal class LatexImageTransformer(
 
     @Composable
     override fun transform(link: String): ImageData? {
+        // Video destinations reserve their card size without joining the image snapshot store.
+        if (com.newoether.agora.ui.chat.message.markdownVideoLink(link) != null) {
+            val width = with(LocalDensity.current) { 160.dp.toPx() }
+            val height = with(LocalDensity.current) { 90.dp.toPx() }
+            val viewport = remember(width, height) {
+                object : Painter() {
+                    override val intrinsicSize = Size(width, height)
+                    override fun DrawScope.onDraw() = Unit
+                }
+            }
+            return ImageData(painter = viewport)
+        }
         // Markdown measures the slot here; both image components render the shared viewport.
         if (inlineImage(link) != null) {
             val side = with(LocalDensity.current) { 300.dp.toPx() }

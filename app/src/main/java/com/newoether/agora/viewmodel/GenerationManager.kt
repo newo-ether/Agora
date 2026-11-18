@@ -54,7 +54,12 @@ class GenerationManager(
 
     /** User-confirmation gate for remote shell mutations. Set by the ViewModel.
      *  Returns true to proceed, false to deny. */
-    var onConfirmShellCommand: (suspend (server: String, summary: String, conversationId: String?) -> Boolean)? = null
+    var onConfirmShellCommand: (suspend (
+        server: String,
+        summary: String,
+        conversationId: String?,
+        detail: ShellActionDetail?,
+    ) -> Boolean)? = null
 
     private val toolExecutor = GenerationToolExecutor.createDefault(
         app = app,
@@ -64,8 +69,8 @@ class GenerationManager(
         sandboxFactory = sandboxFactory,
         additionalProviders = additionalToolProviders,
         generatingConversationIds = generatingConversationIds,
-        confirmShellCommand = { server, summary, conversationId ->
-            onConfirmShellCommand?.invoke(server, summary, conversationId) ?: true
+        confirmShellCommand = { server, summary, conversationId, detail ->
+            onConfirmShellCommand?.invoke(server, summary, conversationId, detail) ?: true
         },
     )
     private val contextAccounting = GenerationContextAccounting(toolExecutor)

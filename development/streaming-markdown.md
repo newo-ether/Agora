@@ -489,7 +489,27 @@ Agora-owned answers may reference device images as `shell://<server>/<absolute p
 starting with a drive (`F:/…`) stays a Windows path, anything else is rooted at `/`.
 `Local Sandbox` reads the host file through the sandbox path resolver and its mount
 rules; any other name selects a configured Conch device and uses `/file/image`
-(images only, 20 MB). SSH devices, videos and plain local paths are not resolved.
+(images only, 20 MB). SSH devices, videos and plain local paths are not image destinations.
+
+Markdown video destinations are cards, not images. A `![](...)` destination whose file name
+names a video container (mp4, m4v, webm, mov, mkv, avi, 3gp, ogv) renders a 16:9 card
+(300 dp block width, 160×90 dp inline) with a play affordance and the file name.
+`shell://Local Sandbox/home/agora/…` resolves under the sandbox home (`/home/agora`, backed by
+`filesDir/sandbox-home`) and plays through the app FileProvider; HTTP(S) URLs stream directly.
+Other shell servers and sandbox paths outside `/home/agora` remain an unsupported card. Nothing
+decodes until the tap, which opens the existing full-screen player. Videos never consume an image
+ordinal, never enter `filesDir/markdown-media`, and are excluded from the native occurrence set that
+WebUI image reads use.
+
+Markdown links are tappable in Agora-owned messages. `http://`, `https://` and `mailto:` leave
+through the platform handler. `/home/agora/…` and `shell://Local Sandbox/home/agora/…` resolve under
+the sandbox home; `/mnt/shared/…`, `/storage/emulated/0/…` and `/storage/self/primary/…` resolve to
+shared storage only while all-files access is granted, and otherwise the tap explains the missing
+permission. Bare paths written in prose follow the same rules, ending at whitespace, brackets or
+sentence punctuation. Images and videos open in the in-app viewer and player through the app
+FileProvider; other files open through the system chooser. `file:`, `content:`, `intent:`,
+`javascript:` and paths outside those roots stay inert. A tap counts only within touch slop and is
+consumed before the platform text-link handler so one tap opens once.
 Ordinary HTTP(S) Markdown images use the same per-occurrence snapshot store as shell images.
 Their first read uses the shared bounded HTTP client (20 MiB), validates the raster bytes and
 persists them without model preparation. Native and WebUI count only valid shell destinations

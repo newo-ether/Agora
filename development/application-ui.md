@@ -592,13 +592,17 @@ input and are not attachment import work.
 When Local Sandbox is enabled and available at admission, every new attachment (including camera,
 picker, clipboard and browser image/PDF/video/text files) is a sandbox file. Import preserves the
 original bytes at `/home/agora/attachments/<id>/<name>`. Storage ownership does not bypass the ordinary
-attachment MIME classification, PDF page selection, video slicing, bounded text resolution, or
-Composer/message/full-screen/WebUI preview. Resolve freezes display data before `READY`: images
-receive a separate app-private byte-exact raster copy without re-encoding; PDF pages and video frames
-keep their completed derived artifacts, and text keeps its bounded resolved string. Unsupported files
-have no preview duplicate. `localPath` and `sandboxPath` continue to describe the editable original;
-all preview surfaces read the saved snapshot, including video frame browsing. Editing or deleting the
-Sandbox original does not replace or invalidate that snapshot. Send only serializes these completed
+attachment MIME classification, PDF page selection, bounded text resolution, or
+Composer/message/full-screen/WebUI preview. A Sandbox video is the one exception to derived display
+work: it stays the original file with no frame extraction, reaches `READY` without slice configuration,
+never opens the slice dialog, and keeps a static video tile (no frame snapshot), because Provider
+requests carry only its sandbox path. Turning Sandbox off restores the ordinary slice dialog and frame
+artifacts. Resolve freezes display data before `READY`: images receive a separate app-private
+byte-exact raster copy without re-encoding; PDF pages keep their completed derived artifacts, and text
+keeps its bounded resolved string. Unsupported files have no preview duplicate. `localPath` and
+`sandboxPath` continue to describe the editable original; all preview surfaces read the saved
+snapshot, including PDF page browsing. Editing or deleting the Sandbox original does not replace or
+invalidate that snapshot. Send only serializes these completed
 results and never reads the original again. Provider requests carry only file metadata and the sandbox
 path, never resolved text or preview images; tools read the contents. Turning Sandbox off preserves
 legacy admission behavior and never changes existing draft/message storage identities. Sandbox

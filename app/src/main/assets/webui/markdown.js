@@ -15,8 +15,24 @@ const escapeHtml = (text) =>
   text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 // Keep occurrence admission aligned with markdownImageSnapshotKey / parseShellMediaLink.
+const VIDEO_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi", "3gp", "ogv"]);
+
+function videoExtension(raw) {
+  const name = raw.split("?")[0].split("#")[0].toLowerCase();
+  const dot = name.lastIndexOf(".");
+  return dot < 0 ? "" : name.slice(dot + 1);
+}
+
+// Native renders these as player cards and excludes them from the image occurrence set.
+function isMarkdownVideo(link) {
+  const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
+  if (!(/^shell:\/\//i.test(raw) || /^https?:\/\//i.test(raw))) return false;
+  return VIDEO_EXTENSIONS.has(videoExtension(raw));
+}
+
 function supportsImageSnapshot(link) {
   const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
+  if (isMarkdownVideo(raw)) return false;
   if (/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(raw)) return true;
   if (!/^shell:\/\//i.test(raw)) return false;
   const rest = raw.slice("shell://".length), slash = rest.indexOf("/");
@@ -52,6 +68,12 @@ marked.use({
       return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>`;
     },
     image(token) {
+      if (isMarkdownVideo(token.href)) {
+        const label = escapeHtml(token.text || token.href);
+        return /^https?:\/\//i.test(token.href)
+          ? `<a class="markdown-video-link" href="${escapeHtml(token.href)}" target="_blank" rel="noreferrer">▶ ${label}</a>`
+          : `<span class="markdown-video-link">▶ ${label}</span>`;
+      }
       if (!supportsImageSnapshot(token.href)) return Renderer.prototype.image.call(this, token);
       return `<span class="markdown-image-slot" data-shell-image="${escapeHtml(token.href)}" data-image-ordinal="${token.imageOrdinal}" data-image-label="${escapeHtml(token.text || "")}"></span>`;
     },

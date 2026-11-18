@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
  * File operations (read/write/glob/grep/edit) operate directly on the
  * rootfs filesystem without proot — only shell commands go through proot.
  */
+enum class RootfsInstallPhase { DOWNLOADING, VERIFYING, EXTRACTING, VALIDATING }
+
 interface SandboxManager {
 
     /** Device-local active userland; existing installations default to Alpine. */
@@ -47,9 +49,15 @@ interface SandboxManager {
      *  (or when the total size is unknown — show an indeterminate bar then). */
     val downloadProgress: StateFlow<Float?>
 
+    /** Current rootfs install stage, or null when no install is running. */
+    val rootfsPhase: StateFlow<RootfsInstallPhase?>
+
     /** Fire-and-forget base-rootfs install (download + extract). Runs on the manager's
      *  own scope so it survives navigation; observe [isInstallingRootfs] / [downloadProgress]. */
     fun installRootfs()
+
+    /** Rewrite the installed guest's package sources for [mirror] after a source change. */
+    suspend fun applyMirror(mirror: SandboxMirror): Boolean = false
 
     /** Last typed package name — persisted across navigation. */
     var pendingPkgName: String

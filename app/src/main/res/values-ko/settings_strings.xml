@@ -316,6 +316,16 @@
     <string name="sandbox_not_installed">설치되지 않음</string>
     <string name="sandbox_extracting_rootfs">Linux 시스템 압축 해제 중...</string>
     <string name="sandbox_downloading_rootfs">Linux 시스템 다운로드 중… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Linux 시스템 다운로드 중…</string>
+    <string name="sandbox_verifying_rootfs">다운로드 확인 중…</string>
+    <string name="sandbox_validating_rootfs">Linux 시스템 검증 중…</string>
+    <string name="sandbox_preparing_rootfs">준비 중…</string>
+    <string name="sandbox_mirror">소프트웨어 소스</string>
+    <string name="sandbox_mirror_desc">이 소스에서 Linux 시스템과 패키지를 다운로드합니다</string>
+    <string name="sandbox_mirror_official">공식</string>
+    <string name="sandbox_mirror_tuna">중국 미러(TUNA)</string>
+    <string name="sandbox_mirror_applied">패키지 소스가 업데이트됨</string>
+    <string name="sandbox_mirror_failed">패키지 소스를 업데이트할 수 없습니다</string>
     <string name="sandbox_install_failed">설치 실패</string>
     <string name="sandbox_installed_label">설치됨</string>
     <string name="sandbox_failed_label">실패</string>

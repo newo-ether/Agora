@@ -581,8 +581,9 @@
     <string name="shell_confirm_allow">Разрешить один раз</string>
     <string name="shell_confirm_always">Всегда разрешать этот сервер</string>
     <string name="shell_confirm_deny">Отклонить</string>
-    <string name="shell_confirm_setting">Подтверждать действия удалённой оболочки</string>
-    <string name="shell_confirm_setting_desc">Спрашивать перед тем, как ассистент выполнит команды или запишет файлы на удалённых серверах SSH/Conch</string>
+    <string name="shell_confirm_setting">Подтверждать действия оболочки</string>
+    <string name="shell_confirm_setting_desc">Спрашивать перед тем, как ассистент выполнит команды или запишет файлы, включая локальную песочницу Linux</string>
+    <string name="shell_confirm_detail_truncated">Предпросмотр сокращён; будет записано полное содержимое.</string>
     <string name="shell_confirm_notification_channel">Подтверждение команд</string>
     <string name="shell_confirm_notification_desc">Запрашивает разрешение или запрет удалённой команды, пока Agora в фоновом режиме</string>
     <string name="ask_user_title">Ассистент спрашивает</string>
@@ -884,4 +885,8 @@
     <string name="tool_todo_empty">Список задач пуст</string>
     <string name="tool_agents_empty">Нет субагентов</string>
     <string name="tool_agent_results_empty">Результаты субагентов не получены</string>
+    <string name="markdown_link_file_missing">Файл не найден</string>
+    <string name="markdown_link_file_unavailable">Не удалось открыть этот файл</string>
+    <string name="markdown_link_shared_storage_required">Предоставьте доступ ко всем файлам, чтобы открывать ссылки на общее хранилище</string>
+    <string name="markdown_link_no_handler">Нет приложения, которое может открыть эту ссылку</string>
 </resources>

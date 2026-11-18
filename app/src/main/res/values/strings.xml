@@ -107,6 +107,10 @@
     <string name="tool_read_file_empty">Read %1$s · empty</string>
     <string name="tool_found_no_matches">No matches found</string>
     <string name="file_path_unknown">Unknown file</string>
+    <string name="markdown_link_file_missing">File not found</string>
+    <string name="markdown_link_file_unavailable">Cannot open this file</string>
+    <string name="markdown_link_shared_storage_required">Grant all-files access to open shared storage links</string>
+    <string name="markdown_link_no_handler">No app can open this link</string>
     <string name="tool_exit_code">Exit %1$d</string>
     <string name="tool_exit">Exit</string>
     <string name="tool_shell_returned_code">Command returned %1$d</string>
@@ -628,8 +632,9 @@
     <string name="shell_confirm_allow">Allow once</string>
     <string name="shell_confirm_always">Always allow this server</string>
     <string name="shell_confirm_deny">Deny</string>
-    <string name="shell_confirm_setting">Confirm Remote Shell Actions</string>
-    <string name="shell_confirm_setting_desc">Ask before the assistant runs commands or writes files on remote SSH/Conch servers</string>
+    <string name="shell_confirm_setting">Confirm Shell Actions</string>
+    <string name="shell_confirm_setting_desc">Ask before the assistant runs commands or writes files, including on the local Linux sandbox</string>
+    <string name="shell_confirm_detail_truncated">Preview truncated; the full content will be written.</string>
     <string name="shell_confirm_notification_channel">Command approval</string>
     <string name="shell_confirm_notification_desc">Asks you to allow or deny a remote command while Agora is in the background</string>
     <string name="ask_user_title">The assistant is asking</string>

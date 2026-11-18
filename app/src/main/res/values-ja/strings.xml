@@ -581,8 +581,9 @@
     <string name="shell_confirm_allow">1 回のみ許可</string>
     <string name="shell_confirm_always">このサーバーを常に許可</string>
     <string name="shell_confirm_deny">拒否</string>
-    <string name="shell_confirm_setting">リモートシェル操作を確認</string>
-    <string name="shell_confirm_setting_desc">アシスタントがリモートの SSH/Conch サーバーでコマンドを実行したりファイルを書き込んだりする前に確認する</string>
+    <string name="shell_confirm_setting">シェル操作を確認</string>
+    <string name="shell_confirm_setting_desc">アシスタントがコマンドを実行したりファイルを書き込んだりする前に確認する（ローカル Linux サンドボックスを含む）</string>
+    <string name="shell_confirm_detail_truncated">プレビューは省略されています。完全な内容が書き込まれます。</string>
     <string name="shell_confirm_notification_channel">コマンドの承認</string>
     <string name="shell_confirm_notification_desc">Agora がバックグラウンドにある間に、リモートコマンドを許可または拒否するよう尋ねます</string>
     <string name="ask_user_title">アシスタントからの質問</string>
@@ -884,4 +885,8 @@
     <string name="tool_todo_empty">やることリストは空です</string>
     <string name="tool_agents_empty">サブエージェントはありません</string>
     <string name="tool_agent_results_empty">サブエージェントの結果は返されませんでした</string>
+    <string name="markdown_link_file_missing">ファイルが見つかりません</string>
+    <string name="markdown_link_file_unavailable">このファイルを開けません</string>
+    <string name="markdown_link_shared_storage_required">共有ストレージのリンクを開くには、すべてのファイルへのアクセスを許可してください</string>
+    <string name="markdown_link_no_handler">このリンクを開けるアプリがありません</string>
 </resources>

@@ -22,15 +22,22 @@ class ProotRootfsInstallerTest {
     val temporaryFolder = TemporaryFolder()
 
     @Test
-    fun aptConfigurationPreservesSignedSourcesAndUpdatesRootHome() {
+    fun aptConfigurationReplacesImageSourcesAndUpdatesRootHome() {
         val rootfs = rootfs("debian")
-        val sources = file(rootfs, "etc/apt/sources.list.d/debian.sources", "Types: deb\nSigned-By: /usr/share/keyrings/debian-archive-keyring.pgp\n")
-        val originalSources = sources.readText()
+        file(rootfs, "etc/apt/sources.list.d/debian.sources", "Types: deb\nSigned-By: /usr/share/keyrings/debian-archive-keyring.pgp\n")
+        file(rootfs, "var/lib/apt/lists/deb.debian.org_debian_dists_trixie_InRelease", "stale")
         file(rootfs, "etc/passwd", "root:x:0:0:root:/root:/bin/bash\napt:x:42:42:apt:/nonexistent:/usr/sbin/nologin\n")
 
         ProotRootfsInstaller().configureRootfs(SandboxDistribution.DEBIAN, rootfs)
 
-        assertEquals(originalSources, sources.readText())
+        assertFalse(File(rootfs, "etc/apt/sources.list.d/debian.sources").exists())
+        assertEquals(
+            "deb https://deb.debian.org/debian trixie main\n" +
+                "deb https://deb.debian.org/debian trixie-updates main\n" +
+                "deb https://security.debian.org/debian-security trixie-security main\n",
+            File(rootfs, "etc/apt/sources.list").readText(),
+        )
+        assertFalse(File(rootfs, "var/lib/apt/lists/deb.debian.org_debian_dists_trixie_InRelease").exists())
         assertTrue(File(rootfs, "etc/passwd").readText().startsWith("root:x:0:0:root:/home/agora:/bin/bash\n"))
         assertTrue(File(rootfs, "etc/passwd").readText().contains("apt:x:42:42:apt:/nonexistent:/usr/sbin/nologin"))
         assertEquals("#!/bin/sh\nexit 101\n", File(rootfs, "usr/sbin/policy-rc.d").readText())
@@ -69,7 +76,13 @@ class ProotRootfsInstallerTest {
         val progress = mutableListOf<Float?>()
 
         val result = runCatching {
-            ProotRootfsInstaller { connection }.install(SandboxDistribution.UBUNTU, destination, progress::add, {})
+            ProotRootfsInstaller { connection }.install(
+                SandboxDistribution.UBUNTU,
+                SandboxMirror.OFFICIAL,
+                destination,
+                progress = progress::add,
+                output = {},
+            )
         }
 
         assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("SHA-256"))
@@ -90,7 +103,13 @@ class ProotRootfsInstallerTest {
         val connection = connection(stream, -1)
         val result = runCatching {
             runBlocking {
-                ProotRootfsInstaller { connection }.install(SandboxDistribution.DEBIAN, destination, {}, {})
+                ProotRootfsInstaller { connection }.install(
+                    SandboxDistribution.DEBIAN,
+                    SandboxMirror.OFFICIAL,
+                    destination,
+                    progress = {},
+                    output = {},
+                )
             }
         }
 
@@ -109,7 +128,13 @@ class ProotRootfsInstallerTest {
             ProotRootfsInstaller {
                 connected = true
                 error("Network must not be reached")
-            }.install(SandboxDistribution.DEBIAN, destination, {}, {})
+            }.install(
+                SandboxDistribution.DEBIAN,
+                SandboxMirror.OFFICIAL,
+                destination,
+                progress = {},
+                output = {},
+            )
         }
 
         assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("empty"))
@@ -122,7 +147,13 @@ class ProotRootfsInstallerTest {
         val parent = temporaryFolder.newFolder("http-parent")
         val connection = connection(ByteArrayInputStream(ByteArray(0)), 0, 503)
         val result = runCatching {
-            ProotRootfsInstaller { connection }.install(SandboxDistribution.DEBIAN, File(parent, "staging"), {}, {})
+            ProotRootfsInstaller { connection }.install(
+                SandboxDistribution.DEBIAN,
+                SandboxMirror.OFFICIAL,
+                File(parent, "staging"),
+                progress = {},
+                output = {},
+            )
         }
 
         assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("HTTP 503"))
@@ -140,7 +171,13 @@ class ProotRootfsInstallerTest {
                 ProotRootfsInstaller {
                     connected = true
                     error("Network must not be reached")
-                }.install(SandboxDistribution.ALPINE, destination, {}, {})
+                }.install(
+                    SandboxDistribution.ALPINE,
+                    SandboxMirror.OFFICIAL,
+                    destination,
+                    progress = {},
+                    output = {},
+                )
             }
         }
 
@@ -200,6 +237,78 @@ class ProotRootfsInstallerTest {
             assertTrue(ProotRootfsInstaller.archiveUrl(distribution).endsWith(".tar.gz"))
             assertTrue(ProotRootfsInstaller.archiveSha256(distribution).matches(Regex("[a-f0-9]{64}")))
         }
+    }
+
+    @Test
+    fun alpineRepositoryFollowsMirrorSelection() {
+        val rootfs = rootfs("alpine-mirror")
+        file(rootfs, "etc/apk/world", "alpine-baselayout\napk-tools\nbusybox\n")
+        file(rootfs, "lib/apk/db/installed", "P:alpine-baselayout\nV:3.6.8-r0\n\nP:apk-tools\nV:2.14.6-r2\n\nP:busybox\nV:1.37.0-r8\n\n")
+
+        ProotRootfsInstaller().configureRootfs(SandboxDistribution.ALPINE, rootfs, SandboxMirror.TUNA)
+
+        assertEquals(
+            "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/main\n",
+            File(rootfs, "etc/apk/repositories").readText(),
+        )
+    }
+
+    @Test
+    fun ubuntuConfigurationEnablesUniverseOnUbuntuPorts() {
+        val rootfs = rootfs("ubuntu")
+
+        ProotRootfsInstaller().configureRootfs(SandboxDistribution.UBUNTU, rootfs, SandboxMirror.TUNA)
+        val sources = File(rootfs, "etc/apt/sources.list").readText()
+
+        assertTrue(sources.contains("deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports noble main restricted universe multiverse\n"))
+        assertTrue(sources.contains("deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports noble-security main restricted universe multiverse\n"))
+        assertFalse(File(rootfs, "etc/apt/sources.list.d").listFiles().orEmpty().isNotEmpty())
+    }
+
+    @Test
+    fun mirrorSelectsDownloadSourceAndKeepsOfficialFallbackLast() {
+        assertTrue(
+            ProotRootfsInstaller.archiveUrls(SandboxDistribution.DEBIAN, SandboxMirror.TUNA).let { urls ->
+                urls.size == 3 && urls.first().startsWith("https://ghfast.top/") &&
+                    urls.first().endsWith("/trixie/oci/blobs/rootfs.tar.gz") &&
+                    urls.last() == "https://raw.githubusercontent.com/" +
+                    "debuerreotype/docker-debian-artifacts/5994ab615f09f401eef80676e152b497e2a7b3ba/trixie/oci/blobs/rootfs.tar.gz"
+            },
+        )
+        assertEquals(
+            listOf(
+                "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/releases/aarch64/alpine-minirootfs-3.21.0-aarch64.tar.gz",
+                "https://dl-cdn.alpinelinux.org/alpine/v3.21/releases/aarch64/alpine-minirootfs-3.21.0-aarch64.tar.gz",
+            ),
+            ProotRootfsInstaller.archiveUrls(SandboxDistribution.ALPINE, SandboxMirror.TUNA),
+        )
+        assertEquals(
+            listOf("https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-arm64.tar.gz"),
+            ProotRootfsInstaller.archiveUrls(SandboxDistribution.UBUNTU, SandboxMirror.OFFICIAL),
+        )
+    }
+
+    @Test
+    fun installReportsDownloadBeforeVerificationAndExtraction() = runBlocking {
+        val parent = temporaryFolder.newFolder("phase-parent")
+        val phases = mutableListOf<RootfsInstallPhase>()
+        val connection = connection(ByteArrayInputStream(ByteArray(0)), 0)
+
+        runCatching {
+            ProotRootfsInstaller { connection }.install(
+                SandboxDistribution.ALPINE,
+                SandboxMirror.OFFICIAL,
+                File(parent, "staging"),
+                phase = phases::add,
+                progress = {},
+                output = {},
+            )
+        }
+
+        assertEquals(
+            listOf(RootfsInstallPhase.DOWNLOADING, RootfsInstallPhase.VERIFYING),
+            phases.take(2),
+        )
     }
 
     private fun rootfs(name: String): File = temporaryFolder.newFolder(name).also {

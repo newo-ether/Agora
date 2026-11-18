@@ -581,8 +581,9 @@
     <string name="shell_confirm_allow">Autoriser une fois</string>
     <string name="shell_confirm_always">Toujours autoriser ce serveur</string>
     <string name="shell_confirm_deny">Refuser</string>
-    <string name="shell_confirm_setting">Confirmer les actions du shell distant</string>
-    <string name="shell_confirm_setting_desc">Demander avant que l\'assistant n\'exécute des commandes ou n\'écrive des fichiers sur des serveurs SSH/Conch distants</string>
+    <string name="shell_confirm_setting">Confirmer les actions du shell</string>
+    <string name="shell_confirm_setting_desc">Demander avant que l\'assistant n\'exécute des commandes ou n\'écrive des fichiers, y compris dans le bac à sable Linux local</string>
+    <string name="shell_confirm_detail_truncated">Aperçu tronqué ; le contenu complet sera écrit.</string>
     <string name="shell_confirm_notification_channel">Approbation des commandes</string>
     <string name="shell_confirm_notification_desc">Demande à autoriser ou refuser une commande distante pendant qu\'Agora est en arrière-plan</string>
     <string name="ask_user_title">L\'assistant vous demande</string>
@@ -884,4 +885,8 @@
     <string name="tool_todo_empty">La liste de tâches est vide</string>
     <string name="tool_agents_empty">Aucun sous-agent</string>
     <string name="tool_agent_results_empty">Aucun résultat de sous-agent renvoyé</string>
+    <string name="markdown_link_file_missing">Fichier introuvable</string>
+    <string name="markdown_link_file_unavailable">Impossible d’ouvrir ce fichier</string>
+    <string name="markdown_link_shared_storage_required">Accordez l’accès à tous les fichiers pour ouvrir les liens de stockage partagé</string>
+    <string name="markdown_link_no_handler">Aucune application ne peut ouvrir ce lien</string>
 </resources>

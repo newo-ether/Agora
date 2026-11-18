@@ -12,6 +12,7 @@ import com.newoether.agora.util.SHELL_FILE_GREP_MAX_CONTEXT_LINES
 import com.newoether.agora.util.ShellGrepOptions
 import com.newoether.agora.util.shellFileSha256
 import com.newoether.agora.viewmodel.GenerationContext
+import com.newoether.agora.viewmodel.ShellActionDetail
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -45,11 +46,15 @@ class ShellToolProvider(
     private val durableJobs = ShellDurableJobExecutor(sandbox)
 
     /**
-     * Optional user-confirmation gate for state-changing operations. The isolated local sandbox
-     * normally proceeds directly; once shared storage is mounted, local commands/writes are gated
-     * too because they can mutate files outside the app sandbox.
+     * Optional user-confirmation gate for state-changing operations. It covers remote devices and
+     * the local sandbox alike; the controller itself decides whether the switch is on.
      */
-    var confirm: (suspend (server: String, summary: String, conversationId: String?) -> Boolean)? = null
+    var confirm: (suspend (
+        server: String,
+        summary: String,
+        conversationId: String?,
+        detail: ShellActionDetail?,
+    ) -> Boolean)? = null
 
     /** Best-effort cleanup after the caller has committed these exact results to Room. */
     internal suspend fun acknowledgeCommittedJobs(
@@ -83,17 +88,10 @@ class ShellToolProvider(
         ctx: GenerationContext,
         device: ShellDeviceConfig?,
         summary: String,
-        localSharedStorageExposed: Boolean = false,
+        detail: ShellActionDetail? = null,
     ): Boolean {
-        if (device == null && !localSharedStorageExposed) return true
-        val target = device?.name?.ifBlank { "${device.type} server" }
-            ?: "Local Sandbox · /mnt/shared"
-        return confirm?.invoke(target, summary, ctx.conversationId) ?: true
-    }
-
-    private fun targetsSharedStorage(path: String): Boolean {
-        val normalized = path.trim().replace('\\', '/').replace(Regex("/+"), "/")
-        return normalized == "/mnt/shared" || normalized.startsWith("/mnt/shared/")
+        val target = device?.name?.ifBlank { "${device.type} server" } ?: "Local Sandbox"
+        return confirm?.invoke(target, summary, ctx.conversationId, detail) ?: true
     }
 
     // ── Helpers ────────────────────────────────────────────
@@ -246,11 +244,7 @@ class ShellToolProvider(
                     command = command,
                 )
             return try {
-                if (!confirmTarget(
-                        ctx, backend.device, "start background job: $ $command",
-                        localSharedStorageExposed = backend.device == null && ctx.sandboxSharedStorageEnabled,
-                    )
-                ) {
+                if (!confirmTarget(ctx, backend.device, "start background job: $ $command")) {
                     return jsonError(
                         "shell_exec",
                         "denied_by_user: the user declined to run this background command",
@@ -276,15 +270,8 @@ class ShellToolProvider(
         val backend = getBackend(serverName, ctx)
             ?: return jsonError("shell_exec", serverNotFoundMessage(serverName, ctx))
         return try {
-            // Confirmation follows the resolved target, including shared local storage.
-            if (!confirmTarget(
-                    ctx,
-                    backend.device,
-                    "$ $command",
-                    localSharedStorageExposed =
-                        backend.device == null && ctx.sandboxSharedStorageEnabled,
-                )
-            ) {
+            // Confirmation follows the resolved target, including the local sandbox.
+            if (!confirmTarget(ctx, backend.device, "$ $command")) {
                 return jsonError("shell_exec", "denied_by_user: the user declined to run this command", server = serverName, command = command)
             }
             if (backend.supportsStandardTools) {
@@ -393,14 +380,7 @@ class ShellToolProvider(
             ),
         )
         try {
-            if (!confirmTarget(
-                    ctx,
-                    backend.device,
-                    "$ $command",
-                    localSharedStorageExposed =
-                        backend.device == null && ctx.sandboxSharedStorageEnabled,
-                )
-            ) {
+            if (!confirmTarget(ctx, backend.device, "$ $command")) {
                 emit(
                     ToolExecutionEvent.Completed(
                         jsonError(
@@ -470,11 +450,7 @@ class ShellToolProvider(
                 server = serverName,
             )
         return try {
-            if (!confirmTarget(
-                    ctx, backend.device, "stop background shell job: $jobId",
-                    localSharedStorageExposed = backend.device == null && ctx.sandboxSharedStorageEnabled,
-                )
-            ) {
+            if (!confirmTarget(ctx, backend.device, "stop background shell job: $jobId")) {
                 return jsonError(
                     "shell_job_stop",
                     "denied_by_user: the user declined to stop this job",
@@ -572,8 +548,8 @@ class ShellToolProvider(
         )
 
     private suspend fun executeFileTransfer(arguments: String, ctx: GenerationContext): String =
-        executeShellFileTransfer(arguments, ctx, sandbox) { device, summary, local ->
-            confirmTarget(ctx, device, summary, local)
+        executeShellFileTransfer(arguments, ctx, sandbox) { device, summary ->
+            confirmTarget(ctx, device, summary)
         }
 
     private suspend fun executeFileWrite(arguments: String, ctx: GenerationContext): String {
@@ -595,8 +571,7 @@ class ShellToolProvider(
                     ctx,
                     backend.device,
                     "write file: $path",
-                    localSharedStorageExposed =
-                        backend.device == null && targetsSharedStorage(path),
+                    ShellActionDetail.Write(path, content),
                 )
             ) {
                 return jsonError("file_write", "denied_by_user: the user declined to write this file", server = serverName)
@@ -633,8 +608,7 @@ class ShellToolProvider(
                     ctx,
                     backend.device,
                     "edit file: $path",
-                    localSharedStorageExposed =
-                        backend.device == null && targetsSharedStorage(path),
+                    ShellActionDetail.Edit(path, edits),
                 )
             ) {
                 return jsonError(toolName, "denied_by_user: the user declined to edit this file", server = serverName)

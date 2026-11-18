@@ -44,7 +44,7 @@ class ChatRuntime(
     phoneReady: suspend (String) -> Boolean,
     internal val onConversationOpened: (String) -> Unit,
     onConversationIdle: (String) -> Unit,
-    onConfirmShellCommand: suspend (String, String, String?) -> Boolean,
+    onConfirmShellCommand: suspend (String, String, String?, ShellActionDetail?) -> Boolean,
     registry: ConversationStateRegistry,
     providerRegistry: ProviderRegistry,
     localProvider: LocalProvider,

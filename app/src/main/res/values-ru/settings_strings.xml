@@ -316,6 +316,16 @@
     <string name="sandbox_not_installed">Не установлено</string>
     <string name="sandbox_extracting_rootfs">Распаковка системы Linux...</string>
     <string name="sandbox_downloading_rootfs">Загрузка системы Linux… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Загрузка системы Linux…</string>
+    <string name="sandbox_verifying_rootfs">Проверка загрузки…</string>
+    <string name="sandbox_validating_rootfs">Проверка системы Linux…</string>
+    <string name="sandbox_preparing_rootfs">Подготовка…</string>
+    <string name="sandbox_mirror">Источник пакетов</string>
+    <string name="sandbox_mirror_desc">Загружать систему Linux и пакеты из этого источника</string>
+    <string name="sandbox_mirror_official">Официальный</string>
+    <string name="sandbox_mirror_tuna">Зеркало Китая (TUNA)</string>
+    <string name="sandbox_mirror_applied">Источники пакетов обновлены</string>
+    <string name="sandbox_mirror_failed">Не удалось обновить источники пакетов</string>
     <string name="sandbox_install_failed">Не удалось установить</string>
     <string name="sandbox_installed_label">Установлено</string>
     <string name="sandbox_failed_label">Ошибка</string>

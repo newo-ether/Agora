@@ -169,8 +169,12 @@ internal fun fileEditHunks(arguments: JsonObject?): List<ToolDetailDiffHunk>? {
     arguments ?: return null
     val edits = (parseFileMultiEditArgs(arguments).getOrNull() ?: parseFileEditArgs(arguments).getOrNull())
         ?: return null
-    return edits.mapIndexed { index, edit -> diffHunk(if (edits.size > 1) index + 1 else null, edit) }
+    return shellEditHunks(edits)
 }
+
+/** Builds the diff shown by prompts that already parsed their edits. */
+internal fun shellEditHunks(edits: List<ShellFileEdit>): List<ToolDetailDiffHunk> =
+    edits.mapIndexed { index, edit -> diffHunk(if (edits.size > 1) index + 1 else null, edit) }
 
 /** Builds one hunk from memory / skill patch arguments; null without a non-empty old_string. */
 internal fun memoryPatchHunk(arguments: JsonObject?): ToolDetailDiffHunk? {

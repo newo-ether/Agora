@@ -581,8 +581,9 @@
     <string name="shell_confirm_allow">Einmal zulassen</string>
     <string name="shell_confirm_always">Diesen Server immer zulassen</string>
     <string name="shell_confirm_deny">Ablehnen</string>
-    <string name="shell_confirm_setting">Remote-Shell-Aktionen bestätigen</string>
-    <string name="shell_confirm_setting_desc">Nachfragen, bevor der Assistent Befehle ausführt oder Dateien auf Remote-SSH-/Conch-Servern schreibt</string>
+    <string name="shell_confirm_setting">Shell-Aktionen bestätigen</string>
+    <string name="shell_confirm_setting_desc">Nachfragen, bevor der Assistent Befehle ausführt oder Dateien schreibt, auch in der lokalen Linux-Sandbox</string>
+    <string name="shell_confirm_detail_truncated">Vorschau gekürzt; der vollständige Inhalt wird geschrieben.</string>
     <string name="shell_confirm_notification_channel">Befehlsgenehmigung</string>
     <string name="shell_confirm_notification_desc">Fragt an, einen Remote-Befehl zu erlauben oder abzulehnen, während Agora im Hintergrund ist</string>
     <string name="ask_user_title">Der Assistent fragt</string>
@@ -884,4 +885,8 @@
     <string name="tool_todo_empty">Aufgabenliste ist leer</string>
     <string name="tool_agents_empty">Keine Unteragenten</string>
     <string name="tool_agent_results_empty">Keine Ergebnisse von Unteragenten zurückgegeben</string>
+    <string name="markdown_link_file_missing">Datei nicht gefunden</string>
+    <string name="markdown_link_file_unavailable">Diese Datei kann nicht geöffnet werden</string>
+    <string name="markdown_link_shared_storage_required">Gewähre Zugriff auf alle Dateien, um Links zum gemeinsamen Speicher zu öffnen</string>
+    <string name="markdown_link_no_handler">Keine App kann diesen Link öffnen</string>
 </resources>

@@ -316,6 +316,16 @@
     <string name="sandbox_not_installed">Non installé</string>
     <string name="sandbox_extracting_rootfs">Extraction du système Linux...</string>
     <string name="sandbox_downloading_rootfs">Téléchargement du système Linux… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Téléchargement du système Linux…</string>
+    <string name="sandbox_verifying_rootfs">Vérification du téléchargement…</string>
+    <string name="sandbox_validating_rootfs">Validation du système Linux…</string>
+    <string name="sandbox_preparing_rootfs">Préparation…</string>
+    <string name="sandbox_mirror">Source des logiciels</string>
+    <string name="sandbox_mirror_desc">Télécharger le système Linux et les paquets depuis cette source</string>
+    <string name="sandbox_mirror_official">Officielle</string>
+    <string name="sandbox_mirror_tuna">Miroir chinois (TUNA)</string>
+    <string name="sandbox_mirror_applied">Sources de paquets mises à jour</string>
+    <string name="sandbox_mirror_failed">Impossible de mettre à jour les sources de paquets</string>
     <string name="sandbox_install_failed">Échec de l\'installation</string>
     <string name="sandbox_installed_label">Installé</string>
     <string name="sandbox_failed_label">Échec</string>

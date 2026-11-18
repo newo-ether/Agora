@@ -581,8 +581,9 @@
     <string name="shell_confirm_allow">Permitir una vez</string>
     <string name="shell_confirm_always">Permitir siempre este servidor</string>
     <string name="shell_confirm_deny">Denegar</string>
-    <string name="shell_confirm_setting">Confirmar acciones de shell remoto</string>
-    <string name="shell_confirm_setting_desc">Preguntar antes de que el asistente ejecute comandos o escriba archivos en servidores SSH/Conch remotos</string>
+    <string name="shell_confirm_setting">Confirmar acciones de shell</string>
+    <string name="shell_confirm_setting_desc">Preguntar antes de que el asistente ejecute comandos o escriba archivos, incluido el entorno Linux local</string>
+    <string name="shell_confirm_detail_truncated">Vista previa truncada; se escribirá el contenido completo.</string>
     <string name="shell_confirm_notification_channel">Aprobación de comandos</string>
     <string name="shell_confirm_notification_desc">Pide permitir o denegar un comando remoto mientras Agora está en segundo plano</string>
     <string name="ask_user_title">El asistente pregunta</string>
@@ -884,4 +885,8 @@
     <string name="tool_todo_empty">La lista de tareas está vacía</string>
     <string name="tool_agents_empty">No hay subagentes</string>
     <string name="tool_agent_results_empty">No se devolvieron resultados de subagentes</string>
+    <string name="markdown_link_file_missing">Archivo no encontrado</string>
+    <string name="markdown_link_file_unavailable">No se puede abrir este archivo</string>
+    <string name="markdown_link_shared_storage_required">Concede acceso a todos los archivos para abrir enlaces de almacenamiento compartido</string>
+    <string name="markdown_link_no_handler">Ninguna aplicación puede abrir este enlace</string>
 </resources>

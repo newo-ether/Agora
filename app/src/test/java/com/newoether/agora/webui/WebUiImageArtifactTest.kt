@@ -318,7 +318,7 @@ class WebUiImageArtifactTest {
     }
 
     @Test
-    fun sandboxVideoConfigurationReadsPrivateStagingAndReadyPreviewReadsOnlySavedFrames() = runBlocking {
+    fun sandboxVideoSkipsSlicingAndPublishesOnlyTheOriginalFile() = runBlocking {
         val root = temporary.newFolder("video-session-private")
         val home = File(root, "sandbox-home").apply { mkdirs() }
         val frame = png(File(root, "vid_configuration.png"))
@@ -360,31 +360,22 @@ class WebUiImageArtifactTest {
             session.start()
             assertEquals(io.ktor.http.HttpStatusCode.Accepted, session.upload(0, "clip.mp4", "video/mp4", "video",
                 bytes.size.toLong(), io.ktor.utils.io.ByteReadChannel(bytes)))
-            val pending = withTimeout(5_000) {
-                session.composerState.first { it.attachments.singleOrNull()?.videoDurationMs == 15_000L }
-            }.attachments.single()
-            assertEquals(com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING, pending.storage)
-            assertEquals(AttachmentImportState.PROCESSING, pending.importState)
-            assertNull(pending.frameCount)
-            assertTrue(File(pending.localPath!!).canonicalPath.startsWith(File(root, "attachments/staged").canonicalPath))
-            assertTrue(session.previewAttachment(0, pending.localId, "source", 0) { file, mime ->
-                assertEquals("video/mp4", mime)
-                assertArrayEquals(bytes, file.readBytes())
-            })
-            session.attachmentCommand(WebSyncCommand("attachment_video", attachmentId = pending.localId,
-                frameCount = 3, intervalMs = 5000))
             val ready = withTimeout(5_000) {
-                session.composerState.first { it.attachments.singleOrNull()?.importState == AttachmentImportState.READY }
+                session.composerState.first {
+                    it.attachments.singleOrNull()?.importState == AttachmentImportState.READY
+                }
             }.attachments.single()
+            assertEquals(com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING, ready.storage)
+            assertEquals(15_000L, ready.videoDurationMs)
+            assertNull(ready.frameCount)
+            assertTrue(ready.processedFrames.isNullOrEmpty())
             val original = File(ready.localPath!!)
             assertTrue(original.canonicalPath.startsWith(home.canonicalPath))
+            assertArrayEquals(bytes, original.readBytes())
             original.writeText("edited sandbox video")
             assertTrue(original.delete())
             assertFalse(session.previewAttachment(0, ready.localId, "source", 0) { _, _ -> fail("READY source") })
-            assertTrue(session.previewAttachment(0, ready.localId, "frame", 0) { file, mime ->
-                assertEquals("image/png", mime)
-                assertArrayEquals(File(frame.path).readBytes(), file.readBytes())
-            })
+            assertFalse(session.previewAttachment(0, ready.localId, "frame", 0) { _, _ -> fail("No frame snapshot") })
         } finally {
             session.close()
             scope.cancel()

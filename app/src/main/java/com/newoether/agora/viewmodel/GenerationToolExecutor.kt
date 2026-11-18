@@ -90,7 +90,12 @@ internal class GenerationToolExecutor private constructor(
             skillManager: SkillManager,
             sandboxFactory: SandboxManagerFactory?,
             additionalProviders: List<ToolProvider>,
-            confirmShellCommand: suspend (server: String, summary: String, conversationId: String?) -> Boolean,
+            confirmShellCommand: suspend (
+                server: String,
+                summary: String,
+                conversationId: String?,
+                detail: ShellActionDetail?,
+            ) -> Boolean,
             generatingConversationIds: () -> Set<String> = { emptySet() },
         ): GenerationToolExecutor {
             val imageGenProvider = ImageGenToolProvider(app, sandboxFactory)

@@ -465,7 +465,9 @@ internal class AttachmentImportProcessor(
         val resolved = when (attachment.type) {
             "image" -> snapshotSandboxImage(attachment, stagedFile, outputOwner)
             "pdf" -> processPdf(attachment, stagedFile.absolutePath, outputOwner)
-            "video" -> processVideo(attachment, stagedFile.absolutePath, outputOwner)
+            // Sandbox videos stay original files: the Provider request carries only the sandbox
+            // path, so slicing frames for the request would be wasted work.
+            "video" -> ProcessResult.Ready(attachment.copy(importState = AttachmentImportState.READY))
             "file" -> if (com.newoether.agora.util.FileValidator.routeForMimeType(attachment.mimeType) ==
                 com.newoether.agora.util.FileValidator.AttachmentRoute.TEXT
             ) processFile(attachment, stagedFile.absolutePath)

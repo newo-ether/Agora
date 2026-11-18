@@ -338,7 +338,8 @@ internal fun ChatBottomBar(
         if (composer.pendingVideoAttachmentId == null && composer.pendingPdfAttachmentId == null) {
             composerSnapshot.attachments.firstOrNull {
                 it.type == "video" && it.importState == AttachmentImportState.PROCESSING &&
-                    it.frameCount == null && it.localPath != null
+                    it.frameCount == null && it.localPath != null &&
+                    it.storage != com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING
             }?.let { attachment ->
                 composer.pendingVideoOwnerId = composerOwnerId
                 composer.pendingVideoAttachmentId = attachment.localId

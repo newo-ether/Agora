@@ -623,8 +623,9 @@
     <string name="shell_confirm_allow">允許一次</string>
     <string name="shell_confirm_always">總是允許此伺服器</string>
     <string name="shell_confirm_deny">拒絕</string>
-    <string name="shell_confirm_setting">確認遠端 Shell 操作</string>
-    <string name="shell_confirm_setting_desc">在助手於遠端 SSH/Conch 伺服器上執行命令或寫入檔案前詢問</string>
+    <string name="shell_confirm_setting">確認 Shell 操作</string>
+    <string name="shell_confirm_setting_desc">在助手執行命令或寫入檔案前詢問，包括本機 Linux 沙箱</string>
+    <string name="shell_confirm_detail_truncated">預覽已截斷，將寫入完整內容。</string>
     <string name="shell_confirm_notification_channel">命令審批</string>
     <string name="shell_confirm_notification_desc">Agora 於背景執行時，請求你允許或拒絕遠端命令</string>
     <string name="ask_user_title">助手正在提問</string>
@@ -887,4 +888,8 @@
     <string name="tool_todo_empty">待辦清單為空</string>
     <string name="tool_agents_empty">目前沒有子代理</string>
     <string name="tool_agent_results_empty">未傳回子代理結果</string>
+    <string name="markdown_link_file_missing">找不到檔案</string>
+    <string name="markdown_link_file_unavailable">無法開啟此檔案</string>
+    <string name="markdown_link_shared_storage_required">授予所有檔案存取權限以開啟共用儲存空間連結</string>
+    <string name="markdown_link_no_handler">沒有可開啟此連結的應用程式</string>
 </resources>

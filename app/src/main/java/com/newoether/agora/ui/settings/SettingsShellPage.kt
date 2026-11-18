@@ -33,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.ShellDeviceConfig
+import com.newoether.agora.data.repository.setSandboxMirror
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -47,6 +48,7 @@ fun SettingsShellPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val shellDevices by viewModel.settings.shellDevices.collectAsState()
     val sandboxEnabled by viewModel.settings.sandboxEnabled.collectAsState()
     val sandboxSharedStorageEnabled by viewModel.settings.sandboxSharedStorageEnabled.collectAsState()
+    val sandboxMirror by viewModel.settings.sandboxMirror.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     var editorRoute by remember { mutableStateOf<ShellDeviceEditorRoute?>(null) }
     var deleteTarget by remember { mutableStateOf<ShellDeviceConfig?>(null) }
@@ -73,6 +75,8 @@ fun SettingsShellPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         showDocFab = showDocFab,
                         sharedStorageEnabled = sandboxSharedStorageEnabled,
                         onSharedStorageEnabledChange = viewModel.settings::setSandboxSharedStorageEnabled,
+                        mirror = sandboxMirror,
+                        onMirrorChange = { viewModel.settings.setSandboxMirror(it) },
                         onSnackbar = { viewModel.emitSnackbar(it) },
                     )
                 }

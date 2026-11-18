@@ -11,11 +11,15 @@ import kotlinx.coroutines.ensureActive
 internal class ProotAlpinePackages(
     private val rootfsDir: File,
     private val cacheDir: File,
+    mirror: SandboxMirror = SandboxMirror.OFFICIAL,
     private val execute: suspend (command: String, timeoutMs: Int) -> SandboxManager.SandboxResult,
 ) {
     var lastError: String? = null
     private val metadata = AlpinePackageMetadataStore(rootfsDir)
-    private val mirror = "https://dl-cdn.alpinelinux.org/alpine/v3.21/main"
+    private val repository = when (mirror) {
+        SandboxMirror.TUNA -> "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/main"
+        SandboxMirror.OFFICIAL -> "https://dl-cdn.alpinelinux.org/alpine/v3.21/main"
+    }
 
     fun prepare(forceBaseWorld: Boolean = false) {
         if (forceBaseWorld) {
@@ -174,7 +178,7 @@ internal class ProotAlpinePackages(
         cacheDir.mkdirs()
         val index = File(cacheDir, "APKINDEX.tar.gz")
         try {
-            download("$mirror/aarch64/APKINDEX.tar.gz", index, onProgress)
+            download("$repository/aarch64/APKINDEX.tar.gz", index, onProgress)
             return parseFullApkIndex(index, preferredPackages = installed)
         } finally {
             index.delete()
@@ -200,7 +204,7 @@ internal class ProotAlpinePackages(
                 if (!cached.exists() || cached.length() == 0L) {
                     onProgress("Downloading $filename...")
                     try {
-                        download("$mirror/aarch64/$filename", cached, onProgress)
+                        download("$repository/aarch64/$filename", cached, onProgress)
                     } catch (error: Exception) {
                         cached.delete()
                         throw error

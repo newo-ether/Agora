@@ -208,10 +208,10 @@ class ShellFileTransferTest {
         val ctx = GenerationContext(shellEnabled = true, shellDevices = listOf(config))
         val arguments = """{"source_server":"remote","source_path":"/source","destination_server":"remote","destination_path":"/target"}"""
         var confirmations = 0
-        val denied = executeShellFileTransfer(arguments, ctx, null) { _, _, _ -> confirmations++; false }
+        val denied = executeShellFileTransfer(arguments, ctx, null) { _, _ -> confirmations++; false }
         assertTrue(denied.contains("denied_by_user"))
         assertEquals(1, confirmations)
-        val invalid = executeShellFileTransfer(arguments.dropLast(1) + ",\"overwrite\":\"true\"}", ctx, null) { _, _, _ ->
+        val invalid = executeShellFileTransfer(arguments.dropLast(1) + ",\"overwrite\":\"true\"}", ctx, null) { _, _ ->
             fail("Invalid argument reached confirmation"); true
         }
         assertTrue(invalid.contains("overwrite must be a boolean"))

@@ -61,7 +61,7 @@ class SettingsRepository(
     internal val scope: CoroutineScope,
     private val touchConversationData: suspend (String) -> Unit = {},
 ) {
-    private val publication = SettingsFlowPublication(scope)
+    internal val publication = SettingsFlowPublication(scope)
 
     private val conversationSettingsState = ConversationSettingsState()
     private val conversationSettingsWriteMutex = Mutex()
@@ -207,6 +207,7 @@ class SettingsRepository(
     val sandboxEnabled: StateFlow<Boolean> = publication.hot(settingsManager.sandboxEnabled, false)
     val sandboxSharedStorageEnabled: StateFlow<Boolean> =
         publication.hot(settingsManager.sandboxSharedStorageEnabled, false)
+    val sandboxMirror = sandboxMirrorFlow()
     val defaultTemperature: StateFlow<Float?> = publication.hot(settingsManager.defaultTemperature, null)
     val defaultMaxTokens: StateFlow<Int?> = publication.hot(settingsManager.defaultMaxTokens, null)
     val defaultTopP: StateFlow<Float?> = publication.hot(settingsManager.defaultTopP, null)

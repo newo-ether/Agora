@@ -156,7 +156,7 @@ internal fun FileEditResult(body: ToolDetailBody.Edit) {
 }
 
 @Composable
-private fun FileEditHunks(hunks: List<ToolDetailDiffHunk>, replaceAllLabel: String) {
+internal fun FileEditHunks(hunks: List<ToolDetailDiffHunk>, replaceAllLabel: String) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         hunks.forEach { hunk ->
             Column {

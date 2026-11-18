@@ -304,6 +304,16 @@
     <string name="sandbox_not_installed">未安裝</string>
     <string name="sandbox_extracting_rootfs">正在解壓縮 Linux 系統…</string>
     <string name="sandbox_downloading_rootfs">正在下載 Linux 系統… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">正在下載 Linux 系統…</string>
+    <string name="sandbox_verifying_rootfs">正在校驗下載內容…</string>
+    <string name="sandbox_validating_rootfs">正在驗證 Linux 系統…</string>
+    <string name="sandbox_preparing_rootfs">正在準備…</string>
+    <string name="sandbox_mirror">軟體來源</string>
+    <string name="sandbox_mirror_desc">從此來源下載 Linux 系統和套件</string>
+    <string name="sandbox_mirror_official">官方來源</string>
+    <string name="sandbox_mirror_tuna">國內鏡像（TUNA）</string>
+    <string name="sandbox_mirror_applied">套件來源已更新</string>
+    <string name="sandbox_mirror_failed">無法更新套件來源</string>
     <string name="sandbox_install_failed">安裝失敗</string>
     <string name="sandbox_installed_label">已安裝</string>
     <string name="sandbox_failed_label">失敗</string>

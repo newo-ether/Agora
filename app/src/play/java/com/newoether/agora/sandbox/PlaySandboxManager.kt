@@ -28,6 +28,8 @@ class PlaySandboxManager : SandboxManager {
     override val isInstallingRootfs: StateFlow<Boolean> = _isInstallingRootfs
     private val _downloadProgress = MutableStateFlow<Float?>(null)
     override val downloadProgress: StateFlow<Float?> = _downloadProgress
+    private val _rootfsPhase = MutableStateFlow<RootfsInstallPhase?>(null)
+    override val rootfsPhase: StateFlow<RootfsInstallPhase?> = _rootfsPhase
     override fun installRootfs() {}
     private val _packageList = MutableStateFlow<List<SandboxManager.PackageInfo>>(emptyList())
     override val packageList: StateFlow<List<SandboxManager.PackageInfo>> = _packageList

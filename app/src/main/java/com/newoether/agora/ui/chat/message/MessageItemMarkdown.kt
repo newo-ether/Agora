@@ -176,6 +176,20 @@ internal class ChatMarkdownRenderContext(
 )
 
 internal const val MarkdownLinkPressAnimationMillis = 180
+
+/** Resolves a completed tap in the initial pass; movement past touch slop is a scroll, not a tap. */
+private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.awaitTapUp(
+    down: androidx.compose.ui.input.pointer.PointerInputChange,
+    touchSlop: Float,
+): androidx.compose.ui.input.pointer.PointerInputChange? {
+    while (true) {
+        val event = awaitPointerEvent(PointerEventPass.Initial)
+        val change = event.changes.firstOrNull { it.id == down.id } ?: return null
+        if (!change.pressed) return change
+        if ((change.position - down.position).getDistance() > touchSlop) return null
+    }
+}
+
 internal const val MarkdownLinkPressedAlpha = 0.72f
 
 @Composable
@@ -207,23 +221,29 @@ internal fun AnimatedMarkdownText(
             }
         } ?: content
     }
+    val linkOpener = rememberMarkdownLinkOpener()
     MarkdownText(
         content = rendered,
         node = node,
-        modifier = modifier.pointerInput(content) {
+        modifier = modifier.pointerInput(content, linkOpener) {
             try {
                 awaitEachGesture {
                     val down = awaitFirstDown(false, PointerEventPass.Initial)
                     val offset = layoutResult?.getOffsetForPosition(down.position)
-                    val link = offset?.takeIf { content.isNotEmpty() }?.let {
-                        val start = it.coerceIn(0, content.lastIndex)
-                        content.getLinkAnnotations(start, start + 1).firstOrNull()
-                    }
-                    if (link != null) {
-                        activeLink = link
+                    val destination = offset?.let { markdownLinkAt(content, it) }
+                    if (destination != null) {
+                        activeLink = if (content.isEmpty()) null else {
+                            val start = offset.coerceIn(0, content.lastIndex)
+                            content.getLinkAnnotations(start, start + 1).firstOrNull()
+                        }
                         isPressed = true
-                        waitForUpOrCancellation(PointerEventPass.Initial)
+                        // Take the tap before the platform text link handler so one tap opens once.
+                        val up = awaitTapUp(down, viewConfiguration.touchSlop)
                         isPressed = false
+                        if (up != null) {
+                            up.consume()
+                            linkOpener.activate(destination)
+                        }
                     }
                 }
             } finally {

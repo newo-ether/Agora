@@ -308,6 +308,16 @@
     <string name="sandbox_not_installed">Chưa cài đặt</string>
     <string name="sandbox_extracting_rootfs">Đang giải nén hệ thống Linux...</string>
     <string name="sandbox_downloading_rootfs">Đang tải xuống hệ thống Linux… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Đang tải xuống hệ thống Linux…</string>
+    <string name="sandbox_verifying_rootfs">Đang xác minh bản tải xuống…</string>
+    <string name="sandbox_validating_rootfs">Đang xác thực hệ thống Linux…</string>
+    <string name="sandbox_preparing_rootfs">Đang chuẩn bị…</string>
+    <string name="sandbox_mirror">Nguồn phần mềm</string>
+    <string name="sandbox_mirror_desc">Tải hệ thống Linux và các gói từ nguồn này</string>
+    <string name="sandbox_mirror_official">Chính thức</string>
+    <string name="sandbox_mirror_tuna">Gương Trung Quốc (TUNA)</string>
+    <string name="sandbox_mirror_applied">Đã cập nhật nguồn gói</string>
+    <string name="sandbox_mirror_failed">Không thể cập nhật nguồn gói</string>
     <string name="sandbox_install_failed">Cài đặt thất bại</string>
     <string name="sandbox_installed_label">Đã cài đặt</string>
     <string name="sandbox_failed_label">Thất bại</string>

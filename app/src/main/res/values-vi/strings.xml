@@ -590,8 +590,9 @@
     <string name="shell_confirm_allow">Cho phép một lần</string>
     <string name="shell_confirm_always">Luôn cho phép máy chủ này</string>
     <string name="shell_confirm_deny">Từ chối</string>
-    <string name="shell_confirm_setting">Xác nhận các hành động shell từ xa</string>
-    <string name="shell_confirm_setting_desc">Hỏi trước khi trợ lý chạy các lệnh hoặc ghi tệp trên các máy chủ SSH/Conch từ xa</string>
+    <string name="shell_confirm_setting">Xác nhận các hành động shell</string>
+    <string name="shell_confirm_setting_desc">Hỏi trước khi trợ lý chạy lệnh hoặc ghi tệp, kể cả trong hộp cát Linux cục bộ</string>
+    <string name="shell_confirm_detail_truncated">Bản xem trước đã rút gọn; toàn bộ nội dung sẽ được ghi.</string>
     <string name="shell_confirm_notification_channel">Phê duyệt lệnh</string>
     <string name="shell_confirm_notification_desc">Yêu cầu cho phép hoặc từ chối lệnh từ xa khi Agora chạy ngầm</string>
     <string name="ask_user_title">Trợ lý đang hỏi</string>
@@ -890,4 +891,8 @@
     <string name="tool_todo_empty">Danh sách việc cần làm trống</string>
     <string name="tool_agents_empty">Không có tác nhân phụ</string>
     <string name="tool_agent_results_empty">Không có kết quả nào từ tác nhân phụ được trả về</string>
+    <string name="markdown_link_file_missing">Không tìm thấy tệp</string>
+    <string name="markdown_link_file_unavailable">Không thể mở tệp này</string>
+    <string name="markdown_link_shared_storage_required">Cấp quyền truy cập tất cả tệp để mở liên kết bộ nhớ chia sẻ</string>
+    <string name="markdown_link_no_handler">Không có ứng dụng nào có thể mở liên kết này</string>
 </resources>

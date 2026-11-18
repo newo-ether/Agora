@@ -316,6 +316,16 @@
     <string name="sandbox_not_installed">Nicht installiert</string>
     <string name="sandbox_extracting_rootfs">Linux-System wird entpackt...</string>
     <string name="sandbox_downloading_rootfs">Linux-System wird heruntergeladen… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Linux-System wird heruntergeladen…</string>
+    <string name="sandbox_verifying_rootfs">Download wird überprüft…</string>
+    <string name="sandbox_validating_rootfs">Linux-System wird überprüft…</string>
+    <string name="sandbox_preparing_rootfs">Wird vorbereitet…</string>
+    <string name="sandbox_mirror">Paketquelle</string>
+    <string name="sandbox_mirror_desc">Linux-System und Pakete aus dieser Quelle herunterladen</string>
+    <string name="sandbox_mirror_official">Offiziell</string>
+    <string name="sandbox_mirror_tuna">China-Spiegel (TUNA)</string>
+    <string name="sandbox_mirror_applied">Paketquellen aktualisiert</string>
+    <string name="sandbox_mirror_failed">Paketquellen konnten nicht aktualisiert werden</string>
     <string name="sandbox_install_failed">Installation fehlgeschlagen</string>
     <string name="sandbox_installed_label">Installiert</string>
     <string name="sandbox_failed_label">Fehlgeschlagen</string>
