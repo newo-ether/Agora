@@ -7,15 +7,15 @@ class StandaloneVideoPathTest {
     @Test
     fun standaloneVideoPathBecomesAnEmbeddedCard() {
         assertEquals(
-            "![](</home/agora/clips/a.mp4>)",
+            "![](/home/agora/clips/a.mp4)",
             "/home/agora/clips/a.mp4".embedStandaloneVideoPaths(),
         )
         assertEquals(
-            "![](<shell://Local%20Sandbox/home/agora/clips/a.mp4>)",
+            "![](shell://Local%20Sandbox/home/agora/clips/a.mp4)",
             "shell://Local%20Sandbox/home/agora/clips/a.mp4".embedStandaloneVideoPaths(),
         )
         assertEquals(
-            "![](</storage/emulated/0/Download/a.mp4>)",
+            "![](/storage/emulated/0/Download/a.mp4)",
             "/storage/emulated/0/Download/a.mp4".embedStandaloneVideoPaths(),
         )
     }
@@ -35,13 +35,59 @@ class StandaloneVideoPathTest {
     }
 
     @Test
-    fun inlineCodeAndExistingNodesStayVerbatim() {
+    fun inlineCodeAndExistingImageNodesStayVerbatim() {
         val inline = "`/home/agora/clips/a.mp4`"
         assertEquals(inline, inline.embedStandaloneVideoPaths())
-        val existingLink = "[clip](/home/agora/clips/a.mp4)"
-        assertEquals(existingLink, existingLink.embedStandaloneVideoPaths())
         val existingImage = "![](/home/agora/clips/a.mp4)"
         assertEquals(existingImage, existingImage.embedStandaloneVideoPaths())
+    }
+
+    @Test
+    fun standaloneMarkdownLinkBecomesTheSameCard() {
+        assertEquals(
+            "![](/home/agora/clips/a.mp4)",
+            "[clip](/home/agora/clips/a.mp4)".embedStandaloneVideoPaths(),
+        )
+        assertEquals(
+            "![](shell://Local%20Sandbox/home/agora/clips/a.mp4)",
+            "[clip](shell://Local%20Sandbox/home/agora/clips/a.mp4)".embedStandaloneVideoPaths(),
+        )
+        val prose = "看 [clip](/home/agora/clips/a.mp4) 这个"
+        assertEquals(prose, prose.embedStandaloneVideoPaths())
+    }
+
+    @Test
+    fun htmlVideoElementBecomesTheSameCard() {
+        val element = "<video controls width=\"360\"><source " +
+            "src=\"shell://Local%20Sandbox/home/agora/clips/a.mp4\" type=\"video/mp4\"></video>"
+        assertEquals(
+            "![](shell://Local%20Sandbox/home/agora/clips/a.mp4)",
+            element.embedHtmlVideoTags(),
+        )
+        assertEquals(
+            "![](/home/agora/clips/a.mp4)",
+            "<video src=\"/home/agora/clips/a.mp4\"></video>".embedHtmlVideoTags(),
+        )
+        assertEquals(
+            "![](/home/agora/clips/a.mp4)",
+            "<video src=\"/home/agora/clips/a.mp4\" />".embedHtmlVideoTags(),
+        )
+        val notVideo = "<video src=\"/home/agora/clips/a.png\"></video>"
+        assertEquals(notVideo, notVideo.embedHtmlVideoTags())
+    }
+
+    @Test
+    fun fencedHtmlVideoStaysVerbatim() {
+        val fenced = "```html\n<video src=\"/home/agora/clips/a.mp4\"></video>\n```"
+        assertEquals(fenced, fenced.embedHtmlVideoTags())
+    }
+
+    @Test
+    fun renderableMarkdownEmbedsHtmlVideo() {
+        assertEquals(
+            "![](/home/agora/clips/a.mp4)",
+            "<video src=\"/home/agora/clips/a.mp4\"></video>".toRenderableMarkdownText(),
+        )
     }
 
     @Test
@@ -55,7 +101,7 @@ class StandaloneVideoPathTest {
     @Test
     fun renderableMarkdownEmbedsTheStandalonePath() {
         assertEquals(
-            "![](</home/agora/clips/a.mp4>)",
+            "![](/home/agora/clips/a.mp4)",
             "/home/agora/clips/a.mp4".toRenderableMarkdownText(),
         )
     }

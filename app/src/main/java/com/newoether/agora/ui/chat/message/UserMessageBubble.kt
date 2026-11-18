@@ -90,20 +90,20 @@ internal fun projectStoredMediaOccurrences(
     val urls = mutableListOf<String>()
     val indices = displayItems.map { (imagePath, item) ->
         val unavailable = storedMediaUnavailable(imagePath, item, imageArtifacts)
-        if (resolveAttachmentType(imagePath, item) == "video" && item?.storage?.isLocalSandbox == true) {
-            val frames = if (item.imageArtifacts.isNotEmpty()) {
-                item.imageArtifacts.filterNot { it.unavailable || it.path.isBlank() }.map { it.path }
-            } else listOfNotNull(imagePath.takeIf { it.isNotBlank() && !unavailable })
-            return@map if (frames.isEmpty()) null else urls.size.also { urls += frames }
-        }
         val url = when (resolveAttachmentType(imagePath, item)) {
             "image" -> imagePath.takeIf {
                 it.isNotEmpty() && !unavailable
             }
+            // The playable copy is the original file, including for Local Sandbox videos: their
+            // frames are a Provider projection, not a video, and a frame-only list leaves the
+            // viewer with nothing to play. Frames stay as the last resort.
             "video" -> item
                 ?.takeUnless { unavailable }
                 ?.originalUri
                 ?.takeIf(String::isNotBlank)
+                ?: item?.imageArtifacts
+                    ?.firstOrNull { !it.unavailable && it.path.isNotBlank() }
+                    ?.path
             else -> null
         }
         url?.let {

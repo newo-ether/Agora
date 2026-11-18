@@ -191,7 +191,7 @@ private fun rootfsPhaseLabel(phase: RootfsInstallPhase?, downloadProgress: Float
 
 /** The selected value and install action share the Appearance trailing-label treatment. */
 @Composable
-private fun SandboxSetupLabel(label: String, enabled: Boolean, singleLine: Boolean = false) {
+internal fun SandboxSetupLabel(label: String, enabled: Boolean, singleLine: Boolean = false) {
     Text(
         text = label,
         style = MaterialTheme.typography.labelLarge,

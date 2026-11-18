@@ -253,6 +253,9 @@ internal class ProotRootfsInstaller(
             export container=proot
         """.trimIndent() + "\n")
         configureAptSources(rootfs, distribution, mirror)
+        // Base images ship no trust anchors and PRoot cannot run update-ca-certificates, so apt
+        // would fail TLS verification before downloading anything.
+        AndroidSystemCertificates.installIfMissing(rootfs)
         // Capture the initial package set before staging can admit user commands.
         ProotAptPackages.prepare(rootfs)
     }
@@ -279,24 +282,56 @@ internal class ProotRootfsInstaller(
     }
 
     private fun alpineRepository(mirror: SandboxMirror): String = when (mirror) {
-        SandboxMirror.TUNA -> "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/main"
-        SandboxMirror.OFFICIAL -> "https://dl-cdn.alpinelinux.org/alpine/v3.21/main"
+        SandboxMirror.TUNA -> "http://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/main"
+        SandboxMirror.OFFICIAL -> "http://dl-cdn.alpinelinux.org/alpine/v3.21/main"
     }
 
-    private fun repositoriesFileContent(mirror: SandboxMirror): String = alpineRepository(mirror) + "\n"
+    private fun alpineCommunityRepository(mirror: SandboxMirror): String = when (mirror) {
+        SandboxMirror.TUNA -> "http://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/community"
+        SandboxMirror.OFFICIAL -> "http://dl-cdn.alpinelinux.org/alpine/v3.21/community"
+    }
 
+    /** `main` alone hides every `community` package, including pip, npm and most language tooling. */
+    private fun repositoriesFileContent(mirror: SandboxMirror): String =
+        alpineRepository(mirror) + "\n" + alpineCommunityRepository(mirror) + "\n"
+
+    private val plainHttpHosts = listOf(
+        "deb.debian.org",
+        "security.debian.org",
+        "ports.ubuntu.com",
+        "mirrors.tuna.tsinghua.edu.cn",
+        "dl-cdn.alpinelinux.org",
+    )
+
+    /**
+     * Repairs a rootfs installed while the guest repositories still used HTTPS: TLS verification
+     * inside the guest kept failing, so apt never fetched an index and no package could install.
+     * Rewriting the known hosts keeps apt/apk GPG signature checks intact.
+     */
+    internal fun usePlainHttpRepositories(rootfs: File) {
+        listOf("etc/apt/sources.list", "etc/apk/repositories").forEach { relative ->
+            val file = File(rootfs, relative)
+            if (!file.isFile) return@forEach
+            val text = runCatching { file.readText() }.getOrNull() ?: return@forEach
+            val rewritten = plainHttpHosts.fold(text) { acc, host -> acc.replace("https://$host", "http://$host") }
+            if (rewritten != text) runCatching { file.writeText(rewritten) }
+        }
+    }
+
+    // Plain HTTP for the guest repositories: package authenticity comes from apt/apk GPG signatures,
+    // while TLS inside the guest depends on the device network path and kept failing verification.
     private fun debianBase(mirror: SandboxMirror): String = when (mirror) {
-        SandboxMirror.TUNA -> "https://mirrors.tuna.tsinghua.edu.cn/debian"
-        SandboxMirror.OFFICIAL -> "https://deb.debian.org/debian"
+        SandboxMirror.TUNA -> "http://mirrors.tuna.tsinghua.edu.cn/debian"
+        SandboxMirror.OFFICIAL -> "http://deb.debian.org/debian"
     }
 
     private fun debianSecurityBase(mirror: SandboxMirror): String = when (mirror) {
-        SandboxMirror.TUNA -> "https://mirrors.tuna.tsinghua.edu.cn/debian-security"
-        SandboxMirror.OFFICIAL -> "https://security.debian.org/debian-security"
+        SandboxMirror.TUNA -> "http://mirrors.tuna.tsinghua.edu.cn/debian-security"
+        SandboxMirror.OFFICIAL -> "http://security.debian.org/debian-security"
     }
 
     private fun ubuntuPortsBase(mirror: SandboxMirror): String = when (mirror) {
-        SandboxMirror.TUNA -> "https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports"
+        SandboxMirror.TUNA -> "http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports"
         SandboxMirror.OFFICIAL -> "http://ports.ubuntu.com/ubuntu-ports"
     }
 

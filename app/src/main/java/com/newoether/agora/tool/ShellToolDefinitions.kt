@@ -48,9 +48,13 @@ internal object ShellToolDefinitions {
             add(ToolDefinition(function = ToolFunction(
                 name = "shell_list",
                 description = "List configured shell servers including the local sandbox (if enabled). " +
-                    "To show the user an image file from Local Sandbox or a Conch server inline in your reply, " +
+                    "To show the user an image or video file from Local Sandbox or a Conch server inline in your reply, " +
                     "write Markdown ![alt](shell://<server>/<absolute path>) with spaces percent-encoded as %20, " +
-                    "e.g. ![plot](shell://Local%20Sandbox/home/agora/plot.png) or ![render](shell://Workstation/C:/out/render.png).",
+                    "e.g. ![plot](shell://Local%20Sandbox/home/agora/plot.png) or " +
+                    "![clip](shell://Local%20Sandbox/home/agora/clip.mp4). " +
+                    "A destination whose file name ends in a video extension (.mp4, .m4v, .webm, .mov, .mkv, .avi, .3gp, .ogv) " +
+                    "renders as an inline player card; a line holding only the video path, or a [name](path) link to it, " +
+                    "renders the same card, and a raw <video src=\"...\"></video> element is accepted too.",
                 parameters = ToolParameters(properties = mapOf("description" to ToolProperty("string", SHELL_DESCRIPTION)), required = listOf("description"))
             )))
             add(ToolDefinition(function = ToolFunction(

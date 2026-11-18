@@ -5,6 +5,7 @@ import android.system.Os
 import com.newoether.agora.R
 import com.newoether.agora.data.repository.SettingsRepository
 import io.mockk.Runs
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -17,8 +18,11 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -28,6 +32,30 @@ import org.junit.rules.TemporaryFolder
 class ProotSandboxMutationTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()
+
+    @Test
+    fun resetCancelsAnInFlightRootfsInstall() = runBlocking {
+        val directory = temporaryFolder.newFolder("sandbox-reset-install")
+        val context = mockk<Context>()
+        every { context.filesDir } returns directory
+        every { context.getString(R.string.sandbox_snackbar_reset) } returns "Reset"
+        val settings = mockk<SettingsRepository>()
+        every { settings.sandboxMirror } returns MutableStateFlow(SandboxMirror.OFFICIAL)
+        val downloading = CountDownLatch(1)
+        val installer = mockk<ProotRootfsInstaller>()
+        coEvery { installer.install(any(), any(), any(), any(), any(), any()) } coAnswers {
+            downloading.countDown()
+            awaitCancellation()
+        }
+        val manager = ProotSandboxManager(context, settings, installer)
+        manager.installRootfs()
+        assertTrue("Install must reach the archive download", downloading.await(5, TimeUnit.SECONDS))
+        assertTrue("Reset must interrupt the running install",
+            withTimeoutOrNull(5_000) { manager.reset() } == true)
+        assertFalse("Reset must clear the install state", manager.isInstallingRootfs.value)
+        assertFalse(manager.isBusy.value)
+        assertFalse(File(directory, "alpine-rootfs.installing").exists())
+    }
 
     @Test
     fun ordinaryMutationsCannotBypassFailedJobRecovery() = runBlocking {

@@ -34,6 +34,9 @@ class ProotProcessRunnerTest {
         assertEquals("/home/agora/project", builder.command()[builder.command().indexOf("-w") + 1])
         assertEquals("/home/agora", builder.environment()["HOME"])
         assertEquals(File(rootfs, "tmp").absolutePath, builder.environment()["PROOT_TMP_DIR"])
+        // Maintainer scripts must not see Android's app-cache TMPDIR, which is outside the guest.
+        assertEquals("/tmp", builder.environment()["TMPDIR"])
+        assertEquals("/tmp", builder.environment()["TMP"])
         assertEquals("library bytes", File(files, "lib/libtalloc.so.2").readText())
         assertTrue(builder.redirectErrorStream())
     }

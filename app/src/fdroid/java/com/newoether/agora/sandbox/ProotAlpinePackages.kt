@@ -20,9 +20,21 @@ internal class ProotAlpinePackages(
 ) {
     var lastError: String? = null
     private val metadata = AlpinePackageMetadataStore(rootfsDir)
-    private val repository = when (mirror) {
-        SandboxMirror.TUNA -> "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/main"
-        SandboxMirror.OFFICIAL -> "https://dl-cdn.alpinelinux.org/alpine/v3.21/main"
+
+    /**
+     * Alpine splits its archive between `main` and `community`; `py3-pip`, `npm` and most language
+     * tooling live in `community`. Both indexes are read and every archive is fetched from the
+     * repository that published it.
+     */
+    private val repositories = when (mirror) {
+        SandboxMirror.TUNA -> listOf(
+            "http://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/main",
+            "http://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/community",
+        )
+        SandboxMirror.OFFICIAL -> listOf(
+            "http://dl-cdn.alpinelinux.org/alpine/v3.21/main",
+            "http://dl-cdn.alpinelinux.org/alpine/v3.21/community",
+        )
     }
 
     fun prepare(forceBaseWorld: Boolean = false) {
@@ -68,6 +80,11 @@ internal class ProotAlpinePackages(
         val requested = validate(name, onProgress) ?: return false
         try {
             prepare()
+            if (installWithApk(requested, onProgress)) {
+                lastError = null
+                metadata.addExplicitPackage(requested)
+                return true
+            }
             val installed = metadata.readInstalledVersions()
             val (packages, providers) = fetchIndex(installed.keys, onProgress)
             if (requested !in packages) {
@@ -95,6 +112,22 @@ internal class ProotAlpinePackages(
             failure(error, onProgress)
             return false
         }
+    }
+
+    /**
+     * Lets the guest's own apk resolve, download and signature-check the package, which also keeps
+     * dependency, virtual-package and key handling correct. The host-side index resolver below stays
+     * as a fallback for a guest without a working network path.
+     */
+    private suspend fun installWithApk(
+        requested: String,
+        onProgress: (String) -> Unit,
+    ): Boolean {
+        onProgress("Running: apk add $requested")
+        run("apk add --no-progress ${quote(requested)}", 300_000, onProgress)
+        if (requested in metadata.readInstalledVersions()) return true
+        onProgress("apk add did not install $requested; retrying with the host downloader")
+        return false
     }
 
     suspend fun remove(name: String, onProgress: (String) -> Unit = {}): Boolean {
@@ -179,13 +212,29 @@ internal class ProotAlpinePackages(
     ): Pair<Map<String, FullPkgEntry>, Map<String, String>> {
         onProgress("Fetching package index...")
         cacheDir.mkdirs()
-        val index = File(cacheDir, "APKINDEX.tar.gz")
-        try {
-            download("$repository/aarch64/APKINDEX.tar.gz", index, onProgress)
-            return parseFullApkIndex(index, preferredPackages = installed)
-        } finally {
-            index.delete()
+        val packages = mutableMapOf<String, FullPkgEntry>()
+        val providers = mutableMapOf<String, String>()
+        repositories.forEach { base ->
+            val index = File(cacheDir, "APKINDEX-${base.substringAfterLast('/')}.tar.gz")
+            try {
+                download("$base/aarch64/APKINDEX.tar.gz", index, onProgress)
+                val (repositoryPackages, repositoryProviders) =
+                    parseFullApkIndex(index, preferredPackages = installed, repositoryBase = base)
+                repositoryPackages.forEach { (name, entry) ->
+                    val existing = packages[name]
+                    // A newer version wins; on a tie the earlier repository (main) keeps the record.
+                    if (existing == null ||
+                        compareAlpineVersions(entry.version, existing.version) > 0
+                    ) {
+                        packages[name] = entry
+                    }
+                }
+                repositoryProviders.forEach { (alias, name) -> providers.putIfAbsent(alias, name) }
+            } finally {
+                index.delete()
+            }
         }
+        return packages to providers
     }
 
     private suspend fun applyChanges(
@@ -201,13 +250,18 @@ internal class ProotAlpinePackages(
         try {
             for (name in changes) {
                 currentCoroutineContext().ensureActive()
-                val version = packages.getValue(name).version
+                val entry = packages.getValue(name)
+                val version = entry.version
                 val filename = "$name-$version.apk"
                 val cached = File(cacheDir, filename)
                 if (!cached.exists() || cached.length() == 0L) {
                     onProgress("Downloading $filename...")
                     try {
-                        download("$repository/aarch64/$filename", cached, onProgress)
+                        download(
+                            "${entry.repositoryBase.ifBlank { repositories.first() }}/aarch64/$filename",
+                            cached,
+                            onProgress,
+                        )
                     } catch (error: Exception) {
                         cached.delete()
                         throw error
@@ -264,6 +318,8 @@ internal class ProotAlpinePackages(
         timeoutMs: Int,
         onProgress: (String) -> Unit,
     ): SandboxManager.SandboxResult {
+        // A cancelled mutation must not start a guest process at all.
+        currentCoroutineContext().ensureActive()
         val lines = SandboxOutputLines(onProgress)
         val result = try {
             execute(command, timeoutMs, lines::accept)

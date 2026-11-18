@@ -32,9 +32,9 @@ class ProotRootfsInstallerTest {
 
         assertFalse(File(rootfs, "etc/apt/sources.list.d/debian.sources").exists())
         assertEquals(
-            "deb https://deb.debian.org/debian trixie main\n" +
-                "deb https://deb.debian.org/debian trixie-updates main\n" +
-                "deb https://security.debian.org/debian-security trixie-security main\n",
+            "deb http://deb.debian.org/debian trixie main\n" +
+                "deb http://deb.debian.org/debian trixie-updates main\n" +
+                "deb http://security.debian.org/debian-security trixie-security main\n",
             File(rootfs, "etc/apt/sources.list").readText(),
         )
         assertFalse(File(rootfs, "var/lib/apt/lists/deb.debian.org_debian_dists_trixie_InRelease").exists())
@@ -53,14 +53,18 @@ class ProotRootfsInstallerTest {
     }
 
     @Test
-    fun alpineConfigurationKeepsExistingRepositoryAndDoesNotAddAptPolicy() {
+    fun alpineConfigurationWritesMainAndCommunityWithoutAptPolicy() {
         val rootfs = rootfs("alpine")
         file(rootfs, "etc/apk/world", "alpine-baselayout\napk-tools\nbusybox\n")
         file(rootfs, "lib/apk/db/installed", "P:alpine-baselayout\nV:3.6.8-r0\n\nP:apk-tools\nV:2.14.6-r2\n\nP:busybox\nV:1.37.0-r8\n\n")
 
         ProotRootfsInstaller().configureRootfs(SandboxDistribution.ALPINE, rootfs)
 
-        assertEquals("https://dl-cdn.alpinelinux.org/alpine/v3.21/main\n", File(rootfs, "etc/apk/repositories").readText())
+        assertEquals(
+            "http://dl-cdn.alpinelinux.org/alpine/v3.21/main\n" +
+                "http://dl-cdn.alpinelinux.org/alpine/v3.21/community\n",
+            File(rootfs, "etc/apk/repositories").readText(),
+        )
         assertEquals("alpine-baselayout\napk-tools\nbusybox\n", File(rootfs, "etc/agora/base-world").readText())
         assertEquals("", File(rootfs, "etc/agora/explicit-packages").readText())
         assertTrue(File(rootfs, "var/cache/apk").isDirectory)
@@ -248,7 +252,8 @@ class ProotRootfsInstallerTest {
         ProotRootfsInstaller().configureRootfs(SandboxDistribution.ALPINE, rootfs, SandboxMirror.TUNA)
 
         assertEquals(
-            "https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/main\n",
+            "http://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/main\n" +
+                "http://mirrors.tuna.tsinghua.edu.cn/alpine/v3.21/community\n",
             File(rootfs, "etc/apk/repositories").readText(),
         )
     }
@@ -260,8 +265,8 @@ class ProotRootfsInstallerTest {
         ProotRootfsInstaller().configureRootfs(SandboxDistribution.UBUNTU, rootfs, SandboxMirror.TUNA)
         val sources = File(rootfs, "etc/apt/sources.list").readText()
 
-        assertTrue(sources.contains("deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports noble main restricted universe multiverse\n"))
-        assertTrue(sources.contains("deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports noble-security main restricted universe multiverse\n"))
+        assertTrue(sources.contains("deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports noble main restricted universe multiverse\n"))
+        assertTrue(sources.contains("deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports noble-security main restricted universe multiverse\n"))
         assertFalse(File(rootfs, "etc/apt/sources.list.d").listFiles().orEmpty().isNotEmpty())
     }
 

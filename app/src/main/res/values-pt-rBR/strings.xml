@@ -282,6 +282,7 @@
     <string name="video_thumbnail">Miniatura do vídeo</string>
     <string name="play">Reproduzir</string>
     <string name="video_preview">Pré-visualização do vídeo</string>
+    <string name="video_playback_failed">Não é possível reproduzir este vídeo. O arquivo pode estar ausente ou danificado.</string>
     <string name="total_tokens">Total: %1$d tokens</string>
     <string name="welcome_to_agora">Bem-vindo ao Agora.</string>
     <string name="database_incompatible">Banco de dados incompatível</string>

@@ -29,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -93,7 +94,9 @@ fun SettingsSandboxPage(
     // Each distribution owns a fresh dashboard snapshot; the manager owns persisted selection.
     val distribution by sandboxManager.distribution.collectAsState()
     var available by remember(distribution) { mutableStateOf(sandboxManager.isAvailableSync()) }
-    var backendPackagesLoading by remember(distribution) { mutableStateOf(true) }
+    var backendPackagesLoading by remember(distribution) {
+        mutableStateOf(sandboxManager.packageList.value.isEmpty())
+    }
     var selectingDistribution by remember { mutableStateOf(false) }
     var installRequests by remember(distribution) { mutableIntStateOf(0) }
     val selectionFailedMessage = stringResource(R.string.sandbox_distribution_switch_failed)
@@ -111,6 +114,9 @@ fun SettingsSandboxPage(
     val downloadProgress by sandboxManager.downloadProgress.collectAsState()
     val rootfsPhase by sandboxManager.rootfsPhase.collectAsState()
     val canManage = !isBusy && !installingRootfs && !selectingDistribution
+    // Reset must stay available while a mutation runs: it cancels the running operation and
+    // deletes the rootfs, which is the only recovery from a stuck install or package command.
+    val canReset = !selectingDistribution
     val showTerminal = terminalOutput.isNotBlank()
     val mirrorAppliedMessage = stringResource(R.string.sandbox_mirror_applied)
     val mirrorFailedMessage = stringResource(R.string.sandbox_mirror_failed)
@@ -149,11 +155,14 @@ fun SettingsSandboxPage(
 
     // Recheck on page entry, selection or an Install tap, even if the running state is too brief to draw.
     // The backend emits install failures independently; this check only updates the dashboard.
-    LaunchedEffect(distribution, installRequests) {
+    LaunchedEffect(distribution, installRequests, isBusy) {
+        // A package operation owns the mutation boundary; refreshing now would only queue behind it
+        // and leave the page spinning forever. The cached snapshot stays on screen instead.
+        if (isBusy) return@LaunchedEffect
         try {
             sandboxManager.isInstallingRootfs.first { !it }
             available = sandboxManager.isAvailable()
-            if (available && backendPackagesLoading) sandboxManager.refreshPackageList()
+            if (available) sandboxManager.refreshPackageList()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -203,8 +212,16 @@ fun SettingsSandboxPage(
                                 },
                                 leadingContent = { SandboxDistributionIcon(distribution) },
                                 trailingContent = {
-                                    TextButton(onClick = ::upgradePackages, enabled = canManage) {
-                                        Text(stringResource(R.string.sandbox_upgrade), style = MaterialTheme.typography.labelLarge)
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(percent = 50))
+                                            .clickable(enabled = canManage) { upgradePackages() },
+                                    ) {
+                                        SandboxSetupLabel(
+                                            stringResource(R.string.sandbox_upgrade),
+                                            canManage,
+                                            singleLine = true,
+                                        )
                                     }
                                 },
                             )
@@ -613,7 +630,7 @@ fun SettingsSandboxPage(
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                 },
-                                modifier = Modifier.clickable(enabled = canManage) { resetConfirm = true }
+                                modifier = Modifier.clickable(enabled = canReset) { resetConfirm = true }
                             )
                         }))
                         Spacer(Modifier.height(16.dp))
@@ -660,7 +677,7 @@ fun SettingsSandboxPage(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (!canManage) return@TextButton
+                        if (!canReset) return@TextButton
                         resetConfirm = false
                         scope.launch {
                             if (sandboxManager.reset()) {
@@ -669,7 +686,7 @@ fun SettingsSandboxPage(
                             }
                         }
                     },
-                    enabled = canManage,
+                    enabled = canReset,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) { Text(stringResource(R.string.delete)) }
             },

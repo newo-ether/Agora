@@ -353,6 +353,7 @@
     <string name="video_thumbnail">视频缩略图</string>
     <string name="play">播放</string>
     <string name="video_preview">视频预览</string>
+    <string name="video_playback_failed">无法播放此视频。文件可能已丢失或损坏。</string>
 
     <!-- Local Chat Provider -->
     <string name="local_chat_models">本地聊天模型</string>

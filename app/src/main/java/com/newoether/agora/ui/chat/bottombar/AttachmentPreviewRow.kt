@@ -53,6 +53,7 @@ import com.newoether.agora.model.previewImagePath
 import com.newoether.agora.ui.chat.FileThumbnail
 import com.newoether.agora.ui.chat.MEDIA_LOADING_INDICATOR_STROKE_WIDTH
 import com.newoether.agora.ui.chat.MediaLoadPresentation
+import com.newoether.agora.ui.chat.VideoPosterThumbnail
 import com.newoether.agora.ui.chat.rememberMediaLoadingVisible
 import com.newoether.agora.ui.chat.toMediaLoadPresentation
 import com.newoether.agora.ui.common.LocalAgoraHaptics
@@ -114,20 +115,18 @@ internal fun AttachmentPreviewRow(
                 (it.type == "image" || it.type == "video")
         }
     }
+    // Every media attachment contributes exactly one playable destination. A sliced frame list is
+    // not a video and cannot be played, and a Local Sandbox video keeps its staged host copy, so
+    // the tap below always opens the file the viewer can actually read.
     val allMediaUrls = remember(mediaAttachments) {
-        mediaAttachments.flatMap {
-            if (it.type == "video" && it.storage.isLocalSandbox) it.processedFrames.orEmpty()
-            else listOfNotNull(if (it.type == "image") it.previewImagePath else it.localPath ?: it.uri)
+        mediaAttachments.map { attachment ->
+            if (attachment.type == "image") attachment.previewImagePath ?: attachment.uri
+            else attachment.localPath ?: attachment.uri
         }
     }
     val mediaIndexById = remember(mediaAttachments) {
-        var index = 0
-        mediaAttachments.associate { attachment ->
-            val first = index
-            index += if (attachment.type == "video" && attachment.storage.isLocalSandbox) {
-                attachment.processedFrames.orEmpty().size
-            } else 1
-            attachment.localId to first
+        mediaAttachments.withIndex().associate { (index, attachment) ->
+            attachment.localId to index
         }
     }
     LazyRow(
@@ -325,11 +324,11 @@ private fun AttachmentPresentationContent(
                 modifier = Modifier.fillMaxSize(),
                 fallbackLabel = attachment.type.uppercase().take(4).ifEmpty { "FILE" },
             )
-            AttachmentPreviewPresentation.READY_VIDEO_PLACEHOLDER -> Icon(
-                Icons.Default.Videocam,
-                stringResource(R.string.video),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(28.dp),
+            AttachmentPreviewPresentation.READY_VIDEO_PLACEHOLDER -> VideoPosterThumbnail(
+                source = attachment.localPath ?: attachment.uri,
+                contentDescription = stringResource(R.string.video),
+                modifier = Modifier.fillMaxSize(),
+                shape = shape,
             )
             AttachmentPreviewPresentation.IMPORT_LOADING -> {
                 AttachmentTypePlaceholder(attachment)

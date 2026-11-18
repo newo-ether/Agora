@@ -285,6 +285,7 @@
     <string name="video_thumbnail">Ảnh thu nhỏ video</string>
     <string name="play">Phát</string>
     <string name="video_preview">Xem trước video</string>
+    <string name="video_playback_failed">Không thể phát video này. Tệp có thể bị thiếu hoặc hỏng.</string>
     <string name="total_tokens">Tổng cộng: %1$d token</string>
     <string name="welcome_to_agora">Chào mừng đến với Agora.</string>
     <string name="database_incompatible">Cơ sở dữ liệu không tương thích</string>

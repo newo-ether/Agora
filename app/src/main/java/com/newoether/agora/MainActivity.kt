@@ -401,6 +401,7 @@ fun MainNavigation(
         }
     }
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
+    val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
     val pdfPages by viewModel.mediaPreview.pdfPages.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarVersionState = remember { mutableIntStateOf(0) }
@@ -689,7 +690,12 @@ fun MainNavigation(
                 exit = fullScreenPreviewExitTransition(motionPolicy.allowSpatialTransitions)
             ) {
                 if (savedContent != null && savedName != null) {
-                    com.newoether.agora.ui.chat.TextFileViewer(content = savedContent!!, fileName = savedName!!, onClose = { viewModel.mediaPreview.clear() })
+                    com.newoether.agora.ui.chat.TextFileViewer(
+                        content = savedContent!!,
+                        fileName = savedName!!,
+                        onClose = { viewModel.mediaPreview.clear() },
+                        autoWrapCodeBlocks = autoWrapCodeBlocks,
+                    )
                 }
             }
 

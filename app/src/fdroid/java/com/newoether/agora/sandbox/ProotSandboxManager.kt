@@ -185,8 +185,14 @@ class ProotSandboxManager internal constructor(
         if (!ensureShell()) return unavailable("/bin/sh missing")
         if (!linkerExists(_distribution.value)) return unavailable("Sandbox dynamic linker missing")
         resolver().ensureSandboxMountTargets()
-        if (_distribution.value.usesApt) aptPackages().prepare()
-        else AlpinePackageMetadataStore(rootfs()).ensurePackageMetadata()
+        // A rootfs installed before the guest repositories moved to plain HTTP keeps failing TLS
+        // verification, so apt never fetches an index and every install says "unable to locate".
+        ProotRootfsInstaller().usePlainHttpRepositories(rootfs())
+        if (_distribution.value.usesApt) {
+            // A rootfs installed before certificates were seeded would keep failing apt TLS checks.
+            AndroidSystemCertificates.installIfMissing(rootfs())
+            aptPackages().prepare()
+        } else AlpinePackageMetadataStore(rootfs()).ensurePackageMetadata()
         val passwd = resolver().resolvePath("/etc/passwd")
         if (passwd.isFile) {
             val content = passwd.readText()
@@ -373,6 +379,7 @@ class ProotSandboxManager internal constructor(
                     _isBusy.value = false
                     _isInstallingRootfs.value = false
                     _rootfsPhase.value = null
+                    _downloadProgress.value = null
                 }
             }
         }

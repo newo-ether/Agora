@@ -465,7 +465,7 @@ internal fun String.toRenderableMarkdownText(parseInlineDollarMath: Boolean = fa
             else span.content
         }
     }
-    return markdown.escapeForMarkdown().openTableBlocks().embedStandaloneVideoPaths()
+    return markdown.escapeForMarkdown().openTableBlocks().embedHtmlVideoTags().embedStandaloneVideoPaths()
 }
 
 /**
@@ -491,7 +491,7 @@ internal fun String.embedStandaloneVideoPaths(): String {
         if (fence != null) return@map line
         val destination = standaloneVideoDestination(line) ?: return@map line
         changed = true
-        "![]($destination)"
+        embeddedVideoNode(destination)
     }
     return if (changed) lines.joinToString("\n") else this
 }
@@ -499,10 +499,84 @@ internal fun String.embedStandaloneVideoPaths(): String {
 private fun standaloneVideoDestination(line: String): String? {
     if (line.startsWith("    ") || line.startsWith('\t')) return null
     val trimmed = line.trim()
-    if (trimmed.isEmpty() || trimmed.any(Char::isWhitespace)) return null
+    if (trimmed.isEmpty()) return null
+    // One whole line that is a Markdown link to a video renders as the same card.
+    STANDALONE_MARKDOWN_LINK.matchEntire(trimmed)?.let { match ->
+        val destination = match.groupValues[1].removeSurrounding("<", ">")
+        return markdownVideoLink(destination)
+    }
+    if (trimmed.any(Char::isWhitespace)) return null
     if (trimmed.first() in "<[!`" || '`' in trimmed || "](" in trimmed) return null
-    val video = markdownVideoLink(trimmed) ?: return null
-    return "<$video>"
+    return markdownVideoLink(trimmed)
+}
+
+/**
+ * The renderer parses the plain `](path)` destination; an angle-bracketed destination is not
+ * recognised and the node disappears. Spaces and parentheses are percent-encoded instead.
+ */
+private fun embeddedVideoNode(destination: String): String {
+    val encoded = destination
+        .replace(" ", "%20")
+        .replace("(", "%28")
+        .replace(")", "%29")
+    return "![]($encoded)"
+}
+
+private val STANDALONE_MARKDOWN_LINK = Regex("""^\[[^\]]*]\(<?([^()\s<>]+)>?\)$""")
+
+private val HTML_VIDEO_ELEMENT = Regex(
+    """(?is)<video\b[^>]*/>|<video\b[^>]*>.*?</video\s*>""",
+)
+
+private val HTML_SRC_ATTRIBUTE = Regex("""(?is)\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""")
+
+/**
+ * A raw `<video src="...">` element becomes the same Markdown image node as an embedded image,
+ * so a model that writes HTML markup still gets the inline video card. Fenced code keeps its text.
+ */
+internal fun String.embedHtmlVideoTags(): String {
+    if (!contains("<video", ignoreCase = true)) return this
+    val fenced = fencedCodeRanges()
+    return HTML_VIDEO_ELEMENT.replace(this) { match ->
+        val start = match.range.first
+        val insideFence = fenced.any { start >= it.first && start <= it.last }
+        if (insideFence) match.value else htmlVideoMarkdown(match.value) ?: match.value
+    }
+}
+
+private fun htmlVideoMarkdown(element: String): String? {
+    val source = HTML_SRC_ATTRIBUTE.find(element) ?: return null
+    val destination = source.groupValues.drop(1).firstOrNull(String::isNotEmpty)?.trim().orEmpty()
+    if (destination.isEmpty() || markdownVideoLink(destination) == null) return null
+    return embeddedVideoNode(destination)
+}
+
+/** Character ranges covered by fenced code blocks, so rewrites never touch verbatim code. */
+private fun String.fencedCodeRanges(): List<IntRange> {
+    val ranges = mutableListOf<IntRange>()
+    var fence: String? = null
+    var fenceStart = 0
+    var offset = 0
+    for (line in split('\n')) {
+        val trimmed = line.trim()
+        val marker = when {
+            trimmed.startsWith("```") -> "```"
+            trimmed.startsWith("~~~") -> "~~~"
+            else -> null
+        }
+        if (marker != null) {
+            if (fence == null) {
+                fence = marker
+                fenceStart = offset
+            } else if (fence == marker) {
+                fence = null
+                ranges += fenceStart..(offset + line.length)
+            }
+        }
+        offset += line.length + 1
+    }
+    if (fence != null) ranges += fenceStart..length
+    return ranges
 }
 
 internal fun String.escapeForMarkdown(): String = escapeDollarForMarkdown()

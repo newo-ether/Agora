@@ -37,6 +37,10 @@ internal class ProotProcessRunner(
             environment()["PROOT_TMP_DIR"] = tmpDir.absolutePath
             environment()["HOME"] = home
             environment()["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            // Android sets TMPDIR to the app cache directory, which is outside the guest
+            // rootfs; mktemp in maintainer scripts then fails before any package installs.
+            environment()["TMPDIR"] = "/tmp"
+            environment()["TMP"] = "/tmp"
         }
     }
 

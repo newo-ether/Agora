@@ -130,8 +130,24 @@ fun FullScreenMediaViewer(
     if (isSingleVideo == true) {
         var showOverlay by remember { mutableStateOf(true) }
         var closing by remember { mutableStateOf(false) }
+        var actionsVisible by remember { mutableStateOf(false) }
         Box(modifier = Modifier.fillMaxSize()) {
-            VideoPlayer(uri = url, onClose = onClose, closing = closing)
+            VideoPlayer(
+                uri = url,
+                onClose = onClose,
+                closing = closing,
+                onLongPress = {
+                    haptics.longPress()
+                    actionsVisible = true
+                },
+            )
+            if (actionsVisible) {
+                VideoActionsSheet(
+                    url = url,
+                    onMessage = onMessage,
+                    onDismiss = { actionsVisible = false },
+                )
+            }
             AnimatedVisibility(
                 visible = showOverlay,
                 enter = fadeIn(),

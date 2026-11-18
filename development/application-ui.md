@@ -205,10 +205,15 @@ Markdown body/list/table text, H1-H6, block code, and inline code preserve their
 use exactly 1.1 times their source line height. H1-H6 are explicitly Bold. Link text inherits the
 containing paragraph typography.
 
-The ordinary-text preview also uses the current effective App font while retaining its exact 13 sp
-font size and 20 sp line height. The already-bold filename overlay, close control, selection, scrolling,
-HTML handling, link behavior, Markdown components, content padding, and file-type routing remain
-unchanged.
+The ordinary-text preview is a code editor: a right-aligned grey line-number gutter sits beside the
+text, starting at line 1 for the first logical line. Text uses JetBrains Mono at 13 sp with a 20 sp
+line height and MiOutfit as its glyph fallback, so Chinese content keeps the App face instead of the
+platform default. Line wrapping follows the same Appearance setting as chat code blocks
+(`autoWrapCodeBlocks`): on, every logical line folds inside the text column with its number on the
+first row; off, the text scrolls horizontally under a gutter that stays put. Above 1200 lines the
+gutter is drawn inline in one text block, so a long log never builds a composable per line. The
+already-bold filename overlay, close control, selection, scrolling, HTML handling, link behavior,
+Markdown components, content padding, and file-type routing remain unchanged.
 
 Every full-screen preview subtype enters and exits through one of two shared top-level transition
 hosts: the media host covers loading, single video, PDF, mixed image/video paging, and single image;
@@ -221,7 +226,9 @@ The hosts keep their last payload through exit and release the top-level present
 the transition settles. A confirmed video page alone retains the viewer-internal 400 ms player fade
 before handing off to the shared top-level exit. Image, PDF, loading, and unresolved media pages hand
 off immediately without a pager-owned delay. The mixed-media pager has no duplicate close timer or
-second `onClose` owner. Media decoding, pager navigation, gestures, payload routing, shared exit
+second `onClose` owner. A player that reports a media error shows a localized failure line and a
+close action instead of holding the alpha-zero surface as a silent black rectangle, and bare storage
+paths are promoted to `file://` before ExoPlayer sees them. Media decoding, pager navigation, gestures, payload routing, shared exit
 transitions, and Reduced Motion remain unchanged.
 
 ## 12. PDF page rasterization
@@ -595,8 +602,10 @@ original bytes at `/home/agora/attachments/<id>/<name>`. Storage ownership does 
 attachment MIME classification, PDF page selection, bounded text resolution, or
 Composer/message/full-screen/WebUI preview. A Sandbox video is the one exception to derived display
 work: it stays the original file with no frame extraction, reaches `READY` without slice configuration,
-never opens the slice dialog, and keeps a static video tile (no frame snapshot), because Provider
-requests carry only its sandbox path. Turning Sandbox off restores the ordinary slice dialog and frame
+never opens the slice dialog, and writes no frame artifact, because Provider requests carry only its
+sandbox path. Its tile, the message tile and the Markdown video card each show one display-only
+poster frame decoded by `MediaMetadataRetriever` into an in-memory cache of 16 entries at most
+512 px wide; nothing reaches storage. Turning Sandbox off restores the ordinary slice dialog and frame
 artifacts. Resolve freezes display data before `READY`: images receive a separate app-private
 byte-exact raster copy without re-encoding; PDF pages keep their completed derived artifacts, and text
 keeps its bounded resolved string. Unsupported files have no preview duplicate. `localPath` and
@@ -627,7 +636,9 @@ records survive navigation and disconnect in the current page, but not page relo
 
 Each attachment tile has one canonical fixed-64-dp presentation Crossfade with a 200 ms duration.
 Its keyed states include a neutral initial frame, unavailable, import loading/failure, ready
-file/PDF/video placeholder, and Coil media loading/success/error. The thumbnail, placeholder, scrim,
+file/PDF/video placeholder, and Coil media loading/success/error. The video placeholder owns the
+display-only poster frame, so it crossfades from the camera glyph to real footage inside the same
+owner. The thumbnail, placeholder, scrim,
 error action, and indeterminate progress indicator all render inside that owner; none may hard-swap
 outside it. A newly inserted `PROCESSING` attachment starts at the neutral frame so the loading
 indicator visibly crossfades in. Loading-to-ready, loading-to-failed, failed-to-retry/loading, media

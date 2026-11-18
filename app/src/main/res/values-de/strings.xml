@@ -282,6 +282,7 @@
     <string name="video_thumbnail">Video-Vorschaubild</string>
     <string name="play">Abspielen</string>
     <string name="video_preview">Videovorschau</string>
+    <string name="video_playback_failed">Dieses Video kann nicht abgespielt werden. Die Datei fehlt möglicherweise oder ist beschädigt.</string>
     <string name="total_tokens">Gesamt: %1$d Tokens</string>
     <string name="welcome_to_agora">Willkommen bei Agora.</string>
     <string name="database_incompatible">Datenbank inkompatibel</string>

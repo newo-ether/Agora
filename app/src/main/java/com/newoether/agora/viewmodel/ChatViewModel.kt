@@ -218,6 +218,10 @@ class ChatViewModel(
         sandboxFactory?.create()
     }
     val isSandboxFlavor: Boolean = sandboxFactory?.isAvailable() == true
+
+    /** Local Sandbox attachments need the toggle on and a rootfs that is actually installed. */
+    val sandboxAttachmentReady: Boolean
+        get() = settings.sandboxEnabled.value && sandboxManager?.isAvailableSync() == true
     val mcpServerSnapshots: StateFlow<Map<String, com.newoether.agora.mcp.McpServerSnapshot>>
         get() = mcpRegistry.snapshots
 

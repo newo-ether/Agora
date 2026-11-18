@@ -282,6 +282,7 @@
     <string name="video_thumbnail">Эскиз видео</string>
     <string name="play">Воспроизвести</string>
     <string name="video_preview">Предпросмотр видео</string>
+    <string name="video_playback_failed">Не удаётся воспроизвести это видео. Возможно, файл отсутствует или повреждён.</string>
     <string name="total_tokens">Всего: %1$d токенов</string>
     <string name="welcome_to_agora">Добро пожаловать в Agora.</string>
     <string name="database_incompatible">Несовместимая база данных</string>

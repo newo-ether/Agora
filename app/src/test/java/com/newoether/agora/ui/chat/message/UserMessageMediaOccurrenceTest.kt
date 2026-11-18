@@ -42,20 +42,22 @@ class UserMessageMediaOccurrenceTest {
     }
 
     @Test
-    fun sandboxVideoViewerUsesReadableSnapshotFramesWithoutOriginalFallback() {
+    fun sandboxVideoViewerPrefersThePlayableOriginalAndFallsBackToFrames() {
         val frames = listOf(
             ImageArtifact("/private/vid_first.png", "image/png", 1, 20, 30, unavailable = true),
             ImageArtifact("/private/vid_second.png", "image/png", 1, 20, 30),
         )
         val item = AttachmentItem(type = "video", imageIndex = 0, originalUri = "file:///sandbox/clip.mp4",
             storage = AttachmentStorage.LOCAL_SANDBOX_RUNTIME, imageArtifacts = frames)
+        // A frame list is not a video: the tap must reach the playable copy even when frames exist.
         val projection = projectStoredMediaOccurrences(listOf(frames.first().path to item))
-        assertEquals(listOf(frames.last().path), projection.urls)
+        assertEquals(listOf("file:///sandbox/clip.mp4"), projection.urls)
         assertEquals(listOf(0), projection.indexByDisplayItem)
-        val missing = projectStoredMediaOccurrences(listOf(frames.first().path to item.copy(
-            imageArtifacts = frames.map { it.copy(unavailable = true) })))
-        assertEquals(emptyList<String>(), missing.urls)
-        assertEquals(listOf<Int?>(null), missing.indexByDisplayItem)
+        val withoutOriginal = projectStoredMediaOccurrences(
+            listOf(frames.first().path to item.copy(originalUri = null)),
+        )
+        assertEquals(listOf(frames.last().path), withoutOriginal.urls)
+        assertEquals(listOf(0), withoutOriginal.indexByDisplayItem)
     }
 
     @Test

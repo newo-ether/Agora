@@ -234,7 +234,7 @@ class ChatComposerState(
 
 @Composable
 fun rememberChatComposerState(
-    sandboxEnabled: Boolean = false,
+    sandboxEnabled: () -> Boolean = { false },
     isSandboxFlavor: Boolean = false,
 ): ChatComposerState {
     val context = LocalContext.current
@@ -246,7 +246,7 @@ fun rememberChatComposerState(
             context = context,
             haptics = haptics,
             scope = scope,
-            sandboxEnabled = { latestSandboxEnabled.value },
+            sandboxEnabled = { latestSandboxEnabled.value() },
             isSandboxFlavor = isSandboxFlavor,
         )
     }

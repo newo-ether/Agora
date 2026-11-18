@@ -496,11 +496,15 @@ Markdown video destinations are cards, not images. A `![](...)` destination, a
 (`/home/agora/…`, `/mnt/shared/…`, `/storage/emulated/0/…`, `/storage/self/primary/…`)
 whose file name names a video container (mp4, m4v, webm, mov, mkv, avi, 3gp, ogv) renders a
 16:9 card (300 dp block width, 160×90 dp inline) with a play affordance and the file name.
-Readable local files play through the app FileProvider; HTTP(S) URLs stream directly. Other
+The card shows one display-only poster frame decoded from the resolved file with
+`MediaMetadataRetriever` and cached only in memory (16 entries, at most 512 px wide); no frame
+artifact is written and the stored-media set is unchanged. Readable local files play through the app
+FileProvider; HTTP(S) URLs stream directly. Other
 shell servers and paths outside those roots remain inert text. A line whose entire content is
 one such path becomes the card too; fenced or four-space code, inline code, prose containing
-the path, and existing links or images keep their text. Nothing decodes until the tap, which
-opens the existing full-screen player. Long-pressing the card or its player opens the same
+the path, and existing links or images keep their text. A destination whose poster cannot be
+decoded keeps the play affordance without a frame, and the tap opens the existing full-screen
+player, which reports a playback failure instead of staying black. Long-pressing the card or its player opens the same
 modal actions sheet as an image, offering save to the gallery, share, and file info for the
 video. Videos never consume an image
 ordinal, never enter `filesDir/markdown-media`, and are excluded from the native occurrence set that

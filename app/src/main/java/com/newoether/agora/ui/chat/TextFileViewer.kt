@@ -22,11 +22,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
+import com.newoether.agora.ui.theme.CodeEditorFamily
 import com.newoether.agora.ui.chat.message.LiteralHtmlMarkdownBlock
 import com.newoether.agora.ui.chat.message.SearchHighlightedMarkdownHeading
 import com.newoether.agora.ui.chat.message.SearchHighlightedMarkdownTable
@@ -52,6 +57,7 @@ fun TextFileViewer(
     content: String,
     fileName: String,
     onClose: () -> Unit,
+    autoWrapCodeBlocks: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     BackHandler(enabled = true) { onClose() }
@@ -189,26 +195,7 @@ fun TextFileViewer(
                                     }
             }
         } else {
-            val scrollState = rememberScrollState()
-            NoAutoScrollSelectionContainer {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {}
-                        .verticalScroll(scrollState)
-                        .horizontalScroll(rememberScrollState())
-                        .padding(start = 20.dp, end = 20.dp, top = 96.dp, bottom = 56.dp)
-                ) {
-                    Text(
-                        content,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = t.bodyMedium.copy(
-                            fontSize = 13.sp,
-                            lineHeight = 20.sp,
-                        ),
-                    )
-                                    }
-            }
+            CodeEditorText(content = content, autoWrap = autoWrapCodeBlocks)
         }
 
         // Top alpha gradient
@@ -276,3 +263,111 @@ fun TextFileViewer(
         }
     }
 }
+
+/** Line count above which the gutter is drawn inline instead of one composable per line. */
+private const val MAX_CODE_EDITOR_ROWS = 1200
+
+/**
+ * Code-editor rendering for plain text: a grey line-number gutter beside JetBrains Mono text with
+ * MiOutfit as the glyph fallback. Wrapping follows the chat code-block setting, so lines either
+ * fold in place or scroll horizontally under a gutter that stays put.
+ */
+@Composable
+private fun CodeEditorText(content: String, autoWrap: Boolean) {
+    val lines = remember(content) { codeEditorLines(content) }
+    val style = MaterialTheme.typography.bodyMedium.copy(
+        fontFamily = CodeEditorFamily,
+        fontSize = 13.sp,
+        lineHeight = 20.sp,
+    )
+    val gutterColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val digits = remember(lines) { lines.size.toString().length }
+    val gutterWidth = (digits * 8).dp
+    NoAutoScrollSelectionContainer {
+        when {
+            autoWrap && lines.size <= MAX_CODE_EDITOR_ROWS -> Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {}
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 96.dp, bottom = 56.dp)
+            ) {
+                lines.forEachIndexed { index, line ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(end = 20.dp)) {
+                        Text(
+                            text = (index + 1).toString(),
+                            style = style,
+                            color = gutterColor,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.padding(start = 12.dp).widthIn(min = gutterWidth),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            // An empty Text collapses to zero height, which would drop blank lines.
+                            text = line.ifEmpty { " " },
+                            style = style,
+                            color = textColor,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+            !autoWrap -> Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {}
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 96.dp, bottom = 56.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = lines.indices.joinToString("\n") { (it + 1).toString() },
+                        style = style,
+                        color = gutterColor,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.padding(start = 12.dp).widthIn(min = gutterWidth),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Box(modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
+                        Text(
+                            text = content,
+                            style = style,
+                            color = textColor,
+                            softWrap = false,
+                            modifier = Modifier.padding(end = 20.dp),
+                        )
+                    }
+                }
+            }
+            else -> {
+                // A huge file keeps its numbering without one composable pair per line.
+                val numbered = remember(lines, gutterColor, digits) {
+                    buildAnnotatedString {
+                        lines.forEachIndexed { index, line ->
+                            if (index > 0) append('\n')
+                            withStyle(SpanStyle(color = gutterColor)) {
+                                append((index + 1).toString().padStart(digits))
+                                append("  ")
+                            }
+                            append(line)
+                        }
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {}
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 12.dp, end = 20.dp, top = 96.dp, bottom = 56.dp)
+                ) {
+                    Text(text = numbered, style = style, color = textColor)
+                }
+            }
+        }
+    }
+}
+
+/** Splits viewer text into logical lines; CRLF and a lone CR count as one break. */
+internal fun codeEditorLines(content: String): List<String> =
+    content.split('\n').map { it.removeSuffix("\r") }

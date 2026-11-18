@@ -21,6 +21,16 @@ val MonoFamily = FontFamily(
     Font(R.font.jetbrains_mono_bolditalic, FontWeight.Bold, FontStyle.Italic),
 )
 
+/**
+ * Code-editor face: JetBrains Mono with MiOutfit as the glyph fallback, so Chinese text keeps the
+ * app's own typeface instead of the platform default. The custom fallback chain needs API 29+;
+ * older releases still draw Latin in JetBrains Mono and fall back to the system face for CJK.
+ */
+val CodeEditorFamily = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.mioutfit_variable, FontWeight.Normal),
+)
+
 @OptIn(ExperimentalTextApi::class)
 private fun miOutfitFont(weight: FontWeight) = Font(
     resId = R.font.mioutfit_variable,

@@ -282,6 +282,7 @@
     <string name="video_thumbnail">Miniature de la vidéo</string>
     <string name="play">Lire</string>
     <string name="video_preview">Aperçu de la vidéo</string>
+    <string name="video_playback_failed">Impossible de lire cette vidéo. Le fichier est peut-être manquant ou endommagé.</string>
     <string name="total_tokens">Total : %1$d tokens</string>
     <string name="welcome_to_agora">Bienvenue sur Agora.</string>
     <string name="database_incompatible">Base de données incompatible</string>
