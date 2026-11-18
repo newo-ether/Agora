@@ -32,6 +32,9 @@ internal fun migrateUnmodifiedBuiltInDefault(
                 userPostpendItems = emptyList(),
                 builtInMigrationVersion = DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION,
             )
+        } else if (DefaultSystemPrompt.isUnmergedDefault(entry)) {
+            // Same text, split into more items than the shipped default now uses.
+            entry.copy(systemItems = currentDefault.systemItems)
         } else {
             entry
         }

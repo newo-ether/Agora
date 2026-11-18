@@ -13,15 +13,14 @@ class DefaultSystemPromptRenderingTest {
     fun defaultHasStaticPolicyAndEditableHtmlGuidanceThenCatalogAndMemoryBlocks() {
         val items = DefaultSystemPrompt.create(Locale.ENGLISH).systemItems
         assertEquals(
-            listOf(PromptItemType.CUSTOM, PromptItemType.CUSTOM, PromptItemType.CUSTOM,
-                PromptItemType.PREDEFINED, PromptItemType.CUSTOM, PromptItemType.PREDEFINED,
-                PromptItemType.CUSTOM),
+            listOf(PromptItemType.CUSTOM, PromptItemType.PREDEFINED, PromptItemType.CUSTOM,
+                PromptItemType.PREDEFINED, PromptItemType.CUSTOM),
             items.map { it.type },
         )
         assertEquals(listOf("skill_catalog", "active_memory"),
             items.filter { it.type == PromptItemType.PREDEFINED }.map { it.value })
         assertEquals(listOf("Response", "Tools", "Memory", "Skills", "Past conversations", "Web",
-            "Devices", "Subagents and automation", "Asking the user"),
+            "Devices", "Subagents and automation", "Asking the user", "Interactive HTML preview"),
             Regex("(?m)^## (.+)$").findAll(items.first().value).map { it.groupValues[1] }.toList())
     }
 
@@ -87,7 +86,7 @@ class DefaultSystemPromptRenderingTest {
         val expectedCurrent = expected.replace("\n\n<skill_catalog>", HtmlPreviewGuidance.text + "\n\n<skill_catalog>")
         assertEquals(expectedCurrent, PredefinedVariables.compile(current, values, emptyMap()))
         assertEquals(expectedCurrent, PredefinedVariables.compile(current, values))
-        assertEquals(HtmlPreviewGuidance.text, current[1].value)
+        assertTrue(current[0].value.contains(HtmlPreviewGuidance.text))
         assertEquals(1, Regex("(?m)^## Interactive HTML preview$").findAll(expectedCurrent).count())
         assertFalse(expectedCurrent.contains("\n\n\n"))
     }

@@ -142,9 +142,15 @@ class GenerationPromptRenderingTest {
         val stored = MutableStateFlow(listOf(original))
         every { fixture.settings.systemPrompts } returns stored
         val values = mapOf("active_memory" to "active memory", "skill_catalog" to "skill catalog")
-        val removed = original.copy(systemItems = original.systemItems.filterNot { it.value == HtmlPreviewGuidance.text })
-        val edited = original.copy(systemItems = original.systemItems.map {
-            if (it.value == HtmlPreviewGuidance.text) it.copy(value = "\n\nMy edited HTML guidance") else it
+        val removed = original.copy(systemItems = original.systemItems.map { item ->
+            if (item.value.contains(HtmlPreviewGuidance.text)) {
+                item.copy(value = item.value.replace(HtmlPreviewGuidance.text, ""))
+            } else item
+        })
+        val edited = original.copy(systemItems = original.systemItems.map { item ->
+            if (item.value.contains(HtmlPreviewGuidance.text)) {
+                item.copy(value = item.value.replace(HtmlPreviewGuidance.text, "\n\nMy edited HTML guidance"))
+            } else item
         })
         listOf(original, removed, edited).forEachIndexed { index, entry ->
             stored.value = listOf(entry)

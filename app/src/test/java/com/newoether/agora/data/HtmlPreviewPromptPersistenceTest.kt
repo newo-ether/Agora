@@ -44,11 +44,14 @@ class HtmlPreviewPromptPersistenceTest {
             assertTrue(HtmlPreviewGuidance.isPresent(migrated.systemItems))
             assertEquals(DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION, migrated.builtInMigrationVersion)
             store.update { prompts -> prompts.map { entry ->
-                entry.copy(systemItems = entry.systemItems.filterNot { it.value == HtmlPreviewGuidance.text })
+                entry.copy(systemItems = entry.systemItems.map { item ->
+                    if (item.value.contains(HtmlPreviewGuidance.text)) {
+                        item.copy(value = item.value.replace(HtmlPreviewGuidance.text, ""))
+                    } else item
+                })
             } }
             deleted = store.systemPrompts.first().single()
-            assertEquals(historical.systemItems.map { it.type to it.value },
-                deleted!!.systemItems.map { it.type to it.value })
+            assertFalse(HtmlPreviewGuidance.isPresent(deleted!!.systemItems))
         }
         repeat(2) { index ->
             withStore("migrated.preferences_pb") { store, _ ->
@@ -66,7 +69,11 @@ class HtmlPreviewPromptPersistenceTest {
         withStore("fresh.preferences_pb") { store, _ ->
             store.initialize(Locale.ENGLISH, 1L)
             val initial = store.systemPrompts.first().single()
-            deleted = initial.copy(systemItems = initial.systemItems.filterNot { it.value == HtmlPreviewGuidance.text })
+            deleted = initial.copy(systemItems = initial.systemItems.map { item ->
+                if (item.value.contains(HtmlPreviewGuidance.text)) {
+                    item.copy(value = item.value.replace(HtmlPreviewGuidance.text, ""))
+                } else item
+            })
             store.save(listOf(deleted!!))
         }
         withStore("fresh.preferences_pb") { store, _ ->

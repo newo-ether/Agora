@@ -58,7 +58,7 @@ object DefaultSystemPrompt {
             builtInMigrationVersion = BUILT_IN_MIGRATION_VERSION,
         )
 
-    /** Exact default shipped before the editable HTML preview guidance item. */
+    /** Exact default that shipped before the HTML preview guidance item. */
     internal fun versionBeforeHtmlPreviewForMigration(
         locale: Locale = Locale.getDefault(),
     ): SystemPromptEntry = SystemPromptEntry(
@@ -67,6 +67,20 @@ object DefaultSystemPrompt {
         userItems = userItems(),
         assistantItems = assistantItems(),
     )
+
+    /** Exact default that shipped with the HTML preview guidance as its own text item. */
+    internal fun versionWithSeparateHtmlPreviewForMigration(
+        locale: Locale = Locale.getDefault(),
+    ): SystemPromptEntry = SystemPromptEntry(
+        title = titleForLocale(locale),
+        systemItems = systemItemsWithSeparateHtmlPreview(),
+        userItems = userItems(),
+        assistantItems = assistantItems(),
+    )
+
+    /** True for the shipped default whose text blocks were split by item boundaries. */
+    internal fun isUnmergedDefault(entry: SystemPromptEntry): Boolean =
+        entry.sameTemplateAs(versionWithSeparateHtmlPreviewForMigration())
 
     /** Exact default shipped with seven conditional guide variables. */
     internal fun versionWithToolGuidesForMigration(
@@ -177,9 +191,29 @@ object DefaultSystemPrompt {
         left.type == right.type && left.value == right.value
     }
 
-    private fun currentSystemItems(): List<PromptTemplateItem> {
+    private fun currentSystemItems(): List<PromptTemplateItem> =
+        mergeAdjacentText(systemItemsWithSeparateHtmlPreview())
+
+    private fun systemItemsWithSeparateHtmlPreview(): List<PromptTemplateItem> {
         val previous = systemItemsBeforeHtmlPreview()
         return listOf(previous.first(), HtmlPreviewGuidance.item()) + previous.drop(1)
+    }
+
+    /**
+     * Adjacent text items render as one text run. Merging them keeps the shipped default readable
+     * in the editor without changing the compiled prompt.
+     */
+    private fun mergeAdjacentText(items: List<PromptTemplateItem>): List<PromptTemplateItem> {
+        val merged = ArrayList<PromptTemplateItem>(items.size)
+        for (item in items) {
+            val last = merged.lastOrNull()
+            if (item.type == PromptItemType.CUSTOM && last?.type == PromptItemType.CUSTOM) {
+                merged[merged.lastIndex] = last.copy(value = last.value + item.value)
+            } else {
+                merged += item
+            }
+        }
+        return merged
     }
 
     private fun systemItemsBeforeHtmlPreview(): List<PromptTemplateItem> = listOf(

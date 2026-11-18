@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
-import com.newoether.agora.data.HtmlPreviewGuidance
 import com.newoether.agora.data.PredefinedVariables
 import com.newoether.agora.data.PromptItemType
 import com.newoether.agora.data.PromptTemplateItem
@@ -137,7 +136,6 @@ fun SystemPromptEditorPage(
         else -> assistantItems
     }
 
-    val hasHtmlPreviewGuidance = HtmlPreviewGuidance.isPresent(systemItems)
     val initialTitle = remember { title }
     val initialSystemItems = remember { systemItems.toList() }
     val initialUserItems = remember { userItems.toList() }
@@ -295,12 +293,6 @@ fun SystemPromptEditorPage(
                                 )
                             },
                             onInsertVariable = { insertAtIndex = i; showVariablePicker = true },
-                            onInsertHtmlPreview = if (selectedTab == 0) ({
-                                if (!HtmlPreviewGuidance.isPresent(systemItems)) {
-                                    systemItems.add(i, HtmlPreviewGuidance.item())
-                                }
-                            }) else null,
-                            htmlPreviewEnabled = !hasHtmlPreviewGuidance,
                         )
 
                         TemplateItemRow(
@@ -334,12 +326,6 @@ fun SystemPromptEditorPage(
                         onInsertVariable = {
                             insertAtIndex = currentItems.size; showVariablePicker = true
                         },
-                        onInsertHtmlPreview = if (selectedTab == 0) ({
-                            if (!HtmlPreviewGuidance.isPresent(systemItems)) {
-                                systemItems.add(HtmlPreviewGuidance.item())
-                            }
-                        }) else null,
-                        htmlPreviewEnabled = !hasHtmlPreviewGuidance,
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -430,8 +416,6 @@ fun SystemPromptEditorPage(
 private fun InsertBetweenButton(
     onInsertText: () -> Unit,
     onInsertVariable: () -> Unit,
-    onInsertHtmlPreview: (() -> Unit)? = null,
-    htmlPreviewEnabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(
@@ -471,14 +455,6 @@ private fun InsertBetweenButton(
                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, null) },
                     onClick = { expanded = false; onInsertVariable() }
                 )
-                if (onInsertHtmlPreview != null) {
-                    AgoraDropdownMenuItem(
-                        text = { Text(stringResource(R.string.html_preview_insert)) },
-                        leadingIcon = { Icon(Icons.Default.Code, null) },
-                        enabled = htmlPreviewEnabled,
-                        onClick = { expanded = false; onInsertHtmlPreview() },
-                    )
-                }
             }
 
         }

@@ -5,6 +5,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SystemPromptMigrationTest {
@@ -97,17 +98,21 @@ class SystemPromptMigrationTest {
     }
 
     @Test
-    fun deletingOrEditingHtmlGuidanceSurvivesRepeatedSerializedStartup() {
-        val current = coldStart(DefaultSystemPrompt.versionBeforeHtmlPreviewForMigration(Locale.ENGLISH))
-        val guidance = current.systemItems.single { it.value == HtmlPreviewGuidance.text }
-        val removed = current.copy(systemItems = current.systemItems.filterNot { it.id == guidance.id })
-        val previous = DefaultSystemPrompt.versionBeforeHtmlPreviewForMigration(Locale.ENGLISH)
-        assertEquals(previous.resolvedSystemItems.map { it.type to it.value },
-            removed.resolvedSystemItems.map { it.type to it.value })
-        assertEquals(DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION, removed.builtInMigrationVersion)
-        assertFalse(DefaultSystemPrompt.isUnmodifiedPreviousVersion(removed))
-        val edited = current.copy(systemItems = current.systemItems.map {
-            if (it.id == guidance.id) it.copy(value = it.value + "\nMy own visualization rules.") else it
+    fun editingHtmlGuidanceInsideTheMergedDefaultSurvivesRepeatedSerializedStartup() {
+        val current = coldStart(DefaultSystemPrompt.versionWithSeparateHtmlPreviewForMigration(Locale.ENGLISH))
+        assertTrue(HtmlPreviewGuidance.isPresent(current.systemItems))
+        current.systemItems.zipWithNext().forEach { (left, right) ->
+            assertFalse(left.type == PromptItemType.CUSTOM && right.type == PromptItemType.CUSTOM)
+        }
+        val removed = current.copy(systemItems = current.systemItems.map { item ->
+            if (HtmlPreviewGuidance.isPresent(listOf(item))) {
+                item.copy(value = item.value.replace(HtmlPreviewGuidance.text, ""))
+            } else item
+        })
+        val edited = current.copy(systemItems = current.systemItems.map { item ->
+            if (HtmlPreviewGuidance.isPresent(listOf(item))) {
+                item.copy(value = item.value + "\nMy own visualization rules.")
+            } else item
         })
         listOf(removed, edited).forEach { customized ->
             assertEquals(customized, coldStart(customized))
