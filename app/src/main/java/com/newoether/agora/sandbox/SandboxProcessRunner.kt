@@ -53,6 +53,21 @@ internal object SandboxProcessRunner {
                     if (onOutput == null) {
                         process.inputStream.use { it.readBoundedShellOutput() }
                     } else {
+                        // Streamed chunks are also retained, bounded like the non-streaming read,
+                        // so callers that need exit status can still inspect stdout/stderr.
+                        val retained = StringBuilder()
+                        var retainedBytes = 0
+                        var truncated = false
+                        fun retain(chunk: String) {
+                            if (truncated) return
+                            val bytes = chunk.toByteArray(Charsets.UTF_8).size
+                            if (retainedBytes + bytes > SHELL_COMMAND_OUTPUT_MAX_BYTES) {
+                                truncated = true
+                                return
+                            }
+                            retained.append(chunk)
+                            retainedBytes += bytes
+                        }
                         InputStreamReader(process.inputStream, Charsets.UTF_8).use { reader ->
                             val chars = CharArray(4096)
                             var pending = ""
@@ -62,11 +77,15 @@ internal object SandboxProcessRunner {
                                 val text = pending + String(chars, 0, count)
                                 val trailing = text.lastOrNull()?.isHighSurrogate() == true
                                 pending = if (trailing) text.takeLast(1) else ""
-                                onOutput(if (trailing) text.dropLast(1) else text)
+                                val chunk = if (trailing) text.dropLast(1) else text
+                                if (chunk.isNotEmpty()) {
+                                    onOutput(chunk)
+                                    retain(chunk)
+                                }
                             }
                             if (pending.isNotEmpty()) onOutput("\uFFFD")
                         }
-                        "" to false
+                        retained.toString() to truncated
                     }
                 }
                 try {

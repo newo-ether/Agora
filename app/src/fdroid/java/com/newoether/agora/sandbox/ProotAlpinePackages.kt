@@ -12,7 +12,11 @@ internal class ProotAlpinePackages(
     private val rootfsDir: File,
     private val cacheDir: File,
     mirror: SandboxMirror = SandboxMirror.OFFICIAL,
-    private val execute: suspend (command: String, timeoutMs: Int) -> SandboxManager.SandboxResult,
+    private val execute: suspend (
+        command: String,
+        timeoutMs: Int,
+        onOutput: ((String) -> Unit)?,
+    ) -> SandboxManager.SandboxResult,
 ) {
     var lastError: String? = null
     private val metadata = AlpinePackageMetadataStore(rootfsDir)
@@ -118,8 +122,7 @@ internal class ProotAlpinePackages(
             var removed = false
             try {
                 onProgress("Running: apk del $requested")
-                val result = execute("apk del ${quote(requested)}", 60_000)
-                report(result, onProgress)
+                val result = run("apk del ${quote(requested)}", 60_000, onProgress)
                 removed = requested !in metadata.readInstalledVersions()
                 if (!removed) {
                     lastError = result.stderr.ifBlank { result.stdout }.ifBlank { "Package was not removed: $requested" }
@@ -217,11 +220,11 @@ internal class ProotAlpinePackages(
             }
             onProgress("Installing ${staged.size} packages...")
             currentCoroutineContext().ensureActive()
-            val result = execute(
+            val result = run(
                 "apk add --allow-untrusted --no-network ${staged.joinToString(" ") { quote("/tmp/${tmpDir.name}/${it.name}") }}",
                 timeoutMs,
+                onProgress,
             )
-            report(result, onProgress)
             if (result.exitCode != 0) lastError = result.stderr.ifBlank { result.stdout }.ifBlank { "Upgrade failed" }
             return result
         } finally {
@@ -256,10 +259,19 @@ internal class ProotAlpinePackages(
         }
     }
 
-    private fun report(result: SandboxManager.SandboxResult, onProgress: (String) -> Unit) {
-        if (result.stdout.isNotBlank()) onProgress(result.stdout)
-        if (result.stderr.isNotBlank()) onProgress(result.stderr)
+    private suspend fun run(
+        command: String,
+        timeoutMs: Int,
+        onProgress: (String) -> Unit,
+    ): SandboxManager.SandboxResult {
+        val lines = SandboxOutputLines(onProgress)
+        val result = try {
+            execute(command, timeoutMs, lines::accept)
+        } finally {
+            lines.flush()
+        }
         onProgress("apk exit code: ${result.exitCode}")
+        return result
     }
 
     private fun validate(name: String, onProgress: (String) -> Unit): String? = try {

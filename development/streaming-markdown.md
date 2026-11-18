@@ -491,13 +491,18 @@ starting with a drive (`F:/…`) stays a Windows path, anything else is rooted a
 rules; any other name selects a configured Conch device and uses `/file/image`
 (images only, 20 MB). SSH devices, videos and plain local paths are not image destinations.
 
-Markdown video destinations are cards, not images. A `![](...)` destination whose file name
-names a video container (mp4, m4v, webm, mov, mkv, avi, 3gp, ogv) renders a 16:9 card
-(300 dp block width, 160×90 dp inline) with a play affordance and the file name.
-`shell://Local Sandbox/home/agora/…` resolves under the sandbox home (`/home/agora`, backed by
-`filesDir/sandbox-home`) and plays through the app FileProvider; HTTP(S) URLs stream directly.
-Other shell servers and sandbox paths outside `/home/agora` remain an unsupported card. Nothing
-decodes until the tap, which opens the existing full-screen player. Videos never consume an image
+Markdown video destinations are cards, not images. A `![](...)` destination, a
+`shell://Local Sandbox/home/agora/…` path, or a local path under a readable root
+(`/home/agora/…`, `/mnt/shared/…`, `/storage/emulated/0/…`, `/storage/self/primary/…`)
+whose file name names a video container (mp4, m4v, webm, mov, mkv, avi, 3gp, ogv) renders a
+16:9 card (300 dp block width, 160×90 dp inline) with a play affordance and the file name.
+Readable local files play through the app FileProvider; HTTP(S) URLs stream directly. Other
+shell servers and paths outside those roots remain inert text. A line whose entire content is
+one such path becomes the card too; fenced or four-space code, inline code, prose containing
+the path, and existing links or images keep their text. Nothing decodes until the tap, which
+opens the existing full-screen player. Long-pressing the card or its player opens the same
+modal actions sheet as an image, offering save to the gallery, share, and file info for the
+video. Videos never consume an image
 ordinal, never enter `filesDir/markdown-media`, and are excluded from the native occurrence set that
 WebUI image reads use.
 

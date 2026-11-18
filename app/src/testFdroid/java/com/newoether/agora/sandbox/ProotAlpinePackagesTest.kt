@@ -146,7 +146,7 @@ class ProotAlpinePackagesTest {
     private fun rootfs(): File = temporaryFolder.newFolder()
 
     private fun helper(root: File, execute: suspend (String) -> SandboxManager.SandboxResult) =
-        ProotAlpinePackages(root, temporaryFolder.newFolder()) { command, _ -> execute(command) }
+        ProotAlpinePackages(root, temporaryFolder.newFolder()) { command, _, _ -> execute(command) }
 
     private fun installed(root: File, value: String) {
         File(root, "lib/apk/db/installed").apply { parentFile.mkdirs(); writeText(value) }

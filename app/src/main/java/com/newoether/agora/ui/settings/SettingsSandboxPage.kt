@@ -459,7 +459,7 @@ fun SettingsSandboxPage(
                                     }
                                     val terminalFg = MaterialTheme.colorScheme.onSurface
                                     Surface(
-                                        shape = RoundedCornerShape(8.dp),
+                                        shape = RoundedCornerShape(20.dp),
                                         color = MaterialTheme.colorScheme.surface,
                                         tonalElevation = 4.dp,
                                         modifier = Modifier.padding(top = 16.dp).fillMaxWidth().height(260.dp)

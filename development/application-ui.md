@@ -635,7 +635,9 @@ decode success/error, and every progress-indicator appearance/disappearance cros
 layout jump. Tapping the failure overlay retries the complete import from private staging. Failed
 attachments do not disable Send and are excluded from the accepted result. Attachment admission owns
 one selection haptic after the processing tile is inserted; decode/import completion, rejection, and
-failure do not emit a second haptic.
+failure do not emit a second haptic. An unavailable or failed image/video placeholder uses the
+muted `onSurfaceVariant` at 55% opacity for both icon and label, never the error color; an
+unreadable media file is ordinary state, not a destructive error.
 
 Composer image attachments and durable message media thumbnails initially suppress their progress
 indicator. It becomes visible only after 200 ms of continuous loading, through the existing 200 ms

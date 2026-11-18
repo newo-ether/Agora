@@ -465,7 +465,44 @@ internal fun String.toRenderableMarkdownText(parseInlineDollarMath: Boolean = fa
             else span.content
         }
     }
-    return markdown.escapeForMarkdown().openTableBlocks()
+    return markdown.escapeForMarkdown().openTableBlocks().embedStandaloneVideoPaths()
+}
+
+/**
+ * A line that is only a video destination becomes the same Markdown image node as an embedded
+ * image, so a path written directly renders as the inline video card instead of a text link.
+ * Fenced/indented code, inline code and existing links or images keep their text.
+ */
+internal fun String.embedStandaloneVideoPaths(): String {
+    if (indexOf('/') < 0) return this
+    var fence: String? = null
+    var changed = false
+    val lines = split('\n').map { line ->
+        val trimmed = line.trim()
+        val marker = when {
+            trimmed.startsWith("```") -> "```"
+            trimmed.startsWith("~~~") -> "~~~"
+            else -> null
+        }
+        if (marker != null) {
+            if (fence == null) fence = marker else if (fence == marker) fence = null
+            return@map line
+        }
+        if (fence != null) return@map line
+        val destination = standaloneVideoDestination(line) ?: return@map line
+        changed = true
+        "![]($destination)"
+    }
+    return if (changed) lines.joinToString("\n") else this
+}
+
+private fun standaloneVideoDestination(line: String): String? {
+    if (line.startsWith("    ") || line.startsWith('\t')) return null
+    val trimmed = line.trim()
+    if (trimmed.isEmpty() || trimmed.any(Char::isWhitespace)) return null
+    if (trimmed.first() in "<[!`" || '`' in trimmed || "](" in trimmed) return null
+    val video = markdownVideoLink(trimmed) ?: return null
+    return "<$video>"
 }
 
 internal fun String.escapeForMarkdown(): String = escapeDollarForMarkdown()

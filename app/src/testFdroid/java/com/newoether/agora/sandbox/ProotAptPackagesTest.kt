@@ -363,10 +363,36 @@ class ProotAptPackagesTest {
         assertEquals("base-files\n", File(root, "etc/agora/apt-base-packages").readText())
     }
 
+    @Test
+    fun installStreamsAptOutputWhileTheCommandRuns() = runBlocking {
+        val root = rootfs()
+        status(root, record("base-files", "1"))
+        val progress = mutableListOf<String>()
+        var linesDuringInstall = emptyList<String>()
+        val helper = ProotAptPackages(root) { command, _, onOutput ->
+            when {
+                command.contains("apt-cache show") -> result(stdout = "Package: curl\n")
+                command.contains(" install -- ") -> {
+                    onOutput?.invoke("Get:1 http://example.invalid/curl [1838 kB]\nGet:2 http://")
+                    linesDuringInstall = progress.toList()
+                    onOutput?.invoke("example.invalid/libssl [1 kB]\n")
+                    status(root, record("base-files", "1"), record("curl", "8.1"))
+                    result()
+                }
+                else -> result()
+            }
+        }
+        assertTrue(helper.install("curl", progress::add))
+        assertEquals("Get:1 http://example.invalid/curl [1838 kB]", linesDuringInstall.last())
+        assertTrue(progress.contains("Get:2 http://example.invalid/libssl [1 kB]"))
+        assertFalse(progress.contains("Get:2 http://"))
+        assertEquals(1, progress.count { it.startsWith("Get:1 ") })
+    }
+
     private fun rootfs(): File = temporaryFolder.newFolder()
 
     private fun helper(root: File, execute: suspend (String) -> SandboxManager.SandboxResult) =
-        ProotAptPackages(root) { command, _ -> execute(command) }
+        ProotAptPackages(root) { command, _, _ -> execute(command) }
 
     private fun status(root: File, vararg entries: String) {
         File(root, "var/lib/dpkg/status").apply {

@@ -379,9 +379,11 @@ class ProotSandboxManager internal constructor(
     }
 
     private suspend fun executeRaw(command: String, workdir: String = homeMountPath,
-        timeoutMs: Int = 30000): SandboxManager.SandboxResult {
+        timeoutMs: Int = 30000,
+        onOutput: ((String) -> Unit)? = null,
+    ): SandboxManager.SandboxResult {
         return try {
-            SandboxProcessRunner.execute(runner().builder(command, workdir), timeoutMs)
+            SandboxProcessRunner.execute(runner().builder(command, workdir), timeoutMs, onOutput = onOutput)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
@@ -431,11 +433,11 @@ class ProotSandboxManager internal constructor(
 
     private fun alpinePackages() = ProotAlpinePackages(
         rootfs(), context.filesDir, settings.sandboxMirror.value,
-    ) { command, timeout ->
-        executeRaw(command, timeoutMs = timeout)
+    ) { command, timeout, onOutput ->
+        executeRaw(command, timeoutMs = timeout, onOutput = onOutput)
     }
-    private fun aptPackages() = ProotAptPackages(rootfs()) { command, timeout ->
-        executeRaw(command, timeoutMs = timeout)
+    private fun aptPackages() = ProotAptPackages(rootfs()) { command, timeout, onOutput ->
+        executeRaw(command, timeoutMs = timeout, onOutput = onOutput)
     }
     private fun readPackages(): List<SandboxManager.PackageInfo> =
         if (_distribution.value.usesApt) aptPackages().list() else alpinePackages().list()

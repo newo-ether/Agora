@@ -50,15 +50,16 @@ internal fun markdownImageSnapshotKey(link: String): String? {
 private val VIDEO_EXTENSIONS = setOf("mp4", "m4v", "webm", "mov", "mkv", "avi", "3gp", "ogv")
 
 /**
- * A shell or HTTP(S) Markdown destination whose file name declares a video container. Video
- * destinations render as a player card and never join the image snapshot store.
+ * A shell, HTTP(S) or local storage Markdown destination whose file name declares a video
+ * container. Video destinations render as a player card and never join the image snapshot store.
  */
 internal fun markdownVideoLink(link: String): String? {
     val raw = link.trim().removeSurrounding("<", ">")
     if (raw.isEmpty()) return null
     val extension = raw.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase()
     if (extension !in VIDEO_EXTENSIONS) return null
-    val supported = parseShellMediaLink(raw) != null || HTTP_MARKDOWN_IMAGE.matches(raw)
+    val supported = parseShellMediaLink(raw) != null || HTTP_MARKDOWN_IMAGE.matches(raw) ||
+        classifyMarkdownLink(raw) is MarkdownLinkTarget.Local
     return raw.takeIf { supported }
 }
 

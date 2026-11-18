@@ -317,7 +317,8 @@ private fun ToolImagePreview(
                         Icon(
                             imageVector = Icons.Default.BrokenImage,
                             contentDescription = stringResource(R.string.attachment_copy_failed_image),
-                            tint = MaterialTheme.colorScheme.error,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                .copy(alpha = 0.55f),
                             modifier = Modifier.size(32.dp),
                         )
                     }

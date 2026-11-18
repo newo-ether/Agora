@@ -9,7 +9,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -37,12 +38,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToLong
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoPlayer(
     uri: String,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
-    closing: Boolean = false
+    closing: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var contentReady by remember { mutableStateOf(false) }
@@ -157,10 +160,12 @@ fun VideoPlayer(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .alpha(alpha)
-                .clickable(
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    interactionSource = remember { MutableInteractionSource() }
-                ) { toggleControls() }
+                    onClick = { toggleControls() },
+                    onLongClick = onLongPress,
+                )
         ) {
             AndroidView(
                 factory = { ctx ->

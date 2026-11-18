@@ -85,6 +85,21 @@ class MarkdownLinkTargetsTest {
     }
 
     @Test
+    fun bareVideoPathIsPlayableFromAReadableRoot() {
+        assertEquals("/home/agora/clips/a.mp4", markdownVideoLink("/home/agora/clips/a.mp4"))
+        assertEquals(
+            MarkdownVideoSource.Local(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "clips/a.mp4")),
+            markdownVideoSource("/home/agora/clips/a.mp4"),
+        )
+        assertEquals(
+            MarkdownVideoSource.Local(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Download/a.mp4")),
+            markdownVideoSource("/mnt/shared/Download/a.mp4"),
+        )
+        assertNull(markdownVideoLink("/etc/a.mp4"))
+        assertNull(markdownVideoSource("/etc/a.mp4"))
+    }
+
+    @Test
     fun videoSourcesStayInsideSandboxHomeOrRemainRemote() {
         assertEquals(
             MarkdownVideoSource.Local(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "clips/a.mp4")),

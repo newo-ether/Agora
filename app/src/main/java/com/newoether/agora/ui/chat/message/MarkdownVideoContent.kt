@@ -31,7 +31,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.newoether.agora.R
+import com.newoether.agora.ui.chat.VideoActionsSheet
 import com.newoether.agora.ui.chat.VideoPlayer
+import com.newoether.agora.ui.common.LocalAgoraHaptics
 
 /** Where an inline Markdown video is played from. */
 internal sealed interface MarkdownVideoSource {
@@ -40,17 +42,17 @@ internal sealed interface MarkdownVideoSource {
 }
 
 /**
- * Resolves a video destination. `shell://` videos must live on `Local Sandbox` under the sandbox
- * home; HTTP(S) videos stream directly. Every other device keeps its ordinary text link.
+ * Resolves a video destination. `shell://` videos and bare storage paths must resolve to one of
+ * the two readable roots; HTTP(S) videos stream directly. Every other device keeps its ordinary
+ * text link.
  */
 internal fun markdownVideoSource(link: String): MarkdownVideoSource? {
     val raw = markdownVideoLink(link) ?: return null
-    parseShellMediaLink(raw)?.let { shell ->
-        if (!shell.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) return null
-        val local = classifyMarkdownLink(raw) as? MarkdownLinkTarget.Local ?: return null
-        return MarkdownVideoSource.Local(local.file)
+    return when (val target = classifyMarkdownLink(raw)) {
+        is MarkdownLinkTarget.Remote -> MarkdownVideoSource.Remote(target.url)
+        is MarkdownLinkTarget.Local -> MarkdownVideoSource.Local(target.file)
+        null -> null
     }
-    return MarkdownVideoSource.Remote(raw)
 }
 
 /**
@@ -62,6 +64,8 @@ internal fun MarkdownVideoCard(link: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val source = remember(link) { markdownVideoSource(link) }
     var playingUri by remember(link) { mutableStateOf<String?>(null) }
+    var actionsVisible by remember(link) { mutableStateOf(false) }
+    val haptics = LocalAgoraHaptics.current
     val label = remember(link, source) {
         when (val value = source) {
             is MarkdownVideoSource.Remote -> value.url.substringAfterLast('/')
@@ -100,14 +104,30 @@ internal fun MarkdownVideoCard(link: String, modifier: Modifier = Modifier) {
     val uri = playingUri
     if (uri != null) {
         Dialog(
-            onDismissRequest = { playingUri = null },
+            onDismissRequest = { playingUri = null; actionsVisible = false },
             properties = DialogProperties(
                 usePlatformDefaultWidth = false,
                 decorFitsSystemWindows = false,
             ),
         ) {
             Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                VideoPlayer(uri = uri, onClose = { playingUri = null })
+                VideoPlayer(
+                    uri = uri,
+                    onClose = { playingUri = null; actionsVisible = false },
+                    onLongPress = {
+                        haptics.longPress()
+                        actionsVisible = true
+                    },
+                )
+                if (actionsVisible) {
+                    VideoActionsSheet(
+                        url = uri,
+                        onMessage = { message ->
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        },
+                        onDismiss = { actionsVisible = false },
+                    )
+                }
             }
         }
     }

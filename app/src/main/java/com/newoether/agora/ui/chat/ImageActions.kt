@@ -270,6 +270,94 @@ suspend fun shareImage(context: Context, url: String): Boolean = withContext(Dis
 
 private data class ImageInfo(val width: Int, val height: Int, val sizeBytes: Long?)
 
+private fun mediaExtension(url: String): String =
+    url.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase(Locale.ROOT)
+
+private fun videoMimeAndExtension(context: Context, url: String): Pair<String, String> {
+    val declared = if (url.startsWith("content://", true) || url.startsWith("file://", true)) {
+        runCatching { context.contentResolver.getType(Uri.parse(url)) }.getOrNull()
+    } else null
+    val extension = mediaExtension(url)
+    val mime = declared ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "video/mp4"
+    val resolvedExtension = extension.ifEmpty {
+        MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "mp4"
+    }
+    return mime to resolvedExtension
+}
+
+/** Save a video into the device gallery (Movies/Agora). Returns true on success. */
+suspend fun saveVideoToGallery(context: Context, url: String): Boolean = withContext(Dispatchers.IO) {
+    val resolver = context.contentResolver
+    val actionContext = currentCoroutineContext()
+    var destination: Uri? = null
+    try {
+        val videoSource = openImageSource(context, url, actionContext::ensureActive)
+            ?: return@withContext false
+        videoSource.use { source ->
+            val (mime, extension) = videoMimeAndExtension(context, url)
+            actionContext.ensureActive()
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, "agora_${System.currentTimeMillis()}.$extension")
+                put(MediaStore.Video.Media.MIME_TYPE, mime)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Agora")
+                    put(MediaStore.Video.Media.IS_PENDING, 1)
+                }
+            }
+            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: return@withContext false
+            destination = uri
+            val output = resolver.openOutputStream(uri)
+                ?: throw IOException("Unable to open gallery destination")
+            output.use { sink -> copyImageBytes(source.input, sink, actionContext::ensureActive) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.clear()
+                values.put(MediaStore.Video.Media.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+            }
+        }
+        true
+    } catch (failure: Exception) {
+        destination?.let { runCatching { resolver.delete(it, null, null) } }
+        if (failure is CancellationException) throw failure
+        false
+    }
+}
+
+/** Share a video via a content Uri (copied into the exposed cache dir for FileProvider). */
+suspend fun shareVideo(context: Context, url: String): Boolean = withContext(Dispatchers.IO) {
+    val actionContext = currentCoroutineContext()
+    var destination: File? = null
+    try {
+        val (mime, extension) = videoMimeAndExtension(context, url)
+        val videoSource = openImageSource(context, url, actionContext::ensureActive)
+            ?: return@withContext false
+        videoSource.use { source ->
+            val dir = File(context.cacheDir, "shared").apply { mkdirs() }
+            val file = File.createTempFile("agora_${System.currentTimeMillis()}_", ".$extension", dir)
+            destination = file
+            file.outputStream().use { sink ->
+                copyImageBytes(source.input, sink, actionContext::ensureActive)
+            }
+        }
+        val file = checkNotNull(destination)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = mime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        withContext(Dispatchers.Main) {
+            context.startActivity(Intent.createChooser(intent, context.getString(R.string.img_action_share)))
+        }
+        true
+    } catch (failure: Exception) {
+        destination?.delete()
+        if (failure is CancellationException) throw failure
+        false
+    }
+}
+
 private fun readImageInfo(context: Context, url: String): ImageInfo? {
     return try {
         val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -289,15 +377,55 @@ private fun readImageInfo(context: Context, url: String): ImageInfo? {
     }
 }
 
+private fun readVideoInfo(context: Context, url: String): ImageInfo? = try {
+    val retriever = android.media.MediaMetadataRetriever()
+    try {
+        val uri = Uri.parse(url)
+        if (url.startsWith("content://", true) || url.startsWith("file://", true) || directImageFile(url) != null) {
+            retriever.setDataSource(context, uri)
+        } else {
+            retriever.setDataSource(url)
+        }
+        val width = retriever.extractMetadata(
+            android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH,
+        )?.toIntOrNull() ?: 0
+        val height = retriever.extractMetadata(
+            android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT,
+        )?.toIntOrNull() ?: 0
+        val size = openImageSource(context, url)?.use { it.sizeBytes } ?: countImageBytes(context, url)
+        if (width <= 0 || height <= 0) null else ImageInfo(width, height, size)
+    } finally {
+        retriever.release()
+    }
+} catch (_: Exception) {
+    null
+}
+
 private fun formatBytes(n: Long): String = when {
     n >= 1024 * 1024 -> String.format(Locale.getDefault(), "%.1f MB", n / (1024.0 * 1024.0))
     n >= 1024 -> String.format(Locale.getDefault(), "%.0f KB", n / 1024.0)
     else -> "$n B"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageActionsSheet(url: String, onMessage: (String) -> Unit, onDismiss: () -> Unit) {
+    MediaActionsSheet(url = url, isVideo = false, onMessage = onMessage, onDismiss = onDismiss)
+}
+
+/** The same Save/Share/Info sheet for a playing video. */
+@Composable
+fun VideoActionsSheet(url: String, onMessage: (String) -> Unit, onDismiss: () -> Unit) {
+    MediaActionsSheet(url = url, isVideo = true, onMessage = onMessage, onDismiss = onDismiss)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MediaActionsSheet(
+    url: String,
+    isVideo: Boolean,
+    onMessage: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showInfo by remember { mutableStateOf(false) }
@@ -330,21 +458,23 @@ fun ImageActionsSheet(url: String, onMessage: (String) -> Unit, onDismiss: () ->
         // Keep the sheet in composition until the save finishes — dismissing first would cancel
         // this scope (it's tied to the sheet) and abort both the save and the snackbar.
         scope.launch {
-            val ok = saveImageToGallery(context, url)
+            val ok = if (isVideo) saveVideoToGallery(context, url) else saveImageToGallery(context, url)
             onMessage(if (ok) savedMsg else failMsg)
             onDismiss()
         }
     }
     fun doShare() {
         scope.launch {
-            shareImage(context, url)
+            if (isVideo) shareVideo(context, url) else shareImage(context, url)
             onDismiss()
         }
     }
     LaunchedEffect(showInfo, url) {
         if (showInfo && imageInfo == null) {
             imageInfoLoading = true
-            imageInfo = withContext(Dispatchers.IO) { readImageInfo(context, url) }
+            imageInfo = withContext(Dispatchers.IO) {
+                if (isVideo) readVideoInfo(context, url) else readImageInfo(context, url)
+            }
             imageInfoLoading = false
         }
     }

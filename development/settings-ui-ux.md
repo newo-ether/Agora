@@ -125,6 +125,12 @@ All supported locales define the choice, install, failure and reset copy. Focuse
 matching setup row typography, disabled actions and progress during installation, hiding setup
 controls after success, restoring them after reset, and retry with exactly one failure snackbar.
 
+Package install, removal and upgrade stream each output line to the dashboard terminal while the
+process runs; the terminal must never wait for the process to exit before showing output. Streamed
+chunks are split into complete lines, carriage-return progress updates become separate lines, and
+the retained copy used for failure messages stays bounded. The terminal card keeps its fixed height,
+monospace body and bottom-following scroll inside a 20 dp rounded surface.
+
 ## Sandbox storage usage
 
 The Sandbox dashboard displays approximate private regular-file usage from the root filesystem

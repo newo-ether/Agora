@@ -8,7 +8,11 @@ import kotlinx.coroutines.CancellationException
 /** Package transactions run inside the manager's existing rootfs mutation boundary. */
 internal class ProotAptPackages(
     private val rootfsDir: File,
-    private val execute: suspend (command: String, timeoutMs: Int) -> SandboxManager.SandboxResult,
+    private val execute: suspend (
+        command: String,
+        timeoutMs: Int,
+        onOutput: ((String) -> Unit)?,
+    ) -> SandboxManager.SandboxResult,
 ) {
     var lastError: String? = null
 
@@ -37,7 +41,9 @@ internal class ProotAptPackages(
             prepare()
             if (!update(onProgress)) return false
             val operand = operand(requested)
-            val available = execute("env LC_ALL=C apt-cache show --no-all-versions -- ${quote(operand)}", 60_000)
+            val available = execute(
+                "env LC_ALL=C apt-cache show --no-all-versions -- ${quote(operand)}", 60_000, null,
+            )
             val exact = available.stdout.lineSequence().any {
                 it.startsWith("Package:") && it.substringAfter(':').trim() == requested.substringBefore(':')
             }
@@ -143,9 +149,14 @@ internal class ProotAptPackages(
         timeoutMs: Int,
         onProgress: (String) -> Unit,
     ): SandboxManager.SandboxResult {
-        val result = execute("$apt $arguments", timeoutMs)
-        if (result.stdout.isNotBlank()) onProgress(result.stdout)
-        if (result.stderr.isNotBlank()) onProgress(result.stderr)
+        // apt prints one line per acquired file; forwarding each line as it arrives is what
+        // turns the terminal from a post-run dump into a live log.
+        val lines = SandboxOutputLines(onProgress)
+        val result = try {
+            execute("$apt $arguments", timeoutMs, lines::accept)
+        } finally {
+            lines.flush()
+        }
         onProgress("apt-get exit code: ${result.exitCode}")
         return result
     }

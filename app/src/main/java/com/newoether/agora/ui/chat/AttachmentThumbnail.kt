@@ -166,7 +166,7 @@ fun AttachmentThumbnailItem(
                 contentDescription = androidx.compose.ui.res.stringResource(
                     com.newoether.agora.R.string.attachment_copy_failed_image,
                 ),
-                tint = MaterialTheme.colorScheme.error,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                 modifier = Modifier.size(32.dp),
             )
         }
@@ -199,7 +199,7 @@ fun AttachmentThumbnailItem(
                     com.newoether.agora.R.string.attachment_unavailable,
                 ),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                 maxLines = 1,
             )
         }
@@ -375,7 +375,7 @@ private fun MessageMediaThumbnail(
                         contentDescription = androidx.compose.ui.res.stringResource(
                             com.newoether.agora.R.string.attachment_copy_failed_image,
                         ),
-                        tint = MaterialTheme.colorScheme.error,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                         modifier = Modifier.size(32.dp),
                     )
                 }
