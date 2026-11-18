@@ -1,5 +1,6 @@
 package com.newoether.agora.viewmodel
 
+import com.newoether.agora.PHONE_USE_SUPPORTED
 import com.newoether.agora.phone.PhoneUseSettings
 import com.newoether.agora.phone.phoneDefinitions
 import com.newoether.agora.util.Constants
@@ -10,10 +11,13 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class PhoneGenerationAdmissionTest {
     @Test fun admissionAwaitsSettingsAndFreezesModeReadinessAndAutomation() = runTest {
+        // The store flavor compiles Phone Use out; its absence is covered by PlayPhoneUseFlavorTest.
+        assumeTrue(PHONE_USE_SUPPORTED)
         val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false, phoneReady = { true })
         val configuration = MutableStateFlow(PhoneUseSettings())
         every { fixture.settings.phoneUse } returns configuration
@@ -42,6 +46,7 @@ class PhoneGenerationAdmissionTest {
     }
 
     @Test fun automationRequiresOptInAndReadinessIsCapturedWithoutProbingForDisabledGroup() = runTest {
+        assumeTrue(PHONE_USE_SUPPORTED)
         var probes = 0
         val fixture = RequestBuilderFixture(Constants.PROVIDER_OPENAI, false, phoneReady = { probes++; true })
         val configuration = MutableStateFlow(PhoneUseSettings())

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import com.newoether.agora.PHONE_USE_SUPPORTED
 import com.newoether.agora.R
 import com.newoether.agora.phone.PhoneUseIcon
 import com.newoether.agora.ui.settings.datacontrol.SettingsDataControlPage
@@ -323,7 +324,10 @@ fun SettingsScreen(
     val developerOptionsEnabled by viewModel.settings.developerOptionsEnabled.collectAsState()
     val settingsGroups = remember(developerOptionsEnabled) {
         buildList {
-            addAll(baseSettingsGroups)
+            addAll(baseSettingsGroups.map { group ->
+                if (PHONE_USE_SUPPORTED) group
+                else group.copy(items = group.items.filterNot { it.key == "phoneuse" })
+            })
             if (developerOptionsEnabled) add(developerSettingsGroup)
             add(aboutSettingsGroup)
         }

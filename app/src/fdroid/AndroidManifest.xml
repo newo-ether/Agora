@@ -11,7 +11,44 @@
         android:maxSdkVersion="29"
         tools:replace="android:maxSdkVersion" />
 
+    <!-- Phone Use only ships in this flavor: the Play build is not allowed the accessibility,
+         overlay, screen-timeout and package-inspection surface it needs. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <!-- Phone Use access lists must include installed apps without launcher activities. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
+
     <!-- Android 10 has no MANAGE_EXTERNAL_STORAGE API. Keep full shared-storage access available
          there only in the F-Droid sandbox flavor; Android 11+ uses the explicit all-files grant. -->
-    <application android:requestLegacyExternalStorage="true" />
+    <application android:requestLegacyExternalStorage="true">
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <service
+            android:name=".phone.PhoneAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:label="@string/phone_title">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/phone_accessibility" />
+        </service>
+        <service
+            android:name=".phone.PhoneControlService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-authorized UI control with a visible overlay and an immediate Stop action" />
+        </service>
+    </application>
 </manifest>

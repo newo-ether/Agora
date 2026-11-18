@@ -2,6 +2,7 @@ package com.newoether.agora.di
 
 import android.app.Application
 import android.content.Context
+import com.newoether.agora.PHONE_USE_SUPPORTED
 import com.newoether.agora.data.MemoryManager
 import com.newoether.agora.data.SkillManager
 import com.newoether.agora.data.SettingsManager
@@ -300,8 +301,14 @@ class AppContainer(
             askUser = askUserController,
             generationRegistry = conversationStateRegistry,
             pauseConversationLoop = { conversationId -> loopManager.stopLoop(conversationId) },
-            additionalTools = { listOf(automationToolProvider, subagentToolProvider, phoneUse.provider) },
-            phoneReady = { phoneUse.readiness(it) },
+            additionalTools = {
+                listOfNotNull(
+                    automationToolProvider,
+                    subagentToolProvider,
+                    if (PHONE_USE_SUPPORTED) phoneUse.provider else null,
+                )
+            },
+            phoneReady = { PHONE_USE_SUPPORTED && phoneUse.readiness(it) },
         )
     }
 
@@ -399,13 +406,13 @@ class AppContainer(
             sandboxFactory = sandboxManagerFactory,
             additionalToolProviders = run {
                 // Capture the same process owners now; build the list and Ask User wrapper lazily.
-                val phone = phoneUse.provider
+                val phone = if (PHONE_USE_SUPPORTED) phoneUse.provider else null
                 val automation = automationToolProvider
                 val subagent = subagentToolProvider
                 val mcp = mcpToolProvider
                 val askUser = askUserController
                 return@run {
-                    listOf(
+                    listOfNotNull(
                         phone,
                         automation,
                         subagent,
@@ -414,7 +421,7 @@ class AppContainer(
                     )
                 }
             },
-            phoneReady = { phoneUse.readiness(it) },
+            phoneReady = { PHONE_USE_SUPPORTED && phoneUse.readiness(it) },
             onConversationOpened = subagentManager::conversationOpened,
             onConversationIdle = subagentManager::conversationIdle,
             onConfirmShellCommand = { server, summary, conversationId, detail ->

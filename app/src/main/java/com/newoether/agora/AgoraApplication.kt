@@ -60,7 +60,9 @@ class AgoraApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         CrashReporter.install(this)
-        com.newoether.agora.phone.PhoneScreenTimeout.process(this).recoverOnAppEvents(this, startupScope)
+        if (PHONE_USE_SUPPORTED) {
+            com.newoether.agora.phone.PhoneScreenTimeout.process(this).recoverOnAppEvents(this, startupScope)
+        }
         // The context indicator counts remote models' text with a real vocabulary once it is in
         // memory. Loading it in its own job keeps the first estimate off the heuristic without
         // delaying the database gate behind it.

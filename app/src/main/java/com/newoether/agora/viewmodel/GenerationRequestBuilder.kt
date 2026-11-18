@@ -1,6 +1,7 @@
 package com.newoether.agora.viewmodel
 
 import android.content.Context
+import com.newoether.agora.PHONE_USE_SUPPORTED
 import com.newoether.agora.R
 import com.newoether.agora.api.ProviderRequestInput
 import com.newoether.agora.api.ProviderRequestResolver
@@ -549,10 +550,10 @@ class GenerationRequestBuilder(
         val subagentModelIds = settings.subagentEnabledModels.value.orEmpty()
             .intersect(enabledModelIds).sorted()
         val genCtx = GenerationContext(
-            phoneEnabled = phoneToolsEnabled && phoneConfig.enabled,
+            phoneEnabled = PHONE_USE_SUPPORTED && phoneToolsEnabled && phoneConfig.enabled,
             phoneMode = phoneConfig.mode,
             phoneAllowAutomation = phoneConfig.allowAutomation,
-            phoneReady = phoneToolsEnabled && phoneConfig.enabled && !lowContextModeEnabled &&
+            phoneReady = PHONE_USE_SUPPORTED && phoneToolsEnabled && phoneConfig.enabled && !lowContextModeEnabled &&
                 (!automationCaller || phoneConfig.allowAutomation) && phoneReady(phoneConfig.mode),
             automationCaller = automationCaller,
             conversationId = currentId,
