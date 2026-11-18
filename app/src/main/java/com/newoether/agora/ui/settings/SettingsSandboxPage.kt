@@ -212,17 +212,12 @@ fun SettingsSandboxPage(
                                 },
                                 leadingContent = { SandboxDistributionIcon(distribution) },
                                 trailingContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(percent = 50))
-                                            .clickable(enabled = canManage) { upgradePackages() },
-                                    ) {
-                                        SandboxSetupLabel(
-                                            stringResource(R.string.sandbox_upgrade),
-                                            canManage,
-                                            singleLine = true,
-                                        )
-                                    }
+                                    SandboxActionCapsule(
+                                        label = stringResource(R.string.sandbox_upgrade),
+                                        enabled = canManage,
+                                        modifier = Modifier.padding(end = 4.dp),
+                                        onClick = { upgradePackages() },
+                                    )
                                 },
                             )
                         }, {
@@ -427,24 +422,26 @@ fun SettingsSandboxPage(
                                         },
                                         animationSpec = tween(400)
                                     )
-                                    Button(
-                                        onClick = { installPackage(installPkg.trim()) },
+                                    SandboxActionCapsule(
                                         enabled = canManage && installPkg.isNotBlank() && lastInstallResult == null,
-                                        shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 28.dp, bottomEnd = 28.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = btnBgColor,
-                                            contentColor = btnContentColor,
-                                            disabledContainerColor = btnBgColor,
-                                            disabledContentColor = btnContentColor
-                                        ),
-                                        modifier = Modifier.height(56.dp).widthIn(min = 110.dp).offset(y = 4.dp)
+                                        containerColor = btnBgColor,
+                                        contentColor = btnContentColor,
+                                        onClick = { installPackage(installPkg.trim()) },
                                     ) {
                                         if (isBusy) {
-                                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = MaterialTheme.colorScheme.primary)
-                                        } else if (installDone) {
-                                            Text(if (lastInstallResult == true) stringResource(R.string.sandbox_installed_label) else stringResource(R.string.sandbox_failed_label))
+                                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = btnContentColor)
                                         } else {
-                                            Text(stringResource(R.string.sandbox_install))
+                                            Text(
+                                                text = if (installDone) {
+                                                    if (lastInstallResult == true) stringResource(R.string.sandbox_installed_label)
+                                                    else stringResource(R.string.sandbox_failed_label)
+                                                } else {
+                                                    stringResource(R.string.sandbox_install)
+                                                },
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = btnContentColor,
+                                                maxLines = 1,
+                                            )
                                         }
                                     }
                                 }

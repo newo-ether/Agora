@@ -190,6 +190,38 @@ class SettingsSandboxPresentationTest {
         verify(exactly = 0) { manager.installRootfs() }
     }
 
+    @Test fun dashboardActionsAreCompactCapsulesWithUnchangedTrailingPadding() {
+        showPage()
+        row(debianVersion).performClick()
+        compose.runOnIdle {
+            installed = true
+            busy.value = false
+            installing.value = false
+        }
+
+        val contentRight = compose.onRoot().getUnclippedBoundsInRoot().right - 24.dp
+
+        val upgrade = row(text(R.string.sandbox_upgrade)).getUnclippedBoundsInRoot()
+        // 16 dp row inset plus the 4 dp label offset the trailing text already had.
+        assertEquals((contentRight - 20.dp).value, upgrade.right.value, 0.5f)
+        assertTrue(
+            "upgrade capsule height ${upgrade.bottom - upgrade.top}",
+            upgrade.bottom - upgrade.top in 28.dp..44.dp,
+        )
+
+        compose.onNode(hasScrollToIndexAction())
+            .performScrollToNode(hasText(text(R.string.sandbox_install)))
+        val install = compose
+            .onNode(hasText(text(R.string.sandbox_install)) and hasClickAction())
+            .getUnclippedBoundsInRoot()
+        // The install row's own 16 dp column inset is unchanged by the capsule.
+        assertEquals((contentRight - 16.dp).value, install.right.value, 0.5f)
+        assertTrue(
+            "install capsule height ${install.bottom - install.top}",
+            install.bottom - install.top in 28.dp..44.dp,
+        )
+    }
+
     @org.junit.Before fun setUpStoragePermission() {
         io.mockk.mockkObject(com.newoether.agora.sandbox.SandboxSharedStorageAccess)
         every { com.newoether.agora.sandbox.SandboxSharedStorageAccess.isGranted(any()) } returns false

@@ -1,5 +1,6 @@
 package com.newoether.agora.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ListAlt
@@ -22,7 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -202,6 +207,54 @@ internal fun SandboxSetupLabel(label: String, enabled: Boolean, singleLine: Bool
         maxLines = if (singleLine) 1 else Int.MAX_VALUE,
         overflow = if (singleLine) TextOverflow.Ellipsis else TextOverflow.Clip,
     )
+}
+
+/**
+ * A text action drawn as a content-wrapped pill. It never stretches to the row height, so the
+ * caller keeps the row's own end padding and the capsule stays a normal tap target.
+ */
+@Composable
+internal fun SandboxActionCapsule(
+    enabled: Boolean,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(percent = 50))
+            .background(containerColor)
+            .then(
+                if (onClick == null) Modifier
+                else Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+            )
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
+@Composable
+internal fun SandboxActionCapsule(
+    label: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    onClick: (() -> Unit)? = null,
+) {
+    SandboxActionCapsule(enabled, containerColor, contentColor, modifier, onClick) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 @Composable
