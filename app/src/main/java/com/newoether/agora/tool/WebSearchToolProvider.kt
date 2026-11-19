@@ -417,6 +417,21 @@ internal fun normalizeStandardSearchResponse(
     }.toString()
 }
 
+/**
+ * Attach the backend that answered, so the tool card can name it. The provider is written here
+ * once instead of in every branch, and an existing value (the no-key error path) wins.
+ */
+internal fun withSearchProvider(resultJson: String, provider: String): String {
+    if (provider.isBlank()) return resultJson
+    val element = runCatching { Json.parseToJsonElement(resultJson) as? JsonObject }.getOrNull()
+        ?: return resultJson
+    if (element["provider"] != null) return resultJson
+    return buildJsonObject {
+        element.forEach { (key, value) -> put(key, value) }
+        put("provider", provider)
+    }.toString()
+}
+
 internal fun webSearchProviderDisplayName(provider: String): String = when (provider) {
     "kagi" -> "Kagi"
     "serper" -> "Serper"
@@ -480,6 +495,12 @@ class WebSearchToolProvider : ToolProvider {
     override fun handles(name: String): Boolean = name in setOf("web_search", "web_fetch")
 
     private fun executeWebSearch(arguments: String, ctx: GenerationContext): String {
+        val result = executeWebSearchBody(arguments, ctx)
+        val provider = webSearchProviderDisplayName(normalizeWebSearchProvider(ctx.webSearchProvider))
+        return withSearchProvider(result, provider)
+    }
+
+    private fun executeWebSearchBody(arguments: String, ctx: GenerationContext): String {
         val argsStr = arguments.ifBlank { "{}" }
         val args = Json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(argsStr)
         val query = (args["query"] as? JsonPrimitive)?.content

@@ -128,3 +128,38 @@ class WebSearchResponseLimitTest {
         assertEquals("no_results", normalized.getValue("error").jsonPrimitive.content)
     }
 }
+
+class WebSearchProviderEnvelopeTest {
+    @Test
+    fun attachesTheProviderWithoutTouchingTheResults() {
+        val result = withSearchProvider(
+            """{"type":"web_search","query":"q","results":[{"title":"One"}]}""",
+            "SearXNG",
+        )
+        val parsed = Json.parseToJsonElement(result).jsonObject
+
+        assertEquals("SearXNG", parsed.getValue("provider").jsonPrimitive.content)
+        assertEquals("q", parsed.getValue("query").jsonPrimitive.content)
+        assertEquals(1, parsed.getValue("results").jsonArray.size)
+        assertEquals(
+            "One",
+            parsed.getValue("results").jsonArray[0].jsonObject.getValue("title").jsonPrimitive.content,
+        )
+    }
+
+    @Test
+    fun keepsAProviderTheSearchAlreadyReported() {
+        val result = withSearchProvider(
+            """{"type":"web_search","error":"no_api_key","provider":"Exa"}""",
+            "Tavily",
+        )
+
+        assertEquals("Exa", Json.parseToJsonElement(result).jsonObject.getValue("provider").jsonPrimitive.content)
+    }
+
+    @Test
+    fun leavesPayloadsThatAreNotObjectsAlone() {
+        assertEquals("not json", withSearchProvider("not json", "Exa"))
+        assertEquals("[1,2]", withSearchProvider("[1,2]", "Exa"))
+    }
+}
