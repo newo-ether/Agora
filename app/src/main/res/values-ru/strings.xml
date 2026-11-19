@@ -126,6 +126,7 @@
     <string name="info">Сведения</string>
     <string name="more">Ещё</string>
     <string name="arguments_label">Аргументы:</string>
+    <string name="tool_search_provider">Провайдер: %1$s</string>
     <string name="result_label">Результат:</string>
     <string name="cost_tokens">Стоимость %1$d токенов</string>
     <string name="token_usage_with_label">Использование токенов: %1$d</string>

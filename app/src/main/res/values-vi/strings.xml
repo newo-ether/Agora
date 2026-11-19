@@ -129,6 +129,7 @@
     <string name="info">Thông tin</string>
     <string name="more">Thêm</string>
     <string name="arguments_label">Đối số:</string>
+    <string name="tool_search_provider">Nhà cung cấp: %1$s</string>
     <string name="result_label">Kết quả:</string>
     <string name="cost_tokens">Tiêu tốn %1$d token</string>
     <string name="token_usage_with_label">Mức sử dụng token: %1$d token</string>

@@ -301,6 +301,7 @@
     <string name="time_with_label">时间：%1$s</string>
     <string name="model_with_label">模型：%1$s</string>
     <string name="arguments_label">参数：</string>
+    <string name="tool_search_provider">提供方: %1$s</string>
     <string name="result_label">结果：</string>
 
     <!-- Cost & Tokens -->

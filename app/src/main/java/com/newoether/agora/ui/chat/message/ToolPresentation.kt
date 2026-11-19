@@ -87,6 +87,8 @@ internal data class ToolPresentation(
     val liveOutput: String?,
     val subject: String?,
     val device: String?,
+    /** Web-search backend that answered, as reported by the search tool's envelope. */
+    val provider: String? = null,
     val count: Int?,
     val errorMessage: String?,
     val exitCode: Int?,
@@ -178,6 +180,9 @@ internal object ToolPresentationResolver {
         val resultEnvelope = resultElement as? JsonObject
         val resultObject = effectiveResultObject(kind, resultEnvelope)
         val errorCode = resultObject.string("error") ?: resultEnvelope.string("error")
+        val provider = if (kind == ToolKind.WEB_SEARCH) {
+            resultObject.string("provider") ?: resultEnvelope.string("provider")
+        } else null
         val exitCode = remoteShellBody?.status?.toIntOrNull()
             ?: resultObject.int("exit_code") ?: resultEnvelope.int("exit_code")
         val explicitState = stateFromWire(segment.toolState)
@@ -281,6 +286,7 @@ internal object ToolPresentationResolver {
                 ?: segment.toolTarget
                 ?: args.string("server")
                 ?: streamingHints.server,
+            provider = provider,
             count = count,
             errorMessage = error,
             exitCode = exitCode,

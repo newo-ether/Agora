@@ -126,6 +126,7 @@
     <string name="info">Información</string>
     <string name="more">Más</string>
     <string name="arguments_label">Argumentos:</string>
+    <string name="tool_search_provider">Proveedor: %1$s</string>
     <string name="result_label">Resultado:</string>
     <string name="cost_tokens">Coste %1$d tokens</string>
     <string name="token_usage_with_label">Uso de tokens: %1$d tokens</string>

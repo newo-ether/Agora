@@ -126,6 +126,7 @@
     <string name="info">معلومات</string>
     <string name="more">المزيد</string>
     <string name="arguments_label">الوسائط:</string>
+    <string name="tool_search_provider">المزوّد: %1$s</string>
     <string name="result_label">النتيجة:</string>
     <string name="cost_tokens">التكلفة %1$d رمز</string>
     <string name="token_usage_with_label">استخدام الرموز: %1$d رمزًا</string>

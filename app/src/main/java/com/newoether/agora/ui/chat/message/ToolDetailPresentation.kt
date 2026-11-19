@@ -23,6 +23,8 @@ internal data class ToolDetailPresentation(
     val codeArgument: ToolDetailCodeArgument? = null,
     /** Native result metadata not consumed by a specialized body remains visible as JSON. */
     val supplemental: List<String> = emptyList(),
+    /** Search backend that answered, shown beside the arguments that produced the query. */
+    val searchProvider: String? = null,
 )
 
 /** [rows] is set when the value is file content and gets a line-number gutter. */
@@ -93,6 +95,8 @@ internal fun Resources.toolDetailPresentation(segment: MessageSegment): ToolDeta
         argumentsLabel = getString(R.string.arguments_label),
         resultLabel = getString(R.string.result_label),
         mcpDevice = presentation.device?.takeIf(String::isNotBlank),
+        searchProvider = presentation.provider?.takeIf(String::isNotBlank)
+            ?.takeIf { presentation.kind == ToolKind.WEB_SEARCH },
         body = body,
         supplemental = if (presentation.kind == ToolKind.MCP && presentation.state == ToolPresentationState.FAILED) {
             mcpResultValues(presentation).filterNot { it == presentation.errorMessage }

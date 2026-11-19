@@ -77,6 +77,10 @@ internal fun ToolDetailContent(
                 if (presentation.arguments != null) Spacer(Modifier.height(8.dp))
                 ToolCodeArgument(code)
             }
+            presentation.searchProvider?.let { provider ->
+                Spacer(Modifier.height(8.dp))
+                ToolSectionLabel(stringResource(R.string.tool_search_provider, provider))
+            }
             Spacer(Modifier.height(18.dp))
         }
     }
