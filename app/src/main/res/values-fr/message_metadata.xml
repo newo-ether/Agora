@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="generation_speed_with_label">Vitesse moyenne de génération : %1$s</string>
+    <string name="time_to_first_token_with_label">Délai jusqu\'au premier token : %1$s</string>
+    <string name="token_speed_value">%1$s tokens/s</string>
+    <string name="total_generation_time_with_label">Temps total de génération : %1$s</string>
+    <string name="total_generation_time_row">%1$s au total</string>
+    <string name="generation_stats_value">%1$s · %2$s</string>
 </resources>

@@ -31,6 +31,7 @@ import com.newoether.agora.data.local.migration.MIGRATION_44_45
 import com.newoether.agora.data.local.migration.MIGRATION_46_47
 import com.newoether.agora.data.local.migration.MIGRATION_47_48
 import com.newoether.agora.data.local.migration.MIGRATION_48_49
+import com.newoether.agora.data.local.migration.MIGRATION_49_50
 import com.newoether.agora.data.local.migration.MIGRATION_45_46
 import com.newoether.agora.data.local.migration.MIGRATION_43_44
 import com.newoether.agora.data.local.migration.MIGRATION_42_43
@@ -95,7 +96,7 @@ abstract class ChatDatabase : RoomDatabase() {
     abstract fun usageLedgerDao(): UsageLedgerDao
 
     companion object {
-        const val CURRENT_VERSION = 49
+        const val CURRENT_VERSION = 50
         const val DB_NAME = "agora_db"
 
         val ALL_MIGRATIONS = listOf(
@@ -287,6 +288,7 @@ abstract class ChatDatabase : RoomDatabase() {
             MIGRATION_46_47,
             MIGRATION_47_48,
             MIGRATION_48_49,
+            MIGRATION_49_50,
         )
 
         fun inspectCompatibility(context: Context): DatabaseCompatibility {
