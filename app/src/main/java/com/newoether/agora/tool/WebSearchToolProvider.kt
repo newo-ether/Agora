@@ -345,6 +345,78 @@ internal fun normalizeKagiSearchResponse(
     }.toString()
 }
 
+internal fun normalizeTavilySearchResponse(
+    responseBody: String,
+    query: String,
+    numResults: Int,
+): String {
+    val json: Map<String, kotlinx.serialization.json.JsonElement> = Json.decodeFromString(responseBody)
+    val resultsArray = json["results"]?.jsonArray
+        ?: return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
+    if (resultsArray.isEmpty())
+        return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
+    val answer = (json["answer"] as? JsonPrimitive)?.content
+    val rawResults = buildJsonArray {
+        for (element in resultsArray.take(numResults)) {
+            val obj = element.jsonObject
+            add(buildJsonObject {
+                put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
+                put("url", (obj["url"] as? JsonPrimitive)?.content ?: "")
+                put("content", (obj["content"] as? JsonPrimitive)?.content ?: "")
+                val score = (obj["score"] as? JsonPrimitive)?.content?.toFloatOrNull()
+                if (score != null) put("score", score)
+            })
+        }
+    }
+    return buildJsonObject {
+        put("type", "web_search")
+        put("query", query)
+        if (!answer.isNullOrBlank()) put("answer", answer)
+        put("results", rawResults)
+    }.toString()
+}
+
+/**
+ * Serper (`organic`), Brave (`web.results`) and SearXNG (`results`) share one result shape.
+ * SearXNG has no result-count parameter and answers with every engine's results, so the
+ * requested count has to be enforced here rather than in the query string.
+ */
+internal fun normalizeStandardSearchResponse(
+    responseBody: String,
+    query: String,
+    numResults: Int,
+): String {
+    val json: Map<String, kotlinx.serialization.json.JsonElement> = Json.decodeFromString(responseBody)
+    val resultsArray = when {
+        json.containsKey("organic") -> json["organic"]?.jsonArray
+        json.containsKey("web") -> {
+            val web = json["web"]?.jsonObject
+            web?.get("results")?.jsonArray
+        }
+        json.containsKey("results") -> json["results"]?.jsonArray
+        else -> null
+    } ?: return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
+
+    if (resultsArray.isEmpty())
+        return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
+
+    val rawResults = buildJsonArray {
+        for (element in resultsArray.take(numResults)) {
+            val obj = element.jsonObject
+            add(buildJsonObject {
+                put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
+                put("url", (obj["link"] as? JsonPrimitive)?.content ?: (obj["url"] as? JsonPrimitive)?.content ?: "")
+                put("description", (obj["snippet"] as? JsonPrimitive)?.content ?: (obj["content"] as? JsonPrimitive)?.content ?: (obj["description"] as? JsonPrimitive)?.content ?: "")
+            })
+        }
+    }
+    return buildJsonObject {
+        put("type", "web_search")
+        put("query", query)
+        put("results", rawResults)
+    }.toString()
+}
+
 internal fun webSearchProviderDisplayName(provider: String): String = when (provider) {
     "kagi" -> "Kagi"
     "serper" -> "Serper"
@@ -530,63 +602,11 @@ class WebSearchToolProvider : ToolProvider {
                 return normalizeKagiSearchResponse(body, query, numResults)
             }
 
-            val json: Map<String, kotlinx.serialization.json.JsonElement> = Json.decodeFromString(body)
-
             if (provider == "tavily") {
-                val resultsArray = json["results"]?.jsonArray
-                    ?: return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
-                if (resultsArray.isEmpty())
-                    return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
-                val answer = (json["answer"] as? JsonPrimitive)?.content
-                val rawResults = buildJsonArray {
-                    for (element in resultsArray.take(numResults)) {
-                        val obj = element.jsonObject
-                        add(buildJsonObject {
-                            put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
-                            put("url", (obj["url"] as? JsonPrimitive)?.content ?: "")
-                            put("content", (obj["content"] as? JsonPrimitive)?.content ?: "")
-                            val score = (obj["score"] as? JsonPrimitive)?.content?.toFloatOrNull()
-                            if (score != null) put("score", score)
-                        })
-                    }
-                }
-                return buildJsonObject {
-                    put("type", "web_search")
-                    put("query", query)
-                    if (!answer.isNullOrBlank()) put("answer", answer)
-                    put("results", rawResults)
-                }.toString()
+                return normalizeTavilySearchResponse(body, query, numResults)
             }
 
-            val resultsArray = when {
-                json.containsKey("organic") -> json["organic"]?.jsonArray
-                json.containsKey("web") -> {
-                    val web = json["web"]?.jsonObject
-                    web?.get("results")?.jsonArray
-                }
-                json.containsKey("results") -> json["results"]?.jsonArray
-                else -> null
-            } ?: return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
-
-            if (resultsArray.isEmpty())
-                return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
-
-            val rawResults = buildJsonArray {
-                // SearXNG has no result-count parameter and returns every engine's results.
-                for (element in resultsArray.take(numResults)) {
-                    val obj = element.jsonObject
-                    add(buildJsonObject {
-                        put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
-                        put("url", (obj["link"] as? JsonPrimitive)?.content ?: (obj["url"] as? JsonPrimitive)?.content ?: "")
-                        put("description", (obj["snippet"] as? JsonPrimitive)?.content ?: (obj["content"] as? JsonPrimitive)?.content ?: (obj["description"] as? JsonPrimitive)?.content ?: "")
-                    })
-                }
-            }
-            buildJsonObject {
-                put("type", "web_search")
-                put("query", query)
-                put("results", rawResults)
-            }.toString()
+            return normalizeStandardSearchResponse(body, query, numResults)
         } catch (e: Exception) {
             buildJsonObject {
                 put("type", "web_search")
