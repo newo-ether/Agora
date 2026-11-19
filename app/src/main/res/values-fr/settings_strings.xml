@@ -218,11 +218,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">API de recherche axée sur la confidentialité. Offre gratuite disponible.</string>
     <string name="web_search_serper_desc">API Google Search rapide. 2 500 requêtes gratuites par mois.</string>
     <string name="web_search_tavily_desc">API de recherche optimisée pour l\'IA. Conçue pour les agents LLM.</string>
+    <string name="web_search_exa_desc">Recherche neuronale avec extraits de pages. Fonctionne sans clé via l\'endpoint MCP public d\'Exa.</string>
     <string name="web_search_searxng_desc">Moteur de métarecherche auto-hébergé. À utiliser de préférence avec votre propre instance.</string>
     <string name="web_search_duckduckgo_desc">Gratuit, sans clé API. Scraping de lite.duckduckgo.com. Peut être instable et déclencher une protection anti-bot.</string>
     <string name="web_search_select_provider">Sélectionner un fournisseur de recherche</string>
@@ -231,7 +233,9 @@
     <string name="web_search_serper_key">Clé d\'API Serper</string>
     <string name="web_search_serper_key_hint">Clé d\'API depuis serper.dev</string>
     <string name="web_search_tavily_key">Clé d\'API Tavily</string>
+    <string name="web_search_exa_key">Clé d\'API Exa (facultatif)</string>
     <string name="web_search_tavily_key_hint">Clé d\'API depuis tavily.com</string>
+    <string name="web_search_exa_key_hint">Facultatif. Laissez vide pour utiliser l\'endpoint public sans clé d\'Exa.</string>
     <string name="web_search_num_results">Résultats max</string>
     <string name="web_search_num_results_desc">Nombre de résultats à récupérer : %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Les instances publiques sont souvent limitées en débit. L\'auto-hébergement est recommandé pour une utilisation fiable.</string>

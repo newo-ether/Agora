@@ -73,7 +73,7 @@ data class SystemPromptEntry(
 }
 
 internal val WEB_SEARCH_PROVIDERS = setOf(
-    "duckduckgo", "brave", "kagi", "serper", "tavily", "searxng",
+    "duckduckgo", "brave", "kagi", "serper", "tavily", "exa", "searxng",
 )
 
 internal fun normalizeWebSearchProvider(provider: String?): String =

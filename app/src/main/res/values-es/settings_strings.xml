@@ -218,11 +218,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">API de búsqueda centrada en la privacidad. Nivel gratuito disponible.</string>
     <string name="web_search_serper_desc">API rápida de Google Search. 2.500 consultas gratis al mes.</string>
     <string name="web_search_tavily_desc">API de búsqueda optimizada para IA. Creada para agentes LLM.</string>
+    <string name="web_search_exa_desc">Búsqueda neuronal con extractos de páginas. Funciona sin clave mediante el endpoint MCP público de Exa.</string>
     <string name="web_search_searxng_desc">Motor de metabúsqueda autoalojado. Mejor con tu propia instancia.</string>
     <string name="web_search_duckduckgo_desc">Gratis, sin API key. Web scraping de lite.duckduckgo.com. Puede ser inestable y activar protección anti-bot.</string>
     <string name="web_search_select_provider">Seleccionar proveedor de búsqueda</string>
@@ -231,7 +233,9 @@
     <string name="web_search_serper_key">Clave de API de Serper</string>
     <string name="web_search_serper_key_hint">Clave de API de serper.dev</string>
     <string name="web_search_tavily_key">Clave de API de Tavily</string>
+    <string name="web_search_exa_key">Clave de API de Exa (opcional)</string>
     <string name="web_search_tavily_key_hint">Clave de API de tavily.com</string>
+    <string name="web_search_exa_key_hint">Opcional. Déjala vacía para usar el endpoint público sin clave de Exa.</string>
     <string name="web_search_num_results">Máx. resultados</string>
     <string name="web_search_num_results_desc">Número de resultados a obtener: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Las instancias públicas suelen tener límites de uso. Se recomienda el autoalojamiento para un uso fiable.</string>

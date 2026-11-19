@@ -209,11 +209,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">API tìm kiếm tập trung vào quyền riêng tư. Có gói miễn phí.</string>
     <string name="web_search_serper_desc">API tìm kiếm Google nhanh. 2,500 truy vấn miễn phí/tháng.</string>
     <string name="web_search_tavily_desc">API tìm kiếm tối ưu hóa cho AI. Được xây dựng cho các tác nhân LLM.</string>
+    <string name="web_search_exa_desc">Tìm kiếm nơ-ron với trích đoạn từ trang. Hoạt động không cần khóa qua điểm cuối MCP công khai của Exa.</string>
     <string name="web_search_searxng_desc">Công cụ tìm kiếm tổng hợp tự lưu trữ. Tốt nhất nên dùng với máy chủ của riêng bạn.</string>
     <string name="web_search_duckduckgo_desc">Miễn phí, no API key. Web scraping lite.duckduckgo.com. May be unstable and trigger anti-bot protection.</string>
     <string name="web_search_select_provider">Chọn nhà cung cấp tìm kiếm</string>
@@ -222,7 +224,9 @@
     <string name="web_search_serper_key">Khóa API Serper</string>
     <string name="web_search_serper_key_hint">Khóa API từ serper.dev</string>
     <string name="web_search_tavily_key">Khóa API Tavily</string>
+    <string name="web_search_exa_key">Khóa API Exa (tùy chọn)</string>
     <string name="web_search_tavily_key_hint">Khóa API từ tavily.com</string>
+    <string name="web_search_exa_key_hint">Tùy chọn. Để trống để dùng điểm cuối công khai không cần khóa của Exa.</string>
     <string name="web_search_num_results">Kết quả tối đa</string>
     <string name="web_search_num_results_desc">Số kết quả cần lấy: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Các máy chủ công cộng thường bị giới hạn lượt truy cập. Khuyên dùng tự lưu trữ để sử dụng ổn định.</string>

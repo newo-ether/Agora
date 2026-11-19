@@ -215,12 +215,14 @@
     <string name="web_search_kagi">Kagi</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">注重隐私的搜索 API。提供免费套餐。</string>
     <string name="web_search_kagi_desc">支持个性化结果的高级搜索 API，按量付费。</string>
     <string name="web_search_serper_desc">快速 Google 搜索 API。每月 2,500 次免费查询。</string>
     <string name="web_search_tavily_desc">面向 AI 优化的搜索 API。专为 LLM 代理构建。</string>
+    <string name="web_search_exa_desc">带页面摘录的神经搜索。可通过 Exa 的公共 MCP 端点免密钥使用。</string>
     <string name="web_search_searxng_desc">自托管元搜索引擎。建议使用自己的实例。</string>
     <string name="web_search_duckduckgo_desc">免费，无需 API Key。抓取 lite.duckduckgo.com。可能不稳定并触发反爬保护。</string>
     <string name="web_search_select_provider">选择搜索提供商</string>
@@ -231,7 +233,9 @@
     <string name="web_search_serper_key">Serper API 密钥</string>
     <string name="web_search_serper_key_hint">来自 serper.dev 的 API 密钥</string>
     <string name="web_search_tavily_key">Tavily API 密钥</string>
+    <string name="web_search_exa_key">Exa API 密钥（可选）</string>
     <string name="web_search_tavily_key_hint">来自 tavily.com 的 API 密钥</string>
+    <string name="web_search_exa_key_hint">可选。留空则使用 Exa 的免密钥公共端点。</string>
     <string name="web_search_num_results">最大结果数</string>
     <string name="web_search_num_results_desc">获取的结果数量：%1$d（1-10）</string>
     <string name="web_search_searxng_url">SearXNG 基础 URL</string>

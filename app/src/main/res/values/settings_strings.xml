@@ -223,12 +223,14 @@
     <string name="web_search_kagi">Kagi</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">Privacy-focused search API. Free tier available.</string>
     <string name="web_search_kagi_desc">Premium search API with personalized results. Pay per use.</string>
     <string name="web_search_serper_desc">Fast Google Search API. 2,500 free queries/month.</string>
     <string name="web_search_tavily_desc">AI-optimized search API. Built for LLM agents.</string>
+    <string name="web_search_exa_desc">Neural search with page highlights. Works without a key through Exa\'s public MCP endpoint.</string>
     <string name="web_search_searxng_desc">Self-hosted metasearch engine. Best used with your own instance.</string>
     <string name="web_search_duckduckgo_desc">Free, no API key. Web scraping lite.duckduckgo.com. May be unstable and trigger anti-bot protection.</string>
     <string name="web_search_select_provider">Select Search Provider</string>
@@ -239,7 +241,9 @@
     <string name="web_search_serper_key">Serper API Key</string>
     <string name="web_search_serper_key_hint">API key from serper.dev</string>
     <string name="web_search_tavily_key">Tavily API Key</string>
+    <string name="web_search_exa_key">Exa API Key (optional)</string>
     <string name="web_search_tavily_key_hint">API key from tavily.com</string>
+    <string name="web_search_exa_key_hint">Optional. Leave blank to use Exa\'s keyless public endpoint.</string>
     <string name="web_search_num_results">Max Results</string>
     <string name="web_search_num_results_desc">Number of results to fetch: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Public instances are often rate-limited. Self-hosting is recommended for reliable use.</string>

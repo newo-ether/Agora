@@ -83,6 +83,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             "kagi" -> stringResource(R.string.web_search_kagi)
                                             "serper" -> stringResource(R.string.web_search_serper)
                                             "tavily" -> stringResource(R.string.web_search_tavily)
+                                            "exa" -> stringResource(R.string.web_search_exa)
                                             "duckduckgo" -> stringResource(R.string.web_search_duckduckgo)
                                             else -> stringResource(R.string.web_search_brave)
                                         }
@@ -111,6 +112,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                         "kagi" -> R.string.web_search_kagi_key
                                                         "serper" -> R.string.web_search_serper_key
                                                         "tavily" -> R.string.web_search_tavily_key
+                                                        "exa" -> R.string.web_search_exa_key
                                                         else -> R.string.web_search_brave_key
                                                     }
                                                 ),
@@ -128,6 +130,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                                     "kagi" -> R.string.web_search_kagi_key_hint
                                                                     "serper" -> R.string.web_search_serper_key_hint
                                                                     "tavily" -> R.string.web_search_tavily_key_hint
+                                                                    "exa" -> R.string.web_search_exa_key_hint
                                                                     else -> R.string.web_search_brave_key_hint
                                                                 }
                                                             )
@@ -276,6 +279,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         "kagi" to R.string.web_search_kagi,
                         "serper" to R.string.web_search_serper,
                         "tavily" to R.string.web_search_tavily,
+                        "exa" to R.string.web_search_exa,
                         "searxng" to R.string.web_search_searxng
                     )
                     providers.forEach { (key, labelRes) ->
@@ -289,6 +293,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             "kagi" -> R.string.web_search_kagi_desc
                                             "serper" -> R.string.web_search_serper_desc
                                             "tavily" -> R.string.web_search_tavily_desc
+                                            "exa" -> R.string.web_search_exa_desc
                                             "searxng" -> R.string.web_search_searxng_desc
                                             "duckduckgo" -> R.string.web_search_duckduckgo_desc
                                             else -> R.string.web_search_brave_desc

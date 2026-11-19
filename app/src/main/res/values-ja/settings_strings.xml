@@ -218,11 +218,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">プライバシー重視の検索 API。無料枠あり。</string>
     <string name="web_search_serper_desc">高速な Google 検索 API。月 2,500 回まで無料。</string>
     <string name="web_search_tavily_desc">AI 最適化された検索 API。LLM エージェント向けに構築。</string>
+    <string name="web_search_exa_desc">ページ抜粋付きのニューラル検索。Exaの公開MCPエンドポイントならキーなしで利用できます。</string>
     <string name="web_search_searxng_desc">セルフホスト型のメタ検索エンジン。自分のインスタンスでの利用が最適。</string>
     <string name="web_search_duckduckgo_desc">無料、APIキー不要。lite.duckduckgo.com をスクレイピング。不安定な場合があり、ボット対策が作動する可能性があります。</string>
     <string name="web_search_select_provider">検索プロバイダーを選択</string>
@@ -231,7 +233,9 @@
     <string name="web_search_serper_key">Serper API キー</string>
     <string name="web_search_serper_key_hint">serper.dev の API キー</string>
     <string name="web_search_tavily_key">Tavily API キー</string>
+    <string name="web_search_exa_key">Exa APIキー（任意）</string>
     <string name="web_search_tavily_key_hint">tavily.com の API キー</string>
+    <string name="web_search_exa_key_hint">任意。空欄のままにすると、Exa のキー不要の公開エンドポイントを使用します。</string>
     <string name="web_search_num_results">最大結果数</string>
     <string name="web_search_num_results_desc">取得する結果数: %1$d（1-10）</string>
     <string name="web_search_searxng_fallback_desc">公開インスタンスはレート制限されることが多いです。安定した利用にはセルフホストを推奨します。</string>
