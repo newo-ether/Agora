@@ -33,6 +33,7 @@ class SettingsModelsPageTest {
             customModels = setOf("OpenAI:gpt-5"),
             modelAliases = emptyMap(),
             query = "",
+            providerOrder = listOf("OpenAI", "Relay"),
         )
 
         assertEquals(
@@ -51,6 +52,7 @@ class SettingsModelsPageTest {
             customModels = emptySet(),
             modelAliases = mapOf("Relay:model-b" to "Daily Sonnet"),
             query = "sonnet",
+            providerOrder = listOf("OpenAI", "Relay"),
         )
 
         assertEquals(listOf("Relay"), groups.map { it.providerName })
@@ -66,6 +68,7 @@ class SettingsModelsPageTest {
             customModels = emptySet(),
             modelAliases = emptyMap(),
             query = "Claude Opus 5",
+            providerOrder = listOf("OpenRouter"),
         )
 
         assertEquals(listOf(batch, fast), groups.single().models)
@@ -117,6 +120,7 @@ class SettingsModelsPageTest {
             customModels = emptySet(),
             modelAliases = emptyMap(),
             query = "relay",
+            providerOrder = listOf("OpenAI", "Relay"),
         )
 
         assertEquals(listOf("Relay:model-a", "Relay:model-b"), groups.single().models)

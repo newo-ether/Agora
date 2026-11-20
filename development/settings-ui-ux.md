@@ -64,9 +64,10 @@ layout, states, density, or interaction design has been approved.
 - Advanced contains a whole-row Cache Switch. Only while enabled, a following Cache Duration
   SettingsItem shows the selected 5m or 1h value and opens the existing Appearance-style dropdown,
   including its selected-item checkmark. Reuse the shared group, item, icon, description, and motion
-  conventions; do not replace the choice with segmented buttons or add a separate Save action.
+  conventions; do not replace the choice with segmented buttons.
 - Existing and newly created Provider configurations default to Cache enabled and duration 1h.
-  Changes apply and persist immediately per Provider. Disabling retains the selected duration;
+  Changes are part of the Provider detail draft and persist only on its explicit Save (see Provider
+  list and remote detail editor). Disabling retains the selected duration;
   re-enabling restores it. Changing a custom Provider's protocol hides and ignores these controls
   without erasing their stored values.
 - Cache controls only Agora's Anthropic request marker: disabled omits the entire top-level
@@ -339,6 +340,35 @@ in the existing editor. Source links retain the established external-link icon a
 - Only explicit Save creates a provider. Back uses the shared unsaved-draft guard and never persists
   partial values. Save trims the name and URL and returns to the existing Providers list.
 - Provider documentation uses the shared FAB, visibility setting and bottom clearance.
+
+## Provider list and remote detail editor
+
+- The Providers root shows only the user's ordered Provider list. Entries are built-in remote
+  Providers or custom Providers; Local is a separate group fixed at the bottom and never in the list.
+  Each row keeps the existing icon, key count / URL / Not configured summary and custom protocol
+  badge, ends with a DragHandle, and opens the detail page on a whole-row tap. An empty list shows
+  one muted "No Providers yet" row above the add item.
+- Rows reorder by drag; the order is persisted once when the drag ends and is the Provider order of
+  the chat model selector and the Models page groups (customs map to their Provider ID there).
+- The add item at the bottom of the list opens a full-page search picker with a Custom group (one
+  Custom Provider row that opens the Add Provider creation editor) and a Built-in group of all
+  remote built-ins filtered by the query. Built-ins already listed are disabled and marked Added. Tapping
+  an unlisted built-in appends it and opens its detail page; Back from there returns to the root.
+  Saving the custom creation editor also returns to the root.
+- Long press: built-ins offer Remove, customs offer Rename and Delete. Removing a built-in (also in the
+  detail ⋮ menu) confirms first and states that its configuration is kept. Removal only unlists it:
+  keys, Base URL and fetched models stay stored, its enabled models move to a parked set that is
+  restored when it is added again, and model sync skips unlisted built-ins. Conversations that used
+  a removed Provider follow the existing unavailable-model fallback.
+- Migration: when no list is stored, built-ins with a key (Ollama: a Base URL) and every custom are
+  listed in catalog order; the derived list is persisted on start. Welcome onboarding adds the
+  built-in it configures. `providerList` and `hiddenProviderModels` are portable settings.
+- Remote Provider detail pages are explicit-save editors: Base URL, protocol, Responses API, cache
+  switch and duration, API key add/edit/delete, the active key and the custom Provider Name field
+  form one in-memory draft (never saveable state, because it holds keys). The top bar Save commits
+  the draft in one DataStore edit; Back uses the shared unsaved-changes guard. An unchanged draft
+  follows external writes. Custom delete and built-in removal stay immediate, confirmed, and leave
+  the page. Provider -> Local is unchanged.
 
 ## Shell device list and editors
 

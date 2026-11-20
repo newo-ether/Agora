@@ -138,6 +138,7 @@ fun ChatApp(
     val isTransitioningToNewChat by viewModel.isTransitioningToNewChat.collectAsState()
     val visualizeContextRollout by viewModel.settings.visualizeContextRollout.collectAsState()
     val customProviders by viewModel.settings.customProviders.collectAsState()
+    val providerList by viewModel.settings.providerList.collectAsState()
     val displayConversations = remember(conversations, customProviders) { conversations.orEmpty().map { it.forDisplay(customProviders) } }
     val displayMessagesState = remember(messagesState, customProviders) { derivedStateOf { messagesState.value.map { it.forDisplay(customProviders) } } }
     val webSearchApiKeys by viewModel.settings.webSearchApiKeys.collectAsState()
@@ -688,6 +689,7 @@ fun ChatApp(
                         modelAliases = chatModelAliases,
                         modelProviderNames = modelProviderNames,
                         customProviders = customProviders,
+                        providerOrder = providerList,
                         codeExecutionEnabled = conversationControls.codeExecutionEnabled,
                         googleSearchEnabled = conversationControls.googleSearchEnabled,
                         thinkingEnabled = conversationControls.thinkingEnabled, thinkingLevel = conversationControls.thinkingLevel,

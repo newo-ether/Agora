@@ -485,6 +485,17 @@
     <string name="provider_cache_desc">請求快取提示詞；中繼服務的快取獨立控制</string>
     <string name="provider_cache_duration">快取時長</string>
     <string name="provider_cache_duration_desc">已快取提示詞可重複使用的時間</string>
+    <string name="provider_save_failed">儲存服務商設定失敗</string>
+    <string name="provider_remove_from_list">從清單移除</string>
+    <string name="provider_remove_title">移除 %1$s？</string>
+    <string name="provider_remove_text">設定會保留，重新新增即可恢復。</string>
+    <string name="provider_remove">移除</string>
+    <string name="provider_search_hint">搜尋服務商</string>
+    <string name="provider_custom_entry">自訂服務商</string>
+    <string name="provider_add_no_match">沒有相符的服務商</string>
+    <string name="provider_added">已新增</string>
+    <string name="provider_list_empty">還沒有服務商</string>
+    <string name="provider_reorder">調整順序</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">網路</string>
     <string name="settings_proxy">代理</string>

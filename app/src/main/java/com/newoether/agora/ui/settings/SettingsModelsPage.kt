@@ -39,7 +39,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
-import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.modelAliasDisplayName
 import com.newoether.agora.data.modelApiDisplayName
 import com.newoether.agora.data.providerDisplayName
@@ -60,18 +59,6 @@ private val MidRounded    = RoundedCornerShape(5.dp)
 internal val FlatShape     = RoundedCornerShape(0.dp)
 internal val FlatToBottom  = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
 internal val FiveBottom    = RoundedCornerShape(bottomStart = 5.dp, bottomEnd = 5.dp)
-
-private val RemoteModelProviders = listOf(
-    Constants.PROVIDER_GOOGLE,
-    Constants.PROVIDER_OPENAI,
-    Constants.PROVIDER_ANTHROPIC,
-    Constants.PROVIDER_DEEPSEEK,
-    Constants.PROVIDER_QWEN,
-    Constants.PROVIDER_GROQ,
-    Constants.PROVIDER_OLLAMA,
-    Constants.PROVIDER_OPEN_ROUTER,
-    Constants.PROVIDER_OPENCODE_GO,
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,11 +88,11 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
 
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val lastFingerprint by viewModel.settings.lastModelsFetchFingerprint.collectAsState()
-    val providerChoices = remember(customProviders) {
-        (RemoteModelProviders + customProviders.map { it.name }).distinct()
-    }
-    val manualProviderOrder = remember(customProviders) {
-        RemoteModelProviders + customProviders.map(CustomProviderConfig::providerId)
+    val providerList by viewModel.settings.providerList.collectAsState()
+    // Groups and choices follow the user's Provider list order; removed built-ins are hidden.
+    val providerChoices = providerList
+    val manualProviderOrder = remember(customProviders, providerList) {
+        providerList.map { name -> customProviders.firstOrNull { it.name == name }?.providerId ?: name }
     }
     val manualModelGroups = remember(customModels, manualProviderOrder) {
         customModelGroups(customModels, manualProviderOrder)
@@ -115,12 +102,14 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         customModels,
         modelAliases,
         modelSearchQuery,
+        providerList,
     ) {
         fetchedModelGroups(
             availableModels = availableModels,
             customModels = customModels,
             modelAliases = modelAliases,
             query = modelSearchQuery,
+            providerOrder = providerList,
         )
     }
     val normalizedSearchQuery = modelSearchQuery.trim()

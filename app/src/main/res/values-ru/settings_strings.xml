@@ -480,6 +480,17 @@
     <string name="provider_cache_desc">Запрашивать кэширование промптов; кэш ретранслятора независим</string>
     <string name="provider_cache_duration">Срок хранения кэша</string>
     <string name="provider_cache_duration_desc">Как долго можно повторно использовать кэшированные промпты</string>
+    <string name="provider_save_failed">Не удалось сохранить настройки провайдера</string>
+    <string name="provider_remove_from_list">Убрать из списка</string>
+    <string name="provider_remove_title">Убрать %1$s?</string>
+    <string name="provider_remove_text">Настройки сохранятся. Добавьте провайдера снова, чтобы восстановить их.</string>
+    <string name="provider_remove">Убрать</string>
+    <string name="provider_search_hint">Поиск провайдеров</string>
+    <string name="provider_custom_entry">Свой провайдер</string>
+    <string name="provider_add_no_match">Нет подходящих провайдеров</string>
+    <string name="provider_added">Добавлен</string>
+    <string name="provider_list_empty">Провайдеров пока нет</string>
+    <string name="provider_reorder">Изменить порядок</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Сеть</string>
     <string name="settings_proxy">Прокси</string>

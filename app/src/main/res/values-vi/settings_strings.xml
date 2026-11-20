@@ -480,6 +480,17 @@
     <string name="provider_cache_desc">Yêu cầu lưu đệm lời nhắc; bộ nhớ đệm của máy chủ chuyển tiếp hoạt động độc lập</string>
     <string name="provider_cache_duration">Thời hạn lưu đệm</string>
     <string name="provider_cache_duration_desc">Khoảng thời gian có thể tái sử dụng lời nhắc đã lưu đệm</string>
+    <string name="provider_save_failed">Không lưu được cài đặt nhà cung cấp</string>
+    <string name="provider_remove_from_list">Xóa khỏi danh sách</string>
+    <string name="provider_remove_title">Xóa %1$s?</string>
+    <string name="provider_remove_text">Cấu hình vẫn được giữ lại. Thêm lại để khôi phục.</string>
+    <string name="provider_remove">Xóa</string>
+    <string name="provider_search_hint">Tìm nhà cung cấp</string>
+    <string name="provider_custom_entry">Nhà cung cấp tùy chỉnh</string>
+    <string name="provider_add_no_match">Không có nhà cung cấp phù hợp</string>
+    <string name="provider_added">Đã thêm</string>
+    <string name="provider_list_empty">Chưa có nhà cung cấp</string>
+    <string name="provider_reorder">Sắp xếp lại</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Mạng</string>
     <string name="settings_proxy">Proxy</string>

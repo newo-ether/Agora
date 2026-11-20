@@ -31,7 +31,7 @@ class ProviderModelSyncControllerTest {
     @Test
     fun `full sync skips local and unconfigured providers then saves one successful fingerprint`() =
         runTest {
-            val providers = mockk<ProviderRegistry>()
+            val providers = registry()
             val settings = settings(
                 available = mapOf("Cloud" to listOf("Cloud:model")),
                 custom = setOf("Custom:model"),
@@ -71,7 +71,7 @@ class ProviderModelSyncControllerTest {
 
     @Test
     fun `provider failure is typed and records the attempted fingerprint`() = runTest {
-        val providers = mockk<ProviderRegistry>()
+        val providers = registry()
         val settings = settings()
         every { providers.all } returns mapOf("Cloud" to mockk<LlmProvider>())
         every { providers.ensureCustomProvidersRegistered() } just Runs
@@ -99,7 +99,7 @@ class ProviderModelSyncControllerTest {
 
     @Test
     fun `global failure records the attempted fingerprint`() = runTest {
-        val providers = mockk<ProviderRegistry>()
+        val providers = registry()
         val settings = settings()
         every { providers.computeFingerprint() } returns "attempted-fingerprint"
         every { providers.ensureCustomProvidersRegistered() } throws IllegalStateException("broken")
@@ -122,7 +122,7 @@ class ProviderModelSyncControllerTest {
 
     @Test
     fun `second request while active is rejected without duplicate provider work`() = runTest {
-        val providers = mockk<ProviderRegistry>()
+        val providers = registry()
         val settings = settings(available = mapOf("Cloud" to listOf("Cloud:model")))
         every { providers.all } returns mapOf("Cloud" to mockk<LlmProvider>())
         every { providers.ensureCustomProvidersRegistered() } just Runs
@@ -152,7 +152,7 @@ class ProviderModelSyncControllerTest {
 
     @Test
     fun `scope cancellation clears admission and emits no completion`() = runTest {
-        val providers = mockk<ProviderRegistry>()
+        val providers = registry()
         val settings = settings()
         every { providers.all } returns mapOf("Cloud" to mockk<LlmProvider>())
         every { providers.ensureCustomProvidersRegistered() } just Runs
@@ -176,11 +176,44 @@ class ProviderModelSyncControllerTest {
         coVerify(exactly = 0) { settings.saveLastModelsFetchFingerprint(any()) }
     }
 
+    @Test
+    fun `built-in removed from the provider list is neither fetched nor cleared`() = runTest {
+        val providers = registry(builtIns = setOf("Listed", "Hidden"))
+        val settings = settings(listed = listOf("Listed"))
+        every { providers.all } returns linkedMapOf(
+            "Listed" to mockk<LlmProvider>(),
+            "Hidden" to mockk<LlmProvider>(),
+        )
+        every { providers.ensureCustomProvidersRegistered() } just Runs
+        every { settings.resolveActiveKey("Listed") } returns "key"
+        every { providers.isConfigured("Listed", "key") } returns true
+        coEvery { providers.fetchModelsForProvider("Listed") } returns listOf("Listed:model")
+        every { providers.computeFingerprint() } returns "fingerprint"
+        val completed = CompletableDeferred<ProviderModelSyncOutcome>()
+        val controller = ProviderModelSyncController(providers, settings, this)
+
+        controller.start(request()) { completed.complete(it) }
+        val outcome = completed.await()
+
+        assertEquals(1, outcome.successfulProviderCount)
+        assertEquals(0, outcome.skippedProviderCount)
+        coVerify(exactly = 0) { providers.fetchModelsForProvider("Hidden") }
+        coVerify(exactly = 0) { settings.saveAvailableModels("Hidden", any()) }
+        verify(exactly = 0) { settings.resolveActiveKey("Hidden") }
+    }
+
+    private fun registry(builtIns: Set<String> = emptySet()): ProviderRegistry =
+        mockk<ProviderRegistry>().also { providers ->
+            every { providers.isBuiltIn(any()) } answers { firstArg<String>() in builtIns }
+        }
+
     private fun settings(
         available: Map<String, List<String>> = emptyMap(),
         custom: Set<String> = emptySet(),
         enabled: Set<String> = emptySet(),
+        listed: List<String> = emptyList(),
     ): SettingsRepository = mockk<SettingsRepository>().also { settings ->
+        every { settings.providerList } returns MutableStateFlow(listed)
         every { settings.customModels } returns MutableStateFlow(custom)
         every { settings.enabledModels } returns MutableStateFlow(enabled)
         coEvery { settings.getAvailableModels() } returns available

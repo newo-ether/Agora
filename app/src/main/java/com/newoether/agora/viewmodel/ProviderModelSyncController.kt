@@ -66,8 +66,11 @@ internal class ProviderModelSyncController(
 
         try {
             providers.ensureCustomProvidersRegistered()
+            val listed = settings.providerList.value.toSet()
             providers.all.forEach { (name, _) ->
                 if (name == Constants.PROVIDER_LOCAL) return@forEach
+                // A removed built-in keeps its cached catalog for re-adding; never fetch or clear it.
+                if (providers.isBuiltIn(name) && name !in listed) return@forEach
 
                 try {
                     if (!providers.isConfigured(name, settings.resolveActiveKey(name) ?: "")) {

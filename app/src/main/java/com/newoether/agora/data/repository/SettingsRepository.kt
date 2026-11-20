@@ -26,6 +26,7 @@ import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.LocalChatModelConfig
 import com.newoether.agora.data.PredefinedVariables
 import com.newoether.agora.data.PromptTemplateItem
+import com.newoether.agora.data.ProviderEditorDraft
 import com.newoether.agora.data.SettingsManager
 import com.newoether.agora.data.ShellDeviceConfig
 import com.newoether.agora.data.McpServerConfig
@@ -81,14 +82,17 @@ class SettingsRepository(
     val selectedModel: StateFlow<String> = publication.hot(settingsManager.selectedModel, Constants.EXAMPLE_MODEL_ID)
     val anthropicCacheEnabled: StateFlow<Boolean> = publication.hot(settingsManager.anthropicCacheEnabled, true)
     val anthropicCacheTtl: StateFlow<String> = publication.hot(settingsManager.anthropicCacheTtl, "1h")
-    fun setAnthropicCacheEnabled(providerId: String, enabled: Boolean) = scope.launch {
-        if (providerId == Constants.PROVIDER_ANTHROPIC) settingsManager.saveAnthropicCacheEnabled(enabled)
-        else settingsManager.updateCustomProviderCache(providerId, enabled = enabled)
-    }
-    fun setAnthropicCacheTtl(providerId: String, ttl: String) = scope.launch {
-        if (providerId == Constants.PROVIDER_ANTHROPIC) settingsManager.saveAnthropicCacheTtl(ttl)
-        else settingsManager.updateCustomProviderCache(providerId, ttl = ttl)
-    }
+    /** Ordered user Provider list (built-in and custom names); Local is not part of it. */
+    val providerList: StateFlow<List<String>> =
+        publication.hot(settingsManager.providerListStore.providerList, emptyList())
+    fun addBuiltInProvider(name: String) = scope.launch { settingsManager.providerListStore.addBuiltIn(name) }
+    fun removeBuiltInProvider(name: String) =
+        scope.launch { settingsManager.providerListStore.removeBuiltIn(name) }
+    fun reorderProviders(order: List<String>) = scope.launch { settingsManager.providerListStore.reorder(order) }
+    suspend fun materializeProviderList() = settingsManager.providerListStore.materialize()
+    /** Atomic Provider detail save. Custom live-map upkeep goes through ProviderRegistry.commitEditor. */
+    internal suspend fun commitProviderEditor(originalName: String, draft: ProviderEditorDraft) =
+        settingsManager.providerEditorStore.commit(originalName, draft)
     val availableModels: StateFlow<Map<String, List<String>>> = publication.hot(settingsManager.availableModels, emptyMap())
     val customModels: StateFlow<Set<String>> = publication.hot(settingsManager.customModels, emptySet())
     val enabledModels: StateFlow<Set<String>> = publication.hot(settingsManager.enabledModels, emptySet())
@@ -302,15 +306,7 @@ class SettingsRepository(
         showProviderName: Boolean? = null,
     ) = settingsManager.replaceCustomModel(oldModelId, newModelId, alias, showProviderName)
 
-    // API keys
-    fun addApiKey(name: String, key: String, provider: String) {
-        scope.launch {
-            val entry = ApiKeyEntry(name = name, key = key, provider = provider)
-            settingsManager.saveApiKeys(apiKeys.value + entry)
-            settingsManager.setActiveApiKeyId(provider, entry.id)
-        }
-    }
-
+    // API keys. Provider detail pages save keys through ProviderEditorStore.
     /**
      * Store exactly one key for [provider]: update the existing entry in place if there
      * is one, otherwise add it — and drop any extra entries for the same provider.
@@ -324,29 +320,6 @@ class SettingsRepository(
             settingsManager.saveApiKeys(current.filter { it.provider != provider } + entry)
             settingsManager.setActiveApiKeyId(provider, entry.id)
         }
-    }
-
-    fun deleteApiKey(id: String) {
-        scope.launch {
-            val current = apiKeys.value
-            val entry = current.find { it.id == id } ?: return@launch
-            val newList = current.filter { it.id != id }
-            if (activeApiKeyIds.value[entry.provider] == id) {
-                val other = newList.firstOrNull { it.provider == entry.provider }
-                settingsManager.setActiveApiKeyId(entry.provider, other?.id)
-            }
-            settingsManager.saveApiKeys(newList)
-        }
-    }
-
-    fun updateApiKey(id: String, name: String, key: String) {
-        scope.launch {
-            settingsManager.saveApiKeys(apiKeys.value.map { if (it.id == id) it.copy(name = name, key = key) else it })
-        }
-    }
-
-    fun setActiveApiKey(provider: String, id: String) {
-        scope.launch { settingsManager.setActiveApiKeyId(provider, id) }
     }
 
     // System prompts
@@ -463,6 +436,7 @@ class SettingsRepository(
                 settingsManager.saveAvailableModels(newName, models[newName] ?: emptyList())
                 settingsManager.saveAvailableModels(oldName, emptyList())
                 settingsManager.renameApiKeyProvider(oldName, newName)
+                settingsManager.providerListStore.renameCustom(oldName, newName)
             }
         }
     }

@@ -21,6 +21,8 @@ import com.newoether.agora.data.CustomEndpointResolution
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.CustomProviderIdentityPolicy
 import com.newoether.agora.data.CustomProviderNamePolicy
+import com.newoether.agora.data.ProviderEditorCommitResult
+import com.newoether.agora.data.ProviderEditorDraft
 import com.newoether.agora.data.canonicalCustomModelId
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.data.repository.ConversationRepository
@@ -293,6 +295,38 @@ class ProviderRegistry(
         settings.updateCustomProviderProtocol(name, protocol)
     }
 
+    /**
+     * Commits a Provider detail draft. For a custom Provider the live map and the in-memory
+     * endpoint resolution follow the committed config immediately, as [renameCustom] does; the
+     * old connection key stays until the customProviders collector observes the change.
+     */
+    suspend fun commitEditor(
+        originalName: String,
+        draft: ProviderEditorDraft,
+    ): ProviderEditorCommitResult {
+        val before = settings.customProviders.value.firstOrNull { it.name == originalName }
+        val beforeUrl = settings.providerBaseUrls.value[originalName].orEmpty().trim()
+        val result = settings.commitProviderEditor(originalName, draft)
+        if (result != ProviderEditorCommitResult.SAVED || before == null) return result
+        val newName = draft.name.trim()
+        val newUrl = draft.baseUrl.trim()
+        val updated = before.copy(
+            name = newName,
+            protocol = draft.protocol ?: before.protocol,
+            responsesApiEnabled = draft.responsesApiEnabled,
+            anthropicCacheEnabled = draft.cacheEnabled,
+            anthropicCacheTtl = draft.cacheTtl,
+        )
+        val provider = createCustomProvider(updated, newUrl)
+        if (provider != null) providers[newName] = provider
+        else if (newName == originalName) providers.remove(originalName)
+        val resolution = runtimeEndpointResolutions.remove(originalName)
+        if (resolution != null && beforeUrl == newUrl && updated.protocol == before.protocol) {
+            runtimeEndpointResolutions[newName] = resolution
+        }
+        return result
+    }
+
     fun deleteCustom(name: String) {
         if (!CustomProviderNamePolicy.isAllowed(name)) return
         providers.remove(name)
@@ -412,6 +446,15 @@ class ProviderRegistry(
                     ?.second
                     ?.getOrThrow()
                 settings.awaitInitialLoad()
+                // Freeze the legacy-derived Provider list once, so later credential edits can no
+                // longer change which built-ins are listed.
+                // A failed write only defers this; the derived list stays readable.
+                try {
+                    settings.materializeProviderList()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                }
                 settings.customProviders.first { custom ->
                     custom.all { CustomProviderIdentityPolicy.isStableId(it.id) }
                 }
@@ -448,7 +491,12 @@ class ProviderRegistry(
                 if (keys.isEmpty() && activeIds.isEmpty()) return@collect
 
                 val current = mutableMapOf<String, Boolean>()
+                val listed = settings.providerList.value.toSet()
                 providers.toMap().forEach { (name, _) ->
+                    // Removed built-ins keep their catalog; their configured state is not tracked.
+                    if (isBuiltIn(name) && name != Constants.PROVIDER_LOCAL && name !in listed) {
+                        return@forEach
+                    }
                     val activeKey = keys.find { it.id == activeIds[name] }?.key ?: ""
                     current[name] = isConfigured(name, activeKey)
                 }

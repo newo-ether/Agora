@@ -497,6 +497,17 @@
     <string name="provider_cache_desc">请求缓存提示词；中转服务的缓存独立控制</string>
     <string name="provider_cache_duration">缓存时长</string>
     <string name="provider_cache_duration_desc">已缓存提示词可复用的时间</string>
+    <string name="provider_save_failed">保存提供商设置失败</string>
+    <string name="provider_remove_from_list">从列表移除</string>
+    <string name="provider_remove_title">移除 %1$s？</string>
+    <string name="provider_remove_text">配置会保留，重新添加即可恢复。</string>
+    <string name="provider_remove">移除</string>
+    <string name="provider_search_hint">搜索提供商</string>
+    <string name="provider_custom_entry">自定义提供商</string>
+    <string name="provider_add_no_match">没有匹配的提供商</string>
+    <string name="provider_added">已添加</string>
+    <string name="provider_list_empty">还没有提供商</string>
+    <string name="provider_reorder">调整顺序</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">网络</string>
     <string name="settings_proxy">代理</string>

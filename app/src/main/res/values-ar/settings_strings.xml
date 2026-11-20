@@ -480,6 +480,17 @@
     <string name="provider_cache_desc">طلب تخزين المطالبات مؤقتًا؛ تخزين خادم الترحيل مستقل</string>
     <string name="provider_cache_duration">مدة التخزين المؤقت</string>
     <string name="provider_cache_duration_desc">مدة إمكانية إعادة استخدام المطالبات المخزنة مؤقتًا</string>
+    <string name="provider_save_failed">تعذّر حفظ إعدادات المزوّد</string>
+    <string name="provider_remove_from_list">إزالة من القائمة</string>
+    <string name="provider_remove_title">إزالة %1$s؟</string>
+    <string name="provider_remove_text">سيتم الاحتفاظ بالإعدادات. أضفه مجددًا لاستعادتها.</string>
+    <string name="provider_remove">إزالة</string>
+    <string name="provider_search_hint">البحث عن مزوّدين</string>
+    <string name="provider_custom_entry">مزوّد مخصص</string>
+    <string name="provider_add_no_match">لا يوجد مزوّدون مطابقون</string>
+    <string name="provider_added">تمت الإضافة</string>
+    <string name="provider_list_empty">لا يوجد مزوّدون بعد</string>
+    <string name="provider_reorder">إعادة الترتيب</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">الشبكة</string>
     <string name="settings_proxy">الوكيل</string>

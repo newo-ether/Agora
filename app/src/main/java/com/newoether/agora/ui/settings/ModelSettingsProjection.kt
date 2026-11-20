@@ -1,5 +1,6 @@
 package com.newoether.agora.ui.settings
 
+import com.newoether.agora.data.BUILT_IN_REMOTE_PROVIDERS
 import com.newoether.agora.data.inferModelAlias
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.apiModelName
@@ -9,6 +10,10 @@ internal data class ModelProviderGroup(
     val models: List<String>,
 )
 
+/** Built-ins removed from the Provider list are hidden; [providerOrder] lists the visible ones. */
+private fun isHiddenBuiltIn(providerName: String, providerOrder: List<String>): Boolean =
+    providerName in BUILT_IN_REMOTE_PROVIDERS && providerName !in providerOrder
+
 internal fun customModelGroups(
     customModels: Set<String>,
     providerOrder: List<String>,
@@ -16,6 +21,7 @@ internal fun customModelGroups(
     val providerPositions = providerOrder.withIndex().associate { (index, name) -> name to index }
     return customModels
         .groupBy { ModelId.parse(it).providerName }
+        .filterKeys { !isHiddenBuiltIn(it, providerOrder) }
         .map { (providerName, models) ->
             ModelProviderGroup(
                 providerName = providerName,
@@ -35,9 +41,11 @@ internal fun fetchedModelGroups(
     customModels: Set<String>,
     modelAliases: Map<String, String>,
     query: String,
+    providerOrder: List<String>,
 ): List<ModelProviderGroup> {
     val normalizedQuery = query.trim()
-    return availableModels.mapNotNull { (providerName, models) ->
+    val providerPositions = providerOrder.withIndex().associate { (index, name) -> name to index }
+    return availableModels.filterKeys { !isHiddenBuiltIn(it, providerOrder) }.mapNotNull { (providerName, models) ->
         val providerMatches =
             normalizedQuery.isNotEmpty() &&
                 providerName.contains(normalizedQuery, ignoreCase = true)
@@ -58,7 +66,7 @@ internal fun fetchedModelGroups(
         filteredModels.takeIf { it.isNotEmpty() }?.let {
             ModelProviderGroup(providerName = providerName, models = it)
         }
-    }
+    }.sortedBy { providerPositions[it.providerName] ?: Int.MAX_VALUE }
 }
 
 internal fun modelAliasToPersist(

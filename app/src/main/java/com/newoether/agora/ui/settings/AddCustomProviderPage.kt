@@ -36,6 +36,7 @@ import com.newoether.agora.viewmodel.ChatViewModel
 internal fun AddCustomProviderPage(
     viewModel: ChatViewModel,
     onBack: () -> Unit,
+    onSaved: () -> Unit = onBack,
 ) {
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     var name by rememberSaveable { mutableStateOf("") }
@@ -60,11 +61,11 @@ internal fun AddCustomProviderPage(
         urlError = trimmedUrl.isBlank()
         if (nameError || urlError) return
         viewModel.customModelConfiguration.addProvider(trimmedName, trimmedUrl, protocol)
-        onBack()
+        onSaved()
     }
 
     CollapsingSettingsScaffold(
-        title = stringResource(R.string.custom_provider_add_title),
+        title = stringResource(R.string.provider_custom_entry),
         onBack = guardedBack,
         scrollState = rememberSettingsScrollState(),
         actions = {

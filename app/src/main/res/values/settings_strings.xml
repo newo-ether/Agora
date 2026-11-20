@@ -497,6 +497,17 @@
     <string name="provider_cache_desc">Request prompt caching; relay caching is independent</string>
     <string name="provider_cache_duration">Cache Duration</string>
     <string name="provider_cache_duration_desc">How long cached prompts remain reusable</string>
+    <string name="provider_save_failed">Failed to save Provider settings</string>
+    <string name="provider_remove_from_list">Remove from list</string>
+    <string name="provider_remove_title">Remove %1$s?</string>
+    <string name="provider_remove_text">Its settings are kept. Add it again to restore them.</string>
+    <string name="provider_remove">Remove</string>
+    <string name="provider_search_hint">Search Providers</string>
+    <string name="provider_custom_entry">Custom Provider</string>
+    <string name="provider_add_no_match">No matching Providers</string>
+    <string name="provider_added">Added</string>
+    <string name="provider_list_empty">No Providers yet</string>
+    <string name="provider_reorder">Reorder</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Network</string>
     <string name="settings_proxy">Proxy</string>

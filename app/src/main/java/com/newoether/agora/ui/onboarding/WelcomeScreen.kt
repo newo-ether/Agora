@@ -80,6 +80,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.newoether.agora.R
+import com.newoether.agora.data.BUILT_IN_REMOTE_PROVIDERS
 import com.newoether.agora.data.CustomEndpointProtocol
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.LocalChatModelConfig
@@ -301,7 +302,10 @@ fun WelcomeScreen(
         val p = selectedProvider ?: return@save
         when {
             p == Constants.PROVIDER_LOCAL -> { /* handled by GGUF import */ }
-            p == Constants.PROVIDER_OLLAMA -> if (apiKeyText.isNotBlank()) viewModel.settings.setProviderBaseUrl(Constants.PROVIDER_OLLAMA, apiKeyText)
+            p == Constants.PROVIDER_OLLAMA -> if (apiKeyText.isNotBlank()) {
+                viewModel.settings.setProviderBaseUrl(Constants.PROVIDER_OLLAMA, apiKeyText)
+                viewModel.settings.addBuiltInProvider(p)
+            }
             isCustomProvider -> {
                 if (baseUrlText.isNotBlank()) {
                     val existing = customProviders.firstOrNull { it.name == p }
@@ -316,7 +320,10 @@ fun WelcomeScreen(
                 }
                 if (apiKeyText.isNotBlank()) viewModel.settings.upsertApiKey(p, apiKeyText, p)
             }
-            else -> if (apiKeyText.isNotBlank()) viewModel.settings.upsertApiKey(p, apiKeyText, p)
+            else -> if (apiKeyText.isNotBlank()) {
+                viewModel.settings.upsertApiKey(p, apiKeyText, p)
+                if (p in BUILT_IN_REMOTE_PROVIDERS) viewModel.settings.addBuiltInProvider(p)
+            }
         }
     }
 

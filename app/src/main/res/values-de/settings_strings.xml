@@ -480,6 +480,17 @@
     <string name="provider_cache_desc">Prompt-Caching anfordern; der Relay-Cache ist unabhängig</string>
     <string name="provider_cache_duration">Cache-Dauer</string>
     <string name="provider_cache_duration_desc">Wie lange zwischengespeicherte Prompts wiederverwendbar bleiben</string>
+    <string name="provider_save_failed">Anbietereinstellungen konnten nicht gespeichert werden</string>
+    <string name="provider_remove_from_list">Aus Liste entfernen</string>
+    <string name="provider_remove_title">%1$s entfernen?</string>
+    <string name="provider_remove_text">Die Einstellungen bleiben erhalten. Füge den Anbieter erneut hinzu, um sie wiederherzustellen.</string>
+    <string name="provider_remove">Entfernen</string>
+    <string name="provider_search_hint">Anbieter suchen</string>
+    <string name="provider_custom_entry">Benutzerdefinierter Anbieter</string>
+    <string name="provider_add_no_match">Keine passenden Anbieter</string>
+    <string name="provider_added">Hinzugefügt</string>
+    <string name="provider_list_empty">Noch keine Anbieter</string>
+    <string name="provider_reorder">Neu anordnen</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Netzwerk</string>
     <string name="settings_proxy">Proxy</string>

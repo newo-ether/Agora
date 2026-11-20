@@ -143,6 +143,8 @@ internal object PortableSettingsArchive {
         put("exactExecutionEnabled", JsonPrimitive(sm.exactExecutionEnabled.first()))
         put("automationWakeLockEnabled", JsonPrimitive(sm.automationWakeLockEnabled.first()))
         putEncoded("customProviders", sm.customProviders.first())
+        putEncoded("providerList", sm.providerListStore.providerList.first())
+        putEncoded("hiddenProviderModels", sm.providerListStore.hiddenProviderModels.first())
         putEncoded("mcpServers", sm.mcpServers.first().map(McpServerConfig::withoutSecrets))
 
         put("proxyEnabled", JsonPrimitive(sm.proxyEnabled.first()))
@@ -500,6 +502,15 @@ internal object PortableSettingsArchive {
             }
             sm.saveCustomProviders(value)
         }
+        // After custom Providers, URLs and enabled models, so derivation and parking see them.
+        sm.providerListStore.restoreImported(
+            importedList = obj.decode<List<String>>("providerList")
+                ?.map { importedProviderIdentities.providerNameRemap[it] ?: it },
+            importedHidden = obj.decode<Map<String, Set<String>>>("hiddenProviderModels")
+                .orEmpty()
+                .mapValues { (_, models) -> models.mapTo(linkedSetOf(), ::remapModel) },
+            replace = replace,
+        )
 
         val mcpElement = obj["mcpServers"]
         if (mcpElement != null || replace) {

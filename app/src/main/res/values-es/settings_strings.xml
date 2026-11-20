@@ -480,6 +480,17 @@
     <string name="provider_cache_desc">Solicitar caché de instrucciones; la caché del relay es independiente</string>
     <string name="provider_cache_duration">Duración de la caché</string>
     <string name="provider_cache_duration_desc">Cuánto tiempo se pueden reutilizar las instrucciones en caché</string>
+    <string name="provider_save_failed">No se pudo guardar la configuración del proveedor</string>
+    <string name="provider_remove_from_list">Quitar de la lista</string>
+    <string name="provider_remove_title">¿Quitar %1$s?</string>
+    <string name="provider_remove_text">La configuración se conserva. Vuelve a añadirlo para restaurarla.</string>
+    <string name="provider_remove">Quitar</string>
+    <string name="provider_search_hint">Buscar proveedores</string>
+    <string name="provider_custom_entry">Proveedor personalizado</string>
+    <string name="provider_add_no_match">No hay proveedores coincidentes</string>
+    <string name="provider_added">Añadido</string>
+    <string name="provider_list_empty">Aún no hay proveedores</string>
+    <string name="provider_reorder">Reordenar</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Red</string>
     <string name="settings_proxy">Proxy</string>

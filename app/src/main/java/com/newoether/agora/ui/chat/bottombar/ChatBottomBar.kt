@@ -90,6 +90,8 @@ internal fun ChatBottomBar(
     modelAliases: Map<String, String> = emptyMap(),
     modelProviderNames: Map<String, Boolean> = emptyMap(),
     customProviders: List<CustomProviderConfig> = emptyList(),
+    /** User Provider list order; providers outside it (Local) sort after it. */
+    providerOrder: List<String> = emptyList(),
     codeExecutionEnabled: Boolean = false,
     googleSearchEnabled: Boolean = false,
     openAiWebSearchAvailable: Boolean = false,
@@ -528,12 +530,21 @@ internal fun ChatBottomBar(
                             enabled = false
                         )
                     } else {
-                        // Grouped by provider, then alphabetical. enabledModels is a Set whose
-                        // iteration order is insertion order (i.e. whenever each model was
-                        // enabled), which scrambles providers together in the picker.
-                        val sortedModels = remember(enabledModels, customProviders) {
+                        // Grouped by provider in the user's Provider list order, then
+                        // alphabetical. enabledModels is a Set whose iteration order is insertion
+                        // order (i.e. whenever each model was enabled), which scrambles providers.
+                        val sortedModels = remember(enabledModels, customProviders, providerOrder) {
+                            val positions = providerOrder.withIndex().associate { (index, name) -> name to index }
                             enabledModels.sortedWith(
                                 compareBy(
+                                    {
+                                        positions[
+                                            providerDisplayName(
+                                                com.newoether.agora.model.ModelId.parse(it).providerName,
+                                                customProviders,
+                                            )
+                                        ] ?: Int.MAX_VALUE
+                                    },
                                     {
                                         providerDisplayName(
                                             com.newoether.agora.model.ModelId.parse(it).providerName,

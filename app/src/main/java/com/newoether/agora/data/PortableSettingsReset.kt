@@ -66,6 +66,8 @@ internal fun clearPortableSettings(prefs: MutablePreferences) {
     prefs.remove(SHOW_UNCACHED_NOTIFICATION)
     prefs.remove(AUTO_UPDATE_CHECK)
     prefs.remove(CUSTOM_PROVIDERS_JSON)
+    prefs.remove(PROVIDER_LIST_JSON)
+    prefs.remove(HIDDEN_PROVIDER_MODELS_JSON)
     prefs.remove(SHELL_ENABLED)
     prefs.remove(AUTOMATION_TOOLS_ENABLED)
     prefs.remove(EXACT_EXECUTION_ENABLED)

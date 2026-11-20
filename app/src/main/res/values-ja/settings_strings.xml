@@ -480,6 +480,17 @@
     <string name="provider_cache_desc">プロンプトのキャッシュを要求します。中継サーバーのキャッシュは独立しています</string>
     <string name="provider_cache_duration">キャッシュ保持期間</string>
     <string name="provider_cache_duration_desc">キャッシュされたプロンプトを再利用できる期間</string>
+    <string name="provider_save_failed">プロバイダー設定を保存できませんでした</string>
+    <string name="provider_remove_from_list">リストから削除</string>
+    <string name="provider_remove_title">%1$s を削除しますか？</string>
+    <string name="provider_remove_text">設定は保持されます。再度追加すると復元されます。</string>
+    <string name="provider_remove">削除</string>
+    <string name="provider_search_hint">プロバイダーを検索</string>
+    <string name="provider_custom_entry">カスタムプロバイダー</string>
+    <string name="provider_add_no_match">一致するプロバイダーはありません</string>
+    <string name="provider_added">追加済み</string>
+    <string name="provider_list_empty">プロバイダーはまだありません</string>
+    <string name="provider_reorder">並べ替え</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">ネットワーク</string>
     <string name="settings_proxy">プロキシ</string>
