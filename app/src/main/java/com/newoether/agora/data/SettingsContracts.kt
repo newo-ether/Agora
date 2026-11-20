@@ -77,7 +77,7 @@ internal val WEB_SEARCH_PROVIDERS = setOf(
 )
 
 internal fun normalizeWebSearchProvider(provider: String?): String =
-    provider?.trim()?.lowercase()?.takeIf(WEB_SEARCH_PROVIDERS::contains) ?: "duckduckgo"
+    provider?.trim()?.lowercase()?.takeIf(WEB_SEARCH_PROVIDERS::contains) ?: "exa"
 
 internal fun decodeWebSearchApiKeys(preferences: Preferences, json: Json): Map<String, String> {
     val raw = SecretCrypto.decrypt(preferences[WEB_SEARCH_API_KEYS_JSON] ?: "{}")

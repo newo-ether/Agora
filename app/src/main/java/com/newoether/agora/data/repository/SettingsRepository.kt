@@ -157,7 +157,7 @@ class SettingsRepository(
     val activeEmbeddingModelId: StateFlow<String> = publication.hot(settingsManager.activeEmbeddingModelId, "")
     val appLanguage: StateFlow<String> = publication.hot(settingsManager.appLanguage, "system")
     val webSearchEnabled: StateFlow<Boolean> = publication.hot(settingsManager.webSearchEnabled, false)
-    val webSearchProvider: StateFlow<String> = publication.hot(settingsManager.webSearchProvider, "duckduckgo")
+    val webSearchProvider: StateFlow<String> = publication.hot(settingsManager.webSearchProvider, "exa")
     val webSearchApiKeys: StateFlow<Map<String, String>> = publication.hot(settingsManager.webSearchApiKeys, emptyMap())
     val webSearchNumResults: StateFlow<Int> = publication.hot(settingsManager.webSearchNumResults, 5)
     val webSearchBaseUrl: StateFlow<String> = publication.hot(settingsManager.webSearchBaseUrl, "")

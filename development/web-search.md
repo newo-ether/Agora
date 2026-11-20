@@ -27,16 +27,17 @@ The generic provider dialog must expose providers in this exact order:
 3. Kagi
 4. Serper
 5. Tavily
-6. SearXNG
+6. Exa
+7. SearXNG
 
 OpenAI must not appear in the generic provider set, provider dialog, API-key settings surface,
 localized provider resources, or `WebSearchToolProvider` transport/normalization branches.
-DuckDuckGo is the deterministic default and first visible option.
+Exa is the deterministic default. DuckDuckGo stays the first visible option.
 
 ## 3. Compatibility and persistence
 
 - Normalize stored provider values case-insensitively against the current supported set.
-- Normalize removed legacy `openai` values and all unknown values to `duckduckgo`.
+- Normalize removed legacy `openai` values and all unknown values to `exa`.
 - New writes may contain only a provider from the current supported set.
 - Do not destructively purge an inert encrypted legacy credential merely to remove the executable
   provider surface. Inert legacy data must never reactivate or expose the retired provider.
@@ -112,7 +113,8 @@ No owner may infer the other capability from a matching company name or legacy s
   retries add no UI wording. Authentication, permanent client errors and cancellation do not retry.
 - API-backed generic providers fail with provider-specific missing-credential errors.
 - SearXNG validates and uses its configured URL; DuckDuckGo uses its existing public-search path.
-- Unsupported values fail closed through normalization to DuckDuckGo; they must not silently call
+  Exa accepts an optional API key and falls back to its keyless public MCP endpoint when blank.
+- Unsupported values fail closed through normalization to Exa; they must not silently call
   an official OpenAI endpoint.
 - Generic search must never reuse a model-provider key, URL, or service-tier setting.
 - Native search must use the selected conversation provider's established configuration and
@@ -122,9 +124,9 @@ No owner may infer the other capability from a matching company name or legacy s
 
 Changes touching this subsystem must verify:
 
-1. the exact visible provider order and DuckDuckGo-first default;
+1. the exact visible provider order and Exa default;
 2. absence of a generic OpenAI provider, resources, settings branch, and transport branch;
-3. legacy `openai` and unknown-value fallback to DuckDuckGo;
+3. legacy `openai` and unknown-value fallback to Exa;
 4. official and custom OpenAI-compatible Providers show OpenAI Search whenever Responses is enabled,
    without a model capability lookup or extra relay declaration;
 5. an enabled search serializes the native `web_search` tool in the actual Responses request;

@@ -196,9 +196,9 @@ class SettingsContractsTest {
     }
 
     @Test
-    fun removedOpenAiGenericSearchProviderFallsBackToDuckDuckGo() {
-        assertEquals("duckduckgo", normalizeWebSearchProvider(" OpenAI "))
-        assertEquals("duckduckgo", normalizeWebSearchProvider(" unknown "))
+    fun removedOpenAiGenericSearchProviderFallsBackToExa() {
+        assertEquals("exa", normalizeWebSearchProvider(" OpenAI "))
+        assertEquals("exa", normalizeWebSearchProvider(" unknown "))
         assertEquals("kagi", normalizeWebSearchProvider(" KAGI "))
     }
 
