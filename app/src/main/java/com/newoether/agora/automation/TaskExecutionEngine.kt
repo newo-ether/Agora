@@ -200,8 +200,8 @@ class TaskExecutionEngine(
     ).also {
         // Foreground Task/Loop executions share the exact same prompt and session trust state as
         // Chat, including the notification-backed wait when no Activity is visible.
-        it.onConfirmShellCommand = { server, summary, conversationId, detail ->
-            shellConfirmation.confirm(server, summary, conversationId, detail)
+        it.onConfirmShellCommand = { server, summary, conversationId, detail, description ->
+            shellConfirmation.confirm(server, summary, conversationId, detail, description)
         }
         it.onMessagePersisted = ragManager::indexMessageForRag
     } }

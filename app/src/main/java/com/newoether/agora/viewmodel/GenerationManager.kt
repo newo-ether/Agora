@@ -59,6 +59,7 @@ class GenerationManager(
         summary: String,
         conversationId: String?,
         detail: ShellActionDetail?,
+        description: String,
     ) -> Boolean)? = null
 
     private val toolExecutor = GenerationToolExecutor.createDefault(
@@ -69,8 +70,8 @@ class GenerationManager(
         sandboxFactory = sandboxFactory,
         additionalProviders = additionalToolProviders,
         generatingConversationIds = generatingConversationIds,
-        confirmShellCommand = { server, summary, conversationId, detail ->
-            onConfirmShellCommand?.invoke(server, summary, conversationId, detail) ?: true
+        confirmShellCommand = { server, summary, conversationId, detail, description ->
+            onConfirmShellCommand?.invoke(server, summary, conversationId, detail, description) ?: true
         },
     )
     private val contextAccounting = GenerationContextAccounting(toolExecutor)

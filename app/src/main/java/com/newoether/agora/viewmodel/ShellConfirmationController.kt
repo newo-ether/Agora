@@ -54,6 +54,8 @@ class ShellConfirmationController internal constructor(
         val conversationId: String? = null,
         /** File contents or edit hunks for write/edit prompts; null for other actions. */
         val detail: ShellActionDetail? = null,
+        /** Model-written one-line intent for this action; shown above the command text. */
+        val description: String = "",
     )
     val notificationSessionId: String = java.util.UUID.randomUUID().toString()
 
@@ -81,6 +83,7 @@ class ShellConfirmationController internal constructor(
         summary: String,
         conversationId: String? = null,
         detail: ShellActionDetail? = null,
+        description: String = "",
     ): Boolean {
         if (!confirmEnabled.value) return true
         if (sessionAllowedServers.contains(server)) return true
@@ -91,7 +94,7 @@ class ShellConfirmationController internal constructor(
             val deferred = CompletableDeferred<Boolean>()
             val promptId = nextPromptId.getAndIncrement()
             _pendingShellCommand.value =
-                PendingShellCommand(promptId, server, summary, deferred, conversationId, detail)
+                PendingShellCommand(promptId, server, summary, deferred, conversationId, detail, description)
             try {
                 // Backgrounding the app does not answer the request. There is no visible dialog
                 // there, so the app layer re-surfaces the wait as a notification with the same

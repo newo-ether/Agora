@@ -95,6 +95,7 @@ internal class GenerationToolExecutor private constructor(
                 summary: String,
                 conversationId: String?,
                 detail: ShellActionDetail?,
+                description: String,
             ) -> Boolean,
             generatingConversationIds: () -> Set<String> = { emptySet() },
         ): GenerationToolExecutor {

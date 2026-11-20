@@ -393,13 +393,23 @@ private fun ShellBody(
             .heightIn(max = ScrollableContentMaxHeight)
             .verticalScroll(rememberScrollState()),
     ) {
-        when (val detail = pending.detail) {
-            is ShellActionDetail.Write -> ShellWriteDetail(detail)
-            is ShellActionDetail.Edit -> ShellEditDetail(detail)
-            null -> ChatMarkdownCodeBlock(
-                code = pending.summary,
-                autoWrap = autoWrapCodeBlocks,
-            )
+        Column {
+            if (pending.description.isNotBlank()) {
+                Text(
+                    text = pending.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            when (val detail = pending.detail) {
+                is ShellActionDetail.Write -> ShellWriteDetail(detail)
+                is ShellActionDetail.Edit -> ShellEditDetail(detail)
+                null -> ChatMarkdownCodeBlock(
+                    code = pending.summary,
+                    autoWrap = autoWrapCodeBlocks,
+                )
+            }
         }
     }
     Spacer(Modifier.height(10.dp))

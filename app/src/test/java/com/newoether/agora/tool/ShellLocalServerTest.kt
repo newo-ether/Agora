@@ -390,7 +390,7 @@ class ShellLocalServerTest {
     fun sharedStorageDenialPreventsCommandStartAndStopOnBothEntrypoints() = runTest {
         val sharedContext = context.copy(sandboxSharedStorageEnabled = true, conversationId = "conversation")
         val confirmations = mutableListOf<Pair<String, String?>>()
-        provider.confirm = { server, _, conversationId, _ ->
+        provider.confirm = { server, _, conversationId, _, _ ->
             confirmations += server to conversationId
             false
         }
@@ -415,7 +415,7 @@ class ShellLocalServerTest {
     @Test
     fun sharedStorageJobReadsDoNotRequireMutationConfirmation() = runTest {
         val sharedContext = context.copy(sandboxSharedStorageEnabled = true)
-        provider.confirm = { _, _, _, _ -> error("Read-only job observation must not request confirmation") }
+        provider.confirm = { _, _, _, _, _ -> error("Read-only job observation must not request confirmation") }
         coEvery { manager.listJobs(0, 100) } returns """{"jobs":[]}"""
         coEvery { manager.getJob("local-job") } returns job("local-job", "succeeded")
         invoke(Entry.ONE_SHOT, "shell_job_list", "{}", sharedContext)

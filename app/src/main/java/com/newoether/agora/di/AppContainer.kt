@@ -424,8 +424,8 @@ class AppContainer(
             phoneReady = { PHONE_USE_SUPPORTED && phoneUse.readiness(it) },
             onConversationOpened = subagentManager::conversationOpened,
             onConversationIdle = subagentManager::conversationIdle,
-            onConfirmShellCommand = { server, summary, conversationId, detail ->
-                shellConfirmationController.confirm(server, summary, conversationId, detail)
+            onConfirmShellCommand = { server, summary, conversationId, detail, description ->
+                shellConfirmationController.confirm(server, summary, conversationId, detail, description)
             },
             registry = conversationStateRegistry,
             providerRegistry = providerRegistry,
