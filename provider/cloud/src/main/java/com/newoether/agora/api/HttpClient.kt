@@ -16,6 +16,7 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import okhttp3.Request
 import okhttp3.RequestBody
+import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSource
 import kotlinx.coroutines.asContextElement
@@ -267,12 +268,13 @@ object HttpClient {
                 mark("tls_end", "version=${handshake?.tlsVersion}")
             override fun connectEnd(call: Call, inetSocketAddress: InetSocketAddress, proxy: Proxy, protocol: Protocol?) =
                 mark("connect_end", "protocol=$protocol")
-            override fun requestHeadersStart(call: Call) {
-                call.request().tag(NetworkRequestProgress::class.java)?.started = true
-            }
             override fun requestBodyStart(call: Call) = mark("request_body_start")
             override fun requestBodyEnd(call: Call, byteCount: Long) = mark("request_body_end", "bytes=$byteCount")
             override fun responseHeadersStart(call: Call) = mark("response_headers_start")
+            override fun responseHeadersEnd(call: Call, response: Response) {
+                mark("response_headers_end", "code=${response.code}")
+                call.request().tag(NetworkRequestProgress::class.java)?.statusCode = response.code
+            }
         }
     }
 

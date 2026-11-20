@@ -75,9 +75,10 @@ internal object ConchNetwork {
         callTimeoutMillis: Long? = null,
         replaySafe: Boolean = false,
         maxRetries: Int = MAX_RETRIES,
+        wait: ((Int, String?, () -> Boolean) -> Unit)? = null,
     ): ConchTextResponse = execute(
         Request.Builder().url(url).post(body.toRequestBody("application/json".toMediaType())),
-        headers, RESPONSE_LIMIT, callTimeoutMillis ?: 130_000, replaySafe, maxRetries,
+        headers, RESPONSE_LIMIT, callTimeoutMillis ?: 130_000, replaySafe, maxRetries, wait,
     )
 
     private fun execute(
@@ -87,13 +88,12 @@ internal object ConchNetwork {
         timeoutMillis: Long,
         replaySafe: Boolean = builder.build().method == "GET",
         maxRetries: Int = MAX_RETRIES,
+        wait: ((Int, String?, () -> Boolean) -> Unit)? = null,
     ): ConchTextResponse {
         require(timeoutMillis > 0)
         headers.forEach { (name, value) -> builder.header(name, value) }
         val request = builder.build()
-        return client.executeWithNetworkRetry(
-            request, replaySafe = replaySafe, callTimeoutMillis = timeoutMillis, maxRetries = maxRetries,
-        ) { response ->
+        val read: (Response) -> ConchTextResponse = { response ->
             ConchTextResponse(
                 code = response.code,
                 body = readBody(response, limit),
@@ -102,6 +102,16 @@ internal object ConchNetwork {
                 retryAfter = response.header("Retry-After"),
             )
         }
+        if (wait == null) {
+            return client.executeWithNetworkRetry(
+                request, replaySafe = replaySafe, callTimeoutMillis = timeoutMillis,
+                maxRetries = maxRetries, read = read,
+            )
+        }
+        return client.executeWithNetworkRetry(
+            request, replaySafe = replaySafe, callTimeoutMillis = timeoutMillis,
+            maxRetries = maxRetries, wait = wait, read = read,
+        )
     }
     private fun readBody(response: Response, limit: Long): String = try {
         response.body.source().readBoundedWireText(if (response.isSuccessful) limit else CONTROL_LIMIT)

@@ -12,15 +12,12 @@ import org.junit.Test
 
 class ProviderRetryPolicyTest {
     @Test
-    fun fiveRetriesUseBoundedExponentialJitter() {
+    fun fiveRetriesUseFiveFiveFiveThirtyThirty() {
         assertEquals(5, ProviderRetryPolicy.MAX_RETRIES)
         assertEquals(6, ProviderRetryPolicy.MAX_ATTEMPTS)
-        (1..5).forEach { retry ->
-            val ceiling = 1_000L shl (retry - 1)
-            repeat(20) {
-                assertTrue(ProviderRetryPolicy.delayMillis(retry) in ceiling / 2..ceiling)
-            }
-        }
+        (1..3).forEach { retry -> assertEquals(5_000L, ProviderRetryPolicy.delayMillis(retry)) }
+        assertEquals(30_000L, ProviderRetryPolicy.delayMillis(4))
+        assertEquals(30_000L, ProviderRetryPolicy.delayMillis(5))
         assertEquals(120_000L, ProviderRetryPolicy.delayMillis(1, "120"))
     }
 

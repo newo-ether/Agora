@@ -242,14 +242,19 @@ internal class McpProtocolClient(
         val response = NetworkRetryPolicy.retry(
             canRetry = { failure ->
                 retryAfter = (failure as? NetworkHttpException)?.retryAfter
-                if (method == "tools/call") !progress.started && NetworkRetryPolicy.isBeforeSendFailure(failure)
-                else if (failure is NetworkHttpException) failure.statusCode in NetworkRetryPolicy.HTTP_CODES
-                else if (failure is McpSessionExpiredException) false
-                else NetworkRetryPolicy.isTransient(failure)
+                when {
+                    failure is McpSessionExpiredException -> false
+                    failure is NetworkHttpException -> failure.statusCode in NetworkRetryPolicy.HTTP_CODES
+                    // A tool call has side effects: replay it only when the server never answered
+                    // and the failure was not a timeout, so the tool cannot run twice.
+                    method == "tools/call" ->
+                        NetworkRetryPolicy.isReplayableUnanswered(failure, progress.statusCode)
+                    else -> NetworkRetryPolicy.isTransient(failure)
+                }
             },
             retryAfter = { retryAfter },
         ) {
-            progress.started = false
+            progress.statusCode = null
             transport.send(
                 envelope = envelope,
                 expectResponse = true,

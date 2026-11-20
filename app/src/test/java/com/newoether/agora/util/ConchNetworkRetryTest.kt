@@ -17,8 +17,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Contract for the Conch stale-connection policy (issue #1): no replay when the server never
- * returned a response, never for timeouts or HTTP errors, so a command can never run twice.
+ * Contract for the Conch request replay policy: a failure where the server never answered and no
+ * timeout occurred is retried three times, while a timeout, a complete HTTP answer or a broken
+ * response body is never replayed, so a command cannot run twice.
  */
 class ConchNetworkRetryTest {
     private enum class Behaviour {
@@ -27,6 +28,8 @@ class ConchNetworkRetryTest {
         ANSWER_ERROR,
         STALL,
     }
+
+    private val noWait: (Int, String?, () -> Boolean) -> Unit = { _, _, _ -> }
 
     private fun startFakeConch(behaviour: Behaviour): Pair<ServerSocket, AtomicInteger> {
         val server = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
@@ -150,25 +153,26 @@ class ConchNetworkRetryTest {
     }
 
     @Test
-    fun connectionClosedAfterRequestIsNeverReplayed() {
+    fun connectionClosedBeforeResponseIsReplayedAndSucceeds() {
         val (server, connections) = startFakeConch(Behaviour.CLOSE_BEFORE_RESPONSE_THEN_ANSWER)
         try {
-            val failure = runCatching { ConchNetwork.postTextResponse(
+            val response = ConchNetwork.postTextResponse(
                 "http://127.0.0.1:${server.localPort}/jobs/list",
                 "{}",
                 emptyMap(),
                 callTimeoutMillis = 10_000,
-            ) }.exceptionOrNull()
-            assertTrue(failure is java.io.IOException)
-            assertEquals(1, connections.get())
+                wait = noWait,
+            )
+            assertTrue(response.isSuccessful)
+            assertEquals(2, connections.get())
         } finally {
             server.close()
         }
     }
 
-    /** A missing response must end the call without replay. */
+    /** Unanswered failures stop after three retries instead of reconnecting forever. */
     @Test
-    fun secondStaleFailureEndsCallWithoutFurtherAttempts() {
+    fun repeatedUnansweredFailuresStopAfterThreeRetries() {
         val (server, connections) = startFakeConch(Behaviour.CLOSE_BEFORE_RESPONSE_ALWAYS)
         try {
             val failure = runCatching {
@@ -177,10 +181,11 @@ class ConchNetworkRetryTest {
                     "{}",
                     emptyMap(),
                     callTimeoutMillis = 10_000,
+                    wait = noWait,
                 )
             }.exceptionOrNull()
             assertTrue(failure is java.io.IOException)
-            assertEquals(1, connections.get())
+            assertEquals(4, connections.get())
         } finally {
             server.close()
         }
@@ -213,6 +218,7 @@ class ConchNetworkRetryTest {
                     "{}",
                     emptyMap(),
                     callTimeoutMillis = 500,
+                    wait = noWait,
                 )
             }.exceptionOrNull()
             assertTrue(failure is java.io.IOException)
@@ -269,11 +275,11 @@ class ConchNetworkRetryTest {
 
     /**
      * The Conch server closes idle sockets at its idle timeout, so a later request can land on a
-     * socket that is already dead while other idle sockets are dead too. The failure must be
-     * surfaced without opening another connection to replay the signed request.
+     * socket that is already dead. The failure is unanswered, so the call moves to a fresh
+     * connection and succeeds instead of failing the tool.
      */
     @Test
-    fun requestIsNotReplayedWhenIdleSocketsDieOnReuse() {
+    fun requestOnAnIdleDeadSocketIsReplayedOnAFreshConnection() {
         val trap = ReuseTrap(CountDownLatch(2))
         try {
             fun post() = ConchNetwork.postTextResponse(
@@ -281,6 +287,7 @@ class ConchNetworkRetryTest {
                 "{}",
                 emptyMap(),
                 callTimeoutMillis = 20_000,
+                wait = noWait,
             )
 
             // Two parked requests force two pooled sockets to the same host.
@@ -298,10 +305,10 @@ class ConchNetworkRetryTest {
             assertEquals(2, trap.accepted.get())
 
             // Every idle socket is now one request away from dying silently.
-            val failure = runCatching { post() }.exceptionOrNull()
-            assertTrue(failure is java.io.IOException)
+            val recovered = post()
+            assertTrue(recovered.isSuccessful)
             assertTrue(trap.closedOnReuse.get() >= 1)
-            assertEquals(2, trap.accepted.get())
+            assertTrue(trap.accepted.get() >= 3)
         } finally {
             trap.close()
         }

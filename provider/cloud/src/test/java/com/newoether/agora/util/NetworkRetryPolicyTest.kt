@@ -39,15 +39,17 @@ class NetworkRetryPolicyTest {
     }
 
     @Test
-    fun causeCyclesAreBoundedAndSideEffectsRequirePreConnectFailure() {
+    fun causeCyclesAreBoundedAndSideEffectsReplayOnlyUnansweredFailures() {
         val first = IOException("first")
         val second = IOException("second", first)
         first.initCause(second)
         assertEquals(2, NetworkRetryPolicy.causes(first).size)
-        assertTrue(NetworkRetryPolicy.isBeforeSendFailure(ConnectException()))
-        assertTrue(NetworkRetryPolicy.isBeforeSendFailure(UnknownHostException()))
-        assertFalse(NetworkRetryPolicy.isBeforeSendFailure(EOFException()))
-        assertFalse(NetworkRetryPolicy.isBeforeSendFailure(SocketTimeoutException()))
+        assertTrue(NetworkRetryPolicy.isReplayableUnanswered(ConnectException()))
+        assertTrue(NetworkRetryPolicy.isReplayableUnanswered(UnknownHostException()))
+        assertTrue(NetworkRetryPolicy.isReplayableUnanswered(EOFException()))
+        assertFalse(NetworkRetryPolicy.isReplayableUnanswered(SocketTimeoutException()))
+        assertFalse(NetworkRetryPolicy.isReplayableUnanswered(EOFException(), 200))
+        assertFalse(NetworkRetryPolicy.isReplayableUnanswered(IOException("invalid JSON")))
     }
 
     @Test
@@ -99,15 +101,17 @@ class NetworkRetryPolicyTest {
     }
 
     @Test
-    fun providerBackoffCoversFiveRetriesAndHonorsRetryAfter() {
+    fun retriesUseFixedFiveSecondSpacingAndProviderAddsTwoThirtySecondReplays() {
         assertEquals(5, NetworkRetryPolicy.PROVIDER_MAX_RETRIES)
-        (1..5).forEach { retry ->
-            val ceiling = 1_000L shl (retry - 1)
-            repeat(20) {
-                assertTrue(NetworkRetryPolicy.providerDelayMillis(retry) in ceiling / 2..ceiling)
-            }
+        (1..3).forEach { retry ->
+            assertEquals(5_000L, NetworkRetryPolicy.delayMillis(retry))
+            assertEquals(5_000L, NetworkRetryPolicy.providerDelayMillis(retry))
         }
-        assertEquals(120_000L, NetworkRetryPolicy.providerDelayMillis(1, "120", 0))
+        assertEquals(30_000L, NetworkRetryPolicy.providerDelayMillis(4))
+        assertEquals(30_000L, NetworkRetryPolicy.providerDelayMillis(5))
+        assertEquals(5_000L, NetworkRetryPolicy.delayMillis(1, "2"))
+        assertEquals(30_000L, NetworkRetryPolicy.providerDelayMillis(5, "2"))
+        assertEquals(120_000L, NetworkRetryPolicy.providerDelayMillis(1, "120"))
     }
 
     @Test

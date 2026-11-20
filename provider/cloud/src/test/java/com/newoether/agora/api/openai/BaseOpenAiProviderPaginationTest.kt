@@ -104,7 +104,7 @@ class BaseOpenAiProviderPaginationTest {
     @Test
     fun laterPageFailureRetriesThreeTimesAndReturnsModelsFromCompletedPages() {
         mockkObject(NetworkRetryPolicy)
-        every { NetworkRetryPolicy.delayMillis(any(), any(), any(), any()) } returns 0L
+        every { NetworkRetryPolicy.delayMillis(any(), any(), any()) } returns 0L
         try {
             withModelServer(
                 responses = listOf(

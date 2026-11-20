@@ -12,9 +12,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 
-/** Attached only to Agora-owned calls. Header admission is a conservative replay fence. */
+/** Attached only to Agora-owned calls. The first observed response status is the replay fence. */
 class NetworkRequestProgress {
-    @Volatile var started = false
+    /** Status of the first response header block; null means the server never answered. */
+    @Volatile var statusCode: Int? = null
 }
 
 class NetworkHttpException(
@@ -64,7 +65,9 @@ fun <T> OkHttpClient.executeWithNetworkRetry(
             } catch (failure: Exception) {
                 NetworkRetryPolicy.throwIfCancelled(failure)
                 if (isCancelled()) throw CancellationException("Network request cancelled", failure)
-                if ((!replaySafe && (progress.started || !NetworkRetryPolicy.isBeforeSendFailure(failure))) ||
+                val unanswered = status == null && progress.statusCode == null &&
+                    NetworkRetryPolicy.isReplayableUnanswered(failure)
+                if ((!replaySafe && !unanswered) ||
                     (status != null && status !in 200..299 && status !in NetworkRetryPolicy.HTTP_CODES) ||
                     retries == maxRetries || !NetworkRetryPolicy.isTransient(failure)
                 ) throw failure

@@ -17,11 +17,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.currentCoroutineContext
-import kotlin.random.Random
 
 /** Shared budget and classification; request owners decide whether replay is safe. Non-LLM
- *  callers (Conch, MCP, web tools, downloads) get three retries; LLM streams keep their own
- *  five-retry [com.newoether.agora.api.util.ProviderRetryPolicy]. */
+ *  callers (Conch, MCP, web tools, downloads) retry three times, five seconds apart; LLM streams
+ *  retry five times, the first three after five seconds and the last two after thirty. */
 object NetworkRetryPolicy {
     const val MAX_RETRIES = 3
     const val MAX_ATTEMPTS = MAX_RETRIES + 1
@@ -29,6 +28,12 @@ object NetworkRetryPolicy {
     /** LLM provider streams replay up to five times, on top of the shared three. */
     const val PROVIDER_MAX_RETRIES = 5
     const val PROVIDER_MAX_ATTEMPTS = PROVIDER_MAX_RETRIES + 1
+
+    /** Fixed spacing between every non-LLM retry and the first three provider replays. */
+    const val RETRY_DELAY_MILLIS = 5_000L
+
+    /** Provider replays four and five wait longer: a stalled generation needs time to recover. */
+    const val PROVIDER_LONG_DELAY_MILLIS = 30_000L
     val HTTP_CODES = setOf(408, 425, 429, 500, 502, 503, 504, 529)
     private val messages = listOf(
         "unexpected end of stream", "unexpected end of file", "eofexception",
@@ -68,33 +73,34 @@ object NetworkRetryPolicy {
         }
     }
 
-    fun isBeforeSendFailure(failure: Throwable): Boolean =
-        isTransient(failure) && causes(failure).any { it is ConnectException || it is UnknownHostException }
+    /** A timeout leaves the request possibly running server-side, so side effects never replay it. */
+    fun isTimeout(failure: Throwable): Boolean =
+        causes(failure).any { it is InterruptedIOException }
 
-    /** Equal jitter: 0.5–1, 1–2, 2–4 seconds. */
+    /** Safe to replay even with side effects: nothing came back and the failure was not a timeout,
+     *  so the work either never reached the server or died with the socket. */
+    fun isReplayableUnanswered(failure: Throwable, statusCode: Int? = null): Boolean =
+        statusCode == null && !isTimeout(failure) && isTransient(failure)
+
+    /** Fixed five-second spacing; a server-provided Retry-After is only a floor. */
     fun delayMillis(
         retryNumber: Int,
         retryAfter: String? = null,
         nowMillis: Long = System.currentTimeMillis(),
-        random: Random = Random.Default,
     ): Long {
         require(retryNumber in 1..MAX_RETRIES)
-        val ceiling = 1_000L shl (retryNumber - 1)
-        val backoff = random.nextLong(ceiling / 2, ceiling + 1)
-        return maxOf(backoff, retryAfterMillis(retryAfter, nowMillis) ?: 0L)
+        return maxOf(RETRY_DELAY_MILLIS, retryAfterMillis(retryAfter, nowMillis) ?: 0L)
     }
 
-    /** Equal jitter for LLM provider replays: 0.5–1, 1–2, 2–4, 4–8, 8–16 seconds. */
+    /** Five seconds for the first three provider replays, thirty seconds for the last two. */
     fun providerDelayMillis(
         retryNumber: Int,
         retryAfter: String? = null,
         nowMillis: Long = System.currentTimeMillis(),
-        random: Random = Random.Default,
     ): Long {
         require(retryNumber in 1..PROVIDER_MAX_RETRIES)
-        val ceiling = 1_000L shl (retryNumber - 1)
-        val backoff = random.nextLong(ceiling / 2, ceiling + 1)
-        return maxOf(backoff, retryAfterMillis(retryAfter, nowMillis) ?: 0L)
+        val base = if (retryNumber <= MAX_RETRIES) RETRY_DELAY_MILLIS else PROVIDER_LONG_DELAY_MILLIS
+        return maxOf(base, retryAfterMillis(retryAfter, nowMillis) ?: 0L)
     }
 
     fun retryAfterMillis(value: String?, nowMillis: Long = System.currentTimeMillis()): Long? {

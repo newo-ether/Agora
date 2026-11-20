@@ -161,11 +161,12 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
         val handle = try {
             com.newoether.agora.util.NetworkRetryPolicy.retry(
                 canRetry = { failure ->
-                    !progress.started && com.newoether.agora.util.NetworkRetryPolicy.isBeforeSendFailure(failure)
+                    com.newoether.agora.util.NetworkRetryPolicy
+                        .isReplayableUnanswered(failure, progress.statusCode)
                 },
             ) {
                 prepared = client.prepareRequest(cmd, timeoutMs, workdir)
-                progress.started = false
+                progress.statusCode = null
                 HttpClient.streamPost(
                     "${prepared.serverUrl}/execute",
                     prepared.body,

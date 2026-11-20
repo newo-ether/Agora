@@ -99,23 +99,37 @@ class McpNetworkRetryTest {
     }
 
     @Test
-    fun toolCallNeverReplaysAnUncertainOrAdmittedRequest() = runTest {
-        listOf(false, true).forEach { admitted ->
-            attempts.clear()
-            respond = { method, _, progress ->
-                if (method == "tools/call") {
-                    progress!!.started = admitted
-                    if (admitted) throw ConnectException() else throw EOFException()
-                }
+    fun toolCallReplaysOnlyWhenTheServerNeverAnswered() = runTest {
+        respond = { method, count, _ ->
+            if (method == "tools/call" && count < 3) {
+                throw java.io.IOException("unexpected end of stream on http://quantum:8931/...")
             }
-            try { client.callTool("edit", buildJsonObject {}); fail("Expected failure") }
-            catch (_: java.io.IOException) { }
-            assertEquals(1, attempts["tools/call"])
         }
+        client.callTool("navigate", buildJsonObject {})
+        assertEquals(3, attempts["tools/call"])
+
+        attempts.clear()
+        respond = { method, _, progress ->
+            if (method == "tools/call") {
+                progress!!.statusCode = 200
+                throw EOFException("unexpected end of stream")
+            }
+        }
+        try { client.callTool("navigate", buildJsonObject {}); fail("Expected failure") }
+        catch (_: java.io.IOException) { }
+        assertEquals(1, attempts["tools/call"])
+
+        attempts.clear()
+        respond = { method, _, _ ->
+            if (method == "tools/call") throw java.net.SocketTimeoutException("read timed out")
+        }
+        try { client.callTool("navigate", buildJsonObject {}); fail("Expected timeout") }
+        catch (_: java.io.IOException) { }
+        assertEquals(1, attempts["tools/call"])
     }
 
     @Test
-    fun toolCallCanRecoverBeforeAnyHeadersWereSent() = runTest {
+    fun toolCallCanRecoverWhenNoResponseWasObserved() = runTest {
         respond = { method, count, _ -> if (method == "tools/call" && count < 4) throw ConnectException() }
         client.callTool("edit", buildJsonObject {})
         assertEquals(4, attempts["tools/call"])
@@ -125,7 +139,7 @@ class McpNetworkRetryTest {
     fun nextCallAfterResponseFailureDoesNotReplayOrRefreshTheCatalog() = runTest {
         respond = { method, count, progress ->
             if (method == "tools/call" && count == 1) {
-                progress!!.started = true
+                progress!!.statusCode = 200
                 throw EOFException("unexpected end of stream")
             }
         }
@@ -148,7 +162,7 @@ class McpNetworkRetryTest {
         every { transport.resetSession() } answers { generation++; Unit }
         respond = { method, count, progress ->
             if (method == "tools/call" && count == 1) {
-                progress!!.started = true
+                progress!!.statusCode = 404
                 throw McpSessionExpiredException()
             }
         }

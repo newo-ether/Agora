@@ -63,32 +63,46 @@ class NetworkHttpRetryTest {
     }
 
     @Test
-    fun sideEffectsNeverReplayUncertainOutcomesOrHttpErrors() {
+    fun sideEffectsReplayAnUnansweredFailureButNotAnAnswer() {
         var attempts = 0
         val disconnected = OkHttpClient.Builder().addInterceptor { attempts++; throw EOFException() }.build()
         assertThrows(EOFException::class.java) {
             disconnected.executeWithNetworkRetry(request, replaySafe = false, wait = noWait) { it.code }
         }
+        assertEquals(4, attempts)
+
+        attempts = 0
+        val answered = OkHttpClient.Builder().addInterceptor { attempts++; response(it, 200) }.build()
+        assertThrows(EOFException::class.java) {
+            answered.executeWithNetworkRetry(request, replaySafe = false, wait = noWait) { throw EOFException() }
+        }
         assertEquals(1, attempts)
+
+        attempts = 0
         val http = OkHttpClient.Builder().addInterceptor { attempts++; response(it, 503) }.build()
         assertEquals(503, http.executeWithNetworkRetry(request, replaySafe = false, wait = noWait) { it.code })
-        assertEquals(2, attempts)
+        assertEquals(1, attempts)
     }
 
     @Test
-    fun preConnectFailureCanRetryButHeaderAdmissionFencesIt() {
-        listOf(false, true).forEach { headersStarted ->
-            var attempts = 0
-            val client = OkHttpClient.Builder().addInterceptor {
-                attempts++
-                it.request().tag(NetworkRequestProgress::class.java)!!.started = headersStarted
-                throw ConnectException()
-            }.build()
-            assertThrows(ConnectException::class.java) {
-                client.executeWithNetworkRetry(request, replaySafe = false, wait = noWait) { it.code }
-            }
-            assertEquals(if (headersStarted) 1 else 4, attempts)
+    fun unansweredConnectFailuresRetryButAnObservedStatusFencesTheReplay() {
+        var attempts = 0
+        val client = OkHttpClient.Builder().addInterceptor { attempts++; throw ConnectException() }.build()
+        assertThrows(ConnectException::class.java) {
+            client.executeWithNetworkRetry(request, replaySafe = false, wait = noWait) { it.code }
         }
+        assertEquals(4, attempts)
+
+        attempts = 0
+        val answered = OkHttpClient.Builder().addInterceptor {
+            attempts++
+            it.request().tag(NetworkRequestProgress::class.java)!!.statusCode = 200
+            throw ConnectException()
+        }.build()
+        assertThrows(ConnectException::class.java) {
+            answered.executeWithNetworkRetry(request, replaySafe = false, wait = noWait) { it.code }
+        }
+        assertEquals(1, attempts)
     }
 
     @Test

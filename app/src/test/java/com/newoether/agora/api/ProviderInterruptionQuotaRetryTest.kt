@@ -44,8 +44,8 @@ class ProviderInterruptionQuotaRetryTest {
         every { CloudDebugLog.d(any(), any()) } just Runs
         every { CloudDebugLog.e(any(), any()) } just Runs
         every { CloudDebugLog.w(any(), any()) } just Runs
-        every { NetworkRetryPolicy.delayMillis(any(), any(), any(), any()) } returns 1L
-        every { NetworkRetryPolicy.providerDelayMillis(any(), any(), any(), any()) } returns 1L
+        every { NetworkRetryPolicy.delayMillis(any(), any(), any()) } returns 1L
+        every { NetworkRetryPolicy.providerDelayMillis(any(), any(), any()) } returns 1L
     }
 
     @After
@@ -506,7 +506,7 @@ class ProviderInterruptionQuotaRetryTest {
                 // Keep the producer in backoff until the buffered retry reaches the collector.
                 val retryDelay = if (cancelOnRetry) Long.MAX_VALUE else 1L
                 // Provider streams back off through providerDelayMillis, so the stub has to target it.
-                every { NetworkRetryPolicy.providerDelayMillis(any(), any(), any(), any()) } returns retryDelay
+                every { NetworkRetryPolicy.providerDelayMillis(any(), any(), any()) } returns retryDelay
                 val urls = mutableListOf<String>()
                 val events = mutableListOf<StreamEvent>()
                 val failure = if (cancelOnRetry) IOException("The server response could not be read.")
