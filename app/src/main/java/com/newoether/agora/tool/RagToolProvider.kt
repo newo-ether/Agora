@@ -10,7 +10,9 @@ import com.newoether.agora.api.ToolProperty
 import com.newoether.agora.data.local.MessageContextTopology
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
+import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.Participant
+import com.newoether.agora.model.terminalErrorSegment
 import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.viewmodel.GenerationContext
@@ -20,7 +22,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -34,6 +35,7 @@ import kotlinx.serialization.json.putJsonArray
  * and embedding search.
  */
 private const val MIN_SEMANTIC_SEARCH_TEXT_LENGTH = 10
+private val historySegmentJson = Json { ignoreUnknownKeys = true }
 
 class RagToolProvider(
     private val conversations: ConversationRepository,
@@ -73,13 +75,9 @@ class RagToolProvider(
                 parameters = ToolParameters(
                     properties = mapOf(
                         "conversation_id" to ToolProperty("string", "The conversation ID to read (from conversation_list or conversation_search results)."),
-                        "offset" to ToolProperty("integer", "Ordinary messages to skip (default 0); unaffected by detail flags. Prefer after_message_id when continuing a page."),
+                        "offset" to ToolProperty("integer", "Number of messages to skip for pagination (default 0). Prefer after_message_id when continuing a page."),
                         "after_message_id" to ToolProperty("string", "Continue after this message on the currently selected branch. Overrides offset. Use next_after_message_id from the previous page; an absent or deleted anchor returns cursor_not_found."),
-                        "limit" to ToolProperty("integer", "Maximum ordinary messages per page (1-100, default 50). Tool calls are nested and do not consume this limit."),
-                        "show_tool_calls" to ToolProperty("boolean", "Include stored tool calls and results inside each message (default false). Does not change message pagination."),
-                        "show_thinking" to ToolProperty("boolean", "Include stored readable thinking inside each message (default false). Does not change message pagination."),
-                        "tool_offset" to ToolProperty("integer", "Tool calls to skip within each message when show_tool_calls=true (default 0). Separate from message offset."),
-                        "tool_limit" to ToolProperty("integer", "Maximum tool calls per message (1-100, default 20). Follow tool_calls_next_offset to read more tools from the same message."),
+                        "limit" to ToolProperty("integer", "Maximum messages per page (1-100, default 50)."),
                     ),
                     required = listOf("conversation_id")
                 )
@@ -229,7 +227,7 @@ class RagToolProvider(
                 totalMessages += selectedIds.size
             }
 
-            // Step 6: Return text and identity only; stored details belong to conversation_read.
+            // Step 6: Return text and identity only.
             val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
             val resultArray = buildJsonArray {
                 for (window in finalWindows) {
@@ -327,10 +325,6 @@ class RagToolProvider(
         val limit = ((args["limit"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 50).coerceIn(1, 100)
         val requestedOffset = ((args["offset"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0).coerceAtLeast(0)
         val afterMessageId = (args["after_message_id"] as? JsonPrimitive)?.content?.trim()?.takeIf { it.isNotEmpty() }
-        val showToolCalls = (args["show_tool_calls"] as? JsonPrimitive)?.booleanOrNull == true
-        val showThinking = (args["show_thinking"] as? JsonPrimitive)?.booleanOrNull == true
-        val toolOffset = ((args["tool_offset"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0).coerceAtLeast(0)
-        val toolLimit = ((args["tool_limit"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 20).coerceIn(1, 100)
 
         return try {
             val conversation = conversations.getSearchableConversation(conversationId, ctx.conversationId)
@@ -371,10 +365,8 @@ class RagToolProvider(
                 put("message", "Messages changed while reading this page. Retry from the same anchor or offset.")
             }.toString()
             val page = pageIds.map { pageById.getValue(it) }
-            val projectedMessages = page.map { message ->
-                conversations.projectHistoryMessage(message, showToolCalls, showThinking, toolOffset, toolLimit)
-            }
             val hasMore = endOffset < totalMessages
+            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
 
             buildJsonObject {
                 put("type", "conversation_read")
@@ -387,7 +379,22 @@ class RagToolProvider(
                 if (hasMore) put("next_offset", endOffset) else put("next_offset", JsonNull)
                 put("next_after_message_id", page.lastOrNull()?.id ?: afterMessageId)
                 putJsonArray("messages") {
-                    projectedMessages.forEach { add(it) }
+                    for (message in page) add(buildJsonObject {
+                        put("message_id", message.id)
+                        put("participant", message.participant.name)
+                        put("text", message.text)
+                        put("status", message.status.name)
+                        put("run_id", message.runId)
+                        put("run_sequence", message.runSequence)
+                        put("timestamp", dateFormat.format(java.util.Date(message.timestamp)))
+                        val segments = message.toolCallJson?.let { raw ->
+                            runCatching { historySegmentJson.decodeFromString<List<MessageSegment>>(raw) }.getOrNull()
+                        }.orEmpty()
+                        terminalErrorSegment(message.status, message.participant, message.text, segments)?.let { failure ->
+                            put("error", failure.content)
+                            failure.errorCode?.let { put("error_code", it) }
+                        }
+                    })
                 }
             }.toString()
         } catch (e: CancellationException) {

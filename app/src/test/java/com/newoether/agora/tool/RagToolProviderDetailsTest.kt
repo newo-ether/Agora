@@ -27,7 +27,7 @@ class RagToolProviderDetailsTest {
     private val provider = RagToolProvider(repository)
     private val context = GenerationContext(accessPastConversations = true)
 
-    @Test fun flagsOnlyExpandMessagesAndLoadReferencedToolsOnDemand() = runTest {
+    @Test fun readIgnoresFormerDetailArgumentsWithoutLoadingToolRounds() = runTest {
         val user = message("user", text = "question")
         val round = message("tool_round", parent = user.id, segments = listOf(
             tool("a").copy(signature = "opaque-signature", responseOutputItems = listOf(
@@ -39,76 +39,38 @@ class RagToolProviderDetailsTest {
             MessageSegment("thought", "stored reasoning"),
             MessageSegment("tool", toolCallId = "b", toolRoundId = round.id),
             MessageSegment("tool", toolCallId = "a", toolRoundId = round.id),
-        ))
+        )).copy(thoughts = "legacy thought")
         val next = message("next", parent = answer.id)
         seed(listOf(user, round, result, answer, next))
 
         val plain = read(""", "offset":1,"limit":1""")
-        val thinking = read(""", "offset":1,"limit":1,"show_thinking":true""")
+        val formerArguments = read(""", "offset":1,"limit":1,"show_thinking":true,"show_tool_calls":true,"tool_offset":1,"tool_limit":1""")
+        assertEquals(plain, formerArguments)
+        assertEquals(listOf(answer.id), ids(plain))
+        assertEquals("3", plain.getValue("total_messages").jsonPrimitive.content)
+        assertEquals("2", plain.getValue("next_offset").jsonPrimitive.content)
+        assertEquals(answer.id, plain.getValue("next_after_message_id").jsonPrimitive.content)
+        assertEquals(setOf(
+            "message_id", "participant", "text", "status", "run_id", "run_sequence", "timestamp",
+        ), row(plain).keys)
+        assertFalse(plain.toString().contains("stored reasoning"))
+        assertFalse(plain.toString().contains("legacy thought"))
+        assertFalse(plain.toString().contains("opaque-"))
+        assertFalse(plain.toString().contains("hidden result row"))
         coVerify(exactly = 0) { repository.getMessagesByIds(listOf(round.id)) }
-        val expanded = read(""", "offset":1,"limit":1,"show_thinking":true,"show_tool_calls":true""")
-        for (page in listOf(plain, thinking, expanded)) {
-            assertEquals(listOf(answer.id), ids(page))
-            assertEquals("3", page.getValue("total_messages").jsonPrimitive.content)
-            assertEquals("2", page.getValue("next_offset").jsonPrimitive.content)
-            assertEquals(answer.id, page.getValue("next_after_message_id").jsonPrimitive.content)
-        }
-        assertFalse(row(plain).containsKey("thinking"))
-        assertFalse(row(plain).containsKey("tool_calls"))
-        assertEquals("stored reasoning", row(thinking).getValue("thinking").jsonArray.single()
-            .jsonObject.getValue("text").jsonPrimitive.content)
-        val calls = row(expanded).getValue("tool_calls").jsonArray
-        assertEquals(listOf("b", "a"), calls.map { it.jsonObject.getValue("tool_call_id").jsonPrimitive.content })
-        assertEquals("result a", calls[1].jsonObject.getValue("result").jsonPrimitive.content)
-        assertEquals("round_commit", calls[0].jsonObject.getValue("timestamp_source").jsonPrimitive.content)
-        assertFalse(expanded.toString().contains("opaque-"))
-        assertFalse(expanded.toString().contains("hidden result row"))
     }
 
-    @Test fun toolPagesHydrateOnlyRequestedRoundsAndDoNotMoveMessagePage() = runTest {
-        val rounds = (0..2).map { index -> message("tool_$index", segments = listOf(tool("$index"))) }
-        val answer = message("answer", segments = rounds.mapIndexed { index, round ->
-            MessageSegment("tool", toolCallId = "$index", toolRoundId = round.id)
-        })
-        seed(listOf(answer), rounds)
-        val first = read(""", "show_tool_calls":true,"tool_limit":1""")
-        val second = read(""", "show_tool_calls":true,"tool_offset":1,"tool_limit":1""")
-        assertEquals(ids(first), ids(second))
-        assertEquals("1", row(first).getValue("tool_calls_next_offset").jsonPrimitive.content)
-        assertEquals("2", row(second).getValue("tool_calls_next_offset").jsonPrimitive.content)
-        assertEquals("3", row(second).getValue("tool_calls_total").jsonPrimitive.content)
-        coVerify(exactly = 1) { repository.getMessagesByIds(listOf("tool_0")) }
-        coVerify(exactly = 1) { repository.getMessagesByIds(listOf("tool_1")) }
-        coVerify(exactly = 0) { repository.getMessagesByIds(listOf("tool_2")) }
-    }
-
-    @Test fun legacyInlineToolsAndThoughtFallbackRemainReadable() = runTest {
-        val answer = message("answer", segments = listOf(tool("legacy"))).copy(thoughts = "legacy thought")
-        seed(listOf(answer))
-        val page = read(""", "show_thinking":true,"show_tool_calls":true""")
-        assertEquals("legacy thought", row(page).getValue("thinking").jsonArray.single()
-            .jsonObject.getValue("text").jsonPrimitive.content)
-        assertEquals("legacy", row(page).getValue("tool_calls").jsonArray.single()
-            .jsonObject.getValue("tool_call_id").jsonPrimitive.content)
-        coVerify(exactly = 1) { repository.getMessagesByIds(any()) }
-    }
-
-    @Test fun invalidToolReferenceFailsClosedForForeignMissingAndAmbiguousBodies() = runTest {
-        val answer = message("answer", segments = listOf(MessageSegment("tool", toolCallId = "a", toolRoundId = "tool_a")))
-        val validRound = message("tool_a", segments = listOf(tool("a")))
-        val variants = listOf(
-            emptyList(),
-            listOf(validRound.copy(conversationId = "foreign")),
-            listOf(validRound.copy(runId = "foreign-run")),
-            listOf(validRound.copy(status = MessageStatus.ERROR)),
-            listOf(validRound.copy(toolCallJson = Json.encodeToString(listOf(tool("a"), tool("a"))))),
-        )
-        for (rounds in variants) {
-            seed(listOf(answer), rounds)
-            val page = read(""", "show_tool_calls":true""")
-            assertEquals("read_error", page.getValue("error").jsonPrimitive.content)
-            assertFalse(page.containsKey("messages"))
-        }
+    @Test fun readExposesStructuredTerminalErrorWhenPresent() = runTest {
+        val failed = message(
+            id = "failed",
+            text = "partial answer",
+            segments = listOf(MessageSegment("error", "Connection closed", errorCode = "E_CLOSED")),
+        ).copy(status = MessageStatus.ERROR)
+        seed(listOf(failed))
+        val page = read()
+        assertEquals("partial answer", row(page).getValue("text").jsonPrimitive.content)
+        assertEquals("Connection closed", row(page).getValue("error").jsonPrimitive.content)
+        assertEquals("E_CLOSED", row(page).getValue("error_code").jsonPrimitive.content)
     }
 
     @Test fun cursorSurvivesDeletionBeforeAnchorAndRejectsRemovedBranchAnchor() = runTest {
@@ -119,7 +81,7 @@ class RagToolProviderDetailsTest {
         val page = read(""", "limit":2""")
         assertEquals(anchor.id, page.getValue("next_after_message_id").jsonPrimitive.content)
         seed(listOf(anchor.copy(parentId = null), last))
-        val continued = read(""", "after_message_id":"anchor","offset":999,"show_thinking":true""")
+        val continued = read(""", "after_message_id":"anchor","offset":999""")
         assertEquals(listOf(last.id), ids(continued))
         assertEquals("1", continued.getValue("offset").jsonPrimitive.content)
         seed(listOf(first, last.copy(parentId = first.id)))
@@ -135,24 +97,23 @@ class RagToolProviderDetailsTest {
         assertFalse(page.containsKey("next_offset"))
     }
 
-    @Test fun readPropagatesCancellationDuringDetailHydration() = runTest {
-        val answer = message("answer", segments = listOf(MessageSegment("tool", toolCallId = "a", toolRoundId = "tool_a")))
-        seed(listOf(answer))
-        coEvery { repository.getMessagesByIds(listOf("tool_a")) } throws CancellationException("cancelled")
+    @Test fun readPropagatesCancellationDuringPageHydration() = runTest {
+        seed(listOf(message("answer")))
+        coEvery { repository.getMessagesByIds(listOf("answer")) } throws CancellationException("cancelled")
         try {
-            read(""", "show_tool_calls":true""")
+            read()
             fail("Cancellation must escape")
         } catch (_: CancellationException) { }
     }
 
-    @Test fun onlyReadExposesDetailFlagsAndToolPagination() {
+    @Test fun historyToolSchemasOmitDetailFlagsAndToolPagination() {
         val definitions = provider.definitions(context).associateBy { it.function.name }
         assertEquals(setOf("query", "limit"), definitions.getValue("conversation_search")
             .function.parameters.properties.keys)
-        assertEquals(setOf(
-            "conversation_id", "offset", "after_message_id", "limit",
-            "show_tool_calls", "show_thinking", "tool_offset", "tool_limit",
-        ), definitions.getValue("conversation_read").function.parameters.properties.keys)
+        assertEquals(
+            setOf("conversation_id", "offset", "after_message_id", "limit"),
+            definitions.getValue("conversation_read").function.parameters.properties.keys,
+        )
     }
 
     @Test fun searchIgnoresFormerDetailArgumentsWithoutLoadingToolRounds() = runTest {
@@ -186,11 +147,11 @@ class RagToolProviderDetailsTest {
         coVerify(exactly = 0) { repository.getMessagesByIds(listOf(round.id)) }
     }
 
-    @Test fun malformedSegmentsAreExplicitAndDoNotChangeMessagePagination() = runTest {
+    @Test fun malformedSegmentsDoNotBreakReadPagination() = runTest {
         seed(listOf(message("answer").copy(toolCallJson = "invalid json")))
-        val page = read(""", "show_tool_calls":true""")
+        val page = read()
         assertEquals(listOf("answer"), ids(page))
-        assertEquals("invalid_stored_segments", row(page).getValue("details_error").jsonPrimitive.content)
+        assertFalse(row(page).containsKey("details_error"))
         assertEquals("false", page.getValue("has_more").jsonPrimitive.content)
     }
 

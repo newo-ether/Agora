@@ -44,20 +44,21 @@ page plus the requested top candidates; corpus growth must not translate into An
 - Invalid dimensions, malformed byte lengths, and non-finite scores are skipped without aborting
   the remaining corpus and without logging message content.
 
-### History search previews and read details
+### History search previews and read pagination
 
 `conversation_search` accepts query and limit and returns ordinary message text with stable message
-IDs, timestamps and identity/status fields. It does not expose or interpret `show_tool_calls`,
-`show_thinking`, `tool_offset` or `tool_limit`. Former detail arguments are ignored; search does not
-decode stored segments or hydrate referenced tool rounds. Its formatted preview remains bounded to
-five windows and three messages per window, including when displaying older saved search results
-that contain detail fields. Search matching, ranking and cache admission remain unchanged.
+IDs, timestamps and identity/status fields. Neither `conversation_search` nor `conversation_read`
+exposes or interprets `show_tool_calls`, `show_thinking`, `tool_offset` or `tool_limit`. Former
+detail arguments are ignored without hydrating referenced tool rounds. Formatted search previews
+remain bounded to five windows and three messages per window, and both formatted search and read
+results ignore legacy detail fields from older saved outputs. Search matching, ranking and cache
+admission remain unchanged.
 
-Only `conversation_read` accepts `show_tool_calls` and `show_thinking`, both false by default.
-It projects stored readable content inside the ordinary message object; it never adds synthetic
-tool/result/Compact rows to the message list. Search windows and read pages include ordinary
-empty-text assistant checkpoints, so thinking-only or tool-only replies keep their existing positions.
-Use search to locate a conversation and message, then read to request its stored details.
+`conversation_read` returns ordinary selected-branch messages (`message_id`, `participant`, `text`,
+`status`, `run_id`, `run_sequence`, `timestamp`, plus structured `error` and `error_code` when
+present) and never adds synthetic tool/result/Compact rows to the message list. Search windows and
+read pages include ordinary empty-text assistant checkpoints, so thinking-only or tool-only replies
+keep their existing positions.
 
 `conversation_read` counts ordinary selected-branch messages for offset, limit, total and next_offset.
 `after_message_id` overrides offset and continues after that identity on the currently selected
@@ -67,25 +68,9 @@ a deleted or unselected anchor returns `cursor_not_found` instead of guessing. T
 snapshot: a branch change after a still-shared anchor follows the new selected suffix. Missing rows
 between topology and hydration return `history_changed` without advancing. Cancellation propagates.
 
-Tool details have an independent per-message `tool_offset` and `tool_limit` (default 20, maximum
-100). `tool_calls_total`, `tool_calls_has_more` and `tool_calls_next_offset` make continuation explicit.
-To continue one message, read the same message page with limit 1 and advance only tool_offset.
-Only referenced rounds for that tool page are hydrated. The existing reference resolver verifies
-conversation/Run/call ownership and committed status; missing, foreign or ambiguous bodies fail
-explicitly. Legacy inline segments remain readable. Tool call identity, arguments, result, state,
-readable metadata and round commit timestamps are returned without signatures, opaque continuation
-items or private image file bodies. Round timestamps are labeled `round_commit`, not injection time.
-Thinking uses ordered readable thought segments, falling back to the legacy thoughts field without
-duplicating both. Malformed legacy segments report `details_error` on the ordinary message.
-
-`ConversationHistoryProjection.kt` owns the read-only allowlist and tool-detail page hydration for
-`conversation_read`. It does not own search projection, branch selection, eligibility or mutation.
-Focused tests cover the read-only detail schema, search ignoring former detail arguments without
-round hydration, flag-independent read membership, bounded round hydration, legacy data, ownership
-failure, cursor deletion/branch changes, cancellation, and visible formatted read details.
-Formatted read results retain readable structured results and image transcriptions without exact
-duplicate bodies, expose stored-detail parse failures, and identify tool_offset separately from
-message pagination when more tool calls remain.
+Focused tests cover the history tool schemas, search and read ignoring former detail arguments
+without round hydration, structured terminal errors, cursor deletion/branch changes, hydration
+deletion, cancellation, malformed segments, and legacy detail ignoring in formatted results.
 
 ## 2. Bounded data flow
 
