@@ -1,6 +1,7 @@
 #pragma once
 
 #include "llama_chat_callbacks.h"
+#include "llama_chat_handle.h"
 #include "llama_chat_template.h"
 #include "nlohmann/json.hpp"
 
@@ -9,24 +10,30 @@ namespace agora::chat {
 struct NativeChatParser {
     common_chat_parser_params params;
     common_chat_msg message;
-    std::string generated_text;
+    // Generated pieces with their token ids, as llama-server feeds its parser: the PEG parser
+    // matches special tokens such as <think> by id.
+    common_chat_input generated;
     std::string initialization_error;
 
-    explicit NativeChatParser(const TemplateSamplingMetadata & metadata) {
+    NativeChatParser(const TemplateSamplingMetadata & metadata, ChatHandle & handle) {
         params.format = metadata.format;
-        params.generation_prompt = metadata.generation_prompt;
-        params.parse_tool_calls = true;
+        params.generation_prompt = common_chat_input_tokenize(handle.vocab, metadata.generation_prompt);
         if (metadata.parser.empty()) {
             if (metadata.format != COMMON_CHAT_FORMAT_CONTENT_ONLY) {
                 initialization_error = "Chat template parser metadata is missing";
             }
             return;
         }
-        try {
-            params.parser.load(metadata.parser);
-        } catch (const std::exception & exception) {
-            initialization_error = exception.what();
+        const auto parser = handle.find_parser(metadata.parser);
+        if (!parser) {
+            initialization_error = "Chat template parser has expired; apply the template again";
+            return;
         }
+        params.parser = *parser;
+    }
+
+    void add_token(const std::string & piece, llama_token token) {
+        generated.append(piece, token);
     }
 
     bool update(
@@ -42,9 +49,10 @@ struct NativeChatParser {
             error = initialization_error;
             return false;
         }
-        generated_text.append(data, length);
+        (void) data;
+        (void) length;  // the text arrives token by token through add_token
         try {
-            common_chat_msg next = common_chat_parse(generated_text, is_partial, params);
+            common_chat_msg next = common_chat_parse(generated, is_partial, params);
             if (next.empty()) {
                 if (!is_partial) message = {};
                 return true;
