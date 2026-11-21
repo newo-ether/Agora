@@ -481,7 +481,7 @@
     <string name="provider_cache_duration">캐시 유지 시간</string>
     <string name="provider_cache_duration_desc">캐시된 프롬프트를 재사용할 수 있는 시간</string>
     <string name="provider_save_failed">제공자 설정을 저장하지 못했습니다</string>
-    <string name="provider_remove_from_list">목록에서 제거</string>
+    <string name="provider_custom_entry_desc">OpenAI, Anthropic 또는 Google 호환 엔드포인트</string>
     <string name="provider_remove_title">%1$s을(를) 제거할까요?</string>
     <string name="provider_remove_text">설정은 유지됩니다. 다시 추가하면 복원됩니다.</string>
     <string name="provider_remove">제거</string>

@@ -481,7 +481,7 @@
     <string name="provider_cache_duration">Durée du cache</string>
     <string name="provider_cache_duration_desc">Durée pendant laquelle les prompts en cache restent réutilisables</string>
     <string name="provider_save_failed">Impossible d\'enregistrer les paramètres du fournisseur</string>
-    <string name="provider_remove_from_list">Retirer de la liste</string>
+    <string name="provider_custom_entry_desc">Point de terminaison compatible OpenAI, Anthropic ou Google</string>
     <string name="provider_remove_title">Retirer %1$s ?</string>
     <string name="provider_remove_text">La configuration est conservée. Ajoutez-le à nouveau pour la restaurer.</string>
     <string name="provider_remove">Retirer</string>

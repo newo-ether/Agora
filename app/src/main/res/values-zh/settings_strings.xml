@@ -498,7 +498,7 @@
     <string name="provider_cache_duration">缓存时长</string>
     <string name="provider_cache_duration_desc">已缓存提示词可复用的时间</string>
     <string name="provider_save_failed">保存提供商设置失败</string>
-    <string name="provider_remove_from_list">从列表移除</string>
+    <string name="provider_custom_entry_desc">兼容 OpenAI、Anthropic 或 Google 的端点</string>
     <string name="provider_remove_title">移除 %1$s？</string>
     <string name="provider_remove_text">配置会保留，重新添加即可恢复。</string>
     <string name="provider_remove">移除</string>

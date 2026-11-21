@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.data.ApiKeyEntry
 import com.newoether.agora.data.BUILT_IN_REMOTE_PROVIDERS
 import com.newoether.agora.data.CustomProviderNamePolicy
 import com.newoether.agora.ui.components.AgoraDropdownMenu
@@ -75,8 +76,12 @@ fun SettingsProviderPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     )
                 }
                 stage == ADD_PICKER -> SettingsSecondaryPane {
+                    val apiKeys by viewModel.settings.apiKeys.collectAsState()
+                    val providerBaseUrls by viewModel.settings.providerBaseUrls.collectAsState()
                     ProviderAddPage(
                         listed = providerList,
+                        apiKeys = apiKeys,
+                        baseUrls = providerBaseUrls,
                         onBack = { addStage = ADD_NONE },
                         onAddCustom = { addStage = ADD_CUSTOM },
                         onPickBuiltIn = { name ->
@@ -103,6 +108,32 @@ fun SettingsProviderPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+internal data class ProviderStatus(val configured: Boolean, val summary: String)
+
+/**
+ * Configuration summary shared by the Provider list and the add picker. Custom Providers and
+ * Ollama are configured by their Base URL; other built-ins by their API keys.
+ */
+@Composable
+internal fun providerStatus(
+    name: String,
+    isUrlConfigured: Boolean,
+    apiKeys: List<ApiKeyEntry>,
+    baseUrls: Map<String, String>,
+): ProviderStatus {
+    val notConfigured = stringResource(R.string.not_configured)
+    if (isUrlConfigured || name == Constants.PROVIDER_OLLAMA) {
+        val url = baseUrls[name]?.takeIf(String::isNotBlank)
+        return ProviderStatus(url != null, url ?: notConfigured)
+    }
+    val keyCount = apiKeys.count { it.provider == name }
+    return if (keyCount > 0) {
+        ProviderStatus(true, stringResource(R.string.provider_keys_summary, keyCount))
+    } else {
+        ProviderStatus(false, notConfigured)
     }
 }
 
@@ -162,23 +193,13 @@ private fun ProviderListPage(
                 ) { name, dragHandle ->
                     val custom = customProviders.firstOrNull { it.name == name }
                     val isBuiltIn = name in BUILT_IN_REMOTE_PROVIDERS
-                    val url = providerBaseUrls[name]?.takeIf(String::isNotBlank)
-                    val keyCount = apiKeys.count { it.provider == name }
-                    val configured = if (custom != null || name == Constants.PROVIDER_OLLAMA) url != null else keyCount > 0
+                    val status = providerStatus(name, isUrlConfigured = custom != null, apiKeys, providerBaseUrls)
+                    val configured = status.configured
                     var menuExpanded by remember { mutableStateOf(false) }
                     Box {
                         SettingsItem(
                             headlineContent = { Text(name) },
-                            supportingContent = {
-                                Text(
-                                    when {
-                                        custom != null || name == Constants.PROVIDER_OLLAMA ->
-                                            url ?: stringResource(R.string.not_configured)
-                                        configured -> stringResource(R.string.provider_keys_summary, keyCount)
-                                        else -> stringResource(R.string.not_configured)
-                                    },
-                                )
-                            },
+                            supportingContent = { Text(status.summary) },
                             leadingContent = {
                                 val tint = if (configured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                 val iconRes = if (isBuiltIn) providerIcon(name) else 0

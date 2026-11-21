@@ -15,11 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DataObject
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
@@ -77,9 +74,9 @@ private val CACHE_TTLS = listOf("5m", "1h")
  * Explicit-save detail page of one remote Provider, built-in or custom.
  *
  * Every connection, credential and cache field edits a draft that only Save commits, in one
- * DataStore edit. Back discards the draft behind the unsaved-changes guard. Deleting a custom
- * Provider or removing a built-in from the list acts immediately and leaves the page.
- * The draft lives in memory only, so API keys never enter saved instance state.
+ * DataStore edit. Back discards the draft behind the unsaved-changes guard. The top bar holds
+ * only Save; deleting a custom Provider or removing a built-in lives in the Provider list
+ * long-press menu. The draft lives in memory only, so API keys never enter saved instance state.
  */
 @Composable
 internal fun ProviderRemoteEditor(
@@ -133,9 +130,6 @@ internal fun ProviderRemoteEditor(
     var saving by remember { mutableStateOf(false) }
     var showKeyDialog by remember { mutableStateOf<ApiKeyEntry?>(null) }
     var showDeleteKeyConfirm by remember { mutableStateOf<ApiKeyEntry?>(null) }
-    var showDeleteProvider by remember { mutableStateOf(false) }
-    var showRemoveProvider by remember { mutableStateOf(false) }
-    var providerMenuExpanded by remember { mutableStateOf(false) }
 
     val guardedBack = rememberUnsavedChangesBack(
         hasUnsavedChanges = draft != start,
@@ -186,31 +180,6 @@ internal fun ProviderRemoteEditor(
         actions = {
             IconButton(onClick = ::save, enabled = !saving) {
                 Icon(Icons.Default.Save, contentDescription = stringResource(R.string.save))
-            }
-            Box {
-                IconButton(onClick = { providerMenuExpanded = true }) {
-                    Icon(Icons.Default.MoreVert, stringResource(R.string.options))
-                }
-                AgoraDropdownMenu(
-                    expanded = providerMenuExpanded,
-                    onDismissRequest = { providerMenuExpanded = false },
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 16.dp,
-                ) {
-                    if (customConfig != null) {
-                        AgoraDropdownMenuItem(
-                            text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                            onClick = { providerMenuExpanded = false; showDeleteProvider = true },
-                        )
-                    } else {
-                        AgoraDropdownMenuItem(
-                            text = { Text(stringResource(R.string.provider_remove_from_list), color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Default.RemoveCircleOutline, null, tint = MaterialTheme.colorScheme.error) },
-                            onClick = { providerMenuExpanded = false; showRemoveProvider = true },
-                        )
-                    }
-                }
             }
         },
         floatingActionButton = { if (showDocFab) DocumentationFab("provider.md") },
@@ -365,41 +334,9 @@ internal fun ProviderRemoteEditor(
             dismissButton = { TextButton(onClick = { showDeleteKeyConfirm = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
-
-    if (showDeleteProvider) {
-        AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            onDismissRequest = { showDeleteProvider = false },
-            title = { Text(stringResource(R.string.custom_provider_delete_title), fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.custom_provider_delete_text, providerName)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.customModelConfiguration.deleteProvider(providerName)
-                        showDeleteProvider = false
-                        onBack()
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text(stringResource(R.string.provider_delete)) }
-            },
-            dismissButton = { TextButton(onClick = { showDeleteProvider = false }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
-
-    if (showRemoveProvider) {
-        RemoveBuiltInProviderDialog(
-            providerName = providerName,
-            onDismiss = { showRemoveProvider = false },
-            onConfirm = {
-                viewModel.settings.removeBuiltInProvider(providerName)
-                showRemoveProvider = false
-                onBack()
-            },
-        )
-    }
 }
 
-/** Confirmation shared by the detail-page menu and the Provider list long-press menu. */
+/** Built-in removal confirmation used by the Provider list long-press menu. */
 @Composable
 internal fun RemoveBuiltInProviderDialog(
     providerName: String,

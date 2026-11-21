@@ -481,7 +481,7 @@
     <string name="provider_cache_duration">Cache-Dauer</string>
     <string name="provider_cache_duration_desc">Wie lange zwischengespeicherte Prompts wiederverwendbar bleiben</string>
     <string name="provider_save_failed">Anbietereinstellungen konnten nicht gespeichert werden</string>
-    <string name="provider_remove_from_list">Aus Liste entfernen</string>
+    <string name="provider_custom_entry_desc">OpenAI-, Anthropic- oder Google-kompatibler Endpunkt</string>
     <string name="provider_remove_title">%1$s entfernen?</string>
     <string name="provider_remove_text">Die Einstellungen bleiben erhalten. Füge den Anbieter erneut hinzu, um sie wiederherzustellen.</string>
     <string name="provider_remove">Entfernen</string>

@@ -481,7 +481,7 @@
     <string name="provider_cache_duration">Thời hạn lưu đệm</string>
     <string name="provider_cache_duration_desc">Khoảng thời gian có thể tái sử dụng lời nhắc đã lưu đệm</string>
     <string name="provider_save_failed">Không lưu được cài đặt nhà cung cấp</string>
-    <string name="provider_remove_from_list">Xóa khỏi danh sách</string>
+    <string name="provider_custom_entry_desc">Endpoint tương thích OpenAI, Anthropic hoặc Google</string>
     <string name="provider_remove_title">Xóa %1$s?</string>
     <string name="provider_remove_text">Cấu hình vẫn được giữ lại. Thêm lại để khôi phục.</string>
     <string name="provider_remove">Xóa</string>

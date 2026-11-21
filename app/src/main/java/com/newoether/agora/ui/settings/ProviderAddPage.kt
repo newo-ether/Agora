@@ -31,17 +31,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.data.ApiKeyEntry
 import com.newoether.agora.data.BUILT_IN_REMOTE_PROVIDERS
 import com.newoether.agora.ui.components.providerIcon
 import com.newoether.agora.util.noOpBringIntoView
 
 /**
  * Full-screen Provider picker. The Custom group opens the custom Provider form; the Built-in
- * group follows the search query, and built-ins already in the list are disabled.
+ * group follows the search query, and built-ins already in the list are disabled. Every row has a
+ * supporting line so all rows share one height; unlisted built-ins show their retained status.
  */
 @Composable
 internal fun ProviderAddPage(
     listed: List<String>,
+    apiKeys: List<ApiKeyEntry>,
+    baseUrls: Map<String, String>,
     onBack: () -> Unit,
     onAddCustom: () -> Unit,
     onPickBuiltIn: (String) -> Unit,
@@ -92,6 +96,7 @@ internal fun ProviderAddPage(
                 items = listOf {
                     SettingsItem(
                         headlineContent = { Text(stringResource(R.string.provider_custom_entry)) },
+                        supportingContent = { Text(stringResource(R.string.provider_custom_entry_desc)) },
                         leadingContent = {
                             Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                         },
@@ -115,14 +120,17 @@ internal fun ProviderAddPage(
                         @Composable {
                             val added = name in listed
                             val contentAlpha = if (added) 0.38f else 1f
+                            val summary = if (added) {
+                                stringResource(R.string.provider_added)
+                            } else {
+                                providerStatus(name, isUrlConfigured = false, apiKeys, baseUrls).summary
+                            }
                             SettingsItem(
                                 headlineContent = {
                                     Text(name, color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha))
                                 },
-                                supportingContent = if (added) {
-                                    { Text(stringResource(R.string.provider_added), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha)) }
-                                } else {
-                                    null
+                                supportingContent = {
+                                    Text(summary, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha))
                                 },
                                 leadingContent = {
                                     val tint = if (added) {

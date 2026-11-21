@@ -481,7 +481,7 @@
     <string name="provider_cache_duration">Duração do cache</string>
     <string name="provider_cache_duration_desc">Por quanto tempo os prompts em cache podem ser reutilizados</string>
     <string name="provider_save_failed">Não foi possível salvar as configurações do provedor</string>
-    <string name="provider_remove_from_list">Remover da lista</string>
+    <string name="provider_custom_entry_desc">Endpoint compatível com OpenAI, Anthropic ou Google</string>
     <string name="provider_remove_title">Remover %1$s?</string>
     <string name="provider_remove_text">As configurações são mantidas. Adicione novamente para restaurá-las.</string>
     <string name="provider_remove">Remover</string>

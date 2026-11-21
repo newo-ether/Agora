@@ -486,7 +486,7 @@
     <string name="provider_cache_duration">快取時長</string>
     <string name="provider_cache_duration_desc">已快取提示詞可重複使用的時間</string>
     <string name="provider_save_failed">儲存服務商設定失敗</string>
-    <string name="provider_remove_from_list">從清單移除</string>
+    <string name="provider_custom_entry_desc">相容 OpenAI、Anthropic 或 Google 的端點</string>
     <string name="provider_remove_title">移除 %1$s？</string>
     <string name="provider_remove_text">設定會保留，重新新增即可恢復。</string>
     <string name="provider_remove">移除</string>

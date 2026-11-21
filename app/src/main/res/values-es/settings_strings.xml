@@ -481,7 +481,7 @@
     <string name="provider_cache_duration">Duración de la caché</string>
     <string name="provider_cache_duration_desc">Cuánto tiempo se pueden reutilizar las instrucciones en caché</string>
     <string name="provider_save_failed">No se pudo guardar la configuración del proveedor</string>
-    <string name="provider_remove_from_list">Quitar de la lista</string>
+    <string name="provider_custom_entry_desc">Endpoint compatible con OpenAI, Anthropic o Google</string>
     <string name="provider_remove_title">¿Quitar %1$s?</string>
     <string name="provider_remove_text">La configuración se conserva. Vuelve a añadirlo para restaurarla.</string>
     <string name="provider_remove">Quitar</string>

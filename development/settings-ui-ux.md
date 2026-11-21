@@ -348,15 +348,20 @@ in the existing editor. Source links retain the established external-link icon a
   Each row keeps the existing icon, key count / URL / Not configured summary and custom protocol
   badge, ends with a DragHandle, and opens the detail page on a whole-row tap. An empty list shows
   one muted "No Providers yet" row above the add item.
-- Rows reorder by drag; the order is persisted once when the drag ends and is the Provider order of
-  the chat model selector and the Models page groups (customs map to their Provider ID there).
+- Rows reorder by dragging the handle; the order is persisted once when the drag ends and is the
+  Provider order of the chat model selector and the Models page groups (customs map to their
+  Provider ID there). The lifted row follows the finger with all corners at 24dp, a slight scale and
+  shadow; rows it passes slide into their new slot with a spring instead of jumping. On release the
+  row springs into its slot and every corner radius animates to its positional group shape.
 - The add item at the bottom of the list opens a full-page search picker with a Custom group (one
   Custom Provider row that opens the Add Provider creation editor) and a Built-in group of all
-  remote built-ins filtered by the query. Built-ins already listed are disabled and marked Added. Tapping
+  remote built-ins filtered by the query. Every picker row has a supporting line so all rows share
+  one height: Custom Provider describes the compatible protocols, listed built-ins are disabled and
+  read Added, unlisted built-ins show their retained key count, URL or Not configured. Tapping
   an unlisted built-in appends it and opens its detail page; Back from there returns to the root.
   Saving the custom creation editor also returns to the root.
-- Long press: built-ins offer Remove, customs offer Rename and Delete. Removing a built-in (also in the
-  detail ⋮ menu) confirms first and states that its configuration is kept. Removal only unlists it:
+- Long press: built-ins offer Remove, customs offer Rename and Delete; this menu is the only place
+  for both. Removing a built-in confirms first and states that its configuration is kept. Removal only unlists it:
   keys, Base URL and fetched models stay stored, its enabled models move to a parked set that is
   restored when it is added again, and model sync skips unlisted built-ins. Conversations that used
   a removed Provider follow the existing unavailable-model fallback.
@@ -367,8 +372,8 @@ in the existing editor. Source links retain the established external-link icon a
   switch and duration, API key add/edit/delete, the active key and the custom Provider Name field
   form one in-memory draft (never saveable state, because it holds keys). The top bar Save commits
   the draft in one DataStore edit; Back uses the shared unsaved-changes guard. An unchanged draft
-  follows external writes. Custom delete and built-in removal stay immediate, confirmed, and leave
-  the page. Provider -> Local is unchanged.
+  follows external writes. The top bar holds only Save, with no overflow menu. Provider -> Local is
+  unchanged.
 
 ## Shell device list and editors
 

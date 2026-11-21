@@ -481,7 +481,7 @@
     <string name="provider_cache_duration">مدة التخزين المؤقت</string>
     <string name="provider_cache_duration_desc">مدة إمكانية إعادة استخدام المطالبات المخزنة مؤقتًا</string>
     <string name="provider_save_failed">تعذّر حفظ إعدادات المزوّد</string>
-    <string name="provider_remove_from_list">إزالة من القائمة</string>
+    <string name="provider_custom_entry_desc">نقطة نهاية متوافقة مع OpenAI أو Anthropic أو Google</string>
     <string name="provider_remove_title">إزالة %1$s؟</string>
     <string name="provider_remove_text">سيتم الاحتفاظ بالإعدادات. أضفه مجددًا لاستعادتها.</string>
     <string name="provider_remove">إزالة</string>

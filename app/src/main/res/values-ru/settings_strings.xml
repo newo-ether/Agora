@@ -481,7 +481,7 @@
     <string name="provider_cache_duration">Срок хранения кэша</string>
     <string name="provider_cache_duration_desc">Как долго можно повторно использовать кэшированные промпты</string>
     <string name="provider_save_failed">Не удалось сохранить настройки провайдера</string>
-    <string name="provider_remove_from_list">Убрать из списка</string>
+    <string name="provider_custom_entry_desc">Эндпоинт, совместимый с OpenAI, Anthropic или Google</string>
     <string name="provider_remove_title">Убрать %1$s?</string>
     <string name="provider_remove_text">Настройки сохранятся. Добавьте провайдера снова, чтобы восстановить их.</string>
     <string name="provider_remove">Убрать</string>

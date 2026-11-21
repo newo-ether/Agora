@@ -498,7 +498,7 @@
     <string name="provider_cache_duration">Cache Duration</string>
     <string name="provider_cache_duration_desc">How long cached prompts remain reusable</string>
     <string name="provider_save_failed">Failed to save Provider settings</string>
-    <string name="provider_remove_from_list">Remove from list</string>
+    <string name="provider_custom_entry_desc">OpenAI, Anthropic or Google compatible endpoint</string>
     <string name="provider_remove_title">Remove %1$s?</string>
     <string name="provider_remove_text">Its settings are kept. Add it again to restore them.</string>
     <string name="provider_remove">Remove</string>
