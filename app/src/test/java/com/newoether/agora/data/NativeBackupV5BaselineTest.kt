@@ -30,13 +30,16 @@ class NativeBackupV5BaselineTest {
                 assertFalse(baseline.canReuse("changed", 3L))
                 assertFalse(baseline.canReuse("new", 4L))
                 val copiedMedia = mutableSetOf<String>()
+                val checksums = mutableMapOf<String, Long>()
                 val indexEntries = mutableListOf<NativeConversationIndexEntry>()
                 ZipArchiveOutputStream(resultFile).use { output ->
+                    writeEntry(output, NativeBackupFormat.MANIFEST_ENTRY, MARKED_MANIFEST)
                     indexEntries += NativeBackupV5Writer.copyConversationFromBaseline(
                         zip = output,
                         baseline = baseline,
                         baselineEntry = requireNotNull(baseline.indexEntry("same")),
                         copiedMedia = copiedMedia,
+                        checksums = checksums,
                     )
                     indexEntries += NativeBackupV5Writer.writeConversationEntry(
                         zip = output,
@@ -47,6 +50,8 @@ class NativeBackupV5BaselineTest {
                         messages = listOf("""{"id":"changed-message","conversationId":"changed"}""").iterator(),
                         loops = emptySequence<String>().iterator(),
                         mediaEntries = emptySet(),
+                        scratchDir = directory,
+                        checksums = checksums,
                     )
                     indexEntries += NativeBackupV5Writer.writeConversationEntry(
                         zip = output,
@@ -57,11 +62,18 @@ class NativeBackupV5BaselineTest {
                         messages = listOf("""{"id":"new-message","conversationId":"new"}""").iterator(),
                         loops = emptySequence<String>().iterator(),
                         mediaEntries = emptySet(),
+                        scratchDir = directory,
+                        checksums = checksums,
                     )
                     NativeBackupV5Writer.writeTasksEntry(output, emptySequence<String>().iterator())
                     NativeBackupV5Writer.writeConversationIndex(output, indexEntries)
+                    NativeBackupV5Writer.writeRawChecksums(output, checksums)
                 }
                 assertEquals(setOf(MEDIA_ENTRY), copiedMedia)
+                assertEquals(
+                    setOf("same", "changed", "new").map(NativeBackupFormat::conversationEntry).toSet() + MEDIA_ENTRY,
+                    checksums.keys,
+                )
             }
 
             ZipFile.builder().setFile(baselineFile).get().use { oldZip ->
@@ -77,7 +89,39 @@ class NativeBackupV5BaselineTest {
                     val index = newZip.getInputStream(newZip.getEntry(NativeBackupFormat.CONVERSATION_INDEX_ENTRY))
                         .bufferedReader().use { Json.decodeFromString<NativeConversationIndex>(it.readText()) }
                     assertEquals(listOf("same", "changed", "new"), index.conversations.map { it.id })
+                    // Every recorded checksum matches the stored bytes, and new items decompress intact.
+                    val recorded = newZip.getInputStream(newZip.getEntry(NativeBackupFormat.RAW_CHECKSUMS_ENTRY))
+                        .bufferedReader().use { Json.decodeFromString<NativeBackupRawChecksums>(it.readText()) }
+                    recorded.entries.forEach { (name, crc) ->
+                        assertEquals(name, crc, java.util.zip.CRC32().apply { update(raw(newZip, name)) }.value)
+                    }
+                    val newEntry = newZip.getEntry(NativeBackupFormat.conversationEntry("new"))
+                    assertEquals(java.util.zip.ZipEntry.DEFLATED, newEntry.method)
+                    val newPayload = newZip.getInputStream(newEntry).readBytes()
+                    assertEquals(newEntry.size, newPayload.size.toLong())
+                    assertEquals(newEntry.crc, java.util.zip.CRC32().apply { update(newPayload) }.value)
                 }
+            }
+            // The rebuilt archive is itself a checksummed baseline: reuse needs no inflate, and a
+            // damaged stored byte is caught while copying.
+            NativeBackupV5Baseline.openOrNull(resultFile).use { baseline ->
+                assertTrue(requireNotNull(baseline).canReuse("new", 4L))
+            }
+            val bytes = resultFile.readBytes()
+            val newItem = ZipFile.builder().setFile(resultFile).get().use { zip ->
+                zip.getEntry(NativeBackupFormat.conversationEntry("new")).dataOffset
+            }
+            bytes[newItem.toInt()] = (bytes[newItem.toInt()].toInt() xor 0x55).toByte()
+            resultFile.writeBytes(bytes)
+            NativeBackupV5Baseline.openOrNull(resultFile).use { baseline ->
+                requireNotNull(baseline)
+                assertTrue(baseline.canReuse("new", 4L))
+                val failure = runCatching {
+                    ZipArchiveOutputStream(File(directory, "next.agora")).use { output ->
+                        baseline.copyRaw(NativeBackupFormat.conversationEntry("new"), output, mutableMapOf())
+                    }
+                }.exceptionOrNull()
+                assertTrue(failure is BaselineDamagedException)
             }
         } finally {
             directory.deleteRecursively()

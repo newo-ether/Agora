@@ -7,11 +7,17 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 class NativeBackupV5WriterTest {
+    @get:Rule
+    val temp = TemporaryFolder()
     @Test
     fun streamsConversationEntriesIndexTasksAndMediaReferences() {
+        val scratchDir = temp.newFolder("scratch")
+        val checksums = mutableMapOf<String, Long>()
         val bytes = ByteArrayOutputStream().also { sink ->
             ZipArchiveOutputStream(sink).use { zip ->
                 val one = NativeBackupV5Writer.writeConversationEntry(
@@ -26,6 +32,8 @@ class NativeBackupV5WriterTest {
                     ).iterator(),
                     loops = emptyList<String>().iterator(),
                     mediaEntries = setOf("media/images/image-one.png"),
+                    scratchDir = scratchDir,
+                    checksums = checksums,
                 )
                 val two = NativeBackupV5Writer.writeConversationEntry(
                     zip = zip,
@@ -36,6 +44,8 @@ class NativeBackupV5WriterTest {
                     messages = emptyList<String>().iterator(),
                     loops = listOf("""{"conversationId":"two"}""").iterator(),
                     mediaEntries = emptySet(),
+                    scratchDir = scratchDir,
+                    checksums = checksums,
                 )
                 NativeBackupV5Writer.writeTasksEntry(
                     zip = zip,
@@ -47,6 +57,8 @@ class NativeBackupV5WriterTest {
         val entries = readEntries(bytes)
         val oneEntry = NativeBackupFormat.conversationEntry("one")
         val twoEntry = NativeBackupFormat.conversationEntry("two")
+        assertEquals(setOf(oneEntry, twoEntry), checksums.keys)
+        assertTrue(scratchDir.listFiles().orEmpty().isEmpty())
         assertEquals(
             setOf(NativeBackupFormat.CONVERSATION_INDEX_ENTRY, NativeBackupFormat.TASKS_ENTRY, oneEntry, twoEntry),
             entries.keys,

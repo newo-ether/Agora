@@ -23,6 +23,12 @@ internal object NativeBackupFormat {
     const val CONVERSATION_INDEX_ENTRY = "conv/index.json"
     const val CONVERSATION_ENTRY_PREFIX = "conv/items/"
     const val TASKS_ENTRY = "conv/tasks.json"
+    /**
+     * Optional CRC32 of each conversation item's and media entry's stored (compressed) bytes. The
+     * next incremental export checks a reused entry against it while raw-copying, so an intact
+     * baseline never has to be decompressed. Archives without it fall back to a full inflate check.
+     */
+    const val RAW_CHECKSUMS_ENTRY = "conv/raw_crc.json"
     const val SETTINGS_ENTRY = "settings.json"
     const val LEGACY_EXTRA_SETTINGS_ENTRY = "extra_settings.json"
     const val SECRETS_ENTRY = "api_keys.json"
@@ -53,6 +59,12 @@ internal data class NativeConversationIndexEntry(
     val dataChangedAt: Long,
     val entry: String,
     val mediaEntries: List<String> = emptyList(),
+)
+
+@Serializable
+internal data class NativeBackupRawChecksums(
+    /** Archive entry name to CRC32 of its raw stored bytes. */
+    val entries: Map<String, Long> = emptyMap(),
 )
 
 @Serializable

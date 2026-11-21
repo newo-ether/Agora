@@ -153,21 +153,34 @@ class AutoBackupManager(
         val filename = "Agora_backup_${sdf.format(Date())}.agora"
 
         var result: DataExporter.ExportResult? = null
-        val written = target.write(filename) { uri ->
+        suspend fun writeWith(baselineFile: File?): Boolean = target.write(filename) { uri ->
             result = exporter.export(
                 uri = uri,
                 categories = categories,
                 includeApiKeys = includeApiKeys,
-                baselineFile = baseline,
+                baselineFile = baselineFile,
                 onProgress = {},
             )
+        }
+        val startedAt = System.currentTimeMillis()
+        val written = try {
+            writeWith(baseline)
+        } catch (damaged: BaselineDamagedException) {
+            // The partial file is already gone; rebuild everything instead of reusing bad bytes.
+            DebugLog.w("AutoBackup", "Baseline damaged, rebuilding without it: ${damaged.message}")
+            result = null
+            writeWith(null)
         }
         val export = result.takeIf { written }
         if (export == null) {
             sendFailureNotification("Failed to finalize backup file")
             return null
         }
-        DebugLog.d("AutoBackup", "Backup created")
+        DebugLog.d(
+            "AutoBackup",
+            "Backup created in ${System.currentTimeMillis() - startedAt} ms " +
+                "(baseline=${baseline != null})",
+        )
         return BackupOutcome(export, target)
     }
 
