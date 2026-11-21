@@ -264,7 +264,14 @@ fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         }
 
         if (isNativeProgressVisible) {
-            NativeDataProgressDialog(title = stringResource(nativeProgressTitle))
+            NativeDataProgressDialog(
+                title = stringResource(nativeProgressTitle),
+                progress = when {
+                    importPreviewLoading -> null
+                    isExporting -> exportProgress
+                    else -> importProgress
+                },
+            )
         }
 
         if (isThirdPartyImporting) {

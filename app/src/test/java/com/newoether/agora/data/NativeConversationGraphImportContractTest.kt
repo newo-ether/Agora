@@ -590,7 +590,8 @@ class NativeConversationGraphImportContractTest {
             .newInstance(file, index, emptySet<String>())
         val write = DataExporter::class.java.declaredMethods.single { it.name == "writeConversationArchive" }
         write.isAccessible = true
-        write.invoke(exporter, zip, spool, null, continuation)
+        val onConversationWritten: () -> Unit = {}
+        write.invoke(exporter, zip, spool, null, onConversationWritten, continuation)
     }
 
     private fun restoreArchive(entries: Map<String, ByteArray>): NativeConversationMediaRestorer.RestoredMedia {

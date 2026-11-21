@@ -58,6 +58,11 @@ internal class NativeConversationGraphImporter(
 ) {
     private companion object {
         const val IMPORT_MESSAGE_BATCH_SIZE = 64
+
+        // Fractions of importConversationGraph reported through onProgress.
+        const val PROGRESS_PLANNED = 0.1f
+        const val PROGRESS_PREPARED = 0.45f
+        const val PROGRESS_WRITTEN = 0.95f
     }
 
     data class ConversationGraphCounts(
@@ -591,10 +596,12 @@ internal class NativeConversationGraphImporter(
         restoredMedia: RestoredMedia,
         archiveVersion: Int,
         semanticSnapshot: SemanticModelSnapshot,
+        onProgress: (Float) -> Unit = {},
     ): String {
         val plannedRunGraph = graphSource.open().use { stream ->
             planNativeRunGraph(stream, headers)
         }
+        onProgress(PROGRESS_PLANNED)
         val importedConversationIds = headers.conversations.mapTo(mutableSetOf()) { it.id }
         val importedSettings = headers.conversationSettings.filterKeys(importedConversationIds::contains)
         val settingsTransfer = ConversationSettingsImportTransferEntity(
@@ -614,11 +621,14 @@ internal class NativeConversationGraphImporter(
                     ?.let(::encodeStoredSelections) ?: conversation.selectedRunBranchesJson,
             )
         }
+        var preparedCount = 0
         graphSource.withPreparedMessages(
             prepare = { write ->
                 graphSource.open().use { stream ->
                     prepareMessagesFromGraph(
-                        stream, write, headers.availableConversationIds, restoredMedia,
+                        stream,
+                        { message -> preparedCount++; write(message) },
+                        headers.availableConversationIds, restoredMedia,
                         plannedRunGraph.assignments, plannedRunGraph.recoveredRunIds,
                         plannedRunGraph.deletedMessageIds, plannedRunGraph.messageParentOverrides,
                         archiveVersion,
@@ -626,6 +636,8 @@ internal class NativeConversationGraphImporter(
                 }
             },
         ) { prepared ->
+            onProgress(PROGRESS_PREPARED)
+            var writtenCount = 0
             val at = System.currentTimeMillis()
             database.withSemanticGraphMutation(
                 snapshot = semanticSnapshot,
@@ -651,6 +663,11 @@ internal class NativeConversationGraphImporter(
                     batch.forEach { message ->
                         if (message.id !in existingIds || message.images.isNotEmpty()) chatDao.upsertMessage(message)
                     }
+                    writtenCount += batch.size
+                    onProgress(
+                        PROGRESS_PREPARED + (PROGRESS_WRITTEN - PROGRESS_PREPARED) *
+                            (writtenCount.toFloat() / preparedCount.coerceAtLeast(1)).coerceAtMost(1f),
+                    )
                 }
                 headers.loops.forEach { chatDao.upsertLoop(it) }
                 importedSettings.keys.forEach { conversationId ->
@@ -667,6 +684,7 @@ internal class NativeConversationGraphImporter(
             }
         }
         scheduleMaintenance()
+        onProgress(1f)
         return settingsTransfer.transferId
     }
 

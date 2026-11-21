@@ -407,6 +407,7 @@ class DataExporter(
         zip: ZipArchiveOutputStream,
         spool: ExportedSpool,
         baseline: NativeBackupV5Baseline?,
+        onConversationWritten: () -> Unit = {},
     ): ExportResult {
         val spoolReader = ExportSpoolReader(spool.file)
         val sourceToArchiveEntry = mutableMapOf<String, String>()
@@ -475,6 +476,7 @@ class DataExporter(
                     copiedMedia = copiedBaselineMedia,
                     checksums = rawChecksums,
                 )
+                onConversationWritten()
                 continue
             }
 
@@ -609,6 +611,7 @@ class DataExporter(
                 scratchDir = scratchDir,
                 checksums = rawChecksums,
             )
+            onConversationWritten()
         }
 
         NativeBackupV5Writer.writeTasksEntry(
@@ -645,10 +648,6 @@ class DataExporter(
 
         var imagesExportedTotal = 0
         var missingResourceCount = 0
-        val totalSteps = categories.size + 1 // +1 for manifest
-        var completed = 0
-        fun step() { completed++; onProgress(completed.toFloat() / totalSteps) }
-
         val baseline = if (ExportCategory.CONVERSATIONS in categories) {
             NativeBackupV5Baseline.openOrNull(baselineFile)
         } else {
@@ -664,6 +663,17 @@ class DataExporter(
             baseline?.close()
             throw error
         }
+        // Each non-conversation category and the manifest count as one unit; conversations count
+        // one unit per conversation because they dominate export time.
+        val conversationUnits = conversationSpool?.index?.conversations?.size?.coerceAtLeast(1) ?: 0
+        val totalUnits = (categories - ExportCategory.CONVERSATIONS).size + 1 + conversationUnits
+        var completed = 0
+        fun advance(units: Int = 1) {
+            completed += units
+            onProgress((completed.toFloat() / totalUnits).coerceAtMost(1f))
+        }
+        fun step() = advance()
+        onProgress(0f)
         try {
             val rawOutput = context.contentResolver.openOutputStream(uri)
                 ?: throw IOException("Could not open the selected backup destination")
@@ -682,10 +692,11 @@ class DataExporter(
                         zip = zip,
                         spool = conversationSpool,
                         baseline = baseline,
+                        onConversationWritten = { advance() },
                     )
                     imagesExportedTotal += archiveResult.imagesExported
                     missingResourceCount += archiveResult.missingResourceCount
-                    step()
+                    if (conversationSpool.index.conversations.isEmpty()) advance()
                 }
 
             // Memories

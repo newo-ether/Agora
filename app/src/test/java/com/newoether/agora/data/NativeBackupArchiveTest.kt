@@ -334,7 +334,7 @@ class NativeBackupArchiveTest {
         ).replace("\r\n", "\n")
         val importBody = importer.substringAfter("suspend fun import(")
         val preflight = importBody.indexOf("opened.preflightImportResources(")
-        val staging = importBody.indexOf("stageConversationGraph(opened,")
+        val staging = importBody.indexOf("stageConversationGraph(\n                            archive = opened,")
         val promptMutation = importBody.indexOf("settingsManager.saveSystemPrompts(promptPlan.prompts)")
         val graphMutation = importBody.indexOf("conversationGraphImporter.importConversationGraph(")
         assertTrue(preflight >= 0)

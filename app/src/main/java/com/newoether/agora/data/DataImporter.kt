@@ -101,6 +101,12 @@ class DataImporter(
 
     companion object {
         private const val MAX_CUSTOM_FONT_BYTES = 64L * 1024L * 1024L
+
+        // Progress weights relative to one unit per lightweight category.
+        private const val CONVERSATION_STAGE_UNITS = 3f
+        private const val CONVERSATION_WRITE_UNITS = 6f
+        // Fraction of staging reached once conversation media has been restored.
+        private const val STAGE_MEDIA_RESTORED = 0.7f
     }
 
     private val importJson = Json { ignoreUnknownKeys = true }
@@ -335,6 +341,7 @@ class DataImporter(
         version: Int,
         strategy: ImportStrategy,
         prompts: PromptImportResult,
+        onProgress: (Float) -> Unit = {},
     ): StagedConversationGraph {
         conversationSettingsTransfers.completePendingImport()
         var media: NativeConversationMediaRestorer.RestoredMedia? = null
@@ -342,6 +349,7 @@ class DataImporter(
         try {
             val restored = conversationMediaRestorer.restoreConversationMedia(archive)
             media = restored
+            onProgress(STAGE_MEDIA_RESTORED)
             val source = NativeConversationGraphSource.open(archive, version, context.cacheDir)
             graphSource = source
             val headers = source.open().use { stream ->
@@ -358,6 +366,7 @@ class DataImporter(
                 stream.readToEnd()
                 parsed
             }
+            onProgress(1f)
             return StagedConversationGraph(source, restored, headers)
         } catch (error: Throwable) {
             runCatching { graphSource?.close() }
@@ -449,12 +458,20 @@ class DataImporter(
                 var apiKeysImported = false
 
                 val activeCategories = decisions.filter { it.value != ImportStrategy.SKIP }.keys
-                val totalSteps = activeCategories.size
-                var completed = 0
-                fun step() {
-                    completed++
-                    onProgress(completed.toFloat() / totalSteps.coerceAtLeast(1))
+                // Conversations dominate import time, so they carry more units than the other
+                // categories, split between staging and writing.
+                val conversationsActive = DataExporter.ExportCategory.CONVERSATIONS in activeCategories
+                val totalUnits = (activeCategories.size - if (conversationsActive) 1 else 0) +
+                    if (conversationsActive) CONVERSATION_STAGE_UNITS + CONVERSATION_WRITE_UNITS else 0f
+                var completed = 0f
+                fun report(extra: Float = 0f) {
+                    onProgress(((completed + extra) / totalUnits.coerceAtLeast(1f)).coerceIn(0f, 1f))
                 }
+                fun step(units: Float = 1f) {
+                    completed += units
+                    report()
+                }
+                report()
 
                 val keysDecision = decisions[DataExporter.ExportCategory.API_KEYS]
                 val promptsDecision = decisions[DataExporter.ExportCategory.SYSTEM_PROMPTS]
@@ -500,7 +517,13 @@ class DataImporter(
                 // fails the whole import and leaves existing data untouched.
                 val staged = if (convDecision != null && convDecision != ImportStrategy.SKIP) {
                     try {
-                        stageConversationGraph(opened, manifest.version, convDecision, promptImport)
+                        stageConversationGraph(
+                            archive = opened,
+                            version = manifest.version,
+                            strategy = convDecision,
+                            prompts = promptImport,
+                            onProgress = { fraction -> report(CONVERSATION_STAGE_UNITS * fraction) },
+                        ).also { completed += CONVERSATION_STAGE_UNITS }
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         throw cancelled
                     } catch (error: Exception) {
@@ -542,6 +565,7 @@ class DataImporter(
                             restoredMedia = staged.media,
                             archiveVersion = manifest.version,
                             semanticSnapshot = semanticSnapshot,
+                            onProgress = { fraction -> report(CONVERSATION_WRITE_UNITS * fraction) },
                         )
                         graphCommitted = true
                         conversationsImported = staged.headers.conversations.size
@@ -564,7 +588,7 @@ class DataImporter(
                     } finally {
                         staged.close()
                     }
-                    step()
+                    step(CONVERSATION_WRITE_UNITS)
                 }
                 if (memDecision != null && memDecision != ImportStrategy.SKIP) {
                     try {
