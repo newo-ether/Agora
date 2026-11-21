@@ -236,6 +236,10 @@
     <string name="web_search_exa_key">Clé d\'API Exa (facultatif)</string>
     <string name="web_search_tavily_key_hint">Clé d\'API depuis tavily.com</string>
     <string name="web_search_exa_key_hint">Facultatif. Laissez vide pour utiliser l\'endpoint public sans clé d\'Exa.</string>
+    <string name="web_search_parallel">Parallel</string>
+    <string name="web_search_parallel_desc">API de recherche native IA avec extraits prêts pour les LLM. Fonctionne sans clé via l\'endpoint public de Parallel.</string>
+    <string name="web_search_parallel_key">Clé d\'API Parallel (facultatif)</string>
+    <string name="web_search_parallel_key_hint">Facultatif. Laissez vide pour utiliser l\'endpoint public sans clé de Parallel.</string>
     <string name="web_search_num_results">Résultats max</string>
     <string name="web_search_num_results_desc">Nombre de résultats à récupérer : %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Les instances publiques sont souvent limitées en débit. L\'auto-hébergement est recommandé pour une utilisation fiable.</string>

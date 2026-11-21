@@ -224,6 +224,10 @@
     <string name="web_search_exa_key">Exa API 金鑰（選填）</string>
     <string name="web_search_tavily_key_hint">來自 tavily.com 的 API 金鑰</string>
     <string name="web_search_exa_key_hint">選填。留空則使用 Exa 的免金鑰公共端點。</string>
+    <string name="web_search_parallel">Parallel</string>
+    <string name="web_search_parallel_desc">面向 LLM 的 AI 原生搜尋 API，回傳現成摘要。可透過 Parallel 的公共端點免金鑰使用。</string>
+    <string name="web_search_parallel_key">Parallel API 金鑰（選填）</string>
+    <string name="web_search_parallel_key_hint">選填。留空則使用 Parallel 的免金鑰公共端點。</string>
     <string name="web_search_num_results">最大結果數</string>
     <string name="web_search_num_results_desc">取得的結果數量：%1$d（1-10）</string>
     <string name="web_search_searxng_url">SearXNG 基礎 URL</string>

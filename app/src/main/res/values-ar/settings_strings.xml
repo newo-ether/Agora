@@ -236,6 +236,10 @@
     <string name="web_search_exa_key">مفتاح API لـ Exa (اختياري)</string>
     <string name="web_search_tavily_key_hint">مفتاح API من tavily.com</string>
     <string name="web_search_exa_key_hint">اختياري. اتركه فارغًا لاستخدام نقطة النهاية العامة بدون مفتاح من Exa.</string>
+    <string name="web_search_parallel">Parallel</string>
+    <string name="web_search_parallel_desc">واجهة بحث أصلية للذكاء الاصطناعي مع مقتطفات جاهزة للنماذج اللغوية. تعمل بدون مفتاح عبر نقطة النهاية العامة من Parallel.</string>
+    <string name="web_search_parallel_key">مفتاح API لـ Parallel (اختياري)</string>
+    <string name="web_search_parallel_key_hint">اختياري. اتركه فارغًا لاستخدام نقطة النهاية العامة بدون مفتاح من Parallel.</string>
     <string name="web_search_num_results">أقصى عدد للنتائج</string>
     <string name="web_search_num_results_desc">عدد النتائج المراد جلبها: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">غالبًا ما تكون النسخ العامة محدودة المعدل. يُوصى بالاستضافة الذاتية للاستخدام الموثوق.</string>
