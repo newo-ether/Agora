@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -247,7 +246,7 @@ private fun ProviderListPage(
                             } else {
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.provider_remove), color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Default.RemoveCircleOutline, null, tint = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
                                     onClick = { menuExpanded = false; removeTarget = name },
                                 )
                             }
