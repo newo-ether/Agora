@@ -1,6 +1,7 @@
 package com.newoether.agora.data.repository
 
 import com.newoether.agora.data.local.ChatDao
+import com.newoether.agora.data.local.HistorySearchFilter
 import com.newoether.agora.data.local.KeywordSearchRow
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.model.MessageSegment
@@ -61,18 +62,24 @@ internal suspend fun searchConversationMessages(
     chatDao: ChatDao,
     query: String,
     limit: Int,
+    filter: HistorySearchFilter = HistorySearchFilter.NONE,
 ): List<MessageEntity> = withContext(Dispatchers.IO) {
     if (query.isBlank() || limit <= 0) return@withContext emptyList()
     val escapedQuery = escapeLikePattern(query)
     // SQLite LIKE folds only ASCII letters. Other literals can use its faster exact substring scan.
     val literalQuery = query.takeUnless { value -> value.any { it in 'a'..'z' || it in 'A'..'Z' } }
     val ids = boundedKeywordMatches(query, limit) { before, pageSize ->
-        if (before == null) chatDao.getKeywordSearchFirstPage(escapedQuery, pageSize, literalQuery)
-        else chatDao.getKeywordSearchNextPage(escapedQuery, before.timestamp, before.id, pageSize, literalQuery)
+        if (before == null) chatDao.getKeywordSearchFirstPage(
+            escapedQuery, pageSize, literalQuery, filter.conversationId, filter.excludeConversationId,
+            filter.participant, filter.afterMs, filter.beforeMs,
+        ) else chatDao.getKeywordSearchNextPage(
+            escapedQuery, before.timestamp, before.id, pageSize, literalQuery, filter.conversationId,
+            filter.excludeConversationId, filter.participant, filter.afterMs, filter.beforeMs,
+        )
     }
     if (ids.isEmpty()) return@withContext emptyList()
     // Visibility may change while pages are scanned. Hydrate only the bounded winners.
-    chatDao.getSearchableMessagesByIds(ids).sortedWith(citationSearchNewestFirst)
+    chatDao.getSearchableMessagesByIds(ids).filter(filter::matches).sortedWith(citationSearchNewestFirst)
 }
 
 internal suspend fun boundedKeywordMatches(

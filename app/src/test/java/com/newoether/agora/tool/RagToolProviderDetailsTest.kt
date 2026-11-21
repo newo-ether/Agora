@@ -1,6 +1,7 @@
 package com.newoether.agora.tool
 
 import com.newoether.agora.data.local.ChatEntity
+import com.newoether.agora.data.local.HistorySearchFilter
 import com.newoether.agora.data.local.MessageContextTopology
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
@@ -108,8 +109,10 @@ class RagToolProviderDetailsTest {
 
     @Test fun historyToolSchemasOmitDetailFlagsAndToolPagination() {
         val definitions = provider.definitions(context).associateBy { it.function.name }
-        assertEquals(setOf("query", "limit"), definitions.getValue("conversation_search")
-            .function.parameters.properties.keys)
+        assertEquals(
+            setOf("query", "limit", "conversation_id", "exclude_current", "after", "before", "participant"),
+            definitions.getValue("conversation_search").function.parameters.properties.keys,
+        )
         assertEquals(
             setOf("conversation_id", "offset", "after_message_id", "limit"),
             definitions.getValue("conversation_read").function.parameters.properties.keys,
@@ -145,6 +148,75 @@ class RagToolProviderDetailsTest {
         coVerify(exactly = 2) { repository.getMessagesByIds(listOf(user.id, blank.id, malformed.id)) }
         coVerify(exactly = 2) { repository.getMessagesByIds(any()) }
         coVerify(exactly = 0) { repository.getMessagesByIds(listOf(round.id)) }
+    }
+
+    @Test fun readResolvesCurrentAliasAndReportsRealId() = runTest {
+        seed(listOf(message("answer")))
+        coEvery { repository.getSearchableConversation("conv", "conv") } returns ChatEntity("conv", "Conversation")
+        val page = Json.parseToJsonElement(provider.execute(
+            "conversation_read", """{"conversation_id":"current"}""", context.copy(conversationId = "conv"),
+        )).jsonObject
+        assertEquals("conv", page.getValue("conversation_id").jsonPrimitive.content)
+        assertEquals(listOf("answer"), ids(page))
+        val orphan = Json.parseToJsonElement(provider.execute(
+            "conversation_read", """{"conversation_id":"current"}""", context,
+        )).jsonObject
+        assertEquals("current_unavailable", orphan.getValue("error").jsonPrimitive.content)
+    }
+
+    @Test fun listMarksCurrentConversation() = runTest {
+        coEvery { repository.getSearchableConversationCount() } returns 2
+        coEvery { repository.getSearchableConversationsPage(0, 20, true) } returns listOf(
+            ChatEntity("conv", "Current"), ChatEntity("other", "Other"),
+        )
+        val list = Json.parseToJsonElement(provider.execute(
+            "conversation_list", "{}", context.copy(conversationId = "conv"),
+        )).jsonObject
+        assertEquals("conv", list.getValue("current_conversation_id").jsonPrimitive.content)
+        assertEquals(
+            listOf("true", "false"),
+            list.getValue("conversations").jsonArray.map { it.jsonObject.getValue("is_current").jsonPrimitive.content },
+        )
+    }
+
+    @Test fun searchForwardsParsedFiltersToTheDatabaseSearch() = runTest {
+        val user = message("user", text = "target")
+        seed(listOf(user))
+        val expected = HistorySearchFilter(
+            conversationId = "conv", participant = "USER",
+            afterMs = java.time.Instant.parse("2026-11-01T00:00:00Z").toEpochMilli(),
+            beforeMs = java.time.Instant.parse("2026-11-02T12:00:00Z").toEpochMilli(),
+        )
+        coEvery { repository.searchMessages("target", any(), expected) } returns listOf(user)
+        val result = Json.parseToJsonElement(provider.execute(
+            "conversation_search",
+            """{"query":"target","conversation_id":"current","participant":"user",""" +
+                """"after":"2026-11-01T00:00:00Z","before":"2026-11-02T20:00:00+08:00"}""",
+            context.copy(conversationId = "conv"),
+        )).jsonObject
+        assertEquals("1", result.getValue("count").jsonPrimitive.content)
+        assertEquals("conv", result.getValue("filters").jsonObject.getValue("conversation_id").jsonPrimitive.content)
+        coVerify(exactly = 1) { repository.searchMessages("target", any(), expected) }
+    }
+
+    @Test fun searchRejectsMalformedFiltersWithoutSearching() = runTest {
+        suspend fun error(args: String): String = Json.parseToJsonElement(provider.execute(
+            "conversation_search", """{"query":"target"$args}""", context,
+        )).jsonObject.getValue("error").jsonPrimitive.content
+        assertEquals("invalid_time", error(""","after":"yesterday""""))
+        assertEquals("invalid_participant", error(""","participant":"tool""""))
+        assertEquals("current_unavailable", error(""","exclude_current":true"""))
+        coVerify(exactly = 0) { repository.searchMessages(any(), any(), any()) }
+    }
+
+    @Test fun historyTimeAcceptsDatesLocalTimesAndOffsets() {
+        val zone = java.time.ZoneId.of("Asia/Shanghai")
+        val start = java.time.Instant.parse("2026-11-20T16:00:00Z").toEpochMilli()
+        assertEquals(start, parseHistoryTime("2026-11-21", zone))
+        assertEquals(start, parseHistoryTime("2026-11-21 00:00", zone))
+        assertEquals(start, parseHistoryTime("2026-11-21T00:00:00+08:00", zone))
+        assertEquals(start, parseHistoryTime("2026-11-20T16:00:00Z", zone))
+        assertNull(parseHistoryTime("21/11/2026", zone))
     }
 
     @Test fun malformedSegmentsDoNotBreakReadPagination() = runTest {

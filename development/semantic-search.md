@@ -47,7 +47,25 @@ page plus the requested top candidates; corpus growth must not translate into An
 ### History search previews and read pagination
 
 `conversation_search` accepts query and limit and returns ordinary message text with stable message
-IDs, timestamps and identity/status fields. Neither `conversation_search` nor `conversation_read`
+IDs, timestamps and identity/status fields.
+
+Owner requirement (2026-11-21): history tools resolve the argument alias `current` to the calling
+generation's conversation ID at execution time; no conversation identity is injected into every
+request. `conversation_read` accepts `conversation_id: "current"` and reports the real ID.
+`conversation_list` returns `current_conversation_id` and a per-item `is_current` boolean.
+`conversation_search` accepts optional filters: `conversation_id` (including `current`),
+`exclude_current`, `after` (inclusive), `before` (exclusive) and `participant` (`user` or `model`).
+Times are ISO 8601; without an offset they use device local time and a date alone means the start
+of that day. Malformed filters, or `current` without a caller identity, return a structured error
+(`invalid_time`, `invalid_participant`, `invalid_exclude_current`, `current_unavailable`) without
+searching; a filter never silently widens. The result echoes applied filters under `filters`.
+Filters run inside SQL before ranking so a filtered-out row cannot displace a match. Literal search
+puts the time bounds on its index-only `(timestamp, id)` inner page and the conversation/participant
+predicates in the shared outer eligibility. Semantic search keeps its embedding-ID keyset pages; for
+filtered calls only, each bounded page of at most 256 identities joins `messages` by primary key for
+conversation, participant and time, while unfiltered calls keep the metadata-only query. Final
+hydration rechecks the filter. Search eligibility is unchanged: child and Task conversations stay
+excluded even when named. Neither `conversation_search` nor `conversation_read`
 exposes or interprets `show_tool_calls`, `show_thinking`, `tool_offset` or `tool_limit`. Former
 detail arguments are ignored without hydrating referenced tool rounds. Formatted search previews
 remain bounded to five windows and three messages per window, and both formatted search and read

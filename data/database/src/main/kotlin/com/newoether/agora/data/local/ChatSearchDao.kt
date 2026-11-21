@@ -53,16 +53,58 @@ internal const val HISTORY_MESSAGE_ELIGIBILITY = """
     AND substr(m.id, 1, 8) != 'compact_'
 """
 
+/**
+ * Optional narrowing of history search, applied inside SQL before ranking so filtered-out rows can
+ * never displace a match. Null fields and open time bounds are inert. [participant] is the stored
+ * enum name; [afterMs] is inclusive and [beforeMs] exclusive.
+ */
+data class HistorySearchFilter(
+    val conversationId: String? = null,
+    val excludeConversationId: String? = null,
+    val participant: String? = null,
+    val afterMs: Long = Long.MIN_VALUE,
+    val beforeMs: Long = Long.MAX_VALUE,
+) {
+    val isNone: Boolean
+        get() = conversationId == null && excludeConversationId == null && participant == null &&
+            afterMs == Long.MIN_VALUE && beforeMs == Long.MAX_VALUE
+
+    fun matches(message: MessageEntity): Boolean =
+        (conversationId == null || message.conversationId == conversationId) &&
+            (excludeConversationId == null || message.conversationId != excludeConversationId) &&
+            (participant == null || message.participant.name == participant) &&
+            message.timestamp >= afterMs && message.timestamp < beforeMs
+
+    companion object {
+        val NONE = HistorySearchFilter()
+    }
+}
+
+// Conversation and participant filters for alias m; time bounds stay on the index-only inner page.
+internal const val KEYWORD_SEARCH_FILTER = """
+    (:conversationId IS NULL OR m.conversationId = :conversationId)
+    AND (:excludeConversationId IS NULL OR m.conversationId != :excludeConversationId)
+    AND (:participant IS NULL OR m.participant = :participant)
+"""
+
+// Semantic pages join message alias f only for filtered searches, one bounded id page at a time.
+internal const val SEMANTIC_SEARCH_FILTER = """
+    (:conversationId IS NULL OR f.conversationId = :conversationId)
+    AND (:excludeConversationId IS NULL OR f.conversationId != :excludeConversationId)
+    AND (:participant IS NULL OR f.participant = :participant)
+    AND f.timestamp >= :afterMs AND f.timestamp < :beforeMs
+"""
+
 // LIMIT is inside the subquery: even a miss releases the read connection after one short page.
 internal const val KEYWORD_MESSAGE_PROJECTION = """
     SELECT m.id, m.timestamp,
-        CASE WHEN $HISTORY_MESSAGE_ELIGIBILITY THEN
+        CASE WHEN $HISTORY_MESSAGE_ELIGIBILITY AND $KEYWORD_SEARCH_FILTER THEN
             CASE WHEN :literalQuery IS NOT NULL THEN
                 (instr(m.text, :literalQuery) > 0 OR instr(c.title, :literalQuery) > 0)
             ELSE (m.text LIKE '%' || :query || '%' ESCAPE '\' OR
                   c.title LIKE '%' || :query || '%' ESCAPE '\') END
             ELSE 0 END AS directMatch,
-        CASE WHEN $HISTORY_MESSAGE_ELIGIBILITY
+        CASE WHEN $HISTORY_MESSAGE_ELIGIBILITY AND $KEYWORD_SEARCH_FILTER
             AND m.participant = 'MODEL'
             AND instr(m.toolCallJson, '"type":"citation"') > 0
             THEN m.toolCallJson ELSE NULL END AS toolCallJson
@@ -70,6 +112,7 @@ internal const val KEYWORD_MESSAGE_PROJECTION = """
 """
 internal const val KEYWORD_MESSAGE_FIRST_PAGE = KEYWORD_MESSAGE_PROJECTION + """
         SELECT id, timestamp FROM messages
+        WHERE timestamp >= :afterMs AND timestamp < :beforeMs
         ORDER BY timestamp DESC, id DESC LIMIT :pageSize
     ) page CROSS JOIN messages m ON m.id = page.id
     LEFT JOIN conversations c ON m.conversationId = c.id
@@ -78,6 +121,7 @@ internal const val KEYWORD_MESSAGE_FIRST_PAGE = KEYWORD_MESSAGE_PROJECTION + """
 internal const val KEYWORD_MESSAGE_NEXT_PAGE = KEYWORD_MESSAGE_PROJECTION + """
         SELECT id, timestamp FROM messages
         WHERE (timestamp, id) < (:beforeTimestamp, :beforeId)
+          AND timestamp >= :afterMs AND timestamp < :beforeMs
         ORDER BY timestamp DESC, id DESC LIMIT :pageSize
     ) page CROSS JOIN messages m ON m.id = page.id
     LEFT JOIN conversations c ON m.conversationId = c.id
@@ -91,6 +135,11 @@ interface ChatSearchDao : SemanticMetadataDao {
         query: String,
         pageSize: Int,
         literalQuery: String? = null,
+        conversationId: String? = null,
+        excludeConversationId: String? = null,
+        participant: String? = null,
+        afterMs: Long = Long.MIN_VALUE,
+        beforeMs: Long = Long.MAX_VALUE,
     ): List<KeywordSearchRow>
 
     @Query(KEYWORD_MESSAGE_NEXT_PAGE)
@@ -100,6 +149,11 @@ interface ChatSearchDao : SemanticMetadataDao {
         beforeId: String,
         pageSize: Int,
         literalQuery: String? = null,
+        conversationId: String? = null,
+        excludeConversationId: String? = null,
+        participant: String? = null,
+        afterMs: Long = Long.MIN_VALUE,
+        beforeMs: Long = Long.MAX_VALUE,
     ): List<KeywordSearchRow>
 
     // Keep messages first so each page seeks its primary key instead of sorting the corpus again.
@@ -114,28 +168,17 @@ interface ChatSearchDao : SemanticMetadataDao {
         afterId: Long,
         minimumTextLength: Int,
         limit: Int,
-    ): List<EmbeddingSearchRow> {
-        require(limit > 0)
-        val result = ArrayList<EmbeddingSearchRow>()
-        val legacyPending = !ensureMetadataState().complete
-        val physicalPageSize = minOf(limit, 256)
-        var cursor = afterId
-        while (result.size < limit) {
-            currentCoroutineContext().ensureActive()
-            val ids = getEmbeddingSearchIdsPage(modelId, cursor, physicalPageSize)
-            currentCoroutineContext().ensureActive()
-            if (ids.isEmpty()) break
-            val page = if (legacyPending) {
-                getLegacyEmbeddingSearchRowsForIds(modelId, ids, minimumTextLength)
-            } else {
-                getEmbeddingSearchRowsForIds(modelId, ids, minimumTextLength)
-            }
-            result += page.take(limit - result.size)
-            cursor = ids.last()
-            yield()
-        }
-        return result
-    }
+    ): List<EmbeddingSearchRow> =
+        boundedEmbeddingSearchPage(modelId, afterId, minimumTextLength, limit, HistorySearchFilter.NONE)
+
+    suspend fun getFilteredEmbeddingSearchPage(
+        modelId: String,
+        afterId: Long,
+        minimumTextLength: Int,
+        limit: Int,
+        filter: HistorySearchFilter,
+    ): List<EmbeddingSearchRow> =
+        boundedEmbeddingSearchPage(modelId, afterId, minimumTextLength, limit, filter)
 
     @Query("SELECT id FROM embeddings WHERE modelId = :modelId AND id > :afterId ORDER BY id LIMIT :limit")
     suspend fun getEmbeddingSearchIdsPage(modelId: String, afterId: Long, limit: Int): List<Long>
@@ -179,6 +222,60 @@ interface ChatSearchDao : SemanticMetadataDao {
         modelId: String,
         ids: List<Long>,
         minimumTextLength: Int,
+    ): List<EmbeddingSearchRow>
+
+    // Same visibility as the unfiltered page; f is a primary-key lookup for the bounded id page.
+    @Query(
+        """
+        SELECT e.id, e.messageId, e.embedding, e.dimension
+        FROM embeddings e
+        CROSS JOIN semantic_sources s ON e.messageId = s.messageId
+        CROSS JOIN conversations c ON s.conversationId = c.id
+        CROSS JOIN messages f ON f.id = e.messageId
+        WHERE e.id IN (:ids) AND e.modelId = :modelId AND $CURRENT_EMBEDDING
+          AND c.taskId IS NULL AND c.parentConversationId IS NULL
+          AND s.historyEligible = 1 AND s.searchLength >= :minimumTextLength
+          AND $SEMANTIC_SEARCH_FILTER
+        ORDER BY e.id
+        """,
+    )
+    suspend fun getFilteredEmbeddingSearchRowsForIds(
+        modelId: String,
+        ids: List<Long>,
+        minimumTextLength: Int,
+        conversationId: String?,
+        excludeConversationId: String?,
+        participant: String?,
+        afterMs: Long,
+        beforeMs: Long,
+    ): List<EmbeddingSearchRow>
+
+    @Query(
+        """
+        SELECT e.id, e.messageId, e.embedding, e.dimension
+        FROM embeddings e
+        LEFT JOIN semantic_sources s ON s.messageId = e.messageId
+        LEFT JOIN messages m ON s.messageId IS NULL AND m.id = e.messageId
+        CROSS JOIN conversations c ON c.id = COALESCE(s.conversationId, m.conversationId)
+        CROSS JOIN messages f ON f.id = e.messageId
+        WHERE e.id IN (:ids) AND e.modelId = :modelId AND $CURRENT_EMBEDDING
+          AND c.taskId IS NULL AND c.parentConversationId IS NULL
+          AND CASE WHEN s.messageId IS NOT NULL
+              THEN s.historyEligible = 1 AND s.searchLength >= :minimumTextLength
+              ELSE ($HISTORY_MESSAGE_ELIGIBILITY) AND LENGTH(m.text) >= :minimumTextLength END
+          AND $SEMANTIC_SEARCH_FILTER
+        ORDER BY e.id
+        """,
+    )
+    suspend fun getFilteredLegacyEmbeddingSearchRowsForIds(
+        modelId: String,
+        ids: List<Long>,
+        minimumTextLength: Int,
+        conversationId: String?,
+        excludeConversationId: String?,
+        participant: String?,
+        afterMs: Long,
+        beforeMs: Long,
     ): List<EmbeddingSearchRow>
 
     suspend fun getEmbeddingCountByModel(modelId: String): Int =
@@ -246,4 +343,45 @@ interface ChatSearchDao : SemanticMetadataDao {
         offset: Int,
         limit: Int,
     ): List<ChatEntity>
+}
+
+/**
+ * One bounded semantic page. Row queries run on the receiver so an intercepting delegate still
+ * observes them. Filters never widen visibility; unfiltered searches keep the metadata-only query.
+ */
+private suspend fun ChatSearchDao.boundedEmbeddingSearchPage(
+    modelId: String,
+    afterId: Long,
+    minimumTextLength: Int,
+    limit: Int,
+    filter: HistorySearchFilter,
+): List<EmbeddingSearchRow> {
+    require(limit > 0)
+    val result = ArrayList<EmbeddingSearchRow>()
+    val legacyPending = !ensureMetadataState().complete
+    val physicalPageSize = minOf(limit, 256)
+    var cursor = afterId
+    while (result.size < limit) {
+        currentCoroutineContext().ensureActive()
+        val ids = getEmbeddingSearchIdsPage(modelId, cursor, physicalPageSize)
+        currentCoroutineContext().ensureActive()
+        if (ids.isEmpty()) break
+        val page = when {
+            filter.isNone && legacyPending ->
+                getLegacyEmbeddingSearchRowsForIds(modelId, ids, minimumTextLength)
+            filter.isNone -> getEmbeddingSearchRowsForIds(modelId, ids, minimumTextLength)
+            legacyPending -> getFilteredLegacyEmbeddingSearchRowsForIds(
+                modelId, ids, minimumTextLength, filter.conversationId, filter.excludeConversationId,
+                filter.participant, filter.afterMs, filter.beforeMs,
+            )
+            else -> getFilteredEmbeddingSearchRowsForIds(
+                modelId, ids, minimumTextLength, filter.conversationId, filter.excludeConversationId,
+                filter.participant, filter.afterMs, filter.beforeMs,
+            )
+        }
+        result += page.take(limit - result.size)
+        cursor = ids.last()
+        yield()
+    }
+    return result
 }

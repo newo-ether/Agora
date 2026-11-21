@@ -12,6 +12,7 @@ import com.newoether.agora.data.local.EmbeddingEntity
 import com.newoether.agora.data.local.EmbeddingModelCount
 import com.newoether.agora.data.local.EmbeddingSearchRow
 import com.newoether.agora.data.local.EmbeddingCacheCounts
+import com.newoether.agora.data.local.HistorySearchFilter
 import com.newoether.agora.data.local.MaintenanceDebtDao
 import com.newoether.agora.data.local.MaintenanceDebtEntity
 import com.newoether.agora.data.local.MessageAttachmentReference
@@ -648,12 +649,12 @@ class ConversationRepository(
         afterId: Long,
         minimumTextLength: Int,
         limit: Int,
-    ): List<EmbeddingSearchRow> = chatDao.getEmbeddingSearchPage(
-        modelId = modelId,
-        afterId = afterId,
-        minimumTextLength = minimumTextLength,
-        limit = limit,
-    )
+        filter: HistorySearchFilter = HistorySearchFilter.NONE,
+    ): List<EmbeddingSearchRow> = if (filter.isNone) {
+        chatDao.getEmbeddingSearchPage(modelId, afterId, minimumTextLength, limit)
+    } else {
+        chatDao.getFilteredEmbeddingSearchPage(modelId, afterId, minimumTextLength, limit, filter)
+    }
 
     suspend fun getEmbeddingCountByModel(modelId: String): Int =
         chatDao.getEmbeddingCountByModel(modelId)
@@ -669,8 +670,11 @@ class ConversationRepository(
 
     // ── Search ────────────────────────────────────────────────
 
-    suspend fun searchMessages(query: String, limit: Int = 10): List<MessageEntity> =
-        searchConversationMessages(chatDao, query, limit)
+    suspend fun searchMessages(
+        query: String,
+        limit: Int = 10,
+        filter: HistorySearchFilter = HistorySearchFilter.NONE,
+    ): List<MessageEntity> = searchConversationMessages(chatDao, query, limit, filter)
 
     suspend fun getAllConversationsList(): List<ChatEntity> =
         chatDao.getAllConversationsList()
