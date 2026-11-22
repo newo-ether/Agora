@@ -129,7 +129,7 @@ class AttachmentReferenceWriteTest {
         } finally { raw.endTransaction() }
         database.close()
         database = ChatDatabase.build(context)
-        assertEquals(47, database.openHelper.readableDatabase.version)
+        assertEquals(ChatDatabase.CURRENT_VERSION, database.openHelper.readableDatabase.version)
         assertNull(ownerToken(0, "message"))
         assertEquals(listOf(path), dao.getMessage("message")?.images)
         val reopened = AttachmentReferenceIndex(database)

@@ -225,10 +225,12 @@ class ConversationTitleGenerator(
         )
         var title = ""
         var providerError: String? = null
+        val usage = com.newoether.agora.data.RequestUsageTracker()
         suspend fun collectTitle() {
             HttpClient.withStreamScope(scope = null, requestTrace = requestTrace) {
                 provider.generateResponse(titlePrompt, config).collect { event ->
                     requestTrace.recordParsedEvent(event)
+                    usage.observe(event)
                     when (event) {
                         is StreamEvent.TextChunk -> title += event.text
                         is StreamEvent.Retrying -> if (event.resetCurrentAttempt) {
@@ -256,6 +258,12 @@ class ConversationTitleGenerator(
                 e,
             )
             return Result.Failure(e.localizedMessage ?: "Title generation failed")
+        } finally {
+            usage.record(
+                provider = providerName,
+                model = com.newoether.agora.model.ModelId(providerName, modelId).prefixed,
+                source = com.newoether.agora.data.local.UsageLedgerSource.TITLE,
+            )
         }
 
         providerError?.let { error ->

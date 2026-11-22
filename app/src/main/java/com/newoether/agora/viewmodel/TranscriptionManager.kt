@@ -300,12 +300,15 @@ class TranscriptionManager(
         )
         val transcription = StringBuilder()
         var streamError: StreamEvent.Error? = null
+        val usage = com.newoether.agora.data.RequestUsageTracker()
+        try {
         HttpClient.withStreamScope(
             scope = HttpClient.boundStreamScope(),
             requestTrace = requestTrace,
         ) {
             provider.generateResponse(promptMessages, transcriptionConfig).collect { event ->
                 requestTrace.recordParsedEvent(event)
+                usage.observe(event)
                 when (event) {
                     is StreamEvent.TextChunk -> {
                         transcription.append(event.text)
@@ -323,6 +326,16 @@ class TranscriptionManager(
                     throw CancellationException("Tool image transcription cancelled")
                 }
             }
+        }
+        } finally {
+            usage.record(
+                provider = ctx.transcriptionProviderName,
+                model = com.newoether.agora.model.ModelId(
+                    ctx.transcriptionProviderName,
+                    ctx.transcriptionModelId,
+                ).prefixed,
+                source = com.newoether.agora.data.local.UsageLedgerSource.TRANSCRIPTION,
+            )
         }
         val finalStreamError = streamError
         if (finalStreamError != null) {
@@ -448,12 +461,15 @@ class TranscriptionManager(
             )
             val transcription = StringBuilder()
             var streamError: String? = null
+            val usage = com.newoether.agora.data.RequestUsageTracker()
+            try {
             HttpClient.withStreamScope(
                 scope = HttpClient.boundStreamScope(),
                 requestTrace = requestTrace,
             ) {
                 provider.generateResponse(promptMessages, transcriptionConfig).collect { event ->
                     requestTrace.recordParsedEvent(event)
+                    usage.observe(event)
                     when (event) {
                         is StreamEvent.TextChunk -> {
                             transcription.append(event.text)
@@ -483,6 +499,13 @@ class TranscriptionManager(
                         else -> {}
                     }
                 }
+            }
+            } finally {
+                usage.record(
+                    provider = providerName,
+                    model = com.newoether.agora.model.ModelId(providerName, modelId).prefixed,
+                    source = com.newoether.agora.data.local.UsageLedgerSource.TRANSCRIPTION,
+                )
             }
             if (streamError != null) return Pair(transcriptionSegments, streamError)
             val text = transcription.toString().trim()

@@ -62,7 +62,7 @@ class Migration46To47Test {
             helper.use { it.writableDatabase }
             var database = ChatDatabase.build(context, queryCallback = { sql, _ -> statements += sql })
             try {
-                assertEquals(47, database.openHelper.writableDatabase.version)
+                assertEquals(ChatDatabase.CURRENT_VERSION, database.openHelper.writableDatabase.version)
                 assertFalse(statements.any { sql -> sql.trimStart().startsWith("SELECT", true) &&
                     ("FROM messages" in sql || "FROM conversations" in sql) })
                 database.openHelper.readableDatabase.query("SELECT phase, revision FROM attachment_reference_state").use {

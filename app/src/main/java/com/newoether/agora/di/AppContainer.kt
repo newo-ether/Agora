@@ -83,6 +83,12 @@ class AppContainer(
             }
     )
 
+    init {
+        // Every Provider request reports its usage here once it ends; start the writer before
+        // any generation can run. The DAO is resolved lazily so startup does not open the database.
+        com.newoether.agora.data.UsageRecorder.initialize({ database.usageLedgerDao() }, appScope)
+    }
+
     // ── Data Layer ────────────────────────────────────────────
 
     val settingsManager: SettingsManager by lazy { SettingsManager(appContext) }

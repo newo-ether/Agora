@@ -370,6 +370,7 @@ class GenerationManager(
             ): ProviderPassOutcome {
                 val providerAnswerStart = output.totalText.length
                 output.beginProviderRequest()
+                var providerResponded = false
                 val providerRequestIndex = providerRequestOrdinal++
                 val providerRequestTrace = if (providerRequestIndex == 0) {
                     requestTrace
@@ -402,6 +403,7 @@ class GenerationManager(
                             },
                             onFirstEvent = onFirstEvent,
                             onEvent = { event ->
+                                providerResponded = true
                                 output.handleStreamEvent(
                                     event = event,
                                     providerAnswerStart = providerAnswerStart,
@@ -424,7 +426,16 @@ class GenerationManager(
                         ),
                     )
                 } finally {
-                    output.tokenUsageAccumulator.finishRequest()
+                    val requestUsage = output.tokenUsageAccumulator.finishRequest()
+                    // A request the provider never answered is not counted as usage.
+                    if (providerResponded) {
+                        com.newoether.agora.data.UsageRecorder.record(
+                            provider = config.providerName,
+                            model = modelName,
+                            usage = requestUsage,
+                            conversationId = conversationId,
+                        )
+                    }
                     output.totalTokenUsage = output.tokenUsageAccumulator.snapshot()
                     output.totalTokenCount = output.totalTokenUsage?.totalTokenCount ?: output.totalTokenCount
                 }

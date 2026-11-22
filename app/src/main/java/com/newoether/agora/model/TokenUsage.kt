@@ -57,18 +57,20 @@ internal class RequestTokenUsageAccumulator(
         currentRequestUsage = usage
     }
 
-    fun finishRequest() {
-        if (!requestActive) return
+    /** Closes the active request and returns its final usage snapshot, if the provider reported one. */
+    fun finishRequest(): TokenUsage? {
+        if (!requestActive) return null
         pauseGeneration()
-        currentRequestUsage?.let { usage ->
-            val requestUsage = usage.copy(
+        val requestUsage = currentRequestUsage?.let { usage ->
+            usage.copy(
                 generationDurationMs = usage.generationDurationMs
                     ?: (completedGenerationNanos / 1_000_000L).takeIf { it > 0 },
             )
-            completedUsage = completedUsage?.plusRequest(requestUsage) ?: requestUsage
         }
+        requestUsage?.let { completedUsage = completedUsage?.plusRequest(it) ?: it }
         currentRequestUsage = null
         requestActive = false
+        return requestUsage
     }
 
     fun snapshot(): TokenUsage? = when {
