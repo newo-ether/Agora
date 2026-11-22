@@ -57,10 +57,17 @@ class Migration47To48Test {
             helper.use { it.writableDatabase }
             val database = ChatDatabase.build(context)
             try {
-                assertEquals(48, database.openHelper.writableDatabase.version)
+                assertEquals(ChatDatabase.CURRENT_VERSION, database.openHelper.writableDatabase.version)
                 val dao = database.usageLedgerDao()
-                // History is not backfilled from existing messages.
-                assertTrue(dao.all().isEmpty())
+                // v49 folds the MODEL message's stored usage into the empty ledger once.
+                val history = dao.all().single()
+                assertEquals(0L, history.bucket)
+                assertEquals("", history.provider)
+                assertEquals("", history.model)
+                assertEquals(UsageLedgerSource.CHAT, history.source)
+                assertEquals(1L, history.requests)
+                assertEquals(42L, history.totalTokens)
+                database.openHelper.writableDatabase.execSQL("DELETE FROM usage_ledger")
 
                 val row = UsageLedgerRow(
                     bucket = 7, provider = "OpenAI", model = "OpenAI:gpt-x", source = UsageLedgerSource.CHAT,

@@ -8,8 +8,9 @@ import androidx.room.Transaction
 /**
  * Provider usage totals for one 15-minute UTC bucket, provider, model and request source.
  *
- * Rows are written only when a Provider request ends and never derived from messages, so they
- * survive conversation deletion. Buckets this fine let the reader assign each row to the correct
+ * Rows are written when a Provider request ends. Existing history is folded in once by
+ * [com.newoether.agora.data.local.migration.MIGRATION_48_49]; after that the ledger is never derived
+ * from messages, so rows survive conversation deletion. Buckets this fine let the reader assign each row to the correct
  * local day in any time zone, including half-hour offsets and daylight-saving changes.
  */
 @Entity(
