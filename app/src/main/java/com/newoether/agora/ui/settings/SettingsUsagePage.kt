@@ -1,6 +1,7 @@
 package com.newoether.agora.ui.settings
 
 import android.icu.text.CompactDecimalFormat
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -106,7 +107,7 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val customProviders by viewModel.settings.customProviders.collectAsState()
 
     var metric by rememberSaveable { mutableStateOf(UsageMetric.TOKENS) }
-    var period by rememberSaveable { mutableStateOf(UsagePeriod.MONTH) }
+    var period by rememberSaveable { mutableStateOf(UsagePeriod.WEEK) }
 
     // Entry and every ledger write while the page is open reload the rows.
     LaunchedEffect(revision) { viewModel.dataControl.refreshUsage() }
@@ -138,6 +139,7 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     }
     val stale = countingVisible && current != null
     val staleAlpha = statsStaleAlpha(stale)
+    val motion = LocalAgoraMotionPolicy.current
 
     CollapsingSettingsScaffold(title = stringResource(R.string.settings_usage), onBack = onBack) {
         SettingsGroupColumn {
@@ -246,12 +248,29 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 title = stringResource(R.string.usage_chart_daily),
                 items = listOf({
                     Column(Modifier.fillMaxWidth().padding(16.dp).alpha(staleAlpha)) {
-                        UsageBarChart(
-                            bars = summary?.bars.orEmpty(),
-                            today = today,
-                            locale = locale,
-                            format = ::count,
-                        )
+                        // A period change redraws every bar and moves the scroll range, so the old
+                        // chart fades out while the new one fades in instead of snapping.
+                        Crossfade(
+                            targetState = period,
+                            animationSpec = if (motion.allowSpatialTransitions) {
+                                tween(CHART_PERIOD_FADE_MS)
+                            } else {
+                                snap()
+                            },
+                            label = "usageChartPeriod",
+                        ) { shown ->
+                            val shownSummary = if (shown == period) {
+                                summary
+                            } else {
+                                current?.let { UsageStats.period(it, shown, zone, today) }
+                            }
+                            UsageBarChart(
+                                bars = shownSummary?.bars.orEmpty(),
+                                today = today,
+                                locale = locale,
+                                format = ::count,
+                            )
+                        }
                     }
                 }),
             )
@@ -722,6 +741,8 @@ private val BAR_CHART_TOP_INSET = 10.dp
 private val BAR_CHART_AXIS_WIDTH = 40.dp
 /** Days that fit the plot before the chart starts scrolling; also the slowest zoom-out. */
 private const val BAR_CHART_VISIBLE_DAYS = 30
+/** Fade between periods; the bars, the date axis and the scroll range all change at once. */
+private const val CHART_PERIOD_FADE_MS = 200
 private val BAR_CHART_BAR_GAP = 3.dp
 private val BAR_CHART_CORNER_RADIUS = 6.dp
 private const val COUNTING_SHOW_DELAY_MS = 200L
