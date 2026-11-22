@@ -894,7 +894,7 @@
     <string name="storage_total">Total</string>
     <string name="storage_database">Base de données</string>
     <string name="storage_attachments">Pièces jointes</string>
-    <string name="storage_cache">Cache</string>
+    <string name="storage_cache">Fichiers temporaires</string>
     <string name="storage_local_models">Modèles locaux</string>
     <string name="storage_sandbox">Sandbox</string>
     <string name="storage_conversations">Conversations</string>

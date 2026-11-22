@@ -897,7 +897,7 @@
     <string name="storage_total">總計</string>
     <string name="storage_database">資料庫</string>
     <string name="storage_attachments">附件</string>
-    <string name="storage_cache">快取</string>
+    <string name="storage_cache">暫存檔案</string>
     <string name="storage_local_models">本機模型</string>
     <string name="storage_sandbox">沙盒</string>
     <string name="storage_conversations">對話</string>

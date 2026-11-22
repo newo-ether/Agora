@@ -900,7 +900,7 @@
     <string name="storage_total">Tổng</string>
     <string name="storage_database">Cơ sở dữ liệu</string>
     <string name="storage_attachments">Tệp đính kèm</string>
-    <string name="storage_cache">Bộ nhớ đệm</string>
+    <string name="storage_cache">Tệp tạm thời</string>
     <string name="storage_local_models">Mô hình cục bộ</string>
     <string name="storage_sandbox">Sandbox</string>
     <string name="storage_conversations">Cuộc trò chuyện</string>

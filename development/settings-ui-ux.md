@@ -156,7 +156,10 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   `-wal`/`-shm`/`-journal`), Attachments (top-level `att_`/`vid_`/`img_`/`pdf_` files, the `images`,
   `run-inputs`, `fork-attachments`, `tool-media`, `attachments`, `markdown-media` directories and
   `sandbox-home/attachments`), Local models (top-level `*.gguf`), Sandbox (every `*-rootfs` plus
-  `sandbox-home`, minus its attachments so no byte is counted twice) and Cache (`cacheDir`).
+  `sandbox-home`, minus its attachments so no byte is counted twice) and Temporary Files
+  (`cacheDir`: export spools, shared copies and media previews). RAG embeddings are database rows
+  and appear as the per-conversation Embeddings legend, never here. An export spool left behind by a
+  killed export is deleted at the start of the next export once it is over an hour old.
 - **Conversations group.** Top-level conversations sorted by total size, largest first. Subagent
   children (any depth, cycle-safe) roll into their root. Each row shows title, message count
   (prefixed with the Task label for task executions) and total size, plus a chevron at the end that

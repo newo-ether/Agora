@@ -887,7 +887,7 @@
     <string name="storage_total">总计</string>
     <string name="storage_database">数据库</string>
     <string name="storage_attachments">附件</string>
-    <string name="storage_cache">缓存</string>
+    <string name="storage_cache">临时文件</string>
     <string name="storage_local_models">本地模型</string>
     <string name="storage_sandbox">沙盒</string>
     <string name="storage_conversations">对话</string>

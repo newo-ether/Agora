@@ -37,6 +37,7 @@ class DataExporter(
     companion object {
         private const val SNAPSHOT_PREFIX = "agora-export-snapshot-"
         private const val SNAPSHOT_SUFFIX = ".jsonl"
+        private const val STALE_SPOOL_AGE_MS = 60 * 60 * 1000L
         private const val SNAPSHOT_CONVERSATION = "C"
         private const val SNAPSHOT_RUN = "R"
         private const val SNAPSHOT_MESSAGE = "M"
@@ -247,6 +248,14 @@ class DataExporter(
         rawMessage.contains("\"images\":") ||
             rawMessage.contains("\"attachmentMeta\":") ||
             rawMessage.contains("toolImages")
+
+    /** Drops spools a killed export left behind; anything over an hour old is orphaned. */
+    private fun deleteStaleSpools() {
+        val cutoff = System.currentTimeMillis() - STALE_SPOOL_AGE_MS
+        context.cacheDir.listFiles { file -> file.isFile && file.name.startsWith(SNAPSHOT_PREFIX) &&
+            file.name.endsWith(SNAPSHOT_SUFFIX) && file.lastModified() < cutoff }
+            ?.forEach { runCatching { it.delete() } }
+    }
 
     private suspend fun captureConversationSnapshot(
         conversationSettings: Map<String, ConversationSettings>,
@@ -653,6 +662,8 @@ class DataExporter(
         } else {
             null
         }
+        // A killed export leaves its JSONL spool in cacheDir; clear the orphaned ones first.
+        deleteStaleSpools()
         val conversationSpool = try {
             if (ExportCategory.CONVERSATIONS in categories) {
                 captureConversationSnapshot(settingsManager.conversationSettings.first(), baseline)

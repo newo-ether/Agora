@@ -894,7 +894,7 @@
     <string name="storage_total">合計</string>
     <string name="storage_database">データベース</string>
     <string name="storage_attachments">添付ファイル</string>
-    <string name="storage_cache">キャッシュ</string>
+    <string name="storage_cache">一時ファイル</string>
     <string name="storage_local_models">ローカルモデル</string>
     <string name="storage_sandbox">サンドボックス</string>
     <string name="storage_conversations">会話</string>

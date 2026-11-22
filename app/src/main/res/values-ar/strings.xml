@@ -894,7 +894,7 @@
     <string name="storage_total">الإجمالي</string>
     <string name="storage_database">قاعدة البيانات</string>
     <string name="storage_attachments">المرفقات</string>
-    <string name="storage_cache">ذاكرة التخزين المؤقت</string>
+    <string name="storage_cache">ملفات مؤقتة</string>
     <string name="storage_local_models">النماذج المحلية</string>
     <string name="storage_sandbox">بيئة الحماية</string>
     <string name="storage_conversations">المحادثات</string>

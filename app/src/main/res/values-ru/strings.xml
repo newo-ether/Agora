@@ -894,7 +894,7 @@
     <string name="storage_total">Всего</string>
     <string name="storage_database">База данных</string>
     <string name="storage_attachments">Вложения</string>
-    <string name="storage_cache">Кэш</string>
+    <string name="storage_cache">Временные файлы</string>
     <string name="storage_local_models">Локальные модели</string>
     <string name="storage_sandbox">Песочница</string>
     <string name="storage_conversations">Разговоры</string>

@@ -894,7 +894,7 @@
     <string name="storage_total">전체</string>
     <string name="storage_database">데이터베이스</string>
     <string name="storage_attachments">첨부파일</string>
-    <string name="storage_cache">캐시</string>
+    <string name="storage_cache">임시 파일</string>
     <string name="storage_local_models">로컬 모델</string>
     <string name="storage_sandbox">샌드박스</string>
     <string name="storage_conversations">대화</string>
