@@ -606,15 +606,17 @@ private fun UsageHeatmap(
     fun level(value: Long, thresholds: List<Long>): Int =
         if (value <= 0) 0 else 1 + thresholds.count { value > it }
     val thresholds = remember(days, metric) { thresholdsOf(metric) }
-    // A metric switch re-levels every dot at once, so the grid blends from the old colour ramp to
-    // the new one instead of repainting the whole calendar in a single frame.
+    // A metric switch re-levels every dot at once, so the grid keeps the colours that are on screen
+    // and blends them to the new ramp once the new figures have settled.
     var lastMetric by remember { mutableStateOf(metric) }
     val previousMetric = remember(metric) { lastMetric }
     SideEffect { lastMetric = metric }
     val previousThresholds = remember(previousMetric, days) {
         if (previousMetric == null) emptyList() else thresholdsOf(previousMetric)
     }
-    val blend = remember { Animatable(1f) }
+    // A fresh animatable per metric starts on the outgoing ramp, so the first frame of a switch
+    // cannot paint the target colours before the blend begins.
+    val blend = remember(metric) { Animatable(0f) }
 
     var picked by remember { mutableStateOf<LocalDate?>(null) }
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -638,9 +640,12 @@ private fun UsageHeatmap(
     val scroll = rememberScrollState()
     LaunchedEffect(scroll.maxValue) { scroll.scrollTo(scroll.maxValue) }
     val motion = LocalAgoraMotionPolicy.current
-    LaunchedEffect(metric) {
-        if (previousMetric != null && previousMetric != metric && motion.allowSpatialTransitions) {
-            blend.snapTo(0f)
+    // Waiting for the count to finish keeps the fade off a grid that still shows the previous
+    // figures: the dots take their new colours only once the new numbers are in, then blend over.
+    LaunchedEffect(metric, refreshing) {
+        val switched = previousMetric != null && previousMetric != metric
+        if (!switched || refreshing) return@LaunchedEffect
+        if (motion.allowSpatialTransitions) {
             blend.animateTo(1f, tween(HEATMAP_METRIC_FADE_MS))
         } else {
             blend.snapTo(1f)
