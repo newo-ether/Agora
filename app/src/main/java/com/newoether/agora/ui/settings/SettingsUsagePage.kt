@@ -2,6 +2,7 @@ package com.newoether.agora.ui.settings
 
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -39,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -264,12 +266,16 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             } else {
                                 current?.let { UsageStats.period(it, shown, zone, today) }
                             }
-                            UsageBarChart(
-                                bars = shownSummary?.bars.orEmpty(),
-                                today = today,
-                                locale = locale,
-                                format = ::count,
-                            )
+                            // Crossfade expects a single child; the chart emits the plot and its
+                            // caption, and a bare slot stacked the caption onto the value axis.
+                            Column(Modifier.fillMaxWidth()) {
+                                UsageBarChart(
+                                    bars = shownSummary?.bars.orEmpty(),
+                                    today = today,
+                                    locale = locale,
+                                    format = ::count,
+                                )
+                            }
                         }
                     }
                 }),
@@ -584,16 +590,31 @@ private fun UsageHeatmap(
     val firstDay: DayOfWeek = remember(locale) { WeekFields.of(locale).firstDayOfWeek }
     val endWeekStart = today.with(TemporalAdjusters.previousOrSame(firstDay))
     val start = endWeekStart.minusWeeks((HEATMAP_WEEKS - 1).toLong())
-    fun valueOf(day: UsageDay?): Long = when (metric) {
+    fun valueOf(day: UsageDay?, metric: UsageMetric): Long = when (metric) {
         UsageMetric.TOKENS -> day?.tokens ?: 0L
         UsageMetric.REQUESTS -> day?.requests ?: 0L
     }
     // Quartile thresholds over non-zero days keep one heavy day from washing out the rest.
-    val thresholds = remember(days, metric) {
-        val values = days.values.map(::valueOf).filter { it > 0 }.sorted()
-        if (values.isEmpty()) emptyList() else listOf(0.25, 0.5, 0.75).map { values[((values.size - 1) * it).toInt()] }
+    fun thresholdsOf(metric: UsageMetric): List<Long> {
+        val values = days.values.map { valueOf(it, metric) }.filter { it > 0 }.sorted()
+        return if (values.isEmpty()) {
+            emptyList()
+        } else {
+            listOf(0.25, 0.5, 0.75).map { values[((values.size - 1) * it).toInt()] }
+        }
     }
-    fun level(value: Long): Int = if (value <= 0) 0 else 1 + thresholds.count { value > it }
+    fun level(value: Long, thresholds: List<Long>): Int =
+        if (value <= 0) 0 else 1 + thresholds.count { value > it }
+    val thresholds = remember(days, metric) { thresholdsOf(metric) }
+    // A metric switch re-levels every dot at once, so the grid blends from the old colour ramp to
+    // the new one instead of repainting the whole calendar in a single frame.
+    var lastMetric by remember { mutableStateOf(metric) }
+    val previousMetric = remember(metric) { lastMetric }
+    SideEffect { lastMetric = metric }
+    val previousThresholds = remember(previousMetric, days) {
+        if (previousMetric == null) emptyList() else thresholdsOf(previousMetric)
+    }
+    val blend = remember { Animatable(1f) }
 
     var picked by remember { mutableStateOf<LocalDate?>(null) }
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -602,6 +623,14 @@ private fun UsageHeatmap(
     // Collar of a picked dot: it has to contrast with every level, including the brightest one.
     val pickedCollar = MaterialTheme.colorScheme.onSurface
     fun shade(level: Int): Color = if (level == 0) empty else lerp(empty, full, 0.25f + 0.75f * level / 4f)
+    // A dot keeps the previous metric's colour and fades to the new one, so a tab switch reads as a
+    // wash over the calendar rather than a hard repaint.
+    fun dotColor(day: UsageDay?): Color {
+        val target = shade(level(valueOf(day, metric), thresholds))
+        val from = previousMetric
+        if (from == null || from == metric) return target
+        return lerp(shade(level(valueOf(day, from), previousThresholds)), target, blend.value)
+    }
     val cell: Dp = 12.dp
     val gap: Dp = 3.dp
     val step = cell + gap
@@ -609,6 +638,14 @@ private fun UsageHeatmap(
     val scroll = rememberScrollState()
     LaunchedEffect(scroll.maxValue) { scroll.scrollTo(scroll.maxValue) }
     val motion = LocalAgoraMotionPolicy.current
+    LaunchedEffect(metric) {
+        if (previousMetric != null && previousMetric != metric && motion.allowSpatialTransitions) {
+            blend.snapTo(0f)
+            blend.animateTo(1f, tween(HEATMAP_METRIC_FADE_MS))
+        } else {
+            blend.snapTo(1f)
+        }
+    }
     val fadeSpec: AnimationSpec<Float> =
         if (motion.allowSpatialTransitions) tween(200) else snap()
     val leftFade by animateFloatAsState(
@@ -689,9 +726,9 @@ private fun UsageHeatmap(
                                 // Contrasting collar plus a shrunken dot: a plain stroke in the dot's
                                 // own colour was invisible, especially on the brightest levels.
                                 drawCircle(pickedCollar, radius, center)
-                                drawCircle(shade(level(valueOf(days[date]))), radius - 2.dp.toPx(), center)
+                                drawCircle(dotColor(days[date]), radius - 2.dp.toPx(), center)
                             } else {
-                                drawCircle(shade(level(valueOf(days[date]))), radius, center)
+                                drawCircle(dotColor(days[date]), radius, center)
                             }
                             if (date == today && date != picked) {
                                 drawCircle(todayOutline, radius, center, style = Stroke(1.5.dp.toPx()))
@@ -712,7 +749,7 @@ private fun UsageHeatmap(
             stringResource(
                 if (metric == UsageMetric.TOKENS) R.string.usage_day_tokens else R.string.usage_day_requests,
                 dateText,
-                format(valueOf(days[shown])),
+                format(valueOf(days[shown], metric)),
             ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -735,6 +772,8 @@ private fun UsageHeatmap(
 }
 
 private const val HEATMAP_WEEKS = 53
+/** Fade between the token and the request ramps of the calendar. */
+private const val HEATMAP_METRIC_FADE_MS = 240
 private val BAR_CHART_PLOT_HEIGHT = 120.dp
 private val BAR_CHART_LABEL_BAND = 18.dp
 private val BAR_CHART_TOP_INSET = 10.dp
