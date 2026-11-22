@@ -926,7 +926,7 @@
     <string name="usage_streak">Aktuelle Serie</string>
     <string name="usage_streak_days">%1$d Tage</string>
     <string name="usage_longest_streak">Längste Serie</string>
-    <string name="usage_tokens">Tokens</string>
+    <string name="usage_tokens">Token-Statistik</string>
     <string name="usage_period_week">7 Tage</string>
     <string name="usage_period_month">30 Tage</string>
     <string name="usage_period_quarter">90 Tage</string>
@@ -937,6 +937,6 @@
     <string name="usage_cache_hit">Cache-Trefferquote</string>
             <string name="usage_chart_daily">Tokens pro Tag</string>
             <string name="usage_chart_weekly">Tokens pro Woche</string>
-            <string name="usage_by_model">Nach Modell</string>
+            <string name="usage_by_model">Tokens pro Modell</string>
         <string name="usage_other">Sonstige</string>
 </resources>

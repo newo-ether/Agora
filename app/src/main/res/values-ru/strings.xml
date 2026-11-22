@@ -926,7 +926,7 @@
     <string name="usage_streak">Текущая серия</string>
     <string name="usage_streak_days">Дней: %1$d</string>
     <string name="usage_longest_streak">Самая длинная серия</string>
-    <string name="usage_tokens">Токены</string>
+    <string name="usage_tokens">Статистика токенов</string>
     <string name="usage_period_week">7 дней</string>
     <string name="usage_period_month">30 дней</string>
     <string name="usage_period_quarter">90 дней</string>
@@ -937,6 +937,6 @@
     <string name="usage_cache_hit">Попадания в кэш</string>
             <string name="usage_chart_daily">Токены по дням</string>
             <string name="usage_chart_weekly">Токены по неделям</string>
-            <string name="usage_by_model">По моделям</string>
+            <string name="usage_by_model">Токены по моделям</string>
         <string name="usage_other">Другое</string>
 </resources>

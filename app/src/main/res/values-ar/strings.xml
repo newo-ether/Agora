@@ -926,7 +926,7 @@
     <string name="usage_streak">السلسلة الحالية</string>
     <string name="usage_streak_days">%1$d يوم</string>
     <string name="usage_longest_streak">أطول سلسلة</string>
-    <string name="usage_tokens">الرموز</string>
+    <string name="usage_tokens">إحصاءات الرموز</string>
     <string name="usage_period_week">7 أيام</string>
     <string name="usage_period_month">30 يومًا</string>
     <string name="usage_period_quarter">90 يومًا</string>
@@ -937,6 +937,6 @@
     <string name="usage_cache_hit">نسبة إصابة ذاكرة التخزين المؤقت</string>
             <string name="usage_chart_daily">الرموز يوميًا</string>
             <string name="usage_chart_weekly">الرموز أسبوعيًا</string>
-            <string name="usage_by_model">حسب النموذج</string>
+            <string name="usage_by_model">الرموز حسب النموذج</string>
         <string name="usage_other">أخرى</string>
 </resources>

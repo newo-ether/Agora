@@ -919,7 +919,7 @@
     <string name="usage_streak">当前连续</string>
     <string name="usage_streak_days">%1$d 天</string>
     <string name="usage_longest_streak">最长连续</string>
-    <string name="usage_tokens">Token</string>
+    <string name="usage_tokens">Token 统计</string>
     <string name="usage_period_week">7 天</string>
     <string name="usage_period_month">30 天</string>
     <string name="usage_period_quarter">90 天</string>
@@ -930,6 +930,6 @@
     <string name="usage_cache_hit">缓存命中率</string>
             <string name="usage_chart_daily">每日 token</string>
             <string name="usage_chart_weekly">每周 token</string>
-            <string name="usage_by_model">按模型</string>
+            <string name="usage_by_model">各模型 Token</string>
         <string name="usage_other">其他</string>
 </resources>

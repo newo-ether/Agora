@@ -195,25 +195,28 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   weeks starting on the locale's first day of week, scrolled to today, month labels above, weekday
   labels on alternate rows). The scrolled weeks fade at both ends through the same edge mask as the
   attachment row, so a half-visible column never looks cut off. Tokens is the default; while a count
-  runs, the counting row sits on the heatmap footer line so the pills above keep a stable width.
+  runs, the counting row trails the caption on the heatmap footer line, so fading it in never
+  shifts the date sideways.
   Five shades: zero, then quartiles of the non-zero days, so one heavy day does not flatten the
   rest. Tapping a dot shows its date and value below; the picked dot is drawn as a contrasting
   collar with a smaller value dot inside it, and today is outlined.
 - **Overview group.** Two-column `StatsCardGrid`: total tokens, requests, current streak, longest
   streak. No cost figures.
-- **Tokens group.** A 7/30/90/All `PillTabSwitcher` selects the period for the cards below it
-  (input, output, cached input, cache hit rate as cached over reported input, `—` when nothing was
-  reported), the bar chart and the By model group. The charts follow the selected period: one bar
-  per day, or one bar per week once the period is longer than 90 days, with the picked (or latest)
-  bar's date and tokens captioned under it. The By source breakdown stays removed. By
-  model uses the segmented bar and legend of the Storage page; at most six segments, the rest folded
-  into Other, legend values "tokens · percent". The card opens with the period's total: a small
-  "Total tokens" label over the figure in `headlineMedium` bold, both left aligned, with the bar
-  below.
+- **Tokens group.** A 7/30/90/All `PillTabSwitcher` under the "Token statistics" title selects the
+  period for the cards below it (input, output, cached input, cache hit rate as cached over reported
+  input, `—` when nothing was reported), the bar chart and the "Tokens per model" group. The charts
+  follow the selected period: one bar per day, or one bar per week once the period is longer than 90
+  days, with the picked (or latest) bar's date and tokens captioned under it. The By source breakdown
+  stays removed. By model uses the segmented bar and legend of the Storage page; at most six
+  segments, the rest folded into Other, legend values "tokens · percent". The card opens with the
+  period's total: a small "Total tokens" label over the figure in `headlineMedium` bold, both left
+  aligned, with the bar below.
 - **Loading.** Same as Storage: in-card spinner with "Counting…", dimmed previous values,
   placeholders on first load, no page-level progress bar. The spinner is 16dp with a 2dp stroke and
-  a bodyMedium label 8dp away. Placeholder blocks and an empty segmented bar fill with a slow
-  left-to-right shimmer (1400ms), which becomes a solid fill when motion is disabled.
+  a bodyMedium label 8dp away. A reload that finishes within 200ms never shows the counting state,
+  and one that does show it stays up for at least 400ms, so a request-ledger write does not blink
+  the page. Placeholder blocks and an empty segmented bar fill with a slow left-to-right shimmer
+  (1400ms), which becomes a solid fill when motion is disabled.
 - **Data.** `usage_ledger` (DB 48) holds per-request totals in 15-minute UTC buckets keyed by
   provider, model and source (Chat, Task, Subagent, Title, Transcription). `UsageRecorder` writes one
   row update when a Provider request ends (chat generation, title generation, transcription); a

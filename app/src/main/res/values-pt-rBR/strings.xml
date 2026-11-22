@@ -926,7 +926,7 @@
     <string name="usage_streak">Sequência atual</string>
     <string name="usage_streak_days">%1$d dias</string>
     <string name="usage_longest_streak">Maior sequência</string>
-    <string name="usage_tokens">Tokens</string>
+    <string name="usage_tokens">Estatísticas de tokens</string>
     <string name="usage_period_week">7 dias</string>
     <string name="usage_period_month">30 dias</string>
     <string name="usage_period_quarter">90 dias</string>
@@ -937,6 +937,6 @@
     <string name="usage_cache_hit">Taxa de acerto do cache</string>
             <string name="usage_chart_daily">Tokens por dia</string>
             <string name="usage_chart_weekly">Tokens por semana</string>
-            <string name="usage_by_model">Por modelo</string>
+            <string name="usage_by_model">Tokens por modelo</string>
         <string name="usage_other">Outros</string>
 </resources>

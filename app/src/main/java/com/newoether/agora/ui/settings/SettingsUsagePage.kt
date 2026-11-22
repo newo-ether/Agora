@@ -80,6 +80,7 @@ import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 private enum class UsageMetric { TOKENS, REQUESTS }
 
@@ -111,7 +112,22 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val current = rows
     val overview = remember(current) { current?.let { UsageStats.overview(it, zone, today) } }
     val summary = remember(current, period) { current?.let { UsageStats.period(it, period, zone, today) } }
-    val stale = refreshing && current != null
+    // Every ledger write reloads the rows, so showing the counting state for each fast reload made
+    // the figures blink. It appears only when a scan is slow, and then stays up long enough to read.
+    var countingVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(refreshing) {
+        if (refreshing) {
+            delay(COUNTING_SHOW_DELAY_MS)
+            countingVisible = true
+        }
+    }
+    LaunchedEffect(countingVisible, refreshing) {
+        if (countingVisible && !refreshing) {
+            delay(COUNTING_MIN_VISIBLE_MS)
+            countingVisible = false
+        }
+    }
+    val stale = countingVisible && current != null
     val staleAlpha = statsStaleAlpha(stale)
 
     CollapsingSettingsScaffold(title = stringResource(R.string.settings_usage), onBack = onBack) {
@@ -137,7 +153,7 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 metric = metric,
                                 locale = locale,
                                 format = ::count,
-                                refreshing = refreshing,
+                                refreshing = countingVisible,
                             )
                         }
                     }
@@ -525,11 +541,6 @@ private fun UsageHeatmap(
     }
     Spacer(Modifier.height(12.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        // Counting sits on the footer line so the pills above keep a stable width.
-        if (refreshing) {
-            StatsRefreshStatus(visible = true)
-            Spacer(Modifier.width(8.dp))
-        }
         val shown = picked ?: today
         val dateText = remember(shown, locale) {
             shown.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
@@ -547,6 +558,9 @@ private fun UsageHeatmap(
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(8.dp))
+        // The indicator trails the caption, so fading it in never shifts the date sideways.
+        StatsRefreshStatus(visible = refreshing)
+        Spacer(Modifier.width(8.dp))
         Text(stringResource(R.string.usage_less), style = labelStyle, color = labelColor)
         Spacer(Modifier.width(4.dp))
         for (lvl in 0..4) {
@@ -558,6 +572,8 @@ private fun UsageHeatmap(
 }
 
 private const val HEATMAP_WEEKS = 53
+private const val COUNTING_SHOW_DELAY_MS = 200L
+private const val COUNTING_MIN_VISIBLE_MS = 400L
 private val HEATMAP_EDGE_MARGIN = 8.dp
 private const val MAX_SHARES = 6
 private val MONTH_LABEL_HEIGHT = 18.dp

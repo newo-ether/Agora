@@ -926,7 +926,7 @@
     <string name="usage_streak">현재 연속 사용</string>
     <string name="usage_streak_days">%1$d일</string>
     <string name="usage_longest_streak">최장 연속 사용</string>
-    <string name="usage_tokens">토큰</string>
+    <string name="usage_tokens">토큰 통계</string>
     <string name="usage_period_week">7일</string>
     <string name="usage_period_month">30일</string>
     <string name="usage_period_quarter">90일</string>
@@ -937,6 +937,6 @@
     <string name="usage_cache_hit">캐시 적중률</string>
             <string name="usage_chart_daily">일별 토큰</string>
             <string name="usage_chart_weekly">주별 토큰</string>
-            <string name="usage_by_model">모델별</string>
+            <string name="usage_by_model">모델별 토큰</string>
         <string name="usage_other">기타</string>
 </resources>

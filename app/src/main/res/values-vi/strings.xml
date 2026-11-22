@@ -932,7 +932,7 @@
     <string name="usage_streak">Chuỗi hiện tại</string>
     <string name="usage_streak_days">%1$d ngày</string>
     <string name="usage_longest_streak">Chuỗi dài nhất</string>
-    <string name="usage_tokens">Token</string>
+    <string name="usage_tokens">Thống kê token</string>
     <string name="usage_period_week">7 ngày</string>
     <string name="usage_period_month">30 ngày</string>
     <string name="usage_period_quarter">90 ngày</string>
@@ -943,6 +943,6 @@
     <string name="usage_cache_hit">Tỷ lệ trúng cache</string>
             <string name="usage_chart_daily">Token mỗi ngày</string>
             <string name="usage_chart_weekly">Token mỗi tuần</string>
-            <string name="usage_by_model">Theo mô hình</string>
+            <string name="usage_by_model">Token theo mô hình</string>
         <string name="usage_other">Khác</string>
 </resources>
