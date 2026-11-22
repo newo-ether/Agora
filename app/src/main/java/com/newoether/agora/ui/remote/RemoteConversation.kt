@@ -49,7 +49,6 @@ import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
 @Composable
 internal fun RemoteConversation(
     state: RemoteState, vm: RemoteViewModel, settings: SettingsRepository, active: Boolean, onBack: () -> Unit,
-    onSnackbarOffsetChanged: (androidx.compose.ui.unit.Dp) -> Unit,
     onMediaClick: (List<String>, Int) -> Unit,
 ) {
     val owner = state.owner ?: return
@@ -176,11 +175,6 @@ internal fun RemoteConversation(
     var barHeightPx by remember { mutableFloatStateOf(0f) }
     val barHeight = with(density) { barHeightPx.toDp() }
     val topBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
-    SnackbarOffsetEffect(drawerProgress = 0f, isExpanded = expanded, bottomBarHeight = barHeight,
-        settingsButtonTopDp = 0f, bottomInset = maxOf(
-            WindowInsets.ime.asPaddingValues().calculateBottomPadding(),
-            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        onOffsetChanged = { if (active) onSnackbarOffsetChanged(it) })
     var initiallyPositioned by remember(owner) { mutableStateOf(state.isDraft) }
     val switching = !initiallyPositioned
     val showBottomButton by rememberAbsoluteBottomButtonVisible(

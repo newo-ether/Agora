@@ -46,7 +46,7 @@ class RemoteSessionMenuTest {
         every { vm.state } returns state
         compose.setContent {
             MaterialTheme {
-                RemoteScreen(vm, settings, active, {}, {}, { _, _ -> })
+                RemoteScreen(vm, settings, active, {}, { _, _ -> })
             }
         }
     }

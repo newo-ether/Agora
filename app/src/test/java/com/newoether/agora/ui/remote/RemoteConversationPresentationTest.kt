@@ -61,7 +61,7 @@ class RemoteConversationPresentationTest {
         every { settings.autoExpandActiveGroup } returns MutableStateFlow(true)
         compose.setContent {
             MaterialTheme {
-                RemoteConversation(state, vm, settings, true, {}, {}, { _, _ -> })
+                RemoteConversation(state, vm, settings, true, {}, { _, _ -> })
             }
         }
     }

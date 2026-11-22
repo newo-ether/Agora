@@ -67,7 +67,6 @@ internal fun RemoteOverlay(
     onExitFinished: () -> Unit,
     onMessage: (String, String?, (() -> Unit)?) -> Unit,
     onMediaClick: (List<String>, Int) -> Unit,
-    onSnackbarOffsetChanged: (androidx.compose.ui.unit.Dp) -> Unit,
 ) {
     val messageContext by rememberUpdatedState(LocalContext.current)
     val context = LocalContext.current.applicationContext
@@ -100,19 +99,15 @@ internal fun RemoteOverlay(
     SettingsOverlayHost(visible, onDismiss, onExitFinished = onExitFinished) {
         val hapticsEnabled by settings.hapticsEnabled.collectAsState(initial = false)
         CompositionLocalProvider(LocalAgoraHaptics provides rememberAgoraHaptics(hapticsEnabled && hapticsActive)) {
-            RemoteScreen(remote, settings, visible, onDismiss, onSnackbarOffsetChanged, onMediaClick)
+            RemoteScreen(remote, settings, visible, onDismiss, onMediaClick)
         }
     }
 }
 
 @Composable
 internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, active: Boolean, onBack: () -> Unit,
-    onSnackbarOffsetChanged: (androidx.compose.ui.unit.Dp) -> Unit,
     onMediaClick: (List<String>, Int) -> Unit) {
     val state by vm.state.collectAsState()
-    val inset = maxOf(WindowInsets.ime.asPaddingValues().calculateBottomPadding(),
-        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
-    SideEffect { if (active && state.session == null) onSnackbarOffsetChanged(inset) }
     val focus = LocalFocusManager.current
     var forward by remember { mutableStateOf(true) }
     val back = {
@@ -138,7 +133,7 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
         val displayed = if (current) state else retained
         when {
             page.third != null -> RemoteAddDevice(displayed, vm, active && current, back) { forward = false; focus.clearFocus() }
-            page.second != null -> RemoteConversation(displayed, vm, settings, active && current, back, onSnackbarOffsetChanged, onMediaClick)
+            page.second != null -> RemoteConversation(displayed, vm, settings, active && current, back, onMediaClick)
             page.first != null -> {
                 var showUsage by remember(displayed.deviceId, displayed.confirmationPath) { mutableStateOf(false) }
                 if (showUsage && current && active) RemoteUsageSheet(vm) { showUsage = false }

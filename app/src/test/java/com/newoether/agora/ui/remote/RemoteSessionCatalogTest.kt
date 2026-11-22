@@ -40,7 +40,7 @@ class RemoteSessionCatalogTest {
 
     private fun showScreen() {
         every { vm.state } returns state
-        compose.setContent { MaterialTheme { RemoteScreen(vm, settings, true, {}, {}, { _, _ -> }) } }
+        compose.setContent { MaterialTheme { RemoteScreen(vm, settings, true, {}, { _, _ -> }) } }
     }
 
     @Test fun emptyLoadingSettlesToMemoryStyleEmptyStateAndKeepsCategoryOnFailure() {
