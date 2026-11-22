@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -86,6 +87,9 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val density = LocalDensity.current
     val report by viewModel.dataControl.storageReport.collectAsState()
     val refreshing by viewModel.dataControl.storageRefreshing.collectAsState()
+    // TEMPORARY: forces the counting state so the owner can inspect it without a rescan.
+    var debugCounting by remember { mutableStateOf(false) }
+    val counting = refreshing || debugCounting
 
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var expanded by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -126,13 +130,25 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 ) {
                     Icon(Icons.Default.Delete, stringResource(R.string.delete))
                 }
+            } else {
+                IconButton(onClick = { debugCounting = !debugCounting }) {
+                    Icon(
+                        Icons.Default.BugReport,
+                        contentDescription = "Debug counting",
+                        tint = if (debugCounting) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
             }
         },
     ) {
         val current = report
-        val staleAlpha = statsStaleAlpha(refreshing && current != null)
+        val staleAlpha = statsStaleAlpha(counting && current != null)
         SettingsGroupColumn {
-            TotalGroup(current?.breakdown, refreshing, staleAlpha, ::size)
+            TotalGroup(current?.breakdown, counting, staleAlpha, ::size)
 
             val conversations = current?.conversations
             val rows: List<@Composable () -> Unit> = when {

@@ -56,11 +56,11 @@ import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 internal fun StatsRefreshStatus(visible: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut(), modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MotionAwareCircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
-            Spacer(Modifier.width(10.dp))
+            MotionAwareCircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
             Text(
                 stringResource(R.string.stats_counting),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
