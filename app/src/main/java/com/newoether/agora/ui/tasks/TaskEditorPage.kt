@@ -4,12 +4,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -58,6 +60,7 @@ import com.newoether.agora.data.modelDisplayName
 import java.util.Calendar
 import com.newoether.agora.ui.chat.ChatDeleteConfirmDialog
 import com.newoether.agora.ui.chat.ChatDeleteDialogPhase
+import com.newoether.agora.ui.common.InlineLoadingRow
 import com.newoether.agora.ui.components.SystemPromptPickerDialog
 import com.newoether.agora.viewmodel.executionSummariesForTask
 import com.newoether.agora.viewmodel.runTaskNow
@@ -366,15 +369,7 @@ internal fun TaskDetailPage(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 1.dp,
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 3.dp,
-                        )
-                    }
+                    InlineLoadingRow(text = stringResource(R.string.loading_label))
                 }
             }
         } else if (executions.isEmpty()) {

@@ -2,12 +2,14 @@ package com.newoether.agora.ui.chat.message
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Shape
 import com.newoether.agora.R
+import com.newoether.agora.util.horizontalEdgeFade
 import com.newoether.agora.util.noOpBringIntoView
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.ChatMessage
@@ -294,8 +297,23 @@ internal fun UserMessageBubble(
                         }
                         val allMediaUrls = mediaProjection.urls
 
+                        val mediaRowState = rememberLazyListState()
+                        val leftFade by animateFloatAsState(
+                            if (mediaRowState.canScrollBackward) 1f else 0f,
+                            animationSpec = tween(200),
+                            label = "attachmentLeftFade",
+                        )
+                        val rightFade by animateFloatAsState(
+                            if (mediaRowState.canScrollForward) 1f else 0f,
+                            animationSpec = tween(200),
+                            label = "attachmentRightFade",
+                        )
                         LazyRow(
-                            modifier = Modifier.padding(bottom = if (message.text.isNotEmpty()) 8.dp else 0.dp),
+                            state = mediaRowState,
+                            modifier = Modifier
+                                // Edge mask outside the scroll, as the LaTeX block and drawer do.
+                                .horizontalEdgeFade(edgeFadeDp = 32f, leftWeight = leftFade, rightWeight = rightFade)
+                                .padding(bottom = if (message.text.isNotEmpty()) 8.dp else 0.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             itemsIndexed(displayItems) { displayIndex, (_, imagePath, metaItem) ->
