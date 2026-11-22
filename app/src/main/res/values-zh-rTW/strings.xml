@@ -938,6 +938,8 @@
     <string name="usage_output">輸出</string>
     <string name="usage_cached">快取輸入</string>
     <string name="usage_cache_hit">快取命中率</string>
+            <string name="usage_chart_daily">每日 token</string>
+            <string name="usage_chart_weekly">每週 token</string>
             <string name="usage_by_model">依模型</string>
         <string name="usage_other">其他</string>
 </resources>

@@ -203,13 +203,16 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   streak. No cost figures.
 - **Tokens group.** A 7/30/90/All `PillTabSwitcher` selects the period for the cards below it
   (input, output, cached input, cache hit rate as cached over reported input, `—` when nothing was
-  reported) and the By model group. The daily bar chart and the By source breakdown are removed. By
+  reported), the bar chart and the By model group. The charts follow the selected period: one bar
+  per day, or one bar per week once the period is longer than 90 days, with the picked (or latest)
+  bar's date and tokens captioned under it. The By source breakdown stays removed. By
   model uses the segmented bar and legend of the Storage page; at most six segments, the rest folded
-  into Other, legend values "tokens · percent". The card opens with a Total tokens row, the label and
-  figure together at the left, giving the period's total above the bar.
+  into Other, legend values "tokens · percent". The card opens with the period's total: a small
+  "Total tokens" label over the figure in `headlineMedium` bold, both left aligned, with the bar
+  below.
 - **Loading.** Same as Storage: in-card spinner with "Counting…", dimmed previous values,
-  placeholders on first load, no page-level progress bar. The spinner is 22dp with a 2.5dp stroke and
-  a bodyLarge label 10dp away. Placeholder blocks and an empty segmented bar fill with a slow
+  placeholders on first load, no page-level progress bar. The spinner is 16dp with a 2dp stroke and
+  a bodyMedium label 8dp away. Placeholder blocks and an empty segmented bar fill with a slow
   left-to-right shimmer (1400ms), which becomes a solid fill when motion is disabled.
 - **Data.** `usage_ledger` (DB 48) holds per-request totals in 15-minute UTC buckets keyed by
   provider, model and source (Chat, Task, Subagent, Title, Transcription). `UsageRecorder` writes one

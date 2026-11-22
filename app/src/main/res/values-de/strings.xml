@@ -935,6 +935,8 @@
     <string name="usage_output">Ausgabe</string>
     <string name="usage_cached">Gecachte Eingabe</string>
     <string name="usage_cache_hit">Cache-Trefferquote</string>
+            <string name="usage_chart_daily">Tokens pro Tag</string>
+            <string name="usage_chart_weekly">Tokens pro Woche</string>
             <string name="usage_by_model">Nach Modell</string>
         <string name="usage_other">Sonstige</string>
 </resources>

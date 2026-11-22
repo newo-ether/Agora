@@ -935,6 +935,8 @@
     <string name="usage_output">출력</string>
     <string name="usage_cached">캐시된 입력</string>
     <string name="usage_cache_hit">캐시 적중률</string>
+            <string name="usage_chart_daily">일별 토큰</string>
+            <string name="usage_chart_weekly">주별 토큰</string>
             <string name="usage_by_model">모델별</string>
         <string name="usage_other">기타</string>
 </resources>

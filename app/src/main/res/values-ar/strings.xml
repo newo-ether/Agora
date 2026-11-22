@@ -935,6 +935,8 @@
     <string name="usage_output">الإخراج</string>
     <string name="usage_cached">إدخال مخزّن مؤقتًا</string>
     <string name="usage_cache_hit">نسبة إصابة ذاكرة التخزين المؤقت</string>
+            <string name="usage_chart_daily">الرموز يوميًا</string>
+            <string name="usage_chart_weekly">الرموز أسبوعيًا</string>
             <string name="usage_by_model">حسب النموذج</string>
         <string name="usage_other">أخرى</string>
 </resources>

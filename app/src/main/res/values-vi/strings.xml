@@ -941,6 +941,8 @@
     <string name="usage_output">Đầu ra</string>
     <string name="usage_cached">Đầu vào từ cache</string>
     <string name="usage_cache_hit">Tỷ lệ trúng cache</string>
+            <string name="usage_chart_daily">Token mỗi ngày</string>
+            <string name="usage_chart_weekly">Token mỗi tuần</string>
             <string name="usage_by_model">Theo mô hình</string>
         <string name="usage_other">Khác</string>
 </resources>

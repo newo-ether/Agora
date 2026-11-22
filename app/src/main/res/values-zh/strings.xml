@@ -928,6 +928,8 @@
     <string name="usage_output">输出</string>
     <string name="usage_cached">缓存输入</string>
     <string name="usage_cache_hit">缓存命中率</string>
+            <string name="usage_chart_daily">每日 token</string>
+            <string name="usage_chart_weekly">每周 token</string>
             <string name="usage_by_model">按模型</string>
         <string name="usage_other">其他</string>
 </resources>

@@ -935,6 +935,8 @@
     <string name="usage_output">Sortie</string>
     <string name="usage_cached">Entrée en cache</string>
     <string name="usage_cache_hit">Taux de cache</string>
+            <string name="usage_chart_daily">Tokens par jour</string>
+            <string name="usage_chart_weekly">Tokens par semaine</string>
             <string name="usage_by_model">Par modèle</string>
         <string name="usage_other">Autres</string>
 </resources>

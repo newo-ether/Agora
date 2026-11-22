@@ -87,7 +87,7 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val density = LocalDensity.current
     val report by viewModel.dataControl.storageReport.collectAsState()
     val refreshing by viewModel.dataControl.storageRefreshing.collectAsState()
-    // TEMPORARY: forces the counting state so the owner can inspect it without a rescan.
+    // TEMPORARY: previews the first-run state (nothing counted yet) so the owner can inspect it.
     var debugCounting by remember { mutableStateOf(false) }
     val counting = refreshing || debugCounting
 
@@ -145,7 +145,8 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
             }
         },
     ) {
-        val current = report
+        // The debug toggle mirrors the first-run state: no report, so the page keeps its skeleton.
+        val current = if (debugCounting) null else report
         val staleAlpha = statsStaleAlpha(counting && current != null)
         SettingsGroupColumn {
             TotalGroup(current?.breakdown, counting, staleAlpha, ::size)

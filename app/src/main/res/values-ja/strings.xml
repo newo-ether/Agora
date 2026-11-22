@@ -935,6 +935,8 @@
     <string name="usage_output">出力</string>
     <string name="usage_cached">キャッシュ入力</string>
     <string name="usage_cache_hit">キャッシュヒット率</string>
+            <string name="usage_chart_daily">日別トークン</string>
+            <string name="usage_chart_weekly">週別トークン</string>
             <string name="usage_by_model">モデル別</string>
         <string name="usage_other">その他</string>
 </resources>

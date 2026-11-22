@@ -935,6 +935,8 @@
     <string name="usage_output">Вывод</string>
     <string name="usage_cached">Ввод из кэша</string>
     <string name="usage_cache_hit">Попадания в кэш</string>
+            <string name="usage_chart_daily">Токены по дням</string>
+            <string name="usage_chart_weekly">Токены по неделям</string>
             <string name="usage_by_model">По моделям</string>
         <string name="usage_other">Другое</string>
 </resources>

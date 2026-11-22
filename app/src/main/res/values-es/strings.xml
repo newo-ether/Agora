@@ -935,6 +935,8 @@
     <string name="usage_output">Salida</string>
     <string name="usage_cached">Entrada en caché</string>
     <string name="usage_cache_hit">Tasa de aciertos de caché</string>
+            <string name="usage_chart_daily">Tokens por día</string>
+            <string name="usage_chart_weekly">Tokens por semana</string>
             <string name="usage_by_model">Por modelo</string>
         <string name="usage_other">Otros</string>
 </resources>

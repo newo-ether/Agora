@@ -45,17 +45,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.data.UsageBar
 import com.newoether.agora.data.UsageDay
 import com.newoether.agora.data.UsagePeriod
 import com.newoether.agora.data.UsageRecorder
@@ -213,6 +217,22 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 )
             }
 
+            val weekly = summary != null && summary.bars.size > 1 &&
+                summary.bars[1].start.toEpochDay() - summary.bars[0].start.toEpochDay() > 1
+            SettingsGroup(
+                title = stringResource(if (weekly) R.string.usage_chart_weekly else R.string.usage_chart_daily),
+                items = listOf({
+                    Column(Modifier.fillMaxWidth().padding(16.dp).alpha(staleAlpha)) {
+                        UsageBarChart(
+                            bars = summary?.bars.orEmpty(),
+                            today = today,
+                            locale = locale,
+                            format = ::count,
+                        )
+                    }
+                }),
+            )
+
             val modelLabel: (String) -> String = { modelAliasDisplayName(it, aliases, customProviders) }
             ShareGroup(
                 title = stringResource(R.string.usage_by_model),
@@ -255,20 +275,22 @@ private fun ShareGroup(
                     { it.requests }
                 }
                 val total = all.sumOf(weightOf).coerceAtLeast(1)
-                // The bar's total, so the split reads against a figure before its parts.
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // The bar's total, so the split reads against a figure before its parts. The figure
+                // is the card's headline, so it is set larger than the legend values.
+                Column {
                     Text(
                         stringResource(R.string.usage_total_tokens),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.height(2.dp))
                     if (shares == null) {
-                        StatsPlaceholder(72.dp, 16.dp)
+                        StatsPlaceholder(112.dp, 30.dp, Modifier.padding(vertical = 2.dp))
                     } else {
                         Text(
                             format(totalTokens),
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
@@ -307,6 +329,67 @@ private fun ShareGroup(
                 }
             }
         }),
+    )
+}
+
+@Composable
+private fun UsageBarChart(
+    bars: List<UsageBar>,
+    today: LocalDate,
+    locale: Locale,
+    format: (Long) -> String,
+) {
+    var picked by remember(bars.firstOrNull()?.start, bars.size) { mutableStateOf<Int?>(null) }
+    val barColor = MaterialTheme.colorScheme.primary
+    val pickedColor = MaterialTheme.colorScheme.tertiary
+    val emptyColor = MaterialTheme.colorScheme.surfaceVariant
+    val max = bars.maxOfOrNull { it.tokens }?.coerceAtLeast(1) ?: 1
+    val gap: Dp = if (bars.size > 31) 1.dp else 3.dp
+    Canvas(
+        Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .pointerInput(bars) {
+                detectTapGestures { offset ->
+                    if (bars.isEmpty()) return@detectTapGestures
+                    val index = (offset.x / size.width * bars.size).toInt().coerceIn(0, bars.lastIndex)
+                    picked = if (picked == index) null else index
+                }
+            },
+    ) {
+        if (bars.isEmpty()) return@Canvas
+        val gapPx = gap.toPx()
+        val width = ((size.width - gapPx * (bars.size - 1)) / bars.size).coerceAtLeast(1f)
+        val stub = 2.dp.toPx()
+        val radius = CornerRadius((width / 2).coerceAtMost(3.dp.toPx()))
+        bars.forEachIndexed { index, bar ->
+            val left = index * (width + gapPx)
+            val height = if (bar.tokens > 0) {
+                (size.height * bar.tokens / max).coerceAtLeast(stub)
+            } else {
+                stub
+            }
+            val color = when {
+                bar.tokens <= 0 -> emptyColor
+                picked == index -> pickedColor
+                else -> barColor
+            }
+            drawRoundRect(color, Offset(left, size.height - height), Size(width, height), radius)
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    val shown = picked?.let(bars::getOrNull) ?: bars.lastOrNull()
+    val shortDate = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
+    Text(
+        stringResource(
+            R.string.usage_day_tokens,
+            (shown?.start ?: today).format(shortDate),
+            format(shown?.tokens ?: 0),
+        ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
     )
 }
 

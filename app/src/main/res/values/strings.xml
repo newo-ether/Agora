@@ -916,6 +916,8 @@
     <string name="usage_output">Output</string>
     <string name="usage_cached">Cached input</string>
     <string name="usage_cache_hit">Cache hit rate</string>
+            <string name="usage_chart_daily">Tokens per day</string>
+            <string name="usage_chart_weekly">Tokens per week</string>
             <string name="usage_by_model">By model</string>
         <string name="usage_other">Other</string>
 </resources>
