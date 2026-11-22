@@ -83,15 +83,16 @@ class UsageStatsTest {
     }
 
     @Test
-    fun `long periods bin bars by week`() {
+    fun `long periods keep one bar per day`() {
         val start = LocalDate.parse("2026-01-01")
         val rows = listOf(row(start.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), tokens = 7))
         val end = start.plusDays(99)
         val all = UsageStats.period(rows, UsagePeriod.ALL, ZoneOffset.UTC, end)
-        assertEquals(15, all.bars.size)
+        // 100 days of history stay daily; the chart scrolls instead of binning into weeks.
+        assertEquals(100, all.bars.size)
         assertEquals(7, all.bars.first().tokens)
         assertEquals(7, all.bars.sumOf { it.tokens })
-        // A 90-day period stays daily.
+        assertEquals(0, all.bars[50].tokens)
         assertEquals(90, UsageStats.period(rows, UsagePeriod.QUARTER, ZoneOffset.UTC, end).bars.size)
     }
 

@@ -203,13 +203,16 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   collar with a smaller value dot inside it, and today is outlined.
 - **Overview group.** Two-column `StatsCardGrid`: total tokens, requests, current streak, longest
   streak. No cost figures.
-- **Tokens group.** A 7/30/90/All `PillTabSwitcher` under the "Token statistics" title selects the
+- **Tokens group.** A 7/30/90/All `PillTabSwitcher` under the "Token Statistics" title selects the
   period for the cards below it (input, output, cached input, cache hit rate as cached over reported
-  input, `—` when nothing was reported), the bar chart and the "Tokens per model" group. The charts
-  follow the selected period: one bar per day, or one bar per week once the period is longer than 90
-  days, with the picked (or latest) bar's date and tokens captioned under it. The plot carries both
-  axes: value labels (maximum, half, zero) with grid lines at the left, and the first, middle and
-  last bar's dates under the plot. The By source breakdown
+  input, `—` when nothing was reported), the bar chart and the "Tokens per Model" group. The bar
+  chart keeps one bar per day for every period and never bins days into weeks. Thirty days is the
+  widest span that fits the plot, so 90 and All keep the day's width and scroll horizontally; the
+  edge that still hides bars fades through the same 24dp mask as the heatmap. The value axis
+  (maximum, half, zero) and its grid lines stay fixed in a 40dp gutter while the bars scroll under
+  them. Date labels (`MMM d`) sit inside the scrolling content and mark every slot that fits its
+  neighbour's width. Bars keep a 3dp gap and a 6dp corner radius, capped at half the bar width. The
+  picked (or latest) bar's date and tokens are captioned under the plot. The By source breakdown
   stays removed. By model uses the segmented bar and legend of the Storage page; at most six
   segments, the rest folded into Other, legend values "tokens · percent". The card opens with the
   period's total: a small "Total tokens" label over the figure in `headlineMedium` bold, both left

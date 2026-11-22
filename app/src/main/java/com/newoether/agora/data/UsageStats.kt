@@ -4,7 +4,6 @@ import com.newoether.agora.data.local.UsageLedgerRow
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 data class UsageDay(
     val tokens: Long,
@@ -55,9 +54,6 @@ data class UsagePeriodSummary(
 
 /** Aggregates ledger rows for the Usage page in the device time zone. */
 object UsageStats {
-    /** Above this many days a period chart groups days into weeks so bars stay readable. */
-    private const val MAX_DAILY_BARS = 90
-
     private fun UsageLedgerRow.day(zone: ZoneId): LocalDate =
         Instant.ofEpochMilli(bucket * UsageRecorder.BUCKET_MILLIS).atZone(zone).toLocalDate()
 
@@ -111,14 +107,10 @@ object UsageStats {
             models.getOrPut(row.model) { LongArray(2) }.add(row)
         }
 
-        val span = ChronoUnit.DAYS.between(first, today) + 1
-        val binDays = if (span > MAX_DAILY_BARS) 7L else 1L
-        val bars = generateSequence(first) { it.plusDays(binDays) }
+        // One bar per day for every period: the chart keeps 30 days on screen and scrolls past that.
+        val bars = generateSequence(first) { it.plusDays(1) }
             .takeWhile { !it.isAfter(today) }
-            .map { start ->
-                val tokens = (0 until binDays).sumOf { offset -> tokensByDay[start.plusDays(offset)] ?: 0L }
-                UsageBar(start, tokens)
-            }
+            .map { day -> UsageBar(day, tokensByDay[day] ?: 0L) }
             .toList()
 
         return UsagePeriodSummary(

@@ -11,9 +11,12 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -235,10 +238,8 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 )
             }
 
-            val weekly = summary != null && summary.bars.size > 1 &&
-                summary.bars[1].start.toEpochDay() - summary.bars[0].start.toEpochDay() > 1
             SettingsGroup(
-                title = stringResource(if (weekly) R.string.usage_chart_weekly else R.string.usage_chart_daily),
+                title = stringResource(R.string.usage_chart_daily),
                 items = listOf({
                     Column(Modifier.fillMaxWidth().padding(16.dp).alpha(staleAlpha)) {
                         UsageBarChart(
@@ -365,83 +366,128 @@ private fun UsageBarChart(
     val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
     val axisLineColor = MaterialTheme.colorScheme.outlineVariant
     val max = bars.maxOfOrNull { it.tokens }?.coerceAtLeast(1) ?: 1
-    val gap: Dp = if (bars.size > 31) 1.dp else 3.dp
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = axisColor)
     val tickFormat = remember(locale) { DateTimeFormatter.ofPattern("MMM d", locale) }
     val density = LocalDensity.current
-    val axisWidth = with(density) { BAR_CHART_AXIS_WIDTH.toPx() }
+    val gapPx = with(density) { BAR_CHART_BAR_GAP.toPx() }
     val labelBand = with(density) { BAR_CHART_LABEL_BAND.toPx() }
     val topInset = with(density) { BAR_CHART_TOP_INSET.toPx() }
-    Canvas(
-        Modifier
-            .fillMaxWidth()
-            .height(BAR_CHART_PLOT_HEIGHT + BAR_CHART_LABEL_BAND)
-            .pointerInput(bars) {
-                detectTapGestures { offset ->
-                    if (bars.isEmpty()) return@detectTapGestures
-                    val plotWidth = size.width - axisWidth
-                    if (offset.x < axisWidth || plotWidth <= 0f) return@detectTapGestures
-                    val index = ((offset.x - axisWidth) / plotWidth * bars.size).toInt()
-                        .coerceIn(0, bars.lastIndex)
-                    picked = if (picked == index) null else index
+    val scroll = rememberScrollState()
+    val motion = LocalAgoraMotionPolicy.current
+    val fadeSpec: AnimationSpec<Float> =
+        if (motion.allowSpatialTransitions) tween(200) else snap()
+    val leftFade by animateFloatAsState(
+        targetValue = if (scroll.canScrollBackward) 1f else 0f,
+        animationSpec = fadeSpec,
+        label = "usageChartLeftFade",
+    )
+    val rightFade by animateFloatAsState(
+        targetValue = if (scroll.canScrollForward) 1f else 0f,
+        animationSpec = fadeSpec,
+        label = "usageChartRightFade",
+    )
+    Row(Modifier.fillMaxWidth().height(BAR_CHART_PLOT_HEIGHT + BAR_CHART_LABEL_BAND)) {
+        // Value axis: max, half and zero. It stays put while the bars scroll under it.
+        Canvas(Modifier.width(BAR_CHART_AXIS_WIDTH).fillMaxHeight()) {
+            if (bars.isEmpty()) return@Canvas
+            val plotBottom = size.height - labelBand
+            val plotHeight = plotBottom - topInset
+            listOf(max, max / 2, 0L).forEachIndexed { tick, value ->
+                val y = plotBottom - plotHeight * tick / 2f
+                val label = measurer.measure(format(value), style = labelStyle, maxLines = 1, softWrap = false)
+                drawText(
+                    label,
+                    topLeft = Offset(
+                        size.width - 6.dp.toPx() - label.size.width,
+                        (y - label.size.height / 2f).coerceAtLeast(0f),
+                    ),
+                )
+            }
+        }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
+            // At most 30 days fit the viewport; longer periods keep one bar per day and scroll.
+            val slots = bars.size.coerceIn(1, BAR_CHART_VISIBLE_DAYS)
+            val slot = maxWidth / slots
+            val contentWidth = slot * bars.size.toFloat()
+            // Grid lines belong to the viewport, not to the scrolling content.
+            Canvas(Modifier.fillMaxSize()) {
+                val plotBottom = size.height - labelBand
+                val plotHeight = plotBottom - topInset
+                listOf(2, 1, 0).forEach { tick ->
+                    val y = plotBottom - plotHeight * tick / 2f
+                    drawLine(
+                        if (tick == 0) axisLineColor else gridColor,
+                        Offset(0f, y),
+                        Offset(size.width, y),
+                        strokeWidth = 1.dp.toPx(),
+                    )
                 }
-            },
-    ) {
-        if (bars.isEmpty()) return@Canvas
-        val plotWidth = size.width - axisWidth
-        val plotBottom = size.height - labelBand
-        val plotHeight = plotBottom - topInset
-        val gapPx = gap.toPx()
-        val barWidth = ((plotWidth - gapPx * (bars.size - 1)) / bars.size).coerceAtLeast(1f)
-        val stub = 2.dp.toPx()
-        val radius = CornerRadius((barWidth / 2).coerceAtMost(3.dp.toPx()))
-
-        // Value axis: max, half, zero. The zero line doubles as the baseline.
-        listOf(max, max / 2, 0L).forEachIndexed { tick, value ->
-            val y = plotBottom - plotHeight * tick / 2f
-            drawLine(
-                if (tick == 0) axisLineColor else gridColor,
-                Offset(axisWidth, y),
-                Offset(size.width, y),
-                strokeWidth = 1.dp.toPx(),
-            )
-            val label = measurer.measure(format(value), style = labelStyle, maxLines = 1, softWrap = false)
-            drawText(
-                label,
-                topLeft = Offset(
-                    axisWidth - 6.dp.toPx() - label.size.width,
-                    (y - label.size.height / 2f).coerceAtLeast(0f),
-                ),
-            )
-        }
-
-        bars.forEachIndexed { index, bar ->
-            val left = axisWidth + index * (barWidth + gapPx)
-            val height = if (bar.tokens > 0) {
-                (plotHeight * bar.tokens / max).coerceAtLeast(stub)
-            } else {
-                stub
             }
-            val color = when {
-                bar.tokens <= 0 -> emptyColor
-                picked == index -> pickedColor
-                else -> barColor
-            }
-            drawRoundRect(color, Offset(left, plotBottom - height), Size(barWidth, height), radius)
-        }
+            Box(
+                Modifier.fillMaxSize()
+                    .horizontalEdgeFade(edgeFadeDp = 24f, leftWeight = leftFade, rightWeight = rightFade)
+                    .horizontalScroll(scroll),
+            ) {
+                Canvas(
+                    Modifier
+                        .width(contentWidth)
+                        .fillMaxHeight()
+                        .pointerInput(bars) {
+                            detectTapGestures { offset ->
+                                if (bars.isEmpty()) return@detectTapGestures
+                                val step = size.width.toFloat() / bars.size
+                                val index = (offset.x / step).toInt().coerceIn(0, bars.lastIndex)
+                                picked = if (picked == index) null else index
+                            }
+                        },
+                ) {
+                    if (bars.isEmpty()) return@Canvas
+                    val plotBottom = size.height - labelBand
+                    val plotHeight = plotBottom - topInset
+                    val step = size.width / bars.size
+                    val barWidth = (step - gapPx).coerceAtLeast(1f)
+                    val stub = 2.dp.toPx()
+                    val radius = CornerRadius(
+                        (barWidth / 2).coerceAtMost(BAR_CHART_CORNER_RADIUS.toPx()),
+                    )
+                    bars.forEachIndexed { index, bar ->
+                        val left = index * step + (step - barWidth) / 2f
+                        val height = if (bar.tokens > 0) {
+                            (plotHeight * bar.tokens / max).coerceAtLeast(stub)
+                        } else {
+                            stub
+                        }
+                        val color = when {
+                            bar.tokens <= 0 -> emptyColor
+                            picked == index -> pickedColor
+                            else -> barColor
+                        }
+                        drawRoundRect(color, Offset(left, plotBottom - height), Size(barWidth, height), radius)
+                    }
 
-        // Date axis: first, middle and last bar, kept inside the plot.
-        listOf(0, bars.lastIndex / 2, bars.lastIndex).distinct().forEach { index ->
-            val center = axisWidth + index * (barWidth + gapPx) + barWidth / 2f
-            val label = measurer.measure(
-                bars[index].start.format(tickFormat),
-                style = labelStyle,
-                maxLines = 1,
-                softWrap = false,
-            )
-            val x = (center - label.size.width / 2f).coerceIn(axisWidth, size.width - label.size.width)
-            drawText(label, topLeft = Offset(x, plotBottom + 4.dp.toPx()))
+                    // Date axis: as many labels as the slot width fits without touching its neighbour.
+                    val sample = measurer.measure(
+                        bars.first().start.format(tickFormat),
+                        style = labelStyle,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                    val labelStep = ((sample.size.width + 8.dp.toPx()) / step).toInt().coerceAtLeast(1)
+                    bars.forEachIndexed { index, bar ->
+                        if (index % labelStep != 0) return@forEachIndexed
+                        val label = measurer.measure(
+                            bar.start.format(tickFormat),
+                            style = labelStyle,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                        val x = (index * step + (step - label.size.width) / 2f)
+                            .coerceIn(0f, size.width - label.size.width)
+                        drawText(label, topLeft = Offset(x, plotBottom + 4.dp.toPx()))
+                    }
+                }
+            }
         }
     }
     Spacer(Modifier.height(8.dp))
@@ -627,6 +673,10 @@ private val BAR_CHART_PLOT_HEIGHT = 120.dp
 private val BAR_CHART_LABEL_BAND = 18.dp
 private val BAR_CHART_TOP_INSET = 10.dp
 private val BAR_CHART_AXIS_WIDTH = 40.dp
+/** Days that fit the plot before the chart starts scrolling; also the slowest zoom-out. */
+private const val BAR_CHART_VISIBLE_DAYS = 30
+private val BAR_CHART_BAR_GAP = 3.dp
+private val BAR_CHART_CORNER_RADIUS = 6.dp
 private const val COUNTING_SHOW_DELAY_MS = 200L
 private const val COUNTING_MIN_VISIBLE_MS = 400L
 private val HEATMAP_EDGE_MARGIN = 8.dp
