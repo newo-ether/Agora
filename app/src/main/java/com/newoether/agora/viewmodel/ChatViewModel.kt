@@ -121,6 +121,13 @@ class ChatViewModel(
         backupManager = autoBackupManager,
         backupSchedule = AndroidAutoBackupSchedulePort(application),
         scope = viewModelScope,
+        storageReportSource = {
+            com.newoether.agora.data.StorageUsageCalculator(application, database).compute()
+        },
+        storageCachedSource = {
+            com.newoether.agora.data.StorageUsageCalculator(application, database).cachedReport()
+        },
+        usageRowsSource = { database.usageLedgerDao().all() },
     )
     /** Process-scoped embedding subsystem owned by [ChatRuntime]. */
     val ragManager: RagManager = chatRuntime.ragManager

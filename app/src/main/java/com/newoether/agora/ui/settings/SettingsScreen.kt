@@ -284,6 +284,7 @@ internal val baseSettingsGroups = listOf(
         SettingsCategory("memory", R.string.settings_memory, R.string.settings_memory_desc, Icons.Default.Description),
         SettingsCategory("skills", R.string.settings_skills, R.string.settings_skills_desc, Icons.Default.Extension),
         SettingsCategory("datacontrol", R.string.settings_data_control, R.string.settings_data_control_desc, Icons.Default.Storage),
+        SettingsCategory("usage", R.string.settings_usage, R.string.settings_usage_desc, Icons.Default.Insights),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_appearance_language, items = listOf(
         SettingsCategory("appearance", R.string.settings_appearance, R.string.settings_appearance_desc, Icons.Default.Palette),

@@ -140,6 +140,73 @@ and the separate home directory, including attachments. It does not follow symbo
 or quota progress bar. Refresh on page entry and after package/backend operations settle. This is
 a best-effort file-size snapshot, not allocated filesystem blocks or a live storage meter.
 
+## Data Control Storage page
+
+Owner-approved (2026-11-21). Data Control's first group gains a third row, Storage, which opens a
+full-screen secondary page (`SettingsStoragePage`) through the same guarded transition and Back
+handling as other Settings sub-pages.
+
+Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading.
+
+- **Total group.** One card: the summed size in large bold type, a segmented bar and one legend row
+  per owner. The bar and legend reuse the context-composition style (`SegmentedBar`, `LegendRow`:
+  12dp bar, 2dp gaps, 4dp minimum segment, `surfaceVariant` track, 400ms motion-aware animation;
+  legend rows are dot, label, right-aligned value). Segment colors come from the theme
+  (`statsSegmentColors()`), never fixed values. Owners: Database (`agora_db` plus
+  `-wal`/`-shm`/`-journal`), Attachments (top-level `att_`/`vid_`/`img_`/`pdf_` files, the `images`,
+  `run-inputs`, `fork-attachments`, `tool-media`, `attachments`, `markdown-media` directories and
+  `sandbox-home/attachments`), Local models (top-level `*.gguf`), Sandbox (every `*-rootfs` plus
+  `sandbox-home`, minus its attachments so no byte is counted twice) and Cache (`cacheDir`).
+- **Conversations group.** Top-level conversations sorted by total size, largest first. Subagent
+  children (any depth, cycle-safe) roll into their root. Each row shows title, message count
+  (prefixed with the Task label for task executions) and total size. Tapping expands a per-conversation
+  segmented bar with Text, Tool calls, Attachments, Embeddings and Metadata legend rows. The list
+  renders 100 rows and a Show more row.
+- **Multi-select.** Long-press toggles selection and enters selection mode: the title becomes the
+  selected count, checkboxes appear, taps toggle, Back clears. Delete reuses
+  `ChatDeleteConfirmDialog` and `ChatViewModel.deleteConversation`, one conversation at a time. While
+  it runs the dialog shows a determinate progress bar and `done/total`. Conversations that fail stay
+  selected and the dialog moves to its failed state so the user can retry.
+- **Loading.** No page-level progress bar. While a scan runs, the affected group shows a small
+  spinner with "Counting…" and dims the previous values (alpha 0.45). With no previous report the
+  total shows a gray placeholder block and the list shows three placeholder rows.
+- **Computation.** `StorageUsageCalculator` runs grouped read-only SQL (`StorageUsageDao`) plus
+  file walks that never follow symbolic links, off the main thread. Image files referenced by
+  several messages of one conversation count once for it. Per-conversation message figures are
+  cached in `noBackupFilesDir/storage-usage.json` with the conversation's `dataChangedAt`; a scan
+  rescans message rows only for conversations whose watermark moved (batches of 500 IDs).
+  Embeddings, managed attachment directories and the owner breakdown are measured on every scan.
+  The persisted report is shown first on entry. Sizes are logical byte lengths, not allocated blocks.
+
+## Usage page
+
+Owner-approved (2026-11-21). Settings' Memory & Data group gains Usage (`"usage"`,
+`SettingsUsagePage`) right after Data Control.
+
+Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-card loading.
+
+- **Activity group.** The group title sits outside the card. A 53-week dot heatmap (columns are
+  weeks starting on the locale's first day of week, scrolled to today, month labels above, weekday
+  labels on alternate rows) with Tokens/Requests chips; Tokens is the default. Five shades: zero,
+  then quartiles of the non-zero days, so one heavy day does not flatten the rest. Tapping a dot
+  shows its date and value below; today is outlined.
+- **Overview group.** Two-column `StatsCardGrid`: total tokens, requests, current streak, longest
+  streak. No cost figures.
+- **Tokens group.** A 7/30/90/All `PillTabSwitcher` selects the period for the cards below it
+  (input, output, cached input, cache hit rate as cached over reported input, `—` when nothing was
+  reported), the bar chart (daily, or weekly above 90 days; tap a bar for its date and value) and the
+  By model and By source groups. Those use the segmented bar and legend of the Storage page; at most
+  six segments, the rest folded into Other, legend values "tokens · percent".
+- **Loading.** Same as Storage: in-card spinner with "Counting…", dimmed previous values,
+  placeholders on first load, no page-level progress bar.
+- **Data.** `usage_ledger` (DB 48) holds per-request totals in 15-minute UTC buckets keyed by
+  provider, model and source (Chat, Task, Subagent, Title, Transcription). `UsageRecorder` writes one
+  row update when a Provider request ends (chat generation, title generation, transcription); a
+  request that never received a response is not counted. The ledger is never derived from
+  `messages`, has no history before the upgrade and keeps its rows when conversations are deleted.
+  `UsageStats` assigns buckets to local days in the device zone. An open page reloads when
+  `UsageRecorder.revision` changes.
+
 ## Appearance defaults
 
 - When no appearance preference has been persisted, the app uses the Forest color scheme with the

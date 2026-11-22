@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -93,6 +94,9 @@ internal fun ChatDeleteConfirmDialog(
     title: String? = null,
     message: String? = null,
     confirmLabel: String? = null,
+    /** Completed share of a multi-conversation delete, shown under the message while pending. */
+    progress: Float? = null,
+    progressLabel: String? = null,
 ) {
     val pending = phase == ChatDeleteDialogPhase.PENDING
     AlertDialog(
@@ -106,6 +110,20 @@ internal fun ChatDeleteConfirmDialog(
         text = {
             Column {
                 Text(message ?: stringResource(R.string.delete_chat_confirm))
+                if (pending && progress != null) {
+                    LinearProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    )
+                    if (progressLabel != null) {
+                        Text(
+                            text = progressLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
                 if (phase == ChatDeleteDialogPhase.FAILED) {
                     Text(
                         text = stringResource(R.string.tool_state_failed),

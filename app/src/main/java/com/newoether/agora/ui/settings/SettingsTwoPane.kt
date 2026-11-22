@@ -392,6 +392,7 @@ internal fun SettingsDestination(
         "memory" -> SettingsMemoryPage(viewModel, onBack)
         "skills" -> SettingsSkillsPage(viewModel, onBack)
         "datacontrol" -> SettingsDataControlPage(viewModel, onBack)
+        "usage" -> SettingsUsagePage(viewModel, onBack)
         "appearance" -> SettingsAppearancePage(viewModel, onBack)
         "developer" -> SettingsDeveloperPage(viewModel, onBack, onDisabled = onBack)
         "about" -> SettingsAboutPage(viewModel, onBack)

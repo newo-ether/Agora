@@ -27,6 +27,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.ContextBudget
@@ -125,13 +126,17 @@ internal fun ContextCompositionBar(
     }
 }
 
+/**
+ * Shared segmented bar: each fraction of the whole width in order, separated by gaps that expose
+ * the track. Also used by the Settings Storage and Usage breakdowns.
+ */
 @Composable
-private fun SegmentedBar(
+internal fun SegmentedBar(
     fractions: List<Float>,
     colors: List<Color>,
-    trackColor: Color,
-    reservedFraction: Float,
-    reservedColor: Color,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    reservedFraction: Float = 0f,
+    reservedColor: Color = Color.Transparent,
 ) {
     val motionPolicy = LocalAgoraMotionPolicy.current
     val animated = fractions.mapIndexed { index, fraction ->
@@ -189,7 +194,12 @@ private fun SegmentedBar(
 }
 
 @Composable
-private fun LegendRow(color: Color, label: String, tokens: Int) {
+private fun LegendRow(color: Color, label: String, tokens: Int) =
+    LegendRow(color, label, ContextBudget.compactLabel(tokens))
+
+/** Legend line for [SegmentedBar]: dot, label, and the value aligned right. */
+@Composable
+internal fun LegendRow(color: Color, label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(LegendDotSize).clip(CircleShape).background(color))
         Spacer(Modifier.width(8.dp))
@@ -197,11 +207,13 @@ private fun LegendRow(color: Color, label: String, tokens: Int) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.weight(1f))
         Spacer(Modifier.width(12.dp))
         Text(
-            text = ContextBudget.compactLabel(tokens),
+            text = value,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

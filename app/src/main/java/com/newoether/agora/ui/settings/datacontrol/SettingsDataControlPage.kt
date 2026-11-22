@@ -21,7 +21,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.newoether.agora.R
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.newoether.agora.ui.settings.CollapsingSettingsScaffold
+import com.newoether.agora.ui.settings.GuardedAnimatedContent
+import com.newoether.agora.ui.settings.SettingsSecondaryPane
 import com.newoether.agora.ui.settings.DocumentationFab
 import com.newoether.agora.ui.settings.PillTabSwitcher
 import com.newoether.agora.ui.settings.SettingsGroup
@@ -32,9 +36,24 @@ import com.newoether.agora.data.DataImporter
 import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.ui.components.optionClickable
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
+    var showStorage by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = showStorage) { showStorage = false }
+    GuardedAnimatedContent(targetState = showStorage, forward = showStorage) { storage ->
+        if (storage) {
+            SettingsSecondaryPane {
+                SettingsStoragePage(viewModel = viewModel, onBack = { showStorage = false })
+            }
+        } else {
+            DataControlRootPage(viewModel = viewModel, onBack = onBack, onOpenStorage = { showStorage = true })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DataControlRootPage(viewModel: ChatViewModel, onBack: () -> Unit, onOpenStorage: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -192,6 +211,16 @@ fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 Icon(Icons.Default.Upload, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { showExportDialog = true }
+                        )
+                    },
+                    {
+                        SettingsItem(
+                            headlineContent = { Text(stringResource(R.string.storage_title)) },
+                            supportingContent = { Text(stringResource(R.string.storage_subtitle)) },
+                            leadingContent = {
+                                Icon(Icons.Default.Storage, null, tint = MaterialTheme.colorScheme.primary)
+                            },
+                            modifier = Modifier.clickable(onClick = onOpenStorage)
                         )
                     }
                 ))
