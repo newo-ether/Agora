@@ -206,7 +206,9 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   period for the cards below it (input, output, cached input, cache hit rate as cached over reported
   input, `—` when nothing was reported), the bar chart and the "Tokens per model" group. The charts
   follow the selected period: one bar per day, or one bar per week once the period is longer than 90
-  days, with the picked (or latest) bar's date and tokens captioned under it. The By source breakdown
+  days, with the picked (or latest) bar's date and tokens captioned under it. The plot carries both
+  axes: value labels (maximum, half, zero) with grid lines at the left, and the first, middle and
+  last bar's dates under the plot. The By source breakdown
   stays removed. By model uses the segmented bar and legend of the Storage page; at most six
   segments, the rest folded into Other, legend values "tokens · percent". The card opens with the
   period's total: a small "Total tokens" label over the figure in `headlineMedium` bold, both left

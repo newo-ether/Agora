@@ -54,7 +54,9 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -359,29 +361,65 @@ private fun UsageBarChart(
     val barColor = MaterialTheme.colorScheme.primary
     val pickedColor = MaterialTheme.colorScheme.tertiary
     val emptyColor = MaterialTheme.colorScheme.surfaceVariant
+    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+    val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val axisLineColor = MaterialTheme.colorScheme.outlineVariant
     val max = bars.maxOfOrNull { it.tokens }?.coerceAtLeast(1) ?: 1
     val gap: Dp = if (bars.size > 31) 1.dp else 3.dp
+    val measurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = axisColor)
+    val tickFormat = remember(locale) { DateTimeFormatter.ofPattern("MMM d", locale) }
+    val density = LocalDensity.current
+    val axisWidth = with(density) { BAR_CHART_AXIS_WIDTH.toPx() }
+    val labelBand = with(density) { BAR_CHART_LABEL_BAND.toPx() }
+    val topInset = with(density) { BAR_CHART_TOP_INSET.toPx() }
     Canvas(
         Modifier
             .fillMaxWidth()
-            .height(120.dp)
+            .height(BAR_CHART_PLOT_HEIGHT + BAR_CHART_LABEL_BAND)
             .pointerInput(bars) {
                 detectTapGestures { offset ->
                     if (bars.isEmpty()) return@detectTapGestures
-                    val index = (offset.x / size.width * bars.size).toInt().coerceIn(0, bars.lastIndex)
+                    val plotWidth = size.width - axisWidth
+                    if (offset.x < axisWidth || plotWidth <= 0f) return@detectTapGestures
+                    val index = ((offset.x - axisWidth) / plotWidth * bars.size).toInt()
+                        .coerceIn(0, bars.lastIndex)
                     picked = if (picked == index) null else index
                 }
             },
     ) {
         if (bars.isEmpty()) return@Canvas
+        val plotWidth = size.width - axisWidth
+        val plotBottom = size.height - labelBand
+        val plotHeight = plotBottom - topInset
         val gapPx = gap.toPx()
-        val width = ((size.width - gapPx * (bars.size - 1)) / bars.size).coerceAtLeast(1f)
+        val barWidth = ((plotWidth - gapPx * (bars.size - 1)) / bars.size).coerceAtLeast(1f)
         val stub = 2.dp.toPx()
-        val radius = CornerRadius((width / 2).coerceAtMost(3.dp.toPx()))
+        val radius = CornerRadius((barWidth / 2).coerceAtMost(3.dp.toPx()))
+
+        // Value axis: max, half, zero. The zero line doubles as the baseline.
+        listOf(max, max / 2, 0L).forEachIndexed { tick, value ->
+            val y = plotBottom - plotHeight * tick / 2f
+            drawLine(
+                if (tick == 0) axisLineColor else gridColor,
+                Offset(axisWidth, y),
+                Offset(size.width, y),
+                strokeWidth = 1.dp.toPx(),
+            )
+            val label = measurer.measure(format(value), style = labelStyle, maxLines = 1, softWrap = false)
+            drawText(
+                label,
+                topLeft = Offset(
+                    axisWidth - 6.dp.toPx() - label.size.width,
+                    (y - label.size.height / 2f).coerceAtLeast(0f),
+                ),
+            )
+        }
+
         bars.forEachIndexed { index, bar ->
-            val left = index * (width + gapPx)
+            val left = axisWidth + index * (barWidth + gapPx)
             val height = if (bar.tokens > 0) {
-                (size.height * bar.tokens / max).coerceAtLeast(stub)
+                (plotHeight * bar.tokens / max).coerceAtLeast(stub)
             } else {
                 stub
             }
@@ -390,7 +428,20 @@ private fun UsageBarChart(
                 picked == index -> pickedColor
                 else -> barColor
             }
-            drawRoundRect(color, Offset(left, size.height - height), Size(width, height), radius)
+            drawRoundRect(color, Offset(left, plotBottom - height), Size(barWidth, height), radius)
+        }
+
+        // Date axis: first, middle and last bar, kept inside the plot.
+        listOf(0, bars.lastIndex / 2, bars.lastIndex).distinct().forEach { index ->
+            val center = axisWidth + index * (barWidth + gapPx) + barWidth / 2f
+            val label = measurer.measure(
+                bars[index].start.format(tickFormat),
+                style = labelStyle,
+                maxLines = 1,
+                softWrap = false,
+            )
+            val x = (center - label.size.width / 2f).coerceIn(axisWidth, size.width - label.size.width)
+            drawText(label, topLeft = Offset(x, plotBottom + 4.dp.toPx()))
         }
     }
     Spacer(Modifier.height(8.dp))
@@ -572,6 +623,10 @@ private fun UsageHeatmap(
 }
 
 private const val HEATMAP_WEEKS = 53
+private val BAR_CHART_PLOT_HEIGHT = 120.dp
+private val BAR_CHART_LABEL_BAND = 18.dp
+private val BAR_CHART_TOP_INSET = 10.dp
+private val BAR_CHART_AXIS_WIDTH = 40.dp
 private const val COUNTING_SHOW_DELAY_MS = 200L
 private const val COUNTING_MIN_VISIBLE_MS = 400L
 private val HEATMAP_EDGE_MARGIN = 8.dp
