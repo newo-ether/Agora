@@ -66,7 +66,6 @@ import com.newoether.agora.ui.settings.SettingsGroup
 import com.newoether.agora.ui.settings.SettingsGroupLabel
 import com.newoether.agora.ui.settings.SettingsItem
 import com.newoether.agora.ui.settings.StatsPlaceholder
-import com.newoether.agora.ui.settings.StatsRefreshStatus
 import com.newoether.agora.ui.settings.settingsGroupRowShape
 import com.newoether.agora.ui.settings.statsSegmentColors
 import com.newoether.agora.ui.settings.statsStaleAlpha
@@ -152,32 +151,30 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
         }
         if (!ordered.isNullOrEmpty()) {
             item(key = "storage_sort") {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // A bare "Size"/"Messages" pair reads like a filter; the caption names the
-                    // order the pills apply to the list below.
-                    Text(
-                        stringResource(R.string.storage_sort_by),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    PillTabSwitcher(
-                        tabs = listOf(
-                            stringResource(R.string.storage_sort_size),
-                            stringResource(R.string.storage_sort_messages),
-                        ),
-                        selectedIndex = sort.ordinal,
-                        onSelect = { sort = StorageSort.entries[it] },
-                        modifier = Modifier.weight(1f),
-                        tabHeight = 40.dp,
-                    )
+                // The order control is the first row of the same card stack rather than a caption
+                // floating above it: it lines up with the rows it sorts and owns the row's padding.
+                StorageRowCard(index = 0, count = ordered.size + 1) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.storage_sort_by),
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        PillTabSwitcher(
+                            tabs = listOf(
+                                stringResource(R.string.storage_sort_size),
+                                stringResource(R.string.storage_sort_messages),
+                            ),
+                            selectedIndex = sort.ordinal,
+                            onSelect = { sort = StorageSort.entries[it] },
+                            modifier = Modifier.weight(1f),
+                            tabHeight = 40.dp,
+                        )
+                    }
                 }
             }
         }
@@ -202,7 +199,7 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 items = ordered,
                 key = { _, conversation -> conversation.id },
             ) { index, conversation ->
-                StorageRowCard(index, ordered.size) {
+                StorageRowCard(index + 1, ordered.size + 1) {
                     ConversationStorageRow(
                         conversation = conversation,
                         selecting = selecting,
@@ -300,19 +297,16 @@ private fun TotalGroup(
         title = stringResource(R.string.storage_total),
         items = listOf({
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    if (breakdown == null) {
-                        StatsPlaceholder(120.dp, 28.dp, Modifier.padding(vertical = 4.dp))
-                    } else {
-                        Text(
-                            size(breakdown.totalBytes),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.alpha(staleAlpha),
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    StatsRefreshStatus(visible = refreshing)
+                // Storage has no separate counting indicator: while a scan runs the figure is
+                // replaced by the same placeholder block the list rows use for a missing report.
+                if (breakdown == null || refreshing) {
+                    StatsPlaceholder(120.dp, 28.dp, Modifier.padding(vertical = 4.dp))
+                } else {
+                    Text(
+                        size(breakdown.totalBytes),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
                 Spacer(Modifier.height(16.dp))
                 Column(Modifier.alpha(staleAlpha)) {

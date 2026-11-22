@@ -162,8 +162,9 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   killed export is deleted at the start of the next export once it is over an hour old.
 - **Conversations group.** A Size/Messages `PillTabSwitcher` above the rows picks the order: Size
   keeps the report order (total size, largest first), Messages orders by message count with size and
-  then id as tie-breakers; the choice is saved with the page. A "Sort by" caption sits left of the
-  pills on the same row, because a bare pair of nouns reads like a filter rather than an order.
+  then id as tie-breakers; the choice is saved with the page. A "Sort by" row opens the card stack:
+  the label sits left, the two pills right, so the control lines up with the rows it orders and the
+  bare nouns read as an order rather than a filter.
   Top-level conversations only; subagent children (any depth, cycle-safe) roll into their root.
   Each row shows title, message count (prefixed with the Task label for task executions) and
   total size, plus a chevron at the end that points down while the row is expanded and up while it
@@ -179,9 +180,10 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   `ChatDeleteConfirmDialog` and `ChatViewModel.deleteConversation`, one conversation at a time. While
   it runs the dialog shows a determinate progress bar and `done/total`. Conversations that fail stay
   selected and the dialog moves to its failed state so the user can retry.
-- **Loading.** No page-level progress bar. While a scan runs, the affected group shows a small
-  spinner with "Counting…" and dims the previous values (alpha 0.45). With no previous report the
-  total shows a gray placeholder block and the list shows three placeholder rows.
+- **Loading.** No page-level progress bar and no counting indicator. While a scan runs the total
+  figure becomes the same shimmering placeholder block the conversation rows use, and the bar, the
+  legend and the rows keep the previous report dimmed (alpha 0.45). With no previous report the same
+  block stands in for the total and the list shows three placeholder rows.
 - **Computation.** `StorageUsageCalculator` runs grouped read-only SQL (`StorageUsageDao`) plus
   file walks that never follow symbolic links, off the main thread. Image files referenced by
   several messages of one conversation count once for it. Per-conversation message figures are
@@ -206,9 +208,10 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   shifts the date sideways.
   Five shades: zero, then quartiles of the non-zero days, so one heavy day does not flatten the
   rest. Tapping a dot shows its date and value below; the picked dot is drawn as a contrasting
-  collar with a smaller value dot inside it, and today is outlined. A tab switch fades every dot
-  from its old shade to the new one (240ms, instant when motion is disabled), so the calendar
-  washes into the new ramp instead of repainting in one frame.
+  collar with a smaller value dot inside it, and today is outlined. A tab switch holds the current
+  shades until the count settles, then fades every dot to its new shade (240ms, instant when motion
+  is disabled), so the calendar never animates against figures that are still being recounted and
+  never repaints in one frame.
 - **Overview group.** Two-column `StatsCardGrid`: total tokens, requests, current streak, longest
   streak. No cost figures.
 - **Tokens group.** A 7/30/90/All `PillTabSwitcher` under the "Token Statistics" title selects the
@@ -227,12 +230,12 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   segments, the rest folded into Other, legend values "tokens · percent". The card opens with the
   period's total: a small "Total tokens" label over the figure in `headlineMedium` bold, both left
   aligned, with the bar below.
-- **Loading.** Same as Storage: in-card spinner with "Counting…", dimmed previous values,
-  placeholders on first load, no page-level progress bar. The spinner is 16dp with a 2dp stroke and
-  a bodyMedium label 8dp away. A reload that finishes within 200ms never shows the counting state,
-  and one that does show it stays up for at least 400ms, so a request-ledger write does not blink
-  the page. Placeholder blocks and an empty segmented bar fill with a slow left-to-right shimmer
-  (1100ms), which becomes a solid fill when motion is disabled.
+- **Loading.** Unlike Storage, the page keeps an in-card spinner with "Counting…", dimmed previous
+  values, placeholders on first load, no page-level progress bar. The spinner is 16dp with a 2dp
+  stroke and a bodyMedium label 8dp away. A reload that finishes within 200ms never shows the
+  counting state, and one that does show it stays up for at least 400ms, so a request-ledger write
+  does not blink the page. Placeholder blocks and an empty segmented bar fill with a slow
+  left-to-right shimmer (1100ms), which becomes a solid fill when motion is disabled.
 - **Data.** `usage_ledger` (DB 48) holds per-request totals in 15-minute UTC buckets keyed by
   provider, model and source (Chat, Task, Subagent, Title, Transcription). `UsageRecorder` writes one
   row update when a Provider request ends (chat generation, title generation, transcription); a
