@@ -44,6 +44,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -85,7 +87,9 @@ import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.Locale
+import kotlin.math.ceil
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 private enum class UsageMetric { TOKENS, REQUESTS }
 
@@ -373,7 +377,15 @@ private fun UsageBarChart(
     val gapPx = with(density) { BAR_CHART_BAR_GAP.toPx() }
     val labelBand = with(density) { BAR_CHART_LABEL_BAND.toPx() }
     val topInset = with(density) { BAR_CHART_TOP_INSET.toPx() }
-    val scroll = rememberScrollState()
+    val scroll = rememberScrollState(initial = Int.MAX_VALUE)
+    // The newest day is what people look for, so a scrollable chart opens at its right end and
+    // returns there when the period or the data changes.
+    LaunchedEffect(bars.firstOrNull()?.start, bars.size) {
+        if (bars.size <= BAR_CHART_VISIBLE_DAYS) return@LaunchedEffect
+        snapshotFlow { scroll.maxValue }.first { it > 0 }
+        withFrameNanos { }
+        scroll.scrollTo(scroll.maxValue)
+    }
     val motion = LocalAgoraMotionPolicy.current
     val fadeSpec: AnimationSpec<Float> =
         if (motion.allowSpatialTransitions) tween(200) else snap()
@@ -393,14 +405,16 @@ private fun UsageBarChart(
             if (bars.isEmpty()) return@Canvas
             val plotBottom = size.height - labelBand
             val plotHeight = plotBottom - topInset
-            listOf(max, max / 2, 0L).forEachIndexed { tick, value ->
+            // Zero rides the baseline and the maximum sits at the top, matching the bars.
+            listOf(0L, max / 2, max).forEachIndexed { tick, value ->
                 val y = plotBottom - plotHeight * tick / 2f
                 val label = measurer.measure(format(value), style = labelStyle, maxLines = 1, softWrap = false)
                 drawText(
                     label,
                     topLeft = Offset(
                         size.width - 6.dp.toPx() - label.size.width,
-                        (y - label.size.height / 2f).coerceAtLeast(0f),
+                        (y - label.size.height / 2f)
+                            .coerceIn(0f, (plotBottom - label.size.height).coerceAtLeast(0f)),
                     ),
                 )
             }
@@ -410,6 +424,54 @@ private fun UsageBarChart(
             val slots = bars.size.coerceIn(1, BAR_CHART_VISIBLE_DAYS)
             val slot = maxWidth / slots
             val contentWidth = slot * bars.size.toFloat()
+            val contentWidthPx = with(density) { contentWidth.toPx() }
+            val stepPx = contentWidthPx / bars.size.coerceAtLeast(1)
+            val labelGap = with(density) { 8.dp.toPx() }
+            // Every date is measured once per data change, not per frame, so scrolling stays cheap.
+            val dateLabels = remember(bars, tickFormat, labelStyle) {
+                bars.map { bar ->
+                    measurer.measure(
+                        bar.start.format(tickFormat),
+                        style = labelStyle,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
+            }
+            val labelStep = remember(dateLabels, stepPx, labelGap) {
+                if (dateLabels.isEmpty()) 1 else {
+                    val widest = dateLabels.maxOf { it.size.width }
+                    ceil((widest + labelGap) / stepPx).toInt().coerceAtLeast(1)
+                }
+            }
+            // A label sits in its own slot and is skipped when it cannot fit there, so nothing is
+            // clamped into its neighbour. The newest day is always marked by dropping the label it
+            // would touch.
+            val datePlacements = remember(dateLabels, labelStep, stepPx, contentWidthPx, labelGap) {
+                val placed = ArrayList<Pair<Int, Float>>(dateLabels.size / labelStep + 1)
+                dateLabels.forEachIndexed { index, label ->
+                    if (index % labelStep != 0) return@forEachIndexed
+                    val x = index * stepPx + (stepPx - label.size.width) / 2f
+                    if (x < 0f || x + label.size.width > contentWidthPx) return@forEachIndexed
+                    placed += index to x
+                }
+                if (dateLabels.isNotEmpty()) {
+                    if (placed.lastOrNull()?.first == dateLabels.lastIndex) {
+                        placed.removeAt(placed.lastIndex)
+                    }
+                    val lastX = contentWidthPx - dateLabels.last().size.width
+                    while (placed.isNotEmpty()) {
+                        val (index, x) = placed.last()
+                        if (x + dateLabels[index].size.width + labelGap > lastX) {
+                            placed.removeAt(placed.lastIndex)
+                        } else {
+                            break
+                        }
+                    }
+                    placed += dateLabels.lastIndex to lastX
+                }
+                placed
+            }
             // Grid lines belong to the viewport, not to the scrolling content.
             Canvas(Modifier.fillMaxSize()) {
                 val plotBottom = size.height - labelBand
@@ -466,25 +528,10 @@ private fun UsageBarChart(
                         drawRoundRect(color, Offset(left, plotBottom - height), Size(barWidth, height), radius)
                     }
 
-                    // Date axis: as many labels as the slot width fits without touching its neighbour.
-                    val sample = measurer.measure(
-                        bars.first().start.format(tickFormat),
-                        style = labelStyle,
-                        maxLines = 1,
-                        softWrap = false,
-                    )
-                    val labelStep = ((sample.size.width + 8.dp.toPx()) / step).toInt().coerceAtLeast(1)
-                    bars.forEachIndexed { index, bar ->
-                        if (index % labelStep != 0) return@forEachIndexed
-                        val label = measurer.measure(
-                            bar.start.format(tickFormat),
-                            style = labelStyle,
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                        val x = (index * step + (step - label.size.width) / 2f)
-                            .coerceIn(0f, size.width - label.size.width)
-                        drawText(label, topLeft = Offset(x, plotBottom + 4.dp.toPx()))
+                    // Date axis: placements were computed against the content width, so drawing is
+                    // just text at fixed offsets.
+                    datePlacements.forEach { (index, x) ->
+                        drawText(dateLabels[index], topLeft = Offset(x, plotBottom + 4.dp.toPx()))
                     }
                 }
             }
