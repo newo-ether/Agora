@@ -84,6 +84,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             "serper" -> stringResource(R.string.web_search_serper)
                                             "tavily" -> stringResource(R.string.web_search_tavily)
                                             "exa" -> stringResource(R.string.web_search_exa)
+                                            "parallel" -> stringResource(R.string.web_search_parallel)
                                             "duckduckgo" -> stringResource(R.string.web_search_duckduckgo)
                                             else -> stringResource(R.string.web_search_brave)
                                         }
@@ -113,6 +114,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                         "serper" -> R.string.web_search_serper_key
                                                         "tavily" -> R.string.web_search_tavily_key
                                                         "exa" -> R.string.web_search_exa_key
+                                                        "parallel" -> R.string.web_search_parallel_key
                                                         else -> R.string.web_search_brave_key
                                                     }
                                                 ),
@@ -131,6 +133,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                                     "serper" -> R.string.web_search_serper_key_hint
                                                                     "tavily" -> R.string.web_search_tavily_key_hint
                                                                     "exa" -> R.string.web_search_exa_key_hint
+                                                                    "parallel" -> R.string.web_search_parallel_key_hint
                                                                     else -> R.string.web_search_brave_key_hint
                                                                 }
                                                             )
@@ -280,6 +283,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         "serper" to R.string.web_search_serper,
                         "tavily" to R.string.web_search_tavily,
                         "exa" to R.string.web_search_exa,
+                        "parallel" to R.string.web_search_parallel,
                         "searxng" to R.string.web_search_searxng
                     )
                     providers.forEach { (key, labelRes) ->
@@ -294,6 +298,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             "serper" -> R.string.web_search_serper_desc
                                             "tavily" -> R.string.web_search_tavily_desc
                                             "exa" -> R.string.web_search_exa_desc
+                                            "parallel" -> R.string.web_search_parallel_desc
                                             "searxng" -> R.string.web_search_searxng_desc
                                             "duckduckgo" -> R.string.web_search_duckduckgo_desc
                                             else -> R.string.web_search_brave_desc

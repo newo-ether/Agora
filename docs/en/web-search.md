@@ -4,7 +4,7 @@ Open **Settings → Web Search** to choose a search backend and result count.
 
 ## Providers
 
-Agora supports Brave, Kagi, Serper, Tavily, Exa, SearXNG, and DuckDuckGo. Most require credentials; SearXNG requires the instance URL. DuckDuckGo and Exa answer without an API key: DuckDuckGo is the default best-effort scraper, and Exa has a keyless public MCP endpoint.
+Agora supports Brave, Kagi, Serper, Tavily, Exa, Parallel, SearXNG, and DuckDuckGo. Most require credentials; SearXNG requires the instance URL. DuckDuckGo, Exa and Parallel answer without an API key: DuckDuckGo is the default best-effort scraper, and Exa and Parallel both have keyless public MCP endpoints.
 
 Web search is enabled by default. The default result count is 5 and can be set from 1–10.
 
@@ -16,6 +16,15 @@ Exa is a neural search API that returns page highlights rather than plain snippe
 - **With a key.** A key from [dashboard.exa.ai](https://dashboard.exa.ai) switches that provider to the billed REST endpoint (`https://api.exa.ai/search`) with `x-api-key`, requesting `highlights` content directly as JSON.
 
 Both paths cap results to the configured count locally.
+
+## Parallel
+
+Parallel is an AI-native search API: the query is sent as both an objective and a keyword query, and each result's markdown excerpts are joined into the description the model sees.
+
+- **No key required.** Searches go to Parallel's public MCP endpoint (`https://search.parallel.ai/mcp`) as a `web_search` tool call, which needs no credentials.
+- **With a key.** A key from [platform.parallel.ai](https://platform.parallel.ai) switches to the billed REST endpoint (`https://api.parallel.ai/v1/search`) with `x-api-key`, sends `mode: "fast"`, and caps each result's excerpts at 800 characters.
+
+Results are capped to the configured count locally, so both paths honour the same result-count setting.
 
 ## Data flow
 

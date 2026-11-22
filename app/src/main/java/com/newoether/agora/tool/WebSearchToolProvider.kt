@@ -437,6 +437,7 @@ internal fun webSearchProviderDisplayName(provider: String): String = when (prov
     "serper" -> "Serper"
     "tavily" -> "Tavily"
     "exa" -> "Exa"
+    "parallel" -> "Parallel"
     "searxng" -> "SearXNG"
     "duckduckgo" -> "DuckDuckGo"
     else -> "Brave Search"
@@ -543,8 +544,8 @@ class WebSearchToolProvider : ToolProvider {
             }
 
             val apiKey = ctx.webSearchApiKeys[provider].orEmpty()
-            // Exa answers over its keyless public MCP endpoint too; searxng only needs a URL.
-            if (provider != "searxng" && provider != "exa" && apiKey.isBlank()) {
+            // Exa and Parallel answer over their keyless public MCP endpoints too; searxng only needs a URL.
+            if (provider != "searxng" && provider != "exa" && provider != "parallel" && apiKey.isBlank()) {
                 return buildJsonObject {
                     put("type", "web_search")
                     put("query", query)
@@ -570,6 +571,25 @@ class WebSearchToolProvider : ToolProvider {
                     }.toString()
                 }
                 return exaOutcomeToToolJson(normalizeExaSearchResponse(response.body, numResults), query)
+            }
+
+            if (provider == "parallel") {
+                val request = parallelSearchRequest(query, numResults, apiKey)
+                val response = HttpClient.postTextResponse(
+                    request.url,
+                    request.body,
+                    request.headers,
+                    callTimeoutMillis = Constants.NETWORK_TOOL_TIMEOUT_MS,
+                )
+                if (!response.isSuccessful) {
+                    return buildJsonObject {
+                        put("type", "web_search")
+                        put("query", query)
+                        put("error", "search_error")
+                        put("message", response.body)
+                    }.toString()
+                }
+                return normalizeParallelSearchResponse(response.body, query, numResults)
             }
 
             val body = when (provider) {

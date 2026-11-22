@@ -236,6 +236,10 @@
     <string name="web_search_exa_key">Exa API 키(선택 사항)</string>
     <string name="web_search_tavily_key_hint">tavily.com의 API 키</string>
     <string name="web_search_exa_key_hint">선택 사항입니다. 비워 두면 Exa의 키 없는 공개 엔드포인트를 사용합니다.</string>
+    <string name="web_search_parallel">Parallel</string>
+    <string name="web_search_parallel_desc">LLM용 발췌문을 반환하는 AI 네이티브 검색 API입니다. Parallel의 공개 엔드포인트는 키 없이 사용할 수 있습니다.</string>
+    <string name="web_search_parallel_key">Parallel API 키(선택 사항)</string>
+    <string name="web_search_parallel_key_hint">선택 사항입니다. 비워 두면 Parallel의 키 없는 공개 엔드포인트를 사용합니다.</string>
     <string name="web_search_num_results">최대 결과 수</string>
     <string name="web_search_num_results_desc">가져올 결과 수: %1$d(1-10)</string>
     <string name="web_search_searxng_fallback_desc">공개 인스턴스는 종종 속도 제한이 있습니다. 안정적인 사용을 위해 자체 호스팅을 권장합니다.</string>
