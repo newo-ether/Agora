@@ -677,6 +677,11 @@ in the existing editor. Source links retain the established external-link icon a
   actions, and dialogs are explicitly in scope.
 - Field labels, descriptions, helper text, and status text use sentence case.
   Status text has no trailing period.
+- Storage and Usage name their own surfaces in Title Case: `Total`, `Conversations`, `Activity`,
+  `Overview`, `Token Statistics`, `Tokens per Day`, `Tokens per Week`, `Tokens per Model`,
+  `Total Tokens`, `Total Requests`, `Current Streak`, `Longest Streak`, `Cached Input`,
+  `Cache Hit Rate`, `Local Models`, `Tool Calls`, `Delete %1$d Conversations?`. Only descriptions,
+  counts and captions (`1924 messages`, `Nov 19, 2026 · 94M tokens`) stay in sentence case.
 - Confirmation dialog titles are bold and end with a question mark.
 - Other locales use their native casing and punctuation conventions.
 - Every default string key must exist in every supported locale.
