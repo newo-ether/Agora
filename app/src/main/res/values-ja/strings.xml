@@ -937,5 +937,4 @@
     <string name="usage_cache_hit">キャッシュヒット率</string>
             <string name="usage_by_model">モデル別</string>
         <string name="usage_other">その他</string>
-                        <string name="usage_missing_tokens_note">使用量はプロバイダーへの各リクエストの終了時に記録され、履歴はデータベースのアップグレード時に一度だけ補完されます。使用量を報告しないプロバイダーは 0 トークンとして数えます。会話を削除しても使用量は残ります。</string>
 </resources>

@@ -940,5 +940,4 @@
     <string name="usage_cache_hit">快取命中率</string>
             <string name="usage_by_model">依模型</string>
         <string name="usage_other">其他</string>
-                        <string name="usage_missing_tokens_note">用量在每次供應商請求結束時記錄；歷史用量在資料庫升級時一次性補入。不回報用量的供應商以 0 token 計。刪除對話後其用量仍會保留。</string>
 </resources>

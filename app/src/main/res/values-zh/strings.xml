@@ -930,5 +930,4 @@
     <string name="usage_cache_hit">缓存命中率</string>
             <string name="usage_by_model">按模型</string>
         <string name="usage_other">其他</string>
-                        <string name="usage_missing_tokens_note">用量在每次提供商请求结束时记录；历史用量在数据库升级时一次性补入。不上报用量的提供商按 0 token 计。删除对话后其用量仍保留。</string>
 </resources>

@@ -937,5 +937,4 @@
     <string name="usage_cache_hit">Tasa de aciertos de caché</string>
             <string name="usage_by_model">Por modelo</string>
         <string name="usage_other">Otros</string>
-                        <string name="usage_missing_tokens_note">El uso se registra al terminar cada solicitud al proveedor; el historial se completa una vez durante la actualización de la base de datos. Los proveedores que no informan uso cuentan como cero tokens. Eliminar una conversación conserva su uso.</string>
 </resources>

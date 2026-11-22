@@ -918,5 +918,4 @@
     <string name="usage_cache_hit">Cache hit rate</string>
             <string name="usage_by_model">By model</string>
         <string name="usage_other">Other</string>
-                        <string name="usage_missing_tokens_note">Usage is recorded when each provider request finishes; history is filled in once during the database upgrade. Providers that report no usage count as zero tokens. Deleting a conversation keeps its usage.</string>
 </resources>

@@ -937,5 +937,4 @@
     <string name="usage_cache_hit">캐시 적중률</string>
             <string name="usage_by_model">모델별</string>
         <string name="usage_other">기타</string>
-                        <string name="usage_missing_tokens_note">사용량은 제공자 요청이 끝날 때마다 기록되며, 기록은 데이터베이스 업그레이드 시 한 번 채워집니다. 사용량을 보고하지 않는 제공자는 0 토큰으로 계산됩니다. 대화를 삭제해도 사용량은 남습니다.</string>
 </resources>

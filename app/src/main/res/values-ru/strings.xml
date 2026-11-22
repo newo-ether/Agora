@@ -937,5 +937,4 @@
     <string name="usage_cache_hit">Попадания в кэш</string>
             <string name="usage_by_model">По моделям</string>
         <string name="usage_other">Другое</string>
-                        <string name="usage_missing_tokens_note">Использование записывается по завершении каждого запроса к провайдеру, история один раз дополняется при обновлении базы данных. Провайдеры без отчётов считаются как ноль токенов. При удалении разговора его использование сохраняется.</string>
 </resources>

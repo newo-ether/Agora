@@ -937,5 +937,4 @@
     <string name="usage_cache_hit">Cache-Trefferquote</string>
             <string name="usage_by_model">Nach Modell</string>
         <string name="usage_other">Sonstige</string>
-                        <string name="usage_missing_tokens_note">Die Nutzung wird am Ende jeder Anbieteranfrage erfasst; der Verlauf wird beim Datenbank-Upgrade einmalig ergänzt. Anbieter ohne Nutzungsangaben zählen als null Tokens. Beim Löschen einer Unterhaltung bleibt ihre Nutzung erhalten.</string>
 </resources>

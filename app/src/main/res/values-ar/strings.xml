@@ -937,5 +937,4 @@
     <string name="usage_cache_hit">نسبة إصابة ذاكرة التخزين المؤقت</string>
             <string name="usage_by_model">حسب النموذج</string>
         <string name="usage_other">أخرى</string>
-                        <string name="usage_missing_tokens_note">يُسجَّل الاستخدام عند انتهاء كل طلب إلى المزوّد، لذا لا يشمل السجل السابق. يُحتسب المزوّدون الذين لا يبلّغون عن الاستخدام صفر رموز. يبقى استخدام المحادثة بعد حذفها.</string>
 </resources>

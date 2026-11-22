@@ -943,5 +943,4 @@
     <string name="usage_cache_hit">Tỷ lệ trúng cache</string>
             <string name="usage_by_model">Theo mô hình</string>
         <string name="usage_other">Khác</string>
-                        <string name="usage_missing_tokens_note">Mức sử dụng được ghi khi mỗi yêu cầu tới nhà cung cấp kết thúc, lịch sử được điền một lần trong lúc nâng cấp cơ sở dữ liệu. Nhà cung cấp không báo cáo được tính là 0 token. Xóa cuộc trò chuyện vẫn giữ mức sử dụng của nó.</string>
 </resources>

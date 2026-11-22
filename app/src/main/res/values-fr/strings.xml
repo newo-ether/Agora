@@ -937,5 +937,4 @@
     <string name="usage_cache_hit">Taux de cache</string>
             <string name="usage_by_model">Par modèle</string>
         <string name="usage_other">Autres</string>
-                        <string name="usage_missing_tokens_note">L\'utilisation est enregistrée à la fin de chaque requête au fournisseur ; l\'historique est complété une fois lors de la mise à jour de la base de données. Les fournisseurs qui ne signalent rien comptent pour zéro token. Supprimer une conversation conserve son utilisation.</string>
 </resources>
