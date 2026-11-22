@@ -203,9 +203,19 @@ class RagToolProvider(
                 for ((range, score) in merged) {
                     var cappedRange = range
                     if (range.last - range.first + 1 > maxWindowSize) {
-                        val centerId = branchMatchIds.maxByOrNull { scoreByMessageId[it] ?: 0f }
-                        val centerIdx = if (centerId != null) indexMap[centerId]!! else (range.first + range.last) / 2
-                        cappedRange = ((centerIdx - halfN).coerceAtLeast(range.first)..(centerIdx + halfN).coerceAtMost(range.last))
+                        // The centre must come from matches inside this window. A match elsewhere in
+                        // the conversation can push it outside `range`, and the resulting inverted
+                        // IntRange later fails in branch.subList(from > to).
+                        val centerIdx = matchIds
+                            .mapNotNull { id ->
+                                indexMap[id]?.let { index -> index to (scoreByMessageId[id] ?: 0f) }
+                            }
+                            .filter { (index, _) -> index in range }
+                            .maxByOrNull { (_, matchScore) -> matchScore }
+                            ?.first
+                            ?: ((range.first + range.last) / 2)
+                        cappedRange = (centerIdx - halfN).coerceIn(range.first, range.last)..
+                            (centerIdx + halfN).coerceIn(range.first, range.last)
                     }
                     val windowMsgIds = branch.subList(cappedRange.first, cappedRange.last + 1).map { it.id }.toSet()
                     val matchedInWindow = branchMatchIds.count { it in windowMsgIds }
@@ -279,7 +289,7 @@ class RagToolProvider(
                 put("type", "conversation_search")
                 put("query", query)
                 put("error", "search_error")
-                put("message", e.message ?: "")
+                put("message", failureMessage("conversation_search", e))
             }.toString()
         }
     }
@@ -326,7 +336,7 @@ class RagToolProvider(
             buildJsonObject {
                 put("type", "conversation_list")
                 put("error", "list_error")
-                put("message", e.message ?: "")
+                put("message", failureMessage("conversation_list", e))
             }.toString()
         }
     }
@@ -429,9 +439,18 @@ class RagToolProvider(
                 put("type", "conversation_read")
                 put("conversation_id", conversationId)
                 put("error", "read_error")
-                put("message", e.message ?: "")
+                put("message", failureMessage("conversation_read", e))
             }.toString()
         }
+    }
+
+    /** One readable sentence for tool output; the raw exception stays in the debug log. */
+    private fun failureMessage(tool: String, error: Exception): String {
+        // Logging must never replace the tool result with a logging failure (plain JVM tests have no
+        // android.util.Log implementation).
+        runCatching { DebugLog.e("RagToolProvider", "$tool failed", error) }
+        return "$tool failed: an internal error interrupted the request. " +
+            "Retry once; if it keeps failing, narrow the request."
     }
 
     /**

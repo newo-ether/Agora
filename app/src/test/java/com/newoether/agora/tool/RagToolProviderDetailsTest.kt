@@ -234,6 +234,37 @@ class RagToolProviderDetailsTest {
         assertEquals("false", page.getValue("has_more").jsonPrimitive.content)
     }
 
+    @Test fun searchCapsALongMergedWindowInsideItsOwnRange() = runTest {
+        val branch = (0 until 60).map { index ->
+            message("m$index", parent = if (index == 0) null else "m${index - 1}", text = "body $index")
+        }
+        seed(branch)
+        // A high-scoring match far outside the merged window used to supply the centre, which
+        // produced an inverted range and failed inside branch.subList.
+        coEvery { repository.searchMessages("target", any(), any()) } returns
+            (listOf(branch[40]) + (0..18 step 2).map { branch[it] })
+        val result = Json.parseToJsonElement(provider.execute(
+            "conversation_search",
+            """{"query":"target","context_window":4,"limit":30}""",
+            context,
+        )).jsonObject
+        assertNull(result["error"])
+        assertTrue(result.getValue("count").jsonPrimitive.content.toInt() > 0)
+    }
+
+    @Test fun searchReportsAReadableFailureInsteadOfTheRawException() = runTest {
+        seed(listOf(message("m0")))
+        coEvery { repository.searchMessages("target", any(), any()) } throws
+            IllegalStateException("fromIndex(32) > toIndex(15)")
+        val result = Json.parseToJsonElement(provider.execute(
+            "conversation_search", """{"query":"target"}""", context,
+        )).jsonObject
+        assertEquals("search_error", result.getValue("error").jsonPrimitive.content)
+        val message = result.getValue("message").jsonPrimitive.content
+        assertTrue(message.startsWith("conversation_search failed:"))
+        assertFalse(message.contains("fromIndex"))
+    }
+
     private suspend fun read(extra: String = ""): JsonObject = Json.parseToJsonElement(provider.execute(
         "conversation_read", """{"conversation_id":"conv"$extra}""", context,
     )).jsonObject
