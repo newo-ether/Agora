@@ -216,13 +216,6 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 percent = ::percent,
                 alpha = staleAlpha,
             )
-
-            Text(
-                stringResource(R.string.usage_missing_tokens_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
         }
     }
 }
