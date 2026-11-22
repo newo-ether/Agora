@@ -1650,6 +1650,10 @@ Message/detail bodies and real input/textarea content remain selectable; control
 nonselection must not disable their native selection, copy, focus or scrolling.
 The sign-in Brand and New Chat welcome use the native WebUI Settings `Icons.Default.Web` browser-window glyph.
 All image entries reuse the existing AttachmentViewer, including Tool images and PDF pages.
+On touch screens a quick, mostly horizontal single-finger flick changes the item (at least 48px
+sideways, under 800ms, and only while the picture is unzoomed, so a zoomed picture keeps its pan).
+The picture element survives an item change and the previous frame stays painted until the next
+source decodes, so switching never flashes an empty viewport or the loading spinner.
 The pinned Panzoom 4.6.0 runtime and its MIT license are bundled under webui/vendor, never fetched
 from a CDN. Panzoom owns pointer pan, focal wheel zoom and touch pinch inside a fixed clipped viewport.
 Double-click toggles 1x/3x around the pointer with Compose's non-bouncy medium-low spring

@@ -173,8 +173,12 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const source = item && (item.url ?? sync.attachmentUrl(item.id, item.kind, item.index));
   const [loadedSource, setLoadedSource] = useState(null);
   const [failedSource, setFailedSource] = useState(null);
+  // Kept across item switches: the previous picture stays painted until the next one decodes, so a
+  // swipe never flashes the spinner or the empty viewport.
+  const [shownSource, setShownSource] = useState(null);
   const loaded = !!source && loadedSource === source;
   const failed = !!source && failedSource === source;
+  const shown = shownSource != null;
   useLayoutEffect(() => {
     const host = viewport.current, node = image.current;
     if (!host || !node || !loaded) return;
@@ -212,6 +216,30 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
       () => { current.motion.cancel = null; });
   }
   function navigate(next) { onNavigate(next); }
+  const swipe = useRef(null);
+  function startSwipe(event) {
+    if (event.touches.length !== 1) { swipe.current = null; return; }
+    const [touch] = event.touches;
+    swipe.current = { x: touch.clientX, y: touch.clientY, at: event.timeStamp };
+  }
+  function moveSwipe(event) {
+    if (event.touches.length !== 1) swipe.current = null;
+  }
+  function endSwipe(event) {
+    const start = swipe.current;
+    swipe.current = null;
+    const [touch] = event.changedTouches || [];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    // A quick, mostly horizontal single-finger flick changes the item; a zoomed picture keeps its
+    // pan because dragging it is the way to look around.
+    if (event.timeStamp - start.at > 800) return;
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if ((zoom.current?.panzoom.getScale() ?? 1) > 1.05) return;
+    if (dx < 0 && index < viewer.items.length - 1) navigate(index + 1);
+    else if (dx > 0 && index > 0) navigate(index - 1);
+  }
   return html`<dialog ref=${dialog} class=${`tool-media-viewer attachment-viewer ${file ? "text-file-viewer" : ""}`} aria-label=${file?.name || item?.name || t.attachments}
     onCancel=${event => { event.preventDefault(); onClose(); }} onKeyDown=${event => {
       event.stopPropagation();
@@ -222,10 +250,11 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
     ${file ? html`<div class="text-file-content">${/\.(md|markdown)$/i.test(file.name || "") ? html`<${Markdown} text=${{ markdown: file.text, math: [] }} />` : html`<pre>${file.text}</pre>`}</div>`
       : item?.type === "video" && item.kind === "source" ? html`<video key=${source} src=${source} controls autoplay
         onLoadedData=${() => setLoadedSource(source)} onError=${() => setFailedSource(source)} style=${{ opacity: loaded ? 1 : 0 }}></video>`
-      : html`<div key=${source} class="tool-media-scroll image-viewport" ref=${viewport} onDblClick=${toggleZoom}><img ref=${image} class="attachment-full-image" src=${source}
-        alt=${item.name || t.attachments} draggable="false" onLoad=${() => setLoadedSource(source)} onError=${() => setFailedSource(source)}
-        style=${{ opacity: loaded ? 1 : 0 }} /></div>`}
-    ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !loaded && !failed ? 1 : 0 }}><${Spinner} stroke=${3} label=${t.attachments} /></div>
+      : html`<div class="tool-media-scroll image-viewport" ref=${viewport} onDblClick=${toggleZoom}
+        onTouchStart=${startSwipe} onTouchMove=${moveSwipe} onTouchEnd=${endSwipe}><img ref=${image} class="attachment-full-image" src=${source}
+        alt=${item.name || t.attachments} draggable="false" onLoad=${() => { setShownSource(source); setLoadedSource(source); }} onError=${() => setFailedSource(source)}
+        style=${{ opacity: shown ? 1 : 0 }} /></div>`}
+    ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !shown && !failed ? 1 : 0 }}><${Spinner} stroke=${3} label=${t.attachments} /></div>
       <div class="attachment-viewport-status" style=${{ opacity: failed ? 1 : 0 }} role=${failed ? "alert" : null}>${icon(item.type === "image" || item.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>`}
     <div class="tool-media-controls"><span class="tool-media-count">${file?.name || `${index + 1} / ${viewer.items.length}`}</span>
       <button class="detail-sheet-icon" type="button" title=${t.close} aria-label=${t.close} onClick=${onClose}>${icon(ICON_CLOSE)}</button></div>
