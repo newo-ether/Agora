@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -65,6 +66,7 @@ import com.newoether.agora.ui.settings.PillTabSwitcher
 import com.newoether.agora.ui.settings.SettingsGroup
 import com.newoether.agora.ui.settings.SettingsGroupLabel
 import com.newoether.agora.ui.settings.SettingsItem
+import com.newoether.agora.ui.settings.StatsLoadingValue
 import com.newoether.agora.ui.settings.StatsPlaceholder
 import com.newoether.agora.ui.settings.settingsGroupRowShape
 import com.newoether.agora.ui.settings.statsSegmentColors
@@ -151,30 +153,31 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
         }
         if (!ordered.isNullOrEmpty()) {
             item(key = "storage_sort") {
-                // The order control is the first row of the same card stack rather than a caption
-                // floating above it: it lines up with the rows it sorts and owns the row's padding.
+                // The order control is the first row of the same card stack: an icon and a title like
+                // any other item, with the pills on the supporting line so every locale fits.
                 StorageRowCard(index = 0, count = ordered.size + 1) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            stringResource(R.string.storage_sort_by),
-                            style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 1,
-                        )
-                        Spacer(Modifier.width(16.dp))
-                        PillTabSwitcher(
-                            tabs = listOf(
-                                stringResource(R.string.storage_sort_size),
-                                stringResource(R.string.storage_sort_messages),
-                            ),
-                            selectedIndex = sort.ordinal,
-                            onSelect = { sort = StorageSort.entries[it] },
-                            modifier = Modifier.weight(1f),
-                            tabHeight = 40.dp,
-                        )
-                    }
+                    SettingsItem(
+                        headlineContent = { Text(stringResource(R.string.storage_sort_by)) },
+                        leadingContent = {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Sort,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        },
+                        supportingContent = {
+                            Spacer(Modifier.height(6.dp))
+                            PillTabSwitcher(
+                                tabs = listOf(
+                                    stringResource(R.string.storage_sort_size),
+                                    stringResource(R.string.storage_sort_messages),
+                                ),
+                                selectedIndex = sort.ordinal,
+                                onSelect = { sort = StorageSort.entries[it] },
+                                tabHeight = 40.dp,
+                            )
+                        },
+                    )
                 }
             }
         }
@@ -293,21 +296,23 @@ private fun TotalGroup(
         R.string.storage_sandbox to breakdown?.sandboxBytes,
         R.string.storage_cache to breakdown?.cacheBytes,
     )
+    val loading = breakdown == null || refreshing
     SettingsGroup(
         title = stringResource(R.string.storage_total),
         items = listOf({
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                // Storage has no separate counting indicator: while a scan runs the figure is
-                // replaced by the same placeholder block the list rows use for a missing report.
-                if (breakdown == null || refreshing) {
-                    StatsPlaceholder(120.dp, 28.dp, Modifier.padding(vertical = 4.dp))
-                } else {
-                    Text(
-                        size(breakdown.totalBytes),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                // Storage has no counting indicator: while a scan runs the figure cross-fades into
+                // the same loading block the list rows use for a missing report.
+                StatsLoadingValue(
+                    loading = loading,
+                    placeholderWidth = 120.dp,
+                    placeholderHeight = 28.dp,
+                    text = breakdown?.let { size(it.totalBytes) }.orEmpty(),
+                    alignment = Alignment.CenterStart,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                )
                 Spacer(Modifier.height(16.dp))
                 Column(Modifier.alpha(staleAlpha)) {
                     val total = breakdown?.totalBytes?.coerceAtLeast(1) ?: 1
@@ -318,11 +323,14 @@ private fun TotalGroup(
                     Spacer(Modifier.height(16.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         parts.forEachIndexed { index, (label, bytes) ->
-                            LegendRow(
-                                colors[index % colors.size],
-                                stringResource(label),
-                                bytes?.let(size) ?: "—",
-                            )
+                            LegendRow(colors[index % colors.size], stringResource(label)) {
+                                StatsLoadingValue(
+                                    loading = loading,
+                                    placeholderWidth = 44.dp,
+                                    placeholderHeight = 12.dp,
+                                    text = bytes?.let(size) ?: "—",
+                                )
+                            }
                         }
                     }
                 }

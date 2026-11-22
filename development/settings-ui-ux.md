@@ -162,9 +162,10 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   killed export is deleted at the start of the next export once it is over an hour old.
 - **Conversations group.** A Size/Messages `PillTabSwitcher` above the rows picks the order: Size
   keeps the report order (total size, largest first), Messages orders by message count with size and
-  then id as tie-breakers; the choice is saved with the page. A "Sort by" row opens the card stack:
-  the label sits left, the two pills right, so the control lines up with the rows it orders and the
-  bare nouns read as an order rather than a filter.
+  then id as tie-breakers; the choice is saved with the page. A "Sort by" row opens the card stack
+  and looks like any other item: the `Sort` leading icon in primary, the title on the headline line,
+  and the two pills (40dp, 6dp under the title) on the supporting line. The control lines up with
+  the rows it orders, every locale fits, and the bare nouns read as an order rather than a filter.
   Top-level conversations only; subagent children (any depth, cycle-safe) roll into their root.
   Each row shows title, message count (prefixed with the Task label for task executions) and
   total size, plus a chevron at the end that points down while the row is expanded and up while it
@@ -181,9 +182,10 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   it runs the dialog shows a determinate progress bar and `done/total`. Conversations that fail stay
   selected and the dialog moves to its failed state so the user can retry.
 - **Loading.** No page-level progress bar and no counting indicator. While a scan runs the total
-  figure becomes the same shimmering placeholder block the conversation rows use, and the bar, the
-  legend and the rows keep the previous report dimmed (alpha 0.45). With no previous report the same
-  block stands in for the total and the list shows three placeholder rows.
+  figure and each legend value cross-fade (200ms, `StatsLoadingValue`) into the same shimmering
+  placeholder block the conversation rows use, and the bar, the legend and the rows keep the previous
+  report dimmed (alpha 0.45). With no previous report the same block stands in for the total and the
+  list shows three placeholder rows.
 - **Computation.** `StorageUsageCalculator` runs grouped read-only SQL (`StorageUsageDao`) plus
   file walks that never follow symbolic links, off the main thread. Image files referenced by
   several messages of one conversation count once for it. Per-conversation message figures are

@@ -200,6 +200,18 @@ private fun LegendRow(color: Color, label: String, tokens: Int) =
 /** Legend line for [SegmentedBar]: dot, label, and the value aligned right. */
 @Composable
 internal fun LegendRow(color: Color, label: String, value: String) {
+    LegendRow(color, label) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Legend line whose value slot is composed by the caller, e.g. for a loading cross-fade. */
+@Composable
+internal fun LegendRow(color: Color, label: String, value: @Composable () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(LegendDotSize).clip(CircleShape).background(color))
         Spacer(Modifier.width(8.dp))
@@ -212,10 +224,6 @@ internal fun LegendRow(color: Color, label: String, value: String) {
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(12.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        value()
     }
 }

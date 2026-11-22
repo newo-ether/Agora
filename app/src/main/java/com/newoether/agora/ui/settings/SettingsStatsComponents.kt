@@ -1,6 +1,7 @@
 package com.newoether.agora.ui.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -118,6 +120,39 @@ internal fun StatsPlaceholder(width: Dp, height: Dp, modifier: Modifier = Modifi
             .clip(RoundedCornerShape(height / 2))
             .background(statsShimmerBrush()),
     )
+}
+
+/**
+ * Figure that cross-fades to a [StatsPlaceholder] while [loading], so a scan swaps a number for the
+ * loading block over one fade instead of two snaps.
+ */
+@Composable
+internal fun StatsLoadingValue(
+    loading: Boolean,
+    placeholderWidth: Dp,
+    placeholderHeight: Dp,
+    text: String,
+    modifier: Modifier = Modifier,
+    alignment: Alignment = Alignment.CenterEnd,
+    style: TextStyle = MaterialTheme.typography.bodyMedium,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    fontWeight: FontWeight? = null,
+) {
+    val motion = LocalAgoraMotionPolicy.current
+    val spec: AnimationSpec<Float> = if (motion.allowSpatialTransitions) tween(200) else snap()
+    val textAlpha by animateFloatAsState(if (loading) 0f else 1f, spec, label = "statsValueText")
+    val blockAlpha by animateFloatAsState(if (loading) 1f else 0f, spec, label = "statsValueBlock")
+    Box(modifier, contentAlignment = alignment) {
+        Text(
+            text = text,
+            style = style,
+            color = color,
+            fontWeight = fontWeight,
+            maxLines = 1,
+            modifier = Modifier.alpha(textAlpha),
+        )
+        StatsPlaceholder(placeholderWidth, placeholderHeight, Modifier.alpha(blockAlpha))
+    }
 }
 
 /** One figure of a [StatsCardGrid]. [value] null shows a placeholder block. */
