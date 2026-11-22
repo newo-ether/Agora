@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Percent
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -112,19 +111,21 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 items = listOf({
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            FilterChip(
-                                selected = metric == UsageMetric.TOKENS,
-                                onClick = { metric = UsageMetric.TOKENS },
-                                label = { Text(stringResource(R.string.usage_metric_tokens)) },
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            FilterChip(
-                                selected = metric == UsageMetric.REQUESTS,
-                                onClick = { metric = UsageMetric.REQUESTS },
-                                label = { Text(stringResource(R.string.usage_metric_requests)) },
-                            )
-                            Spacer(Modifier.weight(1f))
-                            StatsRefreshStatus(visible = refreshing)
+                            Box(Modifier.weight(1f)) {
+                                PillTabSwitcher(
+                                    tabs = listOf(
+                                        stringResource(R.string.usage_metric_tokens),
+                                        stringResource(R.string.usage_metric_requests),
+                                    ),
+                                    selectedIndex = metric.ordinal,
+                                    onSelect = { metric = UsageMetric.entries[it] },
+                                    tabHeight = 40.dp,
+                                )
+                            }
+                            // Reserved so the pills keep their width while the spinner comes and goes.
+                            Box(Modifier.width(108.dp), contentAlignment = Alignment.CenterEnd) {
+                                StatsRefreshStatus(visible = refreshing)
+                            }
                         }
                         Spacer(Modifier.height(12.dp))
                         Column(Modifier.alpha(staleAlpha)) {
@@ -262,6 +263,24 @@ private fun ShareGroup(
                     { it.requests }
                 }
                 val total = all.sumOf(weightOf).coerceAtLeast(1)
+                // The bar's total, so the split reads against a figure before its parts.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.usage_total_tokens),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    if (shares == null) {
+                        StatsPlaceholder(72.dp, 16.dp)
+                    } else {
+                        Text(
+                            format(totalTokens),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
                 val shown = if (all.size > MAX_SHARES) all.take(MAX_SHARES - 1) else all
                 val rest = all.drop(shown.size)
                 val entries = shown.mapIndexed { index, share ->
@@ -325,6 +344,8 @@ private fun UsageHeatmap(
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
     val full = MaterialTheme.colorScheme.primary
     val todayOutline = MaterialTheme.colorScheme.outline
+    // Collar of a picked dot: it has to contrast with every level, including the brightest one.
+    val pickedCollar = MaterialTheme.colorScheme.onSurface
     fun shade(level: Int): Color = if (level == 0) empty else lerp(empty, full, 0.25f + 0.75f * level / 4f)
     val cell: Dp = 12.dp
     val gap: Dp = 3.dp
@@ -390,14 +411,16 @@ private fun UsageHeatmap(
                             val date = start.plusWeeks(column.toLong()).plusDays(row.toLong())
                             if (date.isAfter(today)) continue
                             val center = Offset(column * stepPx + radius, row * stepPx + radius)
-                            drawCircle(shade(level(valueOf(days[date]))), radius, center)
-                            if (date == today || date == picked) {
-                                drawCircle(
-                                    if (date == picked) full else todayOutline,
-                                    radius,
-                                    center,
-                                    style = Stroke(1.5.dp.toPx()),
-                                )
+                            if (date == picked) {
+                                // Contrasting collar plus a shrunken dot: a plain stroke in the dot's
+                                // own colour was invisible, especially on the brightest levels.
+                                drawCircle(pickedCollar, radius, center)
+                                drawCircle(shade(level(valueOf(days[date]))), radius - 2.dp.toPx(), center)
+                            } else {
+                                drawCircle(shade(level(valueOf(days[date]))), radius, center)
+                            }
+                            if (date == today && date != picked) {
+                                drawCircle(todayOutline, radius, center, style = Stroke(1.5.dp.toPx()))
                             }
                         }
                     }

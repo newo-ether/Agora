@@ -189,18 +189,22 @@ Owner-approved (2026-11-21). Settings' Memory & Data group gains Usage (`"usage"
 
 Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-card loading.
 
-- **Activity group.** The group title sits outside the card. A 53-week dot heatmap (columns are
+- **Activity group.** The group title sits outside the card. A Tokens/Requests `PillTabSwitcher`
+  (the same two-pill component as the period switcher) sits above a 53-week dot heatmap (columns are
   weeks starting on the locale's first day of week, scrolled to today, month labels above, weekday
-  labels on alternate rows) with Tokens/Requests chips; Tokens is the default. Five shades: zero,
-  then quartiles of the non-zero days, so one heavy day does not flatten the rest. Tapping a dot
-  shows its date and value below; today is outlined.
+  labels on alternate rows); Tokens is the default, and a fixed slot beside the pills holds the
+  counting spinner so the pills never resize. Five shades: zero, then quartiles of the non-zero
+  days, so one heavy day does not flatten the rest. Tapping a dot shows its date and value below;
+  the picked dot is drawn as a contrasting collar with a smaller value dot inside it, and today is
+  outlined.
 - **Overview group.** Two-column `StatsCardGrid`: total tokens, requests, current streak, longest
   streak. No cost figures.
 - **Tokens group.** A 7/30/90/All `PillTabSwitcher` selects the period for the cards below it
   (input, output, cached input, cache hit rate as cached over reported input, `—` when nothing was
   reported) and the By model group. The daily bar chart and the By source breakdown are removed. By
   model uses the segmented bar and legend of the Storage page; at most six segments, the rest folded
-  into Other, legend values "tokens · percent".
+  into Other, legend values "tokens · percent". The card opens with a Total tokens row giving the
+  period's figure above the bar.
 - **Loading.** Same as Storage: in-card spinner with "Counting…", dimmed previous values,
   placeholders on first load, no page-level progress bar. The spinner is 20dp with a 2.5dp stroke and
   a bodyMedium label 8dp away. Placeholder blocks and an empty segmented bar fill with a slow
