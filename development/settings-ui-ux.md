@@ -167,7 +167,8 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
 - **Multi-select.** Long-press toggles selection and enters selection mode: the title becomes the
   selected count, checkboxes appear, taps toggle, Back clears. Each leading checkbox expands
   horizontally out of the row edge with a fade (200ms in, 150ms out; instant when motion is
-  disabled), and a long press starts the same transition. Delete reuses
+  disabled), and a long press starts the same transition. The checkbox and its 16dp gap live inside
+  that animation, so a row without selection keeps the plain 16dp start padding. Delete reuses
   `ChatDeleteConfirmDialog` and `ChatViewModel.deleteConversation`, one conversation at a time. While
   it runs the dialog shows a determinate progress bar and `done/total`. Conversations that fail stay
   selected and the dialog moves to its failed state so the user can retry.
@@ -206,8 +207,8 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   into Other, legend values "tokens · percent". The card opens with a Total tokens row giving the
   period's figure above the bar.
 - **Loading.** Same as Storage: in-card spinner with "Counting…", dimmed previous values,
-  placeholders on first load, no page-level progress bar. The spinner is 20dp with a 2.5dp stroke and
-  a bodyMedium label 8dp away. Placeholder blocks and an empty segmented bar fill with a slow
+  placeholders on first load, no page-level progress bar. The spinner is 22dp with a 2.5dp stroke and
+  a bodyLarge label 10dp away. Placeholder blocks and an empty segmented bar fill with a slow
   left-to-right shimmer (1400ms), which becomes a solid fill when motion is disabled.
 - **Data.** `usage_ledger` (DB 48) holds per-request totals in 15-minute UTC buckets keyed by
   provider, model and source (Chat, Task, Subagent, Title, Transcription). `UsageRecorder` writes one

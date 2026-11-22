@@ -340,8 +340,10 @@ private fun ConversationStorageRow(
                 }
                 Text(text)
             },
+            leadingSpacing = 0.dp,
             leadingContent = {
-                // The check appears with the selection, so a normal tap never shifts the title.
+                // The check appears with the selection, so a normal tap never shifts the title. The gap
+                // after it animates inside this block; a slot-level spacer would indent every row.
                 val motion = LocalAgoraMotionPolicy.current
                 AnimatedVisibility(
                     visible = selecting,
@@ -356,7 +358,10 @@ private fun ConversationStorageRow(
                         fadeOut(tween(0))
                     },
                 ) {
-                    Checkbox(checked = isSelected, onCheckedChange = null)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = isSelected, onCheckedChange = null)
+                        Spacer(Modifier.width(16.dp))
+                    }
                 }
             },
             trailingContent = {

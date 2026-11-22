@@ -110,23 +110,15 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 title = stringResource(R.string.usage_activity),
                 items = listOf({
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.weight(1f)) {
-                                PillTabSwitcher(
-                                    tabs = listOf(
-                                        stringResource(R.string.usage_metric_tokens),
-                                        stringResource(R.string.usage_metric_requests),
-                                    ),
-                                    selectedIndex = metric.ordinal,
-                                    onSelect = { metric = UsageMetric.entries[it] },
-                                    tabHeight = 40.dp,
-                                )
-                            }
-                            // Reserved so the pills keep their width while the spinner comes and goes.
-                            Box(Modifier.width(108.dp), contentAlignment = Alignment.CenterEnd) {
-                                StatsRefreshStatus(visible = refreshing)
-                            }
-                        }
+                        PillTabSwitcher(
+                            tabs = listOf(
+                                stringResource(R.string.usage_metric_tokens),
+                                stringResource(R.string.usage_metric_requests),
+                            ),
+                            selectedIndex = metric.ordinal,
+                            onSelect = { metric = UsageMetric.entries[it] },
+                            tabHeight = 40.dp,
+                        )
                         Spacer(Modifier.height(12.dp))
                         Column(Modifier.alpha(staleAlpha)) {
                             UsageHeatmap(
@@ -135,6 +127,7 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 metric = metric,
                                 locale = locale,
                                 format = ::count,
+                                refreshing = refreshing,
                             )
                         }
                     }
@@ -325,6 +318,7 @@ private fun UsageHeatmap(
     metric: UsageMetric,
     locale: Locale,
     format: (Long) -> String,
+    refreshing: Boolean,
 ) {
     val firstDay: DayOfWeek = remember(locale) { WeekFields.of(locale).firstDayOfWeek }
     val endWeekStart = today.with(TemporalAdjusters.previousOrSame(firstDay))
@@ -430,6 +424,11 @@ private fun UsageHeatmap(
     }
     Spacer(Modifier.height(12.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
+        // Counting sits on the footer line so the pills above keep a stable width.
+        if (refreshing) {
+            StatsRefreshStatus(visible = true)
+            Spacer(Modifier.width(8.dp))
+        }
         val shown = picked ?: today
         val dateText = remember(shown, locale) {
             shown.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
