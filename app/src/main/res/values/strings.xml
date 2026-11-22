@@ -886,8 +886,7 @@
     <string name="storage_metadata">Metadata</string>
     <string name="storage_embeddings">Embeddings</string>
     <string name="storage_selected">%1$d selected</string>
-    <string name="storage_show_more">Show more</string>
-    <string name="storage_delete_title">Delete %1$d conversations?</string>
+        <string name="storage_delete_title">Delete %1$d conversations?</string>
     <string name="storage_delete_message">This permanently deletes the selected conversations, their subagents and their attachments.</string>
     <string name="storage_delete_progress">%1$d / %2$d deleted</string>
     <string name="storage_empty">No conversations</string>
@@ -917,15 +916,7 @@
     <string name="usage_output">Output</string>
     <string name="usage_cached">Cached input</string>
     <string name="usage_cache_hit">Cache hit rate</string>
-    <string name="usage_chart_daily">Tokens per day</string>
-    <string name="usage_chart_weekly">Tokens per week</string>
-    <string name="usage_by_model">By model</string>
-    <string name="usage_by_source">By source</string>
-    <string name="usage_other">Other</string>
-    <string name="usage_source_chat">Chats</string>
-    <string name="usage_source_task">Tasks</string>
-    <string name="usage_source_subagent">Subagents</string>
-    <string name="usage_source_title">Titles</string>
-    <string name="usage_source_transcription">Transcription</string>
-    <string name="usage_missing_tokens_note">Usage is recorded when each provider request finishes, so earlier history is not included. Providers that report no usage count as zero tokens. Deleting a conversation keeps its usage.</string>
+            <string name="usage_by_model">By model</string>
+        <string name="usage_other">Other</string>
+                        <string name="usage_missing_tokens_note">Usage is recorded when each provider request finishes; history is filled in once during the database upgrade. Providers that report no usage count as zero tokens. Deleting a conversation keeps its usage.</string>
 </resources>

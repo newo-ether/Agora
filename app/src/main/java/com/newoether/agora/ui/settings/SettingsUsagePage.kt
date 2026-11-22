@@ -2,6 +2,7 @@ package com.newoether.agora.ui.settings
 
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Cached
@@ -39,9 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
@@ -52,13 +53,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
-import com.newoether.agora.data.UsageBar
 import com.newoether.agora.data.UsageDay
 import com.newoether.agora.data.UsagePeriod
 import com.newoether.agora.data.UsageRecorder
 import com.newoether.agora.data.UsageShare
 import com.newoether.agora.data.UsageStats
-import com.newoether.agora.data.local.UsageLedgerSource
 import com.newoether.agora.data.modelAliasDisplayName
 import com.newoether.agora.ui.chat.bottombar.LegendRow
 import com.newoether.agora.ui.chat.bottombar.SegmentedBar
@@ -77,7 +76,7 @@ private enum class UsageMetric { TOKENS, REQUESTS }
 
 /**
  * Settings > Usage: request-time ledger figures. A daily heatmap, all-time overview cards, then a
- * period's token cards, bar chart and model/source breakdowns.
+ * period's token cards and model breakdown.
  */
 @Composable
 fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
@@ -214,37 +213,11 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 )
             }
 
-            val weekly = summary != null && summary.bars.size > 1 &&
-                summary.bars[1].start.toEpochDay() - summary.bars[0].start.toEpochDay() > 1
-            SettingsGroup(
-                title = stringResource(if (weekly) R.string.usage_chart_weekly else R.string.usage_chart_daily),
-                items = listOf({
-                    Column(Modifier.fillMaxWidth().padding(16.dp).alpha(staleAlpha)) {
-                        UsageBarChart(bars = summary?.bars.orEmpty(), today = today, locale = locale, format = ::count)
-                    }
-                }),
-            )
-
             val modelLabel: (String) -> String = { modelAliasDisplayName(it, aliases, customProviders) }
             ShareGroup(
                 title = stringResource(R.string.usage_by_model),
                 shares = summary?.byModel,
                 label = modelLabel,
-                format = ::count,
-                percent = ::percent,
-                alpha = staleAlpha,
-            )
-            val sourceLabels = mapOf(
-                UsageLedgerSource.CHAT to stringResource(R.string.usage_source_chat),
-                UsageLedgerSource.TASK to stringResource(R.string.usage_source_task),
-                UsageLedgerSource.SUBAGENT to stringResource(R.string.usage_source_subagent),
-                UsageLedgerSource.TITLE to stringResource(R.string.usage_source_title),
-                UsageLedgerSource.TRANSCRIPTION to stringResource(R.string.usage_source_transcription),
-            )
-            ShareGroup(
-                title = stringResource(R.string.usage_by_source),
-                shares = summary?.bySource,
-                label = { sourceLabels[it] ?: it },
                 format = ::count,
                 percent = ::percent,
                 alpha = staleAlpha,
@@ -298,10 +271,20 @@ private fun ShareGroup(
                 } else {
                     listOf(Triple(otherLabel, rest.sumOf(weightOf), otherColor))
                 }
-                SegmentedBar(
-                    fractions = entries.map { it.second.toFloat() / total },
-                    colors = entries.map { it.third },
-                )
+                if (entries.isEmpty()) {
+                    // Nothing to split yet: a shimmering capsule says "still counting" instead of a
+                    // bare track that looks like a finished, empty bar.
+                    Box(
+                        Modifier.fillMaxWidth().height(12.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(statsShimmerBrush()),
+                    )
+                } else {
+                    SegmentedBar(
+                        fractions = entries.map { it.second.toFloat() / total },
+                        colors = entries.map { it.third },
+                    )
+                }
                 if (shares == null) {
                     StatsPlaceholder(160.dp, 14.dp)
                 } else if (entries.isNotEmpty()) {
@@ -313,67 +296,6 @@ private fun ShareGroup(
                 }
             }
         }),
-    )
-}
-
-@Composable
-private fun UsageBarChart(
-    bars: List<UsageBar>,
-    today: LocalDate,
-    locale: Locale,
-    format: (Long) -> String,
-) {
-    var picked by remember(bars.firstOrNull()?.start, bars.size) { mutableStateOf<Int?>(null) }
-    val barColor = MaterialTheme.colorScheme.primary
-    val pickedColor = MaterialTheme.colorScheme.tertiary
-    val emptyColor = MaterialTheme.colorScheme.surfaceVariant
-    val max = bars.maxOfOrNull { it.tokens }?.coerceAtLeast(1) ?: 1
-    val gap: Dp = if (bars.size > 31) 1.dp else 3.dp
-    Canvas(
-        Modifier
-            .fillMaxWidth()
-            .height(120.dp)
-            .pointerInput(bars) {
-                detectTapGestures { offset ->
-                    if (bars.isEmpty()) return@detectTapGestures
-                    val index = (offset.x / size.width * bars.size).toInt().coerceIn(0, bars.lastIndex)
-                    picked = if (picked == index) null else index
-                }
-            },
-    ) {
-        if (bars.isEmpty()) return@Canvas
-        val gapPx = gap.toPx()
-        val width = ((size.width - gapPx * (bars.size - 1)) / bars.size).coerceAtLeast(1f)
-        val stub = 2.dp.toPx()
-        val radius = CornerRadius((width / 2).coerceAtMost(3.dp.toPx()))
-        bars.forEachIndexed { index, bar ->
-            val left = index * (width + gapPx)
-            val height = if (bar.tokens > 0) {
-                (size.height * bar.tokens / max).coerceAtLeast(stub)
-            } else {
-                stub
-            }
-            val color = when {
-                bar.tokens <= 0 -> emptyColor
-                picked == index -> pickedColor
-                else -> barColor
-            }
-            drawRoundRect(color, Offset(left, size.height - height), Size(width, height), radius)
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    val shown = picked?.let(bars::getOrNull) ?: bars.lastOrNull()
-    val shortDate = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
-    Text(
-        stringResource(
-            R.string.usage_day_tokens,
-            (shown?.start ?: today).format(shortDate),
-            format(shown?.tokens ?: 0),
-        ),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
     )
 }
 
@@ -430,8 +352,10 @@ private fun UsageHeatmap(
             }
         }
         Box(Modifier.weight(1f).horizontalScroll(scroll)) {
-            val width = step * HEATMAP_WEEKS - gap
-            val height = step * 7 - gap
+            // Trailing margin keeps the last column's today ring inside the viewport once scrolled
+            // to the end, instead of being cut by the scroll bounds.
+            val width = step * HEATMAP_WEEKS - gap + HEATMAP_EDGE_MARGIN
+            val height = step * 7 - gap + HEATMAP_EDGE_MARGIN
             Column {
                 Box(Modifier.width(width).height(MONTH_LABEL_HEIGHT)) {
                     // A month label sits over the first week that contains that month's first day.
@@ -511,5 +435,6 @@ private fun UsageHeatmap(
 }
 
 private const val HEATMAP_WEEKS = 53
+private val HEATMAP_EDGE_MARGIN = 8.dp
 private const val MAX_SHARES = 6
 private val MONTH_LABEL_HEIGHT = 18.dp

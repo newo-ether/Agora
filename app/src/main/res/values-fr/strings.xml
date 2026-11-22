@@ -905,8 +905,7 @@
     <string name="storage_metadata">Métadonnées</string>
     <string name="storage_embeddings">Embeddings</string>
     <string name="storage_selected">%1$d sélectionnées</string>
-    <string name="storage_show_more">Afficher plus</string>
-    <string name="storage_delete_title">Supprimer %1$d conversations ?</string>
+        <string name="storage_delete_title">Supprimer %1$d conversations ?</string>
     <string name="storage_delete_message">Les conversations sélectionnées, leurs sous-agents et leurs pièces jointes seront supprimés définitivement.</string>
     <string name="storage_delete_progress">%1$d / %2$d supprimées</string>
     <string name="storage_empty">Aucune conversation</string>
@@ -936,15 +935,7 @@
     <string name="usage_output">Sortie</string>
     <string name="usage_cached">Entrée en cache</string>
     <string name="usage_cache_hit">Taux de cache</string>
-    <string name="usage_chart_daily">Tokens par jour</string>
-    <string name="usage_chart_weekly">Tokens par semaine</string>
-    <string name="usage_by_model">Par modèle</string>
-    <string name="usage_by_source">Par source</string>
-    <string name="usage_other">Autres</string>
-    <string name="usage_source_chat">Conversations</string>
-    <string name="usage_source_task">Tâches</string>
-    <string name="usage_source_subagent">Sous-agents</string>
-    <string name="usage_source_title">Titres</string>
-    <string name="usage_source_transcription">Transcription</string>
-    <string name="usage_missing_tokens_note">L\'utilisation est enregistrée à la fin de chaque requête au fournisseur ; l\'historique antérieur n\'est pas inclus. Les fournisseurs qui ne signalent rien comptent pour zéro token. Supprimer une conversation conserve son utilisation.</string>
+            <string name="usage_by_model">Par modèle</string>
+        <string name="usage_other">Autres</string>
+                        <string name="usage_missing_tokens_note">L\'utilisation est enregistrée à la fin de chaque requête au fournisseur ; l\'historique est complété une fois lors de la mise à jour de la base de données. Les fournisseurs qui ne signalent rien comptent pour zéro token. Supprimer une conversation conserve son utilisation.</string>
 </resources>

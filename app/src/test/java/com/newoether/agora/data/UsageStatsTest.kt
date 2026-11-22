@@ -58,7 +58,7 @@ class UsageStatsTest {
     }
 
     @Test
-    fun `period keeps only its days and ranks models and sources`() {
+    fun `period keeps only its days and ranks models`() {
         val rows = listOf(
             row(millis("2026-10-27", 12, shanghai), tokens = 9_999), // the 7-day window starts on the 27th
             row(millis("2026-10-26", 12, shanghai), tokens = 1_000_000), // outside it
@@ -70,31 +70,12 @@ class UsageStatsTest {
         assertEquals(560, week.inputTokens)
         assertEquals(80, week.cachedInputTokens)
         assertEquals(80.0 / 560.0, week.cacheHitRate!!, 1e-9)
-        assertEquals(7, week.bars.size)
-        assertEquals(LocalDate.parse("2026-10-27"), week.bars.first().start)
-        assertEquals(501, week.bars.last().tokens)
         assertEquals(listOf("OpenAI:gpt-x", "DeepSeek:flash"), week.byModel.map { it.key })
-        assertEquals(
-            listOf(UsageLedgerSource.CHAT, UsageLedgerSource.TASK, UsageLedgerSource.TITLE),
-            week.bySource.map { it.key },
-        )
+        assertEquals(listOf(10_000L, 500L), week.byModel.map { it.tokens })
+        assertEquals(listOf(2L, 1L), week.byModel.map { it.requests })
 
         val all = UsageStats.period(rows, UsagePeriod.ALL, shanghai, today)
         assertEquals(1_010_500, all.totalTokens)
-        assertEquals(LocalDate.parse("2026-10-26"), all.bars.first().start)
-    }
-
-    @Test
-    fun `long periods bin bars by week`() {
-        val start = LocalDate.parse("2026-01-01")
-        val rows = listOf(row(start.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), tokens = 7))
-        val end = start.plusDays(99)
-        val all = UsageStats.period(rows, UsagePeriod.ALL, ZoneOffset.UTC, end)
-        assertEquals(15, all.bars.size)
-        assertEquals(7, all.bars.first().tokens)
-        assertEquals(7, all.bars.sumOf { it.tokens })
-        // A 90-day period stays daily.
-        assertEquals(90, UsageStats.period(rows, UsagePeriod.QUARTER, ZoneOffset.UTC, end).bars.size)
     }
 
     @Test

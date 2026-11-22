@@ -905,8 +905,7 @@
     <string name="storage_metadata">Метаданные</string>
     <string name="storage_embeddings">Эмбеддинги</string>
     <string name="storage_selected">Выбрано: %1$d</string>
-    <string name="storage_show_more">Показать ещё</string>
-    <string name="storage_delete_title">Удалить разговоры (%1$d)?</string>
+        <string name="storage_delete_title">Удалить разговоры (%1$d)?</string>
     <string name="storage_delete_message">Выбранные разговоры, их субагенты и вложения будут удалены без возможности восстановления.</string>
     <string name="storage_delete_progress">Удалено %1$d из %2$d</string>
     <string name="storage_empty">Нет разговоров</string>
@@ -936,15 +935,7 @@
     <string name="usage_output">Вывод</string>
     <string name="usage_cached">Ввод из кэша</string>
     <string name="usage_cache_hit">Попадания в кэш</string>
-    <string name="usage_chart_daily">Токены по дням</string>
-    <string name="usage_chart_weekly">Токены по неделям</string>
-    <string name="usage_by_model">По моделям</string>
-    <string name="usage_by_source">По источникам</string>
-    <string name="usage_other">Другое</string>
-    <string name="usage_source_chat">Разговоры</string>
-    <string name="usage_source_task">Задачи</string>
-    <string name="usage_source_subagent">Субагенты</string>
-    <string name="usage_source_title">Заголовки</string>
-    <string name="usage_source_transcription">Расшифровка</string>
-    <string name="usage_missing_tokens_note">Использование записывается по завершении каждого запроса к провайдеру, более ранняя история не учитывается. Провайдеры без отчётов считаются как ноль токенов. При удалении разговора его использование сохраняется.</string>
+            <string name="usage_by_model">По моделям</string>
+        <string name="usage_other">Другое</string>
+                        <string name="usage_missing_tokens_note">Использование записывается по завершении каждого запроса к провайдеру, история один раз дополняется при обновлении базы данных. Провайдеры без отчётов считаются как ноль токенов. При удалении разговора его использование сохраняется.</string>
 </resources>

@@ -159,11 +159,15 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   `sandbox-home`, minus its attachments so no byte is counted twice) and Cache (`cacheDir`).
 - **Conversations group.** Top-level conversations sorted by total size, largest first. Subagent
   children (any depth, cycle-safe) roll into their root. Each row shows title, message count
-  (prefixed with the Task label for task executions) and total size. Tapping expands a per-conversation
-  segmented bar with Text, Tool calls, Attachments, Embeddings and Metadata legend rows. The list
-  renders 100 rows and a Show more row.
+  (prefixed with the Task label for task executions) and total size, plus a chevron at the end that
+  points down while the row is expanded and up while it is collapsed. Tapping expands a
+  per-conversation segmented bar with Text, Tool calls, Attachments, Embeddings and Metadata legend
+  rows. The list renders 100 rows and appends the next page once the scroll position comes within
+  320dp of the bottom; there is no Show more row, and the page keeps the saved Settings scroll state.
 - **Multi-select.** Long-press toggles selection and enters selection mode: the title becomes the
-  selected count, checkboxes appear, taps toggle, Back clears. Delete reuses
+  selected count, checkboxes appear, taps toggle, Back clears. Each leading checkbox expands
+  horizontally out of the row edge with a fade (200ms in, 150ms out; instant when motion is
+  disabled), and a long press starts the same transition. Delete reuses
   `ChatDeleteConfirmDialog` and `ChatViewModel.deleteConversation`, one conversation at a time. While
   it runs the dialog shows a determinate progress bar and `done/total`. Conversations that fail stay
   selected and the dialog moves to its failed state so the user can retry.
@@ -194,17 +198,21 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   streak. No cost figures.
 - **Tokens group.** A 7/30/90/All `PillTabSwitcher` selects the period for the cards below it
   (input, output, cached input, cache hit rate as cached over reported input, `—` when nothing was
-  reported), the bar chart (daily, or weekly above 90 days; tap a bar for its date and value) and the
-  By model and By source groups. Those use the segmented bar and legend of the Storage page; at most
-  six segments, the rest folded into Other, legend values "tokens · percent".
+  reported) and the By model group. The daily bar chart and the By source breakdown are removed. By
+  model uses the segmented bar and legend of the Storage page; at most six segments, the rest folded
+  into Other, legend values "tokens · percent".
 - **Loading.** Same as Storage: in-card spinner with "Counting…", dimmed previous values,
-  placeholders on first load, no page-level progress bar.
+  placeholders on first load, no page-level progress bar. The spinner is 20dp with a 2.5dp stroke and
+  a bodyMedium label 8dp away. Placeholder blocks and an empty segmented bar fill with a slow
+  left-to-right shimmer (1400ms), which becomes a solid fill when motion is disabled.
 - **Data.** `usage_ledger` (DB 48) holds per-request totals in 15-minute UTC buckets keyed by
   provider, model and source (Chat, Task, Subagent, Title, Transcription). `UsageRecorder` writes one
   row update when a Provider request ends (chat generation, title generation, transcription); a
-  request that never received a response is not counted. The ledger is never derived from
-  `messages`, has no history before the upgrade and keeps its rows when conversations are deleted.
-  `UsageStats` assigns buckets to local days in the device zone. An open page reloads when
+  request that never received a response is not counted. DB 49 folds the usage already stored on
+  MODEL messages into the ledger once, during the upgrade: one request per run, provider taken from
+  the model name prefix, source from the conversation's task or parent link. Older data therefore
+  appears without the page ever reading `messages`. Ledger rows are kept when conversations are
+  deleted. `UsageStats` assigns buckets to local days in the device zone. An open page reloads when
   `UsageRecorder.revision` changes.
 
 ## Appearance defaults

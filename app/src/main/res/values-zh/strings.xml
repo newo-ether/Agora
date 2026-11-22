@@ -898,8 +898,7 @@
     <string name="storage_metadata">元数据</string>
     <string name="storage_embeddings">向量索引</string>
     <string name="storage_selected">已选 %1$d 项</string>
-    <string name="storage_show_more">显示更多</string>
-    <string name="storage_delete_title">删除 %1$d 个对话？</string>
+        <string name="storage_delete_title">删除 %1$d 个对话？</string>
     <string name="storage_delete_message">所选对话及其子代理和附件将被永久删除。</string>
     <string name="storage_delete_progress">已删除 %1$d / %2$d</string>
     <string name="storage_empty">没有对话</string>
@@ -929,15 +928,7 @@
     <string name="usage_output">输出</string>
     <string name="usage_cached">缓存输入</string>
     <string name="usage_cache_hit">缓存命中率</string>
-    <string name="usage_chart_daily">每日 token</string>
-    <string name="usage_chart_weekly">每周 token</string>
-    <string name="usage_by_model">按模型</string>
-    <string name="usage_by_source">按来源</string>
-    <string name="usage_other">其他</string>
-    <string name="usage_source_chat">对话</string>
-    <string name="usage_source_task">任务</string>
-    <string name="usage_source_subagent">子代理</string>
-    <string name="usage_source_title">标题生成</string>
-    <string name="usage_source_transcription">转写</string>
-    <string name="usage_missing_tokens_note">用量在每次提供商请求结束时记录，不包含此前的历史。不上报用量的提供商按 0 token 计。删除对话后其用量仍保留。</string>
+            <string name="usage_by_model">按模型</string>
+        <string name="usage_other">其他</string>
+                        <string name="usage_missing_tokens_note">用量在每次提供商请求结束时记录；历史用量在数据库升级时一次性补入。不上报用量的提供商按 0 token 计。删除对话后其用量仍保留。</string>
 </resources>

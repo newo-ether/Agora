@@ -4,7 +4,6 @@ import com.newoether.agora.data.local.UsageLedgerRow
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 data class UsageDay(
     val tokens: Long,
@@ -28,13 +27,7 @@ enum class UsagePeriod(val days: Long?) {
     ALL(null),
 }
 
-/** One bar of the period chart: the tokens of the days starting at [start]. */
-data class UsageBar(
-    val start: LocalDate,
-    val tokens: Long,
-)
-
-/** Tokens attributed to one model or source within a period. */
+/** Tokens attributed to one model within a period. */
 data class UsageShare(
     val key: String,
     val tokens: Long,
@@ -48,18 +41,12 @@ data class UsagePeriodSummary(
     val outputTokens: Long,
     /** Cached share of input among requests that reported a cache split, or null without any. */
     val cacheHitRate: Double?,
-    val bars: List<UsageBar>,
     /** Largest first. */
     val byModel: List<UsageShare>,
-    /** Largest first. */
-    val bySource: List<UsageShare>,
 )
 
 /** Aggregates ledger rows for the Usage page in the device time zone. */
 object UsageStats {
-    /** Above this many days a period chart groups days into weeks so bars stay readable. */
-    private const val MAX_DAILY_BARS = 90
-
     private fun UsageLedgerRow.day(zone: ZoneId): LocalDate =
         Instant.ofEpochMilli(bucket * UsageRecorder.BUCKET_MILLIS).atZone(zone).toLocalDate()
 
@@ -91,39 +78,21 @@ object UsageStats {
         val inPeriod = rows.map { it to it.day(zone) }.filter { (_, day) ->
             !day.isAfter(today) && (periodDays == null || !day.isBefore(today.minusDays(periodDays - 1)))
         }
-        val first = when {
-            periodDays != null -> today.minusDays(periodDays - 1)
-            else -> inPeriod.minOfOrNull { it.second } ?: today
-        }
 
         var input = 0L
         var cached = 0L
         var output = 0L
         var total = 0L
         var cacheReportedInput = 0L
-        val tokensByDay = HashMap<LocalDate, Long>()
         val models = HashMap<String, LongArray>()
-        val sources = HashMap<String, LongArray>()
-        for ((row, day) in inPeriod) {
+        for ((row, _) in inPeriod) {
             input += row.inputTokens
             cached += row.cachedInputTokens
             output += row.outputTokens
             total += row.totalTokens
             cacheReportedInput += row.cacheReportedInputTokens
-            tokensByDay.merge(day, row.totalTokens, Long::plus)
             models.getOrPut(row.model) { LongArray(2) }.add(row)
-            sources.getOrPut(row.source) { LongArray(2) }.add(row)
         }
-
-        val span = ChronoUnit.DAYS.between(first, today) + 1
-        val binDays = if (span > MAX_DAILY_BARS) 7L else 1L
-        val bars = generateSequence(first) { it.plusDays(binDays) }
-            .takeWhile { !it.isAfter(today) }
-            .map { start ->
-                val tokens = (0 until binDays).sumOf { offset -> tokensByDay[start.plusDays(offset)] ?: 0L }
-                UsageBar(start, tokens)
-            }
-            .toList()
 
         return UsagePeriodSummary(
             totalTokens = total,
@@ -135,9 +104,7 @@ object UsageStats {
             } else {
                 null
             },
-            bars = bars,
             byModel = models.toShares(),
-            bySource = sources.toShares(),
         )
     }
 

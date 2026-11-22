@@ -905,8 +905,7 @@
     <string name="storage_metadata">البيانات الوصفية</string>
     <string name="storage_embeddings">التضمينات</string>
     <string name="storage_selected">المحدد: %1$d</string>
-    <string name="storage_show_more">عرض المزيد</string>
-    <string name="storage_delete_title">حذف المحادثات (%1$d)؟</string>
+        <string name="storage_delete_title">حذف المحادثات (%1$d)؟</string>
     <string name="storage_delete_message">سيتم حذف المحادثات المحددة ووكلائها الفرعيين ومرفقاتها نهائيًا.</string>
     <string name="storage_delete_progress">تم حذف %1$d من %2$d</string>
     <string name="storage_empty">لا توجد محادثات</string>
@@ -936,15 +935,7 @@
     <string name="usage_output">الإخراج</string>
     <string name="usage_cached">إدخال مخزّن مؤقتًا</string>
     <string name="usage_cache_hit">نسبة إصابة ذاكرة التخزين المؤقت</string>
-    <string name="usage_chart_daily">الرموز يوميًا</string>
-    <string name="usage_chart_weekly">الرموز أسبوعيًا</string>
-    <string name="usage_by_model">حسب النموذج</string>
-    <string name="usage_by_source">حسب المصدر</string>
-    <string name="usage_other">أخرى</string>
-    <string name="usage_source_chat">المحادثات</string>
-    <string name="usage_source_task">المهام</string>
-    <string name="usage_source_subagent">الوكلاء الفرعيون</string>
-    <string name="usage_source_title">العناوين</string>
-    <string name="usage_source_transcription">التفريغ الصوتي</string>
-    <string name="usage_missing_tokens_note">يُسجَّل الاستخدام عند انتهاء كل طلب إلى المزوّد، لذا لا يشمل السجل السابق. يُحتسب المزوّدون الذين لا يبلّغون عن الاستخدام صفر رموز. يبقى استخدام المحادثة بعد حذفها.</string>
+            <string name="usage_by_model">حسب النموذج</string>
+        <string name="usage_other">أخرى</string>
+                        <string name="usage_missing_tokens_note">يُسجَّل الاستخدام عند انتهاء كل طلب إلى المزوّد، لذا لا يشمل السجل السابق. يُحتسب المزوّدون الذين لا يبلّغون عن الاستخدام صفر رموز. يبقى استخدام المحادثة بعد حذفها.</string>
 </resources>

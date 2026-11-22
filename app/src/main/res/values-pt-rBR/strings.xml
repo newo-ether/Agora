@@ -905,8 +905,7 @@
     <string name="storage_metadata">Metadados</string>
     <string name="storage_embeddings">Embeddings</string>
     <string name="storage_selected">%1$d selecionadas</string>
-    <string name="storage_show_more">Mostrar mais</string>
-    <string name="storage_delete_title">Excluir %1$d conversas?</string>
+        <string name="storage_delete_title">Excluir %1$d conversas?</string>
     <string name="storage_delete_message">As conversas selecionadas, seus subagentes e anexos serão excluídos permanentemente.</string>
     <string name="storage_delete_progress">%1$d / %2$d excluídas</string>
     <string name="storage_empty">Nenhuma conversa</string>
@@ -936,15 +935,7 @@
     <string name="usage_output">Saída</string>
     <string name="usage_cached">Entrada em cache</string>
     <string name="usage_cache_hit">Taxa de acerto do cache</string>
-    <string name="usage_chart_daily">Tokens por dia</string>
-    <string name="usage_chart_weekly">Tokens por semana</string>
-    <string name="usage_by_model">Por modelo</string>
-    <string name="usage_by_source">Por origem</string>
-    <string name="usage_other">Outros</string>
-    <string name="usage_source_chat">Conversas</string>
-    <string name="usage_source_task">Tarefas</string>
-    <string name="usage_source_subagent">Subagentes</string>
-    <string name="usage_source_title">Títulos</string>
-    <string name="usage_source_transcription">Transcrição</string>
-    <string name="usage_missing_tokens_note">O uso é registrado ao fim de cada solicitação ao provedor, então o histórico anterior não está incluído. Provedores que não informam uso contam como zero tokens. Excluir uma conversa mantém o uso dela.</string>
+            <string name="usage_by_model">Por modelo</string>
+        <string name="usage_other">Outros</string>
+                        <string name="usage_missing_tokens_note">O uso é registrado ao fim de cada solicitação ao provedor, o histórico é preenchido uma vez durante a atualização do banco de dados. Provedores que não informam uso contam como zero tokens. Excluir uma conversa mantém o uso dela.</string>
 </resources>

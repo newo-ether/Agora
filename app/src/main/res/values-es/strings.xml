@@ -905,8 +905,7 @@
     <string name="storage_metadata">Metadatos</string>
     <string name="storage_embeddings">Embeddings</string>
     <string name="storage_selected">%1$d seleccionadas</string>
-    <string name="storage_show_more">Mostrar más</string>
-    <string name="storage_delete_title">¿Eliminar %1$d conversaciones?</string>
+        <string name="storage_delete_title">¿Eliminar %1$d conversaciones?</string>
     <string name="storage_delete_message">Se eliminarán de forma permanente las conversaciones seleccionadas, sus subagentes y sus adjuntos.</string>
     <string name="storage_delete_progress">%1$d / %2$d eliminadas</string>
     <string name="storage_empty">No hay conversaciones</string>
@@ -936,15 +935,7 @@
     <string name="usage_output">Salida</string>
     <string name="usage_cached">Entrada en caché</string>
     <string name="usage_cache_hit">Tasa de aciertos de caché</string>
-    <string name="usage_chart_daily">Tokens por día</string>
-    <string name="usage_chart_weekly">Tokens por semana</string>
-    <string name="usage_by_model">Por modelo</string>
-    <string name="usage_by_source">Por origen</string>
-    <string name="usage_other">Otros</string>
-    <string name="usage_source_chat">Conversaciones</string>
-    <string name="usage_source_task">Tareas</string>
-    <string name="usage_source_subagent">Subagentes</string>
-    <string name="usage_source_title">Títulos</string>
-    <string name="usage_source_transcription">Transcripción</string>
-    <string name="usage_missing_tokens_note">El uso se registra al terminar cada solicitud al proveedor, así que no incluye el historial anterior. Los proveedores que no reportan uso cuentan como cero tokens. Eliminar una conversación conserva su uso.</string>
+            <string name="usage_by_model">Por modelo</string>
+        <string name="usage_other">Otros</string>
+                        <string name="usage_missing_tokens_note">El uso se registra al terminar cada solicitud al proveedor; el historial se completa una vez durante la actualización de la base de datos. Los proveedores que no informan uso cuentan como cero tokens. Eliminar una conversación conserva su uso.</string>
 </resources>

@@ -905,8 +905,7 @@
     <string name="storage_metadata">メタデータ</string>
     <string name="storage_embeddings">埋め込み</string>
     <string name="storage_selected">%1$d 件選択中</string>
-    <string name="storage_show_more">さらに表示</string>
-    <string name="storage_delete_title">%1$d 件の会話を削除しますか？</string>
+        <string name="storage_delete_title">%1$d 件の会話を削除しますか？</string>
     <string name="storage_delete_message">選択した会話と、そのサブエージェントおよび添付ファイルが完全に削除されます。</string>
     <string name="storage_delete_progress">%1$d / %2$d 件削除済み</string>
     <string name="storage_empty">会話がありません</string>
@@ -936,15 +935,7 @@
     <string name="usage_output">出力</string>
     <string name="usage_cached">キャッシュ入力</string>
     <string name="usage_cache_hit">キャッシュヒット率</string>
-    <string name="usage_chart_daily">日別トークン</string>
-    <string name="usage_chart_weekly">週別トークン</string>
-    <string name="usage_by_model">モデル別</string>
-    <string name="usage_by_source">ソース別</string>
-    <string name="usage_other">その他</string>
-    <string name="usage_source_chat">会話</string>
-    <string name="usage_source_task">タスク</string>
-    <string name="usage_source_subagent">サブエージェント</string>
-    <string name="usage_source_title">タイトル生成</string>
-    <string name="usage_source_transcription">文字起こし</string>
-    <string name="usage_missing_tokens_note">使用量はプロバイダーへの各リクエストの終了時に記録され、それ以前の履歴は含まれません。使用量を報告しないプロバイダーは 0 トークンとして数えます。会話を削除しても使用量は残ります。</string>
+            <string name="usage_by_model">モデル別</string>
+        <string name="usage_other">その他</string>
+                        <string name="usage_missing_tokens_note">使用量はプロバイダーへの各リクエストの終了時に記録され、履歴はデータベースのアップグレード時に一度だけ補完されます。使用量を報告しないプロバイダーは 0 トークンとして数えます。会話を削除しても使用量は残ります。</string>
 </resources>

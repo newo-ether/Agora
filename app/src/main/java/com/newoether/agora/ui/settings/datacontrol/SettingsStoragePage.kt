@@ -3,6 +3,13 @@ package com.newoether.agora.ui.settings.datacontrol
 import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,10 +19,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,11 +39,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,16 +58,19 @@ import com.newoether.agora.ui.chat.ChatDeleteConfirmDialog
 import com.newoether.agora.ui.chat.ChatDeleteDialogPhase
 import com.newoether.agora.ui.chat.bottombar.LegendRow
 import com.newoether.agora.ui.chat.bottombar.SegmentedBar
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.settings.CollapsingSettingsScaffold
 import com.newoether.agora.ui.settings.SettingsGroup
 import com.newoether.agora.ui.settings.SettingsGroupColumn
 import com.newoether.agora.ui.settings.SettingsItem
 import com.newoether.agora.ui.settings.StatsPlaceholder
 import com.newoether.agora.ui.settings.StatsRefreshStatus
+import com.newoether.agora.ui.settings.rememberSettingsScrollState
 import com.newoether.agora.ui.settings.statsSegmentColors
 import com.newoether.agora.ui.settings.statsStaleAlpha
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlin.coroutines.resume
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 
@@ -68,12 +83,14 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
     val report by viewModel.dataControl.storageReport.collectAsState()
     val refreshing by viewModel.dataControl.storageRefreshing.collectAsState()
 
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var expanded by remember { mutableStateOf<Set<String>>(emptySet()) }
     var visibleCount by remember { mutableIntStateOf(PAGE_SIZE) }
+    val scroll = rememberSettingsScrollState()
     // Bulk delete: null hides the dialog; the IDs are those still to delete (failures after a pass).
     var deletePhase by remember { mutableStateOf<ChatDeleteDialogPhase?>(null) }
     var deleteIds by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -93,6 +110,7 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
             stringResource(R.string.storage_title)
         },
         onBack = { if (selecting) selected = emptySet() else onBack() },
+        scrollState = scroll,
         actions = {
             if (selecting) {
                 IconButton(onClick = { selected = emptySet() }) {
@@ -129,7 +147,7 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 })
                 else -> {
                     val shown = conversations.take(visibleCount)
-                    val items = shown.map { conversation ->
+                    shown.map { conversation ->
                         @Composable {
                             ConversationStorageRow(
                                 conversation = conversation,
@@ -149,25 +167,20 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             )
                         }
                     }
-                    val more: List<@Composable () -> Unit> = if (conversations.size > shown.size) {
-                        listOf({
-                            SettingsItem(
-                                headlineContent = {
-                                    Text(
-                                        stringResource(R.string.storage_show_more),
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                },
-                                modifier = Modifier.combinedClickable(onClick = { visibleCount += PAGE_SIZE }),
-                            )
-                        })
-                    } else {
-                        emptyList()
-                    }
-                    items + more
                 }
             }
             SettingsGroup(title = stringResource(R.string.storage_conversations), items = rows)
+
+            val total = conversations?.size ?: 0
+            // Reaching the end of the list loads the next page, as the Remote session list does.
+            LaunchedEffect(scroll, total, visibleCount) {
+                if (visibleCount >= total) return@LaunchedEffect
+                val threshold = with(density) { AUTO_LOAD_THRESHOLD.toPx() }
+                withFrameNanos { }
+                snapshotFlow { scroll.value >= scroll.maxValue - threshold }
+                    .filter { it }
+                    .collect { visibleCount += PAGE_SIZE }
+            }
         }
     }
 
@@ -327,17 +340,48 @@ private fun ConversationStorageRow(
                 }
                 Text(text)
             },
-            leadingContent = if (selecting) {
-                { Checkbox(checked = isSelected, onCheckedChange = null) }
-            } else {
-                null
+            leadingContent = {
+                // The check appears with the selection, so a normal tap never shifts the title.
+                val motion = LocalAgoraMotionPolicy.current
+                AnimatedVisibility(
+                    visible = selecting,
+                    enter = if (motion.allowSpatialTransitions) {
+                        expandHorizontally(tween(200)) + fadeIn(tween(200))
+                    } else {
+                        fadeIn(tween(0))
+                    },
+                    exit = if (motion.allowSpatialTransitions) {
+                        shrinkHorizontally(tween(150)) + fadeOut(tween(150))
+                    } else {
+                        fadeOut(tween(0))
+                    },
+                ) {
+                    Checkbox(checked = isSelected, onCheckedChange = null)
+                }
             },
             trailingContent = {
-                Text(
-                    size(conversation.totalBytes),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        size(conversation.totalBytes),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    if (!selecting) {
+                        Spacer(Modifier.width(4.dp))
+                        val motion = LocalAgoraMotionPolicy.current
+                        val rotation by animateFloatAsState(
+                            targetValue = if (isExpanded) 180f else 0f,
+                            animationSpec = if (motion.allowSpatialTransitions) tween(200) else snap(),
+                            label = "storageRowArrow",
+                        )
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp).rotate(rotation),
+                        )
+                    }
+                }
             },
         )
         AnimatedVisibility(visible = isExpanded && !selecting) {
@@ -370,3 +414,4 @@ private fun Set<String>.toggle(id: String): Set<String> = if (id in this) this -
 
 private const val PAGE_SIZE = 100
 private const val PLACEHOLDER_ROWS = 3
+private val AUTO_LOAD_THRESHOLD = 320.dp

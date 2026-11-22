@@ -1,7 +1,11 @@
 package com.newoether.agora.ui.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -30,6 +34,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -48,15 +56,45 @@ import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 internal fun StatsRefreshStatus(visible: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut(), modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MotionAwareCircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
-            Spacer(Modifier.width(6.dp))
+            MotionAwareCircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.5.dp)
+            Spacer(Modifier.width(8.dp))
             Text(
                 stringResource(R.string.stats_counting),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
+}
+
+/**
+ * Fill of a solid placeholder capsule: a band slightly brighter than the capsule sweeps across it,
+ * so an empty figure reads as still counting instead of as a value. The band holds still when
+ * continuous motion is not allowed.
+ */
+@Composable
+internal fun statsShimmerBrush(
+    base: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+): Brush {
+    val motion = LocalAgoraMotionPolicy.current
+    if (!motion.allowContinuousMotion) return SolidColor(base)
+    val highlight = lerp(base, MaterialTheme.colorScheme.onSurface, 0.09f)
+    val transition = rememberInfiniteTransition(label = "statsShimmer")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
+        label = "statsShimmerPhase",
+    )
+    val width = 0.28f
+    val center = -width + (1f + 2f * width) * phase
+    return Brush.horizontalGradient(
+        0f to base,
+        (center - width).coerceIn(0f, 1f) to base,
+        center.coerceIn(0f, 1f) to highlight,
+        (center + width).coerceIn(0f, 1f) to base,
+        1f to base,
+    )
 }
 
 /** Alpha for figures that are shown while a newer count is still running. */
@@ -78,7 +116,7 @@ internal fun StatsPlaceholder(width: Dp, height: Dp, modifier: Modifier = Modifi
         modifier
             .size(width, height)
             .clip(RoundedCornerShape(height / 2))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            .background(statsShimmerBrush()),
     )
 }
 
