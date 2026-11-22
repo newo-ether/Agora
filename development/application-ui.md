@@ -1688,6 +1688,14 @@ Authenticated same-origin reads resolve only that message's app-private media an
 browser path. Missing media shows a terminal unavailable thumbnail. The shared viewer opens the
 tapped occurrence. Streaming answer/code text uses draw-only time alpha (500 ms linear); the answer
 tail dot remains independent. Compact rows render their capsule regardless of legacy participant.
+Horizontally scrolling browser strips fade the edge that still hides content, matching the native
+attachment row and heatmap: a shared 24px mask covers the user attachment row, the composer
+attachment row, message KaTeX display blocks and any `.edge-fade-x` owner. `edge-fade.js` writes
+`--edge-fade-left`/`--edge-fade-right` from `scrollWidth`, `clientWidth` and `scrollLeft` (RTL
+included), and follows scroll, size changes and late loading through a `MutationObserver` and load
+listener. A strip whose content fits, or whose end is reached, keeps that edge at 0; both weights
+cross-fade in 200ms, and Reduced Motion keeps that fade like every other browser fade because it is
+draw-only and never changes layout or scroll extent.
 The shared browser DetailSheet uses SmoothBottomSheet's fraction spring (350, damping 0.9) for
 entry, anchor changes and retained exit. Scrim alpha is 0.32 times that same fraction. Its handle
 interrupts the spring; close returns focus only after the sheet reaches zero. Option labels use the

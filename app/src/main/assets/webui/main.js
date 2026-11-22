@@ -5,6 +5,7 @@ import { html } from "./html.js";
 import { sessionSignedIn } from "./api.js";
 import { SignIn } from "./signin.js";
 import { Shell } from "./shell.js";
+import { installEdgeFades } from "./edge-fade.js";
 import { installTouchFeedback } from "./material/ripple.js";
 
 function App() {
@@ -21,4 +22,6 @@ function App() {
 
 // Press and hover feedback is delegated once here, so every control in every list has it.
 installTouchFeedback();
+// Horizontal scroll strips fade their edges wherever they appear, in the sheet or in a message.
+installEdgeFades();
 render(html`<${App} />`, document.getElementById("app"));

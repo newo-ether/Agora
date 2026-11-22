@@ -564,7 +564,7 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
         </div>
         <div class="composer-input-clip" ref=${inputClip}>
         <div class="composer-input-content" ref=${inputContent}>
-        ${attachments.length > 0 && html`<div class="attachment-row" aria-label=${t.attachments}>
+        ${attachments.length > 0 && html`<div class="attachment-row edge-fade-x" aria-label=${t.attachments}>
           ${attachments.map(a => html`<${AttachmentTile} key=${`${state.connectionId}:${state.composer.seq}:${a.id}`} attachment=${a} editable=${editable} onPreview=${() => preview(a)} />`)}
         </div>`}
         ${pendingPastes.map(paste => html`<div class="queued-send" key=${paste.id} role="status">

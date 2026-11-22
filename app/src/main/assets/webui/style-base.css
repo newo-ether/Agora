@@ -303,3 +303,17 @@ p {
   font-style: italic;
   font-display: swap;
 }
+/*
+ * Horizontal scroll areas fade the edge that still holds content, like the native heatmap. The
+ * numbers come from edge-fade.js; both stay 0 when the content fits or that end is reached.
+ */
+@property --edge-fade-left { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --edge-fade-right { syntax: "<number>"; inherits: false; initial-value: 0; }
+.edge-fade-x, .markdown .katex-display {
+  mask-mode: alpha;
+  mask-image: linear-gradient(to right,
+    rgb(0 0 0 / calc(1 - var(--edge-fade-left))) 0,
+    black min(24px, 50%), black calc(100% - min(24px, 50%)),
+    rgb(0 0 0 / calc(1 - var(--edge-fade-right))) 100%);
+  transition: --edge-fade-left 200ms cubic-bezier(.4, 0, .2, 1), --edge-fade-right 200ms cubic-bezier(.4, 0, .2, 1);
+}

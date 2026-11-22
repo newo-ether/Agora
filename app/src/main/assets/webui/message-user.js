@@ -127,7 +127,7 @@ export function UserBubble({ message, search, matches, reduceMotion, generating,
             ${icon(ICON_MORE_VERT)}</button>
         </div>
         <div class=${`user-bubble${result ? " subagent-result-bubble" : ""}`}>
-          ${attachments.length > 0 && html`<div class="user-attachments" data-body-gap=${hasBody}>
+          ${attachments.length > 0 && html`<div class="user-attachments edge-fade-x" data-body-gap=${hasBody}>
             ${attachments.map(item => {
               const index = media.findIndex(current => current.index === item.index);
               const file = item.type === "file";
