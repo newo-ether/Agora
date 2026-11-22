@@ -152,16 +152,33 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
         }
         if (!ordered.isNullOrEmpty()) {
             item(key = "storage_sort") {
-                PillTabSwitcher(
-                    tabs = listOf(
-                        stringResource(R.string.storage_sort_size),
-                        stringResource(R.string.storage_sort_messages),
-                    ),
-                    selectedIndex = sort.ordinal,
-                    onSelect = { sort = StorageSort.entries[it] },
-                    modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp),
-                    tabHeight = 40.dp,
-                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // A bare "Size"/"Messages" pair reads like a filter; the caption names the
+                    // order the pills apply to the list below.
+                    Text(
+                        stringResource(R.string.storage_sort_by),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    PillTabSwitcher(
+                        tabs = listOf(
+                            stringResource(R.string.storage_sort_size),
+                            stringResource(R.string.storage_sort_messages),
+                        ),
+                        selectedIndex = sort.ordinal,
+                        onSelect = { sort = StorageSort.entries[it] },
+                        modifier = Modifier.weight(1f),
+                        tabHeight = 40.dp,
+                    )
+                }
             }
         }
         when {

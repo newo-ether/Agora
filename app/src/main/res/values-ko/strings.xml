@@ -898,6 +898,7 @@
     <string name="storage_local_models">로컬 모델</string>
     <string name="storage_sandbox">샌드박스</string>
     <string name="storage_conversations">대화</string>
+    <string name="storage_sort_by">정렬 기준</string>
     <string name="storage_sort_size">크기</string>
     <string name="storage_sort_messages">메시지 수</string>
     <string name="stats_counting">집계 중…</string>

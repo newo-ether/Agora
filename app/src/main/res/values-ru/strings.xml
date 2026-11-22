@@ -898,6 +898,7 @@
     <string name="storage_local_models">Локальные модели</string>
     <string name="storage_sandbox">Песочница</string>
     <string name="storage_conversations">Разговоры</string>
+    <string name="storage_sort_by">Сортировать по</string>
     <string name="storage_sort_size">Размер</string>
     <string name="storage_sort_messages">Сообщения</string>
     <string name="stats_counting">Подсчёт…</string>

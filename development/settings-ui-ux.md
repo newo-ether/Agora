@@ -162,14 +162,15 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   killed export is deleted at the start of the next export once it is over an hour old.
 - **Conversations group.** A Size/Messages `PillTabSwitcher` above the rows picks the order: Size
   keeps the report order (total size, largest first), Messages orders by message count with size and
-  then id as tie-breakers; the choice is saved with the page. Top-level conversations only; subagent
-  children (any depth, cycle-safe) roll into their root. Each row shows title, message count
-  (prefixed with the Task label for task executions) and total size, plus a chevron at the end that
-  points down while the row is expanded and up while it is collapsed. Tapping expands a
-  per-conversation segmented bar with Text, Tool calls, Attachments, Embeddings and Metadata legend
-  rows. The rows are lazy: the page is a `LazyColumn` that composes only the rows on screen, so a
-  long conversation list scrolls without composing all of it; the page keeps the saved Settings
-  scroll state.
+  then id as tie-breakers; the choice is saved with the page. A "Sort by" caption sits left of the
+  pills on the same row, because a bare pair of nouns reads like a filter rather than an order.
+  Top-level conversations only; subagent children (any depth, cycle-safe) roll into their root.
+  Each row shows title, message count (prefixed with the Task label for task executions) and
+  total size, plus a chevron at the end that points down while the row is expanded and up while it
+  is collapsed. Tapping expands a per-conversation segmented bar with Text, Tool calls,
+  Attachments, Embeddings and Metadata legend rows. The rows are lazy: the page is a `LazyColumn`
+  that composes only the rows on screen, so a long conversation list scrolls without composing
+  all of it; the page keeps the saved Settings scroll state.
 - **Multi-select.** Long-press toggles selection and enters selection mode: the title becomes the
   selected count, checkboxes appear, taps toggle, Back clears. Each leading checkbox expands
   horizontally out of the row edge with a fade (200ms in, 150ms out; instant when motion is
@@ -205,7 +206,9 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   shifts the date sideways.
   Five shades: zero, then quartiles of the non-zero days, so one heavy day does not flatten the
   rest. Tapping a dot shows its date and value below; the picked dot is drawn as a contrasting
-  collar with a smaller value dot inside it, and today is outlined.
+  collar with a smaller value dot inside it, and today is outlined. A tab switch fades every dot
+  from its old shade to the new one (240ms, instant when motion is disabled), so the calendar
+  washes into the new ramp instead of repainting in one frame.
 - **Overview group.** Two-column `StatsCardGrid`: total tokens, requests, current streak, longest
   streak. No cost figures.
 - **Tokens group.** A 7/30/90/All `PillTabSwitcher` under the "Token Statistics" title selects the
