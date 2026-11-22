@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Download
@@ -34,6 +33,7 @@ import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Percent
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -175,7 +175,7 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         overview?.let { count(it.totalTokens) },
                     ),
                     StatsCard(
-                        Icons.Default.Bolt,
+                        Icons.Default.SwapHoriz,
                         stringResource(R.string.usage_total_requests),
                         overview?.let { count(it.totalRequests) },
                     ),
