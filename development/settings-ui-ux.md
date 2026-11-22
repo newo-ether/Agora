@@ -160,7 +160,9 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   (`cacheDir`: export spools, shared copies and media previews). RAG embeddings are database rows
   and appear as the per-conversation Embeddings legend, never here. An export spool left behind by a
   killed export is deleted at the start of the next export once it is over an hour old.
-- **Conversations group.** Top-level conversations sorted by total size, largest first. Subagent
+- **Conversations group.** A Size/Messages `PillTabSwitcher` above the rows picks the order: Size
+  keeps the report order (total size, largest first), Messages orders by message count with size and
+  then id as tie-breakers; the choice is saved with the page. Top-level conversations only; subagent
   children (any depth, cycle-safe) roll into their root. Each row shows title, message count
   (prefixed with the Task label for task executions) and total size, plus a chevron at the end that
   points down while the row is expanded and up while it is collapsed. Tapping expands a
@@ -208,7 +210,9 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   streak. No cost figures.
 - **Tokens group.** A 7/30/90/All `PillTabSwitcher` under the "Token Statistics" title selects the
   period for the cards below it (input, output, cached input, cache hit rate as cached over reported
-  input, `—` when nothing was reported), the bar chart and the "Tokens per Model" group. The bar
+  input, `—` when nothing was reported), the bar chart and the "Tokens per Model" group. Seven days
+  is the default. Changing the period cross-fades the chart in 200ms (instant when motion is
+  disabled), because the bars, the date labels and the scroll range all change at once. The bar
   chart keeps one bar per day for every period and never bins days into weeks. Thirty days is the
   widest span that fits the plot, so 90 and All keep the day's width and scroll horizontally; the
   edge that still hides bars fades through the same 24dp mask as the heatmap. The value axis

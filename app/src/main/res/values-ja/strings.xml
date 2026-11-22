@@ -898,6 +898,8 @@
     <string name="storage_local_models">ローカルモデル</string>
     <string name="storage_sandbox">サンドボックス</string>
     <string name="storage_conversations">会話</string>
+    <string name="storage_sort_size">サイズ</string>
+    <string name="storage_sort_messages">メッセージ数</string>
     <string name="stats_counting">集計中…</string>
     <string name="storage_message_count">%1$d 件のメッセージ</string>
     <string name="storage_text">テキスト</string>

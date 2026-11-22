@@ -898,6 +898,8 @@
     <string name="storage_local_models">Modelos locais</string>
     <string name="storage_sandbox">Sandbox</string>
     <string name="storage_conversations">Conversas</string>
+    <string name="storage_sort_size">Tamanho</string>
+    <string name="storage_sort_messages">Mensagens</string>
     <string name="stats_counting">Contando…</string>
     <string name="storage_message_count">%1$d mensagens</string>
     <string name="storage_text">Texto</string>

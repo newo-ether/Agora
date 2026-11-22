@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -60,6 +61,7 @@ import com.newoether.agora.ui.chat.bottombar.LegendRow
 import com.newoether.agora.ui.chat.bottombar.SegmentedBar
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.settings.CollapsingSettingsLazyScaffold
+import com.newoether.agora.ui.settings.PillTabSwitcher
 import com.newoether.agora.ui.settings.SettingsGroup
 import com.newoether.agora.ui.settings.SettingsGroupLabel
 import com.newoether.agora.ui.settings.SettingsItem
@@ -73,9 +75,12 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 
+/** Order of the Conversations group; a message tie falls back to size and then id. */
+private enum class StorageSort { SIZE, MESSAGES }
+
 /**
  * Storage page under Data Control: app-private usage by owner as a segmented bar, then
- * conversations by size with expandable breakdowns and multi-select delete.
+ * conversations sorted by size or message count with expandable breakdowns and multi-select delete.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -87,6 +92,7 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val counting = refreshing
 
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var sort by rememberSaveable { mutableStateOf(StorageSort.SIZE) }
     var expanded by remember { mutableStateOf<Set<String>>(emptySet()) }
     // Bulk delete: null hides the dialog; the IDs are those still to delete (failures after a pass).
     var deletePhase by remember { mutableStateOf<ChatDeleteDialogPhase?>(null) }
@@ -135,14 +141,37 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
             SettingsGroupLabel(stringResource(R.string.storage_conversations))
         }
         val conversations = current?.conversations
+        // The report arrives sorted by size; the message order re-sorts the same rows.
+        val ordered = when (sort) {
+            StorageSort.SIZE -> conversations
+            StorageSort.MESSAGES -> conversations?.sortedWith(
+                compareByDescending<ConversationStorage> { it.messageCount }
+                    .thenByDescending { it.totalBytes }
+                    .thenBy { it.id },
+            )
+        }
+        if (!ordered.isNullOrEmpty()) {
+            item(key = "storage_sort") {
+                PillTabSwitcher(
+                    tabs = listOf(
+                        stringResource(R.string.storage_sort_size),
+                        stringResource(R.string.storage_sort_messages),
+                    ),
+                    selectedIndex = sort.ordinal,
+                    onSelect = { sort = StorageSort.entries[it] },
+                    modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp),
+                    tabHeight = 40.dp,
+                )
+            }
+        }
         when {
-            conversations == null -> items(
+            ordered == null -> items(
                 count = PLACEHOLDER_ROWS,
                 key = { "storage_placeholder_$it" },
             ) { index ->
                 StorageRowCard(index, PLACEHOLDER_ROWS) { PlaceholderRow() }
             }
-            conversations.isEmpty() -> item(key = "storage_empty") {
+            ordered.isEmpty() -> item(key = "storage_empty") {
                 StorageRowCard(0, 1) {
                     SettingsItem(headlineContent = {
                         Text(
@@ -153,10 +182,10 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 }
             }
             else -> itemsIndexed(
-                items = conversations,
+                items = ordered,
                 key = { _, conversation -> conversation.id },
             ) { index, conversation ->
-                StorageRowCard(index, conversations.size) {
+                StorageRowCard(index, ordered.size) {
                     ConversationStorageRow(
                         conversation = conversation,
                         selecting = selecting,

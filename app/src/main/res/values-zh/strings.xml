@@ -891,6 +891,8 @@
     <string name="storage_local_models">本地模型</string>
     <string name="storage_sandbox">沙盒</string>
     <string name="storage_conversations">对话</string>
+    <string name="storage_sort_size">大小</string>
+    <string name="storage_sort_messages">消息数</string>
     <string name="stats_counting">正在统计…</string>
     <string name="storage_message_count">%1$d 条消息</string>
     <string name="storage_text">文本</string>
