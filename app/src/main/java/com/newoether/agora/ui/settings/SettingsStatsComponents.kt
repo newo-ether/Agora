@@ -83,7 +83,7 @@ internal fun statsShimmerBrush(
     val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
+        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing)),
         label = "statsShimmerPhase",
     )
     val width = 0.28f

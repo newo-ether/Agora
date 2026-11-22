@@ -21,8 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -30,6 +30,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,14 +41,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,18 +59,17 @@ import com.newoether.agora.ui.chat.ChatDeleteDialogPhase
 import com.newoether.agora.ui.chat.bottombar.LegendRow
 import com.newoether.agora.ui.chat.bottombar.SegmentedBar
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
-import com.newoether.agora.ui.settings.CollapsingSettingsScaffold
+import com.newoether.agora.ui.settings.CollapsingSettingsLazyScaffold
 import com.newoether.agora.ui.settings.SettingsGroup
-import com.newoether.agora.ui.settings.SettingsGroupColumn
+import com.newoether.agora.ui.settings.SettingsGroupLabel
 import com.newoether.agora.ui.settings.SettingsItem
 import com.newoether.agora.ui.settings.StatsPlaceholder
 import com.newoether.agora.ui.settings.StatsRefreshStatus
-import com.newoether.agora.ui.settings.rememberSettingsScrollState
+import com.newoether.agora.ui.settings.settingsGroupRowShape
 import com.newoether.agora.ui.settings.statsSegmentColors
 import com.newoether.agora.ui.settings.statsStaleAlpha
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlin.coroutines.resume
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 
@@ -84,17 +82,12 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
     val report by viewModel.dataControl.storageReport.collectAsState()
     val refreshing by viewModel.dataControl.storageRefreshing.collectAsState()
-    // TEMPORARY: previews the first-run state (nothing counted yet) so the owner can inspect it.
-    var debugCounting by remember { mutableStateOf(false) }
-    val counting = refreshing || debugCounting
+    val counting = refreshing
 
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var expanded by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var visibleCount by remember { mutableIntStateOf(PAGE_SIZE) }
-    val scroll = rememberSettingsScrollState()
     // Bulk delete: null hides the dialog; the IDs are those still to delete (failures after a pass).
     var deletePhase by remember { mutableStateOf<ChatDeleteDialogPhase?>(null) }
     var deleteIds by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -107,14 +100,16 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
 
     fun size(bytes: Long) = Formatter.formatShortFileSize(context, bytes)
 
-    CollapsingSettingsScaffold(
+    val current = report
+    val staleAlpha = statsStaleAlpha(counting && current != null)
+
+    CollapsingSettingsLazyScaffold(
         title = if (selecting) {
             stringResource(R.string.storage_selected, selected.size)
         } else {
             stringResource(R.string.storage_title)
         },
         onBack = { if (selecting) selected = emptySet() else onBack() },
-        scrollState = scroll,
         actions = {
             if (selecting) {
                 IconButton(onClick = { selected = emptySet() }) {
@@ -130,75 +125,59 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 ) {
                     Icon(Icons.Default.Delete, stringResource(R.string.delete))
                 }
-            } else {
-                IconButton(onClick = { debugCounting = !debugCounting }) {
-                    Icon(
-                        Icons.Default.BugReport,
-                        contentDescription = "Debug counting",
-                        tint = if (debugCounting) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
             }
         },
     ) {
-        // The debug toggle mirrors the first-run state: no report, so the page keeps its skeleton.
-        val current = if (debugCounting) null else report
-        val staleAlpha = statsStaleAlpha(counting && current != null)
-        SettingsGroupColumn {
+        item(key = "storage_total") {
             TotalGroup(current?.breakdown, counting, staleAlpha, ::size)
-
-            val conversations = current?.conversations
-            val rows: List<@Composable () -> Unit> = when {
-                conversations == null -> List(PLACEHOLDER_ROWS) { @Composable { PlaceholderRow() } }
-                conversations.isEmpty() -> listOf({
+        }
+        item(key = "storage_conversations_title") {
+            SettingsGroupLabel(stringResource(R.string.storage_conversations))
+        }
+        val conversations = current?.conversations
+        when {
+            conversations == null -> items(
+                count = PLACEHOLDER_ROWS,
+                key = { "storage_placeholder_$it" },
+            ) { index ->
+                StorageRowCard(index, PLACEHOLDER_ROWS) { PlaceholderRow() }
+            }
+            conversations.isEmpty() -> item(key = "storage_empty") {
+                StorageRowCard(0, 1) {
                     SettingsItem(headlineContent = {
                         Text(
                             stringResource(R.string.storage_empty),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     })
-                })
-                else -> {
-                    val shown = conversations.take(visibleCount)
-                    shown.map { conversation ->
-                        @Composable {
-                            ConversationStorageRow(
-                                conversation = conversation,
-                                selecting = selecting,
-                                isSelected = conversation.id in selected,
-                                isExpanded = conversation.id in expanded,
-                                size = ::size,
-                                modifier = Modifier.alpha(staleAlpha),
-                                onClick = {
-                                    if (selecting) {
-                                        selected = selected.toggle(conversation.id)
-                                    } else {
-                                        expanded = expanded.toggle(conversation.id)
-                                    }
-                                },
-                                onLongClick = { selected = selected.toggle(conversation.id) },
-                            )
-                        }
-                    }
                 }
             }
-            SettingsGroup(title = stringResource(R.string.storage_conversations), items = rows)
-
-            val total = conversations?.size ?: 0
-            // Reaching the end of the list loads the next page, as the Remote session list does.
-            LaunchedEffect(scroll, total, visibleCount) {
-                if (visibleCount >= total) return@LaunchedEffect
-                val threshold = with(density) { AUTO_LOAD_THRESHOLD.toPx() }
-                withFrameNanos { }
-                snapshotFlow { scroll.value >= scroll.maxValue - threshold }
-                    .filter { it }
-                    .collect { visibleCount += PAGE_SIZE }
+            else -> itemsIndexed(
+                items = conversations,
+                key = { _, conversation -> conversation.id },
+            ) { index, conversation ->
+                StorageRowCard(index, conversations.size) {
+                    ConversationStorageRow(
+                        conversation = conversation,
+                        selecting = selecting,
+                        isSelected = conversation.id in selected,
+                        isExpanded = conversation.id in expanded,
+                        size = ::size,
+                        modifier = Modifier.alpha(staleAlpha),
+                        onClick = {
+                            if (selecting) {
+                                selected = selected.toggle(conversation.id)
+                            } else {
+                                expanded = expanded.toggle(conversation.id)
+                            }
+                        },
+                        onLongClick = { selected = selected.toggle(conversation.id) },
+                    )
+                }
             }
         }
+        // The group used to own the gap under its last row; a lazy list needs it as its own item.
+        item(key = "storage_bottom_gap") { Spacer(Modifier.height(24.dp)) }
     }
 
     deletePhase?.let { phase ->
@@ -310,6 +289,22 @@ private fun TotalGroup(
             }
         }),
     )
+}
+
+/** One row of the conversations group, shaped like a row inside [SettingsGroup]. */
+@Composable
+private fun StorageRowCard(index: Int, count: Int, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        if (index > 0) Spacer(Modifier.height(2.dp))
+        Surface(
+            shape = settingsGroupRowShape(index, count),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            content()
+        }
+    }
 }
 
 @Composable
@@ -434,6 +429,4 @@ private fun ConversationStorageRow(
 
 private fun Set<String>.toggle(id: String): Set<String> = if (id in this) this - id else this + id
 
-private const val PAGE_SIZE = 100
 private const val PLACEHOLDER_ROWS = 3
-private val AUTO_LOAD_THRESHOLD = 320.dp

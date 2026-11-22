@@ -162,8 +162,9 @@ Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading
   (prefixed with the Task label for task executions) and total size, plus a chevron at the end that
   points down while the row is expanded and up while it is collapsed. Tapping expands a
   per-conversation segmented bar with Text, Tool calls, Attachments, Embeddings and Metadata legend
-  rows. The list renders 100 rows and appends the next page once the scroll position comes within
-  320dp of the bottom; there is no Show more row, and the page keeps the saved Settings scroll state.
+  rows. The rows are lazy: the page is a `LazyColumn` that composes only the rows on screen, so a
+  long conversation list scrolls without composing all of it; the page keeps the saved Settings
+  scroll state.
 - **Multi-select.** Long-press toggles selection and enters selection mode: the title becomes the
   selected count, checkboxes appear, taps toggle, Back clears. Each leading checkbox expands
   horizontally out of the row edge with a fade (200ms in, 150ms out; instant when motion is
@@ -218,7 +219,7 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
   a bodyMedium label 8dp away. A reload that finishes within 200ms never shows the counting state,
   and one that does show it stays up for at least 400ms, so a request-ledger write does not blink
   the page. Placeholder blocks and an empty segmented bar fill with a slow left-to-right shimmer
-  (1400ms), which becomes a solid fill when motion is disabled.
+  (1100ms), which becomes a solid fill when motion is disabled.
 - **Data.** `usage_ledger` (DB 48) holds per-request totals in 15-minute UTC buckets keyed by
   provider, model and source (Chat, Task, Subagent, Title, Transcription). `UsageRecorder` writes one
   row update when a Provider request ends (chat generation, title generation, transcription); a

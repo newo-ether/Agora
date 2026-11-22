@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.TransformOrigin
@@ -78,25 +79,13 @@ fun SettingsGroup(
 ) {
     val effectiveBottom = if (LocalSettingsGroupSpacing.current) 0.dp else bottomPadding
     Column(modifier = modifier.fillMaxWidth().padding(bottom = effectiveBottom)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-        )
+        SettingsGroupLabel(title)
         Column(modifier = Modifier.fillMaxWidth()) {
             items.forEachIndexed { index, item ->
                 if (index > 0) {
                     Spacer(modifier = Modifier.height(2.dp))
                 }
-                val isFirst = index == 0
-                val isLast = index == items.lastIndex
-                val shape = when {
-                    items.size == 1 -> RoundedCornerShape(24.dp)
-                    isFirst -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 5.dp, bottomEnd = 5.dp)
-                    isLast -> RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
-                    else -> RoundedCornerShape(5.dp)
-                }
+                val shape = settingsGroupRowShape(index, items.size)
                 Surface(
                     shape = shape,
                     color = MaterialTheme.colorScheme.surface,
@@ -108,6 +97,26 @@ fun SettingsGroup(
             }
         }
     }
+}
+
+/** Group heading above a list of [SettingsGroup] rows. */
+@Composable
+internal fun SettingsGroupLabel(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+    )
+}
+
+/** Corner shape of row [index] in a group of [count] rows, for lists that place the rows themselves
+ *  into a LazyColumn instead of handing the whole group to [SettingsGroup]. */
+internal fun settingsGroupRowShape(index: Int, count: Int): Shape = when {
+    count == 1 -> RoundedCornerShape(24.dp)
+    index == 0 -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 5.dp, bottomEnd = 5.dp)
+    index == count - 1 -> RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+    else -> RoundedCornerShape(5.dp)
 }
 
 /** Shared body for a [SettingsGroup] item with a primary-tinted leading icon and content column. */
