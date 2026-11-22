@@ -21,6 +21,7 @@ import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
+import com.newoether.agora.model.ToolExecutionStates
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
@@ -79,6 +80,65 @@ class AssistantMessageLayoutRegressionTest {
     private fun assertNoMessageDisclosure() {
         compose.onNodeWithText(resources.getString(R.string.expand)).assertDoesNotExist()
         compose.onNodeWithText(resources.getString(R.string.collapse)).assertDoesNotExist()
+    }
+
+    @Test
+    fun finishedToolRowLeavesTheWallTimeToTheDetailSheet() {
+        val tool = MessageSegment(
+            type = "tool",
+            toolName = "web_search",
+            toolArgs = """{"query":"coffee shops"}""",
+            toolCallId = "call-1",
+            toolState = ToolExecutionStates.SUCCEEDED,
+            toolResult = """{"type":"web_search","query":"coffee shops","provider":"Brave",""" +
+                """"results":[{"title":"A","url":"https://example.com","description":"d"}]}""",
+            durationMs = 1_200L,
+        )
+        host(ChatMessage(id = "tool-latency", text = "Found a few", participant = Participant.MODEL,
+            status = MessageStatus.SUCCESS, segments = listOf(
+                MessageSegment("answer", "Found a few"),
+                tool,
+            )), ToolCallDisplayModes.TIMELINE)
+
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText(resources.toolDisplayName(tool), useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(
+            "The transcript row keeps only the tool name",
+            compose.onAllNodesWithText(checkNotNull(toolLatencyLabel(tool)), useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
+    fun toolDetailShowsTheWallTimeUnderTheProvider() {
+        val tool = MessageSegment(
+            type = "tool",
+            toolName = "web_search",
+            toolArgs = """{"query":"coffee shops"}""",
+            toolCallId = "call-1",
+            toolState = ToolExecutionStates.SUCCEEDED,
+            toolResult = """{"type":"web_search","query":"coffee shops","provider":"Brave",""" +
+                """"results":[{"title":"A","url":"https://example.com","description":"d"}]}""",
+            durationMs = 1_200L,
+        )
+        compose.setContent {
+            MaterialTheme {
+                Box(Modifier.width(360.dp).testTag("detail")) {
+                    ToolDetailContent(segment = tool, onMediaClick = { _, _ -> })
+                }
+            }
+        }
+
+        val providerBounds = textBounds(resources.getString(R.string.tool_search_provider, "Brave"))
+        val durationBounds = textBounds(
+            resources.getString(R.string.tool_duration, checkNotNull(toolLatencyLabel(tool))),
+        )
+        assertTrue(
+            "Wall time sits under the Provider line: $providerBounds -> $durationBounds",
+            durationBounds.top >= providerBounds.bottom - 0.5f,
+        )
     }
 
     @Test

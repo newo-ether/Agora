@@ -243,6 +243,38 @@ class GenerationToolBatchEffectExecutorTest {
     }
 
     @Test
+    fun `finished tool keeps its wall time on the segment and in the persisted json`() = runTest {
+        // The fake clock advances 250 ms per reading, so the span is exactly one advance.
+        var now = 0L
+        val tools = GenerationToolExecutor.forTest(listOf(StreamingToolProvider())) {
+            now += 250_000_000L
+            now
+        }
+        val executor = GenerationToolBatchEffectExecutor(tools)
+        val overlay = GenerationToolOverlay(tools, "provider")
+        overlay.upsert("stream", "call", "tool", "{}", null)
+
+        val outcome = executor.execute(
+            request = AuthorizedToolBatchRequest(
+                effect = RunEffect.ExecuteToolBatch(IDENTITY),
+                calls = listOf(call()),
+                context = GenerationContext(),
+                conversationId = "conversation",
+                authorizedToolNames = setOf("tool"),
+            ),
+            overlay = overlay,
+            callbacks = ToolBatchProgressCallbacks(publish = {}, onPublishedAt = {}),
+        )
+
+        val segment = outcome.segments.single()
+        assertEquals(250L, segment.durationMs)
+
+        val persisted = checkNotNull(MessagePersistenceGuard.encodeSegmentsBounded(outcome.segments))
+        val restored = Json.decodeFromString<List<MessageSegment>>(persisted).single()
+        assertEquals(250L, restored.durationMs)
+    }
+
+    @Test
     fun `accepted batch executes in order and returns the same identity without continuation`() = runTest {
         val provider = StreamingToolProvider()
         val tools = GenerationToolExecutor.forTest(listOf(provider))

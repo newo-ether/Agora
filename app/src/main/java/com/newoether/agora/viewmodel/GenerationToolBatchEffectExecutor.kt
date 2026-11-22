@@ -271,6 +271,7 @@ internal class GenerationToolOverlay(
         call: StreamEvent.ToolCallRequest,
         result: ToolExecutionResult,
         transcription: String? = null,
+        durationMs: Long? = null,
     ): CompletedToolCall {
         val index = checkNotNull(streamIndices[call.streamKey]) {
             "Missing live segment for tool call ${call.streamKey}"
@@ -285,6 +286,7 @@ internal class GenerationToolOverlay(
             toolState = finalToolState(result, call.name),
             toolImages = result.images,
             toolTranscription = transcription,
+            durationMs = durationMs ?: segments[index].durationMs,
         )
         segments[index] = completed
         return CompletedToolCall(
@@ -451,7 +453,12 @@ internal class GenerationToolBatchEffectExecutor(
                             .joinToString("\n\n")
                 }
             }
-            val completed = overlay.complete(call, result, transcription = transcription)
+            val completed = overlay.complete(
+                call,
+                result,
+                transcription = transcription,
+                durationMs = executed.durationMs,
+            )
             completedSegments += completed.segment
             results += completed.data
             callbacks.publish(false)
