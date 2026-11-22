@@ -1,6 +1,10 @@
 package com.newoether.agora.ui.settings
 
 import android.icu.text.CompactDecimalFormat
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -60,6 +64,8 @@ import com.newoether.agora.data.UsageStats
 import com.newoether.agora.data.modelAliasDisplayName
 import com.newoether.agora.ui.chat.bottombar.LegendRow
 import com.newoether.agora.ui.chat.bottombar.SegmentedBar
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.util.horizontalEdgeFade
 import com.newoether.agora.viewmodel.ChatViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -256,7 +262,7 @@ private fun ShareGroup(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
                     if (shares == null) {
                         StatsPlaceholder(72.dp, 16.dp)
                     } else {
@@ -340,6 +346,19 @@ private fun UsageHeatmap(
     val density = LocalDensity.current
     val scroll = rememberScrollState()
     LaunchedEffect(scroll.maxValue) { scroll.scrollTo(scroll.maxValue) }
+    val motion = LocalAgoraMotionPolicy.current
+    val fadeSpec: AnimationSpec<Float> =
+        if (motion.allowSpatialTransitions) tween(200) else snap()
+    val leftFade by animateFloatAsState(
+        targetValue = if (scroll.canScrollBackward) 1f else 0f,
+        animationSpec = fadeSpec,
+        label = "heatmapLeftFade",
+    )
+    val rightFade by animateFloatAsState(
+        targetValue = if (scroll.canScrollForward) 1f else 0f,
+        animationSpec = fadeSpec,
+        label = "heatmapRightFade",
+    )
     val labelStyle = MaterialTheme.typography.labelSmall
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -359,7 +378,13 @@ private fun UsageHeatmap(
                 }
             }
         }
-        Box(Modifier.weight(1f).horizontalScroll(scroll)) {
+        Box(
+            Modifier.weight(1f)
+                // Same edge mask as the attachment row and LaTeX block: the weeks scroll, so both
+                // ends fade instead of slicing a column of dots.
+                .horizontalEdgeFade(edgeFadeDp = 24f, leftWeight = leftFade, rightWeight = rightFade)
+                .horizontalScroll(scroll),
+        ) {
             // Trailing margin keeps the last column's today ring inside the viewport once scrolled
             // to the end, instead of being cut by the scroll bounds.
             val width = step * HEATMAP_WEEKS - gap + HEATMAP_EDGE_MARGIN

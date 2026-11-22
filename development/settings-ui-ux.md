@@ -193,19 +193,20 @@ Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-
 - **Activity group.** The group title sits outside the card. A Tokens/Requests `PillTabSwitcher`
   (the same two-pill component as the period switcher) sits above a 53-week dot heatmap (columns are
   weeks starting on the locale's first day of week, scrolled to today, month labels above, weekday
-  labels on alternate rows); Tokens is the default, and a fixed slot beside the pills holds the
-  counting spinner so the pills never resize. Five shades: zero, then quartiles of the non-zero
-  days, so one heavy day does not flatten the rest. Tapping a dot shows its date and value below;
-  the picked dot is drawn as a contrasting collar with a smaller value dot inside it, and today is
-  outlined.
+  labels on alternate rows). The scrolled weeks fade at both ends through the same edge mask as the
+  attachment row, so a half-visible column never looks cut off. Tokens is the default; while a count
+  runs, the counting row sits on the heatmap footer line so the pills above keep a stable width.
+  Five shades: zero, then quartiles of the non-zero days, so one heavy day does not flatten the
+  rest. Tapping a dot shows its date and value below; the picked dot is drawn as a contrasting
+  collar with a smaller value dot inside it, and today is outlined.
 - **Overview group.** Two-column `StatsCardGrid`: total tokens, requests, current streak, longest
   streak. No cost figures.
 - **Tokens group.** A 7/30/90/All `PillTabSwitcher` selects the period for the cards below it
   (input, output, cached input, cache hit rate as cached over reported input, `—` when nothing was
   reported) and the By model group. The daily bar chart and the By source breakdown are removed. By
   model uses the segmented bar and legend of the Storage page; at most six segments, the rest folded
-  into Other, legend values "tokens · percent". The card opens with a Total tokens row giving the
-  period's figure above the bar.
+  into Other, legend values "tokens · percent". The card opens with a Total tokens row, the label and
+  figure together at the left, giving the period's total above the bar.
 - **Loading.** Same as Storage: in-card spinner with "Counting…", dimmed previous values,
   placeholders on first load, no page-level progress bar. The spinner is 22dp with a 2.5dp stroke and
   a bodyLarge label 10dp away. Placeholder blocks and an empty segmented bar fill with a slow
