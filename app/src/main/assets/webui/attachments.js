@@ -171,6 +171,12 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const file = viewer.file;
   const item = viewer.items?.[index];
   const source = item && (item.url ?? sync.attachmentUrl(item.id, item.kind, item.index));
+  const neighbourSource = offset => {
+    const neighbour = viewer.items?.[index + offset];
+    return neighbour && (neighbour.url ?? sync.attachmentUrl(neighbour.id, neighbour.kind, neighbour.index));
+  };
+  const previousSource = neighbourSource(-1);
+  const nextSource = neighbourSource(1);
   const [loadedSource, setLoadedSource] = useState(null);
   const [failedSource, setFailedSource] = useState(null);
   // Kept across item switches: the previous picture stays painted until the next one decodes, so a
@@ -179,9 +185,12 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const loaded = !!source && loadedSource === source;
   const failed = !!source && failedSource === source;
   const shown = shownSource != null;
-  // Swipes and arrow buttons both move the viewport sideways with the neighbouring picture painted
-  // off to the side, so paging reads as a horizontal scroll instead of a cross-fade.
-  const [drag, setDrag] = useState(null);
+  // Both neighbours stay mounted beside the current picture, so they are already fetched and
+  // decoded before any gesture moves the track: paging never slides an empty half into view.
+  // Paging also moves that one track instead of a single picture plus a temporary peek.
+  const [cover, setCover] = useState(null);
+  const track = useRef({ x: 0, xVelocity: 0, cancel: null });
+  const swipe = useRef(null);
   useLayoutEffect(() => {
     const host = viewport.current, node = image.current;
     if (!host || !node || !loaded) return;
@@ -222,35 +231,57 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
     if (next === index) return;
     onNavigate(next);
   }
-  // Arrow buttons and the keyboard walk the same pager: the next picture starts off to the side and
-  // slides in while the current one leaves.
-  function step(dir) {
-    const next = index + dir;
-    const neighbour = viewer.items?.[next];
-    const source = neighbour && (neighbour.url ?? sync.attachmentUrl(neighbour.id, neighbour.kind, neighbour.index));
-    if (!source) { navigate(next); return; }
-    window.clearTimeout(settle.current);
-    span.current = viewport.current?.clientWidth || 1;
-    setDrag({ dx: 0, dir, source, active: false });
-    requestAnimationFrame(() => setDrag({ dx: -dir * span.current, dir, source, active: false }));
-    settle.current = window.setTimeout(() => {
-      navigate(next);
-      // Keep the incoming picture painted while the swapped <img> decodes; it covers the viewport.
-      setDrag({ dx: 0, dir, source, active: true, cover: true });
-    }, 240);
+  function reducedMotion() {
+    return dialog.current?.closest(".shell")?.dataset.reduceMotion === "true";
   }
-  // A swipe drags the whole viewport sideways and paints the neighbour underneath, so the picture
-  // follows the finger and settles like a pager instead of fading the next one in place.
-  const swipe = useRef(null);
-  const span = useRef(1);
-  const settle = useRef(0);
-  useLayoutEffect(() => () => window.clearTimeout(settle.current), []);
+  function paintTrack(x) {
+    track.current.x = x;
+    if (viewport.current) viewport.current.style.transform = `translateX(${x}px)`;
+  }
+  function stopTrack() {
+    const cancel = track.current.cancel;
+    track.current.cancel = null;
+    cancel?.();
+  }
+  // The item swap keeps the track where the spring left it; once the new page is in the DOM the
+  // track returns to rest so the next gesture starts from a centred picture again.
+  useLayoutEffect(() => { paintTrack(0); }, [index]);
+  // One spring owns every settle, so paging decelerates on a real curve instead of jumping, and a
+  // new gesture continues the visible velocity.
+  function settleTrack(target, done) {
+    stopTrack();
+    if (reducedMotion()) { paintTrack(target); done?.(); return; }
+    track.current.cancel = runSpring(
+      track.current,
+      { x: { target, stiffness: 400, damping: 1, threshold: .5 } },
+      state => paintTrack(state.x),
+      () => { track.current.cancel = null; paintTrack(target); done?.(); },
+    );
+  }
+  // Arrow buttons, the keyboard and a released swipe walk the same pager: the already decoded
+  // neighbour slides in while the current picture leaves.
+  function step(dir) {
+    const element = viewport.current;
+    const incoming = neighbourSource(dir);
+    // One page movement at a time: a second tap would otherwise cancel a spring whose navigation
+    // has not committed yet.
+    if (!element || !incoming || track.current.cancel) return;
+    const span = element.clientWidth || 1;
+    settleTrack(-dir * span, () => {
+      // Keep the incoming picture painted across the swap until the new <img> paints.
+      setCover(incoming);
+      navigate(index + dir);
+    });
+  }
   function startSwipe(event) {
     if (event.touches.length !== 1) { swipe.current = null; return; }
     if ((zoom.current?.panzoom.getScale() ?? 1) > 1.05) { swipe.current = null; return; }
+    // A running settle owns the track; the finger takes over only after it lands.
+    if (track.current.cancel) { swipe.current = null; return; }
+    track.current.xVelocity = 0;
     const [touch] = event.touches;
-    span.current = viewport.current?.clientWidth || 1;
-    swipe.current = { x: touch.clientX, y: touch.clientY, axis: null, dir: 0, dx: 0, source: null };
+    swipe.current = { x: touch.clientX, y: touch.clientY, axis: null, dir: 0, dx: 0,
+      blocked: false, velocity: 0, time: performance.now() };
   }
   function moveSwipe(event) {
     const state = swipe.current;
@@ -260,34 +291,31 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
     if (state.axis == null) {
       if (Math.abs(dx) < 8) return;
       if (Math.abs(dx) < Math.abs(dy) * 1.2) { state.axis = "vertical"; return; }
-      const dir = dx < 0 ? 1 : -1;
-      const neighbour = viewer.items?.[index + dir];
-      const source = neighbour && (neighbour.url ?? sync.attachmentUrl(neighbour.id, neighbour.kind, neighbour.index));
-      if (!source) { swipe.current = null; return; }
+      // A vertical gesture keeps scrolling; a horizontal one owns the pager.
       state.axis = "horizontal";
-      state.dir = dir;
-      state.source = source;
+      state.dir = dx < 0 ? 1 : -1;
+      state.blocked = !neighbourSource(state.dir);
     }
     if (state.axis !== "horizontal") return;
     if (event.cancelable) event.preventDefault();
+    const now = performance.now(), elapsed = Math.max(1, now - state.time);
+    state.velocity = (dx - state.dx) / elapsed * 1000;
     state.dx = dx;
-    setDrag({ dx, dir: state.dir, source: state.source, active: true });
+    state.time = now;
+    // The first and last picture drags against resistance instead of showing an empty pane.
+    paintTrack(state.blocked ? dx * .3 : dx);
   }
   function endSwipe() {
     const state = swipe.current;
     swipe.current = null;
-    if (!state || state.axis !== "horizontal") { setDrag(null); return; }
-    window.clearTimeout(settle.current);
-    const commit = Math.abs(state.dx) > span.current * .18;
-    setDrag({ dx: commit ? -state.dir * span.current : 0, dir: state.dir, source: state.source, active: false });
-    settle.current = window.setTimeout(() => {
-      if (commit) {
-        navigate(index + state.dir);
-        setDrag({ dx: 0, dir: state.dir, source: state.source, active: true, cover: true });
-      } else {
-        setDrag(null);
-      }
-    }, 220);
+    if (!state || state.axis !== "horizontal") { settleTrack(0); return; }
+    const span = viewport.current?.clientWidth || 1;
+    track.current.xVelocity = state.velocity || 0;
+    if (!state.blocked && Math.abs(track.current.x) > span * .18) {
+      step(state.dir);
+    } else {
+      settleTrack(0);
+    }
   }
   return html`<dialog ref=${dialog} class=${`tool-media-viewer attachment-viewer ${file ? "text-file-viewer" : ""}`} aria-label=${file?.name || item?.name || t.attachments}
     onCancel=${event => { event.preventDefault(); onClose(); }} onKeyDown=${event => {
@@ -299,16 +327,19 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
     ${file ? html`<div class="text-file-content">${/\.(md|markdown)$/i.test(file.name || "") ? html`<${Markdown} text=${{ markdown: file.text, math: [] }} />` : html`<pre>${file.text}</pre>`}</div>`
       : item?.type === "video" && item.kind === "source" ? html`<video key=${source} src=${source} controls autoplay
         onLoadedData=${() => setLoadedSource(source)} onError=${() => setFailedSource(source)} style=${{ opacity: loaded ? 1 : 0 }}></video>`
-      : html`<div class=${`tool-media-scroll image-viewport${drag?.active ? " dragging" : ""}`} ref=${viewport}
-        style=${{ transform: drag ? `translateX(${drag.dx}px)` : null }}
+      : html`<div class="tool-media-scroll image-viewport" ref=${viewport}
         onDblClick=${toggleZoom} onTouchStart=${startSwipe} onTouchMove=${moveSwipe} onTouchEnd=${endSwipe}>
-        ${drag && html`<img class="attachment-peek" src=${drag.source} alt="" draggable="false"
-          style=${{ transform: `translateX(${drag.cover ? 0 : drag.dir * span.current}px)` }} />`}
+        ${previousSource && html`<img class="attachment-peek" key=${`previous:${previousSource}`} src=${previousSource}
+          alt="" draggable="false" style=${{ transform: "translateX(-100%)" }} />`}
+        ${nextSource && html`<img class="attachment-peek" key=${`next:${nextSource}`} src=${nextSource}
+          alt="" draggable="false" style=${{ transform: "translateX(100%)" }} />`}
         <img ref=${image} class="attachment-full-image" src=${source}
         alt=${item.name || t.attachments} draggable="false"
-        onLoad=${() => { setShownSource(source); setLoadedSource(source); setDrag(current => (current?.cover ? null : current)); }}
-        onError=${() => { setFailedSource(source); setDrag(current => (current?.cover ? null : current)); }}
-        style=${{ opacity: shown ? 1 : 0 }} /></div>`}
+        onLoad=${() => { setShownSource(source); setLoadedSource(source); setCover(null); }}
+        onError=${() => { setFailedSource(source); setCover(null); }}
+        style=${{ opacity: shown ? 1 : 0 }} />
+        ${cover && html`<img class="attachment-peek" key=${`cover:${cover}`} src=${cover}
+          alt="" draggable="false" />`}</div>`}
     ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !shown && !failed ? 1 : 0 }}><${Spinner} stroke=${3} label=${t.attachments} /></div>
       <div class="attachment-viewport-status" style=${{ opacity: failed ? 1 : 0 }} role=${failed ? "alert" : null}>${icon(item.type === "image" || item.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>`}
     <div class="tool-media-controls"><span class="tool-media-count">${file?.name || `${index + 1} / ${viewer.items.length}`}</span>

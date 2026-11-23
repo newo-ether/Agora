@@ -109,10 +109,8 @@
 .pdf-page span { position: absolute; bottom: 4px; left: 4px; background: var(--md-surface-container); padding: 2px 4px; border-radius: 4px; }
 .pdf-page input { position: absolute; top: 4px; right: 4px; accent-color: var(--md-primary); width: 20px; height: 20px; }
 .attachment-full-image { display: block; object-fit: contain; width: 100%; height: 100%; }
-.image-viewport { overflow: hidden; touch-action: none; position: relative; transition: transform 220ms cubic-bezier(.2, 0, 0, 1); }
-/* While a finger is down the viewport tracks it directly; the spring only runs on release. */
-.image-viewport.dragging { transition: none; }
-.shell[data-reduce-motion="true"] .image-viewport { transition: none; }
+/* The pager owns this transform frame by frame, so no CSS transition may interpolate it too. */
+.image-viewport { overflow: hidden; touch-action: none; position: relative; will-change: transform; }
 /* The neighbouring picture waiting off to the side during a swipe. */
 .attachment-peek { position: absolute; inset: 0; display: block; object-fit: contain; width: 100%; height: 100%; pointer-events: none; }
 .attachment-viewer > video { width: 100%; height: 100%; }
