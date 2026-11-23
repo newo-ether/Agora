@@ -81,6 +81,7 @@ internal class WebUiController(
     previewAttachment: suspend (String, String, Long, String, String, Int, suspend (java.io.File, String) -> Unit) -> Boolean,
     private val hasher: WebUiPasswordHasher = WebUiPasswordHasher(),
     toolImages: WebUiToolImages? = null,
+    markdownVideos: WebUiMarkdownVideos? = null,
     htmlPreviewImage: suspend (String) -> com.newoether.agora.model.ToolImageAttachment? = { null },
 ) {
     private val auth = WebUiAuth(store = store, hasher = hasher)
@@ -101,6 +102,7 @@ internal class WebUiController(
         secureCookies = { call -> call.request.local.localPort == tlsBackendPort },
         httpsRedirectPort = { publicPort.takeIf { servingHttps && it > 0 } },
         toolImages = toolImages,
+        markdownVideos = markdownVideos,
         htmlPreviewImage = htmlPreviewImage,
     )
     private val serverLock = Mutex()

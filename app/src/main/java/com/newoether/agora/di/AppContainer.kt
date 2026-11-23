@@ -466,6 +466,18 @@ class AppContainer(
             sandbox = { sandboxManagerFactory?.takeIf { it.isAvailable() }?.create() },
             scope = appScope,
         )
+        val loadWebUiMessage: suspend (String, String) -> com.newoether.agora.model.ChatMessage? =
+            { conversationId, messageId ->
+                val persisted = conversationRepository.getMessagesByIds(listOf(messageId))
+                    .any { it.id == messageId && it.conversationId == conversationId }
+                if (persisted) conversationStateRegistry.get(conversationId)?.generationSnapshot?.value
+                    ?.streamingMessage?.takeIf { it.id == messageId }
+                    ?: com.newoether.agora.viewmodel.ConversationMessagePayloadHydration(
+                        conversations = conversationRepository,
+                        appContext = appContext,
+                    ).loadMessages(conversationId, listOf(messageId)).singleOrNull()
+                else null
+            }
         WebUiController(
             appContext = appContext,
             store = WebUiSettingsStore(appContext.dataStore),
@@ -486,17 +498,12 @@ class AppContainer(
                 directory = java.io.File(appContext.filesDir, "tool-media"),
                 attachmentDirectory = appContext.filesDir,
                 markdownImage = previewMedia::previewImage,
-                loadMessage = { conversationId, messageId ->
-                    val persisted = conversationRepository.getMessagesByIds(listOf(messageId))
-                        .any { it.id == messageId && it.conversationId == conversationId }
-                    if (persisted) conversationStateRegistry.get(conversationId)?.generationSnapshot?.value
-                        ?.streamingMessage?.takeIf { it.id == messageId }
-                        ?: com.newoether.agora.viewmodel.ConversationMessagePayloadHydration(
-                            conversations = conversationRepository,
-                            appContext = appContext,
-                        ).loadMessages(conversationId, listOf(messageId)).singleOrNull()
-                    else null
-                },
+                loadMessage = loadWebUiMessage,
+            ),
+            markdownVideos = com.newoether.agora.webui.WebUiMarkdownVideos(
+                context = appContext,
+                devices = { settingsRepository.shellDevices.value },
+                loadMessage = loadWebUiMessage,
             ),
             htmlPreviewImage = { previewMedia.previewImage(it) },
         )

@@ -29,6 +29,19 @@ internal fun ChatMessage.ownsShellMarkdownImage(link: String): Boolean {
     }
 }
 
+/** The durable Markdown source a browser fragment belongs to; unknown documents have none. */
+internal fun ChatMessage.markdownDocumentText(document: String): String? {
+    return when {
+        document == "answer" -> text
+        document.startsWith("segment:") -> {
+            val index = document.removePrefix("segment:").toIntOrNull() ?: return null
+            mergeAdjacentSegments(segments.orEmpty()).filter { it.type != "answer" }
+                .getOrNull(index)?.takeIf { it.type == "thought" }?.content ?: return null
+        }
+        else -> null
+    }
+}
+
 /** Resolve a fragment's image ordinal against the complete durable document, never a caller path. */
 internal fun ChatMessage.shellMarkdownImageOccurrence(
     link: String,
@@ -37,15 +50,7 @@ internal fun ChatMessage.shellMarkdownImageOccurrence(
     document: String,
 ): String? {
     if (sourceStart < 0 || ordinal < 0) return null
-    val source = when {
-        document == "answer" -> text
-        document.startsWith("segment:") -> {
-            val index = document.removePrefix("segment:").toIntOrNull() ?: return null
-            mergeAdjacentSegments(segments.orEmpty()).filter { it.type != "answer" }
-                .getOrNull(index)?.takeIf { it.type == "thought" }?.content ?: return null
-        }
-        else -> return null
-    }
+    val source = markdownDocumentText(document) ?: return null
     if (sourceStart > source.length) return null
     val target = markdownImageSnapshotKey(link) ?: return null
     val root = MarkdownParser(GFMFlavourDescriptor()).buildMarkdownTreeFromString(source)

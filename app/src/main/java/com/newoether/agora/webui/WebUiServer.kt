@@ -79,6 +79,7 @@ internal class WebUiServer(
     private val httpsRedirectPort: () -> Int? = { null },
     private val clock: () -> Long = System::currentTimeMillis,
     private val toolImages: WebUiToolImages? = null,
+    private val markdownVideos: WebUiMarkdownVideos? = null,
     private val htmlPreviewImage: suspend (String) -> com.newoether.agora.model.ToolImageAttachment? = { null },
 ) {
     fun install(application: Application) = with(application) {
@@ -296,6 +297,29 @@ internal class WebUiServer(
                                     remaining -= count
                                 }
                             }
+                        }
+                    }
+                }
+            }
+            route("/api/markdown-videos/{conversationId}/{messageId}") {
+                install(syncGate)
+                get {
+                    call.response.header(HttpHeaders.CacheControl, "no-store")
+                    val token = call.request.cookies[SESSION_COOKIE] ?: return@get
+                    val link = call.request.queryParameters["link"] ?: return@get call.respond(HttpStatusCode.NotFound)
+                    val video = markdownVideos?.open(call.parameters["conversationId"].orEmpty(),
+                        call.parameters["messageId"].orEmpty(), link,
+                        sourceStart = call.request.queryParameters["start"]?.toIntOrNull() ?: 0,
+                        document = call.request.queryParameters["document"] ?: "answer",
+                    ) ?: return@get call.respond(HttpStatusCode.NotFound)
+                    if (!auth.isValidSession(token)) return@get call.respond(HttpStatusCode.Forbidden)
+                    coroutineScope {
+                        val requestJob = currentCoroutineContext()[kotlinx.coroutines.Job]!!
+                        val revoke = launch { auth.awaitSessionEnd(token); requestJob.cancel() }
+                        try {
+                            call.respondMarkdownVideo(video) { auth.isValidSession(token) }
+                        } finally {
+                            revoke.cancel()
                         }
                     }
                 }

@@ -10,12 +10,15 @@ import { ICON_CONTENT_COPY } from "./icons.js";
 import { htmlPreviewFence } from "./html-preview-fence.js";
 import { mountHtmlPreview } from "./html-preview.js";
 import { mountMarkdownImage } from "./markdown-images.js";
+import { mountMarkdownVideo } from "./markdown-videos.js";
 
 const escapeHtml = (text) =>
   text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 // Keep occurrence admission aligned with markdownImageSnapshotKey / parseShellMediaLink.
 const VIDEO_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi", "3gp", "ogv"]);
+// Readable roots the phone resolves itself; the WebUI streams them through the app, not the browser.
+const LOCAL_VIDEO_ROOTS = ["/home/agora/", "/mnt/shared/", "/storage/emulated/0/", "/storage/self/primary/"];
 
 function videoExtension(raw) {
   const name = raw.split("?")[0].split("#")[0].toLowerCase();
@@ -26,8 +29,15 @@ function videoExtension(raw) {
 // Native renders these as player cards and excludes them from the image occurrence set.
 function isMarkdownVideo(link) {
   const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
-  if (!(/^shell:\/\//i.test(raw) || /^https?:\/\//i.test(raw))) return false;
+  const local = LOCAL_VIDEO_ROOTS.some(root => raw.startsWith(root));
+  if (!(/^shell:\/\//i.test(raw) || /^https?:\/\//i.test(raw) || local)) return false;
   return VIDEO_EXTENSIONS.has(videoExtension(raw));
+}
+
+/** Same-origin card target: the phone streams readable roots and Conch videos through its server. */
+function videoCardTarget(href) {
+  const raw = href.trim().replace(/^<([\s\S]*)>$/, "$1");
+  return isMarkdownVideo(raw) && !/^https?:\/\//i.test(raw) ? raw : null;
 }
 
 function supportsImageSnapshot(link) {
@@ -131,11 +141,14 @@ marked.use({
       return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>${tail}`;
     },
     image(token) {
+      const card = videoCardTarget(token.href);
+      if (card) {
+        const label = token.text || card.split("/").pop();
+        return `<span class="markdown-video-slot" data-shell-video="${escapeHtml(card)}" data-video-label="${escapeHtml(label)}"></span>`;
+      }
       if (isMarkdownVideo(token.href)) {
         const label = escapeHtml(token.text || token.href);
-        return /^https?:\/\//i.test(token.href)
-          ? `<a class="markdown-video-link" href="${escapeHtml(token.href)}" target="_blank" rel="noreferrer">▶ ${label}</a>`
-          : `<span class="markdown-video-link">▶ ${label}</span>`;
+        return `<a class="markdown-video-link" href="${escapeHtml(token.href)}" target="_blank" rel="noreferrer">▶ ${label}</a>`;
       }
       if (!supportsImageSnapshot(token.href)) return Renderer.prototype.image.call(this, token);
       return `<span class="markdown-image-slot" data-shell-image="${escapeHtml(token.href)}" data-image-ordinal="${token.imageOrdinal}" data-image-label="${escapeHtml(token.text || "")}"></span>`;
@@ -466,6 +479,7 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
   const root = useRef(null);
   const previews = useRef(new Map());
   const images = useRef(new Map());
+  const videos = useRef(new Map());
   const imageOwner = useRef(null);
   const emptyNode = useRef(null);
   const showEmpty = streaming && !text.markdown.trim() && emptyStreamingText != null;
@@ -512,14 +526,18 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
           existing.matches("[data-shell-image]") && incoming.matches("[data-shell-image]") &&
           existing.dataset.shellImage === incoming.dataset.shellImage && existing.dataset.imageLabel === incoming.dataset.imageLabel &&
           existing.dataset.imageOrdinal === incoming.dataset.imageOrdinal;
-        if (sameImage) incoming.remove();
+        const sameVideo = existing?.nodeType === Node.ELEMENT_NODE && incoming.nodeType === Node.ELEMENT_NODE &&
+          existing.matches("[data-shell-video]") && incoming.matches("[data-shell-video]") &&
+          existing.dataset.shellVideo === incoming.dataset.shellVideo &&
+          existing.dataset.videoLabel === incoming.dataset.videoLabel;
+        if (sameImage || sameVideo) incoming.remove();
         else if (samePreview) {
           const code = existing.querySelector("pre code"), freshCode = incoming.querySelector("pre code");
           for (const attribute of freshCode.attributes) code.setAttribute(attribute.name, attribute.value);
           incoming.remove();
         } else if (existing?.isEqualNode(incoming)) incoming.remove();
         else if (existing?.nodeType === Node.ELEMENT_NODE && incoming.nodeType === Node.ELEMENT_NODE &&
-          existing.tagName === incoming.tagName && existing.querySelector("[data-html-source],[data-shell-image]")) {
+          existing.tagName === incoming.tagName && existing.querySelector("[data-html-source],[data-shell-image],[data-shell-video]")) {
           reconcile(existing, incoming);
           incoming.remove();
         } else if (existing) existing.replaceWith(incoming);
@@ -532,6 +550,8 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
     if (imageOwner.current !== owner) {
       for (const dispose of images.current.values()) dispose();
       images.current.clear();
+      for (const dispose of videos.current.values()) dispose();
+      videos.current.clear();
       imageOwner.current = owner;
     }
     reconcile(root.current, template.content);
@@ -547,6 +567,12 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
     for (const node of root.current.querySelectorAll("[data-shell-image]")) {
       if (!images.current.has(node)) images.current.set(node, mountMarkdownImage(node, conversationId, messageId, sourceStart, imageDocument));
     }
+    for (const [node, dispose] of videos.current) {
+      if (!root.current.contains(node)) { dispose(); videos.current.delete(node); }
+    }
+    for (const node of root.current.querySelectorAll("[data-shell-video]")) {
+      if (!videos.current.has(node)) videos.current.set(node, mountMarkdownVideo(node, conversationId, messageId, sourceStart, imageDocument));
+    }
   }, [markup, conversationId, messageId, sourceStart, imageDocument]);
   const forceSource = !!search?.query.trim();
   useLayoutEffect(() => {
@@ -557,6 +583,8 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
     previews.current.clear();
     for (const dispose of images.current.values()) dispose();
     images.current.clear();
+    for (const dispose of videos.current.values()) dispose();
+    videos.current.clear();
   }, []);
   useLayoutEffect(() => {
     root.current.querySelectorAll("[data-citation-token]").forEach(button => {

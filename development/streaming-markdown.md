@@ -521,6 +521,18 @@ video. Videos never consume an image
 ordinal, never enter `filesDir/markdown-media`, and are excluded from the native occurrence set that
 WebUI image reads use.
 
+WebUI renders the same parsed video destinations as the same play card and serves playback from an
+authenticated, same-origin route. A browser request names the owning conversation, message, document
+and parsed offset, and the destination must equal a parsed destination at or after that offset;
+prose, code and ordinary links never become a path. `shell://Local Sandbox` and the readable local
+roots resolve through the native sandbox resolver; any other Conch device streams through the
+authenticated file-transfer envelope in bounded chunks; SSH devices and unknown servers stay inert.
+The response carries the container MIME type, advertises `Accept-Ranges: bytes`, answers at most one
+byte range (200, or 206 with `Content-Range`; an unsatisfiable range gets 416 with `bytes */size`),
+treats a multipart or validator-bound request as a whole-file read, stops when the session ends and
+is never cached. The card opens the existing AttachmentViewer video pane on tap. Videos still
+consume no image ordinal, so the WebUI image route's occurrence set is unchanged.
+
 Markdown links are tappable in Agora-owned messages. `http://`, `https://` and `mailto:` leave
 through the platform handler. `/home/agora/…` and `shell://Local Sandbox/home/agora/…` resolve under
 the sandbox home; `/mnt/shared/…`, `/storage/emulated/0/…` and `/storage/self/primary/…` resolve to
