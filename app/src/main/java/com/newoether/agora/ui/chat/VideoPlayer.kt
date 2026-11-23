@@ -58,6 +58,7 @@ fun VideoPlayer(
     modifier: Modifier = Modifier,
     closing: Boolean = false,
     onLongPress: (() -> Unit)? = null,
+    onControlsVisibleChange: (Boolean) -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var contentReady by remember { mutableStateOf(false) }
@@ -73,6 +74,10 @@ fun VideoPlayer(
     var currentPositionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
     var controlsVisible by remember { mutableStateOf(true) }
+    // A viewer that draws its own close button and page counter follows this state machine instead
+    //of running a second, independent visibility state.
+    val reportControlsVisible by rememberUpdatedState(onControlsVisibleChange)
+    LaunchedEffect(controlsVisible) { reportControlsVisible(controlsVisible) }
     var fullscreen by remember { mutableStateOf(false) }
     VideoFullscreenEffect(fullscreen)
     val scope = rememberCoroutineScope()

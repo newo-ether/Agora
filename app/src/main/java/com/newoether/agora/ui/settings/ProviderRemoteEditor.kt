@@ -37,13 +37,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
+import com.newoether.agora.ui.common.LocalSnackbarMessage
 import com.newoether.agora.R
 import com.newoether.agora.data.ApiKeyEntry
 import com.newoether.agora.data.BUILT_IN_REMOTE_PROVIDERS
@@ -154,7 +153,7 @@ internal fun ProviderRemoteEditor(
     )
     BackHandler { guardedBack() }
 
-    val context = LocalContext.current
+    val notify = LocalSnackbarMessage.current
     val scope = rememberCoroutineScope()
     val saveFailed = stringResource(R.string.provider_save_failed)
     fun save() {
@@ -183,7 +182,7 @@ internal fun ProviderRemoteEditor(
                 ProviderEditorCommitResult.URL_REQUIRED -> urlError = true
                 ProviderEditorCommitResult.MISSING,
                 ProviderEditorCommitResult.FAILED ->
-                    Toast.makeText(context, saveFailed, Toast.LENGTH_SHORT).show()
+                    notify(saveFailed)
             }
         }
     }

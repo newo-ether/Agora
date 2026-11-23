@@ -278,12 +278,22 @@ internal fun projectGenerationInputMessages(
         }
     }
     val prompt = initialUserPrompt?.takeIf(String::isNotBlank) ?: return projected
-    val parent = projected.lastOrNull()
-    return projected + ChatMessage(
-        id = "api_initial_user_${parent?.id.orEmpty()}",
-        parentId = parent?.id,
-        text = prompt,
-        participant = Participant.USER,
-        timestamp = parent?.timestamp?.let { if (it == Long.MAX_VALUE) it else it + 1L } ?: 0L,
-    )
+    return projected + initialUserMessage(projected.lastOrNull(), prompt)
 }
+
+/**
+ * The API-only USER message carrying [GenerationConfig.initialUserPrompt]. Its id prefix keeps it
+ * out of user templates, so it is sent verbatim after the projected history.
+ */
+internal fun initialUserMessage(parent: ChatMessage?, prompt: String): ChatMessage = ChatMessage(
+    id = "api_initial_user_${parent?.id.orEmpty()}",
+    parentId = parent?.id,
+    text = prompt,
+    participant = Participant.USER,
+    timestamp = parent?.timestamp?.let { if (it == Long.MAX_VALUE) it else it + 1L } ?: 0L,
+)
+
+/** Result text for every tool call refused by a Preserve-Context Compact request. */
+internal const val COMPACT_TOOL_CALL_REJECTED =
+    "Tool calls are disabled while the conversation is being compacted. " +
+        "This call was not executed. Do not call tools; write the summary now."

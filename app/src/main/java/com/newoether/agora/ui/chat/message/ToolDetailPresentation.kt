@@ -17,7 +17,8 @@ internal data class ToolDetailPresentation(
     val arguments: String?,
     val argumentsLabel: String,
     val resultLabel: String,
-    val mcpDevice: String?,
+    /** Server that ran the call, for shell-backed tools and MCP. */
+    val device: String?,
     val body: ToolDetailBody,
     /** Long string argument pulled out of [arguments] and shown as code. */
     val codeArgument: ToolDetailCodeArgument? = null,
@@ -94,7 +95,7 @@ internal fun Resources.toolDetailPresentation(segment: MessageSegment): ToolDeta
         codeArgument = code,
         argumentsLabel = getString(R.string.arguments_label),
         resultLabel = getString(R.string.result_label),
-        mcpDevice = presentation.device?.takeIf(String::isNotBlank),
+        device = presentation.device?.takeIf(String::isNotBlank),
         searchProvider = presentation.provider?.takeIf(String::isNotBlank)
             ?.takeIf { presentation.kind == ToolKind.WEB_SEARCH },
         body = body,
@@ -102,6 +103,24 @@ internal fun Resources.toolDetailPresentation(segment: MessageSegment): ToolDeta
             mcpResultValues(presentation).filterNot { it == presentation.errorMessage }
         } else emptyList(),
     )
+}
+
+/** Tool kinds whose card must state which device executed the call. */
+internal fun ToolKind.runsOnShellServer(): Boolean = when (this) {
+    ToolKind.SHELL_LIST,
+    ToolKind.SHELL_EXECUTE,
+    ToolKind.SHELL_JOB_LIST,
+    ToolKind.SHELL_JOB_GET,
+    ToolKind.SHELL_JOB_WAIT,
+    ToolKind.SHELL_JOB_STOP,
+    ToolKind.FILE_READ,
+    ToolKind.FILE_WRITE,
+    ToolKind.FILE_EDIT,
+    ToolKind.FILE_GLOB,
+    ToolKind.FILE_GREP,
+    ToolKind.FILE_TRANSFER,
+    -> true
+    else -> false
 }
 
 /** Failed MCP calls retain their raw evidence without changing the recorded lifecycle. */

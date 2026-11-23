@@ -46,6 +46,8 @@ internal data class AuthorizedToolCall(
     val arguments: String,
     val context: GenerationContext,
     val authorizedToolNames: Set<String>,
+    /** When set, the call is never executed and this text is returned as its error result. */
+    val rejectionText: String? = null,
     /** Per-generation single-image transcription flow; null disables it. */
     val toolImageTranscriber: (suspend (com.newoether.agora.model.ToolImageAttachment, suspend (String) -> Unit) -> String?)? = null,
 )
@@ -182,6 +184,9 @@ internal class GenerationToolExecutor private constructor(
     ): AuthorizedToolResult {
         val toolName = BuiltInToolNames.canonical(call.name)
         val authorizedNames = call.authorizedToolNames.mapTo(mutableSetOf(), BuiltInToolNames::canonical)
+        call.rejectionText?.let { text ->
+            return call.result(ToolExecutionResult(text = text, isError = true))
+        }
         if (call.name == MALFORMED_TOOL_CALL_NAME) {
             // Stand-in for a damaged call: never executed, answered with what was wrong.
             return call.result(

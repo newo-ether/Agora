@@ -46,14 +46,26 @@ internal class ShellMarkdownVideo(
     private val scope: CoroutineScope,
 ) {
     private val directory by lazy { File(context.applicationContext.cacheDir, "markdown-video") }
+    private val receiptDirectory by lazy { File(directory, "receipts") }
     private val states = mutableStateMapOf<String, MarkdownVideoDownload>()
+    // Receipt lookups are cached here: peek() runs during composition and must not stat or read
+    // the disk again on every recomposition.
+    private val resolved = HashMap<String, MarkdownVideoDownload>()
     private val inFlight = HashMap<String, Deferred<Unit>>()
     private val lock = Any()
 
     /** Current state for [link]; composition reads this directly. */
     fun peek(link: String): MarkdownVideoDownload {
         val target = parseShellMediaLink(link) ?: return MarkdownVideoDownload.Failed(UNSUPPORTED)
-        return states[target.key] ?: MarkdownVideoDownload.Idle
+        states[target.key]?.let { return it }
+        synchronized(lock) {
+            resolved[target.key]?.let { return it }
+            // The receipt names the content-addressed copy from an earlier run, so a cached video
+            // keeps its poster and its place in the answer's viewer without touching the network.
+            val known = readReceipt(target.key) ?: MarkdownVideoDownload.Idle
+            resolved[target.key] = known
+            return known
+        }
     }
 
     /** Starts the copy for [link] unless one is already running or the cache already holds it. */
@@ -100,7 +112,10 @@ internal class ShellMarkdownVideo(
             "Invalid video source metadata"
         }
         val file = File(directory, markdownVideoCacheFileName(hash, target.path))
-        if (file.isFile && file.length() == size) return@withContext file
+        if (file.isFile && file.length() == size) {
+            writeReceipt(target.key, file)
+            return@withContext file
+        }
         directory.mkdirs()
         val staging = File.createTempFile(".markdown-video-", ".tmp", directory)
         try {
@@ -131,11 +146,46 @@ internal class ShellMarkdownVideo(
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING,
             )
+            writeReceipt(target.key, file)
             file
         } finally {
             staging.delete()
         }
     }
+
+    /**
+     * Records which content-addressed file serves [key]. The receipt replaces the previous one in a
+     * single atomic move, so a process death cannot leave a name pointing at a partial copy.
+     */
+    private fun writeReceipt(key: String, file: File) {
+        runCatching {
+            receiptDirectory.mkdirs()
+            val staging = File.createTempFile(".receipt-", ".tmp", receiptDirectory)
+            staging.writeText("${file.name}\n${file.length()}\n")
+            Files.move(
+                staging.toPath(),
+                receiptFile(key).toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        }
+    }
+
+    private fun readReceipt(key: String): MarkdownVideoDownload.Ready? {
+        val receipt = receiptFile(key)
+        if (!receipt.isFile) return null
+        val lines = runCatching { receipt.readLines() }.getOrNull() ?: return null
+        val name = lines.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return null
+        val size = lines.getOrNull(1)?.toLongOrNull() ?: return null
+        if (size <= 0) return null
+        val file = File(directory, name)
+        return if (file.isFile && file.length() == size) MarkdownVideoDownload.Ready(file) else null
+    }
+
+    private fun receiptFile(key: String): File = File(
+        receiptDirectory,
+        MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).toHex(),
+    )
 
     private companion object {
         val SHA256_HEX = Regex("[a-f0-9]{64}")

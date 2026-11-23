@@ -78,7 +78,7 @@ class WebUiMcpPresentationTest {
                     assertEquals(segment.toolState, item.toolState)
                     val detail = requireNotNull(item.toolDetail)
                     assertEquals(resources.toolDetailPresentation(segment).kind.name, detail.kind)
-                    assertEquals(segment.toolTarget, detail.mcpDevice)
+                    assertEquals(segment.toolTarget, detail.device)
                     assertEquals(projected, WebUiSync.json.decodeFromString(WebPresentation.serializer(),
                         WebUiSync.json.encodeToString(WebPresentation.serializer(), projected)))
                 }

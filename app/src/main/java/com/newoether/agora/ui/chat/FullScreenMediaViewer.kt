@@ -138,6 +138,7 @@ fun FullScreenMediaViewer(
                     haptics.longPress()
                     actionsVisible = true
                 },
+                onControlsVisibleChange = { showOverlay = it },
             )
             if (actionsVisible) {
                 VideoActionsSheet(
@@ -328,6 +329,9 @@ private fun MediaPager(
                                 actionsAreVideo = true
                                 actionsForUrl = mediaUrl
                             },
+                            // The close button and the page counter are part of the same
+                            // state machine as the player's own control bar.
+                            onControlsVisibleChange = { showOverlay = it },
                         )
                     }
                 }

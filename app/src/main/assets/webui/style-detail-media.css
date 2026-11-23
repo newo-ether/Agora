@@ -207,6 +207,8 @@
 .markdown-video-card {
   position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 16 / 9;
   padding: 0; border: 0; border-radius: 16px; overflow: hidden; cursor: pointer;
+  /* A <button> does not inherit the page font by default; the card uses the app font. */
+  font: inherit;
   background: color-mix(in srgb, var(--md-surface-variant, var(--md-surface-container-highest)) 55%, transparent);
   color: var(--md-on-surface);
 }

@@ -32,6 +32,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
+/** Preserve-Context Compact refuses tool rounds without persisting them; bound the retries. */
+internal const val MAX_REFUSED_TOOL_ROUNDS = 4
+
 internal suspend fun acquireGenerationForegroundLease(
     managedExternally: Boolean,
     acquire: suspend () -> Boolean,
@@ -265,6 +268,12 @@ class GenerationManager(
                 "messages=${currentPath.size} tools=${rawProviderConfig.tools.orEmpty().size}",
             )
             val providerConfig = rawProviderConfig
+            // The API-only invocation is part of the raw path so tool continuations (refused
+            // rounds of a Preserve-Context Compact) keep it before their tool rows.
+            val dispatchPath = config.initialUserPrompt?.takeIf(String::isNotBlank)
+                ?.let { prompt -> currentPath + initialUserMessage(currentPath.lastOrNull(), prompt) }
+                ?: currentPath
+            val rejectToolCalls = config.rejectToolCalls
 
             var toolCallData: ToolCallData? = null
             var toolCallDataList: List<ToolCallData> = emptyList()
@@ -330,6 +339,7 @@ class GenerationManager(
                         conversationId = conversationId,
                         authorizedToolNames = providerConfig.tools.orEmpty()
                             .mapTo(linkedSetOf()) { it.function.name },
+                        rejectionText = COMPACT_TOOL_CALL_REJECTED.takeIf { rejectToolCalls },
                         // file_view_image results reuse this generation's transcription flow when
                         // image transcription is enabled for the current model.
                         toolImageTranscriber =
@@ -476,16 +486,15 @@ class GenerationManager(
             }
 
             val apiPath = if (providerConfig.requestResolver != null) {
-                currentPath
+                dispatchPath
             } else {
                 projectGenerationInputMessages(
-                    messages = currentPath,
+                    messages = dispatchPath,
                     includeImages = providerConfig.includeImages,
                     userPrepend = config.userPrepend,
                     userPostpend = config.userPostpend,
                     assistantPrepend = config.assistantPrepend,
                     assistantPostpend = config.assistantPostpend,
-                    initialUserPrompt = config.initialUserPrompt,
                     phoneMaxScreenshots = config.phoneMaxScreenshots,
                 )
             }
@@ -505,7 +514,7 @@ class GenerationManager(
 
             // Multi-tool loop
             var toolRound = 0
-            toolPath = currentPath
+            toolPath = dispatchPath
 
             while (toolCallDataList.isNotEmpty() && output.currentStatus != MessageStatus.ERROR && currentCoroutineContext().isActive) {
                 toolRound++
@@ -530,10 +539,14 @@ class GenerationManager(
                 )
                 toolPath = toolPath + round.pathMessages
                 toolRoundEffects.commitRound { commitIdentity ->
-                    conversations.appendToolRoundToRun(
-                        messages = round.entities,
-                        expectedPass = commitIdentity.pass,
-                    )
+                    // Refused rounds stay in memory: they are protocol filler for this request
+                    // only and must never become history after the Compact boundary.
+                    if (!rejectToolCalls) {
+                        conversations.appendToolRoundToRun(
+                            messages = round.entities,
+                            expectedPass = commitIdentity.pass,
+                        )
+                    }
                 }
                 output.toolOverlay.markCommittedRound(
                     tcds.mapTo(linkedSetOf()) { call ->
@@ -548,6 +561,12 @@ class GenerationManager(
                 // A terminal Conch job may be deleted only after the complete tool result is
                 // durable. ACK is best-effort and cannot influence the already-authorized
                 // continuation; Conch's bounded retention remains the failure fallback.
+                if (rejectToolCalls) {
+                    // toolPath already holds this request's history plus the refused round.
+                    toolCallData = null
+                    toolCallDataList = emptyList()
+                    if (toolRound >= MAX_REFUSED_TOOL_ROUNDS) break
+                } else {
                 toolExecutor.acknowledgeCommittedShellJobs(tcds, ctx)
                 val boundaryDecision = callbacks.onToolRoundPersisted()
                 if (boundaryDecision is ToolRoundBoundaryDecision.CompleteForFollowUp) {
@@ -575,6 +594,7 @@ class GenerationManager(
                 if (callbacks.hasQueuedSends()) {
                     endedAtGuidanceBoundary = true
                     break
+                }
                 }
 
                 uiUpdateGate.reset()

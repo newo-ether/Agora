@@ -37,6 +37,7 @@ import androidx.annotation.StringRes
 import com.newoether.agora.PHONE_USE_SUPPORTED
 import com.newoether.agora.R
 import com.newoether.agora.phone.PhoneUseIcon
+import com.newoether.agora.ui.common.LocalSnackbarMessage
 import com.newoether.agora.ui.settings.datacontrol.SettingsDataControlPage
 import com.newoether.agora.viewmodel.ChatViewModel
 
@@ -342,7 +343,10 @@ fun SettingsScreen(
     val listState = rememberLazyListState()
     val navigationListState = rememberLazyListState()
     val scrollRetention = remember { SettingsScrollRetention() }
-    CompositionLocalProvider(LocalSettingsScrollRetention provides scrollRetention) {
+    CompositionLocalProvider(
+        LocalSettingsScrollRetention provides scrollRetention,
+        LocalSnackbarMessage provides { message -> viewModel.emitSnackbar(message) },
+    ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val twoPane = maxWidth >= SettingsTwoPaneMinWidth
             BackHandler {

@@ -113,15 +113,20 @@
 /* The pager owns this transform frame by frame, so no CSS transition may interpolate it too. It
  * moves inside the clipping viewport, so the neighbours beside it stay visible while it slides. */
 .attachment-pager { position: absolute; inset: 0; will-change: transform; }
-/* The neighbouring picture waiting off to the side during a swipe. */
-.attachment-peek { position: absolute; inset: 0; display: block; object-fit: contain; width: 100%; height: 100%; pointer-events: none; }
-/* A neighbouring video waits as its glyph, like the native pager's unloaded video page. */
-.attachment-peek-video { display: grid; place-items: center; background: black; color: white; }
-.attachment-peek-video > svg { width: 48px; height: 48px; fill: currentColor; }
-.attachment-full-video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.attachment-full-image, .attachment-full-video { transition: opacity 200ms linear; }
-.attachment-viewport-status { position: absolute; inset: 0; display: grid; place-items: center; background: black; pointer-events: none; transition: opacity 200ms linear; }
-.attachment-viewport-status > svg { width: 32px; height: 32px; fill: currentColor; }
+/* One page per mounted item, placed a page width apart; each page keeps its element while the
+ * window of mounted pages slides, so a decoded neighbour is never torn down and refetched. */
+.attachment-page { position: absolute; inset: 0; overflow: hidden; }
+.attachment-full-video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: black; }
+.attachment-full-image, .attachment-full-video { opacity: 0; transition: opacity 200ms linear; }
+.attachment-page[data-state="loaded"] > .attachment-full-image,
+.attachment-page[data-state="loaded"] > .attachment-full-video { opacity: 1; }
+/* Each page's own spinner or error, transparent so it never blacks out a sliding neighbour. */
+.attachment-page-status { position: absolute; inset: 0; display: grid; place-items: center; color: white; pointer-events: none; opacity: 0; transition: opacity 200ms linear; }
+.attachment-page-status[data-visible="true"] { opacity: 1; }
+.attachment-page-status > svg { width: 32px; height: 32px; fill: currentColor; }
+/* The close button and counter hide together with the video controls, like MediaPager's overlay. */
+.attachment-viewer .tool-media-controls, .attachment-viewer .tool-media-previous, .attachment-viewer .tool-media-next { transition: opacity 200ms linear; }
+.attachment-viewer [data-hidden="true"] { opacity: 0; pointer-events: none; }
 .attachment-viewer .tool-media-controls > button { flex: none; }
 .attachment-viewer .tool-media-count { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-viewer .tool-media-previous svg { transform: rotate(180deg); }

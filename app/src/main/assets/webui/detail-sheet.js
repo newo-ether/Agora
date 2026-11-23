@@ -10,6 +10,12 @@ const SHEET_BACK_PATH = "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H2
 // Material Icons.Default.Close, centred on (12, 12). The previous path was offset to the left,
 // so the X sat off-centre inside its round button.
 const SHEET_CLOSE_PATH = "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
+// Shell-backed cards render a formatted body that cannot show which device ran the call.
+// Keep this list in sync with ToolKind.runsOnShellServer() on the Compose side.
+const SHELL_CARD_KINDS = new Set([
+  "SHELL_LIST", "SHELL_EXECUTE", "SHELL_JOB_LIST", "SHELL_JOB_GET", "SHELL_JOB_WAIT", "SHELL_JOB_STOP",
+  "FILE_READ", "FILE_WRITE", "FILE_EDIT", "FILE_GLOB", "FILE_GREP", "FILE_TRANSFER",
+]);
 export function canOpenSheetItem(item) {
   return item?.type === "thought" || item?.type === "transcription" ||
     (item?.type === "tool" && item.toolDetail != null);
@@ -241,9 +247,11 @@ function ToolDetail({ item, conversationId, messageId }) {
       ${detail.codeArgument && html`<${ToolCodeArgument} code=${detail.codeArgument} />`}
     </div>`}
     ${detail.kind === "MCP" && html`<div class="tool-mcp-meta tool-meta-row">
-      <${ToolPill} text="MCP" emphasized /><${ToolPill} text=${detail.mcpDevice} />
+      <${ToolPill} text="MCP" emphasized /><${ToolPill} text=${detail.device} />
     </div>`}
     <div class="tool-section-label result">${detail.resultLabel}</div>
+    ${detail.device && detail.kind !== "MCP" && detail.body.type !== "shell" && SHELL_CARD_KINDS.has(detail.kind) &&
+      html`<div class="tool-meta-row"><${ToolPill} text=${detail.device} /></div>`}
     ${detail.images.length > 0 && html`<div class="tool-images">
       ${detail.images.map((image, index) => html`<${ToolImage} key=${`${urls[index]}:${!!image.unavailable}`} src=${urls[index]}
         image=${image} detail=${detail} onState=${state => setLoads(current => ({ ...current, [urls[index]]: state }))}

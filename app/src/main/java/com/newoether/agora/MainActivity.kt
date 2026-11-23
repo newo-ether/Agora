@@ -52,6 +52,8 @@ import com.newoether.agora.ui.motion.ProvideAgoraMotionPolicy
 import com.newoether.agora.ui.settings.SettingsScreen
 import com.newoether.agora.ui.tasks.TaskEditorSessionViewModel
 import com.newoether.agora.ui.tasks.TaskHistoryPreviewPhase
+import com.newoether.agora.ui.common.AgoraSnackbar
+import com.newoether.agora.ui.common.LocalSnackbarMessage
 import com.newoether.agora.ui.theme.AgoraTheme
 import com.newoether.agora.util.snackbarTimeoutMillis
 import com.newoether.agora.util.withAppLocale
@@ -490,7 +492,10 @@ fun MainNavigation(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Only native chat resolves shell:// Markdown images; Remote stays outside this provider.
-            CompositionLocalProvider(LocalShellMarkdownMedia provides viewModel.shellMarkdownMedia) {
+            CompositionLocalProvider(
+                LocalShellMarkdownMedia provides viewModel.shellMarkdownMedia,
+                LocalSnackbarMessage provides { message -> viewModel.emitSnackbar(message) },
+            ) {
                 ChatApp(
                     viewModel = viewModel,
                     initialComposerFocusReady = initialComposerFocusReady,
@@ -743,27 +748,7 @@ fun MainNavigation(
                 },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = snackbarBottomPadding + 2.dp)
             ) {
-                content?.let { data ->
-                    Snackbar(
-                        modifier = Modifier.padding(horizontal = 12.dp).padding(vertical = 10.dp).shadow(6.dp, RoundedCornerShape(12.dp), clip = false),
-                        shape = RoundedCornerShape(12.dp),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        actionContentColor = MaterialTheme.colorScheme.primary,
-                        dismissActionContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        dismissAction = @Composable {
-                            Box(modifier = Modifier.padding(end = 8.dp)) {
-                                IconButton(onClick = { data.dismiss() }, modifier = Modifier.size(28.dp).clip(CircleShape)) {
-                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cancel), modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        },
-                        action = data.visuals.actionLabel?.let { label ->
-                            @Composable { TextButton(onClick = { data.performAction() }) { Text(label) } }
-                        },
-                        content = { Text(data.visuals.message) }
-                    )
-                }
+                content?.let { data -> AgoraSnackbar(data) }
             }
         }
     }

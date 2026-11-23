@@ -669,10 +669,11 @@
     <string name="context_compact_auto">Automatische Komprimierung</string>
     <string name="context_compact_auto_desc">Älteren Kontext vor dem Überlauf zusammenfassen</string>
     <string name="context_compact_model">Komprimierungsmodell</string>
+    <string name="context_compact_model_preserved">Folgt dem Unterhaltungsmodell, solange „Kontext beibehalten“ aktiv ist</string>
     <string name="context_compact_prompt">Komprimierungsanweisung</string>
     <string name="context_compact_prompt_desc">Anweisungen für die Zusammenfassung</string>
-    <string name="context_compact_preserve_system">System-Prompt beibehalten</string>
-    <string name="context_compact_preserve_system_desc">Beim Verdichten wird das System-Prompt der Unterhaltung verwendet; das Kompakt-Prompt steht am Anfang der Zusammenfassungsanfrage</string>
+    <string name="context_compact_preserve_system">Kontext beibehalten</string>
+    <string name="context_compact_preserve_system_desc">Beim Verdichten wird der Kontext eines normalen Durchlaufs exakt übernommen – gleiches Modell, System-Prompt, Werkzeuge und Parameter; Werkzeugaufrufe werden abgelehnt statt ausgeführt</string>
     <string name="context_compact_select_model">Komprimierungsmodell auswählen</string>
     <string name="context_compact_threshold">Schwelle für automatische Komprimierung</string>
     <string name="context_compact_threshold_desc">Komprimieren, wenn der geschätzte Kontext diesen Anteil des ausgewählten Fensters erreicht</string>

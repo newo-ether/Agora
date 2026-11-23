@@ -48,6 +48,7 @@ internal fun ChatManualCompactDialog(
     isCompacting: Boolean,
     onCompact: (model: String, prompt: String, retainCount: Int) -> Unit,
     onDismiss: () -> Unit,
+    preserveContext: Boolean = false,
 ) {
     var model by remember(initialModel) { mutableStateOf(initialModel) }
     var prompt by remember(initialPrompt) { mutableStateOf(initialPrompt) }
@@ -81,15 +82,18 @@ internal fun ChatManualCompactDialog(
             ) {
                 ExposedDropdownMenuBox(
                     expanded = modelMenu,
-                    onExpandedChange = { if (!busy) modelMenu = it },
+                    onExpandedChange = { if (!busy && !preserveContext) modelMenu = it },
                 ) {
                     OutlinedTextField(
                         value = modelDisplayName(model, modelAliases, customProviders, modelProviderNameShown(model, modelProviderNames)),
                         onValueChange = {},
                         readOnly = true,
-                        enabled = !busy,
+                        enabled = !busy && !preserveContext,
                         singleLine = true,
                         label = { Text(stringResource(R.string.context_compact_model)) },
+                        supportingText = if (preserveContext) {
+                            { Text(stringResource(R.string.context_compact_model_preserved)) }
+                        } else null,
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenu)
                         },
@@ -98,7 +102,7 @@ internal fun ChatManualCompactDialog(
                             .fillMaxWidth()
                             .menuAnchor(
                                 type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
-                                enabled = !busy,
+                                enabled = !busy && !preserveContext,
                             ),
                     )
                     AgoraExposedDropdownMenu(

@@ -669,10 +669,11 @@
     <string name="context_compact_auto">自動圧縮</string>
     <string name="context_compact_auto_desc">上限に達する前に古いコンテキストを要約します</string>
     <string name="context_compact_model">圧縮モデル</string>
+    <string name="context_compact_model_preserved">「コンテキストを保持」が有効な間は会話のモデルに従います</string>
     <string name="context_compact_prompt">圧縮プロンプト</string>
     <string name="context_compact_prompt_desc">要約の指示</string>
-    <string name="context_compact_preserve_system">システムプロンプトを保持</string>
-    <string name="context_compact_preserve_system_desc">圧縮時には会話のシステムプロンプトを使い、圧縮プロンプトは要約依頼の先頭指示になります</string>
+    <string name="context_compact_preserve_system">コンテキストを保持</string>
+    <string name="context_compact_preserve_system_desc">圧縮時は通常の生成ターンとまったく同じコンテキスト（同じモデル、システムプロンプト、ツール、生成パラメーター）を使い、ツール呼び出しは実行せず拒否します</string>
     <string name="context_compact_select_model">圧縮モデルを選択</string>
     <string name="context_compact_threshold">自動圧縮のしきい値</string>
     <string name="context_compact_threshold_desc">推定コンテキストが選択したウィンドウのこの割合に達したら圧縮します</string>

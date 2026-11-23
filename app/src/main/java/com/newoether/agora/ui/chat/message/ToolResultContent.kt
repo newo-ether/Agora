@@ -88,7 +88,7 @@ internal fun ToolDetailContent(
         Column(modifier = contentAlignmentModifier.fillMaxWidth()) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MetaPill(text = "MCP", emphasized = true)
-                presentation.mcpDevice?.let { MetaPill(it) }
+                presentation.device?.let { MetaPill(it) }
             }
             Spacer(Modifier.height(18.dp))
         }
@@ -131,6 +131,20 @@ internal fun ToolDetailContent(
         return
     }
     Column(modifier = contentAlignmentModifier.fillMaxWidth()) {
+        val device = presentation.device
+        if (
+            device != null &&
+            body !is ToolDetailBody.Shell &&
+            presentation.kind != ToolKind.MCP &&
+            presentation.kind.runsOnShellServer()
+        ) {
+            // File and job cards are formatted from the payload; the server is the only piece of
+            // context that the formatted body cannot show on its own.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MetaPill(device)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
         when (body) {
             is ToolDetailBody.Active -> ToolActiveContent(body.text, body.output)
             is ToolDetailBody.Failed -> {

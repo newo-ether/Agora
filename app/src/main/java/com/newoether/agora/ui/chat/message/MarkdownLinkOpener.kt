@@ -2,7 +2,8 @@ package com.newoether.agora.ui.chat.message
 
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
+import com.newoether.agora.ui.common.DialogSnackbarHost
+import com.newoether.agora.ui.common.LocalSnackbarMessage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -78,11 +79,10 @@ internal class MarkdownLinkOpener(
 internal fun rememberMarkdownLinkOpener(): MarkdownLinkOpener {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
+    val snackbar = LocalSnackbarMessage.current
     var mediaUri by remember { mutableStateOf<String?>(null) }
-    val notify: (Int) -> Unit = { resId ->
-        Toast.makeText(context, resId, Toast.LENGTH_SHORT).show()
-    }
-    val opener = remember(context, uriHandler) {
+    val notify: (Int) -> Unit = { resId -> snackbar(context.getString(resId)) }
+    val opener = remember(context, uriHandler, snackbar) {
         MarkdownLinkOpener(
             context = context,
             openRemote = { url ->
@@ -103,14 +103,18 @@ internal fun rememberMarkdownLinkOpener(): MarkdownLinkOpener {
                 decorFitsSystemWindows = false,
             ),
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                FullScreenMediaViewer(
-                    urls = listOf(openedMedia),
-                    initialIndex = 0,
-                    pdfPages = emptyList(),
-                    onClose = { mediaUri = null },
-                    onNavigate = {},
-                )
+            DialogSnackbarHost {
+                val dialogNotify = LocalSnackbarMessage.current
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    FullScreenMediaViewer(
+                        urls = listOf(openedMedia),
+                        initialIndex = 0,
+                        pdfPages = emptyList(),
+                        onClose = { mediaUri = null },
+                        onNavigate = {},
+                        onMessage = dialogNotify,
+                    )
+                }
             }
         }
     }

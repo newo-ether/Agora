@@ -2,6 +2,7 @@ package com.newoether.agora.viewmodel
 
 import com.newoether.agora.api.ProviderConfig
 import com.newoether.agora.data.BuiltInPrompts
+import com.newoether.agora.data.local.ChatEntity
 import com.newoether.agora.data.local.MessageContextTopology
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.local.ProviderContextTopologySnapshot
@@ -153,6 +154,9 @@ class ConversationCompactControllerTest {
     @Test
     fun preservedCompactKeepsCapturedSystemPromptAndPrefixesCompactPromptIntoUserMessage() = runBlocking {
         val conversations = mockk<ConversationRepository>()
+        // Preserve Context follows the conversation's model instead of a separate Compact model.
+        coEvery { conversations.getConversation("conversation") } returns
+            mockk<ChatEntity> { every { modelId } returns "provider:model" }
         val operation = FakeCompactOperation()
         val manager = mockk<GenerationManager>()
         val launcher = mockk<StandardGenerationContinuationLauncher>()
@@ -624,6 +628,7 @@ class ConversationCompactControllerTest {
         assertEquals(expected, actual.copy(
             effectiveSystemPrompt = expected.effectiveSystemPrompt,
             initialUserPrompt = expected.initialUserPrompt,
+            rejectToolCalls = expected.rejectToolCalls,
         ))
     }
 

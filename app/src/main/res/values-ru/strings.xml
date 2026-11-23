@@ -669,10 +669,11 @@
     <string name="context_compact_auto">Автоматическое сжатие</string>
     <string name="context_compact_auto_desc">Суммировать старый контекст до переполнения</string>
     <string name="context_compact_model">Модель сжатия</string>
+    <string name="context_compact_model_preserved">Пока включено «Сохранять контекст», используется модель диалога</string>
     <string name="context_compact_prompt">Промпт сжатия</string>
     <string name="context_compact_prompt_desc">Инструкции для сводки</string>
-    <string name="context_compact_preserve_system">Сохранять системный промпт</string>
-    <string name="context_compact_preserve_system_desc">При сжатии используется системный промпт диалога; компактный промпт открывает запрос сводки</string>
+    <string name="context_compact_preserve_system">Сохранять контекст</string>
+    <string name="context_compact_preserve_system_desc">При сжатии используется точно тот же контекст, что и в обычном запросе: та же модель, системный промпт, инструменты и параметры; вызовы инструментов отклоняются, а не выполняются</string>
     <string name="context_compact_select_model">Выбрать модель сжатия</string>
     <string name="context_compact_threshold">Порог автоматического сжатия</string>
     <string name="context_compact_threshold_desc">Сжимать, когда оценённый контекст достигнет этого процента выбранного окна</string>

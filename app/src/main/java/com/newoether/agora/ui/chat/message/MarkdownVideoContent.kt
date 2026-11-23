@@ -1,7 +1,6 @@
 package com.newoether.agora.ui.chat.message
 
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -41,6 +40,8 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.chat.VideoActionsSheet
 import com.newoether.agora.ui.chat.VideoPlayer
 import com.newoether.agora.ui.chat.rememberVideoPoster
+import com.newoether.agora.ui.common.DialogSnackbarHost
+import com.newoether.agora.ui.common.LocalSnackbarMessage
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -84,6 +85,7 @@ internal fun markdownVideoSource(link: String): MarkdownVideoSource? {
 @Composable
 internal fun MarkdownVideoCard(link: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val notify = LocalSnackbarMessage.current
     // Remote sessions have no media owner, so a Conch video stays an inert card there.
     val media = LocalShellMarkdownMedia.current
     val haptics = LocalAgoraHaptics.current
@@ -125,7 +127,7 @@ internal fun MarkdownVideoCard(link: String, modifier: Modifier = Modifier) {
     }
     val galleryEntry = rememberMarkdownMediaEntry(viewerUri)
     fun unavailable() {
-        Toast.makeText(context, R.string.markdown_link_file_unavailable, Toast.LENGTH_SHORT).show()
+        notify(context.getString(R.string.markdown_link_file_unavailable))
     }
     fun openVideo(uri: String?) {
         when {
@@ -156,8 +158,17 @@ internal fun MarkdownVideoCard(link: String, modifier: Modifier = Modifier) {
         when {
             readyFile != null -> if (startSheet) openActions(cachedVideoUri(context, readyFile))
                 else openVideo(cachedVideoUri(context, readyFile))
-            download is MarkdownVideoDownload.Failed ->
-                Toast.makeText(context, download.message, Toast.LENGTH_LONG).show()
+            download is MarkdownVideoDownload.Failed -> {
+                // A failure is retryable: the cached copy may only need a fresh handshake.
+                notify(download.message)
+                if (startSheet) {
+                    pendingActions = true
+                    start.videos.start(link)
+                } else {
+                    pendingPlay = true
+                    start.videos.start(link)
+                }
+            }
             startSheet -> {
                 pendingActions = true
                 start.videos.start(link)
@@ -233,7 +244,7 @@ internal fun MarkdownVideoCard(link: String, modifier: Modifier = Modifier) {
     if (cardActions != null) {
         VideoActionsSheet(
             url = cardActions,
-            onMessage = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+            onMessage = notify,
             onDismiss = { cardActionsUri = null },
         )
     }
@@ -246,23 +257,24 @@ internal fun MarkdownVideoCard(link: String, modifier: Modifier = Modifier) {
                 decorFitsSystemWindows = false,
             ),
         ) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                VideoPlayer(
-                    uri = uri,
-                    onClose = { playingUri = null; actionsVisible = false },
-                    onLongPress = {
-                        haptics.longPress()
-                        actionsVisible = true
-                    },
-                )
-                if (actionsVisible) {
-                    VideoActionsSheet(
-                        url = uri,
-                        onMessage = { message ->
-                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            DialogSnackbarHost {
+                val dialogNotify = LocalSnackbarMessage.current
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    VideoPlayer(
+                        uri = uri,
+                        onClose = { playingUri = null; actionsVisible = false },
+                        onLongPress = {
+                            haptics.longPress()
+                            actionsVisible = true
                         },
-                        onDismiss = { actionsVisible = false },
                     )
+                    if (actionsVisible) {
+                        VideoActionsSheet(
+                            url = uri,
+                            onMessage = dialogNotify,
+                            onDismiss = { actionsVisible = false },
+                        )
+                    }
                 }
             }
         }

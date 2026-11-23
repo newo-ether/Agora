@@ -346,6 +346,8 @@ internal data class AuthorizedToolBatchRequest(
     val context: GenerationContext,
     val conversationId: String,
     val authorizedToolNames: Set<String>,
+    /** Refuses every call with this text instead of executing it. */
+    val rejectionText: String? = null,
     /** Per-generation single-image transcription flow, resolved from this generation's
      *  provider instances. Null disables tool-result image transcription. */
     val toolImageTranscriber: (suspend (ToolImageAttachment, suspend (String) -> Unit) -> String?)? = null,
@@ -404,6 +406,7 @@ internal class GenerationToolBatchEffectExecutor(
                     arguments = call.arguments,
                     context = request.context,
                     authorizedToolNames = request.authorizedToolNames,
+                    rejectionText = request.rejectionText,
                     toolImageTranscriber = request.toolImageTranscriber,
                 ),
             ) { event ->

@@ -2,6 +2,8 @@ package com.newoether.agora.viewmodel
 
 import android.content.Context
 import com.newoether.agora.R
+import com.newoether.agora.api.ProviderConfig
+import com.newoether.agora.api.resolveRequest
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.CustomEndpointProtocol
@@ -333,9 +335,15 @@ class GenerationRequestBuilderProviderDisplayTest {
             RequestBuilderFixture.COMPACT_PROMPT,
             snapshot.automaticCompact.request.prompt,
         )
+        // The compact request carries the ordinary template and resolver, so it renders the same
+        // complete system prompt as a normal turn instead of a pre-resolved copy.
+        val compactConfig = snapshot.automaticCompact.generationConfig
+        assertEquals(snapshot.config.promptTemplate, compactConfig.promptTemplate)
         assertEquals(
             RequestBuilderFixture.RESOLVED_SYSTEM_PROMPT,
-            snapshot.automaticCompact.generationConfig.effectiveSystemPrompt,
+            com.newoether.agora.api.ProviderConfig(
+                apiKey = "key", modelId = "model", requestResolver = compactConfig.requestResolver,
+            ).resolveRequest(emptyList()).systemPrompt,
         )
     }
     @Test

@@ -66,6 +66,14 @@ class WebUiMarkdownVideosTest {
         assertFalse(message("[x]($remote)").ownsMarkdownLinkedMedia(remote, "answer"))
     }
 
+    // The 2026-11-23 GTA answer: a Conch video on a Windows path followed by pictures.
+    @Test fun aConchVideoOnAWindowsPathIsOwned() {
+        val link = "shell://Quantum/C:/Users/newoether/AppData/Local/Temp/gta6_pipework/gta6_pipework_mandy.mp4"
+        val source = "好了，发你。\n![GTA 6 Pipework 修水管片段]($link)\n几张截图。\n" +
+            "![曼迪在卧室](shell://Quantum/C:/Users/newoether/AppData/Local/Temp/gta6_pipework/shot_bedroom.jpg)\n"
+        assertTrue(message(source).ownsMarkdownVideo(link, 0, "answer"))
+    }
+
     @Test fun theFragmentStartSkipsVideoDestinationsAboveIt() {
         val first = "![first]($link)\n\n"
         val source = message(first + "![second]($link)")

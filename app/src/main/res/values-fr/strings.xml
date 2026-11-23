@@ -669,10 +669,11 @@
     <string name="context_compact_auto">Compactage automatique</string>
     <string name="context_compact_auto_desc">Résumer l’ancien contexte avant le dépassement</string>
     <string name="context_compact_model">Modèle de compactage</string>
+    <string name="context_compact_model_preserved">Suit le modèle de la conversation tant que « Conserver le contexte » est actif</string>
     <string name="context_compact_prompt">Instruction de compactage</string>
     <string name="context_compact_prompt_desc">Instructions de résumé</string>
-    <string name="context_compact_preserve_system">Conserver le prompt système</string>
-    <string name="context_compact_preserve_system_desc">La compression utilise le prompt système de la conversation ; le prompt compact introduit la demande de résumé</string>
+    <string name="context_compact_preserve_system">Conserver le contexte</string>
+    <string name="context_compact_preserve_system_desc">La compression réutilise exactement le contexte d’un tour normal : même modèle, prompt système, outils et paramètres ; les appels d’outils sont refusés au lieu d’être exécutés</string>
     <string name="context_compact_select_model">Sélectionner le modèle de compactage</string>
     <string name="context_compact_threshold">Seuil de compactage automatique</string>
     <string name="context_compact_threshold_desc">Compacter lorsque le contexte estimé atteint ce pourcentage de la fenêtre sélectionnée</string>

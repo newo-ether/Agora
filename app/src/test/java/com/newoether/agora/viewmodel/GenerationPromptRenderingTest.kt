@@ -199,7 +199,13 @@ class GenerationPromptRenderingTest {
     fun preservedCompactRetainsTheCompleteOrdinaryStaticPrompt() = runTest {
         val fixture = fixture(compactPreserveSystemPrompt = true)
         val snapshot = fixture.builder.captureAdmissionSnapshot("conversation", "run", fixture.modelId)
-        val prompt = snapshot.automaticCompact.generationConfig.effectiveSystemPrompt.orEmpty()
+        // Preserve Context reuses the ordinary configuration object; the system prompt is resolved
+        // from its captured template at request time exactly like an ordinary turn.
+        val compactConfig = snapshot.automaticCompact.generationConfig
+        assertEquals(snapshot.config.promptTemplate, compactConfig.promptTemplate)
+        val prompt = ProviderConfig(
+            apiKey = "key", modelId = "model", requestResolver = compactConfig.requestResolver,
+        ).resolveRequest(emptyList()).systemPrompt.orEmpty()
         val ordinary = ProviderConfig(
             apiKey = "key", modelId = "model", requestResolver = snapshot.config.requestResolver,
         ).resolveRequest(emptyList()).systemPrompt

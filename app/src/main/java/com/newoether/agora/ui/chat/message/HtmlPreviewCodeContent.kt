@@ -1,6 +1,6 @@
 package com.newoether.agora.ui.chat.message
 
-import android.widget.Toast
+import com.newoether.agora.ui.common.LocalSnackbarMessage
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
@@ -61,8 +61,9 @@ internal fun HtmlPreviewCodeContent(
     var revision by remember(code) { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val notify = LocalSnackbarMessage.current
     val export = rememberHtmlPreviewExport(code) {
-        Toast.makeText(context, R.string.html_preview_export_failed, Toast.LENGTH_SHORT).show()
+        notify(context.getString(R.string.html_preview_export_failed))
     }
     val showingPreview = preview && !searching
     ChatCodeBlockHeader(language = language, code = code, showCopy = !showingPreview, actions = {

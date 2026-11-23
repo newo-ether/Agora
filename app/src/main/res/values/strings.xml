@@ -662,10 +662,11 @@
     <string name="context_compact_auto">Automatic Compact</string>
     <string name="context_compact_auto_desc">Summarize older context before overflow</string>
     <string name="context_compact_model">Compact Model</string>
+    <string name="context_compact_model_preserved">Uses the conversation model while Preserve Context is on</string>
     <string name="context_compact_prompt">Compact Prompt</string>
     <string name="context_compact_prompt_desc">Summary instructions</string>
-    <string name="context_compact_preserve_system">Preserve System Prompt</string>
-    <string name="context_compact_preserve_system_desc">Use the conversation system prompt for compaction; the Compact Prompt leads the summary request instead</string>
+    <string name="context_compact_preserve_system">Preserve Context</string>
+    <string name="context_compact_preserve_system_desc">Compact with the exact context of a normal turn — same model, system prompt, tools and generation parameters — and refuse tool calls instead of running them</string>
     <string name="context_compact_select_model">Select Compact Model</string>
     <string name="context_compact_retain">Recent Messages to Keep</string>
     <string name="context_compact_retain_desc">Messages preserved verbatim after each compact</string>

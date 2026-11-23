@@ -32,7 +32,7 @@ internal fun Resources.webToolDetail(segment: MessageSegment): WebToolDetail {
         codeArgument = detail.codeArgument?.let { code ->
             WebToolCodeArgument(code.name, code.text, code.rows?.map(::webToolCodeRow))
         },
-        mcpDevice = detail.mcpDevice.takeIf { detail.kind == ToolKind.MCP },
+        device = detail.device,
         body = when (val body = detail.body) {
             is ToolDetailBody.Active -> WebToolBody.Active(body.text, body.output)
             is ToolDetailBody.Failed -> WebToolBody.Failed(body.text, body.output)
@@ -120,7 +120,7 @@ internal data class WebToolDetail(
     val resultLabel: String,
     val arguments: WebToolDocument?,
     val codeArgument: WebToolCodeArgument?,
-    val mcpDevice: String?,
+    val device: String? = null,
     val body: WebToolBody,
     val images: List<WebToolImage>,
     val squareCrop: Boolean,

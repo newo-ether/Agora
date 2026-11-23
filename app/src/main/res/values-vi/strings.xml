@@ -675,10 +675,11 @@
     <string name="context_compact_auto">Tự động thu gọn</string>
     <string name="context_compact_auto_desc">Tóm tắt ngữ cảnh cũ trước khi vượt giới hạn</string>
     <string name="context_compact_model">Mô hình thu gọn</string>
+    <string name="context_compact_model_preserved">Theo mô hình của cuộc trò chuyện khi bật «Giữ ngữ cảnh»</string>
     <string name="context_compact_prompt">Lời nhắc thu gọn</string>
     <string name="context_compact_prompt_desc">Hướng dẫn tóm tắt</string>
-    <string name="context_compact_preserve_system">Giữ System Prompt</string>
-    <string name="context_compact_preserve_system_desc">Khi nén sẽ dùng system prompt của cuộc trò chuyện; prompt nén đứng đầu yêu cầu tóm tắt</string>
+    <string name="context_compact_preserve_system">Giữ ngữ cảnh</string>
+    <string name="context_compact_preserve_system_desc">Khi nén sẽ dùng đúng ngữ cảnh của một lượt tạo bình thường — cùng model, system prompt, công cụ và tham số; lệnh gọi công cụ bị từ chối thay vì thực thi</string>
     <string name="context_compact_select_model">Chọn mô hình thu gọn</string>
     <string name="context_compact_threshold">Ngưỡng tự động thu gọn</string>
     <string name="context_compact_threshold_desc">Thu gọn khi ngữ cảnh ước tính đạt tỷ lệ này của cửa sổ đã chọn</string>

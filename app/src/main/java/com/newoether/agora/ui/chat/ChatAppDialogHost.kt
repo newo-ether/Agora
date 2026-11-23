@@ -135,6 +135,7 @@ internal fun ChatAppDialogHost(
     modelProviderNames: Map<String, Boolean>,
     customProviders: List<CustomProviderConfig>,
     isCompacting: Boolean,
+    preserveContext: Boolean = false,
 ) {
     val promptEditorScope = rememberCoroutineScope()
     val currentConversationId by viewModel.currentConversationId.collectAsState()
@@ -192,7 +193,7 @@ internal fun ChatAppDialogHost(
 
     if (state.manualCompactVisible) {
         ChatManualCompactDialog(
-            initialModel = compactModel ?: selectedModel,
+            initialModel = if (preserveContext) selectedModel else compactModel ?: selectedModel,
             initialPrompt = compactPrompt,
             initialRetainCount = compactRetainCount,
             enabledModels = enabledModels,
@@ -200,6 +201,7 @@ internal fun ChatAppDialogHost(
             modelProviderNames = modelProviderNames,
             customProviders = customProviders,
             isCompacting = isCompacting,
+            preserveContext = preserveContext,
             onCompact = { model, prompt, retainCount ->
                 state.dismissManualCompact()
                 viewModel.compactUi.startManual(model, prompt, retainCount)

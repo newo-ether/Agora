@@ -669,10 +669,11 @@
     <string name="context_compact_auto">الضغط التلقائي</string>
     <string name="context_compact_auto_desc">لخّص السياق الأقدم قبل تجاوز السعة</string>
     <string name="context_compact_model">نموذج الضغط</string>
+    <string name="context_compact_model_preserved">يتبع نموذج المحادثة أثناء تفعيل «الاحتفاظ بالسياق»</string>
     <string name="context_compact_prompt">مطالبة الضغط</string>
     <string name="context_compact_prompt_desc">تعليمات التلخيص</string>
-    <string name="context_compact_preserve_system">الاحتفاظ بموجه النظام</string>
-    <string name="context_compact_preserve_system_desc">يستخدم الضغط موجه النظام الخاص بالمحادثة، ويصبح موجه الضغط بداية طلب الملخص</string>
+    <string name="context_compact_preserve_system">الاحتفاظ بالسياق</string>
+    <string name="context_compact_preserve_system_desc">يستخدم الضغط سياق دورة التوليد العادية تمامًا: النموذج نفسه وموجه النظام والأدوات ومعاملات التوليد؛ وتُرفض استدعاءات الأدوات بدل تنفيذها</string>
     <string name="context_compact_select_model">اختر نموذج الضغط</string>
     <string name="context_compact_threshold">حد الضغط التلقائي</string>
     <string name="context_compact_threshold_desc">اضغط عندما يصل السياق المقدّر إلى هذه النسبة من النافذة المحددة</string>

@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -124,7 +125,9 @@ fun SettingsContextPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             headlineContent = { Text(stringResource(R.string.context_compact_model)) },
                             supportingContent = {
                                 Text(
-                                    compactModel?.let {
+                                    if (preserveSystemPrompt) {
+                                        stringResource(R.string.context_compact_model_preserved)
+                                    } else compactModel?.let {
                                         modelDisplayName(it, aliases, customProviders, modelProviderNameShown(it, modelProviderNames))
                                     } ?: stringResource(R.string.title_gen_current_model)
                                 )
@@ -133,10 +136,20 @@ fun SettingsContextPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 Icon(
                                     Icons.Rounded.Layers,
                                     null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = if (preserveSystemPrompt) {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    },
                                 )
                             },
-                            modifier = Modifier.clickable { modelDialog = true },
+                            // Preserve Context fixes the model to the conversation's own one, so
+                            // this row only documents the choice until the toggle is switched off.
+                            modifier = if (preserveSystemPrompt) {
+                                Modifier.alpha(0.6f)
+                            } else {
+                                Modifier.clickable { modelDialog = true }
+                            },
                         )
                     }
                     add {

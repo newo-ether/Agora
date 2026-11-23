@@ -669,10 +669,11 @@
     <string name="context_compact_auto">자동 압축</string>
     <string name="context_compact_auto_desc">한도를 넘기기 전에 이전 컨텍스트를 요약합니다</string>
     <string name="context_compact_model">압축 모델</string>
+    <string name="context_compact_model_preserved">「컨텍스트 유지」가 켜져 있는 동안 대화 모델을 따릅니다</string>
     <string name="context_compact_prompt">압축 프롬프트</string>
     <string name="context_compact_prompt_desc">요약 지침</string>
-    <string name="context_compact_preserve_system">시스템 프롬프트 유지</string>
-    <string name="context_compact_preserve_system_desc">압축 시 대화의 시스템 프롬프트를 쓰고, 압축 프롬프트는 요약 요청 맨 앞의 지시가 됩니다</string>
+    <string name="context_compact_preserve_system">컨텍스트 유지</string>
+    <string name="context_compact_preserve_system_desc">압축 시 일반 생성 턴과 완전히 동일한 컨텍스트(같은 모델, 시스템 프롬프트, 도구, 생성 파라미터)를 사용하며, 도구 호출은 실행하지 않고 거부합니다</string>
     <string name="context_compact_select_model">압축 모델 선택</string>
     <string name="context_compact_threshold">자동 압축 임계값</string>
     <string name="context_compact_threshold_desc">예상 컨텍스트가 선택한 창의 이 비율에 도달하면 압축합니다</string>

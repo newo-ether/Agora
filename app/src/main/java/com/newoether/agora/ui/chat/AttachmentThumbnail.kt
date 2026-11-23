@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -50,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.ui.common.LocalAgoraHaptics
+import com.newoether.agora.ui.common.LocalSnackbarMessage
 import com.newoether.agora.util.AttachmentSourceReader
 import com.newoether.agora.util.Constants
 import kotlinx.coroutines.Dispatchers
@@ -292,9 +292,7 @@ fun AttachmentThumbnailItem(
             if (actionsVisible && actionSource != null) {
                 VideoActionsSheet(
                     url = actionSource,
-                    onMessage = { message ->
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                    },
+                    onMessage = LocalSnackbarMessage.current,
                     onDismiss = { actionsVisible = false },
                 )
             }

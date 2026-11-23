@@ -662,10 +662,11 @@
     <string name="context_compact_auto">自动压缩</string>
     <string name="context_compact_auto_desc">在溢出前总结较早的上下文</string>
     <string name="context_compact_model">压缩模型</string>
+    <string name="context_compact_model_preserved">开启「保留上下文」时跟随对话模型</string>
     <string name="context_compact_prompt">压缩提示词</string>
     <string name="context_compact_prompt_desc">总结指令</string>
-    <string name="context_compact_preserve_system">保留系统提示词</string>
-    <string name="context_compact_preserve_system_desc">压缩时使用对话的系统提示词，压缩提示词改为摘要请求的开头指令</string>
+    <string name="context_compact_preserve_system">保留上下文</string>
+    <string name="context_compact_preserve_system_desc">压缩时完整复用常规生成轮的上下文：同一模型、系统提示词、工具与生成参数；工具调用会被拒绝并继续生成</string>
     <string name="context_compact_select_model">选择压缩模型</string>
     <string name="context_compact_threshold">自动压缩阈值</string>
     <string name="context_compact_threshold_desc">估算上下文达到所选窗口的此百分比时进行压缩</string>

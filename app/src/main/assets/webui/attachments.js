@@ -161,67 +161,114 @@ export function AttachmentEditor({ attachment: a, editable, onPreview }) {
     </section></dialog>`;
 }
 
-// Release speed (px/s) past which a flick pages even before half a page was dragged.
+// Compose's pager snap: a release faster than this (px/s) pages toward the fling.
 const FLING_VELOCITY = 600;
 // Height of the browser's video control bar, whose drags scrub instead of paging.
 const VIDEO_CONTROLS_HEIGHT = 72;
+// Pages kept mounted on each side, so a fast run of swipes lands on already decoded pages.
+const MOUNTED_NEIGHBOURS = 2;
+// Release velocity is measured over the last stretch of the drag, like Compose's VelocityTracker.
+const VELOCITY_WINDOW_MS = 100;
+// A playing video hides the close button and the counter with its own idle controls.
+const CHROME_IDLE_MS = 3000;
 
-export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
-  const dialog = useRef(null);
-  const onClose = useDialog(dialog, onClosed);
-  const index = viewer.index || 0;
-  const viewport = useRef(null);
-  const pager = useRef(null);
-  const image = useRef(null);
-  const zoom = useRef(null);
-  const file = viewer.file;
-  const item = viewer.items?.[index];
-  const source = item && (item.url ?? sync.attachmentUrl(item.id, item.kind, item.index));
-  const isVideo = entry => entry?.type === "video" && entry.kind === "source";
-  const neighbourSource = offset => {
-    const neighbour = viewer.items?.[index + offset];
-    return neighbour && (neighbour.url ?? sync.attachmentUrl(neighbour.id, neighbour.kind, neighbour.index));
-  };
-  // A waiting picture is the picture itself; a waiting video shows the video glyph on black.
-  const peek = (entry, url, key, style) => isVideo(entry)
-    ? html`<div class="attachment-peek attachment-peek-video" key=${key} style=${style}>${icon(ICON_VIDEO)}</div>`
-    : html`<img class="attachment-peek" key=${key} src=${url} alt="" draggable="false" style=${style} />`;
-  const previousSource = neighbourSource(-1);
-  const nextSource = neighbourSource(1);
-  const [loadedSource, setLoadedSource] = useState(null);
-  const [failedSource, setFailedSource] = useState(null);
-  // Kept across item switches: the previous picture stays painted until the next one decodes, so a
-  // swipe never flashes the spinner or the empty viewport.
-  const [shownSource, setShownSource] = useState(null);
-  const loaded = !!source && loadedSource === source;
-  const failed = !!source && failedSource === source;
-  const shown = shownSource != null;
-  // Both neighbours stay mounted beside the current picture, so they are already fetched and
-  // decoded before any gesture moves the track: paging never slides an empty half into view.
-  // Paging also moves that one track instead of a single picture plus a temporary peek.
-  const [cover, setCover] = useState(null);
-  const track = useRef({ x: 0, xVelocity: 0, cancel: null });
-  const swipe = useRef(null);
-  const video = isVideo(item);
+const itemSource = item => item && (item.url ?? sync.attachmentUrl(item.id, item.kind, item.index));
+const isVideo = entry => entry?.type === "video" && entry.kind === "source";
+
+/**
+ * One page of the viewer. Its element stays mounted while it is within reach of the current page,
+ * so paging never refetches it; each page shows its own spinner until it decodes.
+ */
+function MediaPage({ entry, url, offset, current, zoom, onTap, onPlayback }) {
+  const media = useRef(null);
+  const [state, setState] = useState("loading");
+  const video = isVideo(entry);
   useLayoutEffect(() => {
-    const host = viewport.current, node = image.current;
-    if (!host || !node || !loaded) return;
+    const node = media.current;
+    if (video || !current || state !== "loaded" || !node) return undefined;
+    const host = node.closest(".image-viewport");
     const panzoom = globalThis.Panzoom(node, { minScale: 1, maxScale: 10, contain: "outside",
       canvas: true, panOnlyWhenZoomed: true, pinchAndPan: true, cursor: "grab" });
     const motion = { scale: 1, cancel: null };
     zoom.current = { panzoom, motion };
     const controller = new AbortController();
     const cancel = () => { motion.cancel?.(); motion.cancel = null; };
-    const wheel = event => { cancel(); panzoom.zoomWithWheel(event); };
-    host.addEventListener("wheel", wheel, { passive: false, signal: controller.signal });
+    host?.addEventListener("wheel", event => { cancel(); panzoom.zoomWithWheel(event); }, { passive: false, signal: controller.signal });
     node.addEventListener("panzoomstart", cancel, { signal: controller.signal });
     const resize = new ResizeObserver(() => { cancel(); panzoom.pan(0, 0, { force: true }); });
-    resize.observe(host);
+    if (host) resize.observe(host);
     return () => {
       cancel(); controller.abort(); resize.disconnect(); panzoom.destroy(); panzoom.resetStyle();
-      zoom.current = null;
+      if (zoom.current?.panzoom === panzoom) zoom.current = null;
     };
-  }, [source, loaded]);
+  }, [video, current, state]);
+  // The current video plays from its start; a neighbour waits paused on its first frame.
+  useLayoutEffect(() => {
+    const node = media.current;
+    if (!video || !node) return;
+    if (current) {
+      if (node.readyState >= 1) node.currentTime = 0;
+      node.play?.()?.catch?.(() => {});
+    } else {
+      node.pause?.();
+      if (node.readyState >= 1) node.currentTime = .1;
+    }
+  }, [video, current]);
+  const playback = playing => { if (current) onPlayback(playing); };
+  return html`<div class="attachment-page" data-state=${state} style=${{ transform: `translateX(${offset * 100}%)` }}>
+    ${video ? html`<video ref=${media} class="attachment-full-video" src=${`${url}#t=0.1`} preload="metadata"
+        playsinline controls=${current} muted=${!current} disablepictureinpicture
+        onLoadedData=${() => setState("loaded")} onError=${() => setState("failed")}
+        onPlay=${() => playback(true)} onPause=${() => playback(false)} onEnded=${() => playback(false)}></video>`
+      : html`<img ref=${media} class="attachment-full-image" src=${url} alt=${entry.name || t.attachments}
+        draggable="false" onClick=${onTap}
+        onLoad=${() => setState("loaded")} onError=${() => setState("failed")} />`}
+    <div class="attachment-page-status" data-visible=${state === "loading"}><${Spinner} stroke=${3} label=${t.loading} /></div>
+    <div class="attachment-page-status" data-visible=${state === "failed"} role=${state === "failed" ? "alert" : null}>
+      ${icon(entry.type === "image" || entry.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>
+  </div>`;
+}
+
+export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
+  const dialog = useRef(null);
+  const onClose = useDialog(dialog, onClosed);
+  const index = viewer.index || 0;
+  const items = viewer.items || [];
+  const viewport = useRef(null);
+  const pager = useRef(null);
+  const zoom = useRef(null);
+  const file = viewer.file;
+  const item = items[index];
+  // `index` is the page the pager shows; `shift` is a committed page change the layout has not
+  // rendered yet; `pending` is the page a running settle will commit when it lands.
+  const track = useRef({ x: 0, xVelocity: 0, cancel: null, index, shift: 0, pending: 0 });
+  const swipe = useRef(null);
+  const video = isVideo(item);
+  // The close button and counter follow the same visibility as the video controls: tapping a
+  // picture toggles them, a playing video hides them after the controls' idle delay, and any
+  // touch or pointer move over a video shows them again.
+  const [chrome, setChrome] = useState(true);
+  const chromeTimer = useRef(null);
+  const playing = useRef(false);
+  function showChrome() {
+    clearTimeout(chromeTimer.current);
+    setChrome(true);
+    if (playing.current) chromeTimer.current = setTimeout(() => setChrome(false), CHROME_IDLE_MS);
+  }
+  function onPlayback(isPlaying) {
+    playing.current = isPlaying;
+    showChrome();
+  }
+  function toggleChrome() {
+    clearTimeout(chromeTimer.current);
+    setChrome(visible => !visible);
+  }
+  useLayoutEffect(() => () => clearTimeout(chromeTimer.current), []);
+  useLayoutEffect(() => {
+    // Leaving a video stops its idle timer; the next page keeps the current visibility.
+    playing.current = false;
+    clearTimeout(chromeTimer.current);
+  }, [index]);
   function toggleZoom(event) {
     const current = zoom.current;
     if (!current) return;
@@ -239,10 +286,6 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
       value => current.panzoom.zoomToPoint(value.scale, point),
       () => { current.motion.cancel = null; });
   }
-  function navigate(next) {
-    if (next === index) return;
-    onNavigate(next);
-  }
   function reducedMotion() {
     return dialog.current?.closest(".shell")?.dataset.reduceMotion === "true";
   }
@@ -257,11 +300,32 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
     track.current.cancel = null;
     cancel?.();
   }
-  // The item swap keeps the track where the spring left it; once the new page is in the DOM the
-  // track returns to rest so the next gesture starts from a centred picture again.
-  useLayoutEffect(() => { paintTrack(0); }, [index]);
-  // One spring owns every settle, so paging decelerates on a real curve instead of jumping, and a
-  // new gesture continues the visible velocity.
+  function pageWidth() {
+    return viewport.current?.clientWidth || 1;
+  }
+  // A committed page change: the parent re-renders with the new index, and the layout effect below
+  // moves the track by one page in the same frame the pages take their new offsets, so the
+  // picture under the finger never jumps.
+  function commit(dir) {
+    const state = track.current;
+    state.pending = 0;
+    state.shift += dir;
+    state.index += dir;
+    onNavigate(state.index);
+  }
+  useLayoutEffect(() => {
+    const state = track.current;
+    state.index = index;
+    if (state.shift) {
+      const by = state.shift * pageWidth();
+      state.shift = 0;
+      if (swipe.current) swipe.current.base += by;
+      paintTrack(state.x + by);
+    } else if (!state.cancel && !swipe.current) {
+      paintTrack(0);
+    }
+  }, [index]);
+  // One spring owns every settle, starting from the release velocity, like the Compose pager.
   function settleTrack(target, done) {
     stopTrack();
     if (reducedMotion()) { paintTrack(target); done?.(); return; }
@@ -272,71 +336,90 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
       () => { track.current.cancel = null; paintTrack(target); done?.(); },
     );
   }
-  // Arrow buttons, the keyboard and a released swipe walk the same pager: the already decoded
-  // neighbour slides in while the current picture leaves.
+  function settleTo(dir) {
+    if (!dir) { track.current.pending = 0; settleTrack(0); return; }
+    track.current.pending = dir;
+    settleTrack(-dir * pageWidth(), () => commit(dir));
+  }
+  // Arrow buttons and the keyboard walk the same pager as a released swipe.
   function step(dir) {
-    const element = viewport.current;
-    const incoming = neighbourSource(dir);
-    // One page movement at a time: a second tap would otherwise cancel a spring whose navigation
-    // has not committed yet.
-    if (!element || !incoming || track.current.cancel) return;
-    const span = element.clientWidth || 1;
-    const entry = viewer.items[index + dir];
-    settleTrack(-dir * span, () => {
-      // Keep the incoming page painted across the swap until the new <img> or <video> paints.
-      setCover({ entry, url: incoming });
-      navigate(index + dir);
-    });
+    const state = track.current;
+    if (state.cancel || swipe.current || !items[state.index + dir]) return;
+    state.xVelocity = 0;
+    settleTo(dir);
   }
   function startSwipe(event) {
+    if (video) showChrome();
     if (event.touches.length !== 1) { swipe.current = null; return; }
     if ((zoom.current?.panzoom.getScale() ?? 1) > 1.05) { swipe.current = null; return; }
-    // A running settle owns the track; the finger takes over only after it lands.
-    if (track.current.cancel) { swipe.current = null; return; }
     const [touch] = event.touches;
     // The player's own control bar keeps its scrubbing drag instead of paging.
     if (video && touch.clientY > (viewport.current?.getBoundingClientRect().bottom ?? Infinity) - VIDEO_CONTROLS_HEIGHT) {
       swipe.current = null; return;
     }
-    track.current.xVelocity = 0;
-    swipe.current = { x: touch.clientX, y: touch.clientY, axis: null, dir: 0, dx: 0,
-      blocked: false, velocity: 0, time: performance.now() };
+    const state = track.current;
+    swipe.current = { x: touch.clientX, y: touch.clientY, axis: null, base: state.x, samples: [] };
+    // A finger on a moving pager catches it where it is, like Compose's pager: a settle that was
+    // heading for the next page commits it first, so the gesture continues from that page.
+    if (state.cancel) {
+      stopTrack();
+      swipe.current.axis = "horizontal";
+      if (state.pending) commit(state.pending);
+    }
+    state.xVelocity = 0;
   }
   function moveSwipe(event) {
-    const state = swipe.current;
-    if (!state || event.touches.length !== 1) { swipe.current = null; return; }
+    const gesture = swipe.current;
+    if (!gesture || event.touches.length !== 1) { swipe.current = null; return; }
     const [touch] = event.touches;
-    const dx = touch.clientX - state.x, dy = touch.clientY - state.y;
-    if (state.axis == null) {
+    if (gesture.axis == null) {
+      const dx = touch.clientX - gesture.x, dy = touch.clientY - gesture.y;
       if (Math.abs(dx) < 8) return;
-      if (Math.abs(dx) < Math.abs(dy) * 1.2) { state.axis = "vertical"; return; }
-      // A vertical gesture keeps scrolling; a horizontal one owns the pager.
-      state.axis = "horizontal";
-      state.dir = dx < 0 ? 1 : -1;
-      state.blocked = !neighbourSource(state.dir);
+      if (Math.abs(dx) < Math.abs(dy) * 1.2) { gesture.axis = "vertical"; return; }
+      // The drag starts at the touch slop, so the page does not jump by the slop distance.
+      gesture.axis = "horizontal";
+      gesture.x = touch.clientX;
     }
-    if (state.axis !== "horizontal") return;
+    if (gesture.axis !== "horizontal") return;
     if (event.cancelable) event.preventDefault();
-    const now = performance.now(), elapsed = Math.max(1, now - state.time);
-    state.velocity = (dx - state.dx) / elapsed * 1000;
-    state.dx = dx;
-    state.time = now;
-    // The first and last picture drags against resistance instead of showing an empty pane.
-    paintTrack(state.blocked ? dx * .3 : dx);
+    const now = performance.now();
+    gesture.samples.push({ time: now, x: touch.clientX });
+    while (gesture.samples.length > 2 && now - gesture.samples[0].time > VELOCITY_WINDOW_MS) gesture.samples.shift();
+    const width = pageWidth(), at = track.current.index;
+    let x = gesture.base + touch.clientX - gesture.x;
+    // Past the first or last page the pager drags against resistance instead of showing nothing.
+    if ((x > 0 && !items[at - 1]) || (x < 0 && !items[at + 1])) x *= .3;
+    paintTrack(Math.max(-width, Math.min(width, x)));
+  }
+  function releaseVelocity(samples) {
+    const first = samples[0], last = samples.at(-1);
+    if (!first || first === last || performance.now() - last.time > VELOCITY_WINDOW_MS) return 0;
+    return (last.x - first.x) / Math.max(1, last.time - first.time) * 1000;
   }
   function endSwipe() {
-    const state = swipe.current;
+    const gesture = swipe.current;
     swipe.current = null;
-    if (!state || state.axis !== "horizontal") { settleTrack(0); return; }
-    const span = viewport.current?.clientWidth || 1;
-    track.current.xVelocity = state.velocity || 0;
-    // Like the Compose pager: a short fast flick pages too, but only toward the drag direction.
-    const flick = -state.velocity * state.dir > FLING_VELOCITY;
-    if (!state.blocked && (Math.abs(track.current.x) > span * .5 || flick && Math.abs(track.current.x) > 8)) {
-      step(state.dir);
+    const state = track.current;
+    if (!gesture || gesture.axis !== "horizontal") { if (!state.cancel && state.x !== 0) settleTo(0); return; }
+    const velocity = releaseVelocity(gesture.samples);
+    state.xVelocity = velocity;
+    // Fraction of a page the pager has moved: positive toward the next page.
+    const moved = -state.x / pageWidth();
+    let dir;
+    if (Math.abs(velocity) >= FLING_VELOCITY) {
+      // Compose's snap never passes the page the drag started from: a fling back from a half
+      // dragged neighbour returns to the current page instead of reversing onto the other side.
+      const forward = velocity < 0;
+      dir = forward ? (moved < 0 ? 0 : 1) : (moved > 0 ? 0 : -1);
     } else {
-      settleTrack(0);
+      dir = Math.abs(moved) > .5 ? Math.sign(moved) : 0;
     }
+    if (dir && !items[state.index + dir]) dir = 0;
+    settleTo(dir);
+  }
+  const mounted = [];
+  for (let at = Math.max(0, index - MOUNTED_NEIGHBOURS); at <= Math.min(items.length - 1, index + MOUNTED_NEIGHBOURS); at++) {
+    mounted.push(at);
   }
   return html`<dialog ref=${dialog} class=${`tool-media-viewer attachment-viewer ${file ? "text-file-viewer" : ""}`} aria-label=${file?.name || item?.name || t.attachments}
     onCancel=${event => { event.preventDefault(); onClose(); }} onKeyDown=${event => {
@@ -349,23 +432,15 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
       : html`<div class="tool-media-scroll image-viewport" ref=${viewport}
         onDblClick=${toggleZoom} onTouchStart=${startSwipe} onTouchMove=${moveSwipe} onTouchEnd=${endSwipe} onTouchCancel=${endSwipe}>
         <div class="attachment-pager" ref=${pager}>
-        ${previousSource && peek(viewer.items[index - 1], previousSource, `previous:${previousSource}`, { transform: "translateX(-100%)" })}
-        ${nextSource && peek(viewer.items[index + 1], nextSource, `next:${nextSource}`, { transform: "translateX(100%)" })}
-        ${video ? html`<video key=${source} class="attachment-full-video" src=${source} controls autoplay playsinline
-          onLoadedData=${() => { setShownSource(source); setLoadedSource(source); setCover(null); }}
-          onError=${() => { setFailedSource(source); setCover(null); }}
-          style=${{ opacity: loaded ? 1 : 0 }}></video>`
-        : html`<img ref=${image} class="attachment-full-image" src=${source}
-          alt=${item.name || t.attachments} draggable="false"
-          onLoad=${() => { setShownSource(source); setLoadedSource(source); setCover(null); }}
-          onError=${() => { setFailedSource(source); setCover(null); }}
-          style=${{ opacity: shown ? 1 : 0 }} />`}
-        ${cover && peek(cover.entry, cover.url, `cover:${cover.url}`)}</div></div>`}
-    ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !shown && !failed ? 1 : 0 }}><${Spinner} stroke=${3} label=${t.attachments} /></div>
-      <div class="attachment-viewport-status" style=${{ opacity: failed ? 1 : 0 }} role=${failed ? "alert" : null}>${icon(item.type === "image" || item.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>`}
-    <div class="tool-media-controls"><span class="tool-media-count">${file?.name || `${index + 1} / ${viewer.items.length}`}</span>
+        ${mounted.map(at => {
+          const entry = items[at], url = itemSource(entry);
+          // Keyed by position and source, so a page keeps its element while the window slides.
+          return html`<${MediaPage} key=${`${at}:${url}`} entry=${entry} url=${url} offset=${at - index}
+            current=${at === index} zoom=${zoom} onTap=${toggleChrome} onPlayback=${onPlayback} />`;
+        })}</div></div>`}
+    <div class="tool-media-controls" data-hidden=${!file && !chrome}><span class="tool-media-count">${file?.name || `${index + 1} / ${items.length}`}</span>
       <button class="detail-sheet-icon" type="button" title=${t.close} aria-label=${t.close} onClick=${onClose}>${icon(ICON_CLOSE)}</button></div>
-    ${!file && viewer.items.length > 1 && html`<button class="tool-media-previous detail-sheet-icon" type="button" aria-label=${t.previous} disabled=${index === 0} onClick=${() => step(-1)}>${icon(ICON_CHEVRON_RIGHT)}</button>
-      <button class="tool-media-next detail-sheet-icon" type="button" aria-label=${t.next} disabled=${index === viewer.items.length - 1} onClick=${() => step(1)}>${icon(ICON_CHEVRON_RIGHT)}</button>`}
+    ${!file && items.length > 1 && html`<button class="tool-media-previous detail-sheet-icon" type="button" data-hidden=${!chrome} aria-label=${t.previous} disabled=${index === 0} onClick=${() => step(-1)}>${icon(ICON_CHEVRON_RIGHT)}</button>
+      <button class="tool-media-next detail-sheet-icon" type="button" data-hidden=${!chrome} aria-label=${t.next} disabled=${index === items.length - 1} onClick=${() => step(1)}>${icon(ICON_CHEVRON_RIGHT)}</button>`}
   </dialog>`;
 }

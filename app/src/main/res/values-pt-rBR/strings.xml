@@ -669,10 +669,11 @@
     <string name="context_compact_auto">Compactação automática</string>
     <string name="context_compact_auto_desc">Resuma o contexto antigo antes de exceder o limite</string>
     <string name="context_compact_model">Modelo de compactação</string>
+    <string name="context_compact_model_preserved">Segue o modelo da conversa enquanto «Preservar o contexto» estiver ativo</string>
     <string name="context_compact_prompt">Prompt de compactação</string>
     <string name="context_compact_prompt_desc">Instruções do resumo</string>
-    <string name="context_compact_preserve_system">Manter o prompt do sistema</string>
-    <string name="context_compact_preserve_system_desc">A compactação usa o prompt de sistema da conversa; o prompt compacto abre a solicitação de resumo</string>
+    <string name="context_compact_preserve_system">Preservar o contexto</string>
+    <string name="context_compact_preserve_system_desc">A compactação reutiliza exatamente o contexto de um turno normal — mesmo modelo, prompt de sistema, ferramentas e parâmetros; as chamadas de ferramenta são recusadas em vez de executadas</string>
     <string name="context_compact_select_model">Selecionar modelo de compactação</string>
     <string name="context_compact_threshold">Limite de compactação automática</string>
     <string name="context_compact_threshold_desc">Compacte quando o contexto estimado atingir esta porcentagem da janela selecionada</string>

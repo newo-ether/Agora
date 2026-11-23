@@ -35,6 +35,12 @@ data class GenerationConfig(
     val effectiveSystemPrompt: String?,
     /** Optional API-only USER invocation appended to the initial Provider request. */
     val initialUserPrompt: String? = null,
+    /**
+     * Preserve-Context Compact: tools stay declared so the request prefix matches an ordinary
+     * turn, but every client tool call is answered with a refusal instead of being executed.
+     * Refused rounds live only in memory and never reach Room.
+     */
+    val rejectToolCalls: Boolean = false,
     val maxContextWindow: Int = ContextBudget.DEFAULT_TOKENS,
     val codeExecutionEnabled: Boolean,
     val googleSearchEnabled: Boolean,

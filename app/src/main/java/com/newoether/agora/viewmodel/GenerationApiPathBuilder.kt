@@ -65,7 +65,9 @@ internal class GenerationApiPathBuilder(
                 ).estimateFixed(
                     systemPrompt = config.effectiveSystemPrompt,
                     tools = definitions,
-                    initialUserPrompt = config.initialUserPrompt,
+                    // The API-only invocation is materialized as a message of the path below,
+                    // so counting it here would bill it twice and shrink the history budget.
+                    initialUserPrompt = null,
                     codeExecutionEnabled = config.codeExecutionEnabled,
                     googleSearchEnabled = config.googleSearchEnabled,
                     openAiWebSearchEnabled = config.openAiWebSearchEnabled,

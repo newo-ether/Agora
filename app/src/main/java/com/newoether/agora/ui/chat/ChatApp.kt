@@ -98,6 +98,7 @@ fun ChatApp(
     val isLoading by viewModel.isLoading.collectAsState()
     val isCompacting by viewModel.compactUi.isCompacting.collectAsState()
     val compactModel by viewModel.settings.contextCompactModel.collectAsState()
+    val compactPreserveContext by viewModel.settings.contextCompactPreserveSystemPrompt.collectAsState()
     val compactPrompt by viewModel.settings.contextCompactPrompt.collectAsState()
     val compactRetainCount by viewModel.settings.contextCompactRetainCount.collectAsState()
     val compactThresholdPercent by viewModel.settings.contextCompactThresholdPercent.collectAsState()
@@ -779,6 +780,7 @@ fun ChatApp(
         modelAliases = chatModelAliases, customProviders = customProviders,
         modelProviderNames = modelProviderNames,
         isCompacting = isCompacting,
+        preserveContext = compactPreserveContext,
     )
 
     ChatForkConfirmationHost(pendingForkRequest, viewModel) { pendingForkRequest = null }

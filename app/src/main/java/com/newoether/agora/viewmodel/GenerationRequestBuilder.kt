@@ -282,10 +282,17 @@ class GenerationRequestBuilder(
                             effectiveSettings.lowContextModeEnabled == true
                         ),
         )
-        val compactModel = settings.contextCompactModel.value
-            ?.takeIf(String::isNotBlank)
-            ?.let(providerRegistry::canonicalModelId)
-            ?: selectedModelId
+        val compactPreserveSystemPrompt = settings.contextCompactPreserveSystemPrompt.value
+        // Preserve Context reuses the ordinary model so the request prefix can hit the prompt
+        // cache; a separate Compact model only applies to the legacy replace-the-prompt mode.
+        val compactModel = if (compactPreserveSystemPrompt) {
+            selectedModelId
+        } else {
+            settings.contextCompactModel.value
+                ?.takeIf(String::isNotBlank)
+                ?.let(providerRegistry::canonicalModelId)
+                ?: selectedModelId
+        }
         val compactProviderName = providerRegistry.providerForModel(compactModel)
         val providerInstances = providerRegistry.generationSnapshot()
         val compactKey = if (compactProviderName == providerName) {
@@ -293,56 +300,6 @@ class GenerationRequestBuilder(
         } else {
             settings.resolveActiveKey(compactProviderName).orEmpty()
         }
-        val compactPreserveSystemPrompt = settings.contextCompactPreserveSystemPrompt.value
-        val compactSystemPrompt = if (compactPreserveSystemPrompt) {
-            resolveStandardSystemPromptForCompact(
-                conversationId = conversationId,
-                conversationOverride = conversation,
-                modelId = compactModel,
-            )
-        } else {
-            settings.contextCompactPrompt.value
-        }
-        val (compactGenerationConfig, compactGenerationContext) = buildGenerationPair(
-            providerName = compactProviderName,
-            modelId = compactModel,
-            activeKey = compactKey,
-            resolvedSystemPrompt = compactSystemPrompt,
-            resolvedUserPrepend = null,
-            resolvedUserPostpend = null,
-            effectiveSettings = effectiveSettings,
-            currentId = conversationId,
-            applyLowContextMode = false,
-            includeSkillCatalog = false,
-            phoneToolsEnabled = false,
-        )
-        val automaticCompact = AutomaticCompactConfig(
-            enabled = settings.contextCompactEnabled.value,
-            thresholdPercent = settings.contextCompactThresholdPercent.value,
-            request = CompactRequest(
-                model = compactModel,
-                prompt = settings.contextCompactPrompt.value,
-                retainLogicalMessages = settings.contextCompactRetainCount.value,
-                preserveSystemPrompt = compactPreserveSystemPrompt,
-            ),
-            providerName = compactProviderName,
-            apiKey = compactKey,
-            baseUrl = providerRegistry.getEffectiveBaseUrl(compactProviderName),
-            responsesApiEnabled = isResponsesApiEnabledForProvider(
-                providerName = compactProviderName,
-                builtInOpenAiEnabled = settings.openAiResponsesApiEnabled.value,
-                customProviders = settings.customProviders.value,
-            ),
-            provider = providerInstances[compactProviderName],
-            configured = providerRegistry.isConfigured(compactProviderName, compactKey),
-            generationConfig = compactGenerationConfig,
-            providerInstances = providerInstances,
-            generationContext = compactGenerationContext.copy(
-                webSearchApiKeys = context.webSearchApiKeys.toMap(),
-                shellDevices = context.shellDevices.toList(),
-            ),
-        )
-        val titleGenerationEnabled = settings.titleGenerationEnabled.value
         val ordinaryConfig = if (baseConfig.lowContextModeEnabled) {
             baseConfig.copy(
                 effectiveSystemPrompt = null,
@@ -379,6 +336,51 @@ class GenerationRequestBuilder(
                 ),
             )
         }
+        val titleGenerationEnabled = settings.titleGenerationEnabled.value
+        val (compactGenerationConfig, compactGenerationContext) = if (compactPreserveSystemPrompt) {
+            // Identical to an ordinary turn: system prompt, templates, tools, sampling, history.
+            ordinaryConfig to context
+        } else {
+            buildGenerationPair(
+                providerName = compactProviderName,
+                modelId = compactModel,
+                activeKey = compactKey,
+                resolvedSystemPrompt = settings.contextCompactPrompt.value,
+                resolvedUserPrepend = null,
+                resolvedUserPostpend = null,
+                effectiveSettings = effectiveSettings,
+                currentId = conversationId,
+                applyLowContextMode = false,
+                includeSkillCatalog = false,
+                phoneToolsEnabled = false,
+            )
+        }
+        val automaticCompact = AutomaticCompactConfig(
+            enabled = settings.contextCompactEnabled.value,
+            thresholdPercent = settings.contextCompactThresholdPercent.value,
+            request = CompactRequest(
+                model = compactModel,
+                prompt = settings.contextCompactPrompt.value,
+                retainLogicalMessages = settings.contextCompactRetainCount.value,
+                preserveSystemPrompt = compactPreserveSystemPrompt,
+            ),
+            providerName = compactProviderName,
+            apiKey = compactKey,
+            baseUrl = providerRegistry.getEffectiveBaseUrl(compactProviderName),
+            responsesApiEnabled = isResponsesApiEnabledForProvider(
+                providerName = compactProviderName,
+                builtInOpenAiEnabled = settings.openAiResponsesApiEnabled.value,
+                customProviders = settings.customProviders.value,
+            ),
+            provider = providerInstances[compactProviderName],
+            configured = providerRegistry.isConfigured(compactProviderName, compactKey),
+            generationConfig = compactGenerationConfig,
+            providerInstances = providerInstances,
+            generationContext = compactGenerationContext.copy(
+                webSearchApiKeys = context.webSearchApiKeys.toMap(),
+                shellDevices = context.shellDevices.toList(),
+            ),
+        )
         return GenerationAdmissionSnapshot(
             conversationId = conversationId,
             runId = runId,
@@ -633,25 +635,6 @@ class GenerationRequestBuilder(
         activeSystemPromptId = settings.activeSystemPromptId.value,
         systemPrompts = settings.systemPrompts.value.toList(),
     )
-
-    /**
-     * Preserved-Compact path: resolve the conversation's ordinary system prompt so the
-     * compaction request carries exactly what a normal generation would send for the compact
-     * model. Prompt variables are evaluated at admission; compaction is single-pass, so no
-     * per-provider-pass re-resolution is required.
-     */
-    private suspend fun resolveStandardSystemPromptForCompact(
-        conversationId: String,
-        conversationOverride: ChatEntity?,
-        modelId: String,
-    ): String? {
-        val promptTemplate = capturePromptTemplate(
-            currentId = conversationId,
-            conversationOverride = conversationOverride,
-            promptSettings = capturePromptSettings(),
-        )
-        return resolvePromptTemplate(promptTemplate, modelId).systemPrompt
-    }
 
     data class ResolvedPrompt(
         val systemPrompt: String?,
