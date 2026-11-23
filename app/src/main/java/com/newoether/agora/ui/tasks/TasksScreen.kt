@@ -20,11 +20,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
@@ -264,7 +264,7 @@ private fun TasksListPage(
                         },
                         leadingContent = {
                             Icon(
-                                Icons.Default.Repeat,
+                                Icons.Rounded.Repeat,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                             )
@@ -363,7 +363,7 @@ private fun TaskCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Default.Repeat,
+                imageVector = Icons.Rounded.Repeat,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp),
@@ -446,7 +446,7 @@ private fun TaskCard(
                 )
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = null)
+                        Icon(Icons.Rounded.MoreVert, contentDescription = null)
                     }
                     AgoraDropdownMenu(
                         expanded = menuOpen,
@@ -455,12 +455,12 @@ private fun TaskCard(
                     ) {
                         AgoraDropdownMenuItem(
                             text = { Text(stringResource(R.string.task_run_now)) },
-                            leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
                             onClick = { menuOpen = false; onRun() },
                         )
                         AgoraDropdownMenuItem(
                             text = { Text(stringResource(R.string.task_delete), color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                             onClick = { menuOpen = false; onDelete() },
                         )
                     }
@@ -488,7 +488,7 @@ private fun NewAutomationRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Default.Add,
+                    Icons.Rounded.Add,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary,

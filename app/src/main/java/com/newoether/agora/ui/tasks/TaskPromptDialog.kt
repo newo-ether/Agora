@@ -4,7 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +39,7 @@ internal fun TaskPromptRow(prompt: String, onClick: () -> Unit) {
             )
         },
         leadingContent = {
-            Icon(Icons.Default.EditNote, null, tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Rounded.EditNote, null, tint = MaterialTheme.colorScheme.primary)
         },
     )
 }

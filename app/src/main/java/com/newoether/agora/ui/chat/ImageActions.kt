@@ -26,9 +26,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.runtime.*
@@ -488,14 +488,14 @@ private fun MediaActionsSheet(
             DialogWindowEdgeToEdge()
             DialogWindowNoSystemDim()
             Column(modifier = Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
-                ActionRow(Icons.Default.Download, stringResource(R.string.img_action_save)) {
+                ActionRow(Icons.Rounded.Download, stringResource(R.string.img_action_save)) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) collapseThen { doSave() }
                     else permLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 }
-                ActionRow(Icons.Default.Share, stringResource(R.string.img_action_share)) {
+                ActionRow(Icons.Rounded.Share, stringResource(R.string.img_action_share)) {
                     collapseThen { doShare() }
                 }
-                ActionRow(Icons.Default.Info, stringResource(R.string.info)) {
+                ActionRow(Icons.Rounded.Info, stringResource(R.string.info)) {
                     collapseThen { showInfo = true }
                 }
             }

@@ -12,7 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -253,7 +253,7 @@ fun TextFileViewer(
                     modifier = Modifier.size(48.dp).shadow(8.dp, CircleShape)
                 ) {
                     Icon(
-                        Icons.Default.Close,
+                        Icons.Rounded.Close,
                         contentDescription = stringResource(R.string.provider_close),
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(48.dp).padding(12.dp)

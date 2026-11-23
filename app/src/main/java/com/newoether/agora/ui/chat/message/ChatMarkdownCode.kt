@@ -17,7 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -335,7 +335,7 @@ internal fun ChatCodeBlockHeader(
                 ) {
                     actions()
                     if (showCopy) ChatCodeBlockAction(
-                        icon = Icons.Default.ContentCopy,
+                        icon = Icons.Rounded.ContentCopy,
                         label = stringResource(R.string.copy),
                         enabled = enabled,
                         modifier = copyModifier,

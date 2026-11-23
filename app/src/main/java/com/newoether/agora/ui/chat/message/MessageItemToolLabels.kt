@@ -4,9 +4,9 @@ import android.content.res.Resources
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -105,10 +105,10 @@ internal fun mcpToolDisplayName(
 
 internal fun toolHeaderIcon(kind: ToolKind): ImageVector = when (kind) {
     ToolKind.PHONE -> PhoneUseIcon
-    ToolKind.TODO_READ, ToolKind.TODO_UPDATE -> Icons.Default.Checklist
+    ToolKind.TODO_READ, ToolKind.TODO_UPDATE -> Icons.Rounded.Checklist
     ToolKind.SUBAGENT_SPAWN, ToolKind.SUBAGENT_SEND, ToolKind.SUBAGENT_WAIT,
-    ToolKind.SUBAGENT_LIST, ToolKind.SUBAGENT_STOP, ToolKind.SUBAGENT_DELETE -> Icons.Default.AccountTree
-    else -> Icons.Default.Build
+    ToolKind.SUBAGENT_LIST, ToolKind.SUBAGENT_STOP, ToolKind.SUBAGENT_DELETE -> Icons.Rounded.AccountTree
+    else -> Icons.Rounded.Build
 }
 
 internal fun fallbackToolDisplayName(toolName: String): String =

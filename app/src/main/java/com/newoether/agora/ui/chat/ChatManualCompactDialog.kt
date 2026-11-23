@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.modelDisplayName
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
@@ -83,7 +84,7 @@ internal fun ChatManualCompactDialog(
                     onExpandedChange = { if (!busy) modelMenu = it },
                 ) {
                     OutlinedTextField(
-                        value = modelDisplayName(model, modelAliases, customProviders, modelProviderNames[model] != false),
+                        value = modelDisplayName(model, modelAliases, customProviders, modelProviderNameShown(model, modelProviderNames)),
                         onValueChange = {},
                         readOnly = true,
                         enabled = !busy,
@@ -107,7 +108,7 @@ internal fun ChatManualCompactDialog(
                         enabledModels.sorted().forEach { candidate ->
                             AgoraDropdownMenuItem(
                                 text = {
-                                    Text(modelDisplayName(candidate, modelAliases, customProviders, modelProviderNames[candidate] != false))
+                                    Text(modelDisplayName(candidate, modelAliases, customProviders, modelProviderNameShown(candidate, modelProviderNames)))
                                 },
                                 onClick = {
                                     model = candidate

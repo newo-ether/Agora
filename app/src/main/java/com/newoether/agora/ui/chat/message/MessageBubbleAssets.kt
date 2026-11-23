@@ -120,7 +120,7 @@ internal fun buildCitationAwareMarkdownAnnotatedString(
             annotatorSettings = annotatorSettings,
         )
     }
-    return annotated.replaceCitationInlineTokens(citationTokens)
+    return annotated.replaceCitationInlineTokens(citationTokens).trimMarkdownLinkTail()
 }
 
 private const val MARKDOWN_LINE_HEIGHT_MULTIPLIER = 1.1f

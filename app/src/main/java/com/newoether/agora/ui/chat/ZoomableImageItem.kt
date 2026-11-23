@@ -7,7 +7,7 @@ import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -358,7 +358,7 @@ internal fun ZoomableImageItem(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.BrokenImage,
+                        imageVector = Icons.Rounded.BrokenImage,
                         contentDescription = null,
                         tint = Color.White.copy(alpha = 0.65f),
                         modifier = Modifier.size(44.dp),

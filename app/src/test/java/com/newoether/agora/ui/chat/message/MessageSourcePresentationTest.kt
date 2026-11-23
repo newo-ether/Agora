@@ -1,8 +1,8 @@
 package com.newoether.agora.ui.chat.message
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.QuestionAnswer
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.QuestionAnswer
 import com.newoether.agora.R
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSource
@@ -23,8 +23,8 @@ class MessageSourcePresentationTest {
 
     @Test
     fun `subagent source shares the idle capsule icon without changing ask_user`() {
-        assertEquals(Icons.Default.AccountTree, messageSourceIcon(MessageSource.Kind.SUBAGENT))
-        assertEquals(Icons.Default.QuestionAnswer, messageSourceIcon(MessageSource.Kind.ASK_USER))
+        assertEquals(Icons.Rounded.AccountTree, messageSourceIcon(MessageSource.Kind.SUBAGENT))
+        assertEquals(Icons.Rounded.QuestionAnswer, messageSourceIcon(MessageSource.Kind.ASK_USER))
     }
 
     @Test

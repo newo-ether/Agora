@@ -22,9 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.rounded.BrokenImage
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -171,7 +171,7 @@ fun AttachmentThumbnailItem(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Default.BrokenImage,
+                Icons.Rounded.BrokenImage,
                 contentDescription = androidx.compose.ui.res.stringResource(
                     com.newoether.agora.R.string.attachment_copy_failed_image,
                 ),
@@ -395,7 +395,7 @@ private fun MessageMediaThumbnail(
                 ) {
                     if (showPlay) {
                         Icon(
-                            Icons.Default.PlayArrow,
+                            Icons.Rounded.PlayArrow,
                             contentDescription = "Play",
                             tint = Color.White,
                             modifier = Modifier
@@ -412,7 +412,7 @@ private fun MessageMediaThumbnail(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Default.BrokenImage,
+                        Icons.Rounded.BrokenImage,
                         contentDescription = androidx.compose.ui.res.stringResource(
                             com.newoether.agora.R.string.attachment_copy_failed_image,
                         ),
@@ -509,7 +509,7 @@ internal fun VideoPosterThumbnail(
             )
             if (showPlay) {
                 Icon(
-                    Icons.Default.PlayArrow,
+                    Icons.Rounded.PlayArrow,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier
@@ -520,7 +520,7 @@ internal fun VideoPosterThumbnail(
             }
         } else {
             Icon(
-                Icons.Default.Videocam,
+                Icons.Rounded.Videocam,
                 contentDescription = contentDescription,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(28.dp),

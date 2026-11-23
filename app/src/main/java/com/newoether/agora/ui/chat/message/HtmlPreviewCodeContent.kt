@@ -11,14 +11,14 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -67,38 +67,38 @@ internal fun HtmlPreviewCodeContent(
     val showingPreview = preview && !searching
     ChatCodeBlockHeader(language = language, code = code, showCopy = !showingPreview, actions = {
         ChatCodeBlockAction(
-            icon = if (showingPreview) Icons.Default.Code else Icons.Default.PlayArrow,
+            icon = if (showingPreview) Icons.Rounded.Code else Icons.Rounded.PlayArrow,
             label = stringResource(if (showingPreview) R.string.html_preview_source else R.string.html_preview_run),
             onClick = { preview = !showingPreview },
             enabled = !searching,
             emphasized = true,
         )
         if (showingPreview) ChatCodeBlockAction(
-            icon = Icons.Default.Fullscreen,
+            icon = Icons.Rounded.Fullscreen,
             label = stringResource(R.string.html_preview_fullscreen),
             onClick = { fullScreen = true },
         )
     }, trailingActions = {
         ChatCodeBlockAction(
-            icon = Icons.Default.Download,
+            icon = Icons.Rounded.Download,
             label = stringResource(R.string.html_preview_save),
             onClick = { export(false) },
         )
         Box {
             ChatCodeBlockAction(
-                icon = Icons.Default.MoreVert,
+                icon = Icons.Rounded.MoreVert,
                 label = stringResource(R.string.more),
                 onClick = { menu = true },
             )
             AgoraDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (showingPreview) AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_reload)) },
-                    leadingIcon = { Icon(Icons.Default.Refresh, null, Modifier.size(24.dp)) },
+                    leadingIcon = { Icon(Icons.Rounded.Refresh, null, Modifier.size(24.dp)) },
                     onClick = { menu = false; revision++ },
                 )
                 AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_share)) },
-                    leadingIcon = { Icon(Icons.Default.Share, null, Modifier.size(24.dp)) },
+                    leadingIcon = { Icon(Icons.Rounded.Share, null, Modifier.size(24.dp)) },
                     onClick = { menu = false; export(true) },
                 )
             }
@@ -123,18 +123,18 @@ internal fun HtmlPreviewCodeContent(
                         ChatCodeBlockSurface(modifier = Modifier.weight(1f)) {
                             ChatCodeBlockHeader(language = language, code = code, showCopy = false, actions = {
                                 ChatCodeBlockAction(
-                                    icon = Icons.Default.Refresh,
+                                    icon = Icons.Rounded.Refresh,
                                     label = stringResource(R.string.html_preview_reload),
                                     onClick = { revision++ },
                                 )
                             }, trailingActions = {
                                 ChatCodeBlockAction(
-                                    icon = Icons.Default.Download,
+                                    icon = Icons.Rounded.Download,
                                     label = stringResource(R.string.html_preview_save),
                                     onClick = { export(false) },
                                 )
                                 ChatCodeBlockAction(
-                                    icon = Icons.Default.Close,
+                                    icon = Icons.Rounded.Close,
                                     label = stringResource(R.string.provider_close),
                                     onClick = { fullScreen = false },
                                 )

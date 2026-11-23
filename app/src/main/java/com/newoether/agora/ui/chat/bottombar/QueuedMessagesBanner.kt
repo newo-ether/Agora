@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -65,7 +65,7 @@ internal fun QueuedMessageRow(
             )
             if (attachmentCount > 0) {
                 Icon(
-                    Icons.Default.AttachFile,
+                    Icons.Rounded.AttachFile,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
                 )
@@ -78,7 +78,7 @@ internal fun QueuedMessageRow(
             }
             if (onRemove != null) IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
                 Icon(
-                    Icons.Default.Close,
+                    Icons.Rounded.Close,
                     contentDescription = stringResource(R.string.remove),
                     modifier = Modifier.size(18.dp),
                 )

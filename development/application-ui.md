@@ -443,7 +443,10 @@ Provider-name visibility is a separate preference keyed by the complete model ID
 custom model editor place a Show Provider name switch below the alias field. Save commits both values in one DataStore edit,
 while Cancel, Back and outside dismissal commit neither. Clearing or changing an alias never changes
 that switch. Complete-name surfaces append the current Provider name only when the preference is on;
-alias-only labels in Provider-grouped model lists retain their existing presentation.
+alias-only labels in Provider-grouped model lists retain their existing presentation. Until the owner
+touches that switch, a model under a custom Provider shows its Provider name and a model under a
+built-in remote or Local Provider does not; the new-custom-model form follows whichever Provider is
+picked there until the owner overrides it.
 
 The shared Provider-name switch row uses a white primary label, 8 dp of outer top spacing, and a
 16 dp rounded-rectangle clip around its toggleable ripple. The top gap is outside the hit region.

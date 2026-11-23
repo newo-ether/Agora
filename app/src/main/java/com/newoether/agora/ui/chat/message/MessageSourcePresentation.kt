@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.QuestionAnswer
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.QuestionAnswer
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -101,10 +101,10 @@ internal fun subagentResultStatusLabel(status: String): Int? = when (status) {
 }
 
 internal fun messageSourceIcon(kind: MessageSource.Kind): ImageVector = when (kind) {
-    MessageSource.Kind.TASK -> Icons.Default.Schedule
-    MessageSource.Kind.LOOP -> Icons.Default.Repeat
-    MessageSource.Kind.SUBAGENT -> Icons.Default.AccountTree
-    MessageSource.Kind.ASK_USER -> Icons.Default.QuestionAnswer
+    MessageSource.Kind.TASK -> Icons.Rounded.Schedule
+    MessageSource.Kind.LOOP -> Icons.Rounded.Repeat
+    MessageSource.Kind.SUBAGENT -> Icons.Rounded.AccountTree
+    MessageSource.Kind.ASK_USER -> Icons.Rounded.QuestionAnswer
 }
 
 @Composable

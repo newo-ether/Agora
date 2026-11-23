@@ -13,13 +13,13 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CallSplit
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -575,7 +575,7 @@ internal fun AssistantMessageContent(
                                     .graphicsLayer { alpha = informationActionsAlpha },
                             ) {
                                 Icon(
-                                    Icons.Default.ContentCopy,
+                                    Icons.Rounded.ContentCopy,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
                                     tint = enabledActionTint,
@@ -595,7 +595,7 @@ internal fun AssistantMessageContent(
                                 .graphicsLayer { alpha = terminalActionsAlpha },
                         ) {
                             Icon(
-                                Icons.Default.Refresh,
+                                Icons.Rounded.Refresh,
                                 contentDescription = null,
                                 modifier = Modifier.size(19.dp),
                                 tint = terminalActionTint,
@@ -609,7 +609,7 @@ internal fun AssistantMessageContent(
                                 .graphicsLayer { alpha = terminalActionsAlpha },
                         ) {
                             Icon(
-                                Icons.Default.CallSplit,
+                                Icons.Rounded.CallSplit,
                                 contentDescription = stringResource(R.string.conversation_fork_from_here),
                                 modifier = Modifier.size(18.dp),
                                 tint = terminalActionTint,
@@ -623,7 +623,7 @@ internal fun AssistantMessageContent(
                                 .graphicsLayer { alpha = terminalActionsAlpha },
                         ) {
                             Icon(
-                                Icons.Default.Share,
+                                Icons.Rounded.Share,
                                 contentDescription = stringResource(R.string.conversation_share),
                                 modifier = Modifier.size(16.dp),
                                 tint = terminalActionTint,
@@ -640,7 +640,7 @@ internal fun AssistantMessageContent(
                                     .graphicsLayer { alpha = informationActionsAlpha },
                             ) {
                                 Icon(
-                                    Icons.Default.MoreVert,
+                                    Icons.Rounded.MoreVert,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                     tint = enabledActionTint,
@@ -659,7 +659,7 @@ internal fun AssistantMessageContent(
                                         onShowInfo()
                                     },
                                     enabled = actionAvailability.informationEnabled,
-                                    leadingIcon = { Icon(Icons.Default.Info, null) },
+                                    leadingIcon = { Icon(Icons.Rounded.Info, null) },
                                 )
                                 AgoraDropdownMenuItem(
                                     text = {
@@ -677,7 +677,7 @@ internal fun AssistantMessageContent(
                                     enabled = actionAvailability.terminalEnabled,
                                     leadingIcon = {
                                         Icon(
-                                            Icons.Default.Delete,
+                                            Icons.Rounded.Delete,
                                             contentDescription = null,
                                             tint = destructiveActionTint,
                                         )

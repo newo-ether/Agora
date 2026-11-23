@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -179,12 +179,12 @@ internal fun ComposerSendButton(
                         color = contentColor,
                     )
                     ComposerActionIcon.STOP -> Icon(
-                        Icons.Default.Stop,
+                        Icons.Rounded.Stop,
                         stringResource(R.string.action),
                         modifier = Modifier.size(24.dp),
                     )
                     ComposerActionIcon.SEND -> Icon(
-                        Icons.Default.ArrowUpward,
+                        Icons.Rounded.ArrowUpward,
                         stringResource(R.string.action),
                         modifier = Modifier.size(24.dp),
                     )

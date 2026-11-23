@@ -14,13 +14,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -423,7 +423,7 @@ internal fun UserMessageBubble(
                             haptics.confirm()
                             showMenu = false
                         },
-                        leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                        leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                     )
                 }
                 if (allowMutations) AgoraDropdownMenuItem(
@@ -433,7 +433,7 @@ internal fun UserMessageBubble(
                         if (editEnabled) onStartEdit()
                     },
                     enabled = editEnabled,
-                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                 )
                 if (message.text.isNotBlank()) {
                     AgoraDropdownMenuItem(
@@ -442,7 +442,7 @@ internal fun UserMessageBubble(
                             showMenu = false
                             onSelectText()
                         },
-                        leadingIcon = { Icon(Icons.Default.SelectAll, null) },
+                        leadingIcon = { Icon(Icons.Rounded.SelectAll, null) },
                     )
                 }
                 AgoraDropdownMenuItem(
@@ -451,7 +451,7 @@ internal fun UserMessageBubble(
                         showMenu = false
                         onShowInfo()
                     },
-                    leadingIcon = { Icon(Icons.Default.Info, null) },
+                    leadingIcon = { Icon(Icons.Rounded.Info, null) },
                 )
                 if (allowMutations) AgoraDropdownMenuItem(
                     text = {
@@ -471,7 +471,7 @@ internal fun UserMessageBubble(
                     enabled = !isLoading,
                     leadingIcon = {
                         Icon(
-                            Icons.Default.Delete,
+                            Icons.Rounded.Delete,
                             null,
                             tint = if (!isLoading) {
                                 MaterialTheme.colorScheme.error
@@ -494,11 +494,11 @@ internal fun UserMessageBubble(
                     .padding(horizontal = 4.dp)
             ) {
                 IconButton(onClick = { onSwitchBranch(-1) }, enabled = branchIndex > 0 && isEditingAllowed, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, modifier = Modifier.size(16.dp))
                 }
                 Text("${branchIndex + 1} / $totalBranches", style = MaterialTheme.typography.labelSmall)
                 IconButton(onClick = { onSwitchBranch(1) }, enabled = branchIndex < totalBranches - 1 && isEditingAllowed, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, modifier = Modifier.size(16.dp))
                 }
             }
         }

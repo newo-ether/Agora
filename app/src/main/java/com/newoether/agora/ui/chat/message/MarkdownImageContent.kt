@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -106,7 +106,7 @@ internal fun MarkdownImageThumbnail(link: String, image: MarkdownImage, onClick:
                     Modifier.fillMaxSize().background(background), contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Default.BrokenImage, stringResource(R.string.attachment_copy_failed_image),
+                        Icons.Rounded.BrokenImage, stringResource(R.string.attachment_copy_failed_image),
                         modifier = Modifier.size(36.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                     )

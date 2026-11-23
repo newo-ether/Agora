@@ -21,11 +21,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.BrokenImage
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -254,7 +254,7 @@ internal fun AttachmentPreviewRow(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Close,
+                            imageVector = Icons.Rounded.Close,
                             contentDescription = stringResource(R.string.remove),
                             tint = Color.White,
                             modifier = Modifier.size(10.dp),
@@ -358,8 +358,8 @@ private fun AttachmentPresentationContent(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        if (attachment.type == "image") Icons.Default.BrokenImage
-                        else Icons.Default.ErrorOutline,
+                        if (attachment.type == "image") Icons.Rounded.BrokenImage
+                        else Icons.Rounded.ErrorOutline,
                         contentDescription = stringResource(R.string.retry),
                         tint = Color(0xFFB0B0B0),
                         modifier = Modifier.size(28.dp),
@@ -396,7 +396,7 @@ private fun AttachmentPresentationContent(
                 )
                 if (attachment.type == "video") {
                     Icon(
-                        Icons.Default.PlayArrow,
+                        Icons.Rounded.PlayArrow,
                         contentDescription = stringResource(R.string.play),
                         tint = Color.White,
                         modifier = Modifier
@@ -414,7 +414,7 @@ private fun AttachmentPresentationContent(
 private fun AttachmentTypePlaceholder(attachment: SelectedAttachment) {
     if (attachment.type == "video") {
         Icon(
-            Icons.Default.Videocam,
+            Icons.Rounded.Videocam,
             stringResource(R.string.video),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(28.dp),

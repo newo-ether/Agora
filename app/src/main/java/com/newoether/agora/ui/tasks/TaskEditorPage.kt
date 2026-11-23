@@ -17,17 +17,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +57,7 @@ import com.newoether.agora.automation.ScheduleType
 import com.newoether.agora.automation.TaskSchedule
 import com.newoether.agora.data.local.TaskEntity
 import com.newoether.agora.data.modelDisplayName
+import com.newoether.agora.data.modelProviderNameShown
 import java.util.Calendar
 import com.newoether.agora.ui.chat.ChatDeleteConfirmDialog
 import com.newoether.agora.ui.chat.ChatDeleteDialogPhase
@@ -279,13 +280,13 @@ internal fun TaskDetailPage(
                     onBack()
                 },
             ) {
-                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.task_save))
+                Icon(Icons.Rounded.Save, contentDescription = stringResource(R.string.task_save))
             }
         },
         floatingActionButton = {
             AnimatedActionFab(
                 label = stringResource(if (isRunning) R.string.task_running else R.string.task_run_now),
-                icon = Icons.Default.PlayArrow,
+                icon = Icons.Rounded.PlayArrow,
                 onClick = {
                     viewModel.runTaskNow(
                         current(),
@@ -304,7 +305,7 @@ internal fun TaskDetailPage(
                     {
                         TaskLabeledField(
                             label = stringResource(R.string.task_name),
-                            icon = Icons.Default.Label,
+                            icon = Icons.Rounded.Label,
                             value = name,
                             onValueChange = editorSession::updateName,
                             placeholder = stringResource(R.string.task_name_hint),
@@ -320,12 +321,12 @@ internal fun TaskDetailPage(
                             headlineContent = { Text(stringResource(R.string.task_model)) },
                             supportingContent = {
                                 Text(
-                                    modelId?.let { modelDisplayName(it, modelAliases, customProviders, modelProviderNames[it] != false) }
+                                    modelId?.let { modelDisplayName(it, modelAliases, customProviders, modelProviderNameShown(it, modelProviderNames)) }
                                         ?: stringResource(R.string.task_model_default)
                                 )
                             },
                             leadingContent = {
-                                Icon(Icons.Default.Chat, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Layers, null, tint = MaterialTheme.colorScheme.primary)
                             },
                         )
                     },
@@ -395,7 +396,7 @@ internal fun TaskDetailPage(
                         },
                         leadingContent = {
                             Icon(
-                                Icons.Default.History,
+                                Icons.Rounded.History,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                             )
@@ -597,7 +598,7 @@ private fun ScheduleGroup(
                             Text(repeatLabel(editorMode))
                         },
                         leadingContent = {
-                            Icon(Icons.Default.Repeat, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Rounded.Repeat, null, tint = MaterialTheme.colorScheme.primary)
                         },
                     )
                     AgoraDropdownMenu(
@@ -610,7 +611,7 @@ private fun ScheduleGroup(
                                 text = { Text(repeatLabel(mode)) },
                                 leadingIcon = {
                                     if (editorMode == mode) {
-                                        Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                        Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                     }
                                 },
                                 onClick = {
@@ -656,7 +657,7 @@ private fun ScheduleGroup(
                         },
                         supportingContent = { Text(onValue) },
                         leadingContent = {
-                            Icon(Icons.Default.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary)
                         },
                     )
                 }
@@ -670,7 +671,7 @@ private fun ScheduleGroup(
                         headlineContent = { Text(stringResource(R.string.task_at)) },
                         supportingContent = { Text(formatTimeOfDay(schedule.hour, schedule.minute)) },
                         leadingContent = {
-                            Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Rounded.Schedule, null, tint = MaterialTheme.colorScheme.primary)
                         },
                     )
                 }
@@ -681,7 +682,7 @@ private fun ScheduleGroup(
                 add {
                     TaskLabeledField(
                         label = stringResource(R.string.task_schedule_custom),
-                        icon = Icons.Default.Code,
+                        icon = Icons.Rounded.Code,
                         value = cronExpr,
                         onValueChange = { onScheduleChange(it, null) },
                         placeholder = stringResource(R.string.task_cron_hint),
@@ -732,7 +733,7 @@ private fun ScheduleGroup(
                         )
                     },
                     leadingContent = {
-                        Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.primary)
                     },
                     trailingContent = {
                         Switch(

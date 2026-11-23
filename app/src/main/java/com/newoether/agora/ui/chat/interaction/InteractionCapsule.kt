@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,7 +60,7 @@ private const val MorphDurationMs = 320
 /** The icon and title that name one kind of request, both on its card and on its capsule. */
 internal enum class InteractionKind(val icon: ImageVector, val titleRes: Int) {
     Question(Icons.AutoMirrored.Outlined.HelpOutline, R.string.interaction_ask_user),
-    Approval(Icons.Default.Terminal, R.string.interaction_approval),
+    Approval(Icons.Rounded.Terminal, R.string.interaction_approval),
 }
 
 internal val UserInteraction.kind: InteractionKind

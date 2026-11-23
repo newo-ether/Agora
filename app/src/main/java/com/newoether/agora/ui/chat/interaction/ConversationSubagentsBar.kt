@@ -16,9 +16,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.PauseCircleOutline
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.PauseCircleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,9 +49,9 @@ import com.newoether.agora.ui.motion.rememberIdentityClipWidth
 import kotlin.math.roundToInt
 
 internal fun subagentStatusIcon(status: String): ImageVector = when (status) {
-    "failed" -> Icons.Default.ErrorOutline
-    "stopped" -> Icons.Default.PauseCircleOutline
-    else -> Icons.Default.AccountTree
+    "failed" -> Icons.Rounded.ErrorOutline
+    "stopped" -> Icons.Rounded.PauseCircleOutline
+    else -> Icons.Rounded.AccountTree
 }
 
 @Composable

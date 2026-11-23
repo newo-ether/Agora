@@ -243,20 +243,26 @@ class ChatDrawerContentTest {
         val root = generateSequence(File(requireNotNull(System.getProperty("user.dir"))).absoluteFile) {
             it.parentFile
         }.first { File(it, "app/src/main/java").isDirectory }
-        val source = File(root,
+        // The three buttons now own their own file so they can live inside the scrolling list.
+        val primary = File(root,
+            "app/src/main/java/com/newoether/agora/ui/chat/DrawerPrimaryActions.kt").readText()
+        assertEquals(2, Regex("""\.height\(46\.dp\)""").findAll(primary).count())
+        assertFalse(primary.contains("height(52.dp)"))
+        assertTrue(primary.contains("Spacer(modifier = Modifier.height(2.dp))"))
+        assertTrue(Regex("""topStart = 24\.dp,\s+topEnd = 24\.dp,\s+bottomStart = 5\.dp,\s+bottomEnd = 5\.dp,""")
+            .containsMatchIn(primary))
+        assertTrue(Regex("""topStart = 5\.dp,\s+topEnd = 5\.dp,\s+bottomStart = 24\.dp,\s+bottomEnd = 24\.dp,""")
+            .containsMatchIn(primary))
+        assertTrue(primary.indexOf("onClick = onTasks") < primary.indexOf("onClick = onRemote"))
+
+        // The drawer still owns focus clearing and closing for both of them.
+        val drawer = File(root,
             "app/src/main/java/com/newoether/agora/ui/chat/ChatDrawerContent.kt").readText()
-        val group = source.substringAfter("Column(modifier = Modifier.fillMaxSize()) {")
-            .substringBefore("val newChatDisabled")
-        assertEquals(2, Regex("""\.height\(46\.dp\)""").findAll(group).count())
-        assertFalse(group.contains("height(52.dp)"))
-        assertTrue(group.contains("Spacer(modifier = Modifier.height(2.dp))"))
-        assertTrue(group.contains("topStart = 24.dp, topEnd = 24.dp"))
-        assertTrue(group.contains("bottomStart = 5.dp, bottomEnd = 5.dp"))
-        assertTrue(group.contains("topStart = 5.dp, topEnd = 5.dp"))
-        assertTrue(group.contains("bottomStart = 24.dp, bottomEnd = 24.dp"))
-        assertEquals(2, Regex("""focusManager\.clearFocus\(\)""").findAll(group).count())
-        assertEquals(2, Regex("""scope\.launch \{ onRequestClose\(\) \}""").findAll(group).count())
-        assertTrue(group.indexOf("onOpenTasks()") < group.indexOf("onOpenRemote()"))
+        val actions = drawer.substringAfter("key = \"drawer:actions\"")
+            .substringBefore("items(")
+        assertEquals(2, Regex("""focusManager\.clearFocus\(\)""").findAll(actions).count())
+        assertEquals(2, Regex("""scope\.launch \{ onRequestClose\(\) \}""").findAll(actions).count())
+        assertTrue(actions.indexOf("onOpenTasks()") < actions.indexOf("onOpenRemote()"))
     }
     @Test
     fun conversationSelectionColorsCrossfadeWithoutChangingRowGeometry() {
@@ -365,7 +371,7 @@ class ChatDrawerContentTest {
         assertTrue(source.contains("R.string.pin_conversation"))
         assertTrue(source.contains("R.string.pinned_conversations"))
         assertTrue(source.contains("conversation.id, !conversation.isPinned,"))
-        assertTrue(source.contains("Icons.Default.PushPin"))
+        assertTrue(source.contains("Icons.Rounded.PushPin"))
     }
 
     @Test

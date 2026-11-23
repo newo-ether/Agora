@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,7 +41,7 @@ internal fun ShareSelectionFab(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.width(4.dp))
             IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
+                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cancel))
             }
             TextButton(onClick = onToggleAll) {
                 Text(
@@ -54,7 +54,7 @@ internal fun ShareSelectionFab(
                 enabled = hasSelection,
                 onClick = onConfirm,
             ) {
-                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.conversation_share))
+                Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.conversation_share))
             }
             Spacer(Modifier.width(4.dp))
         }

@@ -5,11 +5,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
@@ -66,7 +66,7 @@ internal fun AttachmentAddMenu(
             ),
         ) {
             Icon(
-                Icons.Default.Add,
+                Icons.Rounded.Add,
                 stringResource(R.string.add_attachment),
                 modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -83,10 +83,10 @@ internal fun AttachmentAddMenu(
             },
             matchAnchorWidth = false,
         ) {
-            if (showCamera) AttachmentMenuItem(Icons.Default.PhotoCamera, R.string.camera, itemsEnabled) { select(onCamera) }
-            AttachmentMenuItem(Icons.Default.Image, R.string.photos, itemsEnabled) { select(onPhotos) }
-            if (showVideos) AttachmentMenuItem(Icons.Default.Videocam, R.string.videos, itemsEnabled) { select(onVideos) }
-            AttachmentMenuItem(Icons.Default.AttachFile, R.string.files, itemsEnabled) { select(onFiles) }
+            if (showCamera) AttachmentMenuItem(Icons.Rounded.PhotoCamera, R.string.camera, itemsEnabled) { select(onCamera) }
+            AttachmentMenuItem(Icons.Rounded.Image, R.string.photos, itemsEnabled) { select(onPhotos) }
+            if (showVideos) AttachmentMenuItem(Icons.Rounded.Videocam, R.string.videos, itemsEnabled) { select(onVideos) }
+            AttachmentMenuItem(Icons.Rounded.AttachFile, R.string.files, itemsEnabled) { select(onFiles) }
         }
     }
 }

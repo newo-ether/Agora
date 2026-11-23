@@ -121,6 +121,75 @@ internal fun markdownLinkAt(content: AnnotatedString, offset: Int): String? {
     return markdownBarePathAt(content.text, index)
 }
 
+/** Sentence marks the GFM lexer leaves at the end of a bare URL, ASCII and full-width. */
+private const val LINK_TRAILING_PUNCTUATION = ".,:;!?\"'`…。，、；：！？》」』】”’"
+
+/** Closing brackets that belong to the URL only while the URL keeps their opener. */
+private val LINK_BRACKET_PAIRS = mapOf(
+    ')' to '(',
+    ']' to '[',
+    '}' to '{',
+    '）' to '（',
+    '】' to '【',
+    '》' to '《',
+    '」' to '「',
+    '』' to '『',
+)
+
+/** End of the link that stops before trailing punctuation; balanced brackets stay inside. */
+internal fun trimLinkTail(text: CharSequence, start: Int, end: Int): Int {
+    var trimmed = end
+    while (trimmed > start) {
+        val last = text[trimmed - 1]
+        val opener = LINK_BRACKET_PAIRS[last]
+        when {
+            opener != null -> {
+                var closers = 0
+                var openers = 0
+                for (index in start until trimmed) {
+                    if (text[index] == last) {
+                        closers++
+                    } else if (text[index] == opener) {
+                        openers++
+                    }
+                }
+                if (closers <= openers) return trimmed
+                trimmed--
+            }
+            last in LINK_TRAILING_PUNCTUATION -> trimmed--
+            else -> return trimmed
+        }
+    }
+    return trimmed
+}
+
+/**
+ * The GFM lexer ends a bare URL at whitespace and trims only `.,:;!?"'*_~]` from it, so a closing
+ * bracket or CJK sentence mark typed right after the URL lands inside the link range and inside its
+ * destination. Shorten both here so the tap target, the highlight and the opened address never keep
+ * punctuation the author wrote after the link.
+ */
+internal fun AnnotatedString.trimMarkdownLinkTail(): AnnotatedString {
+    if (!hasLinkAnnotations(0, length)) return this
+    return mapAnnotations { range ->
+        val item = range.item
+        if (item !is LinkAnnotation) return@mapAnnotations range
+        val end = trimLinkTail(text, range.start, range.end)
+        val destination = if (item is LinkAnnotation.Url) {
+            val url = item.url
+            val urlEnd = trimLinkTail(url, 0, url.length)
+            if (urlEnd == url.length) item else item.copy(url = url.substring(0, urlEnd))
+        } else {
+            item
+        }
+        if (end == range.end && destination === item) {
+            range
+        } else {
+            AnnotatedString.Range(destination, range.start, end, range.tag)
+        }
+    }
+}
+
 internal fun markdownBarePathAt(text: CharSequence, offset: Int): String? {
     if (text.isEmpty()) return null
     val index = offset.coerceIn(0, text.length - 1)

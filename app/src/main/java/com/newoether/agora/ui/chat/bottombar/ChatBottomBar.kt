@@ -20,7 +20,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,6 +50,7 @@ import com.newoether.agora.model.ThinkingResolution
 import com.newoether.agora.util.Constants
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.data.modelDisplayName
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
 internal val CHAT_BOTTOM_BAR_OUTER_RADIUS = 28.dp
@@ -499,7 +500,7 @@ internal fun ChatBottomBar(
                 )
                 val capabilityControlsEnabled = !lowContextModeEnabled
                 val displayText = when {
-                    isModelValid -> modelDisplayName(selectedModel, modelAliases, customProviders, modelProviderNames[selectedModel] != false)
+                    isModelValid -> modelDisplayName(selectedModel, modelAliases, customProviders, modelProviderNameShown(selectedModel, modelProviderNames))
                     enabledModels.isNotEmpty() -> stringResource(R.string.select_model)
                     else -> stringResource(R.string.no_model_selected)
                 }
@@ -557,7 +558,7 @@ internal fun ChatBottomBar(
                         }
                         sortedModels.forEach { model ->
                             ComposerModelMenuItem(
-                                displayText = modelDisplayName(model, modelAliases, customProviders, modelProviderNames[model] != false),
+                                displayText = modelDisplayName(model, modelAliases, customProviders, modelProviderNameShown(model, modelProviderNames)),
                                 selected = model == selectedModel,
                                 onClick = {
                                     haptics.selection()
@@ -606,7 +607,7 @@ internal fun ChatBottomBar(
                         }, 
                         modifier = Modifier.size(32.dp).menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                     ) {
-                        Icon(Icons.Default.MoreVert, stringResource(R.string.tools), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Rounded.MoreVert, stringResource(R.string.tools), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     
                     AgoraExposedDropdownMenu(

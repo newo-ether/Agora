@@ -14,7 +14,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.AbsoluteAlignment
@@ -219,7 +219,7 @@ internal fun PhoneControlStrip(
                     interactionSource = remember { MutableInteractionSource() }, indication = null,
                     enabled = enabled, role = Role.Button, onClick = onStop,
                 ).phoneCapsuleCenter(roundedStart = false), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Stop, stringResource(R.string.phone_stop), Modifier.size(24.dp))
+                Icon(Icons.Rounded.Stop, stringResource(R.string.phone_stop), Modifier.size(24.dp))
             }
         }
     }

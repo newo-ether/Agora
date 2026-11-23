@@ -1,9 +1,9 @@
 package com.newoether.agora.ui.chat.interaction
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.PauseCircleOutline
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.PauseCircleOutline
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -53,9 +53,9 @@ class SharedToolsScrollTest {
     }
 
     @Test fun statusIconsKeepRuntimeMeaningAndIdleUsesSourceGlyph() {
-        assertEquals(Icons.Default.AccountTree, subagentStatusIcon("idle"))
-        assertEquals(Icons.Default.AccountTree, subagentStatusIcon("completed"))
-        assertEquals(Icons.Default.ErrorOutline, subagentStatusIcon("failed"))
-        assertEquals(Icons.Default.PauseCircleOutline, subagentStatusIcon("stopped"))
+        assertEquals(Icons.Rounded.AccountTree, subagentStatusIcon("idle"))
+        assertEquals(Icons.Rounded.AccountTree, subagentStatusIcon("completed"))
+        assertEquals(Icons.Rounded.ErrorOutline, subagentStatusIcon("failed"))
+        assertEquals(Icons.Rounded.PauseCircleOutline, subagentStatusIcon("stopped"))
     }
 }
