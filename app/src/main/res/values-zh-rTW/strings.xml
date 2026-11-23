@@ -221,6 +221,7 @@
     <string name="tool_state_running">執行中</string>
     <string name="tool_state_succeeded">已完成</string>
     <string name="tool_state_failed">呼叫失敗</string>
+    <string name="tool_state_timeout">逾時</string>
     <string name="tool_state_stopped">已停止</string>
     <string name="tool_unknown_device">未知裝置</string>
     <string name="tool_no_output">（無輸出）</string>
@@ -817,7 +818,7 @@
     <string name="tool_edit_count">%1$d 處修改</string>
     <string name="tool_edit_replace_all">全部取代</string>
     <string name="low_context_mode">低上下文模式</string>
-    <string name="low_context_mode_default_desc">預設啟用低上下文模式</string>
+    <string name="low_context_mode_default_desc">預設啟用低上下文模式：僅保留 Shell 與網頁搜尋工具，並跟隨各自的開關</string>
     <string name="learn_more">瞭解更多...</string>
     <string name="local_model_limitations_title">本地模型的限制</string>
     <string name="local_model_limitations_body">本地模型受行動裝置可用記憶體限制，上下文大小是主要限制之一。上下文通常包含系統提示詞、工具或函式定義以及技能。若要減少初始上下文用量，請開啟模型選擇器旁的三點選單並啟用低上下文模式。</string>

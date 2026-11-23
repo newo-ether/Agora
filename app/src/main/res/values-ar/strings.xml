@@ -651,6 +651,7 @@
     <string name="tool_shell_returned_exit_code">أعاد الأمر رمز الخروج %1$d</string>
     <string name="tool_state_executing">جارٍ التنفيذ</string>
     <string name="tool_state_failed">فشل</string>
+    <string name="tool_state_timeout">انتهت المهلة</string>
     <string name="tool_state_running">قيد التشغيل</string>
     <string name="tool_state_stopped">متوقف</string>
     <string name="tool_state_succeeded">نجح</string>
@@ -814,7 +815,7 @@
     <string name="tool_edit_count">%1$d تعديلات</string>
     <string name="tool_edit_replace_all">استبدال الكل</string>
     <string name="low_context_mode">وضع السياق المنخفض</string>
-    <string name="low_context_mode_default_desc">تفعيل وضع السياق المنخفض افتراضيًا</string>
+    <string name="low_context_mode_default_desc">تمكين وضع السياق المنخفض افتراضيًا: تبقى أدوات Shell والبحث على الويب فقط، كل منها وفق مفتاحه</string>
     <string name="learn_more">معرفة المزيد...</string>
     <string name="local_model_limitations_title">قيود النماذج المحلية</string>
     <string name="local_model_limitations_body">تكون النماذج المحلية محدودة بالذاكرة المتاحة على الأجهزة المحمولة. ويُعد حجم السياق أحد القيود الرئيسية. غالبًا ما يتضمن السياق مطالبة النظام وتعريفات الأدوات أو الدوال والمهارات. لتقليل استخدام السياق الأولي، افتح قائمة النقاط الثلاث بجوار محدد النموذج وفعّل وضع السياق المنخفض.</string>

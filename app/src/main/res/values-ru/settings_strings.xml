@@ -164,6 +164,8 @@
     <string name="default_thinking">Размышление по умолчанию</string>
     <string name="gen_thinking_enabled">Размышление</string>
     <string name="gen_thinking_enabled_desc">Включить способность модели к размышлению/рассуждению</string>
+    <string name="replay_reasoning_in_history">Повторять рассуждения в истории</string>
+    <string name="replay_reasoning_in_history_desc">Отправлять reasoning_content в каждом сообщении ассистента; модели, требующие это поле, принимают пустое значение</string>
     <string name="gen_thinking_level">Уровень размышления</string>
     <string name="gen_thinking_level_desc">Управляет глубиной размышления; выше = более тщательное рассуждение</string>
     <string name="gen_thinking_level_low">Низкий</string>

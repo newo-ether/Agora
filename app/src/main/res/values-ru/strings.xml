@@ -651,6 +651,7 @@
     <string name="tool_shell_returned_exit_code">Команда вернула код выхода %1$d</string>
     <string name="tool_state_executing">Выполнение</string>
     <string name="tool_state_failed">Ошибка</string>
+    <string name="tool_state_timeout">Время вышло</string>
     <string name="tool_state_running">Выполняется</string>
     <string name="tool_state_stopped">Остановлено</string>
     <string name="tool_state_succeeded">Успешно</string>
@@ -814,7 +815,7 @@
     <string name="tool_edit_count">Изменений: %1$d</string>
     <string name="tool_edit_replace_all">Заменить все</string>
     <string name="low_context_mode">Режим малого контекста</string>
-    <string name="low_context_mode_default_desc">Включать режим малого контекста по умолчанию</string>
+    <string name="low_context_mode_default_desc">Включать режим малого контекста по умолчанию: остаются только инструменты Shell и веб-поиска, каждый по своему переключателю</string>
     <string name="learn_more">Подробнее...</string>
     <string name="local_model_limitations_title">Ограничения локальных моделей</string>
     <string name="local_model_limitations_body">Локальные модели ограничены памятью, доступной на мобильных устройствах. Размер контекста является одним из основных ограничений. Контекст часто включает системный запрос, определения инструментов или функций и навыки. Чтобы уменьшить начальное использование контекста, откройте меню с тремя точками рядом с выбором модели и включите режим малого контекста.</string>

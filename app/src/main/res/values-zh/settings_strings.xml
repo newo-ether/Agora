@@ -177,6 +177,8 @@
     <string name="default_thinking">默认思考</string>
     <string name="gen_thinking_enabled">思考</string>
     <string name="gen_thinking_enabled_desc">启用模型思考/推理能力</string>
+    <string name="replay_reasoning_in_history">历史中回放思考</string>
+    <string name="replay_reasoning_in_history_desc">每条助手消息都发送 reasoning_content；要求该字段的模型可接受空值</string>
     <string name="gen_thinking_level">思考深度</string>
     <string name="gen_thinking_level_desc">控制思考深度；越高推理越深入</string>
     <string name="gen_thinking_level_minimal">极低</string>

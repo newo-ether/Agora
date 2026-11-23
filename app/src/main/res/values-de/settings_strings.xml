@@ -164,6 +164,8 @@
     <string name="default_thinking">Standard-Nachdenken</string>
     <string name="gen_thinking_enabled">Nachdenken</string>
     <string name="gen_thinking_enabled_desc">Nachdenk-/Reasoning-Fähigkeit des Modells aktivieren</string>
+    <string name="replay_reasoning_in_history">Reasoning im Verlauf wiederholen</string>
+    <string name="replay_reasoning_in_history_desc">reasoning_content bei jeder Assistenten-Nachricht senden; Modelle, die das Feld verlangen, akzeptieren einen leeren Wert</string>
     <string name="gen_thinking_level">Nachdenk-Stufe</string>
     <string name="gen_thinking_level_desc">Steuert die Nachdenktiefe; höher = gründlicheres Reasoning</string>
     <string name="gen_thinking_level_low">Niedrig</string>

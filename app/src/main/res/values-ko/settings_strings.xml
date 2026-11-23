@@ -164,6 +164,8 @@
     <string name="default_thinking">기본 사고</string>
     <string name="gen_thinking_enabled">사고</string>
     <string name="gen_thinking_enabled_desc">모델의 사고/추론 기능 활성화</string>
+    <string name="replay_reasoning_in_history">기록에서 추론 재생</string>
+    <string name="replay_reasoning_in_history_desc">모든 어시스턴트 메시지에 reasoning_content를 전송합니다. 이 필드를 요구하는 모델은 빈 값도 허용합니다</string>
     <string name="gen_thinking_level">사고 수준</string>
     <string name="gen_thinking_level_desc">사고 깊이 제어. 높을수록 더 철저한 추론</string>
     <string name="gen_thinking_level_low">낮음</string>

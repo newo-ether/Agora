@@ -164,6 +164,8 @@
     <string name="default_thinking">デフォルトの思考</string>
     <string name="gen_thinking_enabled">思考</string>
     <string name="gen_thinking_enabled_desc">モデルの思考・推論機能を有効にする</string>
+    <string name="replay_reasoning_in_history">履歴で推論を再生</string>
+    <string name="replay_reasoning_in_history_desc">すべてのアシスタントメッセージに reasoning_content を送信します。このフィールドを必須とするモデルは空値も受け付けます</string>
     <string name="gen_thinking_level">思考レベル</string>
     <string name="gen_thinking_level_desc">思考の深さを制御。高いほど徹底的な推論</string>
     <string name="gen_thinking_level_low">低</string>

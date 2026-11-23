@@ -83,6 +83,7 @@
     <string name="tool_state_running">Running</string>
     <string name="tool_state_succeeded">Succeeded</string>
     <string name="tool_state_failed">Failed</string>
+    <string name="tool_state_timeout">Timeout</string>
     <string name="tool_state_stopped">Stopped</string>
     <string name="tool_unknown_device">Unknown device</string>
     <string name="tool_no_output">(No output)</string>
@@ -352,7 +353,7 @@
     <string name="local_chat_models">Local Chat Models</string>
     <string name="local_models_title">Local Models</string>
     <string name="low_context_mode">Low Context Mode</string>
-    <string name="low_context_mode_default_desc">Enable Low Context Mode by default</string>
+    <string name="low_context_mode_default_desc">Enable Low Context Mode by default: only Shell and Web Search tools remain, each following its own switch</string>
     <string name="local_model_idle_retention">Model Idle Retention</string>
     <string name="local_model_idle_retention_desc">How long to keep an idle local model in memory before unloading it</string>
     <string name="local_model_idle_retention_immediate">Immediate</string>

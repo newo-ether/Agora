@@ -164,6 +164,8 @@
     <string name="default_thinking">Réflexion par défaut</string>
     <string name="gen_thinking_enabled">Réflexion</string>
     <string name="gen_thinking_enabled_desc">Activer la capacité de réflexion/raisonnement du modèle</string>
+    <string name="replay_reasoning_in_history">Rejouer le raisonnement dans l\'historique</string>
+    <string name="replay_reasoning_in_history_desc">Envoyer reasoning_content à chaque message de l\'assistant ; les modèles qui exigent ce champ acceptent une valeur vide</string>
     <string name="gen_thinking_level">Niveau de réflexion</string>
     <string name="gen_thinking_level_desc">Contrôle la profondeur de réflexion ; plus élevé = raisonnement plus approfondi</string>
     <string name="gen_thinking_level_low">Faible</string>

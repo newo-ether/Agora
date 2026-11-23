@@ -164,6 +164,8 @@
     <string name="default_thinking">Raciocínio padrão</string>
     <string name="gen_thinking_enabled">Raciocínio</string>
     <string name="gen_thinking_enabled_desc">Ativar a capacidade de raciocínio do modelo</string>
+    <string name="replay_reasoning_in_history">Repetir raciocínio no histórico</string>
+    <string name="replay_reasoning_in_history_desc">Enviar reasoning_content em cada mensagem do assistente; modelos que exigem o campo aceitam um valor vazio</string>
     <string name="gen_thinking_level">Nível de raciocínio</string>
     <string name="gen_thinking_level_desc">Controla a profundidade do raciocínio; maior = raciocínio mais completo</string>
     <string name="gen_thinking_level_low">Baixo</string>
