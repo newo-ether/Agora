@@ -64,6 +64,12 @@ data class MessageSegment(
      */
     val signatureProvider: String? = null,
     val durationMs: Long? = null,
+    /**
+     * Monotonic instant (SystemClock.elapsedRealtime domain) at which [durationMs] was sampled by
+     * the running generation. A live timer resumes from this anchor instead of restarting when the
+     * chat screen is recomposed. Null on settled segments and on rows written before it existed.
+     */
+    val durationSampledAtElapsedRealtimeMs: Long? = null,
     /** Durable UI lifecycle for tool segments. Null keeps old rows backward-compatible. */
     val toolState: String? = null,
     /** Bounded, display-only live output. The final model-facing result remains [toolResult]. */

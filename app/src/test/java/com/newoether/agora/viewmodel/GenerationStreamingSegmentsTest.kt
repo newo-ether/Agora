@@ -45,6 +45,36 @@ class GenerationStreamingSegmentsTest {
     }
 
     @Test
+    fun `live thought segments carry the instant their duration was sampled`() {
+        val live = checkNotNull(
+            buildLiveSegments(
+                flushed = emptyList(),
+                answer = "",
+                thought = "plan",
+                thoughtDurationMs = 4_000L,
+                thoughtDurationSampledAtElapsedRealtimeMs = 90_000L,
+            ),
+        )
+        assertEquals(4_000L, live.single().durationMs)
+        assertEquals(90_000L, live.single().durationSampledAtElapsedRealtimeMs)
+
+        val merged = mutableListOf(
+            MessageSegment(type = "thought", content = "a", durationMs = 1_000L),
+        )
+        appendMergedSegment(
+            merged,
+            MessageSegment(
+                type = "thought",
+                content = "b",
+                durationMs = 2_000L,
+                durationSampledAtElapsedRealtimeMs = 90_000L,
+            ),
+        )
+        assertEquals(3_000L, merged.single().durationMs)
+        assertEquals(90_000L, merged.single().durationSampledAtElapsedRealtimeMs)
+    }
+
+    @Test
     fun `live answer delta metadata is an immutable publication snapshot`() {
         val deltas = mutableListOf(StreamingTextDelta(sequence = 0L, codePointCount = 3))
         val published = checkNotNull(buildLiveSegments(emptyList(), "abc", "", answerDeltas = deltas))

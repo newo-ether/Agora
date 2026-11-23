@@ -420,8 +420,10 @@ padding, increasing both presentations without a fixed or minimum height.
 
 The top-level Thinking segment bottom-sheet title uses the same shared semantic/live title resolver as
 its compact Thinking card, including default live `Thinking for Ns...`, Provider titles, Tool/
-Transcription titles, and terminal duration summaries. A selected detail page retains its own segment
-title. Sheet-list segment surfaces use a neutral translucent gray
+Transcription titles, and terminal duration summaries. The live counter resumes from the monotonic
+instant recorded with the published thought duration, so leaving and re-entering the chat does not
+restart it. A selected detail page retains its own segment title. Sheet-list segment surfaces use a
+neutral translucent gray
 `surfaceVariant.copy(alpha = 0.25f)` container with unchanged `onSurfaceVariant` text content.
 Thought, Tool, and Transcription leading icons use full `primary`; the trailing disclosure arrow
 uses neutral gray `onSurfaceVariant` at 0.5 alpha. Inline Timeline and compact Thinking palettes

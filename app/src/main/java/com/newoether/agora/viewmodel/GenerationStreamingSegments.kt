@@ -21,6 +21,10 @@ internal class GenerationThoughtTiming(
     var totalDurationMs: Long? = null
         private set
 
+    /** True while a thought span is running and only then may a live UI timer count up. */
+    val isRunning: Boolean
+        get() = currentStartedAtMs != null
+
     fun ensureStarted() {
         if (currentStartedAtMs == null) currentStartedAtMs = nowMs()
     }
@@ -88,6 +92,8 @@ internal fun appendMergedSegment(
             signature = segment.signature ?: last.signature,
             signatureProvider = segment.signatureProvider ?: last.signatureProvider,
             durationMs = mergeDurationMs(last.durationMs, segment.durationMs),
+            durationSampledAtElapsedRealtimeMs = segment.durationSampledAtElapsedRealtimeMs
+                ?: last.durationSampledAtElapsedRealtimeMs,
             streamingTextDeltas = last.streamingTextDeltas + segment.streamingTextDeltas,
         )
     } else {
@@ -131,6 +137,7 @@ internal fun buildLiveSegments(
     errorMessage: String? = null,
     errorCode: String? = null,
     answerDeltas: List<StreamingTextDelta> = emptyList(),
+    thoughtDurationSampledAtElapsedRealtimeMs: Long? = null,
 ): List<MessageSegment>? {
     val citations = flushed.filter { it.type == "citation" }
     val result = flushed.filterTo(mutableListOf()) { it.type != "citation" }
@@ -153,6 +160,7 @@ internal fun buildLiveSegments(
                 signature = signature,
                 signatureProvider = signatureProvider,
                 durationMs = thoughtDurationMs,
+                durationSampledAtElapsedRealtimeMs = thoughtDurationSampledAtElapsedRealtimeMs,
             ),
         )
     }

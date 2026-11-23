@@ -1,6 +1,7 @@
 package com.newoether.agora.viewmodel
 
 import android.app.Application
+import android.os.SystemClock
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.api.StreamEvent
@@ -295,6 +296,10 @@ class GenerationManager(
                     output.generationErrorMessage,
                     output.generationErrorCode,
                     answerDeltas = output.currentAnswerDeltas,
+                    // Sampled right after liveDurationMs(): the UI resumes this timer from the
+                    // generation clock instead of restarting it on every recomposition.
+                    thoughtDurationSampledAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                        .takeIf { output.thoughtTiming.isRunning },
                 ),
                 retryText = output.retryText,
                 runId = runId,

@@ -82,6 +82,23 @@ class PresentationStringsTest {
     }
 
     @Test
+    fun liveThoughtTimerResumesFromTheGenerationClock() {
+        val sampled = thought.copy(
+            durationMs = 30_000L,
+            durationSampledAtElapsedRealtimeMs = 100_000L,
+        )
+        val thinking = message.copy(status = MessageStatus.THINKING)
+        val state = resources.compactSegmentTitleState(listOf(sampled), thinking, useLiveStatus = true)
+
+        assertEquals(30_000L, state.liveBaseMs)
+        assertEquals(100_000L, state.liveSampledAtElapsedRealtimeMs)
+        // Re-entering the screen 15s later continues at 45s instead of restarting at 30s.
+        assertEquals(45_000L, liveThoughtDurationMs(30_000L, 100_000L, 115_000L))
+        // A stale monotonic anchor never subtracts from the settled duration.
+        assertEquals(30_000L, liveThoughtDurationMs(30_000L, 115_000L, 100_000L))
+    }
+
+    @Test
     fun liveTimerRunsOnlyForAStreamingThoughtWithTheDefaultTitle() {
         val thinking = message.copy(status = MessageStatus.THINKING)
         assertTrue(isLiveThinkingGroup(listOf(thought), thinking, useLiveStatus = true))

@@ -161,8 +161,14 @@ internal fun Resources.usesDefaultThinkingTitle(message: ChatMessage): Boolean =
 /**
  * A collapsed group title. When [liveBaseMs] is set the title is a running timer: it counts up
  * from [liveBaseMs] and is rendered with [thinkingDurationBreakdownTitle] (live = true).
+ * [liveSampledAtElapsedRealtimeMs] is the monotonic instant that base was sampled at, so the
+ * timer can resume from the generation clock instead of the composition that renders it.
  */
-internal data class CompactSegmentTitleState(val title: String, val liveBaseMs: Long?)
+internal data class CompactSegmentTitleState(
+    val title: String,
+    val liveBaseMs: Long?,
+    val liveSampledAtElapsedRealtimeMs: Long? = null,
+)
 
 internal fun Resources.compactSegmentTitleState(
     segs: List<MessageSegment>,
@@ -178,11 +184,25 @@ internal fun Resources.compactSegmentTitleState(
         CompactSegmentTitleState(
             title = thinkingDurationBreakdownTitle((liveBaseMs / 1_000L).toInt(), live = true),
             liveBaseMs = liveBaseMs,
+            liveSampledAtElapsedRealtimeMs = segs
+                .lastOrNull { it.type == "thought" }
+                ?.durationSampledAtElapsedRealtimeMs,
         )
     } else {
         CompactSegmentTitleState(compactSegmentTitle(segs, message, useLiveStatus), null)
     }
 }
+
+/**
+ * Live thought time for a snapshot whose base duration was sampled at
+ * [sampledAtElapsedRealtimeMs]. Clamping keeps a stale anchor (for example a restored row from
+ * before a reboot) from subtracting from the settled duration.
+ */
+internal fun liveThoughtDurationMs(
+    baseMs: Long,
+    sampledAtElapsedRealtimeMs: Long,
+    nowElapsedRealtimeMs: Long,
+): Long = baseMs + (nowElapsedRealtimeMs - sampledAtElapsedRealtimeMs).coerceAtLeast(0L)
 
 @Composable
 internal fun compactSegmentDisplayTitle(
@@ -193,12 +213,14 @@ internal fun compactSegmentDisplayTitle(
     val resources = currentResources()
     val state = resources.compactSegmentTitleState(segs, message, useLiveStatus)
     val baselineMs = state.liveBaseMs
-    val liveThoughtMs by produceState(initialValue = baselineMs ?: 0L, baselineMs) {
+    val sampledAtMs = state.liveSampledAtElapsedRealtimeMs
+    val liveThoughtMs by produceState(initialValue = baselineMs ?: 0L, baselineMs, sampledAtMs) {
         value = baselineMs ?: 0L
         if (baselineMs != null) {
-            val baselineRealtimeMs = SystemClock.elapsedRealtime()
+            // Snapshots from before the anchor existed fall back to counting from this composition.
+            val anchorMs = sampledAtMs ?: SystemClock.elapsedRealtime()
             while (isActive) {
-                value = baselineMs + (SystemClock.elapsedRealtime() - baselineRealtimeMs)
+                value = liveThoughtDurationMs(baselineMs, anchorMs, SystemClock.elapsedRealtime())
                 delay(1_000L)
             }
         }
