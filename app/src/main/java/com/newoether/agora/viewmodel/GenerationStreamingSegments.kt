@@ -11,7 +11,12 @@ import com.newoether.agora.model.TokenUsage
 import com.newoether.agora.model.StreamingTextDelta
 
 internal class GenerationThoughtTiming(
-    private val nowMs: () -> Long = System::currentTimeMillis,
+    /**
+     * Monotonic by default. A wall clock can jump backwards (network time sync) and would turn a
+     * running thought into a negative elapsed time, which used to publish a null duration and
+     * make the live timer disappear.
+     */
+    private val nowMs: () -> Long = { System.nanoTime() / 1_000_000L },
 ) {
     private var cumulativeDurationMs = 0L
     private var currentStartedAtMs: Long? = null
@@ -29,9 +34,20 @@ internal class GenerationThoughtTiming(
         if (currentStartedAtMs == null) currentStartedAtMs = nowMs()
     }
 
+    /**
+     * The duration to publish for the currently streaming thought. A running span always yields a
+     * positive value so the live card can count up from the first chunk; a clock that steps
+     * backwards clamps to the already accumulated time instead of reporting an unknown duration.
+     */
     fun liveDurationMs(): Long? {
-        val liveElapsed = currentStartedAtMs?.let { nowMs() - it } ?: 0L
-        return (currentDurationMs + liveElapsed).takeIf { it > 0L }
+        val startedAt = currentStartedAtMs
+        val liveElapsed = startedAt?.let { (nowMs() - it).coerceAtLeast(0L) } ?: 0L
+        val totalDuration = currentDurationMs + liveElapsed
+        return when {
+            startedAt != null -> totalDuration.coerceAtLeast(1L)
+            totalDuration > 0L -> totalDuration
+            else -> null
+        }
     }
 
     fun finishCurrent() {

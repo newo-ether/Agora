@@ -105,6 +105,29 @@ class GenerationStreamingSegmentsTest {
     }
 
     @Test
+    fun `a running thought always publishes a live duration`() {
+        var now = 1_000L
+        val timing = GenerationThoughtTiming { now }
+        timing.ensureStarted()
+        // The very first snapshot of a thought already carries a duration, so the live card
+        // counts up instead of falling back to a static "Thinking..." title.
+        assertEquals(1L, timing.liveDurationMs())
+        now = 4_500L
+        assertEquals(3_500L, timing.liveDurationMs())
+        // A clock that steps backwards clamps to the accumulated duration instead of hiding the
+        // timer, which is what a wall clock sampled before a time sync used to do.
+        now = 500L
+        assertEquals(1L, timing.liveDurationMs())
+
+        now = 2_000L
+        timing.finishCurrent()
+        assertEquals(1_000L, timing.currentDurationMs)
+        assertEquals(1_000L, timing.totalDurationMs)
+        // Idle with no accumulated duration is still unknown, not zero.
+        assertNull(GenerationThoughtTiming { now }.liveDurationMs())
+    }
+
+    @Test
     fun `provider pass finish stops live thinking before publishing final duration`() {
         assertEquals(MessageStatus.SENDING, statusAfterThoughtPhaseFinished(MessageStatus.THINKING))
         assertEquals(MessageStatus.SENDING, statusAfterThoughtPhaseFinished(MessageStatus.SENDING))

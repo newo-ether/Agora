@@ -176,10 +176,12 @@ internal fun Resources.compactSegmentTitleState(
     useLiveStatus: Boolean,
 ): CompactSegmentTitleState {
     val thoughtMs = thoughtDurationMs(segs, fallbackMs = message.thoughtTimeMs)
-    // Unknown native duration is not zero and does not authorize a local elapsed-time claim.
-    val liveBaseMs = thoughtMs?.takeIf {
-        isLiveThinkingGroup(segs, message, useLiveStatus) && usesDefaultThinkingTitle(message)
-    }
+    val liveGroup = isLiveThinkingGroup(segs, message, useLiveStatus) &&
+        usesDefaultThinkingTitle(message)
+    // A live thought always shows a timer. A snapshot without a native duration (truncated or
+    // restored stream state) counts from zero instead of hiding the timer; the next snapshot that
+    // carries a real base replaces this one.
+    val liveBaseMs = if (liveGroup) thoughtMs ?: 0L else null
     return if (liveBaseMs != null) {
         CompactSegmentTitleState(
             title = thinkingDurationBreakdownTitle((liveBaseMs / 1_000L).toInt(), live = true),

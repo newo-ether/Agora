@@ -9,6 +9,31 @@ import org.junit.Test
 
 class MessageItemSegmentsTest {
     @Test
+    fun mergingAStreamingThoughtKeepsTheNewestDurationAnchor() {
+        val merged = mergeAdjacentSegments(
+            listOf(
+                MessageSegment(
+                    type = "thought",
+                    content = "first",
+                    durationMs = 1_000L,
+                    durationSampledAtElapsedRealtimeMs = 10_000L,
+                ),
+                MessageSegment(
+                    type = "thought",
+                    content = " second",
+                    durationMs = 2_000L,
+                    durationSampledAtElapsedRealtimeMs = 12_000L,
+                ),
+            ),
+        ).single()
+
+        assertEquals("first second", merged.content)
+        assertEquals(3_000L, merged.durationMs)
+        // The live timer resumes from the sample of the still-running thought.
+        assertEquals(12_000L, merged.durationSampledAtElapsedRealtimeMs)
+    }
+
+    @Test
     fun uiSegmentPreparationHidesOnlyExactGeminiGoogleSearchTool() {
         val merged = mergeAdjacentSegments(
             listOf(

@@ -19,6 +19,10 @@ fun mergeAdjacentSegments(segs: List<MessageSegment>): List<MessageSegment> {
             merged[merged.lastIndex] = last.copy(
                 content = last.content + seg.content,
                 durationMs = mergeDurationMs(last.durationMs, seg.durationMs),
+                // The newest sample wins so a live timer can still resume from the generation
+                // clock after the running thought was folded into an earlier segment.
+                durationSampledAtElapsedRealtimeMs = seg.durationSampledAtElapsedRealtimeMs
+                    ?: last.durationSampledAtElapsedRealtimeMs,
                 streamingTextDeltas = last.streamingTextDeltas + seg.streamingTextDeltas,
             )
         } else {

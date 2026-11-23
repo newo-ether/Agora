@@ -340,7 +340,10 @@ its own tool-row background status but is terminal for card-level generation pre
 The indicator uses an exact 2 dp stroke. Loading, brain, tool, and image icon changes all remain
 targets of the existing Crossfade; no active/static icon change is abrupt. During an active Thought,
 only an absent/default `Thinking...` title becomes a once-per-second localized live-duration label
-based on the latest snapshot. Live and terminal duration titles share one three-tier breakdown:
+based on the latest snapshot. The runtime measures thought time on a monotonic clock, so a
+running thought always publishes a positive duration and the label never degrades back to the
+static default while the card is live; a live snapshot that still lacks a duration counts from
+zero instead of hiding the label. Live and terminal duration titles share one three-tier breakdown:
 seconds below 60 seconds; minutes plus seconds below one hour; hours plus minutes plus seconds at or
 above one hour. Terminal tool-count variants use the same breakdown before their unchanged tool-count
 suffix. Provider titles and Tool/Transcription titles remain semantic. At every Provider-pass thought boundary, the runtime finishes
