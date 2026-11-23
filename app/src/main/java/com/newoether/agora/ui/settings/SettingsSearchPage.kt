@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.EmbeddingModelType
+import com.newoether.agora.data.settledSearchMethod
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
@@ -236,6 +237,8 @@ private fun SearchSettingsList(
     val ragThreshold by viewModel.settings.ragThreshold.collectAsState()
     var showMenuForModel by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(embeddingModels.size) { showMenuForModel = null }
+    // Semantic retrieval cannot run without an embedding model; present keyword until one exists.
+    val ragAvailable = embeddingModels.isNotEmpty()
 
     val searchContextGate = remember {
         PersistedSliderFeedbackGate(initialPersisted = searchContextWindow, toDisplay = Int::toFloat)
@@ -334,8 +337,8 @@ private fun SearchSettingsList(
                             titleRes = R.string.model_search_method,
                             descRes = R.string.model_search_method_desc,
                             icon = ModelSearchIcon,
-                            selected = modelSearchMethod,
-                            ragAvailable = embeddingModels.isNotEmpty(),
+                            selected = settledSearchMethod(modelSearchMethod, ragAvailable),
+                            ragAvailable = ragAvailable,
                             onSelect = viewModel.settings::setModelSearchMethod,
                         )
                     },
@@ -344,8 +347,8 @@ private fun SearchSettingsList(
                             titleRes = R.string.manual_search_method,
                             descRes = R.string.manual_search_method_desc,
                             icon = Icons.Rounded.ManageSearch,
-                            selected = manualSearchMethod,
-                            ragAvailable = embeddingModels.isNotEmpty(),
+                            selected = settledSearchMethod(manualSearchMethod, ragAvailable),
+                            ragAvailable = ragAvailable,
                             onSelect = viewModel.settings::setManualSearchMethod,
                         )
                     },

@@ -116,6 +116,13 @@ fun ChatApp(
     val generationSnapshot by viewModel.generationSnapshot.collectAsState()
     val selectedConversationGenerationSnapshot by viewModel.selectedConversationGenerationSnapshot.collectAsState()
     val selectedModel by viewModel.currentActiveModel.collectAsState()
+    val localToolIncapableModels by viewModel.settings.localToolIncapableModels.collectAsState()
+    // A local model whose template dropped tools gets its composer tool switches greyed (#218).
+    val selectedModelToolIncapable = remember(selectedModel, localToolIncapableModels) {
+        val parsed = com.newoether.agora.model.ModelId.parse(selectedModel)
+        parsed.providerName == com.newoether.agora.util.Constants.PROVIDER_LOCAL &&
+            parsed.modelName in localToolIncapableModels
+    }
     val enabledModels by viewModel.settings.enabledModels.collectAsState()
     val developerOptionsEnabled by viewModel.settings.developerOptionsEnabled.collectAsState()
     val debugModelEnabled by viewModel.settings.debugModelEnabled.collectAsState()
@@ -715,6 +722,7 @@ fun ChatApp(
                         onShellToggle = { enabled -> haptics.toggle(enabled); viewModel.updateConversationSetting(conversationControls.settingsOwnerId) { it.copy(shellEnabled = enabled) } },
                         showLowContextMode = conversationControls.showLowContextMode,
                         lowContextModeEnabled = conversationControls.lowContextModeEnabled,
+                        selectedModelToolIncapable = selectedModelToolIncapable,
                         onLowContextModeToggle = { enabled ->
                             haptics.toggle(enabled)
                             viewModel.updateConversationSetting(conversationControls.settingsOwnerId) {

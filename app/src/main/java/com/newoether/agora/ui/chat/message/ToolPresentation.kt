@@ -70,6 +70,7 @@ internal enum class ToolPresentationState {
     COMPLETED,
     EMPTY,
     FAILED,
+    TIMED_OUT,
     STOPPED,
     BACKGROUND_RUNNING,
 }
@@ -196,6 +197,12 @@ internal object ToolPresentationResolver {
         val streamingHints = StreamingToolArgumentHintResolver.resolve(kind, displayArguments)
         val jobState = if (kind in setOf(ToolKind.SHELL_EXECUTE, ToolKind.SHELL_JOB_GET,
                 ToolKind.SHELL_JOB_WAIT, ToolKind.SHELL_JOB_STOP)) resultObject.string("state")?.lowercase() else null
+        // A timed-out job is its own terminal state, not a failure. The `timed_out` flag alone only
+        // counts when no lifecycle state was reported: shell_job_wait's wait expiry also sets it,
+        // but that payload carries state "running" and must stay BACKGROUND_RUNNING.
+        val timedOut = jobState == "timed_out" ||
+            (jobState == null && (resultObject.boolean("timed_out") == true ||
+                resultEnvelope.boolean("timed_out") == true))
         val background = resultEnvelope.boolean("background") == true ||
             jobState in setOf("running", "stopping", "settling") &&
             (resultObject.string("job_id") ?: resultEnvelope.string("job_id")) != null
@@ -229,7 +236,9 @@ internal object ToolPresentationResolver {
             count = count,
             errorCode = errorCode,
         )
-        val error = if (!failed) {
+        // A timeout carries no error text: the capsule already says Timeout, and the old
+        // "command timed out" detail line only restated that.
+        val error = if (!failed || timedOut) {
             null
         } else if (kind == ToolKind.FILE_TRANSFER) {
             fileTransferError(resultObject, segment.toolResultText ?: segment.toolResult)
@@ -258,6 +267,7 @@ internal object ToolPresentationResolver {
                 if (segment.toolProgress.isNullOrEmpty()) ToolPresentationState.CALLING
                 else ToolPresentationState.RUNNING
             }
+            timedOut -> ToolPresentationState.TIMED_OUT
             failed -> ToolPresentationState.FAILED
             jobState == "stopped" || jobState == "interrupted" -> ToolPresentationState.STOPPED
             semanticEmpty -> ToolPresentationState.EMPTY

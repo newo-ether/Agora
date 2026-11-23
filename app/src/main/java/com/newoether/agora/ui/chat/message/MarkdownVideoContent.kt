@@ -117,7 +117,12 @@ internal fun MarkdownVideoCard(link: String, modifier: Modifier = Modifier) {
             }
         }
     }
-    val poster = rememberVideoPoster(posterPath)
+    val poster = rememberVideoPoster(
+        posterPath,
+        persistTo = remember(readyFile, media) {
+            readyFile?.let { file -> media?.videos?.posterFile(file) }
+        },
+    )
     // The URI the answer's media viewer pages to; a Conch video joins once its copy is cached.
     val viewerUri by produceState<String?>(initialValue = null, source, readyFile, context) {
         value = withContext(Dispatchers.IO) {

@@ -76,7 +76,9 @@ private val IMAGE_MODEL_KEYWORDS = listOf(
 )
 
 private fun isLikelyImageModel(modelId: String): Boolean {
-    val id = modelId.substringAfter(":").lowercase()
+    // Keep the whole id: OpenRouter variants end in `:free`, and taking the text after the first
+    // colon reduced `recraft/recraft-v4.1-flash-v2:free` to `free`, hiding the free model (#220).
+    val id = modelId.lowercase()
     return IMAGE_MODEL_KEYWORDS.any { id.contains(it) }
 }
 
@@ -87,16 +89,22 @@ fun SettingsImageGenPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val selectedModel by viewModel.settings.imageGenModel.collectAsState()
     val size by viewModel.settings.imageGenSize.collectAsState()
     val availableModels by viewModel.settings.availableModels.collectAsState()
+    val customModels by viewModel.settings.customModels.collectAsState()
     val modelAliases by viewModel.settings.modelAliases.collectAsState()
     val customProviders by viewModel.settings.customProviders.collectAsState()
     var showModelDialog by remember { mutableStateOf(false) }
     var showAllModels by remember { mutableStateOf(false) }
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
 
-    // Source from ALL synced models (image models needn't be enabled for chat). Default to the
-    // image-likely subset so the list stays short; "show all" is the escape hatch for odd names.
-    val allModels = remember(availableModels) { availableModels.values.flatten().distinct().sorted() }
-    val imageModels = remember(allModels) { allModels.filter { isLikelyImageModel(it) } }
+    // Source from ALL synced models plus the manually added ones (image models needn't be enabled
+    // for chat). Default to the image-likely subset so the list stays short; "show all" is the escape
+    // hatch for odd names. A manually added model is an explicit choice and skips the name filter.
+    val allModels = remember(availableModels, customModels) {
+        (availableModels.values.flatten() + customModels).distinct().sorted()
+    }
+    val imageModels = remember(allModels, customModels) {
+        allModels.filter { isLikelyImageModel(it) || it in customModels }
+    }
     val pickList = if (showAllModels || imageModels.isEmpty()) allModels else imageModels
 
     CollapsingSettingsScaffold(

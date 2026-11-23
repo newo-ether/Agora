@@ -60,6 +60,8 @@ internal fun ComposerToolsMenuContent(
     showShell: Boolean,
     shellEnabled: Boolean,
     onShellToggle: (Boolean) -> Unit,
+    /** False when the selected model's template cannot express tools (#218). */
+    toolControlsEnabled: Boolean = true,
     canCompact: Boolean,
     isCompacting: Boolean,
     onCompactClick: () -> Unit,
@@ -233,11 +235,11 @@ internal fun ComposerToolsMenuContent(
                 Switch(
                     checked = webSearchEnabled,
                     onCheckedChange = { onWebSearchToggle(it) },
-                    enabled = capabilityControlsEnabled,
+                    enabled = toolControlsEnabled,
                     modifier = Modifier.scale(0.7f)
                 )
             },
-            enabled = capabilityControlsEnabled,
+            enabled = toolControlsEnabled,
             onClick = { onWebSearchToggle(!webSearchEnabled) }
         )
     }
@@ -254,11 +256,11 @@ internal fun ComposerToolsMenuContent(
                 Switch(
                     checked = shellEnabled,
                     onCheckedChange = { onShellToggle(it) },
-                    enabled = capabilityControlsEnabled,
+                    enabled = toolControlsEnabled,
                     modifier = Modifier.scale(0.7f)
                 )
             },
-            enabled = capabilityControlsEnabled,
+            enabled = toolControlsEnabled,
             onClick = { onShellToggle(!shellEnabled) }
         )
     }

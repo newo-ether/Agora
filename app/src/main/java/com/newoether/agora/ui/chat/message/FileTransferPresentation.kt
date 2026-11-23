@@ -72,6 +72,8 @@ internal fun Resources.fileTransferSummary(presentation: ToolPresentation): Stri
         ToolPresentationState.FAILED -> toolFailureReasonSummary(presentation.errorMessage)
             ?: getString(if (presentation.outcome == "invalid_receipt") R.string.tool_transfer_unconfirmed
                 else R.string.tool_transfer_failed)
+        // Transfers never settle TIMED_OUT; the enum forces a branch.
+        ToolPresentationState.TIMED_OUT -> getString(R.string.tool_state_timeout)
         ToolPresentationState.STOPPED -> stoppedToolSummary(presentation)
         ToolPresentationState.BACKGROUND_RUNNING -> getString(R.string.tool_transfer_unconfirmed)
     }

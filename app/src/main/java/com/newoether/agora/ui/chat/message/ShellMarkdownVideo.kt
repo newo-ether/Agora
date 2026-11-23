@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Download state of one remote `shell://` video, keyed by its resolved device path. */
@@ -47,6 +48,8 @@ internal class ShellMarkdownVideo(
 ) {
     private val directory by lazy { File(context.applicationContext.cacheDir, "markdown-video") }
     private val receiptDirectory by lazy { File(directory, "receipts") }
+    private val posterDirectory by lazy { File(directory, "posters") }
+    private var posterSweepStarted = false
     private val states = mutableStateMapOf<String, MarkdownVideoDownload>()
     // Receipt lookups are cached here: peek() runs during composition and must not stat or read
     // the disk again on every recomposition.
@@ -56,6 +59,7 @@ internal class ShellMarkdownVideo(
 
     /** Current state for [link]; composition reads this directly. */
     fun peek(link: String): MarkdownVideoDownload {
+        sweepOrphanPostersOnce()
         val target = parseShellMediaLink(link) ?: return MarkdownVideoDownload.Failed(UNSUPPORTED)
         states[target.key]?.let { return it }
         synchronized(lock) {
@@ -186,6 +190,33 @@ internal class ShellMarkdownVideo(
         receiptDirectory,
         MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).toHex(),
     )
+
+    /**
+     * Poster cache for a content-addressed copy. The name carries the source hash, so a still can
+     * only ever belong to the bytes that produced it, and a replaced source cannot serve a stale
+     * frame after a restart.
+     */
+    fun posterFile(file: File): File = File(posterDirectory, "${file.name}.jpg")
+
+    /**
+     * A poster derives from its content-addressed video, so a still whose video is gone can never
+     * be served again; sweep those orphans once per process instead of bounding the directory.
+     */
+    private fun sweepOrphanPostersOnce() {
+        synchronized(lock) {
+            if (posterSweepStarted) return
+            posterSweepStarted = true
+        }
+        scope.launch(Dispatchers.IO) {
+            val posters = posterDirectory.listFiles() ?: return@launch
+            for (poster in posters) {
+                val videoName = poster.name.removeSuffix(".jpg")
+                if (videoName == poster.name || !File(directory, videoName).isFile) {
+                    poster.delete()
+                }
+            }
+        }
+    }
 
     private companion object {
         val SHA256_HEX = Regex("[a-f0-9]{64}")

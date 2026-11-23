@@ -47,6 +47,7 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val thinkingLevel by viewModel.settings.thinkingLevel.collectAsState()
     val thinkingBudgetEnabled by viewModel.settings.thinkingBudgetEnabled.collectAsState()
     val thinkingBudgetTokens by viewModel.settings.thinkingBudgetTokens.collectAsState()
+    val replayReasoningInHistory by viewModel.settings.replayReasoningInHistory.collectAsState()
     val openAiServiceTierEnabled by
         viewModel.settings.openAiServiceTierEnabled.collectAsState()
     val openAiServiceTier by viewModel.settings.openAiServiceTier.collectAsState()
@@ -91,6 +92,25 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                                 showHeader = false,
                                 animateSections = true
+                            )
+                        },
+                        {
+                            SettingsItem(
+                                headlineContent = {
+                                    Text(stringResource(R.string.replay_reasoning_in_history))
+                                },
+                                supportingContent = {
+                                    Text(stringResource(R.string.replay_reasoning_in_history_desc))
+                                },
+                                trailingContent = {
+                                    Switch(
+                                        checked = replayReasoningInHistory,
+                                        onCheckedChange = { viewModel.settings.setReplayReasoningInHistory(it) }
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    viewModel.settings.setReplayReasoningInHistory(!replayReasoningInHistory)
+                                }
                             )
                         }
                     )

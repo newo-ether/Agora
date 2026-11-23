@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.newoether.agora.data.local.MessageEntity
+import com.newoether.agora.data.settledSearchMethod
 import com.newoether.agora.util.Constants
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.delay
@@ -61,8 +62,11 @@ internal class DrawerSearchState(
 internal fun rememberDrawerSearchState(viewModel: ChatViewModel): DrawerSearchState {
     val state = remember(viewModel) { DrawerSearchState(viewModel) }
     val manualSearchMethod by viewModel.settings.manualSearchMethod.collectAsState()
+    val activeEmbeddingModel by viewModel.ragManager.activeEmbeddingModel.collectAsState()
     LaunchedEffect(state.query) {
-        state.runSearch(manualSearchMethod)
+        // A stored semantic selection outlives its embedding model; settle it the same way the
+        // settings page and the WebUI search path do.
+        state.runSearch(settledSearchMethod(manualSearchMethod, activeEmbeddingModel != null))
     }
     return state
 }

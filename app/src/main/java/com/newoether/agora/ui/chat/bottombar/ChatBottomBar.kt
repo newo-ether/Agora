@@ -108,6 +108,8 @@ internal fun ChatBottomBar(
     shellEnabled: Boolean = false,
     showLowContextMode: Boolean = false,
     lowContextModeEnabled: Boolean = false,
+    /** A local model whose chat template cannot express tools; its tool switches are greyed. */
+    selectedModelToolIncapable: Boolean = false,
     onCodeExecutionToggle: (Boolean) -> Unit = {},
     onGoogleSearchToggle: (Boolean) -> Unit = {},
     onOpenAiWebSearchToggle: (Boolean) -> Unit = {},
@@ -654,6 +656,7 @@ internal fun ChatBottomBar(
                             showShell = showShell,
                             shellEnabled = shellEnabled,
                             onShellToggle = onShellToggle,
+                            toolControlsEnabled = !selectedModelToolIncapable,
                             canCompact = canCompact,
                             isCompacting = isCompacting,
                             onCompactClick = onCompactClick,

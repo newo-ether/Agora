@@ -2,6 +2,7 @@ package com.newoether.agora.ui.chat
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.compose.animation.Crossfade
@@ -465,23 +466,66 @@ private fun scaledPoster(bitmap: Bitmap): Bitmap {
     return scaled
 }
 
-/** Decodes one frame of [source] for a poster; the result never leaves memory. */
+/**
+ * Decodes one frame of [source] for a poster.
+ *
+ * [persistTo] names a still owned by a content-addressed media copy: the first decode writes it
+ * there, and later compositions, scrolls and process restarts read the still instead of decoding
+ * the video again. The in-memory LRU still fronts both paths.
+ */
 @Composable
-internal fun rememberVideoPoster(source: String?): Bitmap? {
+internal fun rememberVideoPoster(source: String?, persistTo: File? = null): Bitmap? {
     val context = LocalContext.current
     var poster by remember(source) {
         mutableStateOf(source?.takeIf(String::isNotBlank)?.let(videoPosterCache::get))
     }
-    LaunchedEffect(source) {
+    LaunchedEffect(source, persistTo) {
         val key = source?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
-        if (poster != null) return@LaunchedEffect
-        val loaded = withContext(Dispatchers.IO) { loadVideoPoster(context.applicationContext, key) }
+        poster?.let { existing ->
+            // The content-addressed copy may have landed after the first decode; persist the
+            // still once the target name exists instead of waiting for a process restart.
+            if (persistTo != null) {
+                withContext(Dispatchers.IO) {
+                    if (!persistTo.isFile) writePosterFile(existing, persistTo)
+                }
+            }
+            return@LaunchedEffect
+        }
+        val loaded = withContext(Dispatchers.IO) {
+            val cached = persistTo?.takeIf(File::isFile)?.let(::readPosterFile)
+            cached ?: loadVideoPoster(context.applicationContext, key)?.also { bitmap ->
+                persistTo?.let { target -> writePosterFile(bitmap, target) }
+            }
+        }
         if (loaded != null) {
             videoPosterCache.put(key, loaded)
             poster = loaded
         }
     }
     return poster
+}
+
+private fun readPosterFile(file: File): Bitmap? = runCatching {
+    BitmapFactory.decodeFile(file.absolutePath)?.let(::scaledPoster)
+}.getOrNull()
+
+private fun writePosterFile(bitmap: Bitmap, target: File) {
+    runCatching {
+        target.parentFile?.mkdirs()
+        val staging = File.createTempFile(".poster-", ".tmp", target.parentFile)
+        try {
+            staging.outputStream().use { output ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, output)
+                output.flush()
+            }
+            if (!staging.renameTo(target)) {
+                target.delete()
+                staging.copyTo(target, overwrite = true)
+            }
+        } finally {
+            staging.delete()
+        }
+    }
 }
 
 /** Video cell with a real first frame; the camera glyph stays only while nothing decodes. */

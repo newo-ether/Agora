@@ -223,6 +223,8 @@ private fun Resources.toolDetailBody(presentation: ToolPresentation): ToolDetail
             presentation.errorMessage ?: if (presentation.kind == ToolKind.FILE_TRANSFER) fileTransferSummary(presentation)
                 else getString(R.string.tool_call_failed), presentation.liveOutput,
         )
+        // Shell kinds settle TIMED_OUT through the Shell body above; this only backstops other kinds.
+        ToolPresentationState.TIMED_OUT -> ToolDetailBody.Failed(toolSummary(presentation), presentation.liveOutput)
         ToolPresentationState.STOPPED -> ToolDetailBody.Stopped(stoppedToolSummary(presentation))
         ToolPresentationState.EMPTY,
         ToolPresentationState.COMPLETED -> completedToolDetailBody(presentation)
