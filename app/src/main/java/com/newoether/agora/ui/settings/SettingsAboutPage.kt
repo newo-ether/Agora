@@ -12,8 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.runtime.*
@@ -105,13 +105,13 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.about_developer)) },
                     supportingContent = { Text(stringResource(R.string.about_developer_name)) },
-                    leadingContent = { Icon(Icons.Default.Person, contentDescription = null) }
+                    leadingContent = { Icon(Icons.Rounded.Person, contentDescription = null) }
                 )
             }, {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.about_version)) },
                     supportingContent = { Text("v$versionName ($versionCode)") },
-                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    leadingContent = { Icon(Icons.Rounded.Info, contentDescription = null) },
                     modifier = Modifier.clickable(onClick = ::onVersionTapped),
                 )
             }))
@@ -149,7 +149,7 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     )
                                 } else {
                                     Icon(
-                                        Icons.Default.Download,
+                                        Icons.Rounded.Download,
                                         contentDescription = null,
                                         modifier = Modifier.size(24.dp),
                                         tint = MaterialTheme.colorScheme.primary,
@@ -175,7 +175,7 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     SettingsItem(
                         headlineContent = { Text(stringResource(R.string.about_auto_update)) },
                         supportingContent = { Text(stringResource(R.string.about_auto_update_desc)) },
-                        leadingContent = { Icon(Icons.Default.Sync, null, tint = MaterialTheme.colorScheme.primary) },
+                        leadingContent = { Icon(Icons.Rounded.Sync, null, tint = MaterialTheme.colorScheme.primary) },
                         trailingContent = {
                             Switch(checked = autoUpdateCheck, onCheckedChange = { viewModel.settings.setAutoUpdateCheck(it) })
                         },
@@ -190,7 +190,7 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.show_documentation_links)) },
                     supportingContent = { Text(stringResource(R.string.show_documentation_links_desc)) },
-                    leadingContent = { Icon(Icons.Default.MenuBook, null, tint = MaterialTheme.colorScheme.primary) },
+                    leadingContent = { Icon(Icons.Rounded.MenuBook, null, tint = MaterialTheme.colorScheme.primary) },
                     trailingContent = {
                         Switch(checked = showDocFab, onCheckedChange = { viewModel.settings.setShowDocumentationFab(it) })
                     },
@@ -203,10 +203,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.about_website)) },
                     supportingContent = { Text("agora.newoether.com") },
-                    leadingContent = { Icon(Icons.Default.Language, contentDescription = null) },
+                    leadingContent = { Icon(Icons.Rounded.Language, contentDescription = null) },
                     trailingContent = {
                         Icon(
-                            Icons.Default.OpenInNew,
+                            Icons.Rounded.OpenInNew,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
@@ -216,10 +216,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             }, {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.about_github), modifier = Modifier.padding(vertical = 6.dp)) },
-                    leadingContent = { Icon(Icons.Default.Code, contentDescription = null) },
+                    leadingContent = { Icon(Icons.Rounded.Code, contentDescription = null) },
                     trailingContent = {
                         Icon(
-                            Icons.Default.OpenInNew,
+                            Icons.Rounded.OpenInNew,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
@@ -229,10 +229,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             }, {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.about_issue_tracker), modifier = Modifier.padding(vertical = 6.dp)) },
-                    leadingContent = { Icon(Icons.Default.BugReport, contentDescription = null) },
+                    leadingContent = { Icon(Icons.Rounded.BugReport, contentDescription = null) },
                     trailingContent = {
                         Icon(
-                            Icons.Default.OpenInNew,
+                            Icons.Rounded.OpenInNew,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
@@ -242,10 +242,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             }, {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.about_contribute), modifier = Modifier.padding(vertical = 6.dp)) },
-                    leadingContent = { Icon(Icons.Default.VolunteerActivism, contentDescription = null) },
+                    leadingContent = { Icon(Icons.Rounded.VolunteerActivism, contentDescription = null) },
                     trailingContent = {
                         Icon(
-                            Icons.Default.OpenInNew,
+                            Icons.Rounded.OpenInNew,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
@@ -255,10 +255,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             }, {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.about_privacy_policy), modifier = Modifier.padding(vertical = 6.dp)) },
-                    leadingContent = { Icon(Icons.Default.VerifiedUser, contentDescription = null) },
+                    leadingContent = { Icon(Icons.Rounded.VerifiedUser, contentDescription = null) },
                     trailingContent = {
                         Icon(
-                            Icons.Default.OpenInNew,
+                            Icons.Rounded.OpenInNew,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
@@ -269,7 +269,7 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.about_license)) },
                     supportingContent = { Text(stringResource(R.string.about_license_desc)) },
-                    leadingContent = { Icon(Icons.Default.Policy, contentDescription = null) },
+                    leadingContent = { Icon(Icons.Rounded.Policy, contentDescription = null) },
                     modifier = Modifier.clickable { showLicenseDialog = true }
                 )
             }))

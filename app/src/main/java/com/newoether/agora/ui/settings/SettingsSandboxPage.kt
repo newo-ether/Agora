@@ -20,7 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
@@ -204,7 +204,7 @@ fun SettingsSandboxPage(
                                 },
                                 leadingContent = { SandboxDistributionIcon(distribution) },
                                 trailingContent = {
-                                    Button(
+                                    SandboxActionButton(
                                         onClick = { upgradePackages() },
                                         enabled = canManage,
                                     ) {
@@ -275,7 +275,7 @@ fun SettingsSandboxPage(
                                         },
                                         leadingContent = {
                                             Icon(
-                                                Icons.Default.Folder,
+                                                Icons.Rounded.Folder,
                                                 null,
                                                 tint = MaterialTheme.colorScheme.primary,
                                             )
@@ -318,7 +318,7 @@ fun SettingsSandboxPage(
                                         },
                                         leadingContent = {
                                             Icon(
-                                                Icons.Default.SdStorage,
+                                                Icons.Rounded.SdStorage,
                                                 null,
                                                 tint = MaterialTheme.colorScheme.primary,
                                             )
@@ -367,7 +367,7 @@ fun SettingsSandboxPage(
                                                 )
                                             },
                                             leadingContent = {
-                                                Icon(Icons.Default.AdminPanelSettings, null)
+                                                Icon(Icons.Rounded.AdminPanelSettings, null)
                                             },
                                             modifier = Modifier.clickable {
                                                 requestSharedStorageAccess()
@@ -544,7 +544,7 @@ fun SettingsSandboxPage(
                                         Text(stringResource(R.string.sandbox_no_packages), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     },
                                     leadingContent = {
-                                        Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                        Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                     }
                                 )
                             }
@@ -581,10 +581,10 @@ fun SettingsSandboxPage(
                                     supportingContent = {
                                         if (pkg.description.isNotBlank()) Text(pkg.description.take(80), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     },
-                                    leadingContent = { Icon(Icons.Default.Inventory2, null, tint = MaterialTheme.colorScheme.primary) },
+                                    leadingContent = { Icon(Icons.Rounded.Inventory2, null, tint = MaterialTheme.colorScheme.primary) },
                                     trailingContent = {
                                         IconButton(onClick = { deleteConfirm = pkg.name }, enabled = canManage, modifier = Modifier.size(32.dp)) {
-                                            Icon(Icons.Default.Close, stringResource(R.string.sandbox_remove_content_desc), modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Rounded.Close, stringResource(R.string.sandbox_remove_content_desc), modifier = Modifier.size(16.dp))
                                         }
                                     }
                                 )
@@ -612,7 +612,7 @@ fun SettingsSandboxPage(
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.DeleteForever,
+                                        Icons.Rounded.DeleteForever,
                                         null,
                                         tint = MaterialTheme.colorScheme.error
                                     )

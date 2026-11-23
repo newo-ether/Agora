@@ -14,9 +14,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BatterySaver
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.rounded.BatterySaver
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -146,7 +146,7 @@ fun SettingsAutomationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         headlineContent = { Text(stringResource(R.string.automation_ai_tools)) },
                         supportingContent = { Text(stringResource(R.string.automation_ai_tools_desc)) },
                         leadingContent = {
-                            Icon(Icons.Default.Repeat, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Rounded.Repeat, null, tint = MaterialTheme.colorScheme.primary)
                         },
                         trailingContent = {
                             Switch(
@@ -180,7 +180,7 @@ fun SettingsAutomationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 )
                             },
                             leadingContent = {
-                                Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Schedule, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingContent = {
                                 Switch(
@@ -203,7 +203,7 @@ fun SettingsAutomationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.BatterySaver,
+                                    Icons.Rounded.BatterySaver,
                                     null,
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
@@ -238,7 +238,7 @@ fun SettingsAutomationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.BatterySaver,
+                                    Icons.Rounded.BatterySaver,
                                     null,
                                     tint = MaterialTheme.colorScheme.primary,
                                 )

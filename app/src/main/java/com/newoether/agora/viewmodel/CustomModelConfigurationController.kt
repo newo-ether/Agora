@@ -43,6 +43,10 @@ internal class CustomModelConfigurationController(
     suspend fun commitProviderEditor(originalName: String, draft: ProviderEditorDraft) =
         mutationMutex.withLock { providers.commitEditor(originalName, draft) }
 
+    /** Explicit Save of the add route, which is the same full editor with no Provider yet. */
+    suspend fun createProviderFromEditor(draft: ProviderEditorDraft) =
+        mutationMutex.withLock { providers.createEditor(draft) }
+
     fun updateModel(
         oldModelId: String,
         provider: String,

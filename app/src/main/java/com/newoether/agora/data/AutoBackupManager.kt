@@ -241,8 +241,12 @@ class AutoBackupManager(
 
         val cutoffTime = System.currentTimeMillis() - deletePeriodHours.toLong() * 3600_000L
 
+        // One backup always survives: an expired retention window must never empty the directory.
+        val kept = newestCompleteBackup(entries)?.name
+
         // Providers may withhold the modified time; such files are kept rather than guessed at.
         entries.filter { isCompleteBackupName(it.name) }
+            .filter { it.name != kept }
             .filter { entry -> entry.lastModified != null && entry.lastModified < cutoffTime }
             .forEach(target::delete)
     }

@@ -13,7 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -107,7 +107,7 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 })
                 SettingsGroup(title = stringResource(R.string.phone_app_access), items = buildList {
                     add {
-                        SettingsChoiceItem(R.string.phone_app_access, R.string.phone_app_access_description, Icons.Default.Apps,
+                        SettingsChoiceItem(R.string.phone_app_access, R.string.phone_app_access_description, Icons.Rounded.Apps,
                             config.accessMode, listOf("off" to R.string.phone_access_off,
                                 "blocklist" to R.string.phone_blocklist, "allowlist" to R.string.phone_allowlist)) { mode ->
                             scope.launch { settings.phoneUseStore.setAccessMode(mode) }
@@ -116,7 +116,7 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     if (config.accessMode != "off") add {
                         SettingsItem(headlineContent = { Text(stringResource(R.string.phone_choose_apps)) },
                             supportingContent = { Text(stringResource(R.string.phone_choose_apps_description, config.packages.size)) },
-                            leadingContent = { Icon(Icons.Default.Apps, null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingContent = { Icon(Icons.Rounded.Apps, null, tint = MaterialTheme.colorScheme.primary) },
                             modifier = Modifier.clickable { picker = true })
                     }
                 })
@@ -149,7 +149,7 @@ internal fun PhoneMaxScreenshotsSlider(value: Int, onValueChange: (Int) -> Unit)
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Default.Screenshot, null, tint = MaterialTheme.colorScheme.primary,
+            Icon(Icons.Rounded.Screenshot, null, tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp))
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
@@ -294,7 +294,7 @@ internal fun SettingsPhonePermissions(
                 headlineContent = { Text(stringResource(phonePermissionLabel(permission))) },
                 supportingContent = { Text(stringResource(if (permission == "write_settings")
                     R.string.phone_write_settings_description else R.string.phone_permission_description)) },
-                leadingContent = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary) },
+                leadingContent = { Icon(Icons.Rounded.Security, null, tint = MaterialTheme.colorScheme.primary) },
                 trailingContent = {
                     Crossfade(grants[permission], Modifier.width(96.dp).padding(end = 4.dp),
                         animationSpec = tween(250), label = "phonePermissionStatus") { granted ->

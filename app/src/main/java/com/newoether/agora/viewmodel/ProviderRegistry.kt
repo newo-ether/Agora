@@ -327,6 +327,24 @@ class ProviderRegistry(
         return result
     }
 
+    /**
+     * Creates a custom Provider from the full editor draft the add route shows. The store commits
+     * the config and its fields atomically; the live map then gets the probe instance directly so
+     * the first message does not wait for the customProviders collector.
+     */
+    suspend fun createEditor(draft: ProviderEditorDraft): ProviderEditorCommitResult {
+        val result = settings.createProviderFromEditor(draft)
+        if (result != ProviderEditorCommitResult.SAVED) return result
+        val name = draft.name.trim()
+        val config = CustomProviderConfig(
+            name = name,
+            protocol = draft.protocol ?: CustomEndpointProtocol.OPENAI,
+        )
+        createCustomProvider(config, draft.baseUrl.trim())?.let { providers[name] = it }
+        runtimeEndpointResolutions.remove(name)
+        return result
+    }
+
     fun deleteCustom(name: String) {
         if (!CustomProviderNamePolicy.isAllowed(name)) return
         providers.remove(name)

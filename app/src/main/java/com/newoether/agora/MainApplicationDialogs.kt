@@ -7,10 +7,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,7 +59,7 @@ internal fun MainApplicationDialogs(
         AlertDialog(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             onDismissRequest = { viewModel.dismissUpdateDialog() },
-            icon = { Icon(Icons.Default.Download, null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) },
+            icon = { Icon(Icons.Rounded.Download, null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary) },
             title = {
                 Text(
                     text = stringResource(R.string.about_update_available, info.version),
@@ -147,7 +147,7 @@ internal fun MainApplicationDialogs(
         AlertDialog(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             onDismissRequest = ::dismissPendingCrash,
-            icon = { Icon(Icons.Default.BugReport, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.error) },
+            icon = { Icon(Icons.Rounded.BugReport, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.error) },
             title = { Text(stringResource(R.string.crash_title), fontWeight = FontWeight.Bold) },
             text = {
                 val clipboard = LocalClipboardManager.current
@@ -168,7 +168,7 @@ internal fun MainApplicationDialogs(
                             verticalAlignment = Alignment.Top
                         ) {
                             Icon(
-                                Icons.Default.Lock,
+                                Icons.Rounded.Lock,
                                 null,
                                 modifier = Modifier.size(15.dp).padding(top = 1.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -198,7 +198,7 @@ internal fun MainApplicationDialogs(
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.ContentCopy,
+                                    Icons.Rounded.ContentCopy,
                                     stringResource(R.string.copy),
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)

@@ -6,15 +6,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.runtime.*
@@ -91,7 +91,7 @@ fun SettingsMemoryPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.memory_access_saved)) },
                                 supportingContent = { Text(stringResource(R.string.memory_access_saved_desc)) },
-                                leadingContent = { Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.primary) },
+                                leadingContent = { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.primary) },
                                 trailingContent = {
                                     Switch(checked = accessSavedMemories, onCheckedChange = { viewModel.settings.setAccessSavedMemories(it) })
                                 },
@@ -102,7 +102,7 @@ fun SettingsMemoryPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.memory_access_active)) },
                                 supportingContent = { Text(stringResource(R.string.memory_access_active_desc)) },
-                                leadingContent = { Icon(Icons.Default.Memory, null, tint = MaterialTheme.colorScheme.primary) },
+                                leadingContent = { Icon(Icons.Rounded.Memory, null, tint = MaterialTheme.colorScheme.primary) },
                                 trailingContent = {
                                     Switch(checked = accessActiveMemory, onCheckedChange = { viewModel.settings.setAccessActiveMemory(it) })
                                 },
@@ -131,7 +131,7 @@ fun SettingsMemoryPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                         )
                                     }
                                 },
-                                leadingContent = { Icon(Icons.Default.Memory, null, tint = MaterialTheme.colorScheme.primary) },
+                                leadingContent = { Icon(Icons.Rounded.Memory, null, tint = MaterialTheme.colorScheme.primary) },
                                 modifier = Modifier.clickable(
                                     enabled = memoryLoaded && !memoryOperationInFlight,
                                 ) {
@@ -163,7 +163,7 @@ fun SettingsMemoryPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.memory_no_files), color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                 supportingContent = { Text(stringResource(R.string.memory_create_hint), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                                leadingContent = { Icon(Icons.Default.Chat, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+                                leadingContent = { Icon(Icons.Rounded.Layers, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
                                 modifier = Modifier.heightIn(min = 64.dp)
                             )
                         }
@@ -175,12 +175,12 @@ fun SettingsMemoryPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 SettingsItem(
                                     headlineContent = { Text(displayName, fontWeight = FontWeight.Medium) },
                                     supportingContent = if (file.description.isNotBlank()) {{ Text(file.description) }} else null,
-                                    leadingContent = { Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)) },
+                                    leadingContent = { Icon(Icons.Rounded.Description, null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)) },
                                     trailingContent = {
                                         Box {
                                             IconButton(onClick = { showFileMenu = true }) {
                                                 Icon(
-                                                    Icons.Default.MoreVert,
+                                                    Icons.Rounded.MoreVert,
                                                     stringResource(R.string.menu),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
@@ -193,7 +193,7 @@ fun SettingsMemoryPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             ) {
                                                 AgoraDropdownMenuItem(
                                                     text = { Text(stringResource(R.string.provider_edit)) },
-                                                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                                                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                                                     onClick = {
                                                         showFileMenu = false
                                                         if (!memoryOperationInFlight) {
@@ -223,7 +223,7 @@ fun SettingsMemoryPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                 )
                                                 AgoraDropdownMenuItem(
                                                     text = { Text(stringResource(R.string.provider_delete), color = MaterialTheme.colorScheme.error) },
-                                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                                    leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                                                     onClick = {
                                                         showFileMenu = false
                                                         showDeleteFileConfirm = file.name

@@ -108,10 +108,10 @@ class SettingsManager(private val context: Context) {
         pref[TITLE_GENERATION_PROMPT]?.takeIf { it.isNotBlank() } ?: BuiltInPrompts.TITLE_GENERATION_SYSTEM
     }
     val titleGenerationNotificationsEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[TITLE_GENERATION_NOTIFICATIONS_ENABLED] ?: true
+        it[TITLE_GENERATION_NOTIFICATIONS_ENABLED] ?: false
     }
     val imageTranscriptionEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[IMAGE_TRANSCRIPTION_ENABLED] ?: true
+        it[IMAGE_TRANSCRIPTION_ENABLED] ?: false
     }
     val imageTranscriptionEnabledModels: Flow<Set<String>> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_ENABLED_MODELS] ?: emptySet() }
     val imageTranscriptionModel: Flow<String?> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_MODEL] }
@@ -294,10 +294,12 @@ class SettingsManager(private val context: Context) {
     suspend fun saveAvailableModels(provider: String, models: List<String>) =
         modelPreferenceStore.saveAvailableModels(provider, models)
 
+    suspend fun renameProviderModelReferences(oldName: String, newName: String) = modelPreferenceStore.renameProviderModelReferences(oldName, newName)
+
     suspend fun saveCustomModels(models: Set<String>) =
         modelPreferenceStore.saveCustomModels(models)
 
-    suspend fun addCustomModel(modelId: String, alias: String, showProviderName: Boolean = true) =
+    suspend fun addCustomModel(modelId: String, alias: String, showProviderName: Boolean = providerNameShownByDefault(modelId)) =
         modelPreferenceStore.addCustomModel(modelId, alias, showProviderName)
 
     suspend fun replaceCustomModel(

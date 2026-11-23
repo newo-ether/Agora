@@ -10,22 +10,22 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.WrapText
-import androidx.compose.material.icons.filled.BlurOn
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Contrast
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Functions
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.MotionPhotosOff
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.SettingsBrightness
-import androidx.compose.material.icons.filled.Style
-import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.UploadFile
-import androidx.compose.material.icons.filled.VerticalAlignBottom
-import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material.icons.automirrored.rounded.WrapText
+import androidx.compose.material.icons.rounded.BlurOn
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Contrast
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Functions
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.MotionPhotosOff
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.SettingsBrightness
+import androidx.compose.material.icons.rounded.Style
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.UploadFile
+import androidx.compose.material.icons.rounded.VerticalAlignBottom
+import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -157,14 +157,14 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 else -> stringResource(R.string.theme_mode_follow_device)
                             }
                             val selectedIcon = when (themeMode) {
-                                "LIGHT" -> Icons.Default.LightMode
-                                "DARK" -> Icons.Default.DarkMode
-                                else -> Icons.Default.SettingsBrightness
+                                "LIGHT" -> Icons.Rounded.LightMode
+                                "DARK" -> Icons.Rounded.DarkMode
+                                else -> Icons.Rounded.SettingsBrightness
                             }
                             val options = listOf(
-                                "LIGHT" to Pair(stringResource(R.string.theme_mode_light), Icons.Default.LightMode),
-                                "DARK" to Pair(stringResource(R.string.theme_mode_dark), Icons.Default.DarkMode),
-                                "FOLLOW_DEVICE" to Pair(stringResource(R.string.theme_mode_follow_device), Icons.Default.SettingsBrightness)
+                                "LIGHT" to Pair(stringResource(R.string.theme_mode_light), Icons.Rounded.LightMode),
+                                "DARK" to Pair(stringResource(R.string.theme_mode_dark), Icons.Rounded.DarkMode),
+                                "FOLLOW_DEVICE" to Pair(stringResource(R.string.theme_mode_follow_device), Icons.Rounded.SettingsBrightness)
                             )
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.theme_mode)) },
@@ -199,7 +199,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                 AgoraDropdownMenuItem(
                                                     text = { Text(label) },
                                                     leadingIcon = {
-                                                        if (isSelected) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                                        if (isSelected) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                                     },
                                                     trailingIcon = { Icon(icon, null) },
                                                     onClick = { viewModel.settings.setThemeMode(mode); expanded = false }
@@ -217,7 +217,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             supportingContent = { Text(stringResource(R.string.amoled_mode_desc)) },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.Contrast,
+                                    Icons.Rounded.Contrast,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp),
@@ -238,7 +238,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 supportingContent = { Text(stringResource(R.string.dynamic_color_desc)) },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Palette,
+                                        Icons.Rounded.Palette,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -297,7 +297,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             AgoraDropdownMenuItem(
                                                 text = { Text(presetDisplayName(preset)) },
                                                 leadingIcon = {
-                                                    if (preset == currentPreset) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                                    if (preset == currentPreset) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                                 },
                                                 trailingIcon = {
                                                     Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(presetPrimary))
@@ -319,7 +319,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             supportingContent = { Text(currentLabel) },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.Style,
+                                    Icons.Rounded.Style,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp),
@@ -346,7 +346,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             AgoraDropdownMenuItem(
                                                 text = { Text(styleDisplayName(style)) },
                                                 leadingIcon = {
-                                                    if (style == currentStyle) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                                    if (style == currentStyle) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                                 },
                                                 onClick = { viewModel.settings.setSchemeStyle(style.name); expanded = false }
                                             )
@@ -370,7 +370,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 supportingContent = { Text(stringResource(R.string.blur_effects_desc)) },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.BlurOn,
+                                        Icons.Rounded.BlurOn,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -391,7 +391,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 supportingContent = { Text(stringResource(R.string.reduce_motion_desc)) },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.MotionPhotosOff,
+                                        Icons.Rounded.MotionPhotosOff,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -414,7 +414,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 supportingContent = { Text(stringResource(R.string.haptic_feedback_desc)) },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Vibration,
+                                        Icons.Rounded.Vibration,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -444,7 +444,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 supportingContent = { Text(stringResource(R.string.stick_to_bottom_desc)) },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.VerticalAlignBottom,
+                                        Icons.Rounded.VerticalAlignBottom,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -467,7 +467,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 supportingContent = { Text(stringResource(R.string.parse_inline_dollar_math_desc)) },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Functions,
+                                        Icons.Rounded.Functions,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -488,7 +488,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.auto_wrap_code_blocks)) },
                                 supportingContent = { Text(stringResource(R.string.auto_wrap_code_blocks_desc)) },
-                                leadingContent = { Icon(Icons.AutoMirrored.Filled.WrapText, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) },
+                                leadingContent = { Icon(Icons.AutoMirrored.Rounded.WrapText, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) },
                                 trailingContent = {
                                     Switch(checked = autoWrapCodeBlocks, onCheckedChange = viewModel.settings::setAutoWrapCodeBlocks)
                                 },
@@ -542,7 +542,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                     text = { Text(label) },
                                                     leadingIcon = {
                                                         if (normalizedToolCallDisplayMode == mode) {
-                                                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                                            Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                                         }
                                                     },
                                                     onClick = {
@@ -579,7 +579,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     },
                                     leadingContent = {
                                         Icon(
-                                            Icons.Default.ViewAgenda,
+                                            Icons.Rounded.ViewAgenda,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(24.dp),
@@ -612,7 +612,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                                     mode
                                                             ) {
                                                                 Icon(
-                                                                    Icons.Default.Check,
+                                                                    Icons.Rounded.Check,
                                                                     null,
                                                                     tint = MaterialTheme.colorScheme.primary,
                                                                 )
@@ -700,7 +700,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 supportingContent = { Text(selectedLabel) },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.TextFields,
+                                        Icons.Rounded.TextFields,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -727,7 +727,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                 AgoraDropdownMenuItem(
                                                     text = { Text(label) },
                                                     leadingIcon = {
-                                                        if (fontPreference == value) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                                        if (fontPreference == value) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                                     },
                                                     onClick = { viewModel.settings.setFontPreference(value); expanded = false }
                                                 )
@@ -767,7 +767,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     },
                                     leadingContent = {
                                         Icon(
-                                            imageVector = Icons.Default.UploadFile,
+                                            imageVector = Icons.Rounded.UploadFile,
                                             contentDescription = null,
                                             tint = if (hasFont) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(24.dp)

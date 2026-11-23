@@ -171,6 +171,27 @@ class ProviderListStoreTest {
     }
 
     @Test
+    fun savingAPickedButUnlistedBuiltInAddsItInTheSameCommit() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        val listStore = ProviderListStore(dataStore, testJson)
+        listStore.addBuiltIn(openAi)
+        dataStore.edit { prefs ->
+            prefs[HIDDEN_PROVIDER_MODELS_JSON] =
+                testJson.encodeToString(mapOf(anthropic to setOf("$anthropic:claude")))
+        }
+        val editor = ProviderEditorStore(dataStore, testJson, listStore)
+
+        // The Add page only opens the editor; membership waits for this commit.
+        val result = editor.commit(anthropic, draft(anthropic, apiKeys = listOf(key(anthropic))))
+
+        assertEquals(ProviderEditorCommitResult.SAVED, result)
+        assertEquals(listOf(openAi, anthropic), listStore.providerList.first())
+        val prefs = dataStore.data.first()
+        assertEquals(setOf("$anthropic:claude"), prefs[ENABLED_MODELS])
+        assertNull(prefs.hiddenProviderModels(testJson)[anthropic])
+    }
+
+    @Test
     fun invalidCommitLeavesPreferencesUntouched() = runTest {
         val dataStore = InMemoryPreferencesDataStore()
         val listStore = ProviderListStore(dataStore, testJson)
@@ -237,6 +258,56 @@ class ProviderListStoreTest {
         store.restoreImported(importedList = listOf(openAi, anthropic), importedHidden = emptyMap(), replace = false)
 
         assertEquals(listOf(anthropic, openAi), store.providerList.first())
+    }
+
+    @Test
+    fun createWritesConfigUrlKeysAndMembershipInOneEdit() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        val listStore = ProviderListStore(dataStore, testJson)
+        val editor = ProviderEditorStore(dataStore, testJson, listStore)
+        val createdKey = key("Relay", id = "a")
+
+        val result = editor.create(
+            draft(
+                name = " Relay ",
+                baseUrl = " https://relay.example/v1 ",
+                apiKeys = listOf(createdKey),
+                activeKeyId = "a",
+            ).copy(protocol = CustomEndpointProtocol.ANTHROPIC),
+        )
+
+        assertEquals(ProviderEditorCommitResult.SAVED, result)
+        val prefs = dataStore.data.first()
+        val config = testJson.decodeFromString<List<CustomProviderConfig>>(prefs[CUSTOM_PROVIDERS_JSON]!!).single()
+        assertEquals("Relay", config.name)
+        assertEquals(CustomEndpointProtocol.ANTHROPIC, config.protocol)
+        assertTrue(CustomProviderIdentityPolicy.isStableId(config.id))
+        assertEquals(
+            "https://relay.example/v1",
+            testJson.decodeFromString<Map<String, String>>(prefs[PROVIDER_BASE_URLS]!!)["Relay"],
+        )
+        assertEquals("Relay", testJson.decodeFromString<List<ApiKeyEntry>>(prefs[API_KEYS_JSON]!!).single().provider)
+        assertEquals(listOf("Relay"), listStore.providerList.first())
+    }
+
+    @Test
+    fun createRejectsADuplicateNameOrABlankUrlWithoutWritingAnything() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        val listStore = ProviderListStore(dataStore, testJson)
+        val editor = ProviderEditorStore(dataStore, testJson, listStore)
+        assertEquals(
+            ProviderEditorCommitResult.SAVED,
+            editor.create(draft(name = "Relay", baseUrl = "https://relay.example/v1")),
+        )
+        val before = dataStore.data.first()
+
+        assertEquals(
+            ProviderEditorCommitResult.NAME_CONFLICT,
+            editor.create(draft(name = " relay ", baseUrl = "https://other.example/v1")),
+        )
+        assertEquals(ProviderEditorCommitResult.NAME_CONFLICT, editor.create(draft(name = openAi, baseUrl = "https://x.example")))
+        assertEquals(ProviderEditorCommitResult.URL_REQUIRED, editor.create(draft(name = "Second", baseUrl = " ")))
+        assertEquals(before, dataStore.data.first())
     }
 
     private fun key(provider: String, id: String = "k-$provider") =

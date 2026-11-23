@@ -23,10 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -120,7 +120,7 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
         actions = {
             if (selecting) {
                 IconButton(onClick = { selected = emptySet() }) {
-                    Icon(Icons.Default.Close, stringResource(R.string.cancel))
+                    Icon(Icons.Rounded.Close, stringResource(R.string.cancel))
                 }
                 IconButton(
                     onClick = {
@@ -130,7 +130,7 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     },
                     enabled = !pending,
                 ) {
-                    Icon(Icons.Default.Delete, stringResource(R.string.delete))
+                    Icon(Icons.Rounded.Delete, stringResource(R.string.delete))
                 }
             }
         },
@@ -160,7 +160,7 @@ internal fun SettingsStoragePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         headlineContent = { Text(stringResource(R.string.storage_sort_by)) },
                         leadingContent = {
                             Icon(
-                                Icons.AutoMirrored.Filled.Sort,
+                                Icons.AutoMirrored.Rounded.Sort,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                             )
@@ -440,7 +440,7 @@ private fun ConversationStorageRow(
                             label = "storageRowArrow",
                         )
                         Icon(
-                            Icons.Default.KeyboardArrowDown,
+                            Icons.Rounded.KeyboardArrowDown,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp).rotate(rotation),

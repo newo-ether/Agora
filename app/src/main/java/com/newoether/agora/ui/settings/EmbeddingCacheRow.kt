@@ -101,6 +101,25 @@ internal fun EmbeddingModelStatusText(model: EmbeddingModelConfig, cacheRow: Emb
     }
 }
 
+/** Progress ring for the model row; the Cache / Re-cache actions live in the row's menu. */
+@Composable
+internal fun EmbeddingCacheProgress(cacheRow: EmbeddingCacheRowSnapshot?) {
+    val phase = cacheRow.rowPhase()
+    if (phase != EmbeddingCacheRowPhase.LOADING && phase != EmbeddingCacheRowPhase.CACHING) return
+    val fraction = cacheRow?.cachingFraction
+    Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+        if (phase == EmbeddingCacheRowPhase.CACHING && fraction != null) {
+            CircularProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.5.dp,
+            )
+        } else {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.5.dp)
+        }
+    }
+}
+
 /** Cache / Re-cache button, or a progress ring while counts load or caching runs. */
 @Composable
 internal fun EmbeddingCacheAction(

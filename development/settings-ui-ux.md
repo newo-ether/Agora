@@ -108,6 +108,13 @@ applies immediately and does not start a download. Once the selected system is r
 its installed dashboard, with its own version, packages and quick-install suggestions. A completed
 reset returns to the setup rows. There is no Save action.
 
+The Upgrade action on an installed dashboard and the not-installed Install action fade once
+between their enabled and disabled paints when their state switches: the `primary` fill and its
+`onPrimary` label cross to the component's ordinary disabled colors, and back on re-enable, over
+200 ms. The fade runs only on a state switch, never as a loop; the first composition starts
+settled, so opening the page has no color motion. Color feedback remains under Reduced Motion.
+No second button style, border, or moving gradient appears.
+
 Changing distribution clears stale operation output and package projections. Installation and
 package work disable selection; the backend also refuses a switch while shell jobs or filesystem
 mutations are active. A refused switch leaves the persisted selection unchanged and reports why.
@@ -441,12 +448,13 @@ in the existing editor. Source links retain the established external-link icon a
 
 ## Add Provider creation editor
 
-- Add Provider on the Providers list navigates to a separate full-page editor through the shared
-  Settings transition owner, never an Add Provider dialog. Existing provider destinations stay unchanged.
-- Reuse the collapsing Settings scaffold, icon/field rows and named groups. Keep the current protocol
-  selector, Provider name and Base URL fields, name-conflict policy and required URL validation.
-- Only explicit Save creates a provider. Back uses the shared unsaved-draft guard and never persists
-  partial values. Save trims the name and URL and returns to the existing Providers list.
+- Add Provider opens the same remote Provider editor the detail route uses, in creation mode: the
+  Provider name, connection (protocol and Base URL), API keys and advanced cache groups are the same
+  fields by construction, so a field can never exist on only one of the two routes.
+- The editor starts from an empty draft with the OpenAI-compatible protocol. The protocol selector,
+  name-conflict policy, required URL validation and the unsaved-draft guard are unchanged.
+- Only explicit Save creates a provider: the config, URL, keys, cache fields and list membership are
+  one edit. Save trims the name and URL and returns to the existing Providers list.
 - Provider documentation uses the shared FAB, visibility setting and bottom clearance.
 
 ## Provider list and remote detail editor
@@ -466,8 +474,8 @@ in the existing editor. Source links retain the established external-link icon a
   remote built-ins filtered by the query. Every picker row has a supporting line so all rows share
   one height: Custom Provider describes the compatible protocols, listed built-ins are disabled and
   read Added, unlisted built-ins show their retained key count, URL or Not configured. Tapping
-  an unlisted built-in appends it and opens its detail page; Back from there returns to the root.
-  Saving the custom creation editor also returns to the root.
+  an unlisted built-in opens its detail page; saving that page appends it, and Back from there
+  returns to the picker. Saving the custom creation editor returns to the root.
 - Long press: built-ins offer Remove, customs offer Rename and Delete; this menu is the only place
   for both. Removing a built-in confirms first and states that its configuration is kept. Removal only unlists it:
   keys, Base URL and fetched models stay stored, its enabled models move to a parked set that is

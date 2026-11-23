@@ -16,17 +16,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Tag
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Tag
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,7 +41,9 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.modelAliasDisplayName
 import com.newoether.agora.data.modelApiDisplayName
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.data.providerDisplayName
+import com.newoether.agora.data.providerNameShownByDefault
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.components.providerIcon
@@ -208,10 +210,10 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         leadingContent = {
                             val tint = if (hasEnabledModels) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                             when {
-                                !hasEnabledModels -> Icon(Icons.Default.Chat, null, tint = tint, modifier = Modifier.size(24.dp))
-                                isActiveLocal -> Icon(Icons.Default.AutoAwesome, null, tint = tint, modifier = Modifier.size(24.dp))
+                                !hasEnabledModels -> Icon(Icons.Rounded.Layers, null, tint = tint, modifier = Modifier.size(24.dp))
+                                isActiveLocal -> Icon(LocalModelIcon, null, tint = tint, modifier = Modifier.size(24.dp))
                                 activeIconRes != 0 -> Icon(painterResource(activeIconRes), null, tint = tint, modifier = Modifier.size(24.dp))
-                                else -> Icon(Icons.Default.Chat, null, tint = tint, modifier = Modifier.size(24.dp))
+                                else -> Icon(Icons.Rounded.Layers, null, tint = tint, modifier = Modifier.size(24.dp))
                             }
                         },
                         modifier = Modifier.heightIn(min = 66.dp).clickable(enabled = hasEnabledModels) { showActiveModelDialog = true }
@@ -239,7 +241,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.Chat,
+                                    Icons.Rounded.Layers,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 )
@@ -343,7 +345,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     )
                                 } else {
                                     Icon(
-                                        Icons.Default.Refresh,
+                                        Icons.Rounded.Refresh,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -365,13 +367,13 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             singleLine = true,
                             placeholder = { Text(stringResource(R.string.models_search_hint)) },
                             leadingIcon = {
-                                Icon(Icons.Default.Search, contentDescription = null)
+                                Icon(Icons.Rounded.Search, contentDescription = null)
                             },
                             trailingIcon = if (modelSearchQuery.isNotEmpty()) {
                                 {
                                     IconButton(onClick = { modelSearchQuery = "" }) {
                                         Icon(
-                                            Icons.Default.Clear,
+                                            Icons.Rounded.Clear,
                                             contentDescription =
                                                 stringResource(R.string.models_clear_search),
                                         )
@@ -410,7 +412,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.Search,
+                                    Icons.Rounded.Search,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 )
@@ -507,8 +509,8 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         val unchangedDisplayAlias = originalModelId?.let { model ->
             modelAliasDisplayName(model, modelAliases, customProviders)
         }.orEmpty()
-        var showProviderName by remember(originalModelId) {
-            mutableStateOf(modelProviderNames[originalModelId] != false)
+        var showProviderNameChoice by remember(originalModelId) {
+            mutableStateOf(originalModelId?.let { modelProviderNames[it] })
         }
         val aliasToPersist = if (originalModelId != null) {
             modelAliasToPersist(
@@ -527,6 +529,10 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         } else {
             ""
         }
+        // Until the owner touches the switch it follows the Provider picked in this dialog.
+        val showProviderName = showProviderNameChoice
+            ?: pendingModelId.takeIf(String::isNotEmpty)?.let(::providerNameShownByDefault)
+            ?: false
         val modelAlreadyExists =
             pendingModelId in customModels && pendingModelId != originalModelId
         val canSaveModel = pendingModelId.isNotEmpty() && !modelAlreadyExists
@@ -568,7 +574,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             onValueChange = { customModelId = it },
                             singleLine = true,
                             label = { Text(stringResource(R.string.model_id_label)) },
-                            leadingIcon = { Icon(Icons.Default.Tag, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Rounded.Tag, contentDescription = null) },
                             isError = modelAlreadyExists,
                             supportingText = if (modelAlreadyExists) {
                                 { Text(stringResource(R.string.models_custom_exists)) }
@@ -592,7 +598,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
-                    ModelProviderNameSwitch(showProviderName) { showProviderName = it }
+                    ModelProviderNameSwitch(showProviderName) { showProviderNameChoice = it }
                 }
             },
             confirmButton = {
@@ -709,7 +715,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         val rawAlias = modelAliases[model].orEmpty()
         val displayAlias = modelAliasDisplayName(model, modelAliases, customProviders)
         val aliasState = rememberTextFieldState(displayAlias)
-        var showProviderName by remember(model) { mutableStateOf(modelProviderNames[model] != false) }
+        var showProviderName by remember(model) { mutableStateOf(modelProviderNameShown(model, modelProviderNames)) }
 
         AlertDialog(
             modifier = Modifier.clearFocusOnTap(),

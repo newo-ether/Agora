@@ -6,8 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Label
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.rounded.Label
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -214,7 +214,7 @@ internal fun SettingsShellDeviceEditor(
                             MotionAwareCircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                         } else {
                             IconButton(onClick = save, enabled = canSave && ownsEditor()) {
-                                Icon(Icons.Default.Save, stringResource(R.string.save))
+                                Icon(Icons.Rounded.Save, stringResource(R.string.save))
                             }
                         }
                     }
@@ -235,7 +235,7 @@ internal fun SettingsShellDeviceEditor(
                 title = stringResource(R.string.mcp_connection),
                 items = buildList {
                     add {
-                        SettingsIconContent(Icons.Default.SwapHoriz) {
+                        SettingsIconContent(Icons.Rounded.SwapHoriz) {
                             Text(
                                 stringResource(R.string.shell_device_type),
                                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
@@ -255,13 +255,12 @@ internal fun SettingsShellDeviceEditor(
                                         portInput = "22"
                                     }
                                 },
-                                allowLabelOverflow = true,
                             )
                         }
                     }
                     add {
                         SettingsIconContent(
-                            Icons.AutoMirrored.Filled.Label,
+                            Icons.AutoMirrored.Rounded.Label,
                             modifier = Modifier.testTag("shell-device-identity"),
                         ) {
                             McpLabeledField(
@@ -285,7 +284,7 @@ internal fun SettingsShellDeviceEditor(
                     }
                     if (draft.type == "ssh") {
                         add {
-                            SettingsIconContent(Icons.Default.Dns) {
+                            SettingsIconContent(Icons.Rounded.Dns) {
                                 BoxWithConstraints(Modifier.fillMaxWidth().testTag("shell-ssh-endpoint")) {
                                     val fontScale = LocalDensity.current.fontScale
                                     val inline = maxWidth >= 264.dp * fontScale
@@ -347,7 +346,7 @@ internal fun SettingsShellDeviceEditor(
                         }
                     } else {
                         add {
-                            SettingsIconContent(Icons.Default.Link) {
+                            SettingsIconContent(Icons.Rounded.Link) {
                                 McpLabeledField(
                                     label = stringResource(R.string.shell_device_url),
                                     modifier = Modifier.testTag("shell-field-url"),
@@ -389,7 +388,7 @@ internal fun SettingsShellDeviceEditor(
                                 },
                                 leadingContent = {
                                     Icon(
-                                        if (pinned) Icons.Default.VerifiedUser else Icons.Default.GppMaybe,
+                                        if (pinned) Icons.Rounded.VerifiedUser else Icons.Rounded.GppMaybe,
                                         null,
                                         tint = if (pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                     )
@@ -399,7 +398,7 @@ internal fun SettingsShellDeviceEditor(
                                         onClick = { update(draft.copy(sshHostKey = "")) },
                                         enabled = ownsEditor() && !saving,
                                     ) {
-                                        Icon(Icons.Default.Delete, stringResource(R.string.shell_ssh_unpin), tint = MaterialTheme.colorScheme.error)
+                                        Icon(Icons.Rounded.Delete, stringResource(R.string.shell_ssh_unpin), tint = MaterialTheme.colorScheme.error)
                                     }
                                 }) else null,
                             )
@@ -439,7 +438,7 @@ internal fun SettingsShellDeviceEditor(
                                 ) { busy ->
                                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         if (busy) MotionAwareCircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                                        else Icon(Icons.Default.Shield, null, modifier = Modifier.size(18.dp))
+                                        else Icon(Icons.Rounded.Shield, null, modifier = Modifier.size(18.dp))
                                     }
                                 }
                                 Spacer(Modifier.width(8.dp))
@@ -450,7 +449,7 @@ internal fun SettingsShellDeviceEditor(
                 )
             } else {
                 SettingsGroup(title = stringResource(R.string.shell_authentication), items = listOf {
-                    SettingsIconContent(Icons.Default.Key) {
+                    SettingsIconContent(Icons.Rounded.Key) {
                         McpLabeledField(
                             label = stringResource(R.string.shell_device_key),
                             modifier = Modifier.testTag("shell-field-key"),
@@ -473,7 +472,7 @@ internal fun SettingsShellDeviceEditor(
             AlertDialog(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 onDismissRequest = { pendingVerify = null },
-                icon = { Icon(Icons.Default.Shield, null, tint = MaterialTheme.colorScheme.primary) },
+                icon = { Icon(Icons.Rounded.Shield, null, tint = MaterialTheme.colorScheme.primary) },
                 title = { Text(stringResource(R.string.shell_ssh_verify_title), fontWeight = FontWeight.Bold) },
                 text = {
                     Column {

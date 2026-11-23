@@ -11,12 +11,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.ui.res.painterResource
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -115,7 +115,7 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Speed,
+                                        Icons.Rounded.Speed,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
@@ -270,7 +270,7 @@ private fun GenParamSlider(
             verticalAlignment = Alignment.Top
         ) {
             Icon(
-                Icons.Default.Tune,
+                Icons.Rounded.Tune,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp)
@@ -386,7 +386,7 @@ private fun GenParamSlider(
             verticalAlignment = Alignment.Top
         ) {
             Icon(
-                Icons.Default.Tune,
+                Icons.Rounded.Tune,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp)

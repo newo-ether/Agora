@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,8 +38,10 @@ import com.newoether.agora.util.noOpBringIntoView
 
 /**
  * Full-screen Provider picker. The Custom group opens the custom Provider form; the Built-in
- * group follows the search query, and built-ins already in the list are disabled. Every row has a
- * supporting line so all rows share one height; unlisted built-ins show their retained status.
+ * group follows the search query, and built-ins already in the list are disabled. Picking a
+ * built-in only opens its detail page: it joins the list when that page is saved.
+ * Every row has a supporting line so all rows share one height; unlisted built-ins show their
+ * retained status.
  */
 @Composable
 internal fun ProviderAddPage(
@@ -72,11 +74,11 @@ internal fun ProviderAddPage(
                         onValueChange = { query = it },
                         singleLine = true,
                         placeholder = { Text(stringResource(R.string.provider_search_hint)) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                         trailingIcon = if (query.isNotEmpty()) {
                             {
                                 IconButton(onClick = { query = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.models_clear_search))
+                                    Icon(Icons.Rounded.Clear, contentDescription = stringResource(R.string.models_clear_search))
                                 }
                             }
                         } else {
@@ -98,7 +100,7 @@ internal fun ProviderAddPage(
                         headlineContent = { Text(stringResource(R.string.provider_custom_entry)) },
                         supportingContent = { Text(stringResource(R.string.provider_custom_entry_desc)) },
                         leadingContent = {
-                            Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                            Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                         },
                         modifier = Modifier.clickable(onClick = onAddCustom),
                     )
@@ -140,7 +142,7 @@ internal fun ProviderAddPage(
                                     }
                                     val iconRes = providerIcon(name)
                                     if (iconRes != 0) Icon(painterResource(iconRes), null, tint = tint, modifier = Modifier.size(24.dp))
-                                    else Icon(Icons.Default.Cloud, null, tint = tint, modifier = Modifier.size(24.dp))
+                                    else Icon(Icons.Rounded.Api, null, tint = tint, modifier = Modifier.size(24.dp))
                                 },
                                 modifier = Modifier.clickable(enabled = !added) { onPickBuiltIn(name) },
                             )

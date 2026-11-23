@@ -2,7 +2,7 @@ package com.newoether.agora.ui.settings
 
 import android.app.Application
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -46,7 +46,7 @@ class ModelImportItemTest {
         compose.setContent {
             CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduced)) {
                 MaterialTheme {
-                    ModelImportItem("Import model", "A GGUF model", Icons.Default.AutoAwesome,
+                    ModelImportItem("Import model", "A GGUF model", Icons.Rounded.AutoAwesome,
                         importing, {}, Modifier.width(380.dp).testTag("import"))
                 }
             }
@@ -83,7 +83,7 @@ class ModelImportItemTest {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>()
         compose.setContent {
             MaterialTheme {
-                ModelImportItem("Vision Projector", "A matching mmproj file", Icons.Default.AutoAwesome,
+                ModelImportItem("Vision Projector", "A matching mmproj file", Icons.Rounded.AutoAwesome,
                     importing, { clicks++ }, Modifier.width(380.dp).testTag("import"),
                     importedFile = file, importedEffect = "Image input enabled", onRemove = { removes++ })
             }
@@ -120,7 +120,7 @@ class ModelImportItemTest {
         fun details() = "saved.gguf · ${android.text.format.Formatter.formatShortFileSize(context, first.length())}"
         compose.setContent {
             MaterialTheme {
-                if (shown) ModelImportItem("Chat Model (.gguf)", "A GGUF model", Icons.Default.AutoAwesome,
+                if (shown) ModelImportItem("Chat Model (.gguf)", "A GGUF model", Icons.Rounded.AutoAwesome,
                     false, {}, filePath = first.path)
             }
         }
@@ -160,7 +160,7 @@ class ModelImportItemTest {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>()
         compose.setContent {
             MaterialTheme {
-                if (shown) ModelImportItem("Embedding Model (.gguf)", "A GGUF model", Icons.Default.AutoAwesome,
+                if (shown) ModelImportItem("Embedding Model (.gguf)", "A GGUF model", Icons.Rounded.AutoAwesome,
                     false, {}, filePath = path)
             }
         }

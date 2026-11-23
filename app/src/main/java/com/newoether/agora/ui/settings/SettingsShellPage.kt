@@ -5,14 +5,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.HelpOutline
-import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -113,7 +113,7 @@ fun SettingsShellPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             headlineContent = { Text(stringResource(R.string.shell_enable)) },
                                             supportingContent = { Text(stringResource(R.string.shell_enable_desc)) },
                                             leadingContent = {
-                                                Icon(Icons.Default.Terminal, null, tint = MaterialTheme.colorScheme.primary)
+                                                Icon(Icons.Rounded.Terminal, null, tint = MaterialTheme.colorScheme.primary)
                                             },
                                             trailingContent = {
                                                 Switch(shellEnabled, onCheckedChange = viewModel.settings::setShellEnabled)
@@ -127,7 +127,7 @@ fun SettingsShellPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                 headlineContent = { Text(stringResource(R.string.shell_confirm_setting)) },
                                                 supportingContent = { Text(stringResource(R.string.shell_confirm_setting_desc)) },
                                                 leadingContent = {
-                                                    Icon(Icons.Default.Shield, null, tint = MaterialTheme.colorScheme.primary)
+                                                    Icon(Icons.Rounded.Shield, null, tint = MaterialTheme.colorScheme.primary)
                                                 },
                                                 trailingContent = {
                                                     Switch(shellConfirmEnabled, onCheckedChange = { viewModel.shellConfirmation.setEnabled(it) })
@@ -159,7 +159,7 @@ fun SettingsShellPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                         Text(stringResource(R.string.shell_no_devices), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                     },
                                                     leadingContent = {
-                                                        Icon(Icons.Default.Devices, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        Icon(Icons.Rounded.Devices, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                                     },
                                                     modifier = Modifier.heightIn(min = 64.dp),
                                                 )
@@ -267,7 +267,7 @@ private fun ShellDeviceRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }) else null,
-        leadingContent = { Icon(Icons.Default.Devices, null, tint = MaterialTheme.colorScheme.primary) },
+        leadingContent = { Icon(Icons.Rounded.Devices, null, tint = MaterialTheme.colorScheme.primary) },
         trailingContent = {
             Box(Modifier.testTag("shell-device-menu-anchor:${device.id}")) {
                 IconButton(
@@ -275,7 +275,7 @@ private fun ShellDeviceRow(
                     enabled = active,
                     modifier = Modifier.testTag("shell-device-menu:${device.id}"),
                 ) {
-                    Icon(Icons.Default.MoreVert, stringResource(R.string.options), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.options), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 AgoraDropdownMenu(
                     expanded = active && menuExpanded,
@@ -286,12 +286,12 @@ private fun ShellDeviceRow(
                 ) {
                     AgoraDropdownMenuItem(
                         text = { Text(stringResource(R.string.edit)) },
-                        leadingIcon = { Icon(Icons.Default.Edit, null) },
+                        leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                         onClick = { if (active) { menuExpanded = false; onEdit() } },
                     )
                     AgoraDropdownMenuItem(
                         text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                         onClick = { if (active) { menuExpanded = false; onDelete() } },
                     )
                 }
@@ -311,7 +311,7 @@ private fun SandboxSection(viewModel: ChatViewModel, sandboxEnabled: Boolean, on
             SettingsItem(
                 headlineContent = { Text(stringResource(R.string.sandbox_enable)) },
                 supportingContent = { Text(stringResource(R.string.sandbox_enable_desc)) },
-                leadingContent = { Icon(Icons.Default.Terminal, null, tint = MaterialTheme.colorScheme.primary) },
+                leadingContent = { Icon(Icons.Rounded.Terminal, null, tint = MaterialTheme.colorScheme.primary) },
                 trailingContent = {
                     Switch(checked = sandboxEnabled, onCheckedChange = viewModel.settings::setSandboxEnabled)
                 },
@@ -323,7 +323,7 @@ private fun SandboxSection(viewModel: ChatViewModel, sandboxEnabled: Boolean, on
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.sandbox_manage)) },
                     supportingContent = { Text(stringResource(R.string.sandbox_manage_desc)) },
-                    leadingContent = { Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.primary) },
+                    leadingContent = { Icon(Icons.Rounded.Settings, null, tint = MaterialTheme.colorScheme.primary) },
                     modifier = Modifier.clickable { onManage() },
                 )
             }
@@ -338,7 +338,7 @@ private fun SandboxNotSupportedSection() {
             headlineContent = { Text(stringResource(R.string.sandbox_not_supported)) },
             supportingContent = { Text(stringResource(R.string.sandbox_not_supported_desc)) },
             leadingContent = {
-                Icon(Icons.Default.Terminal, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Rounded.Terminal, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
         )
     })

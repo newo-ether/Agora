@@ -4,10 +4,10 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.PhotoSizeSelectLarge
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.PhotoSizeSelectLarge
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,7 +60,7 @@ internal fun SettingsImageQualityGroup(
                         ))
                     },
                     leadingContent = {
-                        Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.primary)
                     },
                     trailingContent = {
                         Box {
@@ -84,7 +84,7 @@ internal fun SettingsImageQualityGroup(
                                         text = { Text(title) },
                                         leadingIcon = {
                                             if (quality.mode == mode) {
-                                                Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                                Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                             }
                                         },
                                         onClick = { expanded = false; onModeChange(mode) },
@@ -104,7 +104,7 @@ internal fun SettingsImageQualityGroup(
                         presets = imageLongEdgePresets,
                         title = R.string.image_quality_long_edge,
                         description = R.string.image_quality_long_edge_desc,
-                        icon = Icons.Default.PhotoSizeSelectLarge,
+                        icon = Icons.Rounded.PhotoSizeSelectLarge,
                         format = { stringResource(R.string.image_quality_pixels, it) },
                         onValueChange = onMaxLongEdgeChange,
                         modifier = Modifier.testTag("image-quality-long-edge"),
@@ -116,7 +116,7 @@ internal fun SettingsImageQualityGroup(
                         range = ImageQualitySettings.MIN_JPEG_QUALITY..ImageQualitySettings.MAX_JPEG_QUALITY,
                         title = R.string.image_quality_jpeg,
                         description = R.string.image_quality_jpeg_desc,
-                        icon = Icons.Default.Tune,
+                        icon = Icons.Rounded.Tune,
                         format = { it.toString() },
                         onValueChange = onJpegQualityChange,
                         modifier = Modifier.testTag("image-quality-jpeg"),

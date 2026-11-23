@@ -11,13 +11,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.AccountTree
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -149,7 +149,7 @@ internal fun SettingsSubagentContent(
                             supportingContent = { Text(stringResource(R.string.subagents_enable_desc)) },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.AccountTree,
+                                    Icons.Rounded.AccountTree,
                                     null,
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
@@ -170,7 +170,7 @@ internal fun SettingsSubagentContent(
                             supportingContent = { Text(stringResource(R.string.subagents_allow_delete_desc)) },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.Delete,
+                                    Icons.Rounded.Delete,
                                     null,
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
@@ -272,7 +272,7 @@ internal fun SettingsSubagentContent(
                                                 modifier = Modifier.size(24.dp),
                                             ) {
                                                 Icon(
-                                                    Icons.Default.MoreVert,
+                                                    Icons.Rounded.MoreVert,
                                                     contentDescription = stringResource(R.string.options),
                                                     modifier = Modifier.size(18.dp),
                                                 )
@@ -292,7 +292,7 @@ internal fun SettingsSubagentContent(
                                                     },
                                                     leadingIcon = {
                                                         Icon(
-                                                            Icons.Default.Delete,
+                                                            Icons.Rounded.Delete,
                                                             null,
                                                             tint = MaterialTheme.colorScheme.error,
                                                         )
@@ -329,7 +329,7 @@ internal fun SettingsSubagentContent(
                         headlineContent = { Text(stringResource(R.string.subagents_capsule_display_title)) },
                         supportingContent = { Text(stringResource(R.string.subagents_capsule_display_desc)) },
                         leadingContent = {
-                            Icon(Icons.Default.AccountTree, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Rounded.AccountTree, null, tint = MaterialTheme.colorScheme.primary)
                         },
                         trailingContent = {
                             Box {
@@ -353,7 +353,7 @@ internal fun SettingsSubagentContent(
                                             text = { Text(stringResource(label)) },
                                             leadingIcon = {
                                                 if (mode == displayMode) {
-                                                    Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                                    Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                                 }
                                             },
                                             onClick = {
@@ -538,11 +538,11 @@ private fun SubagentModelIcon(providerName: String?) {
         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
     } else MaterialTheme.colorScheme.primary
     when {
-        providerName == null -> Icon(Icons.Default.Chat, null, tint = tint, modifier = Modifier.size(24.dp))
+        providerName == null -> Icon(Icons.Rounded.Layers, null, tint = tint, modifier = Modifier.size(24.dp))
         providerName.equals(Constants.PROVIDER_LOCAL, ignoreCase = true) -> {
-            Icon(Icons.Default.AutoAwesome, null, tint = tint, modifier = Modifier.size(24.dp))
+            Icon(LocalModelIcon, null, tint = tint, modifier = Modifier.size(24.dp))
         }
         icon != 0 -> Icon(painterResource(icon), null, tint = tint, modifier = Modifier.size(24.dp))
-        else -> Icon(Icons.Default.Cloud, null, tint = tint, modifier = Modifier.size(24.dp))
+        else -> Icon(Icons.Rounded.Api, null, tint = tint, modifier = Modifier.size(24.dp))
     }
 }

@@ -6,13 +6,13 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Visibility
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,9 +33,15 @@ fun SettingsProviderDetailPage(
     providerName: String,
     viewModel: ChatViewModel,
     onBack: () -> Unit,
+    onSaved: () -> Unit = onBack,
 ) {
     if (providerName != Constants.PROVIDER_LOCAL) {
-        ProviderRemoteEditor(providerName = providerName, viewModel = viewModel, onBack = onBack)
+        ProviderRemoteEditor(
+            providerName = providerName,
+            viewModel = viewModel,
+            onBack = onBack,
+            onSaved = onSaved,
+        )
         return
     }
     var editorRoute by remember(providerName) { mutableStateOf<LocalChatEditorRoute?>(null) }
@@ -98,7 +104,7 @@ private fun LocalProviderSettingsList(
                                 SettingsItem(
                                     headlineContent = { Text(stringResource(R.string.provider_no_local_models), color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     supportingContent = { Text(stringResource(R.string.provider_no_local_models_desc), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                                    leadingContent = { Icon(Icons.Default.Chat, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+                                    leadingContent = { Icon(Icons.Rounded.Layers, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
                                     modifier = Modifier.heightIn(min = 64.dp)
                                 )
                             }
@@ -111,7 +117,7 @@ private fun LocalProviderSettingsList(
                                     headlineContent = { Text(model.alias, fontWeight = FontWeight.Medium) },
                                     leadingContent = {
                                         Icon(
-                                            Icons.Default.AutoAwesome,
+                                            LocalModelIcon,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(24.dp)
@@ -130,7 +136,7 @@ private fun LocalProviderSettingsList(
                                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                                 ) {
                                                     Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(Icons.Default.Visibility, null, modifier = Modifier.size(10.dp))
+                                                        Icon(Icons.Rounded.Visibility, null, modifier = Modifier.size(10.dp))
                                                         Spacer(Modifier.width(3.dp))
                                                         Text(stringResource(R.string.provider_vision_badge), style = MaterialTheme.typography.labelSmall)
                                                     }
@@ -162,10 +168,10 @@ private fun LocalProviderSettingsList(
                                     },
                                     trailingContent = {
                                         Box {
-                                            IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Default.MoreVert, stringResource(R.string.options), modifier = Modifier.size(18.dp)) }
+                                            IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.options), modifier = Modifier.size(18.dp)) }
                                             AgoraDropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }, containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 16.dp) {
-                                                AgoraDropdownMenuItem(text = { Text(stringResource(R.string.edit)) }, leadingIcon = { Icon(Icons.Default.Edit, null) }, onClick = { showMenu = false; onEditModel(model) })
-                                                AgoraDropdownMenuItem(text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }, onClick = { showMenu = false; showDeleteModelConfirm = model })
+                                                AgoraDropdownMenuItem(text = { Text(stringResource(R.string.edit)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { showMenu = false; onEditModel(model) })
+                                                AgoraDropdownMenuItem(text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) }, onClick = { showMenu = false; showDeleteModelConfirm = model })
                                             }
                                         }
                                     }
@@ -198,7 +204,7 @@ private fun LocalProviderSettingsList(
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Memory,
+                                        Icons.Rounded.Memory,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                     )

@@ -7,6 +7,7 @@ import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.ToolCallData
 import com.newoether.agora.model.apiModelName
+import com.newoether.agora.util.Constants
 import com.newoether.agora.util.SnackbarEvent
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
@@ -480,3 +481,16 @@ fun modelDisplayName(
     val parsed = ModelId.parse(modelId)
     return "$alias (${providerDisplayName(parsed.providerName, customProviders)})"
 }
+
+/**
+ * Default Provider-name visibility when the user never toggled it: a custom Provider keeps the name
+ * the owner gave it, while a built-in Provider is already implied by the model and only adds noise.
+ */
+fun providerNameShownByDefault(modelId: String): Boolean {
+    val provider = ModelId.parse(modelId).providerName
+    return provider !in BUILT_IN_REMOTE_PROVIDERS && provider != Constants.PROVIDER_LOCAL
+}
+
+/** Stored switch value for [modelId], else the per-Provider default above; no ID shows nothing. */
+fun modelProviderNameShown(modelId: String?, overrides: Map<String, Boolean>): Boolean =
+    modelId?.let { overrides[it] ?: providerNameShownByDefault(it) } ?: false

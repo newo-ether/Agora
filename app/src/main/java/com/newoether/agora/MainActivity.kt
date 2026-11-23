@@ -21,7 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -754,7 +754,7 @@ fun MainNavigation(
                         dismissAction = @Composable {
                             Box(modifier = Modifier.padding(end = 8.dp)) {
                                 IconButton(onClick = { data.dismiss() }, modifier = Modifier.size(28.dp).clip(CircleShape)) {
-                                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cancel), modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cancel), modifier = Modifier.size(18.dp))
                                 }
                             }
                         },

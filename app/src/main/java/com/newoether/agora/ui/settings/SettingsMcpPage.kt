@@ -14,15 +14,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -213,7 +213,7 @@ fun SettingsMcpPage(
                                                             onClick = { menuExpanded = true },
                                                         ) {
                                                             Icon(
-                                                                Icons.Default.MoreVert,
+                                                                Icons.Rounded.MoreVert,
                                                                 stringResource(R.string.options),
                                                             )
                                                         }
@@ -231,7 +231,7 @@ fun SettingsMcpPage(
                                                                 },
                                                                 leadingIcon = {
                                                                     Icon(
-                                                                        Icons.Default.Refresh,
+                                                                        Icons.Rounded.Refresh,
                                                                         null,
                                                                     )
                                                                 },
@@ -249,7 +249,7 @@ fun SettingsMcpPage(
                                                                 },
                                                                 leadingIcon = {
                                                                     Icon(
-                                                                        Icons.Default.Delete,
+                                                                        Icons.Rounded.Delete,
                                                                         null,
                                                                         tint = MaterialTheme.colorScheme.error,
                                                                     )
@@ -388,7 +388,7 @@ private fun McpServerEditor(
                 onClick = ::save,
                 enabled = canSave,
             ) {
-                Icon(Icons.Default.Save, stringResource(R.string.save))
+                Icon(Icons.Rounded.Save, stringResource(R.string.save))
             }
         },
     ) {
@@ -397,7 +397,7 @@ private fun McpServerEditor(
                 title = stringResource(R.string.mcp_connection),
                 items = listOf(
                     {
-                        SettingsIconContent(icon = Icons.Default.SwapHoriz) {
+                        SettingsIconContent(icon = Icons.Rounded.SwapHoriz) {
                             Text(
                                 stringResource(R.string.mcp_transport),
                                 style = MaterialTheme.typography.bodyLarge.copy(
@@ -418,12 +418,11 @@ private fun McpServerEditor(
                                         draft = draft.copy(transport = selected)
                                     }
                                 },
-                                allowLabelOverflow = true,
                             )
                         }
                     },
                     {
-                        SettingsIconContent(icon = Icons.Default.Label) {
+                        SettingsIconContent(icon = Icons.Rounded.Label) {
                             McpLabeledField(
                                 label = stringResource(R.string.mcp_name),
                                 value = draft.name,
@@ -432,7 +431,7 @@ private fun McpServerEditor(
                         }
                     },
                     {
-                        SettingsIconContent(icon = Icons.Default.Link) {
+                        SettingsIconContent(icon = Icons.Rounded.Link) {
                             McpLabeledField(
                                 label = stringResource(R.string.mcp_url),
                                 value = draft.url,
@@ -466,7 +465,7 @@ private fun McpServerEditor(
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Code,
+                                        Icons.Rounded.Code,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -516,7 +515,7 @@ private fun McpServerEditor(
                             },
                             trailingContent = {
                                 IconButton(onClick = onRefresh) {
-                                    Icon(Icons.Default.Refresh, stringResource(R.string.mcp_refresh))
+                                    Icon(Icons.Rounded.Refresh, stringResource(R.string.mcp_refresh))
                                 }
                             },
                         )
@@ -542,7 +541,7 @@ private fun McpServerEditor(
                                 headlineContent = { Text(tool.remote.name) },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Build,
+                                        Icons.Rounded.Build,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
@@ -594,7 +593,7 @@ private fun McpHeaderItem(
         trailingContent = {
             IconButton(onClick = onDelete) {
                 Icon(
-                    Icons.Default.Delete,
+                    Icons.Rounded.Delete,
                     stringResource(R.string.mcp_delete_header),
                     tint = MaterialTheme.colorScheme.error,
                 )

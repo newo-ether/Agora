@@ -142,7 +142,7 @@ class SettingsModelsPageTest {
         assertEquals(2, Regex("tween\\(durationMillis = 250\\)").findAll(syncCard).count())
         assertTrue(syncCard.contains("R.string.models_syncing"))
         assertTrue(syncCard.contains("CircularProgressIndicator("))
-        assertTrue(syncCard.contains("Icons.Default.Refresh"))
+        assertTrue(syncCard.contains("Icons.Rounded.Refresh"))
         assertEquals(2, Regex("Modifier\\.size\\(24\\.dp\\)").findAll(syncCard).count())
         assertFalse(settingsHost.contains("snackbar_fetching_models"))
         assertFalse(settingsHost.contains("LaunchedEffect(isSyncingModels)"))

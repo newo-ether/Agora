@@ -2,7 +2,7 @@ package com.newoether.agora.ui.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,7 +54,7 @@ internal fun LocalModelIdleRetentionSlider(
             verticalAlignment = Alignment.Top,
         ) {
             Icon(
-                Icons.Default.Tune,
+                Icons.Rounded.Tune,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp),

@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -58,7 +58,7 @@ internal fun SettingsChoiceItem(
                             text = { Text(stringResource(label), color = if (available)
                                 MaterialTheme.colorScheme.onSurface else disabled) },
                             leadingIcon = {
-                                if (selected == key) Icon(Icons.Default.Check, null,
+                                if (selected == key) Icon(Icons.Rounded.Check, null,
                                     tint = if (available) MaterialTheme.colorScheme.primary else disabled)
                             },
                             onClick = { if (available) { onSelect(key); expanded = false } },

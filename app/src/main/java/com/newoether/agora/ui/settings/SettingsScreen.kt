@@ -10,10 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -226,7 +223,7 @@ fun SettingsAddItem(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = Icons.Default.Add,
+                imageVector = Icons.Rounded.Add,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
                 tint = contentColor,
@@ -256,23 +253,23 @@ internal data class SettingsGroupData(
 
 internal val baseSettingsGroups = listOf(
     SettingsGroupData(titleRes = R.string.settings_group_services, items = listOf(
-        SettingsCategory("provider", R.string.settings_provider, R.string.settings_provider_desc, Icons.Default.Cloud),
-        SettingsCategory("models", R.string.settings_models, R.string.settings_models_desc, Icons.Default.Chat),
+        SettingsCategory("provider", R.string.settings_provider, R.string.settings_provider_desc, Icons.Rounded.Api),
+        SettingsCategory("models", R.string.settings_models, R.string.settings_models_desc, Icons.Rounded.Layers),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_responses, items = listOf(
-        SettingsCategory("prompts", R.string.settings_prompts, R.string.settings_prompts_desc, Icons.Default.Psychology),
-        SettingsCategory("generation", R.string.settings_generation, R.string.settings_generation_desc, Icons.Default.Tune),
-        SettingsCategory("context", R.string.context_title, R.string.context_desc, Icons.Default.Memory),
-        SettingsCategory("titlegen", R.string.settings_title_gen, R.string.settings_title_gen_desc, Icons.Default.Edit),
+        SettingsCategory("prompts", R.string.settings_prompts, R.string.settings_prompts_desc, Icons.Rounded.Psychology),
+        SettingsCategory("generation", R.string.settings_generation, R.string.settings_generation_desc, Icons.Rounded.Tune),
+        SettingsCategory("context", R.string.context_title, R.string.context_desc, Icons.Rounded.Memory),
+        SettingsCategory("titlegen", R.string.settings_title_gen, R.string.settings_title_gen_desc, Icons.Rounded.Edit),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_multimodal, items = listOf(
-        SettingsCategory("transcription", R.string.settings_transcription, R.string.settings_transcription_desc, Icons.Default.ImageSearch),
-        SettingsCategory("imagegen", R.string.settings_image_gen, R.string.settings_image_gen_desc, Icons.Default.AddPhotoAlternate),
+        SettingsCategory("transcription", R.string.settings_transcription, R.string.settings_transcription_desc, Icons.Rounded.ImageSearch),
+        SettingsCategory("imagegen", R.string.settings_image_gen, R.string.settings_image_gen_desc, Icons.Rounded.AddPhotoAlternate),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_tools, items = listOf(
-        SettingsCategory("websearch", R.string.settings_web_search, R.string.settings_web_search_desc, Icons.Default.Language),
-        SettingsCategory("search", R.string.search_title, R.string.search_desc, Icons.Default.Search),
-        SettingsCategory("shell", R.string.shell_title, R.string.shell_desc, Icons.Default.Terminal),
+        SettingsCategory("websearch", R.string.settings_web_search, R.string.settings_web_search_desc, Icons.Rounded.Language),
+        SettingsCategory("search", R.string.search_title, R.string.search_desc, Icons.Rounded.Search),
+        SettingsCategory("shell", R.string.shell_title, R.string.shell_desc, Icons.Rounded.Terminal),
         SettingsCategory(
             "mcp",
             R.string.mcp_title,
@@ -280,24 +277,24 @@ internal val baseSettingsGroups = listOf(
             iconRes = R.drawable.ic_mcp,
         ),
         SettingsCategory("phoneuse", R.string.phone_title, R.string.phone_description, PhoneUseIcon),
-        SettingsCategory("automation", R.string.settings_automation, R.string.settings_automation_desc, Icons.Default.Repeat),
-        SettingsCategory("todo", R.string.settings_todo, R.string.settings_todo_desc, Icons.Default.Checklist),
-        SettingsCategory("subagents", R.string.settings_subagents, R.string.settings_subagents_desc, Icons.Default.AccountTree),
-        SettingsCategory("interaction", R.string.settings_interaction, R.string.settings_interaction_desc, Icons.Default.QuestionAnswer),
+        SettingsCategory("automation", R.string.settings_automation, R.string.settings_automation_desc, Icons.Rounded.Repeat),
+        SettingsCategory("todo", R.string.settings_todo, R.string.settings_todo_desc, Icons.Rounded.Checklist),
+        SettingsCategory("subagents", R.string.settings_subagents, R.string.settings_subagents_desc, Icons.Rounded.AccountTree),
+        SettingsCategory("interaction", R.string.settings_interaction, R.string.settings_interaction_desc, Icons.Rounded.QuestionAnswer),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_network, items = listOf(
-        SettingsCategory("proxy", R.string.settings_proxy, R.string.settings_proxy_desc, Icons.Default.Lan),
-        SettingsCategory("webui", R.string.settings_webui, R.string.settings_webui_desc, Icons.Default.Web),
+        SettingsCategory("proxy", R.string.settings_proxy, R.string.settings_proxy_desc, Icons.Rounded.Lan),
+        SettingsCategory("webui", R.string.settings_webui, R.string.settings_webui_desc, Icons.Rounded.Web),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_memory_data, items = listOf(
-        SettingsCategory("memory", R.string.settings_memory, R.string.settings_memory_desc, Icons.Default.Description),
-        SettingsCategory("skills", R.string.settings_skills, R.string.settings_skills_desc, Icons.Default.Extension),
-        SettingsCategory("datacontrol", R.string.settings_data_control, R.string.settings_data_control_desc, Icons.Default.Storage),
-        SettingsCategory("usage", R.string.settings_usage, R.string.settings_usage_desc, Icons.Default.Insights),
+        SettingsCategory("memory", R.string.settings_memory, R.string.settings_memory_desc, Icons.Rounded.Description),
+        SettingsCategory("skills", R.string.settings_skills, R.string.settings_skills_desc, Icons.Rounded.Extension),
+        SettingsCategory("datacontrol", R.string.settings_data_control, R.string.settings_data_control_desc, Icons.Rounded.Storage),
+        SettingsCategory("usage", R.string.settings_usage, R.string.settings_usage_desc, Icons.Rounded.BarChart),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_appearance_language, items = listOf(
-        SettingsCategory("appearance", R.string.settings_appearance, R.string.settings_appearance_desc, Icons.Default.Palette),
-        SettingsCategory("language", R.string.language_title, R.string.language_desc, Icons.Default.Translate),
+        SettingsCategory("appearance", R.string.settings_appearance, R.string.settings_appearance_desc, Icons.Rounded.Palette),
+        SettingsCategory("language", R.string.language_title, R.string.language_desc, Icons.Rounded.Translate),
     )),
 )
 
@@ -308,7 +305,7 @@ internal val developerSettingsGroup = SettingsGroupData(
             "developer",
             R.string.settings_developer,
             R.string.settings_developer_desc,
-            Icons.Default.BugReport,
+            Icons.Rounded.BugReport,
         ),
     ),
 )
@@ -316,7 +313,7 @@ internal val developerSettingsGroup = SettingsGroupData(
 internal val aboutSettingsGroup = SettingsGroupData(
     titleRes = R.string.settings_group_about,
     items = listOf(
-        SettingsCategory("about", R.string.settings_about, R.string.settings_about_desc, Icons.Default.Info),
+        SettingsCategory("about", R.string.settings_about, R.string.settings_about_desc, Icons.Rounded.Info),
     ),
 )
 

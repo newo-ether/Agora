@@ -79,15 +79,22 @@ internal class ProviderListStore(
     /** Appends a built-in and restores its parked enabled models in the same edit. */
     suspend fun addBuiltIn(name: String) {
         require(name in BUILT_IN_REMOTE_PROVIDERS) { "Not a built-in remote Provider" }
-        dataStore.edit { prefs ->
-            val list = prefs.resolvedProviderList(json)
-            if (name in list) return@edit
-            prefs[PROVIDER_LIST_JSON] = json.encodeToString(list + name)
-            val parked = prefs.hiddenProviderModels(json).toMutableMap()
-            val restored = parked.remove(name).orEmpty()
-            if (restored.isNotEmpty()) prefs[ENABLED_MODELS] = prefs[ENABLED_MODELS].orEmpty() + restored
-            prefs.writeHiddenProviderModels(parked, json)
-        }
+        dataStore.edit { prefs -> addBuiltInInPlace(prefs, name) }
+    }
+
+    /**
+     * Membership half of [addBuiltIn], usable inside a larger edit: a Provider detail save that
+     * adds an unlisted built-in writes the list, its parked models and its fields in one commit.
+     */
+    fun addBuiltInInPlace(prefs: MutablePreferences, name: String) {
+        require(name in BUILT_IN_REMOTE_PROVIDERS) { "Not a built-in remote Provider" }
+        val list = prefs.resolvedProviderList(json)
+        if (name in list) return
+        prefs[PROVIDER_LIST_JSON] = json.encodeToString(list + name)
+        val parked = prefs.hiddenProviderModels(json).toMutableMap()
+        val restored = parked.remove(name).orEmpty()
+        if (restored.isNotEmpty()) prefs[ENABLED_MODELS] = prefs[ENABLED_MODELS].orEmpty() + restored
+        prefs.writeHiddenProviderModels(parked, json)
     }
 
     /** Removes a built-in from the list. Credentials, URLs and catalogs are retained. */

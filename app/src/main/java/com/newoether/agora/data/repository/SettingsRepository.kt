@@ -25,6 +25,7 @@ import com.newoether.agora.data.CustomProviderNamePolicy
 import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.LocalChatModelConfig
 import com.newoether.agora.data.PredefinedVariables
+import com.newoether.agora.data.providerNameShownByDefault
 import com.newoether.agora.data.PromptTemplateItem
 import com.newoether.agora.data.ProviderEditorDraft
 import com.newoether.agora.data.SettingsManager
@@ -93,6 +94,9 @@ class SettingsRepository(
     /** Atomic Provider detail save. Custom live-map upkeep goes through ProviderRegistry.commitEditor. */
     internal suspend fun commitProviderEditor(originalName: String, draft: ProviderEditorDraft) =
         settingsManager.providerEditorStore.commit(originalName, draft)
+    /** Atomic creation from the full Provider editor; registry upkeep goes through its createEditor. */
+    internal suspend fun createProviderFromEditor(draft: ProviderEditorDraft) =
+        settingsManager.providerEditorStore.create(draft)
     val availableModels: StateFlow<Map<String, List<String>>> = publication.hot(settingsManager.availableModels, emptyMap())
     val customModels: StateFlow<Set<String>> = publication.hot(settingsManager.customModels, emptySet())
     val enabledModels: StateFlow<Set<String>> = publication.hot(settingsManager.enabledModels, emptySet())
@@ -138,9 +142,9 @@ class SettingsRepository(
     val titleGenerationModel: StateFlow<String?> = publication.hot(settingsManager.titleGenerationModel, null)
     val titleGenerationPrompt: StateFlow<String> = publication.hot(settingsManager.titleGenerationPrompt, BuiltInPrompts.TITLE_GENERATION_SYSTEM)
     val titleGenerationNotificationsEnabled: StateFlow<Boolean> =
-        publication.hot(settingsManager.titleGenerationNotificationsEnabled, true)
+        publication.hot(settingsManager.titleGenerationNotificationsEnabled, false)
     val imageTranscriptionEnabled: StateFlow<Boolean> =
-        publication.hot(settingsManager.imageTranscriptionEnabled, true)
+        publication.hot(settingsManager.imageTranscriptionEnabled, false)
     val imageTranscriptionEnabledModels: StateFlow<Set<String>> = publication.hot(settingsManager.imageTranscriptionEnabledModels, emptySet())
     val imageTranscriptionModel: StateFlow<String?> = publication.hot(settingsManager.imageTranscriptionModel, null)
     val imageTranscriptionBatchSize: StateFlow<Int> = publication.hot(settingsManager.imageTranscriptionBatchSize, 3)
@@ -289,13 +293,13 @@ class SettingsRepository(
         }
     }
 
-    fun addCustomModel(provider: String, modelName: String, alias: String = "", showProviderName: Boolean = true) {
+    fun addCustomModel(provider: String, modelName: String, alias: String = "", showProviderName: Boolean? = null) {
         val normalizedProvider = stableProviderReference(provider)
         val normalizedName = modelName.trim()
         if (normalizedProvider.isEmpty() || normalizedName.isEmpty()) return
         val modelId = ModelId(normalizedProvider, normalizedName).prefixed
         scope.launch {
-            settingsManager.addCustomModel(modelId, alias, showProviderName)
+            settingsManager.addCustomModel(modelId, alias, showProviderName ?: providerNameShownByDefault(modelId))
         }
     }
 
@@ -431,10 +435,10 @@ class SettingsRepository(
                 settingsManager.renameCustomEndpointResolution(oldName, newName)
                 settingsManager.saveProviderBaseUrl(oldName, "")
                 settingsManager.saveProviderBaseUrl(newName, url)
-                val models = availableModels.value.toMutableMap()
-                models[newName] = models.remove(oldName) ?: emptyList()
-                settingsManager.saveAvailableModels(newName, models[newName] ?: emptyList())
-                settingsManager.saveAvailableModels(oldName, emptyList())
+                // The catalog lives behind the Provider key, so it is moved inside the store from the
+                // persisted map. Reading a StateFlow snapshot here could wipe the models whenever
+                // that snapshot had not observed the current catalog yet.
+                settingsManager.renameProviderModelReferences(oldName, newName)
                 settingsManager.renameApiKeyProvider(oldName, newName)
                 settingsManager.providerListStore.renameCustom(oldName, newName)
             }

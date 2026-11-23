@@ -7,11 +7,11 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Edit
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,16 +44,31 @@ fun SettingsProviderPage(viewModel: ChatViewModel, onBack: () -> Unit) {
 
     var selectedProvider by rememberSaveable { mutableStateOf<String?>(null) }
     var addStage by rememberSaveable { mutableIntStateOf(ADD_NONE) }
+    // A built-in picked from the Add page stays unlisted until its detail page is saved.
+    var pendingAdd by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberSettingsScrollState()
+
+    val leaveDetail: () -> Unit = {
+        selectedProvider = null
+        // Leaving an unsaved new Provider returns to the Add page, not the list.
+        if (pendingAdd) {
+            pendingAdd = false
+            addStage = ADD_PICKER
+        }
+    }
 
     // The picker, the custom form and the remote editor register their own back handlers later,
     // so they take precedence; this one covers the root list and the Local page.
     BackHandler(enabled = addStage == ADD_NONE) {
-        if (selectedProvider != null) selectedProvider = null else onBack()
+        if (selectedProvider != null) leaveDetail() else onBack()
     }
 
+    // A Provider picked from the Add page opens one level deeper than the picker: the picker's
+    // stage is cleared while its detail page is open, so without this the back transition from that
+    // detail to the picker would keep the same depth and animate forward.
     val depth = when {
         addStage != ADD_NONE -> addStage
+        selectedProvider != null && pendingAdd -> 2
         selectedProvider != null -> 1
         else -> 0
     }
@@ -68,8 +83,12 @@ fun SettingsProviderPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         ) { (provider, stage, _) ->
             when {
                 stage == ADD_CUSTOM -> SettingsSecondaryPane {
-                    AddCustomProviderPage(
+                    // The add route is the same full editor; Save creates the Provider instead of
+                    // committing changes, so no field exists on only one of the two routes.
+                    ProviderRemoteEditor(
+                        providerName = "",
                         viewModel = viewModel,
+                        creating = true,
                         onBack = { addStage = ADD_PICKER },
                         onSaved = { addStage = ADD_NONE },
                     )
@@ -84,7 +103,7 @@ fun SettingsProviderPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         onBack = { addStage = ADD_NONE },
                         onAddCustom = { addStage = ADD_CUSTOM },
                         onPickBuiltIn = { name ->
-                            viewModel.settings.addBuiltInProvider(name)
+                            pendingAdd = true
                             selectedProvider = name
                             addStage = ADD_NONE
                         },
@@ -94,7 +113,12 @@ fun SettingsProviderPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     SettingsProviderDetailPage(
                         providerName = provider,
                         viewModel = viewModel,
-                        onBack = { selectedProvider = null },
+                        onBack = leaveDetail,
+                        onSaved = {
+                            selectedProvider = null
+                            pendingAdd = false
+                            addStage = ADD_NONE
+                        },
                     )
                 }
                 else -> ProviderListPage(
@@ -174,7 +198,7 @@ private fun ProviderListPage(
                                     Text(stringResource(R.string.provider_list_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 },
                                 leadingContent = {
-                                    Icon(Icons.Default.Cloud, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(24.dp))
+                                    Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(24.dp))
                                 },
                                 modifier = Modifier.heightIn(min = 64.dp),
                             )
@@ -203,7 +227,7 @@ private fun ProviderListPage(
                                 val tint = if (configured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                 val iconRes = if (isBuiltIn) providerIcon(name) else 0
                                 if (iconRes != 0) Icon(painterResource(iconRes), null, tint = tint, modifier = Modifier.size(24.dp))
-                                else Icon(Icons.Default.Cloud, null, tint = tint, modifier = Modifier.size(24.dp))
+                                else Icon(Icons.Rounded.Api, null, tint = tint, modifier = Modifier.size(24.dp))
                             },
                             trailingContent = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -214,7 +238,7 @@ private fun ProviderListPage(
                                         Spacer(Modifier.width(12.dp))
                                     }
                                     Icon(
-                                        Icons.Default.DragHandle,
+                                        Icons.Rounded.DragHandle,
                                         contentDescription = stringResource(R.string.provider_reorder),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = dragHandle.size(24.dp),
@@ -235,18 +259,18 @@ private fun ProviderListPage(
                             if (custom != null) {
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.rename)) },
-                                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                                     onClick = { menuExpanded = false; renameTarget = name },
                                 )
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                                     onClick = { menuExpanded = false; deleteTarget = name },
                                 )
                             } else {
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.provider_remove), color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                                     onClick = { menuExpanded = false; removeTarget = name },
                                 )
                             }
@@ -260,7 +284,7 @@ private fun ProviderListPage(
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.local_title)) },
                     supportingContent = { Text(if (localConfigured) stringResource(R.string.provider_local_models_summary, localChatModels.size) else stringResource(R.string.not_configured)) },
-                    leadingContent = { Icon(Icons.Default.AutoAwesome, null, tint = if (localConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+                    leadingContent = { Icon(LocalModelIcon, null, tint = if (localConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
                     modifier = Modifier.clickable { onOpen(Constants.PROVIDER_LOCAL) },
                 )
             })

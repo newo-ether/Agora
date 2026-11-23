@@ -11,16 +11,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Tag
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Cached
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.rounded.Tag
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Cached
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -285,7 +285,7 @@ internal fun EmbeddingModelEditor(
                 CircularProgressIndicator(modifier = Modifier.padding(12.dp).size(24.dp), strokeWidth = 2.dp)
             } else {
                 IconButton(onClick = ::save, enabled = canSave) {
-                    Icon(Icons.Default.Save, stringResource(R.string.save))
+                    Icon(Icons.Rounded.Save, stringResource(R.string.save))
                 }
             }
         },
@@ -302,7 +302,7 @@ internal fun EmbeddingModelEditor(
                                     headlineContent = { Text(stringResource(R.string.embedding_provider_label)) },
                                     supportingContent = { Text(stringResource(R.string.embedding_type_remote_desc)) },
                                     leadingContent = {
-                                        Icon(Icons.Default.Cloud, null, tint = MaterialTheme.colorScheme.primary)
+                                        Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.primary)
                                     },
                                     trailingContent = {
                                         Box {
@@ -337,7 +337,7 @@ internal fun EmbeddingModelEditor(
                                                         leadingIcon = {
                                                             if (index == draft.providerIndex) {
                                                                 Icon(
-                                                                    Icons.Default.Check,
+                                                                    Icons.Rounded.Check,
                                                                     null,
                                                                     tint = MaterialTheme.colorScheme.primary,
                                                                 )
@@ -366,7 +366,7 @@ internal fun EmbeddingModelEditor(
                         }
                         if (!isNew || preset.editableUrl) {
                             add {
-                                SettingsIconContent(icon = Icons.Default.Link) {
+                                SettingsIconContent(icon = Icons.Rounded.Link) {
                                     if (isNew) {
                                         McpLabeledField(
                                             label = stringResource(R.string.embedding_base_url_label),
@@ -395,7 +395,7 @@ internal fun EmbeddingModelEditor(
                                             Text(stringResource(R.string.embedding_use_saved_key_desc))
                                         },
                                         leadingContent = {
-                                            Icon(Icons.Default.VpnKey, null, tint = MaterialTheme.colorScheme.primary)
+                                            Icon(Icons.Rounded.VpnKey, null, tint = MaterialTheme.colorScheme.primary)
                                         },
                                         trailingContent = {
                                             Switch(
@@ -411,7 +411,7 @@ internal fun EmbeddingModelEditor(
                             }
                             if (!usingSavedKey) {
                                 add {
-                                    SettingsIconContent(icon = Icons.Default.VpnKey) {
+                                    SettingsIconContent(icon = Icons.Rounded.VpnKey) {
                                         McpLabeledField(
                                             label = stringResource(R.string.embedding_api_key),
                                             value = draft.apiKey,
@@ -429,7 +429,7 @@ internal fun EmbeddingModelEditor(
                     title = stringResource(R.string.embedding_model_label),
                     items = buildList {
                         add {
-                            SettingsIconContent(icon = Icons.Default.Tag) {
+                            SettingsIconContent(icon = Icons.Rounded.Tag) {
                                 if (isNew) {
                                     McpLabeledField(
                                         label = stringResource(R.string.model_id_label),
@@ -456,7 +456,7 @@ internal fun EmbeddingModelEditor(
                             title = stringResource(R.string.embedding_import_title),
                             filePath = draft.localFilePath,
                             description = stringResource(R.string.embedding_import_desc),
-                            icon = Icons.Default.AutoAwesome,
+                            icon = LocalModelIcon,
                             importing = isImporting,
                             onClick = { filePicker.launch(arrayOf("*/*")) },
                         )
@@ -467,7 +467,7 @@ internal fun EmbeddingModelEditor(
                 title = stringResource(R.string.embedding_general),
                 items = listOf(
                     {
-                        SettingsIconContent(icon = Icons.Default.Label) {
+                        SettingsIconContent(icon = Icons.Rounded.Label) {
                             McpLabeledField(
                                 label = stringResource(R.string.model_name_label),
                                 value = draft.name,
@@ -477,7 +477,7 @@ internal fun EmbeddingModelEditor(
                         }
                     },
                     {
-                        SettingsIconContent(icon = Icons.Default.Tune) {
+                        SettingsIconContent(icon = Icons.Rounded.Tune) {
                             McpLabeledField(
                                 label = stringResource(R.string.embedding_batch_size),
                                 value = draft.batchSize,
@@ -497,7 +497,7 @@ internal fun EmbeddingModelEditor(
                             headlineContent = { Text(stringResource(R.string.embedding_cache_status)) },
                             supportingContent = { Text(embeddingCacheLabel(cacheRow) ?: "-") },
                             leadingContent = {
-                                Icon(Icons.Default.Cached, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Cached, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingContent = {
                                 EmbeddingCacheAction(

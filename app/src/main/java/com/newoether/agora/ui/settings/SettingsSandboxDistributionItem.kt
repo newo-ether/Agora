@@ -9,10 +9,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ListAlt
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ListAlt
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +50,7 @@ internal fun SettingsSandboxDistributionItem(
     SettingsItem(
         headlineContent = { Text(stringResource(R.string.sandbox_distribution)) },
         supportingContent = { Text(stringResource(R.string.sandbox_distribution_desc)) },
-        leadingContent = { Icon(Icons.Default.ListAlt, null, tint = MaterialTheme.colorScheme.primary) },
+        leadingContent = { Icon(Icons.Rounded.ListAlt, null, tint = MaterialTheme.colorScheme.primary) },
         trailingContent = {
             Box {
                 SandboxSetupLabel(distribution.displayName, enabled, singleLine = true)
@@ -66,7 +65,7 @@ internal fun SettingsSandboxDistributionItem(
                             text = { Text("${choice.displayName} ${choice.versionLabel}") },
                             leadingIcon = {
                                 if (choice == distribution) {
-                                    Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                 }
                             },
                             enabled = enabled,
@@ -96,7 +95,7 @@ internal fun SettingsSandboxMirrorItem(
     SettingsItem(
         headlineContent = { Text(stringResource(R.string.sandbox_mirror)) },
         supportingContent = { Text(stringResource(R.string.sandbox_mirror_desc)) },
-        leadingContent = { Icon(Icons.Default.Public, null, tint = MaterialTheme.colorScheme.primary) },
+        leadingContent = { Icon(Icons.Rounded.Public, null, tint = MaterialTheme.colorScheme.primary) },
         trailingContent = {
             Box {
                 SandboxSetupLabel(mirrorLabel(mirror), enabled, singleLine = true)
@@ -111,7 +110,7 @@ internal fun SettingsSandboxMirrorItem(
                             text = { Text(mirrorLabel(choice)) },
                             leadingIcon = {
                                 if (choice == mirror) {
-                                    Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                                 }
                             },
                             enabled = enabled,
@@ -166,7 +165,7 @@ internal fun SettingsSandboxInstallItem(
         },
         leadingContent = { SandboxDistributionIcon(distribution) },
         trailingContent = if (installing) null else ({
-            Button(onClick = onInstall, enabled = enabled) {
+            SandboxActionButton(onClick = onInstall, enabled = enabled) {
                 Text(stringResource(R.string.sandbox_install))
             }
         }),

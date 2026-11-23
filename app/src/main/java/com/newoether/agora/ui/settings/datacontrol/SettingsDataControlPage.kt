@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -198,7 +198,7 @@ private fun DataControlRootPage(viewModel: ChatViewModel, onBack: () -> Unit, on
                             headlineContent = { Text(stringResource(R.string.data_import_title)) },
                             supportingContent = { Text(stringResource(R.string.data_import_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/zip", "*/*")) }
                         )
@@ -208,7 +208,7 @@ private fun DataControlRootPage(viewModel: ChatViewModel, onBack: () -> Unit, on
                             headlineContent = { Text(stringResource(R.string.data_export_title)) },
                             supportingContent = { Text(stringResource(R.string.data_export_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Upload, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Upload, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { showExportDialog = true }
                         )
@@ -218,7 +218,7 @@ private fun DataControlRootPage(viewModel: ChatViewModel, onBack: () -> Unit, on
                             headlineContent = { Text(stringResource(R.string.storage_title)) },
                             supportingContent = { Text(stringResource(R.string.storage_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Storage, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Storage, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable(onClick = onOpenStorage)
                         )
@@ -232,7 +232,7 @@ private fun DataControlRootPage(viewModel: ChatViewModel, onBack: () -> Unit, on
                             headlineContent = { Text(stringResource(R.string.gpt_import_title)) },
                             supportingContent = { Text(stringResource(R.string.gpt_import_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { gptChatLauncher.launch(arrayOf("application/zip", "*/*")) }
                         )
@@ -242,7 +242,7 @@ private fun DataControlRootPage(viewModel: ChatViewModel, onBack: () -> Unit, on
                             headlineContent = { Text(stringResource(R.string.claude_import_title)) },
                             supportingContent = { Text(stringResource(R.string.claude_import_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { claudeChatLauncher.launch(arrayOf("application/zip", "*/*")) }
                         )

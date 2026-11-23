@@ -12,13 +12,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cached
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DataObject
-import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.rounded.Cached
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.DataObject
+import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -73,16 +73,24 @@ private val CACHE_TTLS = listOf("5m", "1h")
 /**
  * Explicit-save detail page of one remote Provider, built-in or custom.
  *
+ * The Add route reuses this page with [creating]: the only difference is that Save creates the
+ * custom Provider (config, URL, keys, cache fields in one edit) instead of committing changes to
+ * an existing one. Every field therefore exists on both routes by construction.
+ *
  * Every connection, credential and cache field edits a draft that only Save commits, in one
  * DataStore edit. Back discards the draft behind the unsaved-changes guard. The top bar holds
  * only Save; deleting a custom Provider or removing a built-in lives in the Provider list
- * long-press menu. The draft lives in memory only, so API keys never enter saved instance state.
+ * long-press menu. A built-in that the Add page only picked stays unlisted until this Save,
+ * which appends it in the same edit. The draft lives in memory only, so API keys never enter
+ * saved instance state.
  */
 @Composable
 internal fun ProviderRemoteEditor(
     providerName: String,
     viewModel: ChatViewModel,
     onBack: () -> Unit,
+    onSaved: () -> Unit = onBack,
+    creating: Boolean = false,
 ) {
     val apiKeys by viewModel.settings.apiKeys.collectAsState()
     val activeApiKeyIds by viewModel.settings.activeApiKeyIds.collectAsState()
@@ -94,27 +102,44 @@ internal fun ProviderRemoteEditor(
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
 
     val customConfig = customProviders.firstOrNull { it.name == providerName }
-    val isBuiltIn = providerName in BUILT_IN_REMOTE_PROVIDERS
+    // Identity is fixed when the page opens. A successful rename removes the old name from the
+    // live custom list while the exit transition still renders this page; re-reading it live
+    // would flip the page to the built-in layout and drop the name field mid-animation.
+    val isCustomEditor = creating || remember(providerName) { customConfig != null }
+    val isBuiltIn = !creating && providerName in BUILT_IN_REMOTE_PROVIDERS
     // Nullable: after deleting a custom Provider this page can recompose once before it pops.
-    val providerInstance = viewModel.getProviderInstanceOrNull(providerName)
+    val providerInstance = if (creating) null else viewModel.getProviderInstanceOrNull(providerName)
     val defaultUrl = providerInstance?.defaultBaseUrl.orEmpty()
     val storedUrl = providerBaseUrls[providerName].orEmpty()
 
-    val stored = ProviderEditorDraft(
-        name = providerName,
-        // A blank override visibly resolves to the Provider default, as before explicit save.
-        baseUrl = storedUrl.ifBlank { defaultUrl },
-        protocol = customConfig?.protocol,
-        responsesApiEnabled = customConfig?.responsesApiEnabled ?: openAiResponsesApiEnabled,
-        cacheEnabled = isPromptCacheSettingEnabledForProvider(
-            customConfig?.providerId ?: providerName, anthropicCacheEnabled, customProviders,
-        ),
-        cacheTtl = anthropicCacheTtlForProvider(
-            customConfig?.providerId ?: providerName, anthropicCacheTtl, customProviders,
-        ).takeIf { it in CACHE_TTLS } ?: "1h",
-        apiKeys = apiKeys.filter { it.provider == providerName },
-        activeKeyId = activeApiKeyIds[providerName],
-    )
+    val stored = if (creating) {
+        ProviderEditorDraft(
+            name = "",
+            baseUrl = "",
+            protocol = CustomEndpointProtocol.OPENAI,
+            responsesApiEnabled = false,
+            cacheEnabled = false,
+            cacheTtl = anthropicCacheTtl.takeIf { it in CACHE_TTLS } ?: "1h",
+            apiKeys = emptyList(),
+            activeKeyId = null,
+        )
+    } else {
+        ProviderEditorDraft(
+            name = providerName,
+            // A blank override visibly resolves to the Provider default, as before explicit save.
+            baseUrl = storedUrl.ifBlank { defaultUrl },
+            protocol = customConfig?.protocol,
+            responsesApiEnabled = customConfig?.responsesApiEnabled ?: openAiResponsesApiEnabled,
+            cacheEnabled = isPromptCacheSettingEnabledForProvider(
+                customConfig?.providerId ?: providerName, anthropicCacheEnabled, customProviders,
+            ),
+            cacheTtl = anthropicCacheTtlForProvider(
+                customConfig?.providerId ?: providerName, anthropicCacheTtl, customProviders,
+            ).takeIf { it in CACHE_TTLS } ?: "1h",
+            apiKeys = apiKeys.filter { it.provider == providerName },
+            activeKeyId = activeApiKeyIds[providerName],
+        )
+    }
     var start by remember(providerName) { mutableStateOf(stored) }
     var draft by remember(providerName) { mutableStateOf(stored) }
     // An untouched draft follows external writes (cold load, import); a dirty one is kept.
@@ -144,20 +169,24 @@ internal fun ProviderRemoteEditor(
         if (saving) return
         // An unedited implicit default is not an override: keep the stored URL absent.
         val url = draft.baseUrl.trim()
-            .takeUnless { isBuiltIn && storedUrl.isBlank() && it == defaultUrl }
+            .takeUnless { !creating && isBuiltIn && storedUrl.isBlank() && it == defaultUrl }
             .orEmpty()
         saving = true
         scope.launch {
             val result = try {
-                viewModel.customModelConfiguration.commitProviderEditor(
-                    providerName,
-                    draft.copy(baseUrl = url),
-                )
+                if (creating) {
+                    viewModel.customModelConfiguration.createProviderFromEditor(draft.copy(baseUrl = url))
+                } else {
+                    viewModel.customModelConfiguration.commitProviderEditor(
+                        providerName,
+                        draft.copy(baseUrl = url),
+                    )
+                }
             } finally {
                 saving = false
             }
             when (result) {
-                ProviderEditorCommitResult.SAVED -> onBack()
+                ProviderEditorCommitResult.SAVED -> onSaved()
                 ProviderEditorCommitResult.NAME_CONFLICT -> nameError = true
                 ProviderEditorCommitResult.URL_REQUIRED -> urlError = true
                 ProviderEditorCommitResult.MISSING,
@@ -174,22 +203,26 @@ internal fun ProviderRemoteEditor(
     }
 
     CollapsingSettingsScaffold(
-        title = if (customConfig != null) draft.name.ifBlank { providerName } else providerName,
+        title = when {
+            creating -> stringResource(R.string.provider_custom_entry)
+            isCustomEditor -> draft.name.ifBlank { providerName }
+            else -> providerName
+        },
         onBack = guardedBack,
         scrollState = rememberSettingsScrollState(),
         actions = {
             IconButton(onClick = ::save, enabled = !saving) {
-                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.save))
+                Icon(Icons.Rounded.Save, contentDescription = stringResource(R.string.save))
             }
         },
         floatingActionButton = { if (showDocFab) DocumentationFab("provider.md") },
     ) {
         SettingsGroupColumn {
-            if (customConfig != null) {
+            if (isCustomEditor) {
                 SettingsGroup(
                     title = stringResource(R.string.embedding_general),
                     items = listOf {
-                        SettingsIconContent(Icons.Default.Label) {
+                        SettingsIconContent(Icons.Rounded.Label) {
                             McpLabeledField(
                                 label = stringResource(R.string.custom_provider_name_label),
                                 value = draft.name,
@@ -203,11 +236,11 @@ internal fun ProviderRemoteEditor(
             }
             SettingsGroup(
                 title = stringResource(
-                    if (customConfig != null) R.string.provider_connection else R.string.provider_base_url,
+                    if (isCustomEditor) R.string.provider_connection else R.string.provider_base_url,
                 ),
                 items = buildList {
                     add {
-                        SettingsIconContent(Icons.Default.Link) {
+                        SettingsIconContent(Icons.Rounded.Link) {
                             McpLabeledField(
                                 label = stringResource(R.string.provider_base_url),
                                 value = draft.baseUrl,
@@ -221,7 +254,7 @@ internal fun ProviderRemoteEditor(
                     }
                     draft.protocol?.let { protocol ->
                         add {
-                            SettingsIconContent(icon = Icons.Default.DataObject) {
+                            SettingsIconContent(icon = Icons.Rounded.DataObject) {
                                 Text(
                                     stringResource(R.string.custom_provider_protocol_label),
                                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
@@ -248,7 +281,7 @@ internal fun ProviderRemoteEditor(
                                 headlineContent = { Text(stringResource(R.string.responses_api)) },
                                 supportingContent = { Text(stringResource(R.string.responses_api_desc)) },
                                 leadingContent = {
-                                    Icon(Icons.Default.DataObject, null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Rounded.DataObject, null, tint = MaterialTheme.colorScheme.primary)
                                 },
                                 trailingContent = { Switch(checked = draft.responsesApiEnabled, onCheckedChange = null) },
                             )
@@ -259,16 +292,29 @@ internal fun ProviderRemoteEditor(
 
             ProviderApiKeysSettings(
                 apiKeys = draft.apiKeys,
-                currentName = providerName,
-                activeApiKeyIds = draft.activeKeyId?.let { mapOf(providerName to it) }.orEmpty(),
+                currentName = if (creating) draft.name.trim() else providerName,
+                displayName = draft.name.trim().ifBlank { stringResource(R.string.provider_custom_entry) },
+                activeApiKeyIds = (if (creating) draft.name.trim() else providerName)
+                    .let { owner -> draft.activeKeyId?.let { mapOf(owner to it) }.orEmpty() },
                 onActivateKey = { _, id -> draft = draft.copy(activeKeyId = id) },
                 onEditKey = { showKeyDialog = it },
                 onDeleteKey = { showDeleteKeyConfirm = it },
             )
 
-            if (supportsPromptCacheSetting(providerName, draftCustoms)) {
+            val supportsCache = if (creating) {
+                // The Provider being created has no stored config yet; its draft protocol decides.
+                draft.protocol == CustomEndpointProtocol.OPENAI ||
+                    draft.protocol == CustomEndpointProtocol.ANTHROPIC
+            } else {
+                supportsPromptCacheSetting(providerName, draftCustoms)
+            }
+            if (supportsCache) {
                 // OpenAI-protocol endpoints share the switch (prompt_cache_key) but have no TTL.
-                val ttlSupported = isAnthropicProtocolProvider(providerName, draftCustoms)
+                val ttlSupported = if (creating) {
+                    draft.protocol == CustomEndpointProtocol.ANTHROPIC
+                } else {
+                    isAnthropicProtocolProvider(providerName, draftCustoms)
+                }
                 SettingsGroup(
                     title = stringResource(R.string.advanced_title),
                     items = buildList {
@@ -277,7 +323,7 @@ internal fun ProviderRemoteEditor(
                                 headlineContent = { Text(stringResource(R.string.provider_cache)) },
                                 supportingContent = { Text(stringResource(R.string.provider_cache_desc)) },
                                 leadingContent = {
-                                    Icon(Icons.Default.Cached, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                                    Icon(Icons.Rounded.Cached, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                                 },
                                 trailingContent = { Switch(checked = draft.cacheEnabled, onCheckedChange = null) },
                                 modifier = Modifier.toggleable(
@@ -300,7 +346,8 @@ internal fun ProviderRemoteEditor(
     showKeyDialog?.let { entry ->
         ApiKeyDialog(
             entry = entry,
-            providerName = providerName,
+            providerName = (if (creating) draft.name.trim() else providerName)
+                .ifBlank { stringResource(R.string.provider_custom_entry) },
             isEdit = draft.apiKeys.any { it.id == entry.id },
             onDismiss = { showKeyDialog = null },
             onConfirm = { updated ->
@@ -365,7 +412,7 @@ private fun CacheTtlRow(selected: String, onSelected: (String) -> Unit) {
         headlineContent = { Text(stringResource(R.string.provider_cache_duration)) },
         supportingContent = { Text(stringResource(R.string.provider_cache_duration_desc)) },
         leadingContent = {
-            Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Icon(Icons.Rounded.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
         },
         trailingContent = {
             Box {
@@ -385,7 +432,7 @@ private fun CacheTtlRow(selected: String, onSelected: (String) -> Unit) {
                         AgoraDropdownMenuItem(
                             text = { Text(ttl) },
                             leadingIcon = {
-                                if (selected == ttl) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                if (selected == ttl) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             onClick = { onSelected(ttl); expanded = false },
                         )

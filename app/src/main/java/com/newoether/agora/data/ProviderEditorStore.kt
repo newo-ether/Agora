@@ -40,6 +40,37 @@ internal class ProviderEditorStore(
         return result
     }
 
+    /**
+     * Creates one custom Provider from the same full editor draft the edit route saves, in a
+     * single DataStore edit: the config, its URL, keys, cache fields and list membership appear
+     * together, so no reader ever observes a Provider without its credentials.
+     */
+    suspend fun create(draft: ProviderEditorDraft): ProviderEditorCommitResult {
+        var result = ProviderEditorCommitResult.FAILED
+        dataStore.edit { prefs -> result = prefs.createInPlace(draft) }
+        return result
+    }
+
+    private fun MutablePreferences.createInPlace(draft: ProviderEditorDraft): ProviderEditorCommitResult {
+        val name = draft.name.trim()
+        val customs = runCatching {
+            json.decodeFromString<List<CustomProviderConfig>>(this[CUSTOM_PROVIDERS_JSON] ?: "[]")
+        }.getOrNull() ?: return ProviderEditorCommitResult.FAILED
+        if (CustomProviderNamePolicy.hasConflict(name, customs.map { it.name })) {
+            return ProviderEditorCommitResult.NAME_CONFLICT
+        }
+        if (draft.baseUrl.isBlank()) return ProviderEditorCommitResult.URL_REQUIRED
+        val created = CustomProviderConfig(
+            name = name,
+            protocol = draft.protocol ?: CustomEndpointProtocol.OPENAI,
+            id = CustomProviderIdentityPolicy.newId(),
+        )
+        this[CUSTOM_PROVIDERS_JSON] = json.encodeToString(customs + created)
+        // The config now exists, so the ordinary commit owns the URL, keys, cache fields and the
+        // materialized Provider list for this name.
+        return apply(name, draft.copy(name = name))
+    }
+
     private fun MutablePreferences.apply(
         originalName: String,
         draft: ProviderEditorDraft,
@@ -73,6 +104,8 @@ internal class ProviderEditorStore(
         if (this[PROVIDER_LIST_JSON] == null) {
             this[PROVIDER_LIST_JSON] = json.encodeToString(resolvedProviderList(json))
         }
+        // A built-in picked from the Add page is unlisted until here: Save is what joins the list.
+        if (isBuiltIn) providerList.addBuiltInInPlace(this, originalName)
         val renamed = newName != originalName
 
         val urls = decodeMap(PROVIDER_BASE_URLS)
@@ -114,13 +147,7 @@ internal class ProviderEditorStore(
         }
 
         if (renamed) {
-            val models = runCatching {
-                json.decodeFromString<MutableMap<String, List<String>>>(this[AVAILABLE_MODELS_JSON] ?: "{}")
-            }.getOrNull()
-            if (models != null) {
-                models.remove(originalName)?.let { models[newName] = it }
-                this[AVAILABLE_MODELS_JSON] = json.encodeToString(models)
-            }
+            renameProviderModelReferences(json, originalName, newName)
             providerList.renameInPlace(this, originalName, newName)
         }
 

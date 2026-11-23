@@ -28,14 +28,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cached
-import androidx.compose.material.icons.filled.DataUsage
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Percent
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.rounded.Cached
+import androidx.compose.material.icons.rounded.DataUsage
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Upload
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Percent
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -178,22 +178,22 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 stale = stale,
                 cards = listOf(
                     StatsCard(
-                        Icons.Default.DataUsage,
+                        Icons.Rounded.DataUsage,
                         stringResource(R.string.usage_total_tokens),
                         overview?.let { count(it.totalTokens) },
                     ),
                     StatsCard(
-                        Icons.Default.SwapHoriz,
+                        Icons.Rounded.SwapHoriz,
                         stringResource(R.string.usage_total_requests),
                         overview?.let { count(it.totalRequests) },
                     ),
                     StatsCard(
-                        Icons.Default.LocalFireDepartment,
+                        Icons.Rounded.LocalFireDepartment,
                         stringResource(R.string.usage_streak),
                         overview?.let { stringResource(R.string.usage_streak_days, it.currentStreakDays) },
                     ),
                     StatsCard(
-                        Icons.Default.EmojiEvents,
+                        Icons.Rounded.EmojiEvents,
                         stringResource(R.string.usage_longest_streak),
                         overview?.let { stringResource(R.string.usage_streak_days, it.longestStreakDays) },
                     ),
@@ -223,22 +223,22 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     stale = stale,
                     cards = listOf(
                         StatsCard(
-                            Icons.Default.Upload,
+                            Icons.Rounded.Upload,
                             stringResource(R.string.usage_input),
                             summary?.let { count(it.inputTokens) },
                         ),
                         StatsCard(
-                            Icons.Default.Download,
+                            Icons.Rounded.Download,
                             stringResource(R.string.usage_output),
                             summary?.let { count(it.outputTokens) },
                         ),
                         StatsCard(
-                            Icons.Default.Cached,
+                            Icons.Rounded.Cached,
                             stringResource(R.string.usage_cached),
                             summary?.let { count(it.cachedInputTokens) },
                         ),
                         StatsCard(
-                            Icons.Default.Percent,
+                            Icons.Rounded.Percent,
                             stringResource(R.string.usage_cache_hit),
                             summary?.let { s -> s.cacheHitRate?.let(::percent) ?: "—" },
                         ),

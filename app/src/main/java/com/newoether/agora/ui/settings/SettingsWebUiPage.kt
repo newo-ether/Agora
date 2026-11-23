@@ -12,14 +12,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Numbers
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Web
+import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Numbers
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Web
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -95,7 +95,7 @@ fun SettingsWebUiPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 )
                             },
                             leadingContent = {
-                                Icon(Icons.Default.Web, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Web, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingContent = {
                                 Switch(
@@ -123,7 +123,7 @@ fun SettingsWebUiPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 )
                             },
                             leadingContent = {
-                                Icon(Icons.Default.Key, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Key, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { passwordDialog = true },
                         )
@@ -135,7 +135,7 @@ fun SettingsWebUiPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 title = stringResource(R.string.webui_access),
                 items = listOf<@Composable () -> Unit>(
                     {
-                        SettingsIconContent(icon = Icons.Default.Link) {
+                        SettingsIconContent(icon = Icons.Rounded.Link) {
                             val running = status as? WebUiStatus.Running
                             val urls = running?.let { webUi.accessUrls(it.port, it.https) }.orEmpty()
                             Text(
@@ -168,7 +168,7 @@ fun SettingsWebUiPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 } else {
                     // Plain HTTP only: with HTTPS the connection is encrypted.
                     listOf<@Composable () -> Unit>({
-                        SettingsIconContent(icon = Icons.Default.Warning) {
+                        SettingsIconContent(icon = Icons.Rounded.Warning) {
                             Text(
                                 stringResource(R.string.webui_http_warning),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -208,7 +208,7 @@ private fun WebUiHttpsGroup(webUi: WebUiController, https: Boolean) {
                     headlineContent = { Text(stringResource(R.string.webui_https)) },
                     supportingContent = { Text(stringResource(R.string.webui_https_desc)) },
                     leadingContent = {
-                        Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.primary)
                     },
                     trailingContent = { Switch(checked = https, onCheckedChange = { toggle() }) },
                     modifier = Modifier.clickable { toggle() },
@@ -219,7 +219,7 @@ private fun WebUiHttpsGroup(webUi: WebUiController, https: Boolean) {
         } else {
             listOf<@Composable () -> Unit>(
                 {
-                    SettingsIconContent(icon = Icons.Default.Fingerprint) {
+                    SettingsIconContent(icon = Icons.Rounded.Fingerprint) {
                         Text(
                             stringResource(R.string.webui_certificate_fingerprint),
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
@@ -246,7 +246,7 @@ private fun WebUiHttpsGroup(webUi: WebUiController, https: Boolean) {
                         headlineContent = { Text(stringResource(R.string.webui_certificate_regenerate)) },
                         supportingContent = { Text(stringResource(R.string.webui_certificate_regenerate_desc)) },
                         leadingContent = {
-                            Icon(Icons.Default.Refresh, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Rounded.Refresh, null, tint = MaterialTheme.colorScheme.primary)
                         },
                         modifier = Modifier.clickable { confirmRegenerate = true },
                     )
@@ -311,7 +311,7 @@ private fun WebUiPortField(port: Int, onPortChange: (Int) -> Unit) {
         delay(PORT_COMMIT_DELAY_MILLIS)
         if (valid && parsed != port) onPortChange(parsed!!)
     }
-    SettingsIconContent(icon = Icons.Default.Numbers) {
+    SettingsIconContent(icon = Icons.Rounded.Numbers) {
         Text(
             stringResource(R.string.webui_port),
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),

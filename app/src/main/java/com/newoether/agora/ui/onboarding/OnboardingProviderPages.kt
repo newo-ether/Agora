@@ -15,9 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Tune
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -85,9 +85,9 @@ internal fun ProviderPage(providers: List<String>, selected: String?, onSelect: 
                     Spacer(Modifier.width(8.dp))
                     when {
                         iconRes != 0 -> Icon(painterResource(iconRes), null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                        p == Constants.PROVIDER_LOCAL -> Icon(Icons.Filled.AutoAwesome, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                        p == "Custom" -> Icon(Icons.Filled.Tune, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                        else -> Icon(Icons.Filled.Cloud, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                        p == Constants.PROVIDER_LOCAL -> Icon(LocalModelIcon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                        p == "Custom" -> Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                        else -> Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                     }
                     Spacer(Modifier.width(8.dp))
                     Text(p, style = MaterialTheme.typography.titleMedium,
@@ -120,7 +120,7 @@ internal fun ApiKeyPage(
                 else localModels.lastOrNull()?.alias ?: stringResource(R.string.onboarding_import_gguf)
             Column(Modifier.padding(32.dp).fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.AutoAwesome, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
+                    Icon(LocalModelIcon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     Spacer(Modifier.width(12.dp))
                     Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                 }
@@ -136,7 +136,7 @@ internal fun ApiKeyPage(
                     if (iconRes != 0) {
                         Icon(painterResource(iconRes), null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     } else {
-                        Icon(Icons.Filled.Cloud, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
+                        Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     }
                     Spacer(Modifier.width(12.dp))
                     Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
@@ -151,7 +151,7 @@ internal fun ApiKeyPage(
         } else if (isCustom) {
             Column(Modifier.padding(32.dp).fillMaxWidth().clearFocusOnTap()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Tune, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))
                     Spacer(Modifier.width(12.dp))
                     Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                 }
@@ -182,7 +182,7 @@ internal fun ApiKeyPage(
                     if (iconRes != 0) {
                         Icon(painterResource(iconRes), null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     } else {
-                        Icon(Icons.Filled.Cloud, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
+                        Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     }
                     Spacer(Modifier.width(12.dp))
                     Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)

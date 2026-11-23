@@ -3,7 +3,7 @@ package com.newoether.agora.ui.settings
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -35,7 +35,7 @@ fun DocumentationFab(docPath: String, modifier: Modifier = Modifier) {
 
     AnimatedActionFab(
         label = stringResource(R.string.documentation),
-        icon = Icons.AutoMirrored.Filled.MenuBook,
+        icon = Icons.AutoMirrored.Rounded.MenuBook,
         onClick = {
             val page = docPath.removeSuffix(".md") + "/"
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$baseUrl$langPrefix$page"))

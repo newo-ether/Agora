@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -113,7 +113,7 @@ internal fun ModelImportItem(
                     } else {
                         Icon(
                             imageVector = when {
-                                unavailable -> Icons.Default.WarningAmber
+                                unavailable -> Icons.Rounded.WarningAmber
                                 selected -> icon
                                 else -> emptyIcon
                             },
@@ -134,10 +134,10 @@ internal fun ModelImportItem(
                 when {
                     importing -> Unit
                     !imported -> IconButton(onClick = onClick, enabled = enabled) {
-                        Icon(Icons.Default.FileUpload, stringResource(R.string.import_button), tint = gray)
+                        Icon(Icons.Rounded.FileUpload, stringResource(R.string.import_button), tint = gray)
                     }
                     onRemove != null -> IconButton(onClick = onRemove, enabled = enabled) {
-                        Icon(Icons.Default.Delete, stringResource(R.string.remove), tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Rounded.Delete, stringResource(R.string.remove), tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }

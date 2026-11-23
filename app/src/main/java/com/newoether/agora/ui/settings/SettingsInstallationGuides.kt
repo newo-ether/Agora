@@ -5,7 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +34,7 @@ internal fun SettingsInstallationHelp(conch: Boolean, enabled: Boolean, onClick:
         SettingsItem(
             headlineContent = { Text(stringResource(if (conch) R.string.conch_guide_title else R.string.filo_guide_title)) },
             supportingContent = { Text(stringResource(if (conch) R.string.conch_guide_description else R.string.filo_guide_description)) },
-            leadingContent = { Icon(Icons.Default.HelpOutline, null, tint = MaterialTheme.colorScheme.primary) },
+            leadingContent = { Icon(Icons.Rounded.HelpOutline, null, tint = MaterialTheme.colorScheme.primary) },
             modifier = Modifier.testTag(if (conch) "shell-conch-guide-entry" else "remote-filo-guide-entry")
                 .clickable(enabled = enabled, onClick = onClick),
         )
@@ -79,7 +79,7 @@ private fun InstallationGuide(conch: Boolean, platform: Int, onPlatform: (Int) -
                         supportingContent = {
                             Text(stringResource(if (conch) R.string.conch_guide_description else R.string.filo_guide_description))
                         },
-                        leadingContent = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
+                        leadingContent = { Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary) },
                     )
                 },
             )
@@ -89,7 +89,7 @@ private fun InstallationGuide(conch: Boolean, platform: Int, onPlatform: (Int) -
                 items = buildList {
                     if (conch) add {
                         SettingsIconContent(
-                            icon = Icons.Default.Devices,
+                            icon = Icons.Rounded.Devices,
                             modifier = Modifier.testTag("conch-guide-platform"),
                         ) {
                             Text(
@@ -104,7 +104,6 @@ private fun InstallationGuide(conch: Boolean, platform: Int, onPlatform: (Int) -
                                 selectedIndex = platform,
                                 onSelect = { if (ownsGuide()) onPlatform(it) },
                                 enabled = active,
-                                wrapLabels = true,
                             )
                         }
                     }
@@ -183,8 +182,8 @@ private fun InstallSourceLink(url: String, active: Boolean, tag: String) {
     SettingsItem(
         headlineContent = { Text(stringResource(R.string.about_github)) },
         supportingContent = { Text(url.removePrefix("https://")) },
-        leadingContent = { Icon(Icons.Default.Code, null, tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = { Icon(Icons.Default.OpenInNew, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = { Icon(Icons.Rounded.Code, null, tint = MaterialTheme.colorScheme.primary) },
+        trailingContent = { Icon(Icons.Rounded.OpenInNew, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.testTag(tag).clickable(enabled = active, role = Role.Button) {
             if (latestActive) runCatching { uriHandler.openUri(url) }
         },
