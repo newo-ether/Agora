@@ -29,12 +29,16 @@ class WebUiMarkdownVideosTest {
             "![clip][ref]\n\n[ref]: $link" to link,
             "![clip](<$link>)" to link,
             "![](shell://Local%20Sandbox/home/%E7%89%87.mp4)" to "shell://Local%20Sandbox/home/%E7%89%87.mp4",
+            // The native renderer turns these into the same card (embedStandaloneVideoPaths/embedHtmlVideoTags).
+            "intro\n$link" to link,
+            "[ordinary]($link)" to link,
+            "<video src=\"$link\"></video>" to link,
         )
         for ((source, destination) in owned) {
             assertTrue(source, message(source).ownsMarkdownVideo(destination, 0, "answer"))
         }
-        for (source in listOf(link, "[ordinary]($link)", "`![clip]($link)`",
-            "```md\n![clip]($link)\n```", "    ![clip]($link)", "<video src=\"$link\"></video>",
+        for (source in listOf("see $link here", "[ordinary]($link) and more", "`![clip]($link)`",
+            "```md\n![clip]($link)\n```", "    ![clip]($link)", "```\n<video src=\"$link\"></video>\n```",
             "![clip](shell://Local%20Sandbox/home/other.png)")) {
             assertFalse(source, message(source).ownsMarkdownVideo(link, 0, "answer"))
         }
@@ -44,6 +48,22 @@ class WebUiMarkdownVideosTest {
         assertFalse(thought.ownsMarkdownVideo(link, 0, "answer"))
         assertFalse(message("![x]($link)").ownsMarkdownVideo(link, -1, "answer"))
         assertFalse(message("![x]($link)").ownsMarkdownVideo(link, 10_000, "answer"))
+    }
+
+    @Test fun textLinksAdmitOnlyNamedLocalImagesAndVideos() {
+        val image = "/home/agora/out/plot.png"
+        for (source in listOf("见 $image。", "[图]($image)", "[图](<$image>)", "[图][r]\n\n[r]: $image")) {
+            assertTrue(source, message(source).ownsMarkdownLinkedMedia(image, "answer"))
+        }
+        assertTrue(message("[v]($link)").ownsMarkdownLinkedMedia(link, "answer"))
+        assertFalse(message("$image.bak").ownsMarkdownLinkedMedia(image, "answer"))
+        assertFalse(message("x$image").ownsMarkdownLinkedMedia(image, "answer"))
+        assertFalse(message("nothing").ownsMarkdownLinkedMedia(image, "answer"))
+        assertFalse(message("/home/agora/a.pdf").ownsMarkdownLinkedMedia("/home/agora/a.pdf", "answer"))
+        assertFalse(message("/home/agora/a.svg").ownsMarkdownLinkedMedia("/home/agora/a.svg", "answer"))
+        assertFalse(message("/etc/a.png").ownsMarkdownLinkedMedia("/etc/a.png", "answer"))
+        val remote = "shell://Quantum/F:/a.png"
+        assertFalse(message("[x]($remote)").ownsMarkdownLinkedMedia(remote, "answer"))
     }
 
     @Test fun theFragmentStartSkipsVideoDestinationsAboveIt() {

@@ -31,6 +31,16 @@ trailing sentence marks and unbalanced closing brackets are trimmed, while balan
 `Foo_(bar)` stay. The text cut off renders as plain text. An explicit `[label](url)` keeps its label
 and loses only trailing punctuation from its destination.
 
+The browser follows the native file links where it can. A text link or bare path to a local
+image or video (`/home/agora/…`, shared storage, or `shell://Local%20Sandbox/home/agora/…`) opens
+the media viewer through `/api/markdown-files/{conversation}/{message}`. The phone admits a link only
+when the message document spells it as a whole token (`namesLinkDestination`), the root is readable,
+and the extension is png/jpg/jpeg/gif/webp/bmp/avif or a video container. SVG, other file types and
+other devices stay plain text, because a browser cannot hand a file to a local app. A line that is
+only a video destination and a `<video src>` element render as the video card, as
+`embedStandaloneVideoPaths`/`embedHtmlVideoTags` do natively (WebUI `embedVideos`); the video route
+admits them from the same rewrite of the whole document.
+
 The browser Compact detail uses the existing `DetailSheet` and `Markdown`, with authoritative
 running state, thought typography and App Reduced Motion passed into the shared renderer.
 The shared browser Markdown accepts an optional emptyStreamingText input. Compact passes the native

@@ -237,3 +237,23 @@ internal fun markdownBarePathAt(text: CharSequence, offset: Int): String? {
     }
     return candidate.takeIf { supported }
 }
+
+/**
+ * Whether [text] spells [link] as one whole token: a bare path in prose, a link destination or a
+ * reference definition. A longer path that merely starts with [link] does not count.
+ */
+internal fun namesLinkDestination(text: CharSequence, link: String): Boolean {
+    if (link.isEmpty()) return false
+    var from = 0
+    while (true) {
+        val index = text.indexOf(link, from)
+        if (index < 0) return false
+        // Sentence marks after a bare path end it only when prose (or the text) ends after them.
+        var end = index + link.length
+        while (end < text.length && text[end] in PATH_TRAILING_CHARS) end++
+        val opens = index == 0 || text[index - 1] in PATH_DELIMITERS
+        val closes = end == text.length || text[end] in PATH_DELIMITERS
+        if (opens && closes) return true
+        from = index + 1
+    }
+}

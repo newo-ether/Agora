@@ -324,6 +324,29 @@ internal class WebUiServer(
                     }
                 }
             }
+            // A text link or bare path to a local image or video the message names; see openLinked.
+            route("/api/markdown-files/{conversationId}/{messageId}") {
+                install(syncGate)
+                get {
+                    call.response.header(HttpHeaders.CacheControl, "no-store")
+                    val token = call.request.cookies[SESSION_COOKIE] ?: return@get
+                    val link = call.request.queryParameters["link"] ?: return@get call.respond(HttpStatusCode.NotFound)
+                    val media = markdownVideos?.openLinked(call.parameters["conversationId"].orEmpty(),
+                        call.parameters["messageId"].orEmpty(), link,
+                        document = call.request.queryParameters["document"] ?: "answer",
+                    ) ?: return@get call.respond(HttpStatusCode.NotFound)
+                    if (!auth.isValidSession(token)) return@get call.respond(HttpStatusCode.Forbidden)
+                    coroutineScope {
+                        val requestJob = currentCoroutineContext()[kotlinx.coroutines.Job]!!
+                        val revoke = launch { auth.awaitSessionEnd(token); requestJob.cancel() }
+                        try {
+                            call.respondMarkdownVideo(media) { auth.isValidSession(token) }
+                        } finally {
+                            revoke.cancel()
+                        }
+                    }
+                }
+            }
             route("$TOOL_IMAGE_PATH/{conversationId}/{messageId}/{detailIndex}/{imageIndex}") {
                 install(syncGate)
                 get {

@@ -17,6 +17,8 @@
 /* Resets the dialog text style that the sign-in page gives every p. */
 .markdown p { margin: 0; color: inherit; font: inherit; letter-spacing: normal; }
 .markdown a { color: var(--md-primary); text-decoration: none; }
+/* A bare local media path stays body-coloured like the phone's, but opens the media viewer. */
+.markdown .markdown-bare-path { cursor: pointer; }
 .markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5, .markdown h6 { margin: 0; }
 .markdown h1 { font-size: 22px; line-height: 30.8px; font-weight: 700; }
 .markdown h2 { font-size: 19px; line-height: 27.5px; font-weight: 700; }

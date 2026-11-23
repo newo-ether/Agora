@@ -11,6 +11,7 @@ import { htmlPreviewFence } from "./html-preview-fence.js";
 import { mountHtmlPreview } from "./html-preview.js";
 import { mountMarkdownImage } from "./markdown-images.js";
 import { mountMarkdownVideo } from "./markdown-videos.js";
+import { embedVideos, linkBarePaths, linkedMediaType, openLinkedMedia } from "./markdown-links.js";
 
 const escapeHtml = (text) =>
   text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -136,7 +137,8 @@ marked.use({
   renderer: {
     text(token) {
       if (token.tokens) return this.parser.parseInline(token.tokens);
-      return `<span ${sourceAttributes(token)}>${Renderer.prototype.text.call(this, token)}</span>`;
+      const body = token.escaped ? Renderer.prototype.text.call(this, token) : linkBarePaths(token.text);
+      return `<span ${sourceAttributes(token)}>${body}</span>`;
     },
     codespan(token) {
       return `<code ${sourceAttributes(token)}>${escapeHtml(token.text)}</code>`;
@@ -145,7 +147,12 @@ marked.use({
     link({ href, title, tokens, linkTail }) {
       const label = this.parser.parseInline(tokens);
       const tail = linkTail ? escapeHtml(linkTail) : "";
-      if (!SAFE_LINK.test(href)) return label + tail;
+      if (!SAFE_LINK.test(href)) {
+        // A local image or video opens in the media viewer, as MarkdownLinkOpener does on the phone.
+        return linkedMediaType(href)
+          ? `<a href="#" class="markdown-file-link" data-media-link="${escapeHtml(href)}">${label}</a>${tail}`
+          : label + tail;
+      }
       const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
       return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>${tail}`;
     },
@@ -201,24 +208,30 @@ const lineBreaks = (text) => text.split("\n").length - 1;
 function renderHtml(markdown, math, sourceMap = [], citations = [], streaming = false) {
   const positions = [];
   let source = "", boundary = 0, delta = 0;
-  for (let index = 0; index < markdown.length; index++) {
+  // Video lines and <video> tags become card nodes; positions keep pointing at the original text.
+  const embedded = embedVideos(markdown);
+  const input = embedded?.text ?? markdown;
+  const originOf = at => embedded ? embedded.origin[at] : at;
+  for (let at = 0; at < input.length; at++) {
+    let index = originOf(at);
     while (sourceMap[boundary]?.[0] <= index) {
       delta = sourceMap[boundary][1] - sourceMap[boundary][0];
       boundary++;
     }
-    const slot = markdown[index] === "\uE000" && markdown.slice(index).match(/^\uE000(\d+)\uE001/);
+    const slot = input[at] === "\uE000" && input.slice(at).match(/^\uE000(\d+)\uE001/);
     const display = slot && math?.[slot[1]]?.display;
     if (display) { source += "\n\n"; positions.push(index + delta, index + delta); }
-    source += markdown[index];
+    source += input[at];
     positions.push(index + delta);
     if (display) {
       for (let part = 1; part < slot[0].length; part++) {
-        index++;
+        at++;
+        index = originOf(at);
         while (sourceMap[boundary]?.[0] <= index) {
           delta = sourceMap[boundary][1] - sourceMap[boundary][0];
           boundary++;
         }
-        source += markdown[index];
+        source += input[at];
         positions.push(index + delta);
       }
       source += "\n\n"; positions.push(index + delta, index + delta);
@@ -583,6 +596,21 @@ export function Markdown({ text, variant = "answer", wrap = true, search, matche
       if (!videos.current.has(node)) videos.current.set(node, mountMarkdownVideo(node, conversationId, messageId, sourceStart, imageDocument));
     }
   }, [markup, conversationId, messageId, sourceStart, imageDocument]);
+  // Text links and bare paths to local images or videos open the phone-streamed media viewer.
+  useLayoutEffect(() => {
+    const element = root.current;
+    if (!element) return undefined;
+    const open = event => {
+      const target = event.target.closest?.("[data-media-link]");
+      if (!target || !element.contains(target)) return;
+      if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openLinkedMedia(target.dataset.mediaLink, conversationId, messageId, imageDocument);
+    };
+    element.addEventListener("click", open);
+    element.addEventListener("keydown", open);
+    return () => { element.removeEventListener("click", open); element.removeEventListener("keydown", open); };
+  }, [conversationId, messageId, imageDocument]);
   const forceSource = !!search?.query.trim();
   useLayoutEffect(() => {
     for (const island of previews.current.values()) island.update(reduceMotion, forceSource);

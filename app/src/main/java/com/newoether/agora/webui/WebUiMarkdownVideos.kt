@@ -12,9 +12,12 @@ import com.newoether.agora.ui.chat.message.LocalFileResolution
 import com.newoether.agora.ui.chat.message.MarkdownDocumentReferenceHandler
 import com.newoether.agora.ui.chat.message.MarkdownLinkTarget
 import com.newoether.agora.ui.chat.message.classifyMarkdownLink
+import com.newoether.agora.ui.chat.message.embedHtmlVideoTags
+import com.newoether.agora.ui.chat.message.embedStandaloneVideoPaths
 import com.newoether.agora.ui.chat.message.markdownImageLink
 import com.newoether.agora.ui.chat.message.markdownReferenceDefinitions
 import com.newoether.agora.ui.chat.message.markdownVideoLink
+import com.newoether.agora.ui.chat.message.namesLinkDestination
 import com.newoether.agora.ui.chat.message.parseShellMediaLink
 import com.newoether.agora.ui.chat.message.resolveLocalFileTarget
 import java.io.File
@@ -42,21 +45,40 @@ internal sealed interface WebUiMarkdownVideoSource {
 
 /**
  * Only a parsed image destination inside the owning message grants a video read, exactly like the
- * Markdown image route: prose, code and ordinary links never become a file path.
+ * Markdown image route: prose, code and ordinary links never become a file path. A line that is
+ * only a video destination and a `<video src>` element count too, because the native renderer
+ * rewrites both into that image node ([embedStandaloneVideoPaths], [embedHtmlVideoTags]); the
+ * rewrite moves offsets, so that fallback checks the whole document.
  */
 internal fun ChatMessage.ownsMarkdownVideo(link: String, sourceStart: Int, document: String): Boolean {
     if (sourceStart < 0) return false
     val source = markdownDocumentText(document) ?: return false
     if (sourceStart > source.length) return false
     val destination = markdownVideoLink(link) ?: return false
-    val root = MarkdownParser(GFMFlavourDescriptor()).buildMarkdownTreeFromString(source)
-    val references = MarkdownDocumentReferenceHandler(markdownReferenceDefinitions(root, source))
-    fun contains(node: ASTNode): Boolean =
-        if (node.type == MarkdownElementTypes.IMAGE) {
-            node.startOffset >= sourceStart &&
-                markdownImageLink(source, node, references)?.let(::markdownVideoLink) == destination
-        } else node.children.any(::contains)
-    return contains(root)
+    fun owns(text: String, from: Int): Boolean {
+        val root = MarkdownParser(GFMFlavourDescriptor()).buildMarkdownTreeFromString(text)
+        val references = MarkdownDocumentReferenceHandler(markdownReferenceDefinitions(root, text))
+        fun contains(node: ASTNode): Boolean =
+            if (node.type == MarkdownElementTypes.IMAGE) {
+                node.startOffset >= from &&
+                    markdownImageLink(text, node, references)?.let(::markdownVideoLink) == destination
+            } else node.children.any(::contains)
+        return contains(root)
+    }
+    if (owns(source, sourceStart)) return true
+    val embedded = source.embedHtmlVideoTags().embedStandaloneVideoPaths()
+    return embedded != source && owns(embedded, 0)
+}
+
+/**
+ * A Markdown text link or bare path to a local image or video, as native [MarkdownLinkOpener] opens
+ * it in the media viewer. Only a readable local root the owning message spells out is admitted;
+ * other files and other devices stay inert in the browser.
+ */
+internal fun ChatMessage.ownsMarkdownLinkedMedia(link: String, document: String): Boolean {
+    if (linkedMediaMimeType(link) == null || classifyMarkdownLink(link) !is MarkdownLinkTarget.Local) return false
+    val source = markdownDocumentText(document) ?: return false
+    return namesLinkDestination(source, link)
 }
 
 /** Resolves a browser video read from the message that displays it, never from a caller path. */
@@ -107,10 +129,45 @@ internal class WebUiMarkdownVideos(
         }
     }
 
+    /** Resolves a text-link image or video the owning message names; see [ownsMarkdownLinkedMedia]. */
+    suspend fun openLinked(
+        conversationId: String,
+        messageId: String,
+        link: String,
+        document: String = "answer",
+    ): WebUiMarkdownVideoSource.Local? {
+        if (link.length > MAX_LINK_LENGTH) return null
+        val mimeType = linkedMediaMimeType(link) ?: return null
+        val message = loadMessage(conversationId, messageId)?.takeIf { it.id == messageId } ?: return null
+        val owned = withContext(Dispatchers.Default) { message.ownsMarkdownLinkedMedia(link, document) }
+        if (!owned) return null
+        val target = classifyMarkdownLink(link) as? MarkdownLinkTarget.Local ?: return null
+        val file = withContext(Dispatchers.IO) {
+            (resolveLocalFileTarget(context, target.file) as? LocalFileResolution.Ready)?.file
+        } ?: return null
+        return WebUiMarkdownVideoSource.Local(file, mimeType)
+    }
+
     private companion object {
         const val MAX_LINK_LENGTH = 8_192
     }
 }
+
+/** Browser-safe image and video types a text link may open; SVG stays out because it can script. */
+internal fun linkedMediaMimeType(link: String): String? {
+    val extension = link.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase()
+    return LINKED_IMAGE_MIME_TYPES[extension] ?: VIDEO_MIME_TYPES[extension]
+}
+
+private val LINKED_IMAGE_MIME_TYPES = mapOf(
+    "png" to "image/png",
+    "jpg" to "image/jpeg",
+    "jpeg" to "image/jpeg",
+    "gif" to "image/gif",
+    "webp" to "image/webp",
+    "bmp" to "image/bmp",
+    "avif" to "image/avif",
+)
 
 /** Container-to-MIME map for the video extensions Markdown destinations may name. */
 internal fun videoMimeType(link: String): String {

@@ -8,6 +8,9 @@ const source = fs.readFileSync(new URL("../../main/assets/webui/markdown.js", im
   .replace(/^import\b[\s\S]*?;\r?\n/gm, "").replace(/\bexport /g, "");
 const context = vm.createContext({ Marked, Renderer, html: () => "", t: { copy: "Copy" },
   ICON_CONTENT_COPY: "", htmlPreviewFence: () => null, NodeFilter: { SHOW_TEXT: 4 },
+  // markdown-links.js: no video rewrite, plain escaped text and no media links in these cases.
+  embedVideos: () => null, linkedMediaType: () => null, openLinkedMedia: () => {},
+  linkBarePaths: text => text.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
   document: {
     createElement: () => ({ innerHTML: "", content: {} }),
     createTreeWalker: () => ({ nextNode: () => false }),
