@@ -67,15 +67,21 @@ class GenerationApiPathBuilderTest {
     }
 
     @Test
-    fun `low context mode omits system prompt tools and their fixed token cost`() = runTest {
+    fun `low context mode keeps only the minimal tool families and prices them`() = runTest {
         val repository = mockk<ConversationRepository>(relaxed = true)
-        var definitionReads = 0
+        var fullDefinitionReads = 0
+        val minimal = toolDefinition()
         val builder = GenerationApiPathBuilder(
             conversations = repository,
             generationErrorFormatter = { it },
-            toolDefinitions = {
-                definitionReads++
-                error("Low Context Mode must not read tool definitions")
+            toolDefinitions = object : GenerationToolDefinitionSource {
+                override fun definitions(context: GenerationContext): List<ToolDefinition> {
+                    fullDefinitionReads++
+                    error("Low Context Mode must not read the full tool set")
+                }
+
+                override fun minimalDefinitions(context: GenerationContext): List<ToolDefinition> =
+                    listOf(minimal)
             },
         )
         val user = message("user", null, 0, Participant.USER)
@@ -94,12 +100,12 @@ class GenerationApiPathBuilderTest {
             ),
         )
 
-        assertEquals(0, definitionReads)
+        assertEquals(0, fullDefinitionReads)
         assertEquals(null, path.providerConfig.systemPrompt)
-        assertTrue(path.providerConfig.tools.orEmpty().isEmpty())
+        assertEquals(listOf(minimal), path.providerConfig.tools)
         assertEquals(
             config.maxContextWindow -
-                ContextTokenEstimator.estimateFixed(null, emptyList()),
+                ContextTokenEstimator.estimateFixed(null, listOf(minimal)),
             path.providerConfig.maxContextWindow,
         )
     }
@@ -130,6 +136,33 @@ class GenerationApiPathBuilderTest {
         assertFalse(build(deepSeek, withTools = false))
         assertFalse(build(deepSeek.copy(responsesApiEnabled = true)))
         assertFalse(build(deepSeek.copy(thinkingEnabled = false)))
+    }
+
+    @Test
+    fun `replay reasoning setting forces reasoning accounting without deepseek policy`() = runTest {
+        val repository = mockk<ConversationRepository>(relaxed = true)
+        val user = message("user", null, 0, Participant.USER)
+        val config = generationConfig("Custom").copy(
+            modelId = "plain-model",
+            thinkingEnabled = false,
+            replayReasoningInHistory = true,
+        )
+        val path = GenerationApiPathBuilder(
+            conversations = repository,
+            generationErrorFormatter = { it },
+            toolDefinitions = { emptyList() },
+        ).build(
+            GenerationApiPathRequest(
+                parentId = user.id,
+                conversationId = "conversation",
+                config = config,
+                context = GenerationContext(),
+                loadedMessages = listOf(user),
+            ),
+        )
+
+        assertTrue(path.providerConfig.includeAssistantReasoning)
+        assertTrue(path.providerConfig.replayReasoningInHistory)
     }
 
     @Test

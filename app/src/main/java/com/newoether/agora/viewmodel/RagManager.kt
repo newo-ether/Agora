@@ -32,7 +32,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -90,6 +92,24 @@ class RagManager(
             if (settings.embeddingModels.value.any { it.id == activeId }) {
                 admitActiveModel(activeId)
             }
+        }
+        // Semantic search needs an embedding model. Watch deletions after the on-disk load
+        // barrier, so the empty default of the hot flow can never settle a stored selection.
+        scope.launch(Dispatchers.IO) {
+            settings.awaitInitialLoad()
+            settings.embeddingModels
+                .map { it.isEmpty() }
+                .distinctUntilChanged()
+                .collect { empty -> if (empty) settleSearchMethods() }
+        }
+    }
+
+    private suspend fun settleSearchMethods() {
+        try {
+            settings.settleSearchMethodsWithoutEmbeddingModel()
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            DebugLog.e("RagManager", "Failed to settle conversation search methods", error)
         }
     }
 

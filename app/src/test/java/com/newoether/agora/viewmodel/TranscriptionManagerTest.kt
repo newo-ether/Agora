@@ -11,6 +11,7 @@ import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.AttachmentStorage
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
@@ -36,6 +37,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TranscriptionManagerTest {
@@ -346,6 +348,70 @@ class TranscriptionManagerTest {
         assertEquals(listOf(modelArtifact), item.imageArtifacts)
         coVerify(exactly = 0) { conversations.getMessage(any()) }
         coVerify(exactly = 0) { conversations.upsertMessage(any()) }
+    }
+
+    @Test
+    fun `sandbox file attachments are skipped while the remaining image keeps its durable index`() = runTest {
+        val sandboxPath = "/root/.agora/attachments/photo.png"
+        val normalArtifact = image.copy(path = "/private/normal.jpg", mimeType = "image/jpeg")
+        val metadata = AttachmentMeta(listOf(
+            AttachmentItem(
+                type = "image",
+                imageIndex = 0,
+                storage = AttachmentStorage.LOCAL_SANDBOX_RUNTIME,
+                sandboxPath = sandboxPath,
+            ),
+            AttachmentItem(type = "image", imageIndex = 1),
+        ))
+        val row = source(
+            "user",
+            listOf("/data/user/0/photo.png", normalArtifact.path),
+            Participant.USER,
+            metadata,
+        )
+        // The Provider path dispatches the sandbox file instead of its image, so the projector
+        // hands transcription one fewer occurrence while the durable row keeps both.
+        val projected = ChatMessage(
+            id = "user", text = "Original", participant = Participant.USER,
+            images = listOf(normalArtifact.path),
+            imageArtifacts = mapOf(normalArtifact.path to normalArtifact),
+        )
+
+        val targets = manager(emptyMap()).collectTargets(
+            DurableSelectedContext(entities = listOf(row), messages = listOf(projected)),
+        )
+
+        assertEquals(1, targets.size)
+        assertEquals(normalArtifact.path, targets.single().imagePath)
+        assertEquals(1, targets.single().imageIndex)
+        assertEquals(1, targets.single().metaItemIndex)
+    }
+
+    @Test
+    fun `a projection narrower than the durable row skips the message instead of failing`() = runTest {
+        // The size identity check used to throw here and kill the whole generation; a filter the
+        // collector does not know about must narrow transcription, never fail it.
+        val diverged = source("diverged", listOf("/private/a.jpg", "/private/b.jpg"), Participant.USER)
+        val healthy = source("healthy", listOf("/private/c.jpg"), Participant.USER)
+        val artifact = image.copy(path = "/private/c.jpg", mimeType = "image/jpeg")
+        val projectedDiverged = ChatMessage(
+            id = "diverged", text = "Original", participant = Participant.USER,
+            images = listOf("/private/b.jpg"),
+            imageArtifacts = mapOf("/private/b.jpg" to image.copy(path = "/private/b.jpg")),
+        )
+        val projectedHealthy = ChatMessage(
+            id = "healthy", text = "Original", participant = Participant.USER,
+            images = listOf("/private/c.jpg"),
+            imageArtifacts = mapOf("/private/c.jpg" to artifact),
+        )
+        val targets = manager(emptyMap()).collectTargets(
+            DurableSelectedContext(
+                entities = listOf(diverged, healthy),
+                messages = listOf(projectedDiverged, projectedHealthy),
+            ),
+        )
+        assertEquals(listOf("healthy"), targets.map { it.messageId })
+        assertEquals("/private/c.jpg", targets.single().imagePath)
     }
 
     @Test

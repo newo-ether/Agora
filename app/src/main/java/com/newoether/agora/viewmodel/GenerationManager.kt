@@ -548,14 +548,19 @@ class GenerationManager(
                         )
                     }
                 }
-                output.toolOverlay.markCommittedRound(
-                    tcds.mapTo(linkedSetOf()) { call ->
-                        checkNotNull(call.toolCallId) {
-                            "Committed tool call is missing its provider call id"
-                        }
-                    },
-                    toolRoundId = round.entities.first().id,
-                )
+                if (!rejectToolCalls) {
+                    // A refused round never reaches Room, so its id must never be stamped onto a
+                    // segment: the compact message persists those segments, and a dangling
+                    // reference breaks tool-round resolution on the next cold start.
+                    output.toolOverlay.markCommittedRound(
+                        tcds.mapTo(linkedSetOf()) { call ->
+                            checkNotNull(call.toolCallId) {
+                                "Committed tool call is missing its provider call id"
+                            }
+                        },
+                        toolRoundId = round.entities.first().id,
+                    )
+                }
                 publishStreamUpdate(forceCheckpoint = true)
                 uiUpdateGate.recordPublished(System.currentTimeMillis())
                 // A terminal Conch job may be deleted only after the complete tool result is

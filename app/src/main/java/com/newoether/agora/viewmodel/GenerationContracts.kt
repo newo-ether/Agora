@@ -72,6 +72,8 @@ data class GenerationConfig(
     val presencePenalty: Float? = null,
     /** Phone tool image budget frozen at Run admission; other image sources are unaffected. */
     val phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
+    /** Send `reasoning_content` on every assistant turn, empty when none was stored (#198). */
+    val replayReasoningInHistory: Boolean = false,
 )
 
 /** Frozen automatic-Compact policy and provider access captured with one generation. */

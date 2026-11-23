@@ -11,7 +11,8 @@ internal class GenerationContextAccounting(
     private val toolDefinitions: GenerationToolDefinitionSource,
 ) {
     private fun definitions(config: GenerationConfig, context: GenerationContext) =
-        if (config.lowContextModeEnabled) emptyList() else toolDefinitions.definitions(context)
+        if (config.lowContextModeEnabled) toolDefinitions.minimalDefinitions(context)
+        else toolDefinitions.definitions(context)
 
     fun fixedContextTokenCost(config: GenerationConfig, context: GenerationContext): Int =
         ContextTokenEstimator.forModel(
@@ -40,10 +41,12 @@ internal class GenerationContextAccounting(
     )
 
     fun includesAssistantReasoning(config: GenerationConfig, context: GenerationContext): Boolean =
-        !config.responsesApiEnabled && config.thinkingEnabled &&
-            (config.providerName == Constants.PROVIDER_DEEPSEEK ||
-                com.newoether.agora.api.openai.isDeepSeekModel(config.modelId)) &&
-            !config.lowContextModeEnabled && definitions(config, context).isNotEmpty()
+        config.replayReasoningInHistory || (
+            !config.responsesApiEnabled && config.thinkingEnabled &&
+                (config.providerName == Constants.PROVIDER_DEEPSEEK ||
+                    com.newoether.agora.api.openai.isDeepSeekModel(config.modelId)) &&
+                definitions(config, context).isNotEmpty()
+            )
 
     suspend fun resolvedFixedContextTokenCost(
         config: GenerationConfig,
@@ -63,6 +66,7 @@ internal class GenerationContextAccounting(
             tools = tools,
             includeImages = true,
             includeAssistantReasoning = includesAssistantReasoning(config, context),
+            replayReasoningInHistory = config.replayReasoningInHistory,
             requestResolver = resolver,
         )
         val resolvedRequest = providerConfig.resolveRequest(emptyList())

@@ -384,6 +384,27 @@ class ProviderThoughtBoundaryNormalizerTest {
     }
 
     @Test
+    fun `a JSON example starting the answer is still shown as text`() = runTest {
+        val content = "{\n  \"name\": \"order\",\n  \"items\": [1, 2]\n}\n\nThat is the payload shape."
+        val events = normalize(listOf(StreamEvent.TextChunk(content)), TOOLS)
+
+        assertEquals(content, events.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text })
+        assertTrue(events.none { it is StreamEvent.ToolCallRequest })
+    }
+
+    @Test
+    fun `a truncated tool payload stays visible beside its malformed call`() = runTest {
+        val content = "{\"name\":\"file_read\",\"arguments\":{\"path\":\"a"
+        val events = normalize(listOf(StreamEvent.TextChunk(content)), TOOLS)
+
+        assertEquals(content, events.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text })
+        assertEquals(
+            MALFORMED_TOOL_CALL_NAME,
+            events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
+        )
+    }
+
+    @Test
     fun `malformed syntax is answered as a malformed call`() = runTest {
         val malformed = normalize(
             listOf(StreamEvent.TextChunk("<tool_call>{\"name\":\"file_read\"}")),
@@ -521,6 +542,54 @@ class ProviderThoughtBoundaryNormalizerTest {
             events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
         )
     }
+
+    @Test
+    fun `deepseek DSML calls are recovered at every chunk boundary`() = runTest {
+        val source = dsmlSample()
+        for (split in 0 until source.length) {
+            val events = normalize(
+                listOf(
+                    StreamEvent.TextChunk(source.substring(0, split)),
+                    StreamEvent.TextChunk(source.substring(split)),
+                ),
+                TOOLS,
+            )
+
+            val calls = events.flatMap { event ->
+                when (event) {
+                    is StreamEvent.ToolCallRequest -> listOf(event)
+                    is StreamEvent.ToolCallsRequest -> event.calls
+                    else -> emptyList()
+                }
+            }
+            assertEquals("split=$split", listOf("{\"path\":\"a.txt\"}", "{\"path\":\"b.txt\"}"),
+                calls.map { it.arguments })
+            assertTrue("split=$split", calls.all { it.name == "file_read" })
+            val visible = events.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text }
+            assertFalse("split=$split leaked $visible", visible.contains("DSML"))
+        }
+    }
+
+    @Test
+    fun `unfinished DSML never renders raw markup`() = runTest {
+        val source = dsmlSample()
+        for (cut in 1 until source.length) {
+            val events = normalize(listOf(StreamEvent.TextChunk(source.substring(0, cut))), TOOLS)
+            val visible = events.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text }
+            assertFalse("cut=$cut leaked $visible", visible.contains("DSML") || visible.contains("parameter"))
+        }
+    }
+
+    private fun dsmlSample(): String = """
+        <｜DSML｜function_calls>
+        <｜DSML｜invoke name="file_read">
+        <｜DSML｜parameter name="path" string="true">a.txt</｜DSML｜parameter>
+        </｜DSML｜invoke>
+        <｜DSML｜invoke name="file_read">
+        <｜DSML｜parameter name="path" string="true">b.txt</｜DSML｜parameter>
+        </｜DSML｜invoke>
+        </｜DSML｜function_calls>
+    """.trimIndent()
 
     private suspend fun normalize(
         events: List<StreamEvent>,

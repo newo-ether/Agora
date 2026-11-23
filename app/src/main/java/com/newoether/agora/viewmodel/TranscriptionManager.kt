@@ -87,16 +87,28 @@ class TranscriptionManager(
                 if (message.images.isEmpty() || message.participant !in setOf(Participant.USER, Participant.MODEL) ||
                     message.id.startsWith(Constants.TOOL_MSG_PREFIX) || message.id.startsWith(Constants.RESULT_MSG_PREFIX)
                 ) continue
-                val media = checkNotNull(mediaById[message.id]) { "Transcription image projection is missing" }
-                check(media.images.size == message.images.size) { "Transcription image projection changed" }
+                val media = mediaById[message.id] ?: continue
+                val stored = decodeMetadata(message.attachmentMeta)
+                // Sandbox attachments travel as files, so the Provider path drops their images.
+                // Transcription follows the same removal and never targets those slots.
+                val hidden = sandboxHiddenImageIndices(message.images, stored)
+                val projectedIndices = message.images.indices.filterNot(hidden::contains)
+                if (media.images.size != projectedIndices.size) {
+                    // A projection filter this code does not know about removed images. Skipping
+                    // the message narrows transcription; throwing here fails the whole
+                    // generation before the request is even sent.
+                    continue
+                }
+                val projectedByEntity = projectedIndices.withIndex().associate { it.value to it.index }
                 val occurrences = media.imageArtifactOccurrences().mapIndexed { index, artifact ->
                     artifact ?: ImageArtifact(
                         path = media.images[index], mimeType = "application/octet-stream",
                         sizeBytes = 0, unavailable = true,
                     )
                 }
-                val items = decodeMetadata(message.attachmentMeta).items.toMutableList()
+                val items = stored.items.toMutableList()
                 val owners = IntArray(message.images.size) { -1 }
+                hidden.forEach { owners[it] = Int.MAX_VALUE }
                 items.forEachIndexed { itemIndex, item ->
                     if (item.storage.isLocalSandbox || item.type !in setOf("image", "pdf", "video")) return@forEachIndexed
                     val start = item.imageIndex ?: return@forEachIndexed
@@ -111,43 +123,45 @@ class TranscriptionManager(
                         owners[start + offset] = itemIndex
                     }
                 }
-                media.images.forEachIndexed { imageIndex, path ->
-                    if (owners[imageIndex] >= 0) return@forEachIndexed
-                    val artifact = occurrences[imageIndex]
+                projectedIndices.forEach { entityIndex ->
+                    if (owners[entityIndex] >= 0) return@forEach
+                    val projectedIndex = projectedByEntity.getValue(entityIndex)
+                    val artifact = occurrences[projectedIndex]
                     items += AttachmentItem(
                         type = "image",
-                        fileName = File(path).name,
+                        fileName = File(media.images[projectedIndex]).name,
                         mimeType = artifact.mimeType,
-                        imageIndex = imageIndex,
+                        imageIndex = entityIndex,
                         pixelWidth = artifact.width,
                         pixelHeight = artifact.height,
                         fileSize = artifact.sizeBytes,
                         imageArtifacts = listOf(artifact),
                         unavailable = artifact.unavailable,
                     )
-                    owners[imageIndex] = items.lastIndex
+                    owners[entityIndex] = items.lastIndex
                 }
                 val metadata = AttachmentMeta(items.mapIndexed { itemIndex, item ->
-                    val artifacts = media.images.indices.filter { owners[it] == itemIndex }.map { imageIndex ->
-                        occurrences[imageIndex]
-                    }
+                    val artifacts = message.images.indices.filter { owners[it] == itemIndex }
+                        .map { entityIndex -> occurrences[projectedByEntity.getValue(entityIndex)] }
                     if (artifacts.isEmpty()) item else item.copy(
                         imageArtifacts = artifacts,
                         unavailable = item.unavailable || artifacts.any(ImageArtifact::unavailable),
                     )
                 })
-                media.images.forEachIndexed { imageIndex, path ->
-                    val itemIndex = owners[imageIndex]
+                projectedIndices.forEach { entityIndex ->
+                    val projectedIndex = projectedByEntity.getValue(entityIndex)
+                    val path = media.images[projectedIndex]
+                    val itemIndex = owners[entityIndex]
                     val item = items[itemIndex]
-                    val artifact = occurrences[imageIndex]
-                    if (path.isBlank() || artifact.unavailable || artifact.path != path) return@forEachIndexed
+                    val artifact = occurrences[projectedIndex]
+                    if (path.isBlank() || artifact.unavailable || artifact.path != path) return@forEach
                     if (message.id == latestUserId || item.transcription.isNullOrBlank()) {
                         add(TranscriptionTarget(
                             messageId = message.id,
                             imagePath = path,
                             metaItemIndex = itemIndex,
                             imageArtifact = artifact,
-                            imageIndex = imageIndex,
+                            imageIndex = entityIndex,
                             sourceMessage = message,
                             preparedMetadata = metadata,
                         ))

@@ -129,6 +129,15 @@ internal class GenerationToolExecutor private constructor(
     override fun definitions(context: GenerationContext): List<ToolDefinition> =
         providers.flatMap { it.definitions(context) }
 
+    override fun minimalDefinitions(context: GenerationContext): List<ToolDefinition> =
+        providers.flatMap { provider ->
+            when (provider) {
+                is ShellToolProvider -> provider.minimalDefinitions(context)
+                is WebSearchToolProvider -> provider.definitions(context)
+                else -> emptyList()
+            }
+        }
+
     fun imageDefinitions(context: GenerationContext): List<ToolDefinition> =
         imageGenProvider?.definitions(context).orEmpty()
 

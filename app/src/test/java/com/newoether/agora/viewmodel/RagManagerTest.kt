@@ -33,6 +33,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
@@ -703,7 +704,15 @@ class RagManagerTest {
     }
 
     private suspend fun awaitNewOwnerChildren(before: Set<Job>) = withTimeout(5_000) {
-        ownerJob.children.filter { it !in before }.toList().forEach { it.join() }
+        // startPostList also launches a long-lived embeddingModels watcher that never
+        // completes. Give each new child a grace period, then cancel lingering watchers.
+        ownerJob.children.filter { it !in before }.toList().forEach { child ->
+            try {
+                withTimeout(1_000) { child.join() }
+            } catch (timeout: TimeoutCancellationException) {
+                child.cancel()
+            }
+        }
     }
 
     private fun row() = checkNotNull(manager.cacheRows.value[model.id])

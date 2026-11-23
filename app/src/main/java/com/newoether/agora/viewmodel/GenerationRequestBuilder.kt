@@ -491,6 +491,7 @@ class GenerationRequestBuilder(
                 providerName == Constants.PROVIDER_LOCAL &&
                 effectiveSettings.lowContextModeEnabled == true
         val imageGenModel = settings.imageGenModel.value
+        val imageGenProvider = imageGenModel?.let { providerRegistry.providerForModel(it) }.orEmpty()
         val transcriptionModel = settings.imageTranscriptionModel.value
         val cacheProviders = settings.customProviders.value
         val cacheEnabled = settings.anthropicCacheEnabled.value
@@ -541,6 +542,7 @@ class GenerationRequestBuilder(
             userPrepend = resolvedUserPrepend,
             userPostpend = resolvedUserPostpend,
             lowContextModeEnabled = lowContextModeEnabled,
+            replayReasoningInHistory = settings.replayReasoningInHistory.value,
             temperature = effectiveSettings.temperature,
             maxTokens = effectiveSettings.maxTokens,
             topP = effectiveSettings.topP,
@@ -588,10 +590,10 @@ class GenerationRequestBuilder(
             askUserTimeoutMinutes = settings.askUserTimeoutMinutes.value,
             imageGenApiKey = resolveImageGenApiKey(imageGenModel),
             imageGenBaseUrl = resolveImageGenBaseUrl(imageGenModel),
-            imageGenProtocol = imageGenModel?.let { selected ->
-                val provider = providerRegistry.providerForModel(selected)
-                settings.customProviders.value.firstOrNull { it.name == provider || it.ownsIdentity(provider) }?.protocol?.wireValue
-                    ?: when (provider) {
+            imageGenProviderName = imageGenProvider,
+            imageGenProtocol = imageGenModel?.let {
+                settings.customProviders.value.firstOrNull { it.name == imageGenProvider || it.ownsIdentity(imageGenProvider) }?.protocol?.wireValue
+                    ?: when (imageGenProvider) {
                         Constants.PROVIDER_GOOGLE -> "google"
                         Constants.PROVIDER_LOCAL, Constants.PROVIDER_ANTHROPIC -> "unsupported"
                         else -> "openai"

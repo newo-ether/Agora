@@ -165,15 +165,10 @@ private data class ProviderMediaProjection(
     val metadata: AttachmentMeta?,
 )
 
-/** Filters described occurrences and remaps their metadata before legacy artifact hydration. */
-private fun withoutStoredTranscriptionImages(
-    images: List<String>,
-    metadata: AttachmentMeta?,
-    includeStoredTranscriptions: Boolean,
-): ProviderMediaProjection {
-    if (metadata == null) return ProviderMediaProjection(images, null)
+/** Per-item image slots claimed by the durable attachment metadata, in original image order. */
+private fun imageRangesByItem(images: List<String>, metadata: AttachmentMeta): List<List<Int>> {
     val claimed = mutableSetOf<Int>()
-    val ranges = metadata.items.map { item ->
+    return metadata.items.map { item ->
         if (item.type !in setOf("image", "pdf", "video")) {
             emptyList()
         } else {
@@ -194,6 +189,30 @@ private fun withoutStoredTranscriptionImages(
             }
         }
     }
+}
+
+/**
+ * Image slots the provider path drops because their attachment is dispatched as a sandbox file.
+ *
+ * Transcription must agree with the same removal: those slots never reach the Provider, so they
+ * are neither targets nor reasons to fail the projection identity check.
+ */
+internal fun sandboxHiddenImageIndices(images: List<String>, metadata: AttachmentMeta): Set<Int> {
+    val ranges = imageRangesByItem(images, metadata)
+    return metadata.items.indices
+        .filter { metadata.items[it].storage.isLocalSandbox }
+        .flatMap { ranges[it] }
+        .toSet()
+}
+
+/** Filters described occurrences and remaps their metadata before legacy artifact hydration. */
+private fun withoutStoredTranscriptionImages(
+    images: List<String>,
+    metadata: AttachmentMeta?,
+    includeStoredTranscriptions: Boolean,
+): ProviderMediaProjection {
+    if (metadata == null) return ProviderMediaProjection(images, null)
+    val ranges = imageRangesByItem(images, metadata)
     val describedItems = metadata.items.indices.filter { index ->
         val item = metadata.items[index]
         item.storage.isLocalSandbox || (includeStoredTranscriptions &&
