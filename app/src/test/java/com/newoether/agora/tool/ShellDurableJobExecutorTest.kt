@@ -39,7 +39,7 @@ class ShellDurableJobExecutorTest {
 
     @Test
     fun onlyConchTerminalStatesFinishPolling() {
-        listOf("succeeded", "failed", "stopped", "interrupted").forEach { state ->
+        listOf("succeeded", "failed", "timed_out", "stopped", "interrupted").forEach { state ->
             assertTrue(executor.isTerminalJobPayload("""{"state":"$state"}"""))
         }
         assertFalse(executor.isTerminalJobPayload("""{"state":"running"}"""))

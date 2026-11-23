@@ -27,6 +27,43 @@ class ConchSseParserTest {
     }
 
     @Test
+    fun backgroundedEventIsTerminalAndKeepsStreamedOutput() = runTest {
+        val streamed = StringBuilder()
+        val result = parse(
+            "event: line",
+            """data: {"line":"half","stream":"stdout"}""",
+            "event: backgrounded",
+            """data: {"job_id":"job-42"}""",
+        ) { streamed.append(it) }
+
+        assertEquals("half", result.output)
+        assertEquals("half\n", streamed.toString())
+        assertEquals("job-42", result.backgroundedJobId)
+        assertEquals(null, result.exitCode)
+        assertEquals(null, result.errorMessage)
+    }
+
+    @Test
+    fun backgroundedWithoutJobIdAndPostTerminalFramesFailClosed() = runTest {
+        assertParseFails(
+            "event: backgrounded",
+            """data: {}""",
+        )
+        assertParseFails(
+            "event: backgrounded",
+            """data: {"job_id":"job-42"}""",
+            "event: line",
+            """data: {"line":"late","stream":"stdout"}""",
+        )
+        assertParseFails(
+            "event: backgrounded",
+            """data: {"job_id":"job-42"}""",
+            "event: result",
+            """data: {"exit_code":0}""",
+        )
+    }
+
+    @Test
     fun eofWithoutTerminalFailsClosed() = runTest {
         assertParseFails(
             "event: line",

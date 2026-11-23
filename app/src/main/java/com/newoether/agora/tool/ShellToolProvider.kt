@@ -115,6 +115,10 @@ class ShellToolProvider(
     override fun definitions(ctx: GenerationContext): List<ToolDefinition> =
         ShellToolDefinitions.build(ctx)
 
+    /** Low Context Mode schema: shell_list, shell_exec and file_view_image only. */
+    fun minimalDefinitions(ctx: GenerationContext): List<ToolDefinition> =
+        ShellToolDefinitions.buildMinimal(ctx)
+
     override suspend fun execute(name: String, arguments: String, ctx: GenerationContext): String {
         return when (BuiltInToolNames.canonical(name)) {
             "shell_list" -> listShells(ctx)
@@ -686,7 +690,13 @@ class ShellToolProvider(
                         put("truncated", truncated)
                     }.toString()
                 },
-                onFailure = { e -> jsonError("file_glob", e.message ?: "Unknown error") }
+                onFailure = { e ->
+                    jsonError(
+                        "file_glob",
+                        readableFileToolFailure("file_glob", e.message),
+                        server = backend.device?.name ?: "Local Sandbox",
+                    )
+                }
             )
         } finally {
             backend.close()
@@ -715,7 +725,13 @@ class ShellToolProvider(
             val result = backend.fileGrep(pattern, basePath, fileGlob, options)
             return result.fold(
                 onSuccess = { grep -> fileGrepJson(pattern, grep, contextRequested = context > 0) },
-                onFailure = { e -> jsonError("file_grep", e.message ?: "Unknown error") }
+                onFailure = { e ->
+                    jsonError(
+                        "file_grep",
+                        readableFileToolFailure("file_grep", e.message),
+                        server = backend.device?.name ?: "Local Sandbox",
+                    )
+                }
             )
         } finally {
             backend.close()

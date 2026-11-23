@@ -219,12 +219,26 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
             )
             buildJsonObject {
                 put("type", "shell_exec"); put("server", deviceName); put("command", cmd)
-                if (result.errorMessage != null) {
-                    put("error", "execution_error")
-                    put("message", result.errorMessage)
-                    if (result.timedOut) put("timed_out", true)
-                } else {
-                    put("exit_code", result.exitCode ?: -1)
+                when {
+                    result.backgroundedJobId != null -> {
+                        put("backgrounded", true)
+                        put("job_id", result.backgroundedJobId)
+                        put("state", "running")
+                        put(
+                            "note",
+                            "The foreground wait budget expired and the command keeps running " +
+                                "as a durable job; it was not killed or restarted. Await it with " +
+                                "shell_job_wait or inspect it with shell_job_get using this job_id.",
+                        )
+                    }
+                    result.errorMessage != null -> {
+                        put("error", "execution_error")
+                        put("message", result.errorMessage)
+                        if (result.timedOut) put("timed_out", true)
+                    }
+                    else -> {
+                        put("exit_code", result.exitCode ?: -1)
+                    }
                 }
                 result.warningMessage?.let { put("warning", it) }
                 put("output", result.output)

@@ -362,8 +362,8 @@ internal class ShellDurableJobExecutor(
      * Decides whether a raw `/jobs/get` payload represents a finished job.
      *
      * Conch reports lifecycle in the **`state`** field (see conch shell/jobs.go): `running` and
-     * `stopping` and `settling` are live; `succeeded`, `failed`, `stopped` and `interrupted` are
-     * terminal. A lifecycle state always wins over incidental error fields because settlement may
+     * `stopping` and `settling` are live; `succeeded`, `failed`, `timed_out`, `stopped` and
+     * `interrupted` are terminal. A lifecycle state always wins over incidental error fields because settlement may
      * still be syncing retained output. Only an explicit server-side `error` without a state (for
      * example, "job not found") is terminal. Unparseable or field-less payloads remain nonterminal.
      */
@@ -382,8 +382,8 @@ internal class ShellDurableJobExecutor(
     }
 
     companion object {
-        /** Conch's durable-job runtime ceiling (24h). */
-        internal const val BACKGROUND_JOB_MAX_MS = 86_400_000
+        /** Conch's durable-job runtime ceiling (2h). */
+        internal const val BACKGROUND_JOB_MAX_MS = 7_200_000
 
         private const val MIN_WAIT_JOB_MS = 1_000
         private const val WAIT_JOB_OUTER_MARGIN_MS = 5_000L
@@ -400,6 +400,7 @@ internal class ShellDurableJobExecutor(
         private val TERMINAL_JOB_STATES = setOf(
             "succeeded",
             "failed",
+            "timed_out",
             "stopped",
             "interrupted",
         )
@@ -519,6 +520,7 @@ private val ACKNOWLEDGEABLE_SHELL_TOOLS = setOf(
 private val TERMINAL_ACK_STATES = setOf(
     "succeeded",
     "failed",
+    "timed_out",
     "stopped",
     "interrupted",
 )

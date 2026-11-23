@@ -59,15 +59,15 @@ internal object ShellToolDefinitions {
             )))
             add(ToolDefinition(function = ToolFunction(
                 name = "shell_exec",
-                description = "Execute a shell command with a 64KB UTF-8 command limit, a 32KB UTF-8 workdir limit, and at most 1MB of retained foreground output. Local Sandbox and Conch retain jobs and bounded output independently of the tool/provider instance. Set background=true to return the job_id immediately; foreground wait expiry also returns the same continuing job. After app process death, unfinished Local Sandbox jobs are marked interrupted and are never replayed.",
+                description = "Execute a shell command with a 64KB UTF-8 command limit, a 32KB UTF-8 workdir limit, and at most 1MB of retained foreground output. Local Sandbox and Conch retain jobs and bounded output independently of the tool/provider instance. A command still running when the foreground wait expires keeps running as a durable job and its job_id is returned; it is never killed or restarted by a wait expiry. Set background=true to return the job_id immediately. After app process death, unfinished Local Sandbox jobs are marked interrupted and are never replayed.",
                 parameters = ToolParameters(
                     properties = mapOf(
                         "description" to ToolProperty("string", SHELL_DESCRIPTION),
                         "command" to ToolProperty("string", "The shell command to execute (64KB UTF-8 maximum)."),
                         "server" to ToolProperty("string", serverPropDesc),
-                        "timeout_ms" to ToolProperty("integer", "Required. Foreground wait budget in milliseconds (hard ceiling 295000ms inside the tool call). On Local Sandbox and Conch, a command still running at that point continues as the same durable job and returns its job_id; it is never killed or restarted. With background=true this instead bounds the durable job's runtime (up to server policy)."),
+                        "timeout_ms" to ToolProperty("integer", "Required. Foreground wait budget in milliseconds (hard ceiling 295000ms inside the tool call). On Local Sandbox and Conch, a command still running at that point continues as the same durable job and its job_id is returned; it is never killed or restarted. With background=true this is the job's runtime cap instead: the process tree is killed when it expires. Server runtime caps default to 30 minutes with a 2 hour maximum."),
                         "workdir" to ToolProperty("string", "Working directory (optional, 32KB UTF-8 maximum)."),
-                        "background" to ToolProperty("boolean", "Start a durable background job on Local Sandbox or Conch and return its job_id immediately (optional, default false). Jobs and bounded output remain available through shell_job_list/get/wait/stop independently of this tool/provider instance. After app process death, unfinished Local Sandbox jobs are marked interrupted and are never replayed."),
+                        "background" to ToolProperty("boolean", "Start a durable background job on Local Sandbox or Conch and return its job_id immediately (optional, default false). timeout_ms then bounds the job's runtime; the process tree is killed at that point. Jobs and bounded output remain available through shell_job_list/get/wait/stop independently of this tool/provider instance. After app process death, unfinished Local Sandbox jobs are marked interrupted and are never replayed."),
                         "head_lines" to ToolProperty("integer", HEAD_LINES_DESCRIPTION),
                         "tail_lines" to ToolProperty("integer", TAIL_LINES_DESCRIPTION),
                     ),
@@ -270,5 +270,72 @@ internal object ShellToolDefinitions {
         }
 
         return shellTools + fileTools + imageTools + fileTransferDefinition()
+    }
+
+    /**
+     * Low Context Mode shell surface: shell_list, shell_exec and file_view_image with compact
+     * descriptions. Durable-job management and the file_* family stay out of the small window;
+     * shell_exec covers their reads and edits through ordinary commands.
+     */
+    fun buildMinimal(ctx: GenerationContext): List<ToolDefinition> {
+        if (!ctx.shellEnabled) return emptyList()
+        val allDeviceNames = shellServerNames(ctx)
+        if (allDeviceNames.isEmpty()) return emptyList()
+        val serverPropDesc = if (allDeviceNames.size == 1) {
+            "The shell server name (optional, defaults to the only available server: ${allDeviceNames[0]})."
+        } else {
+            "The shell server name. Use shell_list to see available servers: ${allDeviceNames.joinToString(", ")}."
+        }
+        val shellRequiredParams =
+            if (allDeviceNames.size == 1) listOf("description", "command", "timeout_ms")
+            else listOf("description", "command", "server", "timeout_ms")
+        val tools = mutableListOf(
+            ToolDefinition(function = ToolFunction(
+                name = "shell_list",
+                description = "List configured shell servers. To show the user a server file inline, " +
+                    "write Markdown ![alt](shell://</<server>/<absolute path>) with spaces percent-encoded as %20.",
+                parameters = ToolParameters(
+                    properties = mapOf("description" to ToolProperty("string", SHELL_DESCRIPTION)),
+                    required = listOf("description"),
+                ),
+            )),
+            ToolDefinition(function = ToolFunction(
+                name = "shell_exec",
+                description = "Execute a shell command and return bounded output. A command still running " +
+                    "when the wait budget expires keeps running as a durable job; the result then carries its job_id.",
+                parameters = ToolParameters(
+                    properties = mapOf(
+                        "description" to ToolProperty("string", SHELL_DESCRIPTION),
+                        "command" to ToolProperty("string", "The shell command to execute."),
+                        "server" to ToolProperty("string", serverPropDesc),
+                        "timeout_ms" to ToolProperty("integer", "Required. Foreground wait budget in milliseconds."),
+                        "workdir" to ToolProperty("string", "Working directory (optional)."),
+                        "head_lines" to ToolProperty("integer", "Return only the first N output lines (optional)."),
+                        "tail_lines" to ToolProperty("integer", "Return only the last N output lines (optional)."),
+                    ),
+                    required = shellRequiredParams,
+                ),
+            )),
+        )
+        val standardServerNames = shellServerNames(ctx, standardOnly = true)
+        if (standardServerNames.isNotEmpty()) {
+            val standardServerDescription = if (standardServerNames.size == 1) {
+                "Shell server name (optional; defaults to ${standardServerNames.single()})."
+            } else {
+                "Shell server name. Available: ${standardServerNames.joinToString(", ")}."
+            }
+            tools += ToolDefinition(function = ToolFunction(
+                name = "file_view_image",
+                description = "Load an image from a shell server and return it as visual context.",
+                parameters = ToolParameters(
+                    properties = mapOf(
+                        "path" to ToolProperty("string", "Absolute path to the image file."),
+                        "server" to ToolProperty("string", standardServerDescription),
+                    ),
+                    required = if (standardServerNames.size == 1) listOf("path") else listOf("path", "server"),
+                ),
+            ))
+        }
+        return tools
     }
 }

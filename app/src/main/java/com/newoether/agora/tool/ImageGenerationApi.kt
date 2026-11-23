@@ -86,8 +86,15 @@ internal object ImageGenerationApi {
             require(Regex("[A-Za-z0-9._-]+").matches(model)) { "Invalid Gemini image model ID" }
             return "$versioned/models/$model:generateContent"
         }
+        // OpenRouter exposes one image route and rejects the OpenAI-style /generations suffix (#220).
+        if (isOpenRouter(ctx, base)) return "$base/images"
         return "$base/images/${if (editing) "edits" else "generations"}"
     }
+
+    private fun isOpenRouter(ctx: GenerationContext, base: String): Boolean =
+        ctx.imageGenProviderName.contains("openrouter", ignoreCase = true) ||
+            ctx.imageGenProviderName.contains("open router", ignoreCase = true) ||
+            base.contains("openrouter.ai", ignoreCase = true)
 
     fun headers(ctx: GenerationContext): Map<String, String> =
         if (ctx.imageGenApiKey.isBlank()) emptyMap()
