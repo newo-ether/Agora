@@ -62,8 +62,17 @@ const LINK_BRACKET_PAIRS = new Map([
   [")", "("], ["]", "["], ["}", "{"], ["）", "（"], ["】", "【"], ["》", "《"], ["」", "「"], ["』", "『"],
 ]);
 
-/** End of a bare URL that stops before trailing punctuation; balanced brackets stay inside. */
-function trimLinkTail(url) {
+// Punctuation that never belongs to a bare URL (isUrlStopCharacter on the phone): general
+// punctuation such as dashes and curly quotes, CJK punctuation and full-width ASCII punctuation.
+const URL_STOP = /[\s\u2010-\u2027\u2030-\u205e\u3000-\u303f\uff01-\uff0f\uff1a-\uff20\uff3b-\uff40\uff5b-\uff65]/;
+
+/**
+ * End of a bare URL: it stops at the first URL_STOP mark (prose often continues with no space after
+ * ， or ）), then before trailing punctuation; balanced brackets stay inside.
+ */
+function trimLinkTail(href) {
+  const stop = href.search(URL_STOP);
+  const url = stop < 0 ? href : href.slice(0, stop);
   let end = url.length;
   while (end > 0) {
     const last = url[end - 1];

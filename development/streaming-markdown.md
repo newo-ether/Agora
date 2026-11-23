@@ -23,6 +23,14 @@ full glyph birth timeline. Stream-to-terminal settlement keeps the same message 
 Regression coverage uses the real message component to verify URI activation and equal message
 height with 48 trailing definitions, plus prepared and virtualized detail paths, split definitions,
 duplicates, reset, fenced literals, nested metadata and ordinary paragraph geometry.
+
+GFM ends a bare URL only at whitespace, so prose written right after it would join the link. A bare
+URL (native `bareUrlEnd`, WebUI `trimLinkTail`) ends at the first whitespace, general punctuation
+(U+2010–2027, U+2030–205E), CJK punctuation (U+3000–303F) or full-width ASCII punctuation; then
+trailing sentence marks and unbalanced closing brackets are trimmed, while balanced brackets such as
+`Foo_(bar)` stay. The text cut off renders as plain text. An explicit `[label](url)` keeps its label
+and loses only trailing punctuation from its destination.
+
 The browser Compact detail uses the existing `DetailSheet` and `Markdown`, with authoritative
 running state, thought typography and App Reduced Motion passed into the shared renderer.
 The shared browser Markdown accepts an optional emptyStreamingText input. Compact passes the native

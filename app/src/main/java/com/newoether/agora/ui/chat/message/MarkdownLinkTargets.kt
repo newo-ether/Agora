@@ -136,6 +136,28 @@ private val LINK_BRACKET_PAIRS = mapOf(
     '』' to '『',
 )
 
+/**
+ * Punctuation that never belongs to a bare URL: general punctuation (dashes, curly quotes, `…`),
+ * CJK symbols and punctuation (`、。「」『』【】《》`) and the full-width ASCII punctuation forms
+ * (`（）［］！？，：；`). Letters, digits and CJK ideographs stay valid path characters.
+ */
+internal fun isUrlStopCharacter(char: Char): Boolean = when (char.code) {
+    in 0x2010..0x2027, in 0x2030..0x205E, in 0x3000..0x303F,
+    in 0xFF01..0xFF0F, in 0xFF1A..0xFF20, in 0xFF3B..0xFF40, in 0xFF5B..0xFF65 -> true
+    else -> false
+}
+
+/**
+ * End of a bare URL written in prose. GFM ends an autolink only at whitespace, so the URL first
+ * stops at the first [isUrlStopCharacter] (prose usually continues with no space after `，` or
+ * `）`), then trailing ASCII punctuation and unbalanced brackets are trimmed.
+ */
+internal fun bareUrlEnd(text: CharSequence, start: Int, end: Int): Int {
+    var stop = start
+    while (stop < end && !text[stop].isWhitespace() && !isUrlStopCharacter(text[stop])) stop++
+    return trimLinkTail(text, start, stop)
+}
+
 /** End of the link that stops before trailing punctuation; balanced brackets stay inside. */
 internal fun trimLinkTail(text: CharSequence, start: Int, end: Int): Int {
     var trimmed = end
@@ -165,15 +187,25 @@ internal fun trimLinkTail(text: CharSequence, start: Int, end: Int): Int {
 
 /**
  * The GFM lexer ends a bare URL at whitespace and trims only `.,:;!?"'*_~]` from it, so a closing
- * bracket or CJK sentence mark typed right after the URL lands inside the link range and inside its
- * destination. Shorten both here so the tap target, the highlight and the opened address never keep
- * punctuation the author wrote after the link.
+ * bracket, a dash or a CJK sentence mark typed right after the URL lands inside the link range and
+ * inside its destination. Shorten both here so the tap target, the highlight and the opened address
+ * never keep punctuation the author wrote after the link. A bare URL (its visible text is the tail
+ * of its destination) also ends at the first [isUrlStopCharacter]; an explicit `[label](url)` keeps
+ * its label and only loses trailing punctuation.
  */
 internal fun AnnotatedString.trimMarkdownLinkTail(): AnnotatedString {
     if (!hasLinkAnnotations(0, length)) return this
     return mapAnnotations { range ->
         val item = range.item
         if (item !is LinkAnnotation) return@mapAnnotations range
+        val shown = text.substring(range.start, range.end)
+        if (item is LinkAnnotation.Url && shown.isNotEmpty() && item.url.endsWith(shown)) {
+            val end = bareUrlEnd(text, range.start, range.end)
+            if (end == range.end) return@mapAnnotations range
+            if (end == range.start) return@mapAnnotations AnnotatedString.Range(item, range.start, range.start, range.tag)
+            val url = item.url.dropLast(range.end - end)
+            return@mapAnnotations AnnotatedString.Range(item.copy(url = url), range.start, end, range.tag)
+        }
         val end = trimLinkTail(text, range.start, range.end)
         val destination = if (item is LinkAnnotation.Url) {
             val url = item.url
