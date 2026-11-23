@@ -122,7 +122,8 @@ class LocalProvider(
         }
 
         // Template ownership stays with the model. A generic fallback can silently apply the
-        // wrong role/control-token protocol, so an incompatible model fails closed.
+        // wrong role/control-token protocol, so an incompatible model fails closed unless the
+        // offered tools can simply be dropped for a plain chat.
         val templateTools = config.tools.orEmpty().map { tool ->
             ChatTemplateTool(
                 name = tool.function.name,
@@ -130,10 +131,11 @@ class LocalProvider(
                 parameters = TEMPLATE_JSON.encodeToString(tool.function.parameters),
             )
         }
-        val requiresToolCapableTemplate = templateTools.isNotEmpty() || templateMessages.any { message ->
+        val historyNeedsTools = templateMessages.any { message ->
             message.toolCalls.isNotEmpty() || message.role == "tool"
         }
-        val template = engine.applyTemplate(
+        val requiresToolCapableTemplate = templateTools.isNotEmpty() || historyNeedsTools
+        var template = engine.applyTemplate(
             messages = templateMessages,
             tools = templateTools,
             addAss = true,
@@ -146,10 +148,29 @@ class LocalProvider(
             return@runChat
         }
         if (requiresToolCapableTemplate && !template.supportsTools) {
-            emit(StreamEvent.Error(GenerationError.LocalModel(
-                "The local model chat template does not support tool calling."
-            )))
-            return@runChat
+            if (historyNeedsTools) {
+                emit(StreamEvent.Error(GenerationError.LocalModel(
+                    "The local model chat template does not support tool calling."
+                )))
+                return@runChat
+            }
+            // Agora always offers some tools (todo/ask_user/memory). A model whose template cannot
+            // express them should still answer a plain chat instead of failing every message (#218).
+            // The model is remembered so the composer greys its tool switches from now on.
+            DebugLog.w(TAG, "Chat template of ${config.modelId} cannot express tools; answering without them")
+            settings.markLocalToolIncapableTemplate(config.modelId)
+            template = engine.applyTemplate(
+                messages = templateMessages,
+                tools = emptyList(),
+                addAss = true,
+                enableThinking = config.thinkingEnabled,
+            )
+            if (template == null) {
+                emit(StreamEvent.Error(GenerationError.LocalModel(
+                    "The local model does not provide a compatible chat template."
+                )))
+                return@runChat
+            }
         }
         val promptLength = template.prompt.length
         val imageCount = imagePaths.size

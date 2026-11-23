@@ -41,6 +41,8 @@ data class GenerationContext(
     val askUserTimeoutMinutes: Int = com.newoether.agora.data.DEFAULT_ASK_USER_TIMEOUT_MINUTES,
     val imageGenApiKey: String = "",
     val imageGenBaseUrl: String = "",
+    /** Display identity of the selected image provider, used for endpoint quirks. */
+    val imageGenProviderName: String = "",
     /** Wire protocol of the selected image provider, captured at Run admission. */
     val imageGenProtocol: String = "openai",
     val imageGenModel: String = "gpt-image-1",

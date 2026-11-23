@@ -117,6 +117,8 @@ data class ProviderConfig(
     val includeImages: Boolean = true,
     /** Counts and retains ordinary assistant thought segments that this request serializes. */
     val includeAssistantReasoning: Boolean = false,
+    /** Always send `reasoning_content` on assistant turns, empty when nothing was stored (#198). */
+    val replayReasoningInHistory: Boolean = false,
     val temperature: Float? = null,
     val maxTokens: Int? = null,
     val topP: Float? = null,

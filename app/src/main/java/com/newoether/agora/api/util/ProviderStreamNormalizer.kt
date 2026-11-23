@@ -29,7 +29,7 @@ internal class ProviderStreamNormalizer(
         val arguments: String,
     )
 
-    private enum class ToolProbe { UNDECIDED, TAGGED, JSON, TEXT }
+    private enum class ToolProbe { UNDECIDED, TAGGED, JSON, TEXT, DSML }
 
     private val offeredToolNames = tools.orEmpty().map { it.function.name }.toSet()
     private val inlineThinking = IncrementalThinkingParser()
@@ -276,7 +276,7 @@ internal class ProviderStreamNormalizer(
         when (toolProbe) {
             ToolProbe.TEXT -> downstream(StreamEvent.TextChunk(content))
             ToolProbe.TAGGED -> feedTagged(content, downstream)
-            ToolProbe.JSON -> toolProbeBuffer.append(content)
+            ToolProbe.JSON, ToolProbe.DSML -> toolProbeBuffer.append(content)
             ToolProbe.UNDECIDED -> {
                 toolProbeBuffer.append(content)
                 decideToolProbe(downstream)
@@ -288,6 +288,12 @@ internal class ProviderStreamNormalizer(
         val raw = toolProbeBuffer.toString()
         val candidate = raw.trimStart()
         if (candidate.isEmpty()) return
+        // DeepSeek DSML blocks arrive as text on some routes; they must never render as markup.
+        if (DeepSeekDsml.startsBlock(candidate)) {
+            toolProbe = ToolProbe.DSML
+            return
+        }
+        if (DeepSeekDsml.couldStartBlock(candidate)) return
         if (candidate.first() == '{' || candidate.first() == '[') {
             toolProbe = ToolProbe.JSON
             return
@@ -331,11 +337,17 @@ internal class ProviderStreamNormalizer(
         when (toolProbe) {
             ToolProbe.UNDECIDED, ToolProbe.TEXT -> {
                 if (toolProbeBuffer.isNotEmpty()) {
-                    downstream(StreamEvent.TextChunk(toolProbeBuffer.toString()))
+                    val pending = toolProbeBuffer.toString()
+                    // A dangling DSML opener prefix is markup, not prose: drop it rather than
+                    // leaking `<｜DSML` into the answer.
+                    if (toolProbe != ToolProbe.UNDECIDED || !DeepSeekDsml.couldStartBlock(pending)) {
+                        downstream(StreamEvent.TextChunk(pending))
+                    }
                     toolProbeBuffer.clear()
                 }
             }
             ToolProbe.JSON -> finishJsonTool(downstream)
+            ToolProbe.DSML -> finishDsml(downstream)
             ToolProbe.TAGGED -> {
                 checkNotNull(textToolParser).flush(
                     onText = { taggedResidualText.append(it) },
@@ -353,15 +365,38 @@ internal class ProviderStreamNormalizer(
         }
     }
 
+    private suspend fun finishDsml(downstream: suspend (StreamEvent) -> Unit) {
+        val raw = toolProbeBuffer.toString()
+        toolProbeBuffer.clear()
+        val result = DeepSeekDsml.parse(raw)
+        result.calls.forEach { call ->
+            textToolCandidates += TextToolCandidate(
+                streamKey = "text_tool_${UUID.randomUUID()}",
+                id = null,
+                name = call.name,
+                arguments = call.arguments,
+            )
+        }
+        if (result.malformed) {
+            reportMalformed("Provider ended before the DSML tool call was complete", raw)
+        } else if (result.calls.isEmpty()) {
+            // A marker that never became a valid call would otherwise vanish without a trace.
+            reportMalformed("DSML block contained no complete tool call", raw)
+        }
+        if (result.text.isNotBlank()) downstream(StreamEvent.TextChunk(result.text))
+    }
+
     private suspend fun finishJsonTool(downstream: suspend (StreamEvent) -> Unit) {
         val raw = toolProbeBuffer.toString()
         val parsed = ToolCallTextParser.parse(raw)
         if (parsed.isEmpty()) {
+            // Whatever the model wrote is still the user's answer. A malformed call is answered with
+            // an error result the model can correct, but it must not swallow the visible text.
+            downstream(StreamEvent.TextChunk(raw))
             if (looksLikeExplicitJsonTool(raw)) {
                 reportMalformed("Whole-content tool payload was malformed", raw)
-            } else {
-                downstream(StreamEvent.TextChunk(raw))
             }
+            toolProbeBuffer.clear()
             return
         }
         parsed.forEachIndexed { index, call ->
@@ -465,21 +500,32 @@ internal class ProviderStreamNormalizer(
     }
 
     private suspend fun flushAbortedText(downstream: suspend (StreamEvent) -> Unit) {
+        if (toolProbe == ToolProbe.DSML) {
+            // The attempt failed before completing; never surface raw DSML markup.
+            val visible = DeepSeekDsml.parse(toolProbeBuffer.toString()).text
+            if (visible.isNotBlank()) downstream(StreamEvent.TextChunk(visible))
+            toolProbeBuffer.clear()
+            return
+        }
         if (toolProbe in setOf(ToolProbe.UNDECIDED, ToolProbe.JSON) && toolProbeBuffer.isNotEmpty()) {
             downstream(StreamEvent.TextChunk(toolProbeBuffer.toString()))
             toolProbeBuffer.clear()
         }
     }
 
+    /**
+     * True only for a payload shaped like a tool call: an object (or an array of objects) whose first
+     * key is `name`/`function`, and which also names arguments. Matching bare `"name"` anywhere made
+     * ordinary Markdown / JSON examples look like truncated calls and hid them from the user (#194).
+     */
     private fun looksLikeExplicitJsonTool(content: String): Boolean {
         val compact = content.trimStart()
-        return compact.contains("\"name\"") ||
-            compact.contains("\"function\"") ||
-            compact.contains("\"arguments\"") ||
-            compact.contains("\"parameters\"")
+        if (!EXPLICIT_TOOL_START.containsMatchIn(compact)) return false
+        return compact.contains("\"arguments\"") || compact.contains("\"parameters\"")
     }
 
     private companion object {
         val TAGGED_PREFIXES = listOf("<tool_call>", "<invoke", "<antml:invoke")
+        val EXPLICIT_TOOL_START = Regex("^\\[?\\s*\\{\\s*\"(name|function)\"\\s*:")
     }
 }

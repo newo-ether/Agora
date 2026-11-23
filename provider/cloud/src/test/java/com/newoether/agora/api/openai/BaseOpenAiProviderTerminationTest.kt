@@ -85,7 +85,8 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
 
         assertFalse(config.thinkingEnabled)
         assertEquals("reason", events.filterIsInstance<StreamEvent.ThoughtChunk>().single().thought)
-        assertTrue(events.none { it is StreamEvent.Error })
+        // Reasoning without a reply now surfaces an explicit empty-answer failure (#219).
+        assertEmptyAnswerError(events)
     }
 
     @Test
@@ -108,7 +109,8 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
             listOf(" ", "fallback"),
             events.filterIsInstance<StreamEvent.ThoughtChunk>().map { it.thought },
         )
-        assertTrue(events.none { it is StreamEvent.Error })
+        // The fallback reasoning is real output, so the missing reply is reported, not silent.
+        assertEmptyAnswerError(events)
     }
 
     @Test
@@ -128,7 +130,14 @@ class BaseOpenAiProviderTerminationTest : OpenAiSseTestFixture() {
 
         assertFalse(config.thinkingEnabled)
         assertEquals("reason", events.filterIsInstance<StreamEvent.ThoughtChunk>().single().thought)
-        assertTrue(events.none { it is StreamEvent.Error })
+        assertEmptyAnswerError(events)
+    }
+
+    private fun assertEmptyAnswerError(events: List<StreamEvent>) {
+        val error = events.filterIsInstance<StreamEvent.Error>().single().error
+        assertTrue(error is GenerationError.Api)
+        assertEquals("empty_answer", (error as GenerationError.Api).type)
+        assertTrue(error.message.contains("without producing an answer"))
     }
 
     @Test

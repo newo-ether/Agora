@@ -40,6 +40,8 @@ fun imageMimeType(imagePath: String): String = when {
  * [forwardAssistantReasoning] replays each assistant turn's stored chain of thought as
  * `reasoning_content`. DeepSeek thinking mode requires it for every earlier turn once a request
  * carries tools; other providers ignore the field, so they keep the default.
+ * [requireReasoningField] keeps `reasoning_content` on every assistant turn even when no thought
+ * was stored, sending an empty string for models that reject a missing field (#198).
  */
 internal fun convertToOpenAiMessages(
     messages: List<ChatMessage>,
@@ -47,6 +49,7 @@ internal fun convertToOpenAiMessages(
     includeImages: Boolean = true,
     base64Files: Base64FileRegistry,
     forwardAssistantReasoning: Boolean = false,
+    requireReasoningField: Boolean = false,
 ): List<OpenAiMessage> {
     val apiMessages = mutableListOf<OpenAiMessage>()
 
@@ -61,6 +64,10 @@ internal fun convertToOpenAiMessages(
 
     apiMessages.addAll(messages.flatMap { msg ->
         val entries = mutableListOf<OpenAiMessage>()
+        fun replayReasoning(thought: String?): String? {
+            val stored = thought?.takeIf { it.isNotBlank() }
+            return stored ?: "".takeIf { requireReasoningField }
+        }
 
         // tool_ messages: assistant turn with tool_calls only
         // (tool results come from the following result_ messages)
@@ -80,7 +87,7 @@ internal fun convertToOpenAiMessages(
                     role = "assistant",
                     content = null,
                     toolCalls = toolCalls,
-                    reasoningContent = thoughtContent?.ifEmpty { null },
+                    reasoningContent = replayReasoning(thoughtContent),
                     responseOutputItems = toolSegs.firstOrNull {
                         it.responseOutputItems.isNotEmpty()
                     }?.responseOutputItems,
@@ -99,7 +106,7 @@ internal fun convertToOpenAiMessages(
                         id = toolId,
                         function = OpenAiRequestFunction(name = tc.toolName, arguments = tc.arguments)
                     )),
-                    reasoningContent = thoughtContent?.ifEmpty { null },
+                    reasoningContent = replayReasoning(thoughtContent),
                     responseOutputItems = tc.responseOutputItems.ifEmpty { null },
                     responseOutputItemProvider = tc.responseOutputItemProvider,
                     responseOutputItemModel = msg.modelName,
@@ -164,7 +171,7 @@ internal fun convertToOpenAiMessages(
                 msg.segments
                     ?.filter { it.type == "thought" }
                     ?.joinToString("\n") { it.content }
-                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::replayReasoning)
             } else {
                 null
             },

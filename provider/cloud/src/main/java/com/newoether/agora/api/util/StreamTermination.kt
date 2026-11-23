@@ -24,6 +24,8 @@ internal data class StreamTermination(
     val stopReason: String?,
     /** Answer text, thinking, or a tool-call event reached the consumer. */
     val producedContent: Boolean,
+    /** Visible answer text or a tool call arrived (thinking alone does not count). */
+    val producedAnswer: Boolean = producedContent,
     /** A tool-use block was still open when the stream ended. */
     val toolCallInFlight: Boolean,
     /**
@@ -59,6 +61,18 @@ internal data class StreamTermination(
         streamError != null -> streamError
         timedOut -> GenerationError.Timeout
         truncatedByTokenCap -> GenerationError.OutputTruncated(provider, stopReason)
+        // A thinking-only turn that reports a clean stop is a silent failure, not an answer:
+        // the model spent its turn on reasoning and never started the reply (#219). A stream with
+        // no output at all stays as before; gateways legitimately end some turns that way.
+        sawTerminalMarker && producedContent && !producedAnswer -> GenerationError.Api(
+            code = null,
+            type = "empty_answer",
+            message = buildString {
+                append("$provider stopped after reasoning without producing an answer")
+                if (stopReason != null) append(" (stop_reason=$stopReason)")
+                append(". Retry, or lower or disable thinking for this model.")
+            },
+        )
         toolCallInFlight || !sawTerminalMarker -> GenerationError.IncompleteStream(
             provider = provider,
             stopReason = stopReason,
@@ -70,9 +84,9 @@ internal data class StreamTermination(
 
     fun describe(): String =
         "stop_reason=$stopReason terminal_marker=$sawTerminalMarker " +
-            "produced_content=$producedContent tool_in_flight=$toolCallInFlight " +
-            "timed_out=$timedOut stream_error=${streamError != null} " +
-            "reported_error=$alreadyReportedError retryable=$isRetryable"
+            "produced_content=$producedContent produced_answer=$producedAnswer " +
+            "tool_in_flight=$toolCallInFlight timed_out=$timedOut " +
+            "stream_error=${streamError != null} reported_error=$alreadyReportedError retryable=$isRetryable"
 
     private companion object {
         /**
@@ -90,6 +104,8 @@ internal fun Throwable.asRetryableResponseBodyReadError(): GenerationError? = re
 
 private fun Throwable.retryableNetworkError(): GenerationError? {
     NetworkRetryPolicy.throwIfCancelled(this)
+    // A deleted or changed attachment cannot heal by replaying the request; surface it at once.
+    if (NetworkRetryPolicy.causes(this).any { it is AttachmentUnavailableException }) return null
     if (!NetworkRetryPolicy.isTransient(this)) {
         return NetworkRetryPolicy.causes(this).firstOrNull {
             ProviderRetryPolicy.isFailedToGenerateOutcome(it.message)
@@ -122,4 +138,14 @@ fun StreamEvent.carriesModelOutput(): Boolean = when (this) {
     is StreamEvent.UsageUpdate -> false
     is StreamEvent.Retrying -> false
     is StreamEvent.Error -> false
+}
+
+/** Substantive answer output, as opposed to thinking that never reached a reply. */
+fun StreamEvent.carriesAnswerOutput(): Boolean = when (this) {
+    is StreamEvent.TextChunk -> text.isNotBlank()
+    is StreamEvent.HostedToolCallUpdate,
+    is StreamEvent.ToolCallUpdate,
+    is StreamEvent.ToolCallRequest,
+    is StreamEvent.ToolCallsRequest -> true
+    else -> false
 }

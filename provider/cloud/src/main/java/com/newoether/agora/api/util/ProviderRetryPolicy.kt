@@ -113,6 +113,32 @@ internal object ProviderRetryPolicy {
                 (statusCode !in 400..499 && statusCode in retryableStatusCodes) ||
                 (statusCode !in 400..499 && isRetryableUpstreamFailure(body)))
 
+    /**
+     * An endpoint rejected the reasoning controls for this model (`reasoning_effort`,
+     * `thinking_budget`, `chat_template_kwargs`). Such a request is valid everywhere else, so the
+     * caller retries once with every thinking parameter omitted (#203).
+     */
+    fun rejectsReasoningParameters(body: String?): Boolean {
+        val lower = body?.lowercase() ?: return false
+        val names = listOf("reasoning_effort", "reasoning.effort", "reasoning effort", "thinking_budget", "chat_template_kwargs")
+        if (names.none(lower::contains)) return false
+        return listOf("not enabled", "not supported", "does not support", "unsupported", "unknown parameter", "not allowed", "invalid")
+            .any(lower::contains)
+    }
+
+    /**
+     * OpenRouter hides every endpoint of a prose-only model when the request carries tools and
+     * answers 404 ("No endpoints found that support tool use"). Retry without tools so such models
+     * stay usable; the caller remembers the model for the rest of the process (#200).
+     */
+    fun rejectsTools(statusCode: Int, body: String?): Boolean {
+        val lower = body?.lowercase() ?: return false
+        if (!lower.contains("tool use") && !lower.contains("tool calling") && !lower.contains("\"tools\"")) return false
+        if (lower.contains("no endpoints found")) return true
+        return (statusCode == 400 || statusCode == 404 || statusCode == 422) &&
+            listOf("not supported", "does not support", "unsupported", "not enabled").any(lower::contains)
+    }
+
     /** Permanent account/request failures always take priority over transient wording. */
     fun shouldRetryStreamError(error: GenerationError?): Boolean =
         requiresResponseReadRetry(error) || when (error) {

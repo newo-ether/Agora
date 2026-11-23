@@ -269,4 +269,51 @@ class MessageConverterTest {
 
         assertNull(result.last().reasoningContent)
     }
+
+    @Test
+    fun convertToOpenAiMessages_requireReasoningField_sendsEmptyReasoningOnEveryAssistantTurn() {
+        val messages = listOf(
+            ChatMessage(id = "u1", text = "hello", participant = Participant.USER),
+            ChatMessage(
+                id = "m1",
+                text = "answer",
+                participant = Participant.MODEL,
+                segments = listOf(MessageSegment(type = "answer", content = "answer")),
+            ),
+        )
+
+        val withField = convertToOpenAiMessages(
+            messages,
+            base64Files = Base64FileRegistry(),
+            forwardAssistantReasoning = true,
+            requireReasoningField = true,
+        )
+
+        assertEquals("", withField.last().reasoningContent)
+        assertNull(withField.first().reasoningContent)
+    }
+
+    @Test
+    fun convertToOpenAiMessages_requireReasoningField_keepsStoredThoughtText() {
+        val messages = listOf(
+            ChatMessage(
+                id = "m1",
+                text = "answer",
+                participant = Participant.MODEL,
+                segments = listOf(
+                    MessageSegment(type = "thought", content = "step one"),
+                    MessageSegment(type = "answer", content = "answer"),
+                ),
+            ),
+        )
+
+        val result = convertToOpenAiMessages(
+            messages,
+            base64Files = Base64FileRegistry(),
+            forwardAssistantReasoning = true,
+            requireReasoningField = true,
+        )
+
+        assertEquals("step one", result.last().reasoningContent)
+    }
 }

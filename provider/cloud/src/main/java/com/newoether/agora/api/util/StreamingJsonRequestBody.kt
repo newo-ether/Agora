@@ -115,6 +115,12 @@ private fun checkImageReadCancellation() {
     if (HttpClient.isRequestCancelled()) throw CancellationException("Image read cancelled")
 }
 
+/**
+ * An attachment vanished or changed after its request was measured. Replaying can never heal
+ * that, so providers must not retry this failure; the retry policy keys on the concrete type.
+ */
+internal class AttachmentUnavailableException(message: String) : IOException(message)
+
 /** Keeps only paths and opaque placeholders between writes; each write buffers one image at a time. */
 internal class Base64FileRegistry {
     data class RegisteredImage(val placeholder: String, val mimeType: String)
@@ -168,13 +174,56 @@ internal class Base64FileRegistry {
         files: List<FilePart>,
     ) : RequestBody() {
         private val filesByPlaceholder = files.associateBy { it.image.placeholder }
+        // Computed once from the prepared template and the registered image sizes: a strict
+        // OpenAI-compatible server rejects a chunked image body, so the request needs an exact
+        // Content-Length. writeTo below refuses a file that changed after this measurement.
+        private val measuredLength: Long = measureJson(template, null)
 
         override fun contentType(): MediaType = JSON_MEDIA_TYPE
 
-        // Filtering and file sizes may change between prepare and an OkHttp replay.
-        override fun contentLength(): Long = -1L
+        override fun contentLength(): Long = measuredLength
 
         override fun writeTo(sink: BufferedSink) = writeJson(template, sink)
+
+        private fun measureJson(element: JsonElement, field: String?): Long = when (element) {
+            is JsonObject -> {
+                var total = 1L
+                element.entries.forEachIndexed { index, (key, value) ->
+                    if (index > 0) total += 1
+                    total += JsonPrimitive(key).toString().toByteArray(Charsets.UTF_8).size
+                    total += 1
+                    total += measureJson(value, key)
+                }
+                total + 1
+            }
+            is JsonArray -> measureArray(element, field)
+            else -> element.toString().toByteArray(Charsets.UTF_8).size.toLong()
+        }
+
+        private fun measureArray(array: JsonArray, field: String?): Long {
+            var total = 1L
+            var written = 0
+            for (element in array) {
+                if (written++ > 0) total += 1
+                val part = imagePart(element)
+                total += if (part != null) measureImage(element, part) else measureJson(element, null)
+            }
+            if (written == 0 && array.isNotEmpty() && field in CONTINUATION_FIELDS) {
+                total += fallbackJson(array, field).toByteArray(Charsets.UTF_8).size
+            }
+            return total + 1
+        }
+
+        /** Mirrors writeImage: the JSON around the placeholder plus the padded base64 payload. */
+        private fun measureImage(element: JsonElement, part: FilePart): Long {
+            val json = element.toString()
+            val position = json.indexOf(part.image.placeholder)
+            if (position < 0) throw IOException("Base64 placeholder is missing from serialized image element")
+            val prefix = json.substring(0, position).toByteArray(Charsets.UTF_8).size
+            val suffix = json.substring(position + part.image.placeholder.length)
+                .toByteArray(Charsets.UTF_8).size
+            return prefix.toLong() + suffix + 4L * ((part.byteCount + 2) / 3)
+        }
 
         private fun writeJson(element: JsonElement, sink: BufferedSink, field: String? = null) {
             when (element) {
@@ -197,21 +246,32 @@ internal class Base64FileRegistry {
             var written = 0
             for (element in array) {
                 val part = imagePart(element)
-                val image = if (part != null) readImageSnapshot(part.file) ?: continue else null
+                val image = if (part != null) {
+                    readImageSnapshot(part.file)
+                        ?: throw AttachmentUnavailableException("Image attachment is no longer readable")
+                } else null
+                if (image != null && part != null &&
+                    (image.bytes.size != part.byteCount || image.mimeType != part.image.mimeType)
+                ) {
+                    throw AttachmentUnavailableException("Image attachment changed after the request was prepared")
+                }
                 if (written++ > 0) sink.writeByte(','.code)
                 if (part != null && image != null) writeImage(element, part, image, sink)
                 else writeJson(element, sink)
             }
-            if (written == 0 && array.isNotEmpty() && field in setOf("content", "parts")) {
-                val type = (array.firstOrNull() as? JsonObject)?.get("type") as? JsonPrimitive
-                val fallback = when {
-                    field == "parts" -> "{\"text\":\"Continue\"}"
-                    type?.content == "input_image" -> "{\"type\":\"input_text\",\"text\":\"Continue\"}"
-                    else -> "{\"type\":\"text\",\"text\":\"Continue\"}"
-                }
-                sink.writeUtf8(fallback)
+            if (written == 0 && array.isNotEmpty() && field in CONTINUATION_FIELDS) {
+                sink.writeUtf8(fallbackJson(array, field))
             }
             sink.writeByte(']'.code)
+        }
+
+        private fun fallbackJson(array: JsonArray, field: String?): String {
+            val type = (array.firstOrNull() as? JsonObject)?.get("type") as? JsonPrimitive
+            return when {
+                field == "parts" -> "{\"text\":\"Continue\"}"
+                type?.content == "input_image" -> "{\"type\":\"input_text\",\"text\":\"Continue\"}"
+                else -> "{\"type\":\"text\",\"text\":\"Continue\"}"
+            }
         }
 
         private fun imagePart(element: JsonElement): FilePart? {
@@ -239,7 +299,7 @@ internal class Base64FileRegistry {
                 .replace(JsonPrimitive(part.image.mimeType).toString(), JsonPrimitive(image.mimeType).toString())
                 .replace("data:${part.image.mimeType};base64,", "data:${image.mimeType};base64,")
             val position = json.indexOf(part.image.placeholder)
-            check(position >= 0)
+            if (position < 0) throw IOException("Base64 placeholder is missing from serialized image element")
             sink.writeUtf8(json.substring(0, position))
             Base64.getEncoder().wrap(NonClosingOutputStream(sink.outputStream())).use { output ->
                 output.write(image.bytes)
@@ -253,5 +313,9 @@ internal class Base64FileRegistry {
         override fun write(buffer: ByteArray, offset: Int, length: Int) = delegate.write(buffer, offset, length)
         override fun flush() = delegate.flush()
         override fun close() = Unit
+    }
+
+    private companion object {
+        val CONTINUATION_FIELDS = setOf("content", "parts")
     }
 }

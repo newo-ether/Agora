@@ -55,10 +55,12 @@ class StreamingJsonRequestBodyTest {
         val registry = Base64FileRegistry()
         val images = (0 until 65).map { checkNotNull(registry.register(artifact)) }
         val request = checkNotNull(registry.prepare(template(images)))
-        assertEquals(-1L, request.body.contentLength())
         val original = file.readBytes()
         repeat(2) {
-            val json = write(request)
+            val measured = Buffer().also(request.body::writeTo)
+            // The measured Content-Length is exact on every replay.
+            assertEquals(measured.size, request.body.contentLength())
+            val json = Json.parseToJsonElement(measured.readUtf8()).jsonObject
             assertEquals("图像🙂", json.getValue("text").jsonPrimitive.content)
             val parts = json.getValue("content").jsonArray
             assertEquals(65, parts.size)
@@ -106,24 +108,23 @@ class StreamingJsonRequestBodyTest {
     }
 
     @Test
-    fun deletionAfterPrepareDropsOnlyThatWholeImageAndKeepsValidJson() = withImage { first, firstArtifact ->
-        withImage { second, secondArtifact ->
+    fun deletionAfterPrepareFailsTheRequestInsteadOfDroppingTheImage() = withImage { first, firstArtifact ->
+        withImage { _, secondArtifact ->
             val registry = Base64FileRegistry()
             val images = listOf(firstArtifact, secondArtifact, firstArtifact).map { checkNotNull(registry.register(it)) }
             val request = checkNotNull(registry.prepare(template(images)))
             assertTrue(first.delete())
+            // The Content-Length was measured at prepare time; dropping the image would corrupt
+            // the framed body, so the write refuses instead.
             repeat(2) {
-                val json = write(request)
-                assertEquals("图像🙂", json.getValue("text").jsonPrimitive.content)
-                val parts = json.getValue("content").jsonArray
-                assertEquals(1, parts.size)
-                assertArrayEquals(second.readBytes(), decoded(parts.single().jsonObject))
+                val error = assertThrows(IOException::class.java) { request.body.writeTo(Buffer()) }
+                assertEquals("Image attachment is no longer readable", error.message)
             }
         }
     }
 
     @Test
-    fun corruptionAfterPrepareDropsImageWithoutRemovingOrdinaryText() = withImage { file, artifact ->
+    fun corruptionAfterPrepareFailsTheRequestInsteadOfDroppingTheImage() = withImage { file, artifact ->
         val registry = Base64FileRegistry()
         val image = checkNotNull(registry.register(artifact))
         val imagePart = imagePart(image)
@@ -134,14 +135,12 @@ class StreamingJsonRequestBodyTest {
         }.toString()
         val request = checkNotNull(registry.prepare(body))
         file.writeBytes(file.readBytes().copyOf(33))
-        val parts = write(request).getValue("content").jsonArray
-        assertEquals(1, parts.size)
-        assertEquals("inspect exactly", parts.single().jsonObject.getValue("text").jsonPrimitive.content)
-        assertFalse(parts.toString().contains("unavailable", ignoreCase = true))
+        val error = assertThrows(IOException::class.java) { request.body.writeTo(Buffer()) }
+        assertEquals("Image attachment is no longer readable", error.message)
     }
 
     @Test
-    fun lastImageDisappearingKeepsLegalNeutralContentAndOllamaText() = withImage { file, artifact ->
+    fun lastImageDisappearingFailsTheRequestAcrossApiShapes() = withImage { file, artifact ->
         for (kind in listOf("chat", "responses", "anthropic", "gemini", "ollama")) {
             val registry = Base64FileRegistry()
             val image = checkNotNull(registry.register(artifact))
@@ -158,10 +157,8 @@ class StreamingJsonRequestBodyTest {
             val original = file.readBytes()
             try {
                 assertTrue(file.delete())
-                val json = write(request)
-                assertEquals("original", json.getValue("contentText").jsonPrimitive.content)
-                if (kind == "ollama") assertTrue(json.getValue(field).jsonArray.isEmpty())
-                else assertEquals("Continue", json.getValue(field).jsonArray.single().jsonObject.getValue("text").jsonPrimitive.content)
+                val error = assertThrows(IOException::class.java) { request.body.writeTo(Buffer()) }
+                assertEquals("Image attachment is no longer readable", error.message)
             } finally {
                 file.writeBytes(original)
             }
@@ -169,14 +166,15 @@ class StreamingJsonRequestBodyTest {
     }
 
     @Test
-    fun readableReplacementUsesCurrentMimeBytesAndDimensionsWithoutIdentityRejection() = withImage { file, artifact ->
+    fun readableReplacementAfterPrepareFailsTheRequest() = withImage { file, artifact ->
         val registry = Base64FileRegistry()
         val image = checkNotNull(registry.register(artifact))
         val request = checkNotNull(registry.prepare(template(listOf(image))))
         assertTrue(ImageIO.write(BufferedImage(31, 17, BufferedImage.TYPE_INT_RGB), "jpeg", file))
-        val part = write(request).getValue("content").jsonArray.single().jsonObject
-        assertTrue(part.getValue("image_url").jsonObject.getValue("url").jsonPrimitive.content.startsWith("data:image/jpeg;base64,"))
-        assertArrayEquals(file.readBytes(), decoded(part))
+        // A file whose bytes or MIME changed after measurement can no longer fit the promised
+        // Content-Length, so the write refuses instead of shipping a framed lie.
+        val error = assertThrows(IOException::class.java) { request.body.writeTo(Buffer()) }
+        assertEquals("Image attachment changed after the request was prepared", error.message)
     }
 
     @Test

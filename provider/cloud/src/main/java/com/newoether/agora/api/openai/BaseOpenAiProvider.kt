@@ -12,8 +12,10 @@ import com.newoether.agora.api.util.requireValidSerializedRequest
 import com.newoether.agora.api.util.StreamTermination
 import com.newoether.agora.api.util.asRetryableResponseBodyReadError
 import com.newoether.agora.api.util.asRetryableTransportError
+import com.newoether.agora.api.util.carriesAnswerOutput
 import com.newoether.agora.api.util.carriesModelOutput
 import com.newoether.agora.api.util.ProviderRetryPolicy
+import com.newoether.agora.api.util.ProviderControlRecovery
 import com.newoether.agora.api.util.safeWireToolCallId
 import com.newoether.agora.api.util.safeWireToolName
 import com.newoether.agora.api.util.malformedToolCallRequest
@@ -112,6 +114,9 @@ abstract class BaseOpenAiProvider : LlmProvider {
             path = if (config.responsesApiEnabled) "responses" else "chat/completions",
             retryMissingV1BaseUrl = retryMissingV1BaseUrl,
         )
+        // A prose-only model or a model that rejects reasoning fields must not fail forever:
+        // retry the same request once with the rejected part removed.
+        val recovery = ProviderControlRecovery(config.modelId)
         try {
             if (config.openAiWebSearchEnabled && !config.responsesApiEnabled) {
                 throw RequestFormatException(
@@ -143,6 +148,8 @@ abstract class BaseOpenAiProvider : LlmProvider {
                         promptCacheKey = config.promptCacheKey,
                     )
                     request = customizeRequest(request, config)
+                    // Recovered from a concrete rejection on a previous attempt of this same call.
+                    request = recovery.apply(request)
                     if (!config.resolvedThinking(thinkingProviderFamily).capability.supportsSamplingParams) {
                         request = request.copy(temperature = null, topP = null,
                             frequencyPenalty = null, presencePenalty = null)
@@ -183,7 +190,10 @@ abstract class BaseOpenAiProvider : LlmProvider {
                         systemPrompt = transformSystemPrompt(resolvedRequest.systemPrompt),
                         includeImages = config.includeImages,
                         base64Files = base64Files,
-                        forwardAssistantReasoning = forwardsAssistantReasoningContent(config),
+                        forwardAssistantReasoning =
+                            forwardsAssistantReasoningContent(config) || config.replayReasoningInHistory,
+                        // Some models reject a history without the field; an empty value still counts.
+                        requireReasoningField = config.replayReasoningInHistory,
                     )
                     val (requestBodyJson, streamingRequest) = buildRequestBody(
                         apiMessages,
@@ -270,6 +280,10 @@ abstract class BaseOpenAiProvider : LlmProvider {
                             }
                         } else {
                             val errorRaw = handle.errorBody.orEmpty()
+                            if (recovery.recoveredByDropping(handle.code, errorRaw, name)) {
+                                retryScheduled = true
+                                continue
+                            }
                             val hasV1Fallback = endpointIndex + 1 < endpointUrls.size
                             if (hasV1Fallback &&
                                 !ProviderRetryPolicy.shouldRetryHttp(handle.code, errorRaw, retryableStatusCodes) &&
@@ -344,6 +358,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
     ): StreamTermination {
         val router = OpenAiResponsesEventRouter(json)
         var producedContent = false
+        var producedAnswer = false
         var reportedError = false
         var streamError: GenerationError? = null
         var responseBodyReadError: GenerationError? = null
@@ -390,6 +405,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
                     streamError = event.error
                 } else {
                     if (event.carriesModelOutput()) producedContent = true
+                    if (event.carriesAnswerOutput()) producedAnswer = true
                     if (event is StreamEvent.Error) reportedError = true
                     emit(event)
                 }
@@ -407,6 +423,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
             sawTerminalMarker = router.sawTerminalMarker,
             stopReason = router.stopReason,
             producedContent = producedContent,
+            producedAnswer = producedAnswer,
             toolCallInFlight = router.toolCallInFlight,
             streamError = responseBodyReadError ?: streamError ?: router.streamError,
             alreadyReportedError = reportedError,
@@ -430,6 +447,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
     ): StreamTermination {
         val pendingToolCalls = mutableMapOf<Int, PendingToolCall>()
         var producedContent = false
+        var producedAnswer = false
         var reportedError = false
         var streamError: GenerationError? = null
         var finishReason: String? = null
@@ -437,6 +455,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
         var timedOut = false
         val emitTracked: suspend (StreamEvent) -> Unit = { event ->
             if (event.carriesModelOutput()) producedContent = true
+            if (event.carriesAnswerOutput()) producedAnswer = true
             if (event is StreamEvent.Error) reportedError = true
             emit(event)
         }
@@ -633,6 +652,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
             sawTerminalMarker = sawDone || finishReason != null,
             stopReason = finishReason,
             producedContent = producedContent,
+            producedAnswer = producedAnswer,
             toolCallInFlight = pendingToolCalls.isNotEmpty(),
             streamError = streamError,
             alreadyReportedError = reportedError,
