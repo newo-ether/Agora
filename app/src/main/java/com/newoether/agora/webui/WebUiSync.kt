@@ -344,6 +344,7 @@ internal class WebUiSync(
                                                 put("prompt", request.prompt)
                                                 put("retainCount", request.retainLogicalMessages)
                                                 put("compacting", it.compacting)
+                                                put("preserveContext", request.preserveSystemPrompt)
                                             } },
                                             buildJsonObject {
                                                 put("selectedId", it.systemPromptId)

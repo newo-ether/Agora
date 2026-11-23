@@ -127,6 +127,46 @@ function trimAutolinkTails(node) {
   }
 }
 
+// CommonMark refuses to close `**` or `_` when punctuation comes right before the run and a
+// letter right after it, but Chinese prose ends the emphasised sentence with punctuation and
+// continues with a CJK letter exactly there, so marked printed `比如**中文。**不会` as raw
+// delimiters. Swap that following letter for an unused punctuation mark while lexing (same
+// length, so every source position stays exact), then put it back in the rendered HTML. The
+// ranges mirror AgoraMarkdownFlavour.isCjkPunctuation / isCjkLetter.
+const CJK_PUNCTUATION = "\u00B7\u2010-\u2027\u2030-\u205E\u3000-\u303F\uFE10-\uFE1F\uFE30-\uFE4F\uFF01-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65";
+const CJK_LETTER = "\u3005-\u3007\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF";
+const CJK_EMPHASIS_RUN = new RegExp(`([${CJK_PUNCTUATION}])(\\*+|_+)([${CJK_LETTER}])`, "g");
+// Supplemental Punctuation marks marked already classifies as punctuation, never in user text.
+const CJK_EMPHASIS_SENTINELS = Array.from({ length: 128 }, (_, index) => String.fromCharCode(0x2e00 + index))
+  .filter(char => /\p{P}/u.test(char));
+
+/** Equal-length rewrite for the lexer plus the map that turns the rendered HTML back. */
+function cjkEmphasisSource(text) {
+  const sentinelByLetter = new Map();
+  let next = 0;
+  const patched = text.replace(CJK_EMPHASIS_RUN, (match, punctuation, delimiters, letter) => {
+    let sentinel = sentinelByLetter.get(letter);
+    if (!sentinel) {
+      while (next < CJK_EMPHASIS_SENTINELS.length && text.includes(CJK_EMPHASIS_SENTINELS[next])) next++;
+      if (next >= CJK_EMPHASIS_SENTINELS.length) return match;
+      sentinel = CJK_EMPHASIS_SENTINELS[next++];
+      sentinelByLetter.set(letter, sentinel);
+    }
+    return punctuation + delimiters + sentinel;
+  });
+  if (!sentinelByLetter.size) return { text, restore: null };
+  const restore = new Map();
+  for (const [letter, sentinel] of sentinelByLetter) restore.set(sentinel, letter);
+  return { text: patched, restore };
+}
+
+/** The sentinels only ever come from cjkEmphasisSource, so the rendered HTML can swap in place. */
+function restoreCjkEmphasis(rendered, restore) {
+  if (!restore) return rendered;
+  const pattern = new RegExp(`[${[...restore.keys()].join("")}]`, "g");
+  return rendered.replace(pattern, char => restore.get(char));
+}
+
 // Nested lists indent 8 dp per level; style.css has one rule per level up to this depth.
 const MAX_LIST_DEPTH = 6;
 let listDepth = 0;
@@ -249,7 +289,8 @@ function renderHtml(markdown, math, sourceMap = [], citations = [], streaming = 
     fragments.push(source.slice(start, index + 1));
     normalizedPositions.push(positions[start]);
   }
-  const tokens = marked.lexer(normalized);
+  const cjk = cjkEmphasisSource(normalized);
+  const tokens = marked.lexer(cjk.text);
   trimAutolinkTails(tokens);
   let imageOrdinal = 0;
   function locate(tokens, raw, positions, fragments) {
@@ -275,7 +316,7 @@ function renderHtml(markdown, math, sourceMap = [], citations = [], streaming = 
       }
     }
   }
-  locate(tokens, normalized, normalizedPositions, fragments);
+  locate(tokens, cjk.text, normalizedPositions, fragments);
   let out = "";
   let breaks = 0;
   for (const token of tokens) {
@@ -290,7 +331,7 @@ function renderHtml(markdown, math, sourceMap = [], citations = [], streaming = 
   out += SPACER.repeat(breaks);
   // Expand only text nodes: source attributes must retain the original token verbatim.
   const template = document.createElement("template");
-  template.innerHTML = out;
+  template.innerHTML = restoreCjkEmphasis(out, cjk.restore);
   const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);

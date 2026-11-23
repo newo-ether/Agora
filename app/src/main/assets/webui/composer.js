@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "./vendor/preact-ho
 import { html } from "./html.js";
 import { CircularProgress, Spinner } from "./material/progress.js";
 import { AttachmentTile, AttachmentEditor, AttachmentViewer } from "./attachments.js";
+import { installFileDrop } from "./file-drop.js";
 import { ConversationEditor } from "./conversation-editor.js";
 import { t } from "./i18n.js";
 import { icon, ICON_ADD, ICON_ARROW_UPWARD, ICON_EXPAND_ALL, ICON_COLLAPSE_ALL, ICON_MORE_VERT, ICON_STOP, ICON_CHECK, ICON_CLOSE, ICON_ATTACH_FILE } from "./icons.js";
@@ -67,6 +68,14 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
     return () => geometry.disconnect();
   }, [expanded]);
   const composing = useRef(false);
+  // #224: file drops follow the paperclip instead of letting the browser open them.
+  useEffect(() => installFileDrop({
+    document,
+    getSandboxAttachments: () => state.composer?.sandboxAttachments,
+    attachmentTarget: () => sync.attachmentTarget(),
+    retain: (files, target) => sync.retainSandboxFiles(files, target),
+    upload: (files, forcedType, target) => sync.uploadFiles(files, forcedType, target),
+  }), [state.connected, state.connectionId, state.openId, state.composer?.seq, state.composer?.sandboxAttachments]);
   const modelButton = useRef(null);
   const addButton = useRef(null);
   const picker = useRef(null);

@@ -289,7 +289,7 @@ class WebUiImageArtifactTest {
             assertFalse(hydrated.unavailable)
             assertEquals(original.path, hydrated.localPath)
             val preview = requireNotNull(attachmentPreviewArtifact(hydrated, "source", 0))
-            assertEquals(snapshot.path, preview.first)
+            assertEquals(File(snapshot.path).canonicalPath, File(preview.first).canonicalPath)
             assertArrayEquals(bytes, File(preview.first).readBytes())
             val payload = com.newoether.agora.viewmodel.MessagePayloadBuilder().buildComposerPayload(listOf(hydrated))
             val message = ChatMessage(id = "m", text = "", participant = Participant.USER,

@@ -289,8 +289,17 @@ internal class WebUiChatSession(
                                 temperature = settings.defaultTemperature.value, maxTokens = settings.defaultMaxTokens.value,
                                 topP = settings.defaultTopP.value, frequencyPenalty = settings.defaultFrequencyPenalty.value,
                                 presencePenalty = settings.defaultPresencePenalty.value),
-                            CompactRequest(settings.contextCompactModel.value ?: activeModel.value?.second.orEmpty(),
-                                settings.contextCompactPrompt.value, settings.contextCompactRetainCount.value),
+                            // Preserve Context pins the compact model to the conversation model,
+                            // matching ChatManualCompactDialog.
+                            CompactRequest(
+                                if (settings.contextCompactPreserveSystemPrompt.value) {
+                                    activeModel.value?.takeIf { it.first == selected.conversationId }?.second.orEmpty()
+                                } else {
+                                    settings.contextCompactModel.value
+                                        ?: activeModel.value?.takeIf { it.first == selected.conversationId }?.second.orEmpty()
+                                },
+                                settings.contextCompactPrompt.value, settings.contextCompactRetainCount.value,
+                                preserveSystemPrompt = settings.contextCompactPreserveSystemPrompt.value),
                             compacting,
                             selectedSystemPrompt.value?.takeIf { it.first == selected.conversationId }?.second,
                             settings.systemPrompts.value, settings.activeSystemPromptId.value,
@@ -471,8 +480,8 @@ internal class WebUiChatSession(
                 "codeExecutionEnabled", "googleSearchEnabled" -> selectedProvider(openId.value).equals("google", ignoreCase = true) && model.isNotBlank() && !current.lowContextModeEnabled
                 "openAiWebSearchEnabled" -> current.openAiWebSearchAvailable && model.isNotBlank() && !current.lowContextModeEnabled
                 "openAiServiceTierEnabled" -> current.openAiServiceTierState.available && model.isNotBlank() && !current.lowContextModeEnabled
-                "webSearchEnabled" -> current.webSearchAvailable && !current.lowContextModeEnabled
-                "shellEnabled" -> current.shellAvailable && !current.lowContextModeEnabled
+                "webSearchEnabled" -> current.webSearchAvailable
+                "shellEnabled" -> current.shellAvailable
                 else -> false
             }
             if (!allowed || (command.setting?.endsWith("Enabled") == true && enabled == null)) return@withLock

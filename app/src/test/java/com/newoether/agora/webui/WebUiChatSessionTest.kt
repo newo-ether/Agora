@@ -641,7 +641,7 @@ class WebUiChatSessionTest {
         assertFalse(session.composerState.first().controls!!.openAiWebSearchEnabled)
     }
     @Test
-    fun localLowContextModeUsesTheGlobalAvailabilityGateAndKeepsOtherSettings() = runBlocking {
+    fun localLowContextModeKeepsWebSearchSwitchableAndKeepsOtherSettings() = runBlocking {
         val model = "${com.newoether.agora.util.Constants.PROVIDER_LOCAL}:test"
         every { settings.selectedModel } returns MutableStateFlow(model)
         every { settings.enabledModels } returns MutableStateFlow(setOf(model))
@@ -655,13 +655,14 @@ class WebUiChatSessionTest {
         withTimeout(TIMEOUT_MS) { session.composerState.first { it.controls?.lowContextModeEnabled == true } }
         session.editorCommand(WebSyncCommand("system_prompt", value = null))
         assertEquals("prompt", session.composerState.first().systemPromptId)
+        // Low Context Mode keeps the web search switch live; only the heavy capabilities gate off.
         session.settingCommand(WebSyncCommand("setting", setting = "webSearchEnabled", enabled = false, actionId = 1))
-        assertTrue(session.composerState.first().controls!!.webSearchEnabled)
+        withTimeout(TIMEOUT_MS) { session.composerState.first { !it.controls!!.webSearchEnabled } }
         session.settingCommand(WebSyncCommand("setting", setting = "lowContextModeEnabled", enabled = false, actionId = 2))
         val changed = withTimeout(TIMEOUT_MS) { session.composerState.first { it.actionId == 2L } }
         assertFalse(changed.controls!!.lowContextModeEnabled)
-        session.settingCommand(WebSyncCommand("setting", setting = "webSearchEnabled", enabled = false, actionId = 3))
-        assertFalse(session.composerState.first().controls!!.webSearchEnabled)
+        session.settingCommand(WebSyncCommand("setting", setting = "webSearchEnabled", enabled = true, actionId = 3))
+        withTimeout(TIMEOUT_MS) { session.composerState.first { it.controls!!.webSearchEnabled } }
         verify(exactly = 0) { settings.updateConversationSettings(any(), any()) }
     }
     @Test

@@ -21,6 +21,8 @@ export function ConversationEditor({ editor, state, focusReturn, onClose, MoreMe
   const [retain, setRetain] = useState(String(info.retainCount ?? 0));
   const [error, setError] = useState(null);
   const busy = !!state.pendingAction;
+  // Preserve Context pins the compact model to the conversation model, as on the phone.
+  const compactPreserved = !advanced && !!state.composer.compact?.preserveContext;
   const dismiss = useDialog(dialog, onClose, focusReturn);
   useEffect(() => { if (!advanced && state.composer.compact?.compacting) dismiss(); }, [state.composer.compact?.compacting]);
   function close() { if (!busy) dismiss(); }
@@ -62,11 +64,12 @@ export function ConversationEditor({ editor, state, focusReturn, onClose, MoreMe
         </div>`;
       }) : html`<div class="outlined-field"><span class="outlined-label" id="compact-model-label">${t.compactModel}</span>
           <button ref=${modelField} class="editor-dropdown-field" type="button" aria-haspopup="menu" aria-expanded=${modelMenu}
-            aria-labelledby="compact-model-label" disabled=${busy}
+            aria-labelledby="compact-model-label" disabled=${busy || compactPreserved}
             onClick=${() => { setRetainedModelMenu(true); setModelMenu(!modelMenu); }}>
             <span>${state.composer.models[model] ?? (model || t.selectModel)}</span>
             <span class=${`editor-dropdown-icon ${modelMenu ? "open" : ""}`}>${icon(ICON_ARROW_DROP_DOWN)}</span>
           </button></div>
+        ${compactPreserved && html`<p class="supporting">${t.compactModelPreserved}</p>`}
         ${retainedModelMenu && html`<${MoreMenu} expanded=${modelMenu} reduceMotion=${state.display.reduceMotion}
           anchor=${modelField} matchAnchorWidth=${true} onClose=${() => setModelMenu(false)}
           onExited=${(restoreFocus) => { setRetainedModelMenu(false); if (restoreFocus) modelField.current?.focus(); }}>

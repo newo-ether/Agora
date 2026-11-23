@@ -41,5 +41,6 @@ internal fun webUiChatSessionSettings(): SettingsRepository = mockk<SettingsRepo
     every { contextCompactModel } returns MutableStateFlow(null)
     every { contextCompactPrompt } returns MutableStateFlow("summary")
     every { contextCompactRetainCount } returns MutableStateFlow(4)
+    every { contextCompactPreserveSystemPrompt } returns MutableStateFlow(false)
     coEvery { awaitInitialLoad() } just Runs
 }
