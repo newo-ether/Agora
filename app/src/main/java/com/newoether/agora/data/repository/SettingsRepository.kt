@@ -128,6 +128,7 @@ class SettingsRepository(
     val codeExecutionEnabled: StateFlow<Boolean> = publication.hot(settingsManager.codeExecutionEnabled, false)
     val googleSearchEnabled: StateFlow<Boolean> = publication.hot(settingsManager.googleSearchEnabled, false)
     val thinkingEnabled: StateFlow<Boolean> = publication.hot(settingsManager.thinkingEnabled, true)
+    val replayReasoningInHistory: StateFlow<Boolean> = publication.hot(settingsManager.replayReasoningInHistory, false)
     val thinkingLevel: StateFlow<String> = publication.hot(settingsManager.thinkingLevel, "medium")
     val thinkingBudgetEnabled: StateFlow<Boolean> = publication.hot(settingsManager.thinkingBudgetEnabled, false)
     val thinkingBudgetTokens: StateFlow<Int> = publication.hot(settingsManager.thinkingBudgetTokens, 4096)
@@ -256,6 +257,11 @@ class SettingsRepository(
         settingsManager.localLowContextModeEnabled,
         DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED,
     )
+    val localToolIncapableModels: StateFlow<Set<String>> = publication.hot(settingsManager.localToolIncapableModels, emptySet())
+
+    /** Called by the local provider when a template silently drops offered tools. */
+    fun markLocalToolIncapableTemplate(modelId: String) =
+        scope.launch { settingsManager.markLocalToolIncapableTemplate(modelId) }
     val customProviders: StateFlow<List<CustomProviderConfig>> = publication.hot(settingsManager.customProviders, emptyList())
     val lastModelsFetchFingerprint: StateFlow<String> = publication.hot(settingsManager.lastModelsFetchFingerprint, "")
     // ── Auto Backup ───────────────────────────────────────────
@@ -613,6 +619,20 @@ class SettingsRepository(
     fun setLastUpdateCheckTime(time: Long) = scope.launch { settingsManager.saveLastUpdateCheckTime(time) }
     fun setModelSearchMethod(method: String) = scope.launch { settingsManager.saveModelSearchMethod(method) }
     fun setManualSearchMethod(method: String) = scope.launch { settingsManager.saveManualSearchMethod(method) }
+
+    /**
+     * Drops a stored semantic selection once no embedding model is configured. Every reader
+     * settles the same way, so the two writes below are never observed as a usable semantic
+     * selection while no embedding model exists.
+     */
+    suspend fun settleSearchMethodsWithoutEmbeddingModel() {
+        if (modelSearchMethod.value == Constants.SEARCH_METHOD_RAG) {
+            settingsManager.saveModelSearchMethod(Constants.SEARCH_METHOD_KEYWORD)
+        }
+        if (manualSearchMethod.value == Constants.SEARCH_METHOD_RAG) {
+            settingsManager.saveManualSearchMethod(Constants.SEARCH_METHOD_KEYWORD)
+        }
+    }
     fun setAppLanguage(language: String) = scope.launch { settingsManager.saveAppLanguage(language) }
     fun setWebSearchEnabled(enabled: Boolean) = scope.launch { settingsManager.saveWebSearchEnabled(enabled) }
     fun setWebSearchProvider(provider: String) = scope.launch { settingsManager.saveWebSearchProvider(provider) }
@@ -642,6 +662,8 @@ class SettingsRepository(
     fun setSandboxEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSandboxEnabled(enabled) }
     fun setSandboxSharedStorageEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSandboxSharedStorageEnabled(enabled) }
     fun setThinkingEnabled(enabled: Boolean) = scope.launch { settingsManager.saveThinkingEnabled(enabled) }
+    fun setReplayReasoningInHistory(enabled: Boolean) =
+        scope.launch { settingsManager.saveReplayReasoningInHistory(enabled) }
     fun setThinkingLevel(level: String) = scope.launch { settingsManager.saveThinkingLevel(level) }
     fun setThinkingBudgetEnabled(enabled: Boolean) = scope.launch { settingsManager.saveThinkingBudgetEnabled(enabled) }
     fun setThinkingBudgetTokens(tokens: Int) = scope.launch { settingsManager.saveThinkingBudgetTokens(tokens) }

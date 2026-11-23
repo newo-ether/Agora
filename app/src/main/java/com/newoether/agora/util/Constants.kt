@@ -58,6 +58,8 @@ object Constants {
     const val SHELL_CONFIRM_TIMEOUT_MS = 300_000L
     /** Search method identifier for RAG (vector/embedding) search */
     const val SEARCH_METHOD_RAG = "rag"
+    /** Search method identifier for literal keyword search; also the fallback without embeddings. */
+    const val SEARCH_METHOD_KEYWORD = "keyword"
 
     // ── Provider name constants ────────────────────────────────
     const val PROVIDER_LOCAL = ModelConstants.PROVIDER_LOCAL

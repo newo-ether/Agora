@@ -28,6 +28,7 @@ internal fun clearPortableSettings(prefs: MutablePreferences) {
     prefs.remove(OPENAI_SERVICE_TIER_ENABLED)
     prefs.remove(OPENAI_SERVICE_TIER)
     prefs.remove(OPENAI_RESPONSES_API_ENABLED)
+    prefs.remove(REPLAY_REASONING_IN_HISTORY)
     prefs.remove(ANTHROPIC_CACHE_ENABLED)
     prefs.remove(ANTHROPIC_CACHE_TTL)
     prefs.remove(PROVIDER_BASE_URLS)

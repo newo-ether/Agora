@@ -100,19 +100,15 @@ class SettingsManager(private val context: Context) {
     val openAiServiceTier: Flow<String> = context.dataStore.data.map { pref ->
         OpenAiServiceTiers.normalize(pref[OPENAI_SERVICE_TIER])
     }
-    val openAiResponsesApiEnabled: Flow<Boolean> =
-        context.dataStore.data.map { it[OPENAI_RESPONSES_API_ENABLED] ?: false }
+    val openAiResponsesApiEnabled: Flow<Boolean> = context.dataStore.data.map { it[OPENAI_RESPONSES_API_ENABLED] ?: false }
+    val replayReasoningInHistory: Flow<Boolean> = context.dataStore.data.map { it[REPLAY_REASONING_IN_HISTORY] ?: false }
     val titleGenerationEnabled: Flow<Boolean> = context.dataStore.data.map { it[TITLE_GENERATION_ENABLED] ?: true }
     val titleGenerationModel: Flow<String?> = context.dataStore.data.map { it[TITLE_GENERATION_MODEL] }
     val titleGenerationPrompt: Flow<String> = context.dataStore.data.map { pref ->
         pref[TITLE_GENERATION_PROMPT]?.takeIf { it.isNotBlank() } ?: BuiltInPrompts.TITLE_GENERATION_SYSTEM
     }
-    val titleGenerationNotificationsEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[TITLE_GENERATION_NOTIFICATIONS_ENABLED] ?: false
-    }
-    val imageTranscriptionEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[IMAGE_TRANSCRIPTION_ENABLED] ?: false
-    }
+    val titleGenerationNotificationsEnabled: Flow<Boolean> = context.dataStore.data.map { it[TITLE_GENERATION_NOTIFICATIONS_ENABLED] ?: false }
+    val imageTranscriptionEnabled: Flow<Boolean> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_ENABLED] ?: false }
     val imageTranscriptionEnabledModels: Flow<Set<String>> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_ENABLED_MODELS] ?: emptySet() }
     val imageTranscriptionModel: Flow<String?> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_MODEL] }
     val imageTranscriptionBatchSize: Flow<Int> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_BATCH_SIZE] ?: 3 }
@@ -173,6 +169,9 @@ class SettingsManager(private val context: Context) {
     val phoneUse = com.newoether.agora.phone.PhoneUseSettingsStore(context.dataStore)
     val localModelIdleRetentionMinutes: Flow<Int> = modelPreferenceStore.localModelIdleRetentionMinutes
     val localLowContextModeEnabled: Flow<Boolean> = modelPreferenceStore.localLowContextModeEnabled
+    val localToolIncapableModels: Flow<Set<String>> = modelPreferenceStore.localToolIncapableModels
+    suspend fun markLocalToolIncapableTemplate(modelId: String) =
+        modelPreferenceStore.markLocalToolIncapable(modelId)
     val customProviders: Flow<List<CustomProviderConfig>> = modelPreferenceStore.customProviders
 
     val showDocumentationFab: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DOCUMENTATION_FAB] ?: true }
@@ -592,9 +591,10 @@ class SettingsManager(private val context: Context) {
             else it[TITLE_GENERATION_PROMPT] = prompt
         }
     }
-    suspend fun saveImageTranscriptionEnabledModels(models: Set<String>) {
+    suspend fun saveImageTranscriptionEnabledModels(models: Set<String>) =
         context.dataStore.edit { it[IMAGE_TRANSCRIPTION_ENABLED_MODELS] = models }
-    }
+    suspend fun saveReplayReasoningInHistory(enabled: Boolean) =
+        context.dataStore.edit { it[REPLAY_REASONING_IN_HISTORY] = enabled }
     suspend fun saveImageTranscriptionEnabled(enabled: Boolean) {
         context.dataStore.edit { it[IMAGE_TRANSCRIPTION_ENABLED] = enabled }
     }

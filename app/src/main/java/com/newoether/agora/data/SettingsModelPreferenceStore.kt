@@ -48,6 +48,14 @@ internal class SettingsModelPreferenceStore(
     suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) {
         dataStore.edit { it[LOCAL_LOW_CONTEXT_MODE_ENABLED] = enabled }
     }
+
+    val localToolIncapableModels: Flow<Set<String>> = dataStore.data.map { it[LOCAL_TOOL_INCAPABLE_MODELS] ?: emptySet() }
+
+    /** Recorded the first time a model's template drops offered tools; template updates stay manual. */
+    suspend fun markLocalToolIncapable(modelId: String) {
+        if (modelId.isBlank()) return
+        dataStore.edit { it[LOCAL_TOOL_INCAPABLE_MODELS] = (it[LOCAL_TOOL_INCAPABLE_MODELS] ?: emptySet()) + modelId }
+    }
     val selectedModel: Flow<String> = dataStore.data.map { it[SELECTED_MODEL] ?: Constants.EXAMPLE_MODEL_ID }
     val anthropicCacheEnabled: Flow<Boolean> = dataStore.data.map { it[ANTHROPIC_CACHE_ENABLED] ?: true }
     val anthropicCacheTtl: Flow<String> = dataStore.data.map { it[ANTHROPIC_CACHE_TTL] ?: "1h" }

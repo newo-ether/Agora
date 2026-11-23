@@ -42,6 +42,8 @@ internal val THINKING_BUDGET_TOKENS = intPreferencesKey("thinking_budget_tokens"
 internal val OPENAI_SERVICE_TIER_ENABLED = booleanPreferencesKey("openai_service_tier_enabled")
 internal val OPENAI_SERVICE_TIER = stringPreferencesKey("openai_service_tier")
 internal val OPENAI_RESPONSES_API_ENABLED = booleanPreferencesKey("openai_responses_api_enabled")
+/** Send `reasoning_content` on every assistant history turn, empty when none was stored (#198). */
+internal val REPLAY_REASONING_IN_HISTORY = booleanPreferencesKey("replay_reasoning_in_history")
 internal val ANTHROPIC_CACHE_ENABLED = booleanPreferencesKey("anthropic_cache_enabled")
 internal val ANTHROPIC_CACHE_TTL = stringPreferencesKey("anthropic_cache_ttl")
 internal val PROVIDER_BASE_URLS = stringPreferencesKey("provider_base_urls")
@@ -89,6 +91,8 @@ internal val LOCAL_MODEL_IDLE_RETENTION_MINUTES =
     intPreferencesKey("local_model_idle_retention_minutes")
 internal val LOCAL_LOW_CONTEXT_MODE_ENABLED =
     booleanPreferencesKey("local_low_context_mode_enabled")
+/** Local models whose chat template proved unable to express tools; the composer greys tool switches. */
+internal val LOCAL_TOOL_INCAPABLE_MODELS = stringSetPreferencesKey("local_tool_incapable_models")
 internal val CUSTOM_PROVIDERS_JSON = stringPreferencesKey("custom_providers_json")
 internal val SHELL_ENABLED = booleanPreferencesKey("shell_enabled")
 internal val AUTOMATION_TOOLS_ENABLED = booleanPreferencesKey("automation_tools_enabled")

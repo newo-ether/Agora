@@ -555,7 +555,12 @@ class AppContainer(
                 compactEnabled = settingsRepository.contextCompactEnabled,
             ),
             search = { query ->
-                if (settingsRepository.manualSearchMethod.value == com.newoether.agora.util.Constants.SEARCH_METHOD_RAG) {
+                // A stored semantic method may outlive its embedding model; only use it while a
+                // model is actually active, otherwise the drawer falls back to keyword results.
+                val semantic = settingsRepository.manualSearchMethod.value ==
+                    com.newoether.agora.util.Constants.SEARCH_METHOD_RAG &&
+                    chatRuntime.ragManager.activeEmbeddingModel.value != null
+                if (semantic) {
                     com.newoether.agora.viewmodel.SemanticSearchService(
                         settings = settingsRepository,
                         activeEmbeddingConfig = { chatRuntime.ragManager.activeEmbeddingModel.value },
