@@ -179,6 +179,9 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const loaded = !!source && loadedSource === source;
   const failed = !!source && failedSource === source;
   const shown = shownSource != null;
+  // Swipes and arrow buttons both move the viewport sideways with the neighbouring picture painted
+  // off to the side, so paging reads as a horizontal scroll instead of a cross-fade.
+  const [drag, setDrag] = useState(null);
   useLayoutEffect(() => {
     const host = viewport.current, node = image.current;
     if (!host || !node || !loaded) return;
@@ -215,50 +218,102 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
       value => current.panzoom.zoomToPoint(value.scale, point),
       () => { current.motion.cancel = null; });
   }
-  function navigate(next) { onNavigate(next); }
+  function navigate(next) {
+    if (next === index) return;
+    onNavigate(next);
+  }
+  // Arrow buttons and the keyboard walk the same pager: the next picture starts off to the side and
+  // slides in while the current one leaves.
+  function step(dir) {
+    const next = index + dir;
+    const neighbour = viewer.items?.[next];
+    const source = neighbour && (neighbour.url ?? sync.attachmentUrl(neighbour.id, neighbour.kind, neighbour.index));
+    if (!source) { navigate(next); return; }
+    window.clearTimeout(settle.current);
+    span.current = viewport.current?.clientWidth || 1;
+    setDrag({ dx: 0, dir, source, active: false });
+    requestAnimationFrame(() => setDrag({ dx: -dir * span.current, dir, source, active: false }));
+    settle.current = window.setTimeout(() => {
+      navigate(next);
+      // Keep the incoming picture painted while the swapped <img> decodes; it covers the viewport.
+      setDrag({ dx: 0, dir, source, active: true, cover: true });
+    }, 240);
+  }
+  // A swipe drags the whole viewport sideways and paints the neighbour underneath, so the picture
+  // follows the finger and settles like a pager instead of fading the next one in place.
   const swipe = useRef(null);
+  const span = useRef(1);
+  const settle = useRef(0);
+  useLayoutEffect(() => () => window.clearTimeout(settle.current), []);
   function startSwipe(event) {
     if (event.touches.length !== 1) { swipe.current = null; return; }
+    if ((zoom.current?.panzoom.getScale() ?? 1) > 1.05) { swipe.current = null; return; }
     const [touch] = event.touches;
-    swipe.current = { x: touch.clientX, y: touch.clientY, at: event.timeStamp };
+    span.current = viewport.current?.clientWidth || 1;
+    swipe.current = { x: touch.clientX, y: touch.clientY, axis: null, dir: 0, dx: 0, source: null };
   }
   function moveSwipe(event) {
-    if (event.touches.length !== 1) swipe.current = null;
+    const state = swipe.current;
+    if (!state || event.touches.length !== 1) { swipe.current = null; return; }
+    const [touch] = event.touches;
+    const dx = touch.clientX - state.x, dy = touch.clientY - state.y;
+    if (state.axis == null) {
+      if (Math.abs(dx) < 8) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.2) { state.axis = "vertical"; return; }
+      const dir = dx < 0 ? 1 : -1;
+      const neighbour = viewer.items?.[index + dir];
+      const source = neighbour && (neighbour.url ?? sync.attachmentUrl(neighbour.id, neighbour.kind, neighbour.index));
+      if (!source) { swipe.current = null; return; }
+      state.axis = "horizontal";
+      state.dir = dir;
+      state.source = source;
+    }
+    if (state.axis !== "horizontal") return;
+    if (event.cancelable) event.preventDefault();
+    state.dx = dx;
+    setDrag({ dx, dir: state.dir, source: state.source, active: true });
   }
-  function endSwipe(event) {
-    const start = swipe.current;
+  function endSwipe() {
+    const state = swipe.current;
     swipe.current = null;
-    const [touch] = event.changedTouches || [];
-    if (!start || !touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    // A quick, mostly horizontal single-finger flick changes the item; a zoomed picture keeps its
-    // pan because dragging it is the way to look around.
-    if (event.timeStamp - start.at > 800) return;
-    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    if ((zoom.current?.panzoom.getScale() ?? 1) > 1.05) return;
-    if (dx < 0 && index < viewer.items.length - 1) navigate(index + 1);
-    else if (dx > 0 && index > 0) navigate(index - 1);
+    if (!state || state.axis !== "horizontal") { setDrag(null); return; }
+    window.clearTimeout(settle.current);
+    const commit = Math.abs(state.dx) > span.current * .18;
+    setDrag({ dx: commit ? -state.dir * span.current : 0, dir: state.dir, source: state.source, active: false });
+    settle.current = window.setTimeout(() => {
+      if (commit) {
+        navigate(index + state.dir);
+        setDrag({ dx: 0, dir: state.dir, source: state.source, active: true, cover: true });
+      } else {
+        setDrag(null);
+      }
+    }, 220);
   }
   return html`<dialog ref=${dialog} class=${`tool-media-viewer attachment-viewer ${file ? "text-file-viewer" : ""}`} aria-label=${file?.name || item?.name || t.attachments}
     onCancel=${event => { event.preventDefault(); onClose(); }} onKeyDown=${event => {
       event.stopPropagation();
       if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
-      if (event.key === "ArrowLeft" && index > 0) navigate(index - 1);
-      if (event.key === "ArrowRight" && index < (viewer.items?.length || 0) - 1) navigate(index + 1);
+      if (event.key === "ArrowLeft" && index > 0) step(-1);
+      if (event.key === "ArrowRight" && index < (viewer.items?.length || 0) - 1) step(1);
     }}>
     ${file ? html`<div class="text-file-content">${/\.(md|markdown)$/i.test(file.name || "") ? html`<${Markdown} text=${{ markdown: file.text, math: [] }} />` : html`<pre>${file.text}</pre>`}</div>`
       : item?.type === "video" && item.kind === "source" ? html`<video key=${source} src=${source} controls autoplay
         onLoadedData=${() => setLoadedSource(source)} onError=${() => setFailedSource(source)} style=${{ opacity: loaded ? 1 : 0 }}></video>`
-      : html`<div class="tool-media-scroll image-viewport" ref=${viewport} onDblClick=${toggleZoom}
-        onTouchStart=${startSwipe} onTouchMove=${moveSwipe} onTouchEnd=${endSwipe}><img ref=${image} class="attachment-full-image" src=${source}
-        alt=${item.name || t.attachments} draggable="false" onLoad=${() => { setShownSource(source); setLoadedSource(source); }} onError=${() => setFailedSource(source)}
+      : html`<div class=${`tool-media-scroll image-viewport${drag?.active ? " dragging" : ""}`} ref=${viewport}
+        style=${{ transform: drag ? `translateX(${drag.dx}px)` : null }}
+        onDblClick=${toggleZoom} onTouchStart=${startSwipe} onTouchMove=${moveSwipe} onTouchEnd=${endSwipe}>
+        ${drag && html`<img class="attachment-peek" src=${drag.source} alt="" draggable="false"
+          style=${{ transform: `translateX(${drag.cover ? 0 : drag.dir * span.current}px)` }} />`}
+        <img ref=${image} class="attachment-full-image" src=${source}
+        alt=${item.name || t.attachments} draggable="false"
+        onLoad=${() => { setShownSource(source); setLoadedSource(source); setDrag(current => (current?.cover ? null : current)); }}
+        onError=${() => { setFailedSource(source); setDrag(current => (current?.cover ? null : current)); }}
         style=${{ opacity: shown ? 1 : 0 }} /></div>`}
     ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !shown && !failed ? 1 : 0 }}><${Spinner} stroke=${3} label=${t.attachments} /></div>
       <div class="attachment-viewport-status" style=${{ opacity: failed ? 1 : 0 }} role=${failed ? "alert" : null}>${icon(item.type === "image" || item.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>`}
     <div class="tool-media-controls"><span class="tool-media-count">${file?.name || `${index + 1} / ${viewer.items.length}`}</span>
       <button class="detail-sheet-icon" type="button" title=${t.close} aria-label=${t.close} onClick=${onClose}>${icon(ICON_CLOSE)}</button></div>
-    ${!file && viewer.items.length > 1 && html`<button class="tool-media-previous detail-sheet-icon" type="button" aria-label=${t.previous} disabled=${index === 0} onClick=${() => navigate(index - 1)}>${icon(ICON_CHEVRON_RIGHT)}</button>
-      <button class="tool-media-next detail-sheet-icon" type="button" aria-label=${t.next} disabled=${index === viewer.items.length - 1} onClick=${() => navigate(index + 1)}>${icon(ICON_CHEVRON_RIGHT)}</button>`}
+    ${!file && viewer.items.length > 1 && html`<button class="tool-media-previous detail-sheet-icon" type="button" aria-label=${t.previous} disabled=${index === 0} onClick=${() => step(-1)}>${icon(ICON_CHEVRON_RIGHT)}</button>
+      <button class="tool-media-next detail-sheet-icon" type="button" aria-label=${t.next} disabled=${index === viewer.items.length - 1} onClick=${() => step(1)}>${icon(ICON_CHEVRON_RIGHT)}</button>`}
   </dialog>`;
 }

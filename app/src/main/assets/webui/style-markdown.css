@@ -112,7 +112,7 @@ ul.md-list > li > .md-marker { padding-bottom: 4px; }
   cursor: pointer;
 }
 .code-copy svg { width: 16px; height: 16px; fill: currentColor; }
-.code-block pre { margin: 0; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.code-block pre { margin: 0; padding: 8px; font-family: var(--mono-font); white-space: pre-wrap; overflow-wrap: anywhere; }
 .nowrap .code-block pre { white-space: pre; overflow-wrap: normal; overflow-x: auto; }
 .html-preview-host { width: 100%; }
 .html-preview-host .code-header, .html-preview-fullscreen .code-header { flex-wrap: wrap; }

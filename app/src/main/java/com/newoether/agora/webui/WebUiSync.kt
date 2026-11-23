@@ -4,6 +4,7 @@ import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.forDisplay
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.observeDrawerGeneratingConversationIds
@@ -214,12 +215,8 @@ internal class WebUiSync(
                                         put("blocking", question.blocking)
                                     }
                                 }
-                                is com.newoether.agora.ui.chat.interaction.UserInteraction.ShellCommand -> listOf(buildJsonObject {
-                                    put("kind", "shell")
-                                    put("id", request.pending.id.toString())
-                                    put("server", request.pending.server)
-                                    put("summary", request.pending.summary)
-                                })
+                                is com.newoether.agora.ui.chat.interaction.UserInteraction.ShellCommand ->
+                                    listOf(webShellInteraction(request.pending))
                             } })
                     }.distinctUntilChanged().collect { outbound.send(it) }
                 }
@@ -711,9 +708,9 @@ internal class WebUiSync(
     ): WebMessage = withContext(projectionDispatcher) {
         val providers = customProviders.value
         val shown = message.forDisplay(providers)
-        // MessageInfoDialog: modelDisplayName(modelName, aliases, providers, providerNames[modelName] != false).
+        // MessageInfoDialog: modelDisplayName(modelName, aliases, providers, modelProviderNameShown(...)).
         val modelDisplay = message.modelName?.let {
-            com.newoether.agora.data.modelDisplayName(it, display.modelAliases, providers, display.modelProviderNames[it] != false)
+            com.newoether.agora.data.modelDisplayName(it, display.modelAliases, providers, modelProviderNameShown(it, display.modelProviderNames))
         }
         shown.toWeb(webPresentation(shown, isStreaming, display), modelDisplay)
     }

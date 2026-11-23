@@ -14,7 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -170,13 +170,13 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
                         ?.ifBlank { null } ?: stringResource(R.string.remote_device), onBack = back,
                     actions = {
                         if (displayed.capabilities.usage) IconButton(onClick = { showUsage = true }, enabled = current && active) {
-                            Icon(Icons.Default.DataUsage, stringResource(R.string.remote_usage))
+                            Icon(Icons.Rounded.DataUsage, stringResource(R.string.remote_usage))
                         }
                     },
                     floatingActionButton = {
                         if (displayed.canCreate) Box(Modifier.fillMaxWidth().padding(end = 24.dp, bottom = 8.dp), contentAlignment = Alignment.BottomEnd) {
                             FloatingActionButton(modifier = Modifier.size(64.dp), shape = CircleShape, onClick = { if (current && active && !displayed.controlling) { forward = true; vm.newSession() } }) {
-                                Icon(Icons.Default.Add, stringResource(R.string.new_chat), Modifier.size(32.dp))
+                                Icon(Icons.Rounded.Add, stringResource(R.string.new_chat), Modifier.size(32.dp))
                             }
                         }
                     },
@@ -212,7 +212,7 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
                                         leadingContent = {
                                             if (shown.loading) MotionAwareCircularProgressIndicator(
                                                 modifier = Modifier.size(20.dp), strokeWidth = 2.dp,
-                                            ) else Icon(Icons.Default.ChatBubbleOutline, null,
+                                            ) else Icon(Icons.Rounded.Devices, null,
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                                         },
                                     )
@@ -241,7 +241,7 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
                                                 headlineContent = { Text(session.displayTitle(stringResource(R.string.new_chat)), maxLines = 2, overflow = TextOverflow.Ellipsis) },
                                                 supportingContent = { Text(session.displayDirectory(),
                                                     maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                                leadingContent = { Icon(Icons.Default.ChatBubbleOutline, null) },
+                                                leadingContent = { Icon(Icons.Rounded.ChatBubbleOutline, null) },
                                                 trailingContent = {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         RemoteSessionIndicator(resolveDrawerConversationIndicator(
@@ -251,7 +251,7 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
                                                         ))
                                                         if (capabilities.rename || capabilities.archive) Box {
                                                             IconButton(onClick = { showMenu = true }, enabled = current && active) {
-                                                                Icon(Icons.Default.MoreVert, stringResource(R.string.more))
+                                                                Icon(Icons.Rounded.MoreVert, stringResource(R.string.more))
                                                             }
                                                             AgoraDropdownMenu(
                                                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -260,13 +260,13 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
                                                             ) {
                                                                 if (capabilities.rename) AgoraDropdownMenuItem(
                                                                     text = { Text(stringResource(R.string.rename)) },
-                                                                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                                                                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                                                                     enabled = actionsEnabled,
                                                                     onClick = { showMenu = false; action = "rename" },
                                                                 )
                                                                 if (capabilities.archive) AgoraDropdownMenuItem(
                                                                     text = { Text(stringResource(R.string.remote_archive), color = MaterialTheme.colorScheme.error) },
-                                                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                                                    leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                                                                     enabled = actionsEnabled,
                                                                     onClick = { showMenu = false; action = "archive" },
                                                                 )
@@ -364,7 +364,7 @@ private fun RemoteDevices(state: RemoteState, vm: RemoteViewModel, onBack: () ->
                         headlineContent = { Text(stringResource(R.string.remote_no_devices),
                             color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         supportingContent = { Text(stringResource(R.string.remote_no_devices_desc)) },
-                        leadingContent = { Icon(Icons.Default.Computer, null) },
+                        leadingContent = { Icon(Icons.Rounded.Devices, null) },
                     )
                 }
                 state.devices.forEach { device -> add { key(device.id) {
@@ -390,18 +390,18 @@ private fun RemoteDevices(state: RemoteState, vm: RemoteViewModel, onBack: () ->
                                 Text(device.address, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         },
-                        leadingContent = { Icon(Icons.Default.Computer, null) },
+                        leadingContent = { Icon(Icons.Rounded.Devices, null) },
                         trailingContent = { Box {
                             IconButton(onClick = { menuOpen = true }, enabled = enabled) {
-                                Icon(Icons.Default.MoreVert, stringResource(R.string.options))
+                                Icon(Icons.Rounded.MoreVert, stringResource(R.string.options))
                             }
                             AgoraDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, containerColor = MaterialTheme.colorScheme.surfaceContainer,
                                 tonalElevation = 16.dp) {
                                 AgoraDropdownMenuItem(text = { Text(stringResource(R.string.edit)) }, enabled = enabled,
-                                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                                     onClick = { menuOpen = false; onForward(); vm.editDevice(device.id) })
                                 AgoraDropdownMenuItem(text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
-                                    enabled = enabled, leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                    enabled = enabled, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                                     onClick = { menuOpen = false; deleteId = device.id })
                             }
                         } },
@@ -451,7 +451,7 @@ internal fun RemoteAddDevice(state: RemoteState, vm: RemoteViewModel, active: Bo
         onBack = { if (ownsEditor()) { closed = true; onBack() } },
         actions = { IconButton(onClick = { if (ownsEditor()) { onForward(); vm.saveDevice(address, token, name) } },
             enabled = ownsEditor() && !state.restoring && !state.saving && address.isNotBlank() && token.isNotBlank()) {
-            Icon(Icons.Default.Save, stringResource(R.string.save))
+            Icon(Icons.Rounded.Save, stringResource(R.string.save))
         } },
     ) {
         SettingsGroupColumn {
@@ -459,19 +459,19 @@ internal fun RemoteAddDevice(state: RemoteState, vm: RemoteViewModel, active: Bo
             enabled = ownsEditor() && !state.restoring && !state.saving,
             onClick = { if (ownsEditor() && !state.restoring && !state.saving) guideVisible = true })
         SettingsGroup(title = stringResource(R.string.remote_connection), items = listOf({
-            SettingsIconContent(Icons.Default.Computer) {
+            SettingsIconContent(Icons.Rounded.Devices) {
                 McpLabeledField(label = stringResource(R.string.shell_device_name), value = name,
                     onValueChange = { if (ownsEditor()) name = it }, placeholder = stringResource(R.string.remote_device))
             }
         }, {
-            SettingsIconContent(Icons.Default.Link) {
+            SettingsIconContent(Icons.Rounded.Link) {
                 McpLabeledField(label = stringResource(R.string.remote_address), value = address,
                     onValueChange = { if (ownsEditor()) address = it }, keyboardType = KeyboardType.Uri,
                     supportingText = stringResource(R.string.remote_connection_hint),
                     placeholder = stringResource(R.string.remote_address_placeholder))
             }
         }, {
-            SettingsIconContent(Icons.Default.Key) {
+            SettingsIconContent(Icons.Rounded.Key) {
                 McpLabeledField(label = stringResource(R.string.remote_token), value = token,
                     onValueChange = { if (ownsEditor()) token = it }, keyboardType = KeyboardType.Password, password = true,
                     placeholder = stringResource(R.string.remote_token_placeholder))

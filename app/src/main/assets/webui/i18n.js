@@ -78,7 +78,7 @@ const TEXT = {
     todoTitle: "Todo", todoProgress: (done, total) => `${done} / ${total}`,
     todoStatuses: { pending: "Pending", in_progress: "In progress", completed: "Completed" },
     interactionTitle: "Ask User", interactionApproval: "Approval", answerHint: "Your answer...", customAnswer: "Answer in your own words", skip: "Skip", questionBack: "Back", questionNext: "Next",
-    shellConfirm: "Run shell command?", shellTrust: "Always allow this server for this session", allow: "Allow", deny: "Deny",
+    shellTrust: "Always allow this server", allow: "Allow once", deny: "Deny",
     stop: "Stop",
     cancel: "Cancel",
     sendUnconfirmed: "Connection lost. Check the conversation before sending again.",
@@ -88,6 +88,7 @@ const TEXT = {
     share: "Share",
     unreadGeneration: "Unread generated response",
     copy: "Copy",
+    replaceAll: "Replace all",
     // Message row actions, message info, the source label and the compact pill. Each value is the
     // app's own string (values/*.xml); the phone keeps its formatting, including "—" for no figure.
     edit: "Edit", selectText: "Select Text", info: "Info", messageInfo: "Message Info",
@@ -188,7 +189,7 @@ const TEXT = {
     todoTitle: "待办清单", todoProgress: (done, total) => `${done} / ${total}`,
     todoStatuses: { pending: "待处理", in_progress: "进行中", completed: "已完成" },
     interactionTitle: "询问", interactionApproval: "审批", answerHint: "你的回答…", customAnswer: "用自己的话回答", skip: "跳过", questionBack: "上一题", questionNext: "下一题",
-    shellConfirm: "运行 Shell 命令？", shellTrust: "在本次会话中始终允许此服务器", allow: "允许", deny: "拒绝",
+    shellTrust: "总是允许此服务器", allow: "允许一次", deny: "拒绝",
     stop: "停止",
     cancel: "取消",
     sendUnconfirmed: "连接中断。再次发送前请确认对话内容。",
@@ -198,6 +199,7 @@ const TEXT = {
     share: "分享",
     unreadGeneration: "未读的新回复",
     copy: "复制",
+    replaceAll: "全部替换",
     edit: "编辑", selectText: "选择文本", info: "信息", messageInfo: "详细信息",
     delete: "删除", deleteMessageTitle: "删除消息？",
     deleteMessageConfirm: "此消息及其后的所有回复都将被永久删除。",

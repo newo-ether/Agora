@@ -181,6 +181,9 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* Compose trims the first/last line's half-leading (LineHeightStyle.Default is Trim.Both), while
+   CSS keeps it; text-metrics.js measures the app font and this pulls the same leading back out. */
+.user-text:not(.subagent-result) { margin-block: calc(-1 * var(--user-text-leading-trim, 0px)); }
 .user-attachments { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; }
 .user-attachments[data-body-gap="true"] { margin-bottom: 8px; }
 .user-attachment { flex: none; width: 120px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: start; }
@@ -237,8 +240,10 @@
 /* AUXILIARY_CARD_START_EXTENSION_DP: offset(x = -4.dp) and width = maxWidth + 2 x 4 dp, measured
    from the assistant text column the card sits in (owner screenshot: the card started 12 px out). */
 .info-group, .info-card { width: calc(100% + 8px); margin-left: -4px; }
-.info-group { padding: 8px 0 10px; }
-.info-group.after-answer, .info-card.after-answer { padding-top: 16px; }
+.info-group { padding: 6px 0 4px; transition: padding-bottom 400ms cubic-bezier(0.4, 0, 0.2, 1); }
+.info-group.expanded { padding-bottom: 12px; }
+.info-group.after-answer, .info-card.after-answer { padding-top: 14px; }
+.shell[data-reduce-motion="true"] .info-group { transition: none; }
 .info-group-surface {
   position: relative;
   isolation: isolate;
@@ -366,7 +371,7 @@
 .compact-item { padding: 8px 0; }
 /* HorizontalDivider(Modifier.padding(vertical = 2.dp)): 1 dp transparent line + 2 x 2 dp. */
 .compact-item + .compact-item { margin-top: 5px; }
-.info-card { padding-top: 8px; padding-bottom: 6px; }
+.info-card { padding-top: 6px; padding-bottom: 4px; }
 .info-card.first, .info-card.middle { padding-bottom: 0; }
 .info-card.middle, .info-card.last { padding-top: 2px; }
 .info-card-surface {

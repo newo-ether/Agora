@@ -46,7 +46,7 @@ input, textarea { user-select: text; }
   display: flex;
   flex-direction: column;
   width: var(--drawer-width);
-  padding: calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
   border-radius: 0 24px 24px 0;
   background: var(--tonal-1);
   color: var(--md-on-surface);
@@ -66,9 +66,39 @@ input, textarea { user-select: text; }
 }
 .modal.drawer-open .scrim { pointer-events: auto; }
 .side-by-side .scrim { display: none; }
-/* ChatType.conversationsTitle 25/32 bold. */
-.drawer-header { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; height: 56px; margin-bottom: 12px; }
-.drawer-title { position: absolute; inset-inline-start: 0; max-width: calc(100% - 64px); min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 25px; line-height: 32px; font-weight: 700; opacity: 1; transition: opacity 180ms linear; }
+/* ChatType.conversationsTitle 25/32 bold. The header floats: the list scrolls under it, and the
+   fade below the bar appears only after the list has scrolled away from its top. 12 dp safe area +
+   56 dp bar, matching DrawerHeaderContentTop. */
+.drawer-header {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  box-sizing: border-box;
+  height: calc(68px + env(safe-area-inset-top));
+  padding: calc(12px + env(safe-area-inset-top)) 16px 0;
+  pointer-events: none;
+  background: var(--tonal-1);
+}
+/* Drawn only while the content sits under the bar, mirroring Compose's fade band. */
+.drawer-header::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 40px;
+  background: linear-gradient(to bottom, var(--tonal-1), transparent);
+  opacity: 0;
+  transition: opacity 200ms cubic-bezier(.4, 0, .2, 1);
+  pointer-events: none;
+}
+.drawer[data-edge-top="1"] .drawer-header::after { opacity: 1; }
+.shell[data-reduce-motion="true"] .drawer-header::after { transition: none; }
+.drawer-header > * { pointer-events: auto; }
+.drawer-title { position: absolute; inset-inline-start: 16px; top: calc(12px + env(safe-area-inset-top)); display: flex; align-items: center; height: 56px; max-width: calc(100% - 96px); min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 25px; line-height: 32px; font-weight: 700; opacity: 1; transition: opacity 180ms linear; pointer-events: none; }
 .drawer-header[data-search-expanded="true"] .drawer-title { opacity: 0; pointer-events: none; }
 .shell[data-reduce-motion="true"] .drawer-title { transition: none; }
 /* DrawerSearchBar owns one end-anchored width transition, including interrupted reversal. */
@@ -139,6 +169,8 @@ input, textarea { user-select: text; }
 @property --drawer-edge-bottom { syntax: "<number>"; inherits: false; initial-value: 0; }
 .drawer-list {
   flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto;
+  /* Clears the floating header (56 dp bar) plus the 8 dp gap before the first row. */
+  padding-top: 64px;
   mask-image: linear-gradient(to bottom,
     rgb(0 0 0 / calc(1 - var(--drawer-edge-top))) 0,
     black min(40px, 50%), black calc(100% - min(40px, 50%)),

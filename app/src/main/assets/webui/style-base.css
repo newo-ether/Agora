@@ -16,6 +16,9 @@
   --md-surface-container-low: #f1f5eb;
   --md-surface-container: #ebefe6;
   --md-surface-container-high: #e5e9e0;
+  /* MessageBubbleAssets.kt gives code blocks surfaceContainerLow. The interaction card draws the
+     same shell outside .markdown, so the token lives here instead of only on .markdown. */
+  --code-background: var(--md-surface-container-low);
   --md-surface-variant: #dee5d8;
   --md-secondary-container: #d7e8cd;
   --md-on-secondary-container: #121f0e;

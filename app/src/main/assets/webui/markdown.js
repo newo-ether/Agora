@@ -45,6 +45,62 @@ function supportsImageSnapshot(link) {
 }
 
 const SAFE_LINK = /^(https?:|mailto:)/i;
+// Sentence marks that end prose, ASCII and full-width. Kept out of a bare URL, as on the phone.
+const LINK_TAIL_PUNCTUATION = ".,:;!?\"'`…。，、；：！？》」』】”’";
+// Closing brackets belong to the URL only while the URL keeps their opener.
+const LINK_BRACKET_PAIRS = new Map([
+  [")", "("], ["]", "["], ["}", "{"], ["）", "（"], ["】", "【"], ["》", "《"], ["」", "「"], ["』", "『"],
+]);
+
+/** End of a bare URL that stops before trailing punctuation; balanced brackets stay inside. */
+function trimLinkTail(url) {
+  let end = url.length;
+  while (end > 0) {
+    const last = url[end - 1];
+    const opener = LINK_BRACKET_PAIRS.get(last);
+    if (opener) {
+      let closers = 0, openers = 0;
+      for (let index = 0; index < end; index++) {
+        if (url[index] === last) closers++;
+        else if (url[index] === opener) openers++;
+      }
+      if (closers <= openers) return url.slice(0, end);
+      end--;
+    } else if (LINK_TAIL_PUNCTUATION.includes(last)) {
+      end--;
+    } else {
+      return url.slice(0, end);
+    }
+  }
+  return url.slice(0, end);
+}
+
+/**
+ * marked's GFM autolink stops at whitespace and backpedals only ASCII punctuation, so a closing
+ * full-width bracket or sentence mark typed right after a bare URL lands inside both the anchor
+ * and its href. Move that tail back out as plain text, matching the phone's link range.
+ */
+function trimAutolinkTails(node) {
+  if (Array.isArray(node)) {
+    node.forEach(trimAutolinkTails);
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  if (node.type === "link" && node.autolink) {
+    const trimmed = trimLinkTail(node.href);
+    if (trimmed !== node.href) {
+      node.linkTail = node.href.slice(trimmed.length);
+      node.text = trimmed;
+      node.href = trimmed;
+      const child = node.tokens?.[0];
+      if (child) child.text = trimmed;
+    }
+  }
+  for (const key of ["tokens", "items", "rows", "header"]) {
+    if (node[key]) trimAutolinkTails(node[key]);
+  }
+}
+
 // Nested lists indent 8 dp per level; style.css has one rule per level up to this depth.
 const MAX_LIST_DEPTH = 6;
 let listDepth = 0;
@@ -61,11 +117,12 @@ marked.use({
       return `<code ${sourceAttributes(token)}>${escapeHtml(token.text)}</code>`;
     },
     html: token => `<span ${sourceAttributes(token)} data-source-literal="true">${escapeHtml(token.text)}</span>`,
-    link({ href, title, tokens }) {
+    link({ href, title, tokens, linkTail }) {
       const label = this.parser.parseInline(tokens);
-      if (!SAFE_LINK.test(href)) return label;
+      const tail = linkTail ? escapeHtml(linkTail) : "";
+      if (!SAFE_LINK.test(href)) return label + tail;
       const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
-      return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>`;
+      return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>${tail}`;
     },
     image(token) {
       if (isMarkdownVideo(token.href)) {
@@ -152,6 +209,7 @@ function renderHtml(markdown, math, sourceMap = [], citations = [], streaming = 
     normalizedPositions.push(positions[start]);
   }
   const tokens = marked.lexer(normalized);
+  trimAutolinkTails(tokens);
   let imageOrdinal = 0;
   function locate(tokens, raw, positions, fragments) {
     let cursor = 0;

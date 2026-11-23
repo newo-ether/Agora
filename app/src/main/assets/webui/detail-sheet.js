@@ -57,16 +57,16 @@ function ToolJsonNode({ node, depth = 0 }) {
   </div>`;
 }
 
-function ToolPill({ text, emphasized = false }) {
+export function ToolPill({ text, emphasized = false }) {
   return text == null ? null : html`<span class=${`tool-pill ${emphasized ? "emphasized" : ""}`} title=${text}>${text}</span>`;
 }
 
-function ToolOutput({ text }) {
+export function ToolOutput({ text }) {
   return html`<div class="tool-output tool-code">${text}</div>`;
 }
 
 /** File name in primary color, directory as small grey text that keeps its tail visible. */
-function ToolPath({ path }) {
+export function ToolPath({ path }) {
   if (!path) return null;
   return html`<div class="tool-path" title=${path.directory || null}>
     <div class="tool-path-name tool-code">${path.name}</div>
@@ -125,7 +125,7 @@ function ToolDiff({ body }) {
     <div class="tool-muted tool-gap">${body.status}</div>`;
 }
 
-function ToolDiffHunks({ hunks, replaceAllLabel }) {
+export function ToolDiffHunks({ hunks, replaceAllLabel }) {
   const sign = { removed: "-", added: "+", context: " " };
   return html`<div class="tool-diff-hunks">
     ${hunks.map((hunk, index) => html`<div key=${index}>

@@ -10,6 +10,9 @@ import {
 import { MoreMenu } from "./menu.js";
 import { sync } from "./sync.js";
 
+// New Chat is a list row: the 42 dp button plus its 16 dp gap.
+const NEW_CHAT_ROW_HEIGHT = 58;
+
 function DrawerButton({ className, iconPath, label, onClick, disabled = true }) {
   return html`
     <button class=${`drawer-button ${className}`} type="button" disabled=${disabled} onClick=${onClick}>
@@ -74,8 +77,9 @@ export function DrawerContent({ conversations, openId, onSelect, connected, load
   const rows = useMemo(() => {
     const pinned = conversations.filter(item => item.isPinned);
     const ordinary = conversations.filter(item => !item.isPinned);
-    const result = [];
-    let top = 0;
+    // New Chat is the first row of the scroller, so it leaves with the content.
+    const result = [{ key: "new-chat", newChat: true, top: 0, height: NEW_CHAT_ROW_HEIGHT }];
+    let top = NEW_CHAT_ROW_HEIGHT;
     const heading = (key, title) => { result.push({ key, title, top, height: 36 }); top += 36; };
     const append = item => { result.push({ key: item.id, conversation: item, top, height: 44 }); top += 44; };
     if (pinned.length) { heading("pinned-heading", t.pinned); pinned.forEach(append); }
@@ -95,8 +99,13 @@ export function DrawerContent({ conversations, openId, onSelect, connected, load
   }, []);
   useLayoutEffect(() => {
     const node = list.current;
-    node.style.setProperty("--drawer-edge-top", node.scrollTop <= 2 ? "0" : "1");
+    const atTop = node.scrollTop <= 2;
+    node.style.setProperty("--drawer-edge-top", atTop ? "0" : "1");
     node.style.setProperty("--drawer-edge-bottom", node.scrollHeight - node.clientHeight - node.scrollTop <= 2 ? "0" : "1");
+    // The header's fade band below the bar follows the same top edge.
+    const drawer = node.closest(".drawer");
+    if (atTop) drawer?.removeAttribute("data-edge-top");
+    else drawer?.setAttribute("data-edge-top", "1");
   }, [viewport, rows, searching, searchResults, loading]);
   useLayoutEffect(() => {
     if (!searching && connected && hasMore && !loading && viewport.top + viewport.height >= rows.height - 88) sync.loadMore();
@@ -198,10 +207,6 @@ export function DrawerContent({ conversations, openId, onSelect, connected, load
         </span>`}
       </div>
     </div>
-    ${!searching && html`
-    <${DrawerButton} className="filled new-chat" iconPath=${ICON_ADD} label=${t.newChat}
-      disabled=${!connected} onClick=${() => onSelect(null)} />
-    `}
     <div class="drawer-list" ref=${list} role="list" aria-label=${t.conversations} aria-busy=${searching ? searchLoading : loading}
       onKeyDown=${keyboard} onScroll=${event => setViewport({ top: event.currentTarget.scrollTop, height: event.currentTarget.clientHeight })}>
       ${searching ? html`
@@ -214,7 +219,9 @@ export function DrawerContent({ conversations, openId, onSelect, connected, load
         ${!searchLoading && !searchResults.length && html`<p class="drawer-search-empty" role="status">${searchFailed ? t.searchFailed : t.searchNoResults}</p>`}
       ` : html`<div class="drawer-list-window" style=${{ height: `${rows.height}px` }}>
         ${visible.map(item => html`<div key=${item.key} class="drawer-list-position" data-drawer-position=${item.key} style=${{ top: `${item.top}px`, height: `${item.height}px` }}>
-          ${item.conversation ? html`<${ConversationRow} conversation=${item.conversation}
+          ${item.newChat ? html`<${DrawerButton} className="filled new-chat" iconPath=${ICON_ADD} label=${t.newChat}
+            disabled=${!connected} onClick=${() => onSelect(null)} />`
+            : item.conversation ? html`<${ConversationRow} conversation=${item.conversation}
             selected=${item.key === openId} onSelect=${onSelect}
             onMenu=${(conversation, anchor) => { setMenu({ conversation, anchor }); setMenuOpen(true); }} />`
             : html`<h3 class="drawer-section">${item.title}</h3>`}

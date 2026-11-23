@@ -10,9 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -261,7 +261,7 @@ internal fun RemoteConversation(
                 moreMenuContent = { dismiss ->
                     AgoraDropdownMenuItem(
                         text = { Text(stringResource(R.string.conversation_search)) },
-                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
                         enabled = active && !switching,
                         onClick = { dismiss(); interaction.activateSearch() },
                     )
@@ -444,7 +444,7 @@ internal fun RemoteConversation(
                                 enabled = active,
                                 modifier = Modifier.size(32.dp).menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = active)
                             ) {
-                                Icon(Icons.Default.MoreVert, stringResource(R.string.tools), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Rounded.MoreVert, stringResource(R.string.tools), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
 
                             AgoraExposedDropdownMenu(
@@ -484,7 +484,7 @@ internal fun RemoteConversation(
                                     text = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(
-                                                Icons.Default.Speed,
+                                                Icons.Rounded.Speed,
                                                 contentDescription = null,
                                                 modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp),
                                             )
