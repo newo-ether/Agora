@@ -551,10 +551,17 @@ treats a multipart or validator-bound request as a whole-file read, stops when t
 is never cached. The browser card matches `MarkdownVideoCard`: a 16:9, 16 px card on 55%
 surface-variant, the stream's first frame (metadata preload) as poster under a 28% black scrim, a
 centred 56 px play disc at 45% black and the destination file name at the bottom start. A tap opens
-the AttachmentViewer video pane, which drops its loading veil once the first frame decodes and offers
-a full-screen toggle for the whole viewer (landscape videos request a landscape orientation lock
-where the browser permits it; closing the viewer leaves full screen). Videos still consume no image
-ordinal, so the WebUI image route's occurrence set is unchanged.
+the answer's media gallery (below) on that video; its page uses the browser's own video controls,
+whose bottom 72 px scrub instead of paging, and drops its loading veil once the first frame decodes.
+The WebUI viewer has no full-screen button of its own. Videos still consume no image ordinal, so the
+WebUI image route's occurrence set is unchanged.
+
+In native chat a tap on any Markdown picture or video card of one answer opens one media viewer over
+all of that answer's pictures and videos, ordered by their position on screen (top to bottom, then
+start to end), starting at the tapped one. A Conch video joins once its cached copy exists. Rows
+without this answer gallery (detail sheets, Remote) keep their previous viewer. The native video
+player offers a full-screen toggle in its control bar: it requests sensor landscape and hides the
+system bars, and leaving full screen or closing the player restores both.
 
 Markdown links are tappable in Agora-owned messages. `http://`, `https://` and `mailto:` leave
 through the platform handler. `/home/agora/…` and `shell://Local Sandbox/home/agora/…` resolve under
@@ -587,10 +594,11 @@ Native chat provides the loader around its Markdown. WebUI serves authenticated,
 reads through the same store. A browser request identifies the owning conversation/message,
 document and image ordinal, and the destination must match that exact parsed occurrence; it cannot
 proxy arbitrary paths. Percent-encoded server names, POSIX and Windows paths retain native semantics.
-WebUI reserves the same square loading/failure viewport. Like the native message gallery, a tap on a
-loaded image opens AttachmentViewer over every loaded image of the same message document in reading
-order, starting at the tapped one. The viewer pages one track inside its clipped viewport with both
-neighbours mounted, so a drag or settle never exposes an empty side; a release pages past half a
+WebUI reserves the same square loading/failure viewport. Like the native answer gallery, a tap on a
+loaded image or a video card opens AttachmentViewer over every loaded image and every video card of
+the same message document in reading order, starting at the tapped one. The viewer pages one track
+inside its clipped viewport with both neighbours mounted (a neighbouring video waits as its glyph on
+black), so a drag or settle never exposes an empty side; a release pages past half a
 page or on a flick faster than 600 px/s toward the drag, and settles on the Compose pager spring
 (stiffness 400, damping ratio 1) from the release velocity.
 The bytes and receipts never enter Provider context, Room or the message graph; Remote sessions keep

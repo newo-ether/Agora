@@ -402,7 +402,8 @@ internal fun MessageItem(
                         onLayoutMutationStarted = onLayoutMutationStarted,
                         onLayoutMutationSettled = onLayoutMutationSettled,
                     )
-                } else {
+                } else MarkdownMediaGalleryHost {
+                    // One viewer pages through every picture and video of this answer.
                     AssistantMessageContent(
                         message = displayMessage,
                         includeOuterSpacing = includeAssistantOuterSpacing,

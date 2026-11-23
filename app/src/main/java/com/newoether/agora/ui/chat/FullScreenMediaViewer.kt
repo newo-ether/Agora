@@ -65,10 +65,8 @@ import kotlin.math.abs
 
 private fun hasVideoExtension(url: String): Boolean {
     val normalized = url.substringBefore('?').substringBefore('#').lowercase()
-    return normalized.endsWith(".mp4") ||
-        normalized.endsWith(".webm") ||
-        normalized.endsWith(".mov") ||
-        normalized.endsWith(".avi") ||
+    // The containers markdownVideoLink embeds, so a streamed Markdown video pages as a video.
+    return listOf(".mp4", ".m4v", ".webm", ".mov", ".mkv", ".avi", ".3gp", ".ogv").any(normalized::endsWith) ||
         normalized.contains("vid_original_")
 }
 

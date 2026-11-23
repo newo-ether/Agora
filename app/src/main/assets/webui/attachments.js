@@ -4,8 +4,7 @@ import "./vendor/panzoom.min.js";
 import { Spinner } from "./material/progress.js";
 import { sliderStyle } from "./material/slider.js";
 import { t } from "./i18n.js";
-import { icon, ICON_CLOSE, ICON_VIDEO, ICON_ERROR, ICON_BROKEN_IMAGE, ICON_CHEVRON_RIGHT, ICON_FULLSCREEN,
-  ICON_FULLSCREEN_EXIT } from "./icons.js";
+import { icon, ICON_CLOSE, ICON_VIDEO, ICON_ERROR, ICON_BROKEN_IMAGE, ICON_CHEVRON_RIGHT } from "./icons.js";
 import { sync } from "./sync.js";
 import { Markdown } from "./markdown.js";
 
@@ -164,6 +163,8 @@ export function AttachmentEditor({ attachment: a, editable, onPreview }) {
 
 // Release speed (px/s) past which a flick pages even before half a page was dragged.
 const FLING_VELOCITY = 600;
+// Height of the browser's video control bar, whose drags scrub instead of paging.
+const VIDEO_CONTROLS_HEIGHT = 72;
 
 export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const dialog = useRef(null);
@@ -176,10 +177,15 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const file = viewer.file;
   const item = viewer.items?.[index];
   const source = item && (item.url ?? sync.attachmentUrl(item.id, item.kind, item.index));
+  const isVideo = entry => entry?.type === "video" && entry.kind === "source";
   const neighbourSource = offset => {
     const neighbour = viewer.items?.[index + offset];
     return neighbour && (neighbour.url ?? sync.attachmentUrl(neighbour.id, neighbour.kind, neighbour.index));
   };
+  // A waiting picture is the picture itself; a waiting video shows the video glyph on black.
+  const peek = (entry, url, key, style) => isVideo(entry)
+    ? html`<div class="attachment-peek attachment-peek-video" key=${key} style=${style}>${icon(ICON_VIDEO)}</div>`
+    : html`<img class="attachment-peek" key=${key} src=${url} alt="" draggable="false" style=${style} />`;
   const previousSource = neighbourSource(-1);
   const nextSource = neighbourSource(1);
   const [loadedSource, setLoadedSource] = useState(null);
@@ -196,35 +202,7 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const [cover, setCover] = useState(null);
   const track = useRef({ x: 0, xVelocity: 0, cancel: null });
   const swipe = useRef(null);
-  const video = item?.type === "video" && item.kind === "source";
-  const [fullscreen, setFullscreen] = useState(false);
-  useLayoutEffect(() => {
-    const update = () => setFullscreen(!!dialog.current && document.fullscreenElement === dialog.current);
-    document.addEventListener("fullscreenchange", update);
-    return () => {
-      document.removeEventListener("fullscreenchange", update);
-      // Closing the viewer must not leave the page itself in full screen.
-      if (dialog.current && document.fullscreenElement === dialog.current) document.exitFullscreen?.().catch(() => {});
-    };
-  }, []);
-  // The whole viewer enters full screen, so its close button and controls stay usable; a landscape
-  // video also asks for landscape where the browser allows an orientation lock.
-  async function toggleFullscreen() {
-    const node = dialog.current;
-    if (!node) return;
-    try {
-      if (document.fullscreenElement === node) {
-        screen.orientation?.unlock?.();
-        await document.exitFullscreen();
-        return;
-      }
-      await node.requestFullscreen({ navigationUI: "hide" });
-      const element = node.querySelector("video");
-      if (element && element.videoWidth > element.videoHeight) {
-        await screen.orientation?.lock?.("landscape").catch(() => {});
-      }
-    } catch {}
-  }
+  const video = isVideo(item);
   useLayoutEffect(() => {
     const host = viewport.current, node = image.current;
     if (!host || !node || !loaded) return;
@@ -303,9 +281,10 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
     // has not committed yet.
     if (!element || !incoming || track.current.cancel) return;
     const span = element.clientWidth || 1;
+    const entry = viewer.items[index + dir];
     settleTrack(-dir * span, () => {
-      // Keep the incoming picture painted across the swap until the new <img> paints.
-      setCover(incoming);
+      // Keep the incoming page painted across the swap until the new <img> or <video> paints.
+      setCover({ entry, url: incoming });
       navigate(index + dir);
     });
   }
@@ -314,8 +293,12 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
     if ((zoom.current?.panzoom.getScale() ?? 1) > 1.05) { swipe.current = null; return; }
     // A running settle owns the track; the finger takes over only after it lands.
     if (track.current.cancel) { swipe.current = null; return; }
-    track.current.xVelocity = 0;
     const [touch] = event.touches;
+    // The player's own control bar keeps its scrubbing drag instead of paging.
+    if (video && touch.clientY > (viewport.current?.getBoundingClientRect().bottom ?? Infinity) - VIDEO_CONTROLS_HEIGHT) {
+      swipe.current = null; return;
+    }
+    track.current.xVelocity = 0;
     swipe.current = { x: touch.clientX, y: touch.clientY, axis: null, dir: 0, dx: 0,
       blocked: false, velocity: 0, time: performance.now() };
   }
@@ -363,29 +346,24 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
       if (event.key === "ArrowRight" && index < (viewer.items?.length || 0) - 1) step(1);
     }}>
     ${file ? html`<div class="text-file-content">${/\.(md|markdown)$/i.test(file.name || "") ? html`<${Markdown} text=${{ markdown: file.text, math: [] }} />` : html`<pre>${file.text}</pre>`}</div>`
-      : video ? html`<video key=${source} src=${source} controls autoplay playsinline
-        onLoadedData=${() => { setShownSource(source); setLoadedSource(source); }} onError=${() => setFailedSource(source)}
-        style=${{ opacity: loaded ? 1 : 0 }}></video>`
       : html`<div class="tool-media-scroll image-viewport" ref=${viewport}
         onDblClick=${toggleZoom} onTouchStart=${startSwipe} onTouchMove=${moveSwipe} onTouchEnd=${endSwipe} onTouchCancel=${endSwipe}>
         <div class="attachment-pager" ref=${pager}>
-        ${previousSource && html`<img class="attachment-peek" key=${`previous:${previousSource}`} src=${previousSource}
-          alt="" draggable="false" style=${{ transform: "translateX(-100%)" }} />`}
-        ${nextSource && html`<img class="attachment-peek" key=${`next:${nextSource}`} src=${nextSource}
-          alt="" draggable="false" style=${{ transform: "translateX(100%)" }} />`}
-        <img ref=${image} class="attachment-full-image" src=${source}
-        alt=${item.name || t.attachments} draggable="false"
-        onLoad=${() => { setShownSource(source); setLoadedSource(source); setCover(null); }}
-        onError=${() => { setFailedSource(source); setCover(null); }}
-        style=${{ opacity: shown ? 1 : 0 }} />
-        ${cover && html`<img class="attachment-peek" key=${`cover:${cover}`} src=${cover}
-          alt="" draggable="false" />`}</div></div>`}
+        ${previousSource && peek(viewer.items[index - 1], previousSource, `previous:${previousSource}`, { transform: "translateX(-100%)" })}
+        ${nextSource && peek(viewer.items[index + 1], nextSource, `next:${nextSource}`, { transform: "translateX(100%)" })}
+        ${video ? html`<video key=${source} class="attachment-full-video" src=${source} controls autoplay playsinline
+          onLoadedData=${() => { setShownSource(source); setLoadedSource(source); setCover(null); }}
+          onError=${() => { setFailedSource(source); setCover(null); }}
+          style=${{ opacity: loaded ? 1 : 0 }}></video>`
+        : html`<img ref=${image} class="attachment-full-image" src=${source}
+          alt=${item.name || t.attachments} draggable="false"
+          onLoad=${() => { setShownSource(source); setLoadedSource(source); setCover(null); }}
+          onError=${() => { setFailedSource(source); setCover(null); }}
+          style=${{ opacity: shown ? 1 : 0 }} />`}
+        ${cover && peek(cover.entry, cover.url, `cover:${cover.url}`)}</div></div>`}
     ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !shown && !failed ? 1 : 0 }}><${Spinner} stroke=${3} label=${t.attachments} /></div>
       <div class="attachment-viewport-status" style=${{ opacity: failed ? 1 : 0 }} role=${failed ? "alert" : null}>${icon(item.type === "image" || item.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>`}
     <div class="tool-media-controls"><span class="tool-media-count">${file?.name || `${index + 1} / ${viewer.items.length}`}</span>
-      ${video && document.fullscreenEnabled && html`<button class="detail-sheet-icon" type="button"
-        title=${fullscreen ? t.exitFullscreen : t.htmlFullscreen} aria-label=${fullscreen ? t.exitFullscreen : t.htmlFullscreen}
-        aria-pressed=${fullscreen} onClick=${toggleFullscreen}>${icon(fullscreen ? ICON_FULLSCREEN_EXIT : ICON_FULLSCREEN)}</button>`}
       <button class="detail-sheet-icon" type="button" title=${t.close} aria-label=${t.close} onClick=${onClose}>${icon(ICON_CLOSE)}</button></div>
     ${!file && viewer.items.length > 1 && html`<button class="tool-media-previous detail-sheet-icon" type="button" aria-label=${t.previous} disabled=${index === 0} onClick=${() => step(-1)}>${icon(ICON_CHEVRON_RIGHT)}</button>
       <button class="tool-media-next detail-sheet-icon" type="button" aria-label=${t.next} disabled=${index === viewer.items.length - 1} onClick=${() => step(1)}>${icon(ICON_CHEVRON_RIGHT)}</button>`}

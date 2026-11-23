@@ -115,8 +115,11 @@
 .attachment-pager { position: absolute; inset: 0; will-change: transform; }
 /* The neighbouring picture waiting off to the side during a swipe. */
 .attachment-peek { position: absolute; inset: 0; display: block; object-fit: contain; width: 100%; height: 100%; pointer-events: none; }
-.attachment-viewer > video { width: 100%; height: 100%; }
-.attachment-full-image, .attachment-viewer > video { transition: opacity 200ms linear; }
+/* A neighbouring video waits as its glyph, like the native pager's unloaded video page. */
+.attachment-peek-video { display: grid; place-items: center; background: black; color: white; }
+.attachment-peek-video > svg { width: 48px; height: 48px; fill: currentColor; }
+.attachment-full-video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.attachment-full-image, .attachment-full-video { transition: opacity 200ms linear; }
 .attachment-viewport-status { position: absolute; inset: 0; display: grid; place-items: center; background: black; pointer-events: none; transition: opacity 200ms linear; }
 .attachment-viewport-status > svg { width: 32px; height: 32px; fill: currentColor; }
 .attachment-viewer .tool-media-controls > button { flex: none; }

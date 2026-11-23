@@ -47,6 +47,9 @@ internal class ShellMarkdownMedia(
     private val inFlight = HashMap<String, Deferred<Unit>>()
     private val lock = Any()
 
+    /** Remote `shell://` videos are copied on demand into the media cache before playback. */
+    val videos = ShellMarkdownVideo(context, devices, scope)
+
     /** Current slot state. Destination alone determines geometry, never snapshot identity. */
     fun peek(link: String, occurrence: String? = null): MarkdownImage? {
         val target = markdownImageSnapshotKey(link) ?: return null

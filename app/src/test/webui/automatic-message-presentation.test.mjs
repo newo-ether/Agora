@@ -273,7 +273,7 @@ test("receipt updates preserve attachments and remove the old body ref without e
     generating: false, matches: [], conversationId: "conversation", onDelete() {} });
   assert.ok(f.component("SubagentResult"));
   assert.equal(nodes(f.tree).some(node => node.ref?.current === oldText), false);
-  assert.equal(f.find(node => node.props.class === "user-attachments").props["data-body-gap"], true);
+  assert.equal(f.find(node => String(node.props.class).split(" ").includes("user-attachments")).props["data-body-gap"], true);
   assert.match(text(f.tree), /report\.txt/);
   f.dispose();
 });

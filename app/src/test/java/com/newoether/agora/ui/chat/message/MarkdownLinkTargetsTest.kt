@@ -100,13 +100,29 @@ class MarkdownLinkTargetsTest {
     }
 
     @Test
-    fun videoSourcesStayInsideSandboxHomeOrRemainRemote() {
+    fun videoSourcesStayInsideSandboxHomeOrResolveToTheirConchDevice() {
         assertEquals(
             MarkdownVideoSource.Local(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "clips/a.mp4")),
             markdownVideoSource("shell://Local Sandbox/home/agora/clips/a.mp4"),
         )
         assertNull(markdownVideoSource("shell://Local Sandbox/etc/a.mp4"))
-        assertNull(markdownVideoSource("shell://Workstation/F:/out/a.mp4"))
+        assertEquals(
+            MarkdownVideoSource.Conch("Workstation", "F:/out/a.mp4"),
+            markdownVideoSource("shell://Workstation/F:/out/a.mp4"),
+        )
+        assertEquals(
+            MarkdownVideoSource.Conch("tinybox", "/home/newoether/clip.webm"),
+            markdownVideoSource("shell://tinybox/home/newoether/clip.webm"),
+        )
+        assertNull(markdownVideoSource("shell://tinybox/home/newoether/clip.png"))
+    }
+
+    @Test
+    fun remoteVideoCacheNameFollowsTheSourceContentHash() {
+        val hash = "ab".repeat(32)
+        assertEquals("$hash.mp4", markdownVideoCacheFileName(hash, "/tips/clip.mp4"))
+        assertEquals("$hash.webm", markdownVideoCacheFileName(hash, "/tips/clip.WEBM"))
+        assertEquals("$hash.mp4", markdownVideoCacheFileName(hash, "/tips/clip"))
     }
 
     @Test

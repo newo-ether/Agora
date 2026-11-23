@@ -104,7 +104,7 @@ function harness(withRow = false) {
     html, t: { collapse: "Collapse", questionBack: "Back", questionNext: "Next", send: "Send",
       skip: "Skip", allow: "Allow", deny: "Deny", customAnswer: "Answer" },
     icon: value => value, ICON_COLLAPSE_CONTENT: "collapse", ICON_EXPAND_CONTENT: "expand",
-    ICON_TERMINAL: "terminal", ICON_HELP: "help",
+    ICON_TERMINAL: "terminal", ICON_HELP: "help", ICON_CONTENT_COPY: "copy",
     sync: { interactionTarget: () => ({ connectionId: props.state.connectionId, conversationId: props.state.openId, seq: 1 }),
       interactionCommand: (type, values, target) => commands.push({ type, values, target }) },
     useRef(initial) { const at = index++; return hooks[at] || (hooks[at] = { current: initial }); },

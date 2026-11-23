@@ -66,9 +66,12 @@ internal class LatexImageTransformer(
         val paths = remember(inlineImages) {
             inlineImages.values.mapNotNull { it.attachment?.path }.distinct()
         }
-        Box(Modifier.padding(vertical = 8.dp)) {
+        // Inside an answer the picture pages with the answer's other pictures and videos.
+        val entry = com.newoether.agora.ui.chat.message.rememberMarkdownMediaEntry(image.attachment?.path)
+        Box(Modifier.padding(vertical = 8.dp).then(entry?.modifier ?: Modifier)) {
             MarkdownImageThumbnail(link, image) {
                 val path = image.attachment?.path ?: return@MarkdownImageThumbnail
+                if (entry != null) return@MarkdownImageThumbnail entry.open(path)
                 val index = paths.indexOf(path)
                 if (index >= 0) onMediaClick(paths, index) else onMediaClick(listOf(path), 0)
             }
