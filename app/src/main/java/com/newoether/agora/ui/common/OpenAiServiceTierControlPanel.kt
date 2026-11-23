@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -74,7 +74,7 @@ fun OpenAiServiceTierControlPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = Icons.Default.Speed,
+                    imageVector = Icons.Rounded.Speed,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -112,7 +112,7 @@ fun OpenAiServiceTierControlPanel(
             verticalAlignment = Alignment.Top,
         ) {
             Icon(
-                imageVector = Icons.Default.Speed,
+                imageVector = Icons.Rounded.Speed,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp),
