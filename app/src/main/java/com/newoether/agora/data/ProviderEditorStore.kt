@@ -28,6 +28,22 @@ data class ProviderEditorDraft(
 
 enum class ProviderEditorCommitResult { SAVED, NAME_CONFLICT, URL_REQUIRED, MISSING, FAILED }
 
+/**
+ * Draft for the Add Provider editor. Prompt cache starts enabled, matching
+ * [CustomProviderConfig.anthropicCacheEnabled]'s own default so a created Provider does not
+ * silently lose caching compared with a decoded config.
+ */
+fun newProviderEditorDraft(cacheTtl: String): ProviderEditorDraft = ProviderEditorDraft(
+    name = "",
+    baseUrl = "",
+    protocol = CustomEndpointProtocol.OPENAI,
+    responsesApiEnabled = false,
+    cacheEnabled = true,
+    cacheTtl = cacheTtl,
+    apiKeys = emptyList(),
+    activeKeyId = null,
+)
+
 /** Commits a Provider editor draft as one DataStore edit, so readers never see a partial save. */
 internal class ProviderEditorStore(
     private val dataStore: DataStore<Preferences>,

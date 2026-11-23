@@ -339,6 +339,16 @@ class ProviderListStoreTest {
         assertEquals(before, dataStore.data.first())
     }
 
+    @Test
+    fun newProviderDraftEnablesPromptCacheByDefault() {
+        val draft = newProviderEditorDraft("1h")
+
+        assertTrue(draft.cacheEnabled)
+        assertEquals("1h", draft.cacheTtl)
+        assertEquals(CustomEndpointProtocol.OPENAI, draft.protocol)
+        assertEquals("", draft.name)
+    }
+
     private fun key(provider: String, id: String = "k-$provider") =
         ApiKeyEntry(id = id, name = "main", key = "sk-test", provider = provider)
 

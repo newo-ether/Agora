@@ -54,6 +54,7 @@ import com.newoether.agora.data.ProviderEditorDraft
 import com.newoether.agora.data.anthropicCacheTtlForProvider
 import com.newoether.agora.data.isAnthropicProtocolProvider
 import com.newoether.agora.data.isPromptCacheSettingEnabledForProvider
+import com.newoether.agora.data.newProviderEditorDraft
 import com.newoether.agora.data.supportsPromptCacheSetting
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
@@ -113,16 +114,7 @@ internal fun ProviderRemoteEditor(
     val storedUrl = providerBaseUrls[providerName].orEmpty()
 
     val stored = if (creating) {
-        ProviderEditorDraft(
-            name = "",
-            baseUrl = "",
-            protocol = CustomEndpointProtocol.OPENAI,
-            responsesApiEnabled = false,
-            cacheEnabled = false,
-            cacheTtl = anthropicCacheTtl.takeIf { it in CACHE_TTLS } ?: "1h",
-            apiKeys = emptyList(),
-            activeKeyId = null,
-        )
+        newProviderEditorDraft(anthropicCacheTtl.takeIf { it in CACHE_TTLS } ?: "1h")
     } else {
         ProviderEditorDraft(
             name = providerName,
