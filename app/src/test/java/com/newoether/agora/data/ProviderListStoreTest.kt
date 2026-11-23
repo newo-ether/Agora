@@ -310,6 +310,35 @@ class ProviderListStoreTest {
         assertEquals(before, dataStore.data.first())
     }
 
+    @Test
+    fun createRefusesAnUnreadableKeyBlobWithoutWritingTheProvider() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        dataStore.edit { it[API_KEYS_JSON] = "not-a-key-blob" }
+        val listStore = ProviderListStore(dataStore, testJson)
+        val editor = ProviderEditorStore(dataStore, testJson, listStore)
+        val before = dataStore.data.first()
+
+        val result = editor.create(draft(name = "Relay", baseUrl = "https://relay.example/v1"))
+
+        assertEquals(ProviderEditorCommitResult.FAILED, result)
+        assertEquals(before, dataStore.data.first())
+    }
+
+    @Test
+    fun createRefusesAnInvalidCacheTtlWithoutWritingTheProvider() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        val listStore = ProviderListStore(dataStore, testJson)
+        val editor = ProviderEditorStore(dataStore, testJson, listStore)
+        val before = dataStore.data.first()
+
+        val result = editor.create(
+            draft(name = "Relay", baseUrl = "https://relay.example/v1", cacheTtl = "2h"),
+        )
+
+        assertEquals(ProviderEditorCommitResult.FAILED, result)
+        assertEquals(before, dataStore.data.first())
+    }
+
     private fun key(provider: String, id: String = "k-$provider") =
         ApiKeyEntry(id = id, name = "main", key = "sk-test", provider = provider)
 

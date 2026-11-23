@@ -89,11 +89,17 @@ function trimAutolinkTails(node) {
   if (node.type === "link" && node.autolink) {
     const trimmed = trimLinkTail(node.href);
     if (trimmed !== node.href) {
-      node.linkTail = node.href.slice(trimmed.length);
-      node.text = trimmed;
+      const tail = node.href.slice(trimmed.length);
+      node.linkTail = tail;
       node.href = trimmed;
+      // A `www.` autolink's label omits the scheme its href carries, so drop the same tail from
+      // the label instead of copying the href.
+      const label = (node.text ?? "").endsWith(tail)
+        ? node.text.slice(0, -tail.length)
+        : (node.text ?? "");
+      node.text = label;
       const child = node.tokens?.[0];
-      if (child) child.text = trimmed;
+      if (child) child.text = label;
     }
   }
   for (const key of ["tokens", "items", "rows", "header"]) {

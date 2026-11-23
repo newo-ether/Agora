@@ -60,6 +60,13 @@ internal class ProviderEditorStore(
             return ProviderEditorCommitResult.NAME_CONFLICT
         }
         if (draft.baseUrl.isBlank()) return ProviderEditorCommitResult.URL_REQUIRED
+        // Everything below is the only place that can still refuse a create, and by then the config
+        // would already be appended; refuse first so a failed save never leaves a Provider behind.
+        if (draft.cacheTtl != "5m" && draft.cacheTtl != "1h") return ProviderEditorCommitResult.FAILED
+        val storedKeysReadable = this[API_KEYS_JSON]?.let { raw ->
+            runCatching { json.decodeFromString<List<ApiKeyEntry>>(SecretCrypto.decrypt(raw)) }.isSuccess
+        } ?: true
+        if (!storedKeysReadable) return ProviderEditorCommitResult.FAILED
         val created = CustomProviderConfig(
             name = name,
             protocol = draft.protocol ?: CustomEndpointProtocol.OPENAI,
