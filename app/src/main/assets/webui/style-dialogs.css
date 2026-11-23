@@ -109,15 +109,18 @@
 .pdf-page span { position: absolute; bottom: 4px; left: 4px; background: var(--md-surface-container); padding: 2px 4px; border-radius: 4px; }
 .pdf-page input { position: absolute; top: 4px; right: 4px; accent-color: var(--md-primary); width: 20px; height: 20px; }
 .attachment-full-image { display: block; object-fit: contain; width: 100%; height: 100%; }
-/* The pager owns this transform frame by frame, so no CSS transition may interpolate it too. */
-.image-viewport { overflow: hidden; touch-action: none; position: relative; will-change: transform; }
+.image-viewport { overflow: hidden; touch-action: none; position: relative; }
+/* The pager owns this transform frame by frame, so no CSS transition may interpolate it too. It
+ * moves inside the clipping viewport, so the neighbours beside it stay visible while it slides. */
+.attachment-pager { position: absolute; inset: 0; will-change: transform; }
 /* The neighbouring picture waiting off to the side during a swipe. */
 .attachment-peek { position: absolute; inset: 0; display: block; object-fit: contain; width: 100%; height: 100%; pointer-events: none; }
 .attachment-viewer > video { width: 100%; height: 100%; }
 .attachment-full-image, .attachment-viewer > video { transition: opacity 200ms linear; }
 .attachment-viewport-status { position: absolute; inset: 0; display: grid; place-items: center; background: black; pointer-events: none; transition: opacity 200ms linear; }
 .attachment-viewport-status > svg { width: 32px; height: 32px; fill: currentColor; }
-.attachment-viewer .tool-media-count { max-width: calc(100% - 60px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-viewer .tool-media-controls > button { flex: none; }
+.attachment-viewer .tool-media-count { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-viewer .tool-media-previous svg { transform: rotate(180deg); }
 .text-file-viewer { background: var(--md-background); color: var(--md-on-background); }
 .text-file-content { padding: 92px 24px 32px; height: 100%; overflow: auto; }

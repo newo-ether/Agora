@@ -4,7 +4,8 @@ import "./vendor/panzoom.min.js";
 import { Spinner } from "./material/progress.js";
 import { sliderStyle } from "./material/slider.js";
 import { t } from "./i18n.js";
-import { icon, ICON_CLOSE, ICON_VIDEO, ICON_ERROR, ICON_BROKEN_IMAGE, ICON_CHEVRON_RIGHT } from "./icons.js";
+import { icon, ICON_CLOSE, ICON_VIDEO, ICON_ERROR, ICON_BROKEN_IMAGE, ICON_CHEVRON_RIGHT, ICON_FULLSCREEN,
+  ICON_FULLSCREEN_EXIT } from "./icons.js";
 import { sync } from "./sync.js";
 import { Markdown } from "./markdown.js";
 
@@ -161,11 +162,15 @@ export function AttachmentEditor({ attachment: a, editable, onPreview }) {
     </section></dialog>`;
 }
 
+// Release speed (px/s) past which a flick pages even before half a page was dragged.
+const FLING_VELOCITY = 600;
+
 export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const dialog = useRef(null);
   const onClose = useDialog(dialog, onClosed);
   const index = viewer.index || 0;
   const viewport = useRef(null);
+  const pager = useRef(null);
   const image = useRef(null);
   const zoom = useRef(null);
   const file = viewer.file;
@@ -191,6 +196,35 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   const [cover, setCover] = useState(null);
   const track = useRef({ x: 0, xVelocity: 0, cancel: null });
   const swipe = useRef(null);
+  const video = item?.type === "video" && item.kind === "source";
+  const [fullscreen, setFullscreen] = useState(false);
+  useLayoutEffect(() => {
+    const update = () => setFullscreen(!!dialog.current && document.fullscreenElement === dialog.current);
+    document.addEventListener("fullscreenchange", update);
+    return () => {
+      document.removeEventListener("fullscreenchange", update);
+      // Closing the viewer must not leave the page itself in full screen.
+      if (dialog.current && document.fullscreenElement === dialog.current) document.exitFullscreen?.().catch(() => {});
+    };
+  }, []);
+  // The whole viewer enters full screen, so its close button and controls stay usable; a landscape
+  // video also asks for landscape where the browser allows an orientation lock.
+  async function toggleFullscreen() {
+    const node = dialog.current;
+    if (!node) return;
+    try {
+      if (document.fullscreenElement === node) {
+        screen.orientation?.unlock?.();
+        await document.exitFullscreen();
+        return;
+      }
+      await node.requestFullscreen({ navigationUI: "hide" });
+      const element = node.querySelector("video");
+      if (element && element.videoWidth > element.videoHeight) {
+        await screen.orientation?.lock?.("landscape").catch(() => {});
+      }
+    } catch {}
+  }
   useLayoutEffect(() => {
     const host = viewport.current, node = image.current;
     if (!host || !node || !loaded) return;
@@ -236,7 +270,9 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
   }
   function paintTrack(x) {
     track.current.x = x;
-    if (viewport.current) viewport.current.style.transform = `translateX(${x}px)`;
+    // The pager moves inside the clipped viewport, so both neighbours slide in instead of being
+    // cut off by the viewport's own bounds.
+    if (pager.current) pager.current.style.transform = `translateX(${x}px)`;
   }
   function stopTrack() {
     const cancel = track.current.cancel;
@@ -311,7 +347,9 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
     if (!state || state.axis !== "horizontal") { settleTrack(0); return; }
     const span = viewport.current?.clientWidth || 1;
     track.current.xVelocity = state.velocity || 0;
-    if (!state.blocked && Math.abs(track.current.x) > span * .18) {
+    // Like the Compose pager: a short fast flick pages too, but only toward the drag direction.
+    const flick = -state.velocity * state.dir > FLING_VELOCITY;
+    if (!state.blocked && (Math.abs(track.current.x) > span * .5 || flick && Math.abs(track.current.x) > 8)) {
       step(state.dir);
     } else {
       settleTrack(0);
@@ -325,10 +363,12 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
       if (event.key === "ArrowRight" && index < (viewer.items?.length || 0) - 1) step(1);
     }}>
     ${file ? html`<div class="text-file-content">${/\.(md|markdown)$/i.test(file.name || "") ? html`<${Markdown} text=${{ markdown: file.text, math: [] }} />` : html`<pre>${file.text}</pre>`}</div>`
-      : item?.type === "video" && item.kind === "source" ? html`<video key=${source} src=${source} controls autoplay
-        onLoadedData=${() => setLoadedSource(source)} onError=${() => setFailedSource(source)} style=${{ opacity: loaded ? 1 : 0 }}></video>`
+      : video ? html`<video key=${source} src=${source} controls autoplay playsinline
+        onLoadedData=${() => { setShownSource(source); setLoadedSource(source); }} onError=${() => setFailedSource(source)}
+        style=${{ opacity: loaded ? 1 : 0 }}></video>`
       : html`<div class="tool-media-scroll image-viewport" ref=${viewport}
-        onDblClick=${toggleZoom} onTouchStart=${startSwipe} onTouchMove=${moveSwipe} onTouchEnd=${endSwipe}>
+        onDblClick=${toggleZoom} onTouchStart=${startSwipe} onTouchMove=${moveSwipe} onTouchEnd=${endSwipe} onTouchCancel=${endSwipe}>
+        <div class="attachment-pager" ref=${pager}>
         ${previousSource && html`<img class="attachment-peek" key=${`previous:${previousSource}`} src=${previousSource}
           alt="" draggable="false" style=${{ transform: "translateX(-100%)" }} />`}
         ${nextSource && html`<img class="attachment-peek" key=${`next:${nextSource}`} src=${nextSource}
@@ -339,10 +379,13 @@ export function AttachmentViewer({ viewer, onNavigate, onClose: onClosed }) {
         onError=${() => { setFailedSource(source); setCover(null); }}
         style=${{ opacity: shown ? 1 : 0 }} />
         ${cover && html`<img class="attachment-peek" key=${`cover:${cover}`} src=${cover}
-          alt="" draggable="false" />`}</div>`}
+          alt="" draggable="false" />`}</div></div>`}
     ${!file && html`<div class="attachment-viewport-status" style=${{ opacity: !shown && !failed ? 1 : 0 }}><${Spinner} stroke=${3} label=${t.attachments} /></div>
       <div class="attachment-viewport-status" style=${{ opacity: failed ? 1 : 0 }} role=${failed ? "alert" : null}>${icon(item.type === "image" || item.kind === "page" ? ICON_BROKEN_IMAGE : ICON_ERROR)}</div>`}
     <div class="tool-media-controls"><span class="tool-media-count">${file?.name || `${index + 1} / ${viewer.items.length}`}</span>
+      ${video && document.fullscreenEnabled && html`<button class="detail-sheet-icon" type="button"
+        title=${fullscreen ? t.exitFullscreen : t.htmlFullscreen} aria-label=${fullscreen ? t.exitFullscreen : t.htmlFullscreen}
+        aria-pressed=${fullscreen} onClick=${toggleFullscreen}>${icon(fullscreen ? ICON_FULLSCREEN_EXIT : ICON_FULLSCREEN)}</button>`}
       <button class="detail-sheet-icon" type="button" title=${t.close} aria-label=${t.close} onClick=${onClose}>${icon(ICON_CLOSE)}</button></div>
     ${!file && viewer.items.length > 1 && html`<button class="tool-media-previous detail-sheet-icon" type="button" aria-label=${t.previous} disabled=${index === 0} onClick=${() => step(-1)}>${icon(ICON_CHEVRON_RIGHT)}</button>
       <button class="tool-media-next detail-sheet-icon" type="button" aria-label=${t.next} disabled=${index === viewer.items.length - 1} onClick=${() => step(1)}>${icon(ICON_CHEVRON_RIGHT)}</button>`}

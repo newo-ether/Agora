@@ -202,19 +202,28 @@
 .markdown-image-slot { display: block; width: min(300px, 100%); }
 /* A Markdown video destination is a 16:9 card; the phone streams it and opens the player on tap. */
 .markdown-video-slot { display: block; width: min(300px, 100%); }
+/* MarkdownVideoCard: a poster frame under a 28% scrim, a centred 56 px play disc and the file name
+ * at the bottom start, on a 55% surface-variant card while no frame is decoded. */
 .markdown-video-card {
-  display: flex; align-items: center; gap: 10px; width: 100%; aspect-ratio: 16 / 9;
-  padding: 12px; border: 0; border-radius: 16px; text-align: left;
-  background: color-mix(in srgb, var(--md-surface-container-highest) 55%, transparent);
+  position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 16 / 9;
+  padding: 0; border: 0; border-radius: 16px; overflow: hidden; cursor: pointer;
+  background: color-mix(in srgb, var(--md-surface-variant, var(--md-surface-container-highest)) 55%, transparent);
   color: var(--md-on-surface);
 }
-.markdown-video-card:disabled { opacity: .5; }
+.markdown-video-card:disabled { opacity: .5; cursor: default; }
+.markdown-video-poster, .markdown-video-scrim { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.markdown-video-poster { object-fit: cover; opacity: 0; transition: opacity 200ms linear; }
+.markdown-video-scrim { background: rgb(0 0 0 / .28); opacity: 0; transition: opacity 200ms linear; }
+.markdown-video-card[data-poster] .markdown-video-poster, .markdown-video-card[data-poster] .markdown-video-scrim { opacity: 1; }
 .markdown-video-play {
-  display: grid; place-items: center; flex: none; width: 44px; height: 44px;
-  border-radius: 50%; background: rgb(0 0 0 / .5); color: #fff;
+  position: relative; display: grid; place-items: center; width: 56px; height: 56px;
+  border-radius: 50%; background: rgb(0 0 0 / .45); color: #fff;
 }
-.markdown-video-play svg { width: 26px; height: 26px; fill: currentColor; }
-.markdown-video-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; line-height: 18px; }
+.markdown-video-play svg { width: 32px; height: 32px; fill: currentColor; }
+.markdown-video-label {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; text-align: start;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 16px; font-weight: 500;
+}
 .markdown-video-link { color: var(--md-primary); }
 .markdown-device-image { width: 100%; }
 .tool-image.markdown-device-image { border-radius: 16px; }
