@@ -12,8 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.LOCAL_INFERENCE_THREAD_PRESETS
@@ -138,10 +136,7 @@ internal fun LocalKvCacheTypeItem(
                     text = value.uppercase(),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.width(96.dp).padding(end = 4.dp),
-                    textAlign = TextAlign.End,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Bold,
                 )
                 AgoraDropdownMenu(
                     expanded = showMenu,
