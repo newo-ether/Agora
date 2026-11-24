@@ -182,6 +182,10 @@ class LocalProvider(
 
         // Native template parsing produces typed thought and tool events. Shared stream normalization
         // still recovers reasoning delimiters that the model emits as ordinary text.
+        // Stream keys must be unique per provider request: the native tool-call index restarts at 0
+        // every round, so a bare index would make a later round's call overwrite the earlier round's
+        // segment in the overlay instead of appending a new one.
+        val toolStreamPrefix = "local_tool_${java.util.UUID.randomUUID()}"
         var inputTokenCount = 0
         var outputTokenCount = 0
         var terminalError: GenerationError? = null
@@ -228,7 +232,7 @@ class LocalProvider(
                             val call = event.call
                             emit(
                                 StreamEvent.ToolCallUpdate(
-                                    streamKey = "local_tool_${call.index}",
+                                    streamKey = "${toolStreamPrefix}_${call.index}",
                                     id = call.id,
                                     name = call.name,
                                     arguments = call.arguments,
@@ -246,7 +250,7 @@ class LocalProvider(
                                         ),
                                     name = call.name,
                                     arguments = arguments,
-                                    streamKey = "local_tool_${call.index}",
+                                    streamKey = "${toolStreamPrefix}_${call.index}",
                                 )
                             }
                             if (calls.size == 1) {
