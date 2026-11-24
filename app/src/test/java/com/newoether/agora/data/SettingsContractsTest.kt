@@ -188,8 +188,8 @@ class SettingsContractsTest {
         assertFalse(ConversationSettings(shellEnabled = false).isAllNull())
     }
     @Test
-    fun lowContextModeDefaultsOffAndCountsAsConversationOverride() {
-        assertFalse(DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED)
+    fun lowContextModeDefaultsOnAndCountsAsConversationOverride() {
+        assertTrue(DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED)
         assertEquals(null, ConversationSettings().lowContextModeEnabled)
         assertFalse(ConversationSettings(lowContextModeEnabled = false).isAllNull())
         assertFalse(ConversationSettings(lowContextModeEnabled = true).isAllNull())

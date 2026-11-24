@@ -8,7 +8,7 @@ internal const val DEFAULT_CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT = true
 internal const val DEFAULT_CONTEXT_COMPACT_THRESHOLD_PERCENT = 90
 internal val CONTEXT_COMPACT_THRESHOLD_PERCENT_RANGE = 50..100
 internal const val DEFAULT_LOCAL_MODEL_IDLE_RETENTION_MINUTES = 5
-internal const val DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED = false
+internal const val DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED = true
 internal val LOCAL_MODEL_IDLE_RETENTION_PRESETS = intArrayOf(0, 1, 2, 5, 10, 15, 30)
 
 internal fun normalizeLocalModelIdleRetentionMinutes(value: Int?): Int =
