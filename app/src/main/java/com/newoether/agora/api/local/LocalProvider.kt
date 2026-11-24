@@ -80,6 +80,8 @@ class LocalProvider(
         val executed = LocalModelRuntime.runChat(
             modelPath = modelConfig.localFilePath,
             nCtx = modelConfig.nCtx,
+            nThreads = settings.localInferenceThreads.first(),
+            kvCacheType = settings.localKvCacheType.first(),
         ) { engine ->
 
         // Build template messages, collecting images per-message with <__media__> markers

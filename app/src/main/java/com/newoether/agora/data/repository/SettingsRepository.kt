@@ -11,6 +11,8 @@ import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT
 import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_RETAIN_COUNT
 import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_THRESHOLD_PERCENT
 import com.newoether.agora.data.DEFAULT_DYNAMIC_COLOR
+import com.newoether.agora.data.DEFAULT_LOCAL_INFERENCE_THREADS
+import com.newoether.agora.data.DEFAULT_LOCAL_KV_CACHE_TYPE
 import com.newoether.agora.data.DEFAULT_LOCAL_MODEL_IDLE_RETENTION_MINUTES
 import com.newoether.agora.data.DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
 import com.newoether.agora.data.DEFAULT_SUBAGENT_MAX_TOTAL
@@ -250,14 +252,10 @@ class SettingsRepository(
     val searchMatchLimit: StateFlow<Int> = publication.hot(settingsManager.searchMatchLimit, 10)
     val ragThreshold: StateFlow<Float> = publication.hot(settingsManager.ragThreshold, 0.5f)
     val localChatModels: StateFlow<List<LocalChatModelConfig>> = publication.hot(settingsManager.localChatModels, emptyList())
-    val localModelIdleRetentionMinutes: StateFlow<Int> = publication.hot(
-        settingsManager.localModelIdleRetentionMinutes,
-        DEFAULT_LOCAL_MODEL_IDLE_RETENTION_MINUTES,
-    )
-    val localLowContextModeEnabled: StateFlow<Boolean> = publication.hot(
-        settingsManager.localLowContextModeEnabled,
-        DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED,
-    )
+    val localModelIdleRetentionMinutes: StateFlow<Int> = publication.hot(settingsManager.localModelIdleRetentionMinutes, DEFAULT_LOCAL_MODEL_IDLE_RETENTION_MINUTES)
+    val localLowContextModeEnabled: StateFlow<Boolean> = publication.hot(settingsManager.localLowContextModeEnabled, DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED)
+    val localInferenceThreads: StateFlow<Int> = publication.hot(settingsManager.localInferenceThreads, DEFAULT_LOCAL_INFERENCE_THREADS)
+    val localKvCacheType: StateFlow<String> = publication.hot(settingsManager.localKvCacheType, DEFAULT_LOCAL_KV_CACHE_TYPE)
     val localToolIncapableModels: StateFlow<Set<String>> = publication.hot(settingsManager.localToolIncapableModels, emptySet())
 
     /** Called by the local provider when a template silently drops offered tools. */
@@ -780,6 +778,8 @@ class SettingsRepository(
     fun setLocalLowContextModeEnabled(enabled: Boolean) = scope.launch {
         settingsManager.saveLocalLowContextModeEnabled(enabled)
     }
+    fun setLocalInferenceThreads(threads: Int) = scope.launch { settingsManager.saveLocalInferenceThreads(threads) }
+    fun setLocalKvCacheType(type: String) = scope.launch { settingsManager.saveLocalKvCacheType(type) }
     suspend fun saveEmbeddingModels(models: List<EmbeddingModelConfig>) = settingsManager.saveEmbeddingModels(models)
     suspend fun setActiveEmbeddingModelId(id: String) = settingsManager.setActiveEmbeddingModelId(id)
     suspend fun saveAutoBackupEnabled(enabled: Boolean) = settingsManager.saveAutoBackupEnabled(enabled)

@@ -816,6 +816,10 @@
     <string name="tool_edit_replace_all">Alle ersetzen</string>
     <string name="low_context_mode">Modus mit kleinem Kontext</string>
     <string name="low_context_mode_default_desc">Modus mit kleinem Kontext standardmäßig aktivieren: Nur Shell- und Web-Search-Tools bleiben, jeweils nach ihrem Schalter</string>
+    <string name="local_inference_threads">Inferenz-Threads</string>
+    <string name="local_inference_threads_desc">Mehr Threads beschleunigen die Prompt-Verarbeitung, können aber die Token-Generierung auf heterogenen Chips verlangsamen. Gilt ab dem nächsten Laden des Modells</string>
+    <string name="local_kv_cache_type">KV-Cache-Präzision</string>
+    <string name="local_kv_cache_type_desc">Q8_0 halbiert den Cache-Speicher bei nahezu keinem Qualitätsverlust; Q4_0 spart mehr, kann aber die Qualität bei langem Kontext verschlechtern. Gilt ab dem nächsten Laden des Modells</string>
     <string name="learn_more">Mehr erfahren...</string>
     <string name="local_model_limitations_title">Einschränkungen lokaler Modelle</string>
     <string name="local_model_limitations_body">Lokale Modelle sind durch den auf Mobilgeräten verfügbaren Arbeitsspeicher begrenzt. Die Kontextgröße ist eine der wichtigsten Einschränkungen. Der Kontext enthält häufig den System-Prompt, Werkzeug- oder Funktionsdefinitionen und Skills. Um den anfänglichen Kontextverbrauch zu verringern, öffnen Sie das Drei-Punkte-Menü neben der Modellauswahl und aktivieren Sie den Modus mit kleinem Kontext.</string>

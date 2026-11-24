@@ -92,6 +92,8 @@ internal val LOCAL_MODEL_IDLE_RETENTION_MINUTES =
     intPreferencesKey("local_model_idle_retention_minutes")
 internal val LOCAL_LOW_CONTEXT_MODE_ENABLED =
     booleanPreferencesKey("local_low_context_mode_enabled")
+internal val LOCAL_INFERENCE_THREADS = intPreferencesKey("local_inference_threads")
+internal val LOCAL_KV_CACHE_TYPE = stringPreferencesKey("local_kv_cache_type")
 /** Local models whose chat template proved unable to express tools; the composer greys tool switches. */
 internal val LOCAL_TOOL_INCAPABLE_MODELS = stringSetPreferencesKey("local_tool_incapable_models")
 internal val CUSTOM_PROVIDERS_JSON = stringPreferencesKey("custom_providers_json")

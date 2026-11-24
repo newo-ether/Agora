@@ -816,6 +816,10 @@
     <string name="tool_edit_replace_all">Tout remplacer</string>
     <string name="low_context_mode">Mode à faible contexte</string>
     <string name="low_context_mode_default_desc">Activer le mode à faible contexte par défaut : seuls les outils Shell et de recherche web restent, selon leurs interrupteurs</string>
+    <string name="local_inference_threads">Threads d’inférence</string>
+    <string name="local_inference_threads_desc">Plus de threads accélèrent le traitement du prompt, mais peuvent ralentir la génération de tokens sur les puces hétérogènes. Appliqué au prochain chargement du modèle</string>
+    <string name="local_kv_cache_type">Précision du cache KV</string>
+    <string name="local_kv_cache_type_desc">Q8_0 réduit de moitié la mémoire du cache avec une perte de qualité négligeable ; Q4_0 économise davantage, mais peut dégrader la qualité sur les longs contextes. Appliqué au prochain chargement du modèle</string>
     <string name="learn_more">En savoir plus...</string>
     <string name="local_model_limitations_title">Limites des modèles locaux</string>
     <string name="local_model_limitations_body">Les modèles locaux sont limités par la mémoire disponible sur les appareils mobiles. La taille du contexte est l’une des principales contraintes. Le contexte comprend souvent le prompt système, les définitions d’outils ou de fonctions et les compétences. Pour réduire l’utilisation initiale du contexte, ouvrez le menu à trois points près du sélecteur de modèle et activez le mode à faible contexte.</string>

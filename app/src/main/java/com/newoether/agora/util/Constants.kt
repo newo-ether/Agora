@@ -64,6 +64,12 @@ object Constants {
     const val ATTACHMENT_MODE_SANDBOX_LINK = "sandbox_link"
     /** Attachment delivery: always embed file content in the prompt. */
     const val ATTACHMENT_MODE_INLINE = "inline"
+    /** Local KV cache precision: full F16, largest memory footprint. */
+    const val KV_CACHE_TYPE_F16 = "f16"
+    /** Local KV cache precision: 8-bit, about half the F16 footprint with negligible quality loss. */
+    const val KV_CACHE_TYPE_Q8_0 = "q8_0"
+    /** Local KV cache precision: 4-bit, smallest footprint, can hurt long-context quality. */
+    const val KV_CACHE_TYPE_Q4_0 = "q4_0"
 
     // ── Provider name constants ────────────────────────────────
     const val PROVIDER_LOCAL = ModelConstants.PROVIDER_LOCAL

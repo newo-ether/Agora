@@ -816,6 +816,10 @@
     <string name="tool_edit_replace_all">استبدال الكل</string>
     <string name="low_context_mode">وضع السياق المنخفض</string>
     <string name="low_context_mode_default_desc">تمكين وضع السياق المنخفض افتراضيًا: تبقى أدوات Shell والبحث على الويب فقط، كل منها وفق مفتاحه</string>
+    <string name="local_inference_threads">خيوط الاستدلال</string>
+    <string name="local_inference_threads_desc">المزيد من الخيوط يسرّع معالجة الموجه، لكنه قد يبطئ توليد الرموز على الرقائق غير المتجانسة. يُطبق عند التحميل التالي للنموذج</string>
+    <string name="local_kv_cache_type">دقة ذاكرة KV المؤقتة</string>
+    <string name="local_kv_cache_type_desc">Q8_0 يقلص ذاكرة التخزين المؤقت إلى النصف مع فقدان جودة ضئيل؛ Q4_0 يوفر أكثر لكنه قد يضر بجودة السياق الطويل. يُطبق عند التحميل التالي للنموذج</string>
     <string name="learn_more">معرفة المزيد...</string>
     <string name="local_model_limitations_title">قيود النماذج المحلية</string>
     <string name="local_model_limitations_body">تكون النماذج المحلية محدودة بالذاكرة المتاحة على الأجهزة المحمولة. ويُعد حجم السياق أحد القيود الرئيسية. غالبًا ما يتضمن السياق مطالبة النظام وتعريفات الأدوات أو الدوال والمهارات. لتقليل استخدام السياق الأولي، افتح قائمة النقاط الثلاث بجوار محدد النموذج وفعّل وضع السياق المنخفض.</string>

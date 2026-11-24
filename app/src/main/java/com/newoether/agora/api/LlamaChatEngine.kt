@@ -105,7 +105,9 @@ class LlamaChatTemplateResult(
 
 class LlamaChatEngine(
     val modelPath: String,
-    val nCtx: Int = 2048
+    val nCtx: Int = 2048,
+    val nThreads: Int = com.newoether.agora.data.DEFAULT_LOCAL_INFERENCE_THREADS,
+    val kvCacheType: String = com.newoether.agora.data.DEFAULT_LOCAL_KV_CACHE_TYPE,
 ) : Closeable {
     companion object {
         private const val TAG = "LlamaChatEngine"
@@ -122,7 +124,7 @@ class LlamaChatEngine(
     private var loadedMmprojPath: String? = null
     private val lock = ReentrantReadWriteLock()
 
-    private external fun nativeChatLoadModel(path: String, nCtx: Int): Long
+    private external fun nativeChatLoadModel(path: String, nCtx: Int, nThreads: Int, kvCacheType: String): Long
     private external fun nativeChatGetTemplate(handle: Long): String?
     private external fun nativeChatApplyTemplate(
         handle: Long,
@@ -147,8 +149,9 @@ class LlamaChatEngine(
 
     fun isLoaded(): Boolean = nativeHandle != 0L
 
-    fun matches(path: String, contextSize: Int): Boolean =
-        nativeHandle != 0L && modelPath == path && nCtx == contextSize
+    fun matches(path: String, contextSize: Int, threads: Int, kvType: String): Boolean =
+        nativeHandle != 0L && modelPath == path && nCtx == contextSize &&
+            nThreads == threads && kvCacheType == kvType
 
     fun load(): Boolean {
         if (!File(modelPath).exists()) {
@@ -157,12 +160,12 @@ class LlamaChatEngine(
         }
         lock.writeLock().lock()
         try {
-            nativeHandle = nativeChatLoadModel(modelPath, nCtx)
+            nativeHandle = nativeChatLoadModel(modelPath, nCtx, nThreads, kvCacheType)
             if (nativeHandle == 0L) {
                 DebugLog.e(TAG, "Failed to load model")
                 return false
             }
-            DebugLog.d(TAG, "Model loaded, nCtx=$nCtx")
+            DebugLog.d(TAG, "Model loaded, nCtx=$nCtx, threads=$nThreads, kv=$kvCacheType")
             return true
         } finally {
             lock.writeLock().unlock()

@@ -354,6 +354,10 @@
     <string name="local_models_title">Local Models</string>
     <string name="low_context_mode">Low Context Mode</string>
     <string name="low_context_mode_default_desc">Enable Low Context Mode by default: only Shell and Web Search tools remain, each following its own switch</string>
+    <string name="local_inference_threads">Inference Threads</string>
+    <string name="local_inference_threads_desc">More threads speed up prompt processing, but can slow token generation on heterogeneous chips. Applies on the next model load</string>
+    <string name="local_kv_cache_type">KV Cache Precision</string>
+    <string name="local_kv_cache_type_desc">Q8_0 halves cache memory with negligible quality loss; Q4_0 saves more but can hurt long-context quality. Applies on the next model load</string>
     <string name="local_model_idle_retention">Model Idle Retention</string>
     <string name="local_model_idle_retention_desc">How long to keep an idle local model in memory before unloading it</string>
     <string name="local_model_idle_retention_immediate">Immediate</string>

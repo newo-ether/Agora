@@ -816,6 +816,10 @@
     <string name="tool_edit_replace_all">Reemplazar todo</string>
     <string name="low_context_mode">Modo de contexto reducido</string>
     <string name="low_context_mode_default_desc">Activar el modo de contexto reducido de forma predeterminada: solo quedan las herramientas Shell y de búsqueda web, según sus interruptores</string>
+    <string name="local_inference_threads">Hilos de inferencia</string>
+    <string name="local_inference_threads_desc">Más hilos aceleran el procesamiento del prompt, pero pueden ralentizar la generación de tokens en chips heterogéneos. Se aplica en la próxima carga del modelo</string>
+    <string name="local_kv_cache_type">Precisión de la caché KV</string>
+    <string name="local_kv_cache_type_desc">Q8_0 reduce a la mitad la memoria de caché con una pérdida de calidad insignificante; Q4_0 ahorra más, pero puede afectar la calidad en contextos largos. Se aplica en la próxima carga del modelo</string>
     <string name="learn_more">Más información...</string>
     <string name="local_model_limitations_title">Limitaciones de los modelos locales</string>
     <string name="local_model_limitations_body">Los modelos locales están limitados por la memoria disponible en los dispositivos móviles. El tamaño del contexto es una de las principales limitaciones. El contexto suele incluir el mensaje del sistema, las definiciones de herramientas o funciones y las habilidades. Para reducir el uso inicial del contexto, abre el menú de tres puntos junto al selector de modelo y activa el modo de contexto reducido.</string>

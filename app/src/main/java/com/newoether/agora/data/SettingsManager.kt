@@ -27,6 +27,7 @@ class SettingsManager(private val context: Context) {
     internal val systemPromptStore = SettingsSystemPromptStore(context.dataStore, json)
     internal val shellDeviceStore = SettingsShellDeviceStore(context.dataStore, json)
     internal val attachmentStore = SettingsAttachmentStore(context.dataStore)
+    internal val localInferenceStore = SettingsLocalInferenceStore(context.dataStore)
     internal val providerListStore = ProviderListStore(context.dataStore, json)
     internal val providerEditorStore = ProviderEditorStore(context.dataStore, json, providerListStore)
 
@@ -167,6 +168,8 @@ class SettingsManager(private val context: Context) {
     val localModelIdleRetentionMinutes: Flow<Int> = modelPreferenceStore.localModelIdleRetentionMinutes
     val localLowContextModeEnabled: Flow<Boolean> = modelPreferenceStore.localLowContextModeEnabled
     val localToolIncapableModels: Flow<Set<String>> = modelPreferenceStore.localToolIncapableModels
+    val localInferenceThreads: Flow<Int> = localInferenceStore.inferenceThreads
+    val localKvCacheType: Flow<String> = localInferenceStore.kvCacheType
     suspend fun markLocalToolIncapableTemplate(modelId: String) =
         modelPreferenceStore.markLocalToolIncapable(modelId)
     val customProviders: Flow<List<CustomProviderConfig>> = modelPreferenceStore.customProviders
@@ -536,6 +539,8 @@ class SettingsManager(private val context: Context) {
 
     suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) =
         modelPreferenceStore.saveLocalLowContextModeEnabled(enabled)
+    suspend fun saveLocalInferenceThreads(threads: Int) = localInferenceStore.saveInferenceThreads(threads)
+    suspend fun saveLocalKvCacheType(type: String) = localInferenceStore.saveKvCacheType(type)
 
     suspend fun saveCustomProviders(providers: List<CustomProviderConfig>) =
         modelPreferenceStore.saveCustomProviders(providers)

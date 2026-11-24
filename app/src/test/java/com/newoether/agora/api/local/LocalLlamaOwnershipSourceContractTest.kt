@@ -293,7 +293,7 @@ class LocalLlamaOwnershipSourceContractTest {
         val runtime = mainSource("com/newoether/agora/api/LocalModelRuntime.kt")
         val embeddingNative = mainCppSource("llama_jni.cpp")
         val chatSwitch = runtime.indexOf("unloadResident()")
-        val chatLoad = runtime.indexOf("LlamaChatEngine(identity.canonicalPath, identity.nCtx)")
+        val chatLoad = runtime.indexOf("LlamaChatEngine(identity.canonicalPath, identity.nCtx, identity.nThreads, identity.kvCacheType)")
         val chatFailure = runtime.indexOf("if (!loaded.load())", chatLoad)
         val chatInstall = runtime.indexOf("resident = Resident.Chat", chatFailure)
         val embeddingSwitch = runtime.indexOf("unloadResident()", chatSwitch + 1)

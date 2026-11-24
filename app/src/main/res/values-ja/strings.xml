@@ -816,6 +816,10 @@
     <string name="tool_edit_replace_all">すべて置換</string>
     <string name="low_context_mode">低コンテキストモード</string>
     <string name="low_context_mode_default_desc">低コンテキストモードをデフォルトで有効にする：Shell と Web 検索のツールのみが残り、それぞれのスイッチに従います</string>
+    <string name="local_inference_threads">推論スレッド数</string>
+    <string name="local_inference_threads_desc">スレッドを増やすとプロンプト処理は速くなりますが、異種構成のチップではトークン生成が遅くなることがあります。次回のモデル読み込み時に適用されます</string>
+    <string name="local_kv_cache_type">KV キャッシュ精度</string>
+    <string name="local_kv_cache_type_desc">Q8_0 はキャッシュメモリを半減しつつ品質低下はほぼありません。Q4_0 はさらに節約しますが、長いコンテキストの品質を損なうことがあります。次回のモデル読み込み時に適用されます</string>
     <string name="learn_more">詳細...</string>
     <string name="local_model_limitations_title">ローカルモデルの制限</string>
     <string name="local_model_limitations_body">ローカルモデルは、モバイル端末で利用できるメモリによって制限されます。コンテキストサイズは主な制約の一つです。コンテキストには通常、システムプロンプト、ツールまたは関数の定義、スキルが含まれます。初期コンテキストの使用量を減らすには、モデル選択の横にある3点メニューを開き、低コンテキストモードを有効にしてください。</string>

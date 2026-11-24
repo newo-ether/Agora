@@ -819,6 +819,10 @@
     <string name="tool_edit_replace_all">全部取代</string>
     <string name="low_context_mode">低上下文模式</string>
     <string name="low_context_mode_default_desc">預設啟用低上下文模式：僅保留 Shell 與網頁搜尋工具，並跟隨各自的開關</string>
+    <string name="local_inference_threads">推理執行緒數</string>
+    <string name="local_inference_threads_desc">更多執行緒可加速提示詞處理，但在異構晶片上可能拖慢逐字生成。下次載入模型時生效</string>
+    <string name="local_kv_cache_type">KV 快取精度</string>
+    <string name="local_kv_cache_type_desc">Q8_0 省一半快取記憶體且幾乎無損；Q4_0 更省記憶體但可能損害長上下文品質。下次載入模型時生效</string>
     <string name="learn_more">瞭解更多...</string>
     <string name="local_model_limitations_title">本地模型的限制</string>
     <string name="local_model_limitations_body">本地模型受行動裝置可用記憶體限制，上下文大小是主要限制之一。上下文通常包含系統提示詞、工具或函式定義以及技能。若要減少初始上下文用量，請開啟模型選擇器旁的三點選單並啟用低上下文模式。</string>

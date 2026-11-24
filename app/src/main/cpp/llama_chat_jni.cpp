@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cstdint>
 #include <cstdio>
+#include <unistd.h>
 #include "llama.h"
 #include "chat.h"
 #include "sampling.h"
@@ -45,12 +46,21 @@ static bool abort_callback(void * data) {
 
 extern "C" {
 
+static ggml_type parse_kv_cache_type(const std::string & value) {
+    if (value == "q8_0") return GGML_TYPE_Q8_0;
+    if (value == "q4_0") return GGML_TYPE_Q4_0;
+    return GGML_TYPE_F16;
+}
+
 JNIEXPORT jlong JNICALL
 Java_com_newoether_agora_api_LlamaChatEngine_nativeChatLoadModel(
-    JNIEnv * env, jclass /*clazz*/, jstring path, jint n_ctx) {
+    JNIEnv * env, jclass /*clazz*/, jstring path, jint n_ctx, jint n_threads_req, jstring kv_type) {
 
     std::string path_str;
     if (!read_java_path(env, path, path_str)) return 0;
+
+    std::string kv_type_str;
+    if (!read_java_string(env, kv_type, kv_type_str)) kv_type_str = "f16";
 
     ChatHandle * handle = new ChatHandle();
     if (!handle) {
@@ -90,9 +100,28 @@ Java_com_newoether_agora_api_LlamaChatEngine_nativeChatLoadModel(
     // models (#53). 512 is llama.cpp's own default and prefill is chunked to match; on-device
     // prompt-eval throughput is unaffected because it is compute-bound well below 512 tokens.
     ctx_params.n_batch = std::min(512, n_ctx);
+    // Thread count comes from Local settings. Decode is bandwidth-bound and ggml's spin-wait
+    // barrier makes 8 threads slower than 4 on heterogeneous SoCs, so more is not always better;
+    // the caller picks the value. 0 or negative falls back to a core-count heuristic.
+    const long online_cores = sysconf(_SC_NPROCESSORS_ONLN);
+    const int32_t n_threads = n_threads_req > 0
+        ? n_threads_req
+        : static_cast<int32_t>(std::clamp(online_cores, 4L, 8L));
+    ctx_params.n_threads = n_threads;
+    ctx_params.n_threads_batch = n_threads;
+    // KV cache precision comes from Local settings. Quantized V cache requires flash attention,
+    // so models that cannot enable it fall back to F16.
+    const ggml_type kv_type_requested = parse_kv_cache_type(kv_type_str);
+    ctx_params.type_k = kv_type_requested;
+    ctx_params.type_v = kv_type_requested;
 
     const auto context_started = std::chrono::steady_clock::now();
     handle->ctx = llama_init_from_model(handle->model, ctx_params);
+    if (!handle->ctx) {
+        ctx_params.type_k = GGML_TYPE_F16;
+        ctx_params.type_v = GGML_TYPE_F16;
+        handle->ctx = llama_init_from_model(handle->model, ctx_params);
+    }
     if (!handle->ctx) {
         LOGE("Failed to create context");
         llama_model_free(handle->model);

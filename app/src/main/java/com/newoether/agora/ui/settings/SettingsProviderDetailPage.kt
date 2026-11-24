@@ -86,6 +86,8 @@ private fun LocalProviderSettingsList(
         viewModel.settings.localModelIdleRetentionMinutes.collectAsState()
     val localLowContextModeEnabled by
         viewModel.settings.localLowContextModeEnabled.collectAsState()
+    val localInferenceThreads by viewModel.settings.localInferenceThreads.collectAsState()
+    val localKvCacheType by viewModel.settings.localKvCacheType.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
 
     var showDeleteModelConfirm by remember { mutableStateOf<LocalChatModelConfig?>(null) }
@@ -222,6 +224,18 @@ private fun LocalProviderSettingsList(
                                 value = localModelIdleRetentionMinutes,
                                 onValueChange =
                                     viewModel.settings::setLocalModelIdleRetentionMinutes,
+                            )
+                        },
+                        {
+                            LocalInferenceThreadsSlider(
+                                value = localInferenceThreads,
+                                onValueChange = viewModel.settings::setLocalInferenceThreads,
+                            )
+                        },
+                        {
+                            LocalKvCacheTypeItem(
+                                value = localKvCacheType,
+                                onValueChange = viewModel.settings::setLocalKvCacheType,
                             )
                         },
                     ),
