@@ -102,6 +102,13 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 supportingContent = {
                                     Text(stringResource(R.string.replay_reasoning_in_history_desc))
                                 },
+                                leadingContent = {
+                                    Icon(
+                                        painterResource(id = R.drawable.neurology_24),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                },
                                 trailingContent = {
                                     Switch(
                                         checked = replayReasoningInHistory,
