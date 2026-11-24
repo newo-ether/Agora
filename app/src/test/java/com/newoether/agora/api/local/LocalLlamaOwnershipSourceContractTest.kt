@@ -550,8 +550,8 @@ class LocalLlamaOwnershipSourceContractTest {
         assertEquals(2048, legacyDefaults.nCtx)
         assertEquals(4096, legacyDefaults.maxTokens)
         val draft = LocalChatModelDraft(modelId = "model", modelPath = "/model.gguf")
-        assertEquals("16384", draft.nCtx)
-        assertEquals("1024", draft.maxTokens)
+        assertEquals("8192", draft.nCtx)
+        assertEquals("4096", draft.maxTokens)
         assertNull(draft.validate { false })
         assertEquals(
             LocalChatModelDraftError.OUTPUT_EXCEEDS_CONTEXT,
@@ -564,8 +564,8 @@ class LocalLlamaOwnershipSourceContractTest {
         assertTrue(settings.contains("draft.validate { id ->"))
         assertTrue(settings.indexOf("draft.validate { id ->") < settings.indexOf("addLocalChatModel(config)"))
         assertTrue(settings.indexOf("draft.validate { id ->") < settings.indexOf("updateLocalChatModel("))
-        assertTrue(onboarding.contains("nCtx = 16384"))
-        assertTrue(onboarding.contains("maxTokens = 1024"))
+        assertTrue(onboarding.contains("nCtx = 8192"))
+        assertTrue(onboarding.contains("maxTokens = 4096"))
         assertTrue(provider.contains(
             "minOf(config.maxContextWindow, modelConfig.nCtx).coerceAtLeast(1)"
         ))

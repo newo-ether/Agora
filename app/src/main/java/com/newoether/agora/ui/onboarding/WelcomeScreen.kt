@@ -237,8 +237,10 @@ fun WelcomeScreen(
                                 modelId = modelId,
                                 alias = aliasName,
                                 localFilePath = path,
-                                nCtx = 16384,
-                                maxTokens = 1024,
+                                nCtx = 8192,
+                                temperature = 1.0f,
+                                topP = 0.95f,
+                                maxTokens = 4096,
                             )
                         )
                     }
