@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.rounded.Tune
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.util.Constants
 import com.newoether.agora.ui.common.OpenAiServiceTierControlPanel
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.common.ThinkingControlPanel
@@ -52,6 +54,7 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         viewModel.settings.openAiServiceTierEnabled.collectAsState()
     val openAiServiceTier by viewModel.settings.openAiServiceTier.collectAsState()
     val imageQuality by viewModel.settings.imageQuality.collectAsState()
+    val attachmentMode by viewModel.settings.attachmentMode.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
 
     CollapsingSettingsScaffold(
@@ -240,6 +243,54 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             )
                         }
                     )
+                )
+
+                // ── Section: Attachments ──
+                SettingsGroup(
+                    title = stringResource(R.string.attachments_group_title),
+                    items = listOf(
+                        {
+                            val sandboxLink = attachmentMode == Constants.ATTACHMENT_MODE_SANDBOX_LINK
+                            SettingsItem(
+                                headlineContent = {
+                                    Text(stringResource(R.string.attachment_sandbox_link))
+                                },
+                                supportingContent = {
+                                    Text(stringResource(R.string.attachment_sandbox_link_desc))
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        Icons.Rounded.AttachFile,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                },
+                                trailingContent = {
+                                    Switch(
+                                        checked = sandboxLink,
+                                        onCheckedChange = { enabled ->
+                                            viewModel.settings.setAttachmentMode(
+                                                if (enabled) {
+                                                    Constants.ATTACHMENT_MODE_SANDBOX_LINK
+                                                } else {
+                                                    Constants.ATTACHMENT_MODE_INLINE
+                                                },
+                                            )
+                                        },
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    viewModel.settings.setAttachmentMode(
+                                        if (sandboxLink) {
+                                            Constants.ATTACHMENT_MODE_INLINE
+                                        } else {
+                                            Constants.ATTACHMENT_MODE_SANDBOX_LINK
+                                        },
+                                    )
+                                },
+                            )
+                        },
+                    ),
                 )
 
                 SettingsImageQualityGroup(

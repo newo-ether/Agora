@@ -166,6 +166,9 @@
     <string name="gen_thinking_enabled_desc">تفعيل قدرة النموذج على التفكير/الاستدلال</string>
     <string name="replay_reasoning_in_history">إعادة التفكير في السجل</string>
     <string name="replay_reasoning_in_history_desc">إرسال reasoning_content مع كل رسالة مساعد؛ النماذج التي تتطلب الحقل تقبل قيمة فارغة</string>
+    <string name="attachments_group_title">المرفقات</string>
+    <string name="attachment_sandbox_link">روابط ملفات وضع الحماية</string>
+    <string name="attachment_sandbox_link_desc">أرفق الملفات كروابط وضع الحماية عند توفره، وإلا فضمّن محتواها؛ عند الإيقاف: ضمّن دائمًا</string>
     <string name="gen_thinking_level">مستوى التفكير</string>
     <string name="gen_thinking_level_desc">يتحكم في عمق التفكير؛ أعلى = استدلال أكثر دقة</string>
     <string name="gen_thinking_level_low">منخفض</string>

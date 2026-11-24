@@ -179,6 +179,9 @@
     <string name="gen_thinking_enabled_desc">Enable model thinking/reasoning capability</string>
     <string name="replay_reasoning_in_history">Replay Reasoning in History</string>
     <string name="replay_reasoning_in_history_desc">Send reasoning_content on every assistant message; models that require the field accept an empty value</string>
+    <string name="attachments_group_title">Attachments</string>
+    <string name="attachment_sandbox_link">Sandbox file links</string>
+    <string name="attachment_sandbox_link_desc">Attach files as Local Sandbox links when available, otherwise embed their content; off: always embed</string>
     <string name="gen_thinking_level">Thinking Level</string>
     <string name="gen_thinking_level_desc">Controls thinking depth; higher = more thorough reasoning</string>
     <string name="gen_thinking_level_minimal">Minimal</string>

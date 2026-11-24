@@ -16,6 +16,7 @@ import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.ui.common.AgoraHaptics
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.util.AttachmentFiles
+import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.util.FileValidator
 import com.newoether.agora.viewmodel.ConversationComposerController
@@ -40,6 +41,7 @@ class ChatComposerState(
     private val scope: CoroutineScope,
     private val sandboxEnabled: () -> Boolean = { false },
     private val isSandboxFlavor: Boolean = false,
+    private val attachmentMode: () -> String = { Constants.ATTACHMENT_MODE_SANDBOX_LINK },
 ) {
     var showPdfPageDialog by mutableStateOf(false)
     var pdfDialogHiddenForPreview by mutableStateOf(false)
@@ -193,7 +195,9 @@ class ChatComposerState(
         }
     }.getOrNull()
 
-    fun acceptsLocalSandboxAttachments(): Boolean = isSandboxFlavor && sandboxEnabled()
+    fun acceptsLocalSandboxAttachments(): Boolean =
+        isSandboxFlavor && sandboxEnabled() &&
+            attachmentMode() == Constants.ATTACHMENT_MODE_SANDBOX_LINK
 
     fun reportUnsupportedFiles(mimeTypes: List<String?>) {
         if (mimeTypes.isEmpty()) return
@@ -236,11 +240,13 @@ class ChatComposerState(
 fun rememberChatComposerState(
     sandboxEnabled: () -> Boolean = { false },
     isSandboxFlavor: Boolean = false,
+    attachmentMode: () -> String = { Constants.ATTACHMENT_MODE_SANDBOX_LINK },
 ): ChatComposerState {
     val context = LocalContext.current
     val haptics = LocalAgoraHaptics.current
     val scope = rememberCoroutineScope()
     val latestSandboxEnabled = rememberUpdatedState(sandboxEnabled)
+    val latestAttachmentMode = rememberUpdatedState(attachmentMode)
     return remember(context, haptics, scope, isSandboxFlavor) {
         ChatComposerState(
             context = context,
@@ -248,6 +254,7 @@ fun rememberChatComposerState(
             scope = scope,
             sandboxEnabled = { latestSandboxEnabled.value() },
             isSandboxFlavor = isSandboxFlavor,
+            attachmentMode = { latestAttachmentMode.value() },
         )
     }
 }

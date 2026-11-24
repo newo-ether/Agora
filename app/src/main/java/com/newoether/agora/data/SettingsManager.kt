@@ -26,6 +26,7 @@ class SettingsManager(private val context: Context) {
     internal val backupPreferenceStore = SettingsBackupPreferenceStore(context.dataStore)
     internal val systemPromptStore = SettingsSystemPromptStore(context.dataStore, json)
     internal val shellDeviceStore = SettingsShellDeviceStore(context.dataStore, json)
+    internal val attachmentStore = SettingsAttachmentStore(context.dataStore)
     internal val providerListStore = ProviderListStore(context.dataStore, json)
     internal val providerEditorStore = ProviderEditorStore(context.dataStore, json, providerListStore)
 
@@ -44,8 +45,7 @@ class SettingsManager(private val context: Context) {
     suspend fun updateCustomProviderCache(providerId: String, enabled: Boolean? = null, ttl: String? = null) =
         modelPreferenceStore.updateCustomProviderCache(providerId, enabled, ttl)
     val providerBaseUrls: Flow<Map<String, String>> = modelPreferenceStore.providerBaseUrls
-    val customEndpointResolutions: Flow<Map<String, CustomEndpointResolution>> =
-        modelPreferenceStore.customEndpointResolutions
+    val customEndpointResolutions: Flow<Map<String, CustomEndpointResolution>> = modelPreferenceStore.customEndpointResolutions
     val availableModels: Flow<Map<String, List<String>>> = modelPreferenceStore.availableModels
     val customModels: Flow<Set<String>> = modelPreferenceStore.customModels
     val enabledModels: Flow<Set<String>> = modelPreferenceStore.enabledModels
@@ -58,10 +58,7 @@ class SettingsManager(private val context: Context) {
     val activeSystemPromptId: Flow<String?> = systemPromptStore.activeSystemPromptId
 
     val maxContextWindow: Flow<Int> = context.dataStore.data.map { preferences ->
-        ContextBudget.normalize(
-            preferences[CONTEXT_TOKEN_BUDGET]?.toIntOrNull()
-                ?: preferences[MAX_CONTEXT_WINDOW]?.toIntOrNull()
-        )
+        ContextBudget.normalize(preferences[CONTEXT_TOKEN_BUDGET]?.toIntOrNull() ?: preferences[MAX_CONTEXT_WINDOW]?.toIntOrNull())
     }
     val visualizeContextRollout: Flow<Boolean> = context.dataStore.data.map { it[VISUALIZE_CONTEXT_ROLLOUT] ?: false }
     val contextCompactEnabled: Flow<Boolean> = context.dataStore.data.map {
@@ -126,6 +123,7 @@ class SettingsManager(private val context: Context) {
     }
     val ragSearchEnabled: Flow<Boolean> = context.dataStore.data.map { it[RAG_SEARCH_ENABLED] ?: false }
     val modelSearchMethod: Flow<String> = context.dataStore.data.map { it[MODEL_SEARCH_METHOD] ?: "keyword" }
+    val attachmentMode: Flow<String> = attachmentStore.attachmentMode
     val manualSearchMethod: Flow<String> = context.dataStore.data.map { it[MANUAL_SEARCH_METHOD] ?: "keyword" }
     val embeddingModels: Flow<List<EmbeddingModelConfig>> = context.dataStore.data.map { pref ->
         val jsonStr = pref[EMBEDDING_MODELS_JSON] ?: "[]"
@@ -161,8 +159,7 @@ class SettingsManager(private val context: Context) {
     val conversationSettings: Flow<Map<String, ConversationSettings>> =
         context.dataStore.data.map { preferences -> decodeConversationSettings(preferences, json) }
     val autoCacheEnabled: Flow<Boolean> = context.dataStore.data.map { it[AUTO_CACHE_ENABLED] ?: true }
-    val showUncachedNotification: Flow<Boolean> =
-        context.dataStore.data.map { it[SHOW_UNCACHED_NOTIFICATION] ?: true }
+    val showUncachedNotification: Flow<Boolean> = context.dataStore.data.map { it[SHOW_UNCACHED_NOTIFICATION] ?: true }
     val autoUpdateCheck: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_CHECK] ?: true }
     val lastUpdateCheckTime: Flow<Long> = context.dataStore.data.map { it[LAST_UPDATE_CHECK_TIME] ?: 0L }
     val localChatModels: Flow<List<LocalChatModelConfig>> = modelPreferenceStore.localChatModels
@@ -418,12 +415,9 @@ class SettingsManager(private val context: Context) {
     suspend fun saveLastUpdateCheckTime(time: Long) {
         context.dataStore.edit { it[LAST_UPDATE_CHECK_TIME] = time }
     }
-    suspend fun saveModelSearchMethod(method: String) {
-        context.dataStore.edit { it[MODEL_SEARCH_METHOD] = method }
-    }
-    suspend fun saveManualSearchMethod(method: String) {
-        context.dataStore.edit { it[MANUAL_SEARCH_METHOD] = method }
-    }
+    suspend fun saveModelSearchMethod(method: String) { context.dataStore.edit { it[MODEL_SEARCH_METHOD] = method } }
+    suspend fun saveAttachmentMode(mode: String) = attachmentStore.saveAttachmentMode(mode)
+    suspend fun saveManualSearchMethod(method: String) { context.dataStore.edit { it[MANUAL_SEARCH_METHOD] = method } }
     suspend fun saveEmbeddingModels(models: List<EmbeddingModelConfig>) {
         context.dataStore.edit { it[EMBEDDING_MODELS_JSON] = json.encodeToString(models) }
     }

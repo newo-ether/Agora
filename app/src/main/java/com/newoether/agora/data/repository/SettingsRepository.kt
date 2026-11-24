@@ -161,6 +161,7 @@ class SettingsRepository(
     val autoUpdateCheck: StateFlow<Boolean> = publication.hot(settingsManager.autoUpdateCheck, true)
     val lastUpdateCheckTime: StateFlow<Long> = publication.hot(settingsManager.lastUpdateCheckTime, 0L)
     val modelSearchMethod: StateFlow<String> = publication.hot(settingsManager.modelSearchMethod, "keyword")
+    val attachmentMode: StateFlow<String> = publication.hot(settingsManager.attachmentMode, Constants.ATTACHMENT_MODE_SANDBOX_LINK)
     val manualSearchMethod: StateFlow<String> = publication.hot(settingsManager.manualSearchMethod, "keyword")
     val embeddingModels: StateFlow<List<EmbeddingModelConfig>> = publication.hot(settingsManager.embeddingModels, emptyList())
     val activeEmbeddingModelId: StateFlow<String> = publication.hot(settingsManager.activeEmbeddingModelId, "")
@@ -587,8 +588,7 @@ class SettingsRepository(
         settingsManager.saveProviderBaseUrl(provider, url)
     }
     fun setTitleGenerationEnabled(enabled: Boolean) = scope.launch { settingsManager.saveTitleGenerationEnabled(enabled) }
-    fun setTitleGenerationNotificationsEnabled(enabled: Boolean) =
-        scope.launch { settingsManager.saveTitleGenerationNotificationsEnabled(enabled) }
+    fun setTitleGenerationNotificationsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveTitleGenerationNotificationsEnabled(enabled) }
     fun setContextCompactEnabled(enabled: Boolean) = scope.launch { settingsManager.saveContextCompactEnabled(enabled) }
     fun setContextCompactModel(model: String?) = scope.launch { settingsManager.saveContextCompactModel(model) }
     fun setContextCompactPrompt(prompt: String) = scope.launch { settingsManager.saveContextCompactPrompt(prompt) }
@@ -613,11 +613,11 @@ class SettingsRepository(
     fun setAccessSkillsModify(enabled: Boolean) = scope.launch { settingsManager.saveAccessSkillsModify(enabled) }
     fun setRagSearchEnabled(enabled: Boolean) = scope.launch { settingsManager.saveRagSearchEnabled(enabled) }
     fun setAutoCacheEnabled(enabled: Boolean) = scope.launch { settingsManager.saveAutoCacheEnabled(enabled) }
-    fun setShowUncachedNotification(enabled: Boolean) =
-        scope.launch { settingsManager.saveShowUncachedNotification(enabled) }
+    fun setShowUncachedNotification(enabled: Boolean) = scope.launch { settingsManager.saveShowUncachedNotification(enabled) }
     fun setAutoUpdateCheck(enabled: Boolean) = scope.launch { settingsManager.saveAutoUpdateCheck(enabled) }
     fun setLastUpdateCheckTime(time: Long) = scope.launch { settingsManager.saveLastUpdateCheckTime(time) }
     fun setModelSearchMethod(method: String) = scope.launch { settingsManager.saveModelSearchMethod(method) }
+    fun setAttachmentMode(mode: String) = scope.launch { settingsManager.saveAttachmentMode(mode) }
     fun setManualSearchMethod(method: String) = scope.launch { settingsManager.saveManualSearchMethod(method) }
 
     /**

@@ -287,6 +287,7 @@ fun ChatApp(
     val composer = com.newoether.agora.ui.chat.bottombar.rememberChatComposerState(
         sandboxEnabled = { viewModel.sandboxAttachmentReady },
         isSandboxFlavor = viewModel.isSandboxFlavor,
+        attachmentMode = { viewModel.settings.attachmentMode.value },
     )
     val inputFocusRequester = remember { FocusRequester() }
     var showLaunchContent by remember { mutableStateOf(false) }

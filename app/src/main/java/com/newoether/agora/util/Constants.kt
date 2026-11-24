@@ -60,6 +60,10 @@ object Constants {
     const val SEARCH_METHOD_RAG = "rag"
     /** Search method identifier for literal keyword search; also the fallback without embeddings. */
     const val SEARCH_METHOD_KEYWORD = "keyword"
+    /** Attachment delivery: prefer a Local Sandbox file link, falling back to inline content. */
+    const val ATTACHMENT_MODE_SANDBOX_LINK = "sandbox_link"
+    /** Attachment delivery: always embed file content in the prompt. */
+    const val ATTACHMENT_MODE_INLINE = "inline"
 
     // ── Provider name constants ────────────────────────────────
     const val PROVIDER_LOCAL = ModelConstants.PROVIDER_LOCAL

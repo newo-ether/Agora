@@ -534,7 +534,12 @@ class AppContainer(
                     uploadDirectory = appContext.filesDir,
                     compactFailureMessage = { com.newoether.agora.viewmodel.compactFailureMessage(appContext, it) },
                     onConversationOpened = chatRuntime.onConversationOpened,
-                    allowLocalSandbox = { sandboxManagerFactory?.isAvailable() == true && settingsRepository.sandboxEnabled.value },
+                    allowLocalSandbox = {
+                        sandboxManagerFactory?.isAvailable() == true &&
+                            settingsRepository.sandboxEnabled.value &&
+                            settingsRepository.attachmentMode.value ==
+                                com.newoether.agora.util.Constants.ATTACHMENT_MODE_SANDBOX_LINK
+                    },
                     sandboxHomeDir = { sandboxManagerFactory?.takeIf { it.isAvailable() }?.let { java.io.File(appContext.filesDir, "sandbox-home") } },
                 )
             },

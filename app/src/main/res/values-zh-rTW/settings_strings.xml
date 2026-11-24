@@ -167,6 +167,9 @@
     <string name="gen_thinking_enabled_desc">啟用模型思考/推理能力</string>
     <string name="replay_reasoning_in_history">歷史中回放思考</string>
     <string name="replay_reasoning_in_history_desc">每則助理訊息都傳送 reasoning_content；要求該欄位的模型可接受空值</string>
+    <string name="attachments_group_title">附件</string>
+    <string name="attachment_sandbox_link">沙箱檔案連結</string>
+    <string name="attachment_sandbox_link_desc">可用時將檔案以沙箱連結附加，不可用時自動改為內嵌內容；關閉則一律內嵌</string>
     <string name="gen_thinking_level">思考深度</string>
     <string name="gen_thinking_level_desc">控制思考深度；越高推理越深入</string>
     <string name="gen_thinking_level_low">低</string>

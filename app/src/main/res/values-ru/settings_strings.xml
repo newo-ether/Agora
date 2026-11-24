@@ -166,6 +166,9 @@
     <string name="gen_thinking_enabled_desc">Включить способность модели к размышлению/рассуждению</string>
     <string name="replay_reasoning_in_history">Повторять рассуждения в истории</string>
     <string name="replay_reasoning_in_history_desc">Отправлять reasoning_content в каждом сообщении ассистента; модели, требующие это поле, принимают пустое значение</string>
+    <string name="attachments_group_title">Вложения</string>
+    <string name="attachment_sandbox_link">Ссылки на файлы в песочнице</string>
+    <string name="attachment_sandbox_link_desc">Прикреплять файлы ссылками на песочницу, когда она доступна, иначе встраивать содержимое; выкл.: всегда встраивать</string>
     <string name="gen_thinking_level">Уровень размышления</string>
     <string name="gen_thinking_level_desc">Управляет глубиной размышления; выше = более тщательное рассуждение</string>
     <string name="gen_thinking_level_low">Низкий</string>

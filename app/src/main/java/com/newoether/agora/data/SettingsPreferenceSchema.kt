@@ -67,6 +67,7 @@ internal val ACCESS_SKILLS_MODIFY = booleanPreferencesKey("access_skills_modify"
 internal val RAG_SEARCH_ENABLED = booleanPreferencesKey("rag_search_enabled")
 internal val MODEL_SEARCH_METHOD = stringPreferencesKey("model_search_method")
 internal val MANUAL_SEARCH_METHOD = stringPreferencesKey("manual_search_method")
+internal val ATTACHMENT_MODE = stringPreferencesKey("attachment_mode")
 internal val EMBEDDING_MODELS_JSON = stringPreferencesKey("embedding_models_json")
 internal val ACTIVE_EMBEDDING_MODEL_ID = stringPreferencesKey("active_embedding_model_id")
 internal val APP_LANGUAGE = stringPreferencesKey("app_language")

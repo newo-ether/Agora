@@ -166,6 +166,9 @@
     <string name="gen_thinking_enabled_desc">Activa la capacidad de razonamiento del modelo</string>
     <string name="replay_reasoning_in_history">Repetir razonamiento en el historial</string>
     <string name="replay_reasoning_in_history_desc">Enviar reasoning_content en cada mensaje del asistente; los modelos que exigen el campo aceptan un valor vacío</string>
+    <string name="attachments_group_title">Archivos adjuntos</string>
+    <string name="attachment_sandbox_link">Enlaces de archivos al sandbox</string>
+    <string name="attachment_sandbox_link_desc">Adjunta archivos como enlaces del sandbox cuando esté disponible; si no, incrusta su contenido; desactivado: incrustar siempre</string>
     <string name="gen_thinking_level">Nivel de razonamiento</string>
     <string name="gen_thinking_level_desc">Controla la profundidad del razonamiento; mayor = razonamiento más exhaustivo</string>
     <string name="gen_thinking_level_low">Bajo</string>
