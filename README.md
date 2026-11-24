@@ -14,14 +14,6 @@
   <img src="assets/feature_graphic.png" alt="Agora — A BYOK AI app that takes back your data sovereignty." width="100%" />
 </div>
 
-## Announcement: third-party app “金龙AI-Pro”
-
-An Android app named “金龙AI-Pro” (Jinlong AI-Pro, package `com.youlong.ai`) is distributed as a component of the Android toolbox “游龙工具箱 9.0”, first published on 2026-09-19. It is built from Agora’s code and assets under a different name and package, is signed with a third-party certificate, and still calls Agora’s `newoether.space` endpoints. Agora has not authorized any third party to release it under another name, and Agora is not affiliated with that app in any way.
-
-The full technical analysis is in **[INCIDENT-2026-09-jinlong-ai-pro.md](INCIDENT-2026-09-jinlong-ai-pro.md)**: sample hashes, signature and certificate details, the identifiers still present in that build, the capabilities it adds, its distribution channels and download counts, and the method to reproduce every result.
-
-As a consequence, Agora is relicensed. **v2.2.0 and later are released under GPL-3.0** ([LICENSE](LICENSE)); v2.1.0 and earlier remain MIT (see the [historical license](https://github.com/newo-ether/Agora/blob/9fc92fc3518c880158111ae1e9534ed8ffd09c6d/LICENSE)).
-
 ## Introducing Agora
 
 [![Watch Introducing Agora on YouTube](https://i.ytimg.com/vi/P0p5PzROC0I/maxresdefault.jpg)](https://youtu.be/P0p5PzROC0I)
@@ -99,6 +91,6 @@ Contributions are welcome through issues and pull requests. By submitting a pull
 
 **Historical releases:** v2.1.0 and earlier remain available under their [original MIT License](https://github.com/newo-ether/Agora/blob/9fc92fc3518c880158111ae1e9534ed8ffd09c6d/LICENSE). These licenses apply to different versions; the current project is not offered under a choice of MIT or GPL.
 
-For GPL releases, redistributors must keep the copyright and license notices, state that they changed the files, and make the complete corresponding source available under the same license. The Agora name, logo, and screenshots are not covered by the code license, and modified builds must not imply that they are official or endorsed; the announcement above documents the incident that prompted this change.
+For GPL releases, redistributors must keep the copyright and license notices, state that they changed the files, and make the complete corresponding source available under the same license. The Agora name, logo, and screenshots are not covered by the code license, and modified builds must not imply that they are official or endorsed.
 
 Bundled third-party payloads keep their own licenses. The Termux bootstrap and toolchain that Agora provisions (see `build-proot.sh` and `thirdparty/`) include GPLv3 components, and their corresponding source is available from the upstream projects they come from.
