@@ -386,7 +386,7 @@ class LocalLlamaOwnershipSourceContractTest {
             "set(GGML_NATIVE OFF CACHE BOOL \"\" FORCE)",
             "set(GGML_BACKEND_DL ON CACHE BOOL \"\" FORCE)",
             "set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL \"\" FORCE)",
-            "set(GGML_CPU_KLEIDIAI OFF CACHE BOOL \"\" FORCE)",
+            "set(GGML_CPU_KLEIDIAI ON CACHE BOOL \"\" FORCE)",
             "set(GGML_VULKAN OFF CACHE BOOL \"\" FORCE)",
             "set(GGML_OPENMP OFF CACHE BOOL \"\" FORCE)",
         ).forEach { assertTrue(cmake.contains(it)) }
