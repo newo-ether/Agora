@@ -56,6 +56,8 @@ internal data class AuthorizedToolResult(
     val batchIdentity: RunEffectIdentity,
     val callId: String,
     val result: ToolExecutionResult,
+    /** Wall time from dispatch to result. */
+    val durationMs: Long? = null,
 )
 
 internal interface GenerationToolPresentationSource {
@@ -73,6 +75,7 @@ internal interface GenerationToolPresentationSource {
 internal class GenerationToolExecutor private constructor(
     private val providers: List<ToolProvider>,
     private val imageGenProvider: ImageGenToolProvider?,
+    private val nanoTime: () -> Long = System::nanoTime,
 ) : GenerationToolDefinitionSource, GenerationToolPresentationSource {
     companion object {
         private val FILE_TOOL_NAMES = setOf(
@@ -122,8 +125,11 @@ internal class GenerationToolExecutor private constructor(
             )
         }
 
-        internal fun forTest(providers: List<ToolProvider>): GenerationToolExecutor =
-            GenerationToolExecutor(providers, imageGenProvider = null)
+        internal fun forTest(
+            providers: List<ToolProvider>,
+            nanoTime: () -> Long = System::nanoTime,
+        ): GenerationToolExecutor =
+            GenerationToolExecutor(providers, imageGenProvider = null, nanoTime = nanoTime)
     }
 
     override fun definitions(context: GenerationContext): List<ToolDefinition> =
@@ -191,6 +197,11 @@ internal class GenerationToolExecutor private constructor(
         call: AuthorizedToolCall,
         onEvent: suspend (ToolExecutionEvent) -> Unit,
     ): AuthorizedToolResult {
+        val startedNs = nanoTime()
+        fun finish(result: ToolExecutionResult) = call.result(
+            result,
+            durationMs = (nanoTime() - startedNs) / 1_000_000L,
+        )
         val toolName = BuiltInToolNames.canonical(call.name)
         val authorizedNames = call.authorizedToolNames.mapTo(mutableSetOf(), BuiltInToolNames::canonical)
         call.rejectionText?.let { text ->
@@ -198,12 +209,12 @@ internal class GenerationToolExecutor private constructor(
         }
         if (call.name == MALFORMED_TOOL_CALL_NAME) {
             // Stand-in for a damaged call: never executed, answered with what was wrong.
-            return call.result(
+            return finish(
                 ToolExecutionResult(text = malformedToolCallResultText(call.arguments), isError = true),
             )
         }
         if (toolName !in authorizedNames) {
-            return call.result(
+            return finish(
                 ToolExecutionResult(
                     text = "Error executing tool '${call.name}': tool was not authorized for this provider pass",
                     isError = true,
@@ -215,7 +226,7 @@ internal class GenerationToolExecutor private constructor(
             Json.parseToJsonElement(completeArguments).jsonObject
         }.isSuccess
         if (!argumentsAreCompleteObject) {
-            return call.result(
+            return finish(
                 ToolExecutionResult(
                     text = "Error executing tool '${call.name}': arguments are not a complete JSON object",
                     isError = true,
@@ -229,7 +240,7 @@ internal class GenerationToolExecutor private constructor(
         )
         val result = try {
             val provider = providers.firstOrNull { it.handles(toolName) }
-                ?: return call.result(
+                ?: return finish(
                     ToolExecutionResult(text = "Unknown tool: ${call.name}", isError = true),
                 )
             // A blocking provider must not pin the stream consumer forever. The detached attempt
@@ -269,13 +280,17 @@ internal class GenerationToolExecutor private constructor(
                 isError = true,
             )
         }
-        return call.result(result)
+        return finish(result)
     }
 
-    private fun AuthorizedToolCall.result(result: ToolExecutionResult) = AuthorizedToolResult(
+    private fun AuthorizedToolCall.result(
+        result: ToolExecutionResult,
+        durationMs: Long? = null,
+    ) = AuthorizedToolResult(
         batchIdentity = batchIdentity,
         callId = callId,
         result = result,
+        durationMs = durationMs,
     )
 }
 

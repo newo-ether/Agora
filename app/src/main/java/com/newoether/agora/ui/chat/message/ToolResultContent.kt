@@ -68,18 +68,27 @@ internal fun ToolDetailContent(
     } else {
         Modifier
     }
-    if (presentation.arguments != null || presentation.codeArgument != null) {
+    val durationLabel = toolLatencyLabel(segment)
+    val hasArguments = presentation.arguments != null || presentation.codeArgument != null
+    val hasMetadata = hasArguments || presentation.searchProvider != null || durationLabel != null
+    if (hasMetadata) {
         Column(modifier = contentAlignmentModifier.fillMaxWidth()) {
-            ToolSectionLabel(presentation.argumentsLabel)
-            Spacer(Modifier.height(5.dp))
-            presentation.arguments?.let { JsonOrPlainView(it) }
-            presentation.codeArgument?.let { code ->
-                if (presentation.arguments != null) Spacer(Modifier.height(8.dp))
-                ToolCodeArgument(code)
+            if (hasArguments) {
+                ToolSectionLabel(presentation.argumentsLabel)
+                Spacer(Modifier.height(5.dp))
+                presentation.arguments?.let { JsonOrPlainView(it) }
+                presentation.codeArgument?.let { code ->
+                    if (presentation.arguments != null) Spacer(Modifier.height(8.dp))
+                    ToolCodeArgument(code)
+                }
             }
             presentation.searchProvider?.let { provider ->
                 Spacer(Modifier.height(8.dp))
                 ToolSectionLabel(stringResource(R.string.tool_search_provider, provider))
+            }
+            durationLabel?.let { label ->
+                Spacer(Modifier.height(8.dp))
+                ToolSectionLabel(stringResource(R.string.tool_duration, label))
             }
             Spacer(Modifier.height(18.dp))
         }
