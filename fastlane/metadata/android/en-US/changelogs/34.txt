@@ -1,0 +1,4 @@
+* Local models: adjustable thread count and KV cache precision, saner defaults for new models
+* Low context mode is now on by default; models without tool-call templates get greyed tools instead of errors
+* DSML tool calls execute correctly via OpenRouter; reasoning_content can be replayed to models that need it
+* WebUI accepts files dropped onto the window; attachment delivery mode is configurable
