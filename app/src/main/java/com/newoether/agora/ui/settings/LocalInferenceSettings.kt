@@ -3,6 +3,7 @@ package com.newoether.agora.ui.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.*
@@ -11,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.LOCAL_INFERENCE_THREAD_PRESETS
@@ -135,7 +138,10 @@ internal fun LocalKvCacheTypeItem(
                     text = value.uppercase(),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.width(96.dp).padding(end = 4.dp),
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 AgoraDropdownMenu(
                     expanded = showMenu,
@@ -147,11 +153,9 @@ internal fun LocalKvCacheTypeItem(
                         AgoraDropdownMenuItem(
                             text = { Text(type.uppercase()) },
                             leadingIcon = {
-                                RadioButton(
-                                    selected = type == value,
-                                    onClick = null,
-                                    modifier = Modifier.size(18.dp),
-                                )
+                                if (type == value) {
+                                    Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                }
                             },
                             onClick = {
                                 onValueChange(type)
