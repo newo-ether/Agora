@@ -52,7 +52,15 @@ internal class ConversationLifecycleController(
         onResult: (Boolean) -> Unit = {},
     ): Boolean {
         val request = Any()
-        if (clients.isSubmissionFrozen(conversationId) || pendingDeletes.putIfAbsent(conversationId, request) != null) return false
+        if (clients.isSubmissionFrozen(conversationId) || pendingDeletes.putIfAbsent(conversationId, request) != null) {
+            runCatching {
+                DebugLog.w(
+                    "ConversationLifecycle",
+                    "Delete rejected for $conversationId: frozen=${clients.isSubmissionFrozen(conversationId)}, pending=${pendingDeletes.containsKey(conversationId)}",
+                )
+            }
+            return false
+        }
         val confirmedMessageIds = expectedMessageIds?.toSet()
         val job = scope.launch(ioDispatcher) {
             var deleted = false
@@ -69,20 +77,50 @@ internal class ConversationLifecycleController(
                         scrollToTarget = false,
                     )
                 }
-                if (clients.isSubmissionFrozen(conversationId)) return@launch
-                if (!matchesConfirmation(conversationId, confirmedMessageIds)) return@launch
+                if (clients.isSubmissionFrozen(conversationId)) {
+                    runCatching {
+                        DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: submission frozen")
+                    }
+                    return@launch
+                }
+                if (!matchesConfirmation(conversationId, confirmedMessageIds)) {
+                    runCatching {
+                        DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: confirmation mismatch")
+                    }
+                    return@launch
+                }
                 // Running execution owns the coordinator until its coroutine finishes. Await the
                 // canonical Stop barriers outside that lock, including for nonviewed owners.
                 stopLoop(conversationId)
                 stopGeneration(conversationId, origin)
-                tryWithConversationLock(conversationId) {
-                    if (clients.isSubmissionFrozen(conversationId)) return@tryWithConversationLock
-                    if (!matchesConfirmation(conversationId, confirmedMessageIds)) return@tryWithConversationLock
-                    if (conversations.getLiveRun(conversationId) != null) return@tryWithConversationLock
+                val lockAcquired = tryWithConversationLock(conversationId) {
+                    if (clients.isSubmissionFrozen(conversationId)) {
+                        runCatching {
+                            DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: submission frozen in lock")
+                        }
+                        return@tryWithConversationLock
+                    }
+                    if (!matchesConfirmation(conversationId, confirmedMessageIds)) {
+                        runCatching {
+                            DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: confirmation mismatch in lock")
+                        }
+                        return@tryWithConversationLock
+                    }
+                    if (conversations.getLiveRun(conversationId) != null) {
+                        runCatching {
+                            DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: live run present")
+                        }
+                        return@tryWithConversationLock
+                    }
                     parentConversationId = conversations.getConversation(conversationId)?.parentConversationId
                     viewersAtCommit = clients.showing(conversationId)
                     conversations.deleteConversation(conversationId)
                     deleted = true
+                }
+                if (!lockAcquired) {
+                    runCatching {
+                        DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: conversation lock busy")
+                    }
                 }
                 if (deleted) {
                     removeRuntime(conversationId)
