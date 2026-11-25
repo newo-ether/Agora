@@ -46,6 +46,8 @@
 -keep class com.newoether.agora.api.ChatTemplateGrammarTrigger { *; }
 -keep class com.newoether.agora.api.LlamaChatTemplateResult { *; }
 -keepclasseswithmembernames class com.newoether.agora.** { native <methods>; }
+# JNI (sherpa-onnx): native code reads config fields and builds result objects by name.
+-keep class com.k2fsa.sherpa.onnx.** { *; }
 # Reflection: flavor sandbox factories (AppContainer) and the screenshot fixture (MainActivity).
 -keep class com.newoether.agora.sandbox.FdroidSandboxManagerFactory { <init>(...); }
 -keep class com.newoether.agora.sandbox.PlaySandboxManagerFactory { <init>(...); }

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicNone
 import androidx.compose.material.icons.rounded.MoreVert
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.SpeechEngineType
 import com.newoether.agora.data.SpeechRecognitionConfig
+import com.newoether.agora.speech.LocalSpeechModels
 import com.newoether.agora.speech.SpeechCloudPresets
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
@@ -143,6 +145,7 @@ fun SettingsSpeechRecognitionPage(viewModel: ChatViewModel, onBack: () -> Unit) 
             Spacer(modifier = Modifier.height(8.dp))
             listOf(
                 Triple(SpeechEngineType.CLOUD, R.string.speech_type_cloud, R.string.speech_type_cloud_desc),
+                Triple(SpeechEngineType.LOCAL, R.string.speech_type_local, R.string.speech_type_local_desc),
                 Triple(SpeechEngineType.SYSTEM, R.string.speech_type_system, R.string.speech_type_system_desc),
             ).forEach { (type, titleRes, descRes) ->
                 SettingsItem(
@@ -183,8 +186,8 @@ fun SettingsSpeechRecognitionPage(viewModel: ChatViewModel, onBack: () -> Unit) 
     }
 }
 
-internal fun newSpeechConfig(type: SpeechEngineType): SpeechRecognitionConfig =
-    if (type == SpeechEngineType.CLOUD) {
+internal fun newSpeechConfig(type: SpeechEngineType): SpeechRecognitionConfig = when (type) {
+    SpeechEngineType.CLOUD -> {
         val preset = SpeechCloudPresets.all.first()
         SpeechRecognitionConfig(
             name = "",
@@ -194,14 +197,18 @@ internal fun newSpeechConfig(type: SpeechEngineType): SpeechRecognitionConfig =
             baseUrl = preset.baseUrl,
             model = preset.models.firstOrNull().orEmpty(),
         )
-    } else {
-        SpeechRecognitionConfig(name = "", type = type)
     }
+    SpeechEngineType.LOCAL -> {
+        val model = LocalSpeechModels.all.first()
+        SpeechRecognitionConfig(name = "", type = type, presetId = model.id, model = model.displayName)
+    }
+    SpeechEngineType.SYSTEM -> SpeechRecognitionConfig(name = "", type = type)
+}
 
 internal fun speechTypeIcon(type: SpeechEngineType) = when (type) {
     SpeechEngineType.CLOUD -> Icons.Rounded.Cloud
     SpeechEngineType.SYSTEM -> Icons.Rounded.PhoneAndroid
-    SpeechEngineType.LOCAL -> Icons.Rounded.MicNone
+    SpeechEngineType.LOCAL -> Icons.Rounded.Memory
 }
 
 @Composable
@@ -325,5 +332,6 @@ private fun speechConfigSummary(config: SpeechRecognitionConfig): String = when 
     SpeechEngineType.SYSTEM -> stringResource(
         if (config.preferOffline) R.string.speech_system_summary_offline else R.string.speech_type_system,
     )
-    SpeechEngineType.LOCAL -> config.model
+    SpeechEngineType.LOCAL -> listOf(stringResource(R.string.speech_type_local), config.model)
+        .filter { it.isNotBlank() }.joinToString(" · ")
 }

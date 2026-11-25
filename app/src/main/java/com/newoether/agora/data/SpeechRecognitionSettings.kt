@@ -56,6 +56,8 @@ data class SpeechRecognitionConfig(
     val vocabulary: String = "",
     /** System engine only: ask Android for its on-device recognizer when available. */
     val preferOffline: Boolean = false,
+    /** LOCAL only: download host id (see LocalSpeechSource); [presetId] holds the model id. */
+    val downloadSource: String = "",
 )
 
 data class SpeechRecognitionSettings(

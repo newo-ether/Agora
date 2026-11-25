@@ -26,12 +26,37 @@ internal object SpeechCaptureSessions {
     fun create(
         context: Context,
         config: SpeechRecognitionConfig,
+        localEngine: LocalSpeechEngine,
         onLevel: (Float) -> Unit,
     ): SpeechCaptureSession = when (config.type) {
         SpeechEngineType.CLOUD -> CloudSpeechCaptureSession(config, onLevel)
         SpeechEngineType.SYSTEM -> SystemSpeechRecognizerSession(context, config, onLevel)
-        SpeechEngineType.LOCAL -> throw SpeechRecognitionException("Local models are not available yet")
+        SpeechEngineType.LOCAL -> LocalSpeechCaptureSession(config, localEngine, onLevel)
     }
+}
+
+/** Records PCM locally, then decodes it with an on-device sherpa-onnx model. */
+private class LocalSpeechCaptureSession(
+    private val config: SpeechRecognitionConfig,
+    private val engine: LocalSpeechEngine,
+    onLevel: (Float) -> Unit,
+) : SpeechCaptureSession {
+    private val recorder = PcmSpeechRecorder(onLevel)
+
+    override val reachedLimit: Boolean get() = recorder.reachedLimit
+
+    override fun start() {
+        engine.requireReady(config)
+        recorder.start()
+    }
+
+    override suspend fun finish(): String {
+        val pcm = withContext(Dispatchers.IO) { recorder.stop() }
+        if (pcm.size < SpeechAudioFormat.BYTES_PER_SECOND / 5) return ""
+        return engine.transcribe(config, pcm16ToFloat(pcm)).trim()
+    }
+
+    override fun cancel() = recorder.cancel()
 }
 
 /** Records PCM locally, then uploads a WAV once the user stops. */

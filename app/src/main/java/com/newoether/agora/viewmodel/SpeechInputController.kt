@@ -9,6 +9,8 @@ import com.newoether.agora.data.SpeechEngineType
 import com.newoether.agora.data.SpeechRecognitionConfig
 import com.newoether.agora.data.SpeechRecognitionSettings
 import com.newoether.agora.data.SpeechRecognitionSettingsStore
+import com.newoether.agora.speech.LocalSpeechEngine
+import com.newoether.agora.speech.LocalSpeechModelStore
 import com.newoether.agora.speech.SpeechAudioFormat
 import com.newoether.agora.speech.SpeechCaptureSession
 import com.newoether.agora.speech.SpeechCaptureSessions
@@ -53,6 +55,10 @@ class SpeechInputController internal constructor(
 ) {
     private val appContext = context.applicationContext
     private val audioManager = appContext.getSystemService(AudioManager::class.java)
+
+    /** On-device model files; downloads outlive the settings page because they run on [scope]. */
+    internal val localModels = LocalSpeechModelStore(appContext, scope)
+    private val localEngine = LocalSpeechEngine(appContext, localModels, scope)
 
     val settings: StateFlow<SpeechRecognitionSettings> =
         store.settings.stateIn(scope, SharingStarted.Eagerly, SpeechRecognitionSettings())
@@ -103,7 +109,7 @@ class SpeechInputController internal constructor(
         _levels.value = emptyList()
         _elapsedMs.value = 0L
         val created = runCatching {
-            SpeechCaptureSessions.create(appContext, config) { level ->
+            SpeechCaptureSessions.create(appContext, config, localEngine) { level ->
                 peak.accumulateAndGet(level) { a, b -> maxOf(a, b) }
             }.also { it.start() }
         }.getOrElse { error ->
@@ -111,7 +117,8 @@ class SpeechInputController internal constructor(
             return false
         }
         session = created
-        if (config.type == SpeechEngineType.CLOUD) requestFocus()
+        // The system recognizer manages audio focus itself.
+        if (config.type != SpeechEngineType.SYSTEM) requestFocus()
         _state.value = SpeechInputState.Recording(ownerId)
         val startedAt = System.currentTimeMillis()
         tickJob = scope.launch(Dispatchers.Main.immediate) {

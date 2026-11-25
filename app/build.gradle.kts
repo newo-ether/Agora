@@ -175,6 +175,10 @@ dependencies {
     implementation(project(":core:presentation"))
     implementation(project(":data:database"))
     implementation(project(":provider:cloud"))
+    // On-device speech recognition. Prebuilt, git-ignored like jniLibs; fetch it from
+    // https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.3/sherpa-onnx-static-link-onnxruntime-2.0.3.aar
+    // SHA-256 7744a3a8f08f017d59c2d8ed8d9b700345561f5abe9f4e06dc6eaef3a0b977b4 (ONNX Runtime 1.28.2, static).
+    implementation(files("libs/sherpa-onnx-static-link-onnxruntime-2.0.3.aar"))
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation(libs.androidx.core.ktx)

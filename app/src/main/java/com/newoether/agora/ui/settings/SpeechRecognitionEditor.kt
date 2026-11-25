@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,9 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.SpeechEngineType
 import com.newoether.agora.data.SpeechRecognitionConfig
+import com.newoether.agora.speech.LocalSpeechModelStatus
+import com.newoether.agora.speech.LocalSpeechModels
+import com.newoether.agora.speech.LocalSpeechSource
 import com.newoether.agora.speech.SpeechCloudPreset
 import com.newoether.agora.speech.SpeechCloudPresets
 import com.newoether.agora.speech.SpeechLanguages
@@ -54,6 +58,7 @@ private data class SpeechDraft(
     val language: String,
     val vocabulary: String,
     val preferOffline: Boolean,
+    val downloadSource: String,
 )
 
 private fun savedKeyFor(viewModel: ChatViewModel, preset: SpeechCloudPreset): String? {
@@ -65,7 +70,8 @@ private fun savedKeyFor(viewModel: ChatViewModel, preset: SpeechCloudPreset): St
 
 /**
  * Full-page editor for one recognizer. Cloud entries pick a vendor preset, endpoint, key and model;
- * system entries only choose language and the on-device preference.
+ * system entries only choose language and the on-device preference; local entries pick and
+ * download an ONNX model, keeping its id in [SpeechRecognitionConfig.presetId].
  */
 @Composable
 internal fun SpeechRecognitionEditor(
@@ -75,11 +81,16 @@ internal fun SpeechRecognitionEditor(
     onBack: () -> Unit,
 ) {
     val isCloud = initial.type == SpeechEngineType.CLOUD
+    val isLocal = initial.type == SpeechEngineType.LOCAL
     val start = remember(initial.id) {
         val preset = SpeechCloudPresets.byId(initial.presetId)
         val saved = savedKeyFor(viewModel, preset)
         SpeechDraft(
-            presetId = preset.id,
+            presetId = if (isLocal) {
+                (LocalSpeechModels.byId(initial.presetId) ?: LocalSpeechModels.all.first()).id
+            } else {
+                preset.id
+            },
             baseUrl = initial.baseUrl,
             model = initial.model,
             useSavedKey = saved != null && (isNew || initial.apiKey == saved),
@@ -88,23 +99,31 @@ internal fun SpeechRecognitionEditor(
             language = initial.language,
             vocabulary = initial.vocabulary,
             preferOffline = initial.preferOffline,
+            downloadSource = LocalSpeechSource.fromId(initial.downloadSource).id,
         )
     }
     var draft by remember(initial.id) { mutableStateOf(start) }
     val preset = SpeechCloudPresets.byId(draft.presetId)
+    val localModel = if (isLocal) LocalSpeechModels.byId(draft.presetId) ?: LocalSpeechModels.all.first() else null
+    val localStatuses by viewModel.speechInput.localModels.status.collectAsState()
+    val localInstalled = localModel != null && localStatuses[localModel.id] == LocalSpeechModelStatus.Installed
+    val showLanguage = localModel == null || localModel.languages.isNotEmpty()
+    val showVocabulary = isCloud || localModel?.supportsVocabulary == true
     val savedKey = remember(draft.presetId) { savedKeyFor(viewModel, preset) }
     val usingSavedKey = savedKey != null && draft.useSavedKey
     val effectiveKey = if (usingSavedKey) savedKey!! else draft.apiKey.trim()
     val systemName = stringResource(R.string.speech_type_system)
-    val defaultName = if (isCloud) {
-        draft.model.trim().ifBlank { preset.displayName }
-    } else {
-        systemName
+    val defaultName = when {
+        isCloud -> draft.model.trim().ifBlank { preset.displayName }
+        localModel != null -> localModel.displayName
+        else -> systemName
     }
-    val canSave = !isCloud || (
-        draft.baseUrl.isNotBlank() && draft.model.isNotBlank() &&
+    val canSave = when {
+        isCloud -> draft.baseUrl.isNotBlank() && draft.model.isNotBlank() &&
             (!preset.keyRequired || effectiveKey.isNotBlank())
-        )
+        isLocal -> localInstalled
+        else -> true
+    }
 
     val guardedBack = rememberUnsavedChangesBack(hasUnsavedChanges = draft != start, onBack = onBack)
     BackHandler { guardedBack() }
@@ -115,13 +134,22 @@ internal fun SpeechRecognitionEditor(
             initial.copy(
                 name = draft.name.trim().ifBlank { defaultName },
                 protocol = if (isCloud) preset.protocol else initial.protocol,
-                presetId = if (isCloud) preset.id else "",
+                presetId = when {
+                    isCloud -> preset.id
+                    localModel != null -> localModel.id
+                    else -> ""
+                },
                 baseUrl = if (isCloud) draft.baseUrl.trim() else "",
-                model = if (isCloud) draft.model.trim() else "",
+                model = when {
+                    isCloud -> draft.model.trim()
+                    localModel != null -> localModel.displayName
+                    else -> ""
+                },
                 apiKey = if (isCloud) effectiveKey else "",
-                language = draft.language,
-                vocabulary = draft.vocabulary.trim(),
-                preferOffline = !isCloud && draft.preferOffline,
+                language = if (showLanguage) draft.language else "",
+                vocabulary = if (showVocabulary) draft.vocabulary.trim() else "",
+                preferOffline = initial.type == SpeechEngineType.SYSTEM && draft.preferOffline,
+                downloadSource = if (isLocal) draft.downloadSource else "",
             ),
         )
         onBack()
@@ -138,6 +166,20 @@ internal fun SpeechRecognitionEditor(
         },
     ) {
         SettingsGroupColumn {
+            if (localModel != null) {
+                LocalSpeechModelGroup(
+                    store = viewModel.speechInput.localModels,
+                    model = localModel,
+                    source = LocalSpeechSource.fromId(draft.downloadSource),
+                    onModelChange = { next ->
+                        draft = draft.copy(
+                            presetId = next.id,
+                            language = draft.language.takeIf { it in next.languages }.orEmpty(),
+                        )
+                    },
+                    onSourceChange = { draft = draft.copy(downloadSource = it.id) },
+                )
+            }
             if (isCloud) {
                 SettingsGroup(
                     title = stringResource(R.string.speech_connection),
@@ -255,9 +297,11 @@ internal fun SpeechRecognitionEditor(
             SettingsGroup(
                 title = stringResource(R.string.speech_recognition_options),
                 items = buildList {
-                    add {
+                    if (showLanguage) add {
                         val autoLabel = stringResource(R.string.speech_language_auto)
-                        val options = listOf("" to autoLabel) + SpeechLanguages.choices
+                        val choices = localModel?.let { m -> SpeechLanguages.choices.filter { it.first in m.languages } }
+                            ?: SpeechLanguages.choices
+                        val options = listOf("" to autoLabel) + choices
                         val current = options.firstOrNull { it.first == draft.language }?.second ?: draft.language
                         SpeechDropdownItem(
                             title = stringResource(R.string.speech_language),
@@ -269,7 +313,7 @@ internal fun SpeechRecognitionEditor(
                             onSelect = { draft = draft.copy(language = it) },
                         )
                     }
-                    if (isCloud) {
+                    if (showVocabulary) {
                         add {
                             SettingsIconContent(icon = Icons.Rounded.Spellcheck) {
                                 McpLabeledField(
@@ -281,7 +325,8 @@ internal fun SpeechRecognitionEditor(
                                 )
                             }
                         }
-                    } else {
+                    }
+                    if (initial.type == SpeechEngineType.SYSTEM) {
                         add {
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.speech_prefer_offline)) },
@@ -317,7 +362,7 @@ internal fun SpeechRecognitionEditor(
 
 /** A settings row whose right-hand label opens a single-choice menu. */
 @Composable
-private fun SpeechDropdownItem(
+internal fun SpeechDropdownItem(
     title: String,
     description: String,
     icon: ImageVector,
