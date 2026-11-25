@@ -353,11 +353,10 @@ private fun ComposerMicGlyph(color: Color) {
 internal fun ComposerRecordingOverlay(voice: ComposerVoice) {
     val progress = LocalComposerCapsuleProgress.current
     if (progress <= 0.001f) return
-    val levels by voice.controller.levels.collectAsState()
     val elapsed by voice.controller.elapsedMs.collectAsState()
     val transcribing = voice.phase == ComposerVoicePhase.TRANSCRIBING
     val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val barColor = MaterialTheme.colorScheme.primary.copy(alpha = if (transcribing) 0.4f else 0.9f)
+    val barColor = MaterialTheme.colorScheme.primary
     // Stop spins while the transcript is being made, dims while a send from the composer is in
     // flight (the send slot owns that spinner), and stays solid while merely recording.
     val stopLoading = transcribing && !voice.sendPending
@@ -393,26 +392,13 @@ internal fun ComposerRecordingOverlay(voice: ComposerVoice) {
                 )
             }
             Spacer(Modifier.width(8.dp))
-            Canvas(
-                Modifier
-                    .weight(1f)
-                    .height(24.dp)
-                    .graphicsLayer { alpha = progress },
-            ) {
-                val barWidth = 3.dp.toPx()
-                val step = barWidth + 2.dp.toPx()
-                val visible = levels.takeLast((size.width / step).toInt().coerceAtLeast(0))
-                val startX = size.width - visible.size * step
-                visible.forEachIndexed { index, level ->
-                    val height = maxOf(barWidth, level * size.height)
-                    drawRoundRect(
-                        color = barColor,
-                        topLeft = Offset(startX + index * step, (size.height - height) / 2f),
-                        size = Size(barWidth, height),
-                        cornerRadius = CornerRadius(barWidth / 2f),
-                    )
-                }
-            }
+            ComposerLevelHistory(
+                levels = voice.controller.levels,
+                transcribing = transcribing,
+                color = barColor,
+                alpha = { progress },
+                modifier = Modifier.weight(1f).height(24.dp),
+            )
             Spacer(Modifier.width(8.dp))
             Text(
                 formatSpeechElapsed(elapsed),

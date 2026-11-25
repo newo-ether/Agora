@@ -28,6 +28,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicReference
 
+/** Interval between loudness samples in [SpeechInputController.levels]; the UI scrolls at this rate. */
+internal const val SPEECH_LEVEL_TICK_MS = 70L
+
 /** Composer voice-input phase. Both active phases are bound to the composer that started them. */
 sealed interface SpeechInputState {
     data object Idle : SpeechInputState
@@ -225,7 +228,7 @@ class SpeechInputController internal constructor(
     }
 
     private companion object {
-        const val TICK_MS = 70L
+        const val TICK_MS = SPEECH_LEVEL_TICK_MS
         const val MAX_LEVELS = 96
     }
 }

@@ -53,7 +53,8 @@ private class LocalSpeechCaptureSession(
     override suspend fun finish(): String {
         val pcm = withContext(Dispatchers.IO) { recorder.stop() }
         if (pcm.size < SpeechAudioFormat.BYTES_PER_SECOND / 5) return ""
-        return engine.transcribe(config, pcm16ToFloat(pcm)).trim()
+        val samples = withContext(Dispatchers.Default) { pcm16ToFloat(pcm) }
+        return engine.transcribe(config, samples).trim()
     }
 
     override fun cancel() = recorder.cancel()
