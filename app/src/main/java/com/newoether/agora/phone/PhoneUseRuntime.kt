@@ -36,7 +36,10 @@ internal class PhoneUseRuntime(
     val privileged = PhonePrivilegedConnection(context) { epoch ->
         lease.releaseEpoch(epoch, "permission_lost:shizuku_service_disconnected")
     }
-    val permissions = PhonePermissions(context, privileged)
+    val permissions = PhonePermissions(context, privileged) { settings.phoneUse.value.backgroundActive }
+    /** Background screen of the current Shizuku lease, when the setting was on at claim. */
+    @Volatile private var virtual: PhoneVirtualScreen? = null
+    private var preview: PhoneBackgroundPreview? = null
     private val actionStatus = PhoneActionStatus(
         CoroutineScope(scope.coroutineContext + Dispatchers.Main.immediate), SystemClock::elapsedRealtime,
     )
@@ -62,14 +65,20 @@ internal class PhoneUseRuntime(
         },
         device = { mode ->
             if (mode == "shizuku") privileged.leaseEpoch = lease.held.value?.epoch
-            AndroidPhoneDevice(context, mode, privileged)
+            val screen = virtual.takeIf { mode == "shizuku" }
+            if (screen != null) VirtualPhoneDevice(context, screen, privileged)
+            else AndroidPhoneDevice(context, mode, privileged)
         },
         ownPackage = context.packageName,
         launcher = { context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName },
         persist = { source -> withContext(Dispatchers.IO) {
             images.persistBitmap(source, "phone")
         } },
-        captured = { capture -> (overlay ?: throw PhoneFailure("overlay_unavailable")).capture(capture) },
+        // The background screen never shows the overlay, so there is nothing to hide for capture.
+        captured = { capture ->
+            if (virtual != null) capture()
+            else (overlay ?: throw PhoneFailure("overlay_unavailable")).capture(capture)
+        },
         showControl = { mode ->
             val held = lease.held.value ?: throw PhoneFailure("not_claimed")
             try {
@@ -84,9 +93,16 @@ internal class PhoneUseRuntime(
                         try { next.show(mode) } catch (error: Exception) { next.remove(); throw error }
                         overlay = next
                         overlayEpoch = held.epoch
+                        if (mode == "shizuku" && settings.phoneUse.value.backgroundActive) {
+                            val screen = PhoneVirtualScreen(context, privileged)
+                            virtual = screen
+                            preview = PhoneBackgroundPreview(context.withAppLocale(settings.appLanguage.value), screen)
+                                .also { it.show() }
+                        }
                     }
                     ContextCompat.startForegroundService(context, Intent(context, PhoneControlService::class.java))
                 }
+                virtual?.ensureOpen()
             } catch (error: Exception) {
                 withContext(NonCancellable) {
                     withContext(Dispatchers.Main.immediate) {
@@ -108,7 +124,8 @@ internal class PhoneUseRuntime(
             }
         },
         action = { name, x, y, endX, endY, duration ->
-            cursor.value = PhoneCursor(name, x, y, endX, endY, duration, SystemClock.elapsedRealtime())
+            // Background coordinates belong to the hidden display, not the screen the cursor draws on.
+            if (virtual == null) cursor.value = PhoneCursor(name, x, y, endX, endY, duration, SystemClock.elapsedRealtime())
         },
         status = { name ->
             if (name != null) withContext(Dispatchers.Main.immediate) {
@@ -190,6 +207,10 @@ internal class PhoneUseRuntime(
         val previous = overlay
         overlay = null
         overlayEpoch = null
+        preview?.remove()
+        preview = null
+        virtual?.release()
+        virtual = null
         privileged.close()
         syncActionStatus()
         cursor.value = null

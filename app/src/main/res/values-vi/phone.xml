@@ -19,6 +19,8 @@
     <string name="phone_shizuku_permission">Quyền Shizuku</string>
     <string name="phone_automation">Cho phép tác vụ và vòng lặp</string>
     <string name="phone_automation_description">Cho phép lượt chạy tự động và tác nhân con yêu cầu điều khiển thiết bị.</string>
+    <string name="phone_background">Màn hình nền</string>
+    <string name="phone_background_description">Chỉ dùng với Shizuku và cần dịch vụ hỗ trợ tiếp cận. Ứng dụng chạy trên màn hình ảo ẩn, cửa sổ xem trước nổi hiển thị thao tác của AI. Chạm để xem toàn màn hình.</string>
     <string name="phone_app_access">Kiểm soát truy cập ứng dụng</string>
     <string name="phone_app_access_description">Giới hạn ứng dụng có thể quan sát và điều khiển. Agora luôn được phép.</string>
     <string name="phone_access_off">Tắt</string>

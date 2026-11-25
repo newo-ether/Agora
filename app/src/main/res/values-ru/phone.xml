@@ -19,6 +19,8 @@
     <string name="phone_shizuku_permission">Разрешение Shizuku</string>
     <string name="phone_automation">Разрешить задачи и циклы</string>
     <string name="phone_automation_description">Разрешить автоматическим запускам и их субагентам запрашивать управление.</string>
+    <string name="phone_background">Фоновый экран</string>
+    <string name="phone_background_description">Только с Shizuku, нужна служба специальных возможностей. Приложения работают на скрытом виртуальном дисплее, а плавающее окно показывает действия ИИ. Нажмите, чтобы открыть на весь экран.</string>
     <string name="phone_app_access">Доступ к приложениям</string>
     <string name="phone_app_access_description">Ограничьте доступные для просмотра и управления приложения. Agora разрешена всегда.</string>
     <string name="phone_access_off">Выкл.</string>

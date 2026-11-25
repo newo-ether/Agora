@@ -29,8 +29,11 @@ data class PhoneUseSettings(
     val blocklist: Set<String> = emptySet(),
     val allowlist: Set<String> = emptySet(),
     val maxScreenshots: Int = PHONE_MAX_SCREENSHOTS_DEFAULT,
+    /** Drive a hidden virtual display. Only takes effect in Shizuku mode. */
+    val background: Boolean = false,
 ) {
     val packages: Set<String> get() = if (accessMode == "blocklist") blocklist else allowlist
+    val backgroundActive: Boolean get() = background && mode == "shizuku"
 }
 
 class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
@@ -41,6 +44,7 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
     private val blocked = stringSetPreferencesKey("phone_use_blocklist")
     private val allowed = stringSetPreferencesKey("phone_use_allowlist")
     private val maxScreenshots = intPreferencesKey("phone_use_max_screenshots")
+    private val background = booleanPreferencesKey("phone_use_background")
     // A raw legacy count must never opt into Unlimited, even if it matches the domain sentinel.
     private val unlimitedScreenshots = booleanPreferencesKey("phone_use_screenshots_unlimited")
     val values = store.data.map { pref -> PhoneUseSettings(
@@ -51,7 +55,9 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
         blocklist = pref[blocked].orEmpty(), allowlist = pref[allowed].orEmpty(),
         maxScreenshots = if (pref[unlimitedScreenshots] == true) PHONE_MAX_SCREENSHOTS_UNLIMITED
             else normalizePhoneScreenshotCount(pref[maxScreenshots] ?: PHONE_MAX_SCREENSHOTS_DEFAULT),
+        background = pref[background] ?: false,
     ) }
+    suspend fun setBackground(value: Boolean) { store.edit { it[background] = value } }
     suspend fun setEnabled(value: Boolean) { store.edit { it[enabled] = value } }
     suspend fun setMode(value: String) {
         require(value in listOf("accessibility", "shizuku", "root"))

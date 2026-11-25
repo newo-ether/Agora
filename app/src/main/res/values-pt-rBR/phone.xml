@@ -19,6 +19,8 @@
     <string name="phone_shizuku_permission">Permissão do Shizuku</string>
     <string name="phone_automation">Permitir tarefas e ciclos</string>
     <string name="phone_automation_description">Permita que execuções automáticas e seus subagentes solicitem o controle.</string>
+    <string name="phone_background">Tela em segundo plano</string>
+    <string name="phone_background_description">Somente com Shizuku e exige o serviço de acessibilidade. Os apps rodam em uma tela virtual oculta e uma prévia flutuante mostra o que a IA faz. Toque para ver em tela cheia.</string>
     <string name="phone_app_access">Controle de acesso a apps</string>
     <string name="phone_app_access_description">Restrinja os apps que podem ser observados e controlados. Agora é sempre permitido.</string>
     <string name="phone_access_off">Desativado</string>

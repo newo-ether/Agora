@@ -19,6 +19,8 @@
     <string name="phone_shizuku_permission">Shizuku の権限</string>
     <string name="phone_automation">タスクとループを許可</string>
     <string name="phone_automation_description">自動実行とそのサブエージェントによる端末操作を許可します。</string>
+    <string name="phone_background">バックグラウンド画面</string>
+    <string name="phone_background_description">Shizuku 専用で、ユーザー補助サービスが必要です。アプリは非表示の仮想ディスプレイで動作し、フローティングプレビューで AI の操作を確認できます。タップで全画面表示。</string>
     <string name="phone_app_access">アプリへのアクセス制御</string>
     <string name="phone_app_access_description">確認・操作できるアプリを制限します。Agora は常に許可されます。</string>
     <string name="phone_access_off">オフ</string>

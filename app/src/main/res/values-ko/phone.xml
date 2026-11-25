@@ -19,6 +19,8 @@
     <string name="phone_shizuku_permission">Shizuku 권한</string>
     <string name="phone_automation">작업 및 루프 실행 허용</string>
     <string name="phone_automation_description">자동 실행과 하위 에이전트가 기기 제어를 요청하도록 허용합니다.</string>
+    <string name="phone_background">백그라운드 화면</string>
+    <string name="phone_background_description">Shizuku 전용이며 접근성 서비스가 필요합니다. 앱이 숨겨진 가상 디스플레이에서 실행되고, 떠 있는 미리보기로 AI의 작업을 볼 수 있습니다. 탭하면 전체 화면으로 봅니다.</string>
     <string name="phone_app_access">앱 접근 제어</string>
     <string name="phone_app_access_description">확인하고 조작할 수 있는 앱을 제한합니다. Agora는 항상 허용됩니다.</string>
     <string name="phone_access_off">끄기</string>

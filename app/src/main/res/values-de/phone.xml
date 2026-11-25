@@ -19,6 +19,8 @@
     <string name="phone_shizuku_permission">Shizuku-Berechtigung</string>
     <string name="phone_automation">Aufgaben und Schleifen zulassen</string>
     <string name="phone_automation_description">Automatisierte Ausführungen und ihre Unteragenten dürfen die Gerätesteuerung anfordern.</string>
+    <string name="phone_background">Hintergrundbildschirm</string>
+    <string name="phone_background_description">Nur mit Shizuku und benötigt den Bedienungshilfen-Dienst. Apps laufen auf einem unsichtbaren virtuellen Display, ein schwebendes Vorschaufenster zeigt die Arbeit der KI. Tippen für Vollbild.</string>
     <string name="phone_app_access">App-Zugriff</string>
     <string name="phone_app_access_description">Beobachtbare und bedienbare Apps einschränken. Agora ist immer zugelassen.</string>
     <string name="phone_access_off">Aus</string>

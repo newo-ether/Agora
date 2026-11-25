@@ -19,6 +19,8 @@
     <string name="phone_shizuku_permission">Autorisation Shizuku</string>
     <string name="phone_automation">Autoriser les tâches et boucles</string>
     <string name="phone_automation_description">Autoriser les exécutions automatiques et leurs sous-agents à prendre le contrôle.</string>
+    <string name="phone_background">Écran en arrière-plan</string>
+    <string name="phone_background_description">Shizuku uniquement, avec le service d\'accessibilité. Les applis tournent sur un écran virtuel masqué et un aperçu flottant montre le travail de l\'IA. Touchez-le pour le plein écran.</string>
     <string name="phone_app_access">Accès aux applications</string>
     <string name="phone_app_access_description">Limiter les applications observables et contrôlables. Agora reste toujours autorisé.</string>
     <string name="phone_access_off">Désactivé</string>

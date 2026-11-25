@@ -19,6 +19,8 @@
     <string name="phone_shizuku_permission">Shizuku 授權</string>
     <string name="phone_automation">允許任務與循環執行</string>
     <string name="phone_automation_description">允許自動執行及其子代理申請裝置控制權。</string>
+    <string name="phone_background">背景螢幕</string>
+    <string name="phone_background_description">僅限 Shizuku，需要開啟無障礙服務。應用程式在隱藏的虛擬螢幕上執行，懸浮小窗顯示 AI 的操作，點開可全螢幕檢視。</string>
     <string name="phone_app_access">應用程式存取控制</string>
     <string name="phone_app_access_description">限制對話可觀察及操作的應用程式。Agora 一律允許存取。</string>
     <string name="phone_access_off">關閉</string>

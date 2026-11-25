@@ -26,7 +26,7 @@ internal class PhonePrivilegedConnection(
     private var pending: CompletableDeferred<IPhoneUserService>? = null
     private var connection: ServiceConnection? = null
     private val args get() = Shizuku.UserServiceArgs(ComponentName(context, PhoneUserService::class.java))
-        .daemon(false).processNameSuffix("phone").tag("agora-phone").version(1)
+        .daemon(false).processNameSuffix("phone").tag("agora-phone").version(2)
 
     fun ready(): Boolean = runCatching {
         Shizuku.pingBinder() && !Shizuku.isPreV11() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
@@ -91,6 +91,22 @@ internal class PhonePrivilegedConnection(
             if (result != "ok") throw PhoneFailure("clipboard_input_failed", result)
         }
     }
+    /** Opens the background display on [request]; see [PhoneVirtualDisplayHost]. */
+    suspend fun openDisplay(request: android.os.Bundle): Int = withContext(Dispatchers.IO) {
+        try { service().openDisplay(request) }
+        catch (error: android.os.DeadObjectException) { throw PhoneFailure("permission_lost:shizuku_binder_dead") }
+        catch (error: SecurityException) { throw PhoneFailure("background_display_denied", error.message ?: "denied") }
+        catch (error: RuntimeException) { throw PhoneFailure("background_display_unsupported", error.message ?: error.javaClass.simpleName) }
+    }
+
+    /** One-way and non-suspending, so Main-thread cleanup can call it; a lost binding has no display. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun closeDisplay() {
+        val bound = synchronized(bindingLock) { pending?.takeIf { it.isCompleted && !it.isCancelled } }
+        val service = runCatching { bound?.getCompleted() }.getOrNull() ?: return
+        runCatching { service.closeDisplay() }
+    }
+
     fun close() {
         val previous = synchronized(bindingLock) {
             pending?.cancel()

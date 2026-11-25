@@ -1,13 +1,22 @@
 package com.newoether.agora.phone
 
 import android.content.ClipData
+import android.content.Context
+import android.os.Bundle
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
-/** Loaded by Shizuku under shell/root, never registered as an Android Service. */
-class PhoneUserService : IPhoneUserService.Stub() {
+/**
+ * Loaded by Shizuku under shell/root, never registered as an Android Service. Shizuku prefers the
+ * Context constructor; the no-argument one remains for older managers.
+ */
+class PhoneUserService(context: Context?) : IPhoneUserService.Stub() {
+    constructor() : this(null)
+    private val displays = PhoneVirtualDisplayHost(context)
+    override fun openDisplay(request: Bundle): Int = displays.open(request)
+    override fun closeDisplay() = displays.close()
     override fun command(command: String): ParcelFileDescriptor {
         // The image payload must never be marshalled into a Binder transaction.
         val pipe = ParcelFileDescriptor.createReliablePipe()
@@ -25,7 +34,10 @@ class PhoneUserService : IPhoneUserService.Stub() {
         privilegedPaste(text)
         "ok"
     } catch (error: Exception) { "${error.javaClass.simpleName}: ${error.message}" }
-    override fun destroy() { kotlin.system.exitProcess(0) }
+    override fun destroy() {
+        displays.close()
+        kotlin.system.exitProcess(0)
+    }
 }
 
 internal fun phoneProcess(arguments: List<String>, rootEntryMarker: String? = null): ByteArray {
