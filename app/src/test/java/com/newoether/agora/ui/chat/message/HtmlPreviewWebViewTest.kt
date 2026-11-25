@@ -112,7 +112,9 @@ class HtmlPreviewWebViewTest {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(6))
         assertTrue(shadow.wasDestroyCalled())
         assertTrue(shadow.wasOnPauseCalled())
-        assertNull(browser.parent)
+        // The Compose AndroidView holder owns the attachment: release() closes the renderer but
+        // must not pull the view out from under a pass that may still be laying the holder out.
+        assertEquals(parent, browser.parent)
         assertEquals(0, fixture.failures.get())
         assertEquals(403, fixture.resources.response(fixture.document.rootUrl, "GET", true).statusCode)
     }
@@ -189,7 +191,7 @@ class HtmlPreviewWebViewTest {
         assertTrue(shadowOf(browser).webViewClient.onRenderProcessGone(browser, detail))
         assertEquals(1, fixture.failures.get())
         assertTrue(shadowOf(browser).wasDestroyCalled())
-        assertNull(browser.parent)
+        assertEquals(parent, browser.parent)
         assertEquals(403, fixture.resources.response(fixture.document.rootUrl, "GET", true).statusCode)
     }
 

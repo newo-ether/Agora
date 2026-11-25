@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -22,12 +23,14 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -57,22 +60,75 @@ internal fun HtmlPreviewBrowser(code: String, modifier: Modifier = Modifier, ful
         onDispose { lifecycle.removeObserver(observer) }
     }
     var visible by remember { mutableStateOf(false) }
+    val token = remember { Any() }
+    val focus = remember { HtmlPreviewFocus() }
+    val active = visible && foreground
+    DisposableEffect(token) { onDispose { HtmlPreviewLiveSlots.release(token) } }
+    LaunchedEffect(active) {
+        if (active) HtmlPreviewLiveSlots.acquire(token) else HtmlPreviewLiveSlots.release(token)
+    }
+    // A focused WebView must give up focus before Compose removes it. See HtmlPreviewFocus.
+    val wantBrowser = active && HtmlPreviewLiveSlots.isLive(token)
+    var keepBrowser by remember { mutableStateOf(false) }
+    LaunchedEffect(wantBrowser) {
+        if (wantBrowser) {
+            keepBrowser = true
+        } else if (keepBrowser) {
+            focus.clearNow()
+            withFrameNanos { }
+            keepBrowser = false
+        }
+    }
     Box(
         modifier.then(if (fullScreen) Modifier else Modifier.height(360.dp))
             .onGloballyPositioned { coordinates ->
                 val bounds = coordinates.boundsInWindow()
                 visible = bounds.width > 0 && bounds.height > 0
+                focus.onMoved(coordinates.positionInWindow().y, clipped = bounds.height < coordinates.size.height)
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (visible && foreground) {
-            HtmlPreviewActiveBrowser(code)
+        if (wantBrowser || keepBrowser) {
+            HtmlPreviewActiveBrowser(code, focus)
+        } else if (active) {
+            Box(
+                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center,
+            ) {
+                TextButton(onClick = { HtmlPreviewLiveSlots.acquire(token) }) {
+                    Text(stringResource(R.string.html_preview_run))
+                }
+            }
         }
     }
 }
 
+/**
+ * Removing a focused view makes Android refocus the window root while Compose is still applying
+ * changes or measuring. Compose then runs focus search and beyond-bounds layout inside that pass,
+ * which corrupts the lazy list and later crashes with "LayoutNode should be attached to an owner"
+ * (issuetracker 469958424). A WebView takes focus once the user touches it, so the preview drops
+ * that focus in a safe phase: once the list scrolls it partly out of view, and before its own
+ * removal. Fully visible moves, such as the IME resizing the list, keep focus for text input.
+ */
+internal class HtmlPreviewFocus {
+    var view: HtmlPreviewWebView? = null
+    private var lastY = Float.NaN
+
+    fun onMoved(y: Float, clipped: Boolean) {
+        val moved = !lastY.isNaN() && y != lastY
+        lastY = y
+        val target = view ?: return
+        if (moved && clipped && target.hasFocus()) target.post { if (target.hasFocus()) target.clearFocus() }
+    }
+
+    fun clearNow() {
+        view?.takeIf { it.hasFocus() }?.clearFocus()
+    }
+}
+
 @Composable
-private fun HtmlPreviewActiveBrowser(code: String) {
+private fun HtmlPreviewActiveBrowser(code: String, focus: HtmlPreviewFocus) {
     val context = LocalContext.current
     val media = LocalShellMarkdownMedia.current
     val document = remember(code) { runCatching { HtmlPreviewDocument(code) }.getOrNull() }
@@ -118,10 +174,14 @@ private fun HtmlPreviewActiveBrowser(code: String) {
                         HtmlPreviewWebView(context, document, resources,
                             onFailure = { failed = true },
                             backgroundColor = surface.toArgb(), onReady = { ready = true },
-                        ).also { browser = it }
+                        ).also { browser = it; focus.view = it }
                     },
                     modifier = Modifier.fillMaxSize(),
-                    onRelease = { it.release(); browser = null },
+                    onRelease = {
+                        if (focus.view === it) focus.view = null
+                        it.release()
+                        browser = null
+                    },
                     update = {},
                 )
             }

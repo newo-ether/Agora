@@ -83,7 +83,22 @@ internal fun calculateTailHolderMinHeightPx(
 internal data class MessageListTurn(
     val key: String,
     val messages: List<ChatMessage>,
-)
+) {
+    /**
+     * HTML previews host WebViews through AndroidView. Reusing such a slot for another turn
+     * removes the WebView subtree inside a deactivated item, after which Compose can place a
+     * detached child ("LayoutNode should be attached to an owner"). These turns get a
+     * per-turn content type so LazyColumn never recycles them into a different turn.
+     */
+    val hostsHtmlPreview: Boolean by lazy(LazyThreadSafetyMode.NONE) {
+        messages.any { message -> message.text.contains("```html", ignoreCase = true) }
+    }
+}
+
+internal const val MessageTurnContentType = "turn"
+
+internal fun MessageListTurn.lazyContentType(): Any =
+    if (hostsHtmlPreview) "html:$key" else MessageTurnContentType
 
 internal fun branchReplacementExitMessageIds(
     messages: List<ChatMessage>,

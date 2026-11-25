@@ -147,7 +147,9 @@ internal class HtmlPreviewWebView(
         if (released) return
         released = true
         resources.close()
-        (parent as? ViewGroup)?.removeView(this)
+        // Never detach from the Compose AndroidView holder here. Renderer-gone and error callbacks
+        // can run while Compose still lays the holder out; removing the view then crashes with
+        // "LayoutNode should be attached to an owner". Compose removes the holder itself.
         stopLoading()
         onPause()
         removeAllViews()
