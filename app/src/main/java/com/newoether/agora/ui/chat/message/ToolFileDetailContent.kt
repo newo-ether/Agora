@@ -24,6 +24,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -41,14 +42,14 @@ internal fun ToolPathHeader(path: ToolDetailPath, modifier: Modifier = Modifier)
     Column(modifier = modifier) {
         Text(
             text = path.name,
-            style = ChatType.thoughtCodeLarge,
+            style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
             fontFamily = MonoFamily,
             color = MaterialTheme.colorScheme.primary,
         )
         path.directory?.let {
             Text(
                 text = it,
-                style = ChatType.micro,
+                style = ChatType.micro.copy(textDirection = TextDirection.Ltr),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 maxLines = 1,
                 overflow = TextOverflow.MiddleEllipsis,
@@ -261,7 +262,7 @@ internal fun CodeRows(rows: List<ToolDetailCodeRow>) {
                             Spacer(Modifier.width(10.dp))
                             Text(
                                 text = highlighted(row, highlight),
-                                style = ChatType.thoughtCodeLarge,
+                                style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
                                 fontFamily = MonoFamily,
                                 color = if (row.emphasized) MaterialTheme.colorScheme.onSurface
                                     else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),

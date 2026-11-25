@@ -16,8 +16,11 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
+import com.newoether.agora.util.isRtlContent
+import com.newoether.agora.util.rememberContentTextDirection
 
 internal val SearchHighlightBackground = Color(0xFFFFD54F)
 internal val ActiveSearchHighlightBackground = Color(0xFFFFA000)
@@ -135,8 +138,9 @@ internal fun SearchHighlightedPlainText(
     )
     Text(
         text = highlighted.first,
-        style = style,
+        style = style.copy(textDirection = rememberContentTextDirection(text)),
         color = color,
+        textAlign = if (isRtlContent(text)) TextAlign.End else TextAlign.Start,
         onTextLayout = { layoutResult = it },
         modifier = modifier.onGloballyPositioned { coordinates = it },
     )

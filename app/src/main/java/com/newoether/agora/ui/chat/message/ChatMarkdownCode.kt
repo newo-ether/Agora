@@ -47,6 +47,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.compose.LocalMarkdownColors
@@ -91,6 +92,7 @@ internal fun ChatMarkdownCodeBlock(
             )
             val codeStyle = assets.renderContext.typography.code.copy(
                 color = MaterialTheme.colorScheme.onSurface,
+                textDirection = TextDirection.Ltr,
             )
             MarkdownBasicText(
                 text = AnnotatedString(code),
@@ -203,6 +205,7 @@ private fun SearchHighlightedMarkdownCodeText(
     nodeFade: StreamingGlyphNodeFade?,
     autoWrap: Boolean,
 ) {
+    val style = style.copy(textDirection = TextDirection.Ltr)
     val displayMatches = if (spec == null) {
         emptyList()
     } else {

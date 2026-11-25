@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.compose.LocalImageTransformer
@@ -97,7 +98,7 @@ internal fun DisplayLatexBlock(
     ) {
         Text(
             text = text,
-            style = style,
+            style = style.copy(textDirection = TextDirection.Ltr),
             inlineContent = inlineContent,
             softWrap = false,
             maxLines = 1,
