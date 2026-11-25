@@ -312,7 +312,9 @@ private fun ComposerMicGlyph(color: Color) {
         val d = size.width / MIC_GLYPH_UNITS
         val stroke = MIC_GLYPH_STROKE * d
         val centerX = 12f * d
-        val bodyTop = 4.25f * d
+        // The ink spans 3.5 to 20.5 around the box centre; the extra 0.6 compensates optically
+        // for the heavy capsule above the thin cradle and stem.
+        val bodyTop = 4.85f * d
         val bodyWidth = 6.4f * d
         val bodyHeight = 10.6f * d
         drawRoundRect(

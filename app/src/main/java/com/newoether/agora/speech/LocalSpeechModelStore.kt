@@ -52,6 +52,14 @@ internal class LocalSpeechModelStore(context: Context, private val scope: Corout
     )
     val status: StateFlow<Map<String, LocalSpeechModelStatus>> = _status.asStateFlow()
 
+    init {
+        // Directories of retired presets are unreachable from the UI, so nothing else frees them.
+        scope.launch(Dispatchers.IO) {
+            val known = LocalSpeechModels.all.mapTo(HashSet()) { it.id }
+            root.listFiles()?.filter { it.isDirectory && it.name !in known }?.forEach { it.deleteRecursively() }
+        }
+    }
+
     fun directory(model: LocalSpeechModel): File = File(root, model.id)
 
     fun isInstalled(model: LocalSpeechModel): Boolean {

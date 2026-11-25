@@ -44,13 +44,15 @@ internal enum class LocalSpeechSource(val id: String, val host: String) {
 internal object LocalSpeechModels {
     val all: List<LocalSpeechModel> = listOf(
         LocalSpeechModel(
-            id = "sense-voice-int8-2025-09-09",
+            // The original 2024-07-17 export. The 2025-09-09 Cantonese fine-tune emits no punctuation
+            // even with ITN on (see the sherpa-onnx SenseVoice model page).
+            id = SENSE_VOICE_ID,
             displayName = "SenseVoice Small",
             kind = LocalSpeechModelKind.SENSE_VOICE,
-            repo = "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09",
-            revision = "355f4d4884d8afd08aef04b9007a8556d7b463b2",
+            repo = "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
+            revision = "2365baeacb507f821a0c8120fcee3d484dba7a07",
             files = listOf(
-                LocalSpeechModelFile("model.int8.onnx", 237_115_547L, "12ca1a2ae7ecf3e0019ef2822307ee0b5cadc9196569e379b4c4026f8205276d"),
+                LocalSpeechModelFile("model.int8.onnx", 239_233_841L, "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51"),
                 LocalSpeechModelFile("tokens.txt", 315_894L, "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"),
             ),
             languages = listOf("zh", "en", "yue", "ja", "ko"),
@@ -97,5 +99,13 @@ internal object LocalSpeechModels {
         ),
     )
 
-    fun byId(id: String): LocalSpeechModel? = all.firstOrNull { it.id == id }
+    /** Retired preset ids mapped to their replacement, so saved configurations keep working. */
+    private val renamed = mapOf("sense-voice-int8-2025-09-09" to SENSE_VOICE_ID)
+
+    fun byId(id: String): LocalSpeechModel? {
+        val current = renamed[id] ?: id
+        return all.firstOrNull { it.id == current }
+    }
 }
+
+private const val SENSE_VOICE_ID = "sense-voice-int8-2024-07-17"
