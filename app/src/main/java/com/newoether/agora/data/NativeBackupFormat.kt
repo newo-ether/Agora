@@ -85,6 +85,7 @@ internal data class NativeBackupSecrets(
     /** v1-v3 compatibility only. v4 always keys shell credentials by stable device ID. */
     val shellApiKeys: Map<String, String> = emptyMap(),
     val embeddingApiKeys: Map<String, String> = emptyMap(),
+    val speechRecognitionApiKeys: Map<String, String> = emptyMap(),
     val mcpHeaders: Map<String, Map<String, String>> = emptyMap(),
 )
 

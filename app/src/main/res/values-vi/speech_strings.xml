@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_speech_recognition">Nhận Dạng Giọng Nói</string>
+    <string name="settings_speech_recognition_desc">Đọc tin nhắn bằng micrô</string>
+    <string name="speech_general">Chung</string>
+    <string name="speech_enable">Nhập Bằng Giọng Nói</string>
+    <string name="speech_enable_desc">Hiện nút micrô cạnh nút Gửi</string>
+    <string name="speech_recognizers">Bộ Nhận Dạng</string>
+    <string name="speech_no_recognizers">Chưa có bộ nhận dạng</string>
+    <string name="speech_add">Thêm Bộ Nhận Dạng</string>
+    <string name="speech_edit">Sửa Bộ Nhận Dạng</string>
+    <string name="speech_choose_type">Chọn Loại Bộ Nhận Dạng</string>
+    <string name="speech_type_cloud">Đám Mây</string>
+    <string name="speech_type_cloud_desc">Tải bản ghi âm lên API chuyển giọng nói thành văn bản</string>
+    <string name="speech_type_system">Bộ Nhận Dạng Hệ Thống</string>
+    <string name="speech_type_system_desc">Dùng dịch vụ giọng nói đã cài trên thiết bị này</string>
+    <string name="speech_system_summary_offline">Bộ Nhận Dạng Hệ Thống · Trên Thiết Bị</string>
+    <string name="speech_delete_title">Xóa Bộ Nhận Dạng</string>
+    <string name="speech_delete_confirm">Xóa \"%1$s\"?</string>
+    <string name="speech_preset_custom">Tùy chỉnh</string>
+    <string name="speech_connection">Kết Nối</string>
+    <string name="speech_provider">Nhà Cung Cấp</string>
+    <string name="speech_provider_desc">Mẫu có sẵn sẽ điền endpoint và mô hình</string>
+    <string name="speech_base_url">Base URL</string>
+    <string name="speech_use_saved_key_desc">Dùng lại khóa trong cài đặt nhà cung cấp</string>
+    <string name="speech_model_presets">Mô Hình Có Sẵn</string>
+    <string name="speech_recognition_options">Nhận Dạng</string>
+    <string name="speech_language">Ngôn Ngữ</string>
+    <string name="speech_language_desc">Cố định ngôn ngữ có thể tăng độ chính xác</string>
+    <string name="speech_language_auto">Tự động</string>
+    <string name="speech_vocabulary">Từ Vựng</string>
+    <string name="speech_vocabulary_desc">Tên và thuật ngữ cần ưu tiên, cách nhau bằng dấu phẩy. Nhà cung cấp không hỗ trợ gợi ý sẽ bỏ qua.</string>
+    <string name="speech_prefer_offline">Ưu Tiên Trên Thiết Bị</string>
+    <string name="speech_prefer_offline_desc">Dùng bộ nhận dạng ngoại tuyến khi Android có sẵn</string>
+    <string name="speech_input_start">Nhập bằng giọng nói</string>
+    <string name="speech_input_cancel">Hủy ghi âm</string>
+    <string name="speech_input_stop">Dừng và chuyển văn bản</string>
+    <string name="speech_input_no_result">Không nhận dạng được giọng nói</string>
+    <string name="speech_input_failed">Nhận dạng giọng nói thất bại: %1$s</string>
+    <string name="speech_input_permission_denied">Nhập bằng giọng nói cần quyền micrô</string>
+</resources>

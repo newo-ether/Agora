@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_speech_recognition">語音辨識</string>
+    <string name="settings_speech_recognition_desc">用麥克風口述訊息</string>
+    <string name="speech_general">一般</string>
+    <string name="speech_enable">語音輸入</string>
+    <string name="speech_enable_desc">在傳送按鈕旁顯示麥克風按鈕</string>
+    <string name="speech_recognizers">辨識器</string>
+    <string name="speech_no_recognizers">尚無辨識器</string>
+    <string name="speech_add">新增辨識器</string>
+    <string name="speech_edit">編輯辨識器</string>
+    <string name="speech_choose_type">選擇辨識器類型</string>
+    <string name="speech_type_cloud">雲端</string>
+    <string name="speech_type_cloud_desc">將錄音上傳至語音轉文字 API</string>
+    <string name="speech_type_system">系統辨識器</string>
+    <string name="speech_type_system_desc">使用本機安裝的語音服務</string>
+    <string name="speech_system_summary_offline">系統辨識器 · 裝置端</string>
+    <string name="speech_delete_title">刪除辨識器</string>
+    <string name="speech_delete_confirm">刪除「%1$s」？</string>
+    <string name="speech_preset_custom">自訂</string>
+    <string name="speech_connection">連線</string>
+    <string name="speech_provider">服務商</string>
+    <string name="speech_provider_desc">預設會填入端點與模型</string>
+    <string name="speech_base_url">Base URL</string>
+    <string name="speech_use_saved_key_desc">沿用服務商設定中的金鑰</string>
+    <string name="speech_model_presets">預設模型</string>
+    <string name="speech_recognition_options">辨識</string>
+    <string name="speech_language">語言</string>
+    <string name="speech_language_desc">固定語言可提高準確度</string>
+    <string name="speech_language_auto">自動</string>
+    <string name="speech_vocabulary">詞彙提示</string>
+    <string name="speech_vocabulary_desc">需優先辨識的人名與術語，以逗號分隔。不支援提示的服務商會忽略。</string>
+    <string name="speech_prefer_offline">優先裝置端辨識</string>
+    <string name="speech_prefer_offline_desc">Android 提供離線辨識器時使用</string>
+    <string name="speech_input_start">語音輸入</string>
+    <string name="speech_input_cancel">取消錄音</string>
+    <string name="speech_input_stop">停止並轉寫</string>
+    <string name="speech_input_no_result">未辨識到語音</string>
+    <string name="speech_input_failed">語音辨識失敗：%1$s</string>
+    <string name="speech_input_permission_denied">語音輸入需要麥克風權限</string>
+</resources>

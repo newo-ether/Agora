@@ -131,6 +131,13 @@ class ChatViewModel(
     )
     /** Process-scoped embedding subsystem owned by [ChatRuntime]. */
     val ragManager: RagManager = chatRuntime.ragManager
+    /** Speech-recognition settings and the composer's single microphone session. */
+    val speechInput = SpeechInputController(
+        context = appContext,
+        store = settingsManager.speechRecognition,
+        scope = viewModelScope,
+        emitSnackbar = { emitSnackbar(it) },
+    )
 
     /**
      * Data export/import orchestration (native backup + Claude + GPT formats).
@@ -242,6 +249,7 @@ class ChatViewModel(
         // releases every reference the runtime holds to this ViewModel graph.
         chatRuntime.clients.detach(phoneClient)
         dataControl.destroy()
+        speechInput.cancelAll()
     }
 
     /** Nullable on purpose: the provider settings page recomposes one frame after a custom

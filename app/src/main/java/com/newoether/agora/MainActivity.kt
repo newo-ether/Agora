@@ -495,6 +495,7 @@ fun MainNavigation(
             CompositionLocalProvider(
                 LocalShellMarkdownMedia provides viewModel.shellMarkdownMedia,
                 LocalSnackbarMessage provides { message -> viewModel.emitSnackbar(message) },
+                com.newoether.agora.ui.chat.bottombar.LocalSpeechInput provides viewModel.speechInput,
             ) {
                 ChatApp(
                     viewModel = viewModel,
@@ -566,14 +567,16 @@ fun MainNavigation(
                 )
             }
 
-            com.newoether.agora.ui.remote.RemoteOverlay(
-                visible = showRemote, settings = viewModel.settings,
-                hapticsActive = topLevelPresentation.owner == TopLevelPresentation.REMOTE,
-                onDismiss = { showRemote = false },
-                onExitFinished = { topLevelPresentation.release(TopLevelPresentation.REMOTE) },
-                onMessage = viewModel::emitSnackbar,
-                onMediaClick = openMediaPreview,
-            )
+            CompositionLocalProvider(com.newoether.agora.ui.chat.bottombar.LocalSpeechInput provides viewModel.speechInput) {
+                com.newoether.agora.ui.remote.RemoteOverlay(
+                    visible = showRemote, settings = viewModel.settings,
+                    hapticsActive = topLevelPresentation.owner == TopLevelPresentation.REMOTE,
+                    onDismiss = { showRemote = false },
+                    onExitFinished = { topLevelPresentation.release(TopLevelPresentation.REMOTE) },
+                    onMessage = viewModel::emitSnackbar,
+                    onMediaClick = openMediaPreview,
+                )
+            }
 
             SettingsOverlayHost(
                 visible = showSettings && screenshotDestination?.startsWith("settings") != true,

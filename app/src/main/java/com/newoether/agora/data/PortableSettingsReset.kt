@@ -57,6 +57,7 @@ internal fun clearPortableSettings(prefs: MutablePreferences) {
     prefs.remove(IMAGE_QUALITY_MODE)
     prefs.remove(IMAGE_QUALITY_MAX_LONG_EDGE)
     prefs.remove(IMAGE_QUALITY_JPEG_QUALITY)
+    SpeechRecognitionPortableSettings.clear(prefs)
     prefs.remove(IMAGE_GEN_ENABLED)
     prefs.remove(IMAGE_GEN_MODEL)
     prefs.remove(IMAGE_GEN_SIZE)

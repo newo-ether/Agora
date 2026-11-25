@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_speech_recognition">Reconocimiento de Voz</string>
+    <string name="settings_speech_recognition_desc">Dicta mensajes con el micrófono</string>
+    <string name="speech_general">General</string>
+    <string name="speech_enable">Entrada de Voz</string>
+    <string name="speech_enable_desc">Muestra un botón de micrófono junto a Enviar</string>
+    <string name="speech_recognizers">Reconocedores</string>
+    <string name="speech_no_recognizers">Aún no hay reconocedores</string>
+    <string name="speech_add">Añadir Reconocedor</string>
+    <string name="speech_edit">Editar Reconocedor</string>
+    <string name="speech_choose_type">Elegir Tipo de Reconocedor</string>
+    <string name="speech_type_cloud">Nube</string>
+    <string name="speech_type_cloud_desc">Sube la grabación a una API de voz a texto</string>
+    <string name="speech_type_system">Reconocedor del Sistema</string>
+    <string name="speech_type_system_desc">Usa el servicio de voz instalado en este dispositivo</string>
+    <string name="speech_system_summary_offline">Reconocedor del Sistema · En el Dispositivo</string>
+    <string name="speech_delete_title">Eliminar Reconocedor</string>
+    <string name="speech_delete_confirm">¿Eliminar \"%1$s\"?</string>
+    <string name="speech_preset_custom">Personalizado</string>
+    <string name="speech_connection">Conexión</string>
+    <string name="speech_provider">Proveedor</string>
+    <string name="speech_provider_desc">Los ajustes predefinidos rellenan el endpoint y el modelo</string>
+    <string name="speech_base_url">Base URL</string>
+    <string name="speech_use_saved_key_desc">Reutiliza la clave de la configuración del proveedor</string>
+    <string name="speech_model_presets">Modelos Predefinidos</string>
+    <string name="speech_recognition_options">Reconocimiento</string>
+    <string name="speech_language">Idioma</string>
+    <string name="speech_language_desc">Fijar el idioma puede mejorar la precisión</string>
+    <string name="speech_language_auto">Automático</string>
+    <string name="speech_vocabulary">Vocabulario</string>
+    <string name="speech_vocabulary_desc">Nombres y términos preferentes, separados por comas. Los proveedores sin soporte de pistas los ignoran.</string>
+    <string name="speech_prefer_offline">Preferir en el Dispositivo</string>
+    <string name="speech_prefer_offline_desc">Usa el reconocedor sin conexión si Android ofrece uno</string>
+    <string name="speech_input_start">Entrada de voz</string>
+    <string name="speech_input_cancel">Cancelar grabación</string>
+    <string name="speech_input_stop">Detener y transcribir</string>
+    <string name="speech_input_no_result">No se reconoció ninguna voz</string>
+    <string name="speech_input_failed">Error de reconocimiento de voz: %1$s</string>
+    <string name="speech_input_permission_denied">La entrada de voz requiere permiso de micrófono</string>
+</resources>

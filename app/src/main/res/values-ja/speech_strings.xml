@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_speech_recognition">音声認識</string>
+    <string name="settings_speech_recognition_desc">マイクでメッセージを入力</string>
+    <string name="speech_general">全般</string>
+    <string name="speech_enable">音声入力</string>
+    <string name="speech_enable_desc">送信ボタンの横にマイクボタンを表示</string>
+    <string name="speech_recognizers">認識エンジン</string>
+    <string name="speech_no_recognizers">認識エンジンがありません</string>
+    <string name="speech_add">認識エンジンを追加</string>
+    <string name="speech_edit">認識エンジンを編集</string>
+    <string name="speech_choose_type">認識エンジンの種類を選択</string>
+    <string name="speech_type_cloud">クラウド</string>
+    <string name="speech_type_cloud_desc">録音を音声認識 API にアップロード</string>
+    <string name="speech_type_system">システム認識エンジン</string>
+    <string name="speech_type_system_desc">この端末にインストールされた音声サービスを使用</string>
+    <string name="speech_system_summary_offline">システム認識エンジン · オンデバイス</string>
+    <string name="speech_delete_title">認識エンジンを削除</string>
+    <string name="speech_delete_confirm">「%1$s」を削除しますか？</string>
+    <string name="speech_preset_custom">カスタム</string>
+    <string name="speech_connection">接続</string>
+    <string name="speech_provider">プロバイダ</string>
+    <string name="speech_provider_desc">プリセットでエンドポイントとモデルを入力</string>
+    <string name="speech_base_url">Base URL</string>
+    <string name="speech_use_saved_key_desc">プロバイダ設定のキーを再利用</string>
+    <string name="speech_model_presets">モデルのプリセット</string>
+    <string name="speech_recognition_options">認識</string>
+    <string name="speech_language">言語</string>
+    <string name="speech_language_desc">言語を固定すると精度が上がることがあります</string>
+    <string name="speech_language_auto">自動</string>
+    <string name="speech_vocabulary">語彙ヒント</string>
+    <string name="speech_vocabulary_desc">優先して認識する名前や用語をカンマ区切りで入力。ヒント非対応のプロバイダでは無視されます。</string>
+    <string name="speech_prefer_offline">オンデバイスを優先</string>
+    <string name="speech_prefer_offline_desc">Android にオフライン認識エンジンがあれば使用</string>
+    <string name="speech_input_start">音声入力</string>
+    <string name="speech_input_cancel">録音をキャンセル</string>
+    <string name="speech_input_stop">停止して文字起こし</string>
+    <string name="speech_input_no_result">音声を認識できませんでした</string>
+    <string name="speech_input_failed">音声認識に失敗しました: %1$s</string>
+    <string name="speech_input_permission_denied">音声入力にはマイクの権限が必要です</string>
+</resources>

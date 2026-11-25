@@ -103,6 +103,7 @@ internal object PortableSettingsArchive {
         put("imageQualityMode", JsonPrimitive(imageQuality.mode))
         put("imageQualityMaxLongEdge", JsonPrimitive(imageQuality.customMaxLongEdge))
         put("imageQualityJpegQuality", JsonPrimitive(imageQuality.customJpegQuality))
+        SpeechRecognitionPortableSettings.export(sm.speechRecognition).forEach { (key, value) -> put(key, value) }
         put("imageGenEnabled", JsonPrimitive(sm.imageGenEnabled.first()))
         putNullableString("imageGenModel", sm.imageGenModel.first())
         put("imageGenSize", JsonPrimitive(sm.imageGenSize.first()))
@@ -211,6 +212,7 @@ internal object PortableSettingsArchive {
         val previousShellDevices = sm.shellDevices.first()
         val previousMcpServers = sm.mcpServers.first()
         val previousEmbeddingModels = sm.embeddingModels.first()
+        val previousSpeech = sm.speechRecognition.snapshot()
         val previousFontPath = sm.customFontPath.first()
         val previousFontName = sm.customFontName.first()
         val previousCustomProviders = sm.customProviders.first()
@@ -411,6 +413,7 @@ internal object PortableSettingsArchive {
             customMaxLongEdge = obj.int("imageQualityMaxLongEdge"),
             customJpegQuality = obj.int("imageQualityJpegQuality"),
         )
+        SpeechRecognitionPortableSettings.restore(obj, sm.speechRecognition, previousSpeech, replace)
         obj.boolean("imageGenEnabled")?.let { sm.saveImageGenEnabled(it) }
         if (obj.containsKey("imageGenModel")) {
             sm.saveImageGenModel(obj.nullableString("imageGenModel")?.let(::remapModel))

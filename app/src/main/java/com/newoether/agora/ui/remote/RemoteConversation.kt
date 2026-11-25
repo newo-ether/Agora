@@ -342,6 +342,7 @@ internal fun RemoteConversation(
                 }
             }
         }
+        val voice = rememberComposerVoice(owner, enabled = active && !submitting) { field.insertTranscript(it) }
         ChatComposerSurface(expanded, { barHeightPx = it }, Modifier.align(Alignment.BottomCenter), spacer.outerHeightPx) {
             ChatComposerLayout(field, focus, scroll::setComposerInputFocused, expanded, spacer.isRunning,
                 onExpand = { expanded = true }, onCollapse = { expanded = false },
@@ -356,7 +357,8 @@ internal fun RemoteConversation(
                     )
                 },
                 controls = {
-                    ComposerControlGroup {
+                    ComposerVoiceControls(voice = voice, controls = {
+                    ComposerControlGroup(voice = voice) {
                         // Keep native model text visible even when switching is unavailable.
                         RemoteAttachmentPicker(owner, active, state.capabilities.uploads && !submitting, vm)
                         val modelChoice = active && state.canChooseModel && state.selectedModel != null &&
@@ -510,7 +512,15 @@ internal fun RemoteConversation(
                             }
                         }
                     }
+                    }) {
                     val showStop = running && !stopping && field.text.isBlank() && attachments.isEmpty()
+                    if (voice?.active == true) ComposerSendButton(
+                        isActionable = voice.phase == ComposerVoicePhase.RECORDING && active && !stopping &&
+                            !state.controlling && !state.controlPending && !state.settingsPending && !submitting && state.canSend,
+                        isBusy = voice.sendPending || submitting,
+                    ) {
+                        voice.finishAndSend { vm.editDraft(owner, field.text.toString()); vm.send() }
+                    } else
                     ComposerSendButton(isActionable = active && !stopping && !state.controlling && !state.controlPending && (showStop || !state.settingsPending) && !submitting &&
                         !(attempt?.delivery == RemoteDelivery.UNKNOWN && attempt.receiptKind == "submitted_observed" && !showStop) &&
                         (if (showStop) state.canStop else state.canSend && (field.text.isNotBlank() || attachments.isNotEmpty())),
@@ -518,6 +528,7 @@ internal fun RemoteConversation(
                         onBusyShown = { shownBusyAttempt = attempt?.clientId }) {
                         if (showStop) vm.stop()
                         else { vm.editDraft(owner, field.text.toString()); vm.send() }
+                    }
                     }
                 })
         }

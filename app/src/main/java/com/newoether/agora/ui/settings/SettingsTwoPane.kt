@@ -376,6 +376,7 @@ internal fun SettingsDestination(
         "context" -> SettingsContextPage(viewModel, onBack)
         "websearch" -> SettingsWebSearchPage(viewModel, onBack)
         "imagegen" -> SettingsImageGenPage(viewModel, onBack)
+        "speechrecognition" -> SettingsSpeechRecognitionPage(viewModel, onBack)
         "phoneuse" -> SettingsPhoneUsePage(viewModel, onBack)
         "shell" -> SettingsShellPage(viewModel, onBack)
         "interaction" -> SettingsInteractionPage(viewModel, onBack)

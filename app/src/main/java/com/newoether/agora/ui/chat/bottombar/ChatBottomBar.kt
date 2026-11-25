@@ -414,6 +414,11 @@ internal fun ChatBottomBar(
             cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
         }
     }
+    val voice = rememberComposerVoice(composerOwnerId, enabled = composerSnapshot.loaded && !submission.isFrozen) {
+        textFieldState.insertTranscript(it)
+    }
+    val latestSnapshot by rememberUpdatedState(composerSnapshot)
+    val voiceCanSend = composerSnapshot.loaded && isModelValid && !isSwitching && !isStopping && !submission.isFrozen
     ChatComposerLayout(
         textFieldState = textFieldState,
         focusRequester = focusRequester,
@@ -446,7 +451,8 @@ internal fun ChatBottomBar(
         }
         },
     ) {
-            ComposerControlGroup {
+        ComposerVoiceControls(voice = voice, controls = {
+            ComposerControlGroup(voice = voice) {
                 AttachmentAddMenu(
                     enabled = !submission.isFrozen,
                     onCamera = {
@@ -665,6 +671,10 @@ internal fun ChatBottomBar(
                     }
                 }
             }
+        }) {
+            // While recording, send stops capture, transcribes into the draft and submits it;
+            // submit() queues behind a running generation instead of interrupting it. The voice
+            // state rides into the same button call so its colours fade instead of snapping.
             ComposerSendButton(
                 textFieldState = textFieldState,
                 ownerId = composerOwnerId,
@@ -679,7 +689,23 @@ internal fun ChatBottomBar(
                 onSendQueued = onSendQueuedNow,
                 onStopGeneration = onStopGeneration,
                 onCollapse = onCollapse,
+                voiceAction = voice?.takeIf { it.active }?.let { active ->
+                    ComposerVoiceSendAction(
+                        isActionable = active.phase == ComposerVoicePhase.RECORDING && voiceCanSend,
+                        isBusy = active.sendPending,
+                        onClick = {
+                            active.finishAndSend {
+                                submissionController.submit(
+                                    ownerId = composerOwnerId,
+                                    text = textFieldState.text.toString(),
+                                    attachmentIds = latestSnapshot.attachments.map { it.localId },
+                                )
+                            }
+                        },
+                    )
+                },
             )
+        }
     }
 
     ChatBottomBarOverlayHost(

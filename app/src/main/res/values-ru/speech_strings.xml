@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_speech_recognition">Распознавание Речи</string>
+    <string name="settings_speech_recognition_desc">Диктуйте сообщения через микрофон</string>
+    <string name="speech_general">Общие</string>
+    <string name="speech_enable">Голосовой Ввод</string>
+    <string name="speech_enable_desc">Показывать кнопку микрофона рядом с «Отправить»</string>
+    <string name="speech_recognizers">Распознаватели</string>
+    <string name="speech_no_recognizers">Распознавателей пока нет</string>
+    <string name="speech_add">Добавить Распознаватель</string>
+    <string name="speech_edit">Изменить Распознаватель</string>
+    <string name="speech_choose_type">Выберите Тип Распознавателя</string>
+    <string name="speech_type_cloud">Облако</string>
+    <string name="speech_type_cloud_desc">Загрузить запись в API распознавания речи</string>
+    <string name="speech_type_system">Системный Распознаватель</string>
+    <string name="speech_type_system_desc">Использовать речевой сервис, установленный на устройстве</string>
+    <string name="speech_system_summary_offline">Системный Распознаватель · На Устройстве</string>
+    <string name="speech_delete_title">Удалить Распознаватель</string>
+    <string name="speech_delete_confirm">Удалить «%1$s»?</string>
+    <string name="speech_preset_custom">Свой</string>
+    <string name="speech_connection">Подключение</string>
+    <string name="speech_provider">Провайдер</string>
+    <string name="speech_provider_desc">Шаблоны заполняют адрес и модель</string>
+    <string name="speech_base_url">Base URL</string>
+    <string name="speech_use_saved_key_desc">Использовать ключ из настроек провайдера</string>
+    <string name="speech_model_presets">Шаблоны Моделей</string>
+    <string name="speech_recognition_options">Распознавание</string>
+    <string name="speech_language">Язык</string>
+    <string name="speech_language_desc">Фиксированный язык может повысить точность</string>
+    <string name="speech_language_auto">Авто</string>
+    <string name="speech_vocabulary">Словарь</string>
+    <string name="speech_vocabulary_desc">Имена и термины для приоритетного распознавания, через запятую. Провайдеры без поддержки подсказок их игнорируют.</string>
+    <string name="speech_prefer_offline">Предпочитать на Устройстве</string>
+    <string name="speech_prefer_offline_desc">Использовать офлайн-распознаватель, если Android его предоставляет</string>
+    <string name="speech_input_start">Голосовой ввод</string>
+    <string name="speech_input_cancel">Отменить запись</string>
+    <string name="speech_input_stop">Остановить и распознать</string>
+    <string name="speech_input_no_result">Речь не распознана</string>
+    <string name="speech_input_failed">Ошибка распознавания речи: %1$s</string>
+    <string name="speech_input_permission_denied">Для голосового ввода нужно разрешение на микрофон</string>
+</resources>

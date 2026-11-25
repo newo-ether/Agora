@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_speech_recognition">음성 인식</string>
+    <string name="settings_speech_recognition_desc">마이크로 메시지 받아쓰기</string>
+    <string name="speech_general">일반</string>
+    <string name="speech_enable">음성 입력</string>
+    <string name="speech_enable_desc">보내기 버튼 옆에 마이크 버튼 표시</string>
+    <string name="speech_recognizers">인식기</string>
+    <string name="speech_no_recognizers">인식기가 없습니다</string>
+    <string name="speech_add">인식기 추가</string>
+    <string name="speech_edit">인식기 편집</string>
+    <string name="speech_choose_type">인식기 유형 선택</string>
+    <string name="speech_type_cloud">클라우드</string>
+    <string name="speech_type_cloud_desc">녹음을 음성-텍스트 API에 업로드</string>
+    <string name="speech_type_system">시스템 인식기</string>
+    <string name="speech_type_system_desc">이 기기에 설치된 음성 서비스 사용</string>
+    <string name="speech_system_summary_offline">시스템 인식기 · 온디바이스</string>
+    <string name="speech_delete_title">인식기 삭제</string>
+    <string name="speech_delete_confirm">\"%1$s\"을(를) 삭제할까요?</string>
+    <string name="speech_preset_custom">사용자 지정</string>
+    <string name="speech_connection">연결</string>
+    <string name="speech_provider">제공자</string>
+    <string name="speech_provider_desc">프리셋이 엔드포인트와 모델을 채웁니다</string>
+    <string name="speech_base_url">Base URL</string>
+    <string name="speech_use_saved_key_desc">제공자 설정의 키를 재사용</string>
+    <string name="speech_model_presets">모델 프리셋</string>
+    <string name="speech_recognition_options">인식</string>
+    <string name="speech_language">언어</string>
+    <string name="speech_language_desc">언어를 고정하면 정확도가 높아질 수 있습니다</string>
+    <string name="speech_language_auto">자동</string>
+    <string name="speech_vocabulary">어휘 힌트</string>
+    <string name="speech_vocabulary_desc">우선 인식할 이름과 용어를 쉼표로 구분해 입력하세요. 힌트를 지원하지 않는 제공자는 무시합니다.</string>
+    <string name="speech_prefer_offline">온디바이스 우선</string>
+    <string name="speech_prefer_offline_desc">Android가 오프라인 인식기를 제공하면 사용</string>
+    <string name="speech_input_start">음성 입력</string>
+    <string name="speech_input_cancel">녹음 취소</string>
+    <string name="speech_input_stop">중지하고 변환</string>
+    <string name="speech_input_no_result">인식된 음성이 없습니다</string>
+    <string name="speech_input_failed">음성 인식 실패: %1$s</string>
+    <string name="speech_input_permission_denied">음성 입력에는 마이크 권한이 필요합니다</string>
+</resources>

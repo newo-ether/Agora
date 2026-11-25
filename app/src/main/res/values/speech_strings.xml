@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_speech_recognition">Speech Recognition</string>
+    <string name="settings_speech_recognition_desc">Dictate messages with the microphone</string>
+    <string name="speech_general">General</string>
+    <string name="speech_enable">Voice Input</string>
+    <string name="speech_enable_desc">Show a microphone button next to Send</string>
+    <string name="speech_recognizers">Recognizers</string>
+    <string name="speech_no_recognizers">No recognizers yet</string>
+    <string name="speech_add">Add Recognizer</string>
+    <string name="speech_edit">Edit Recognizer</string>
+    <string name="speech_choose_type">Choose Recognizer Type</string>
+    <string name="speech_type_cloud">Cloud</string>
+    <string name="speech_type_cloud_desc">Upload the recording to a speech-to-text API</string>
+    <string name="speech_type_system">System Recognizer</string>
+    <string name="speech_type_system_desc">Use the speech service installed on this device</string>
+    <string name="speech_system_summary_offline">System Recognizer · On-Device</string>
+    <string name="speech_delete_title">Delete Recognizer</string>
+    <string name="speech_delete_confirm">Delete \"%1$s\"?</string>
+    <string name="speech_preset_custom">Custom</string>
+    <string name="speech_connection">Connection</string>
+    <string name="speech_provider">Provider</string>
+    <string name="speech_provider_desc">Presets fill in the endpoint and model</string>
+    <string name="speech_base_url">Base URL</string>
+    <string name="speech_use_saved_key_desc">Reuse the key from your Provider settings</string>
+    <string name="speech_model_presets">Model Presets</string>
+    <string name="speech_recognition_options">Recognition</string>
+    <string name="speech_language">Language</string>
+    <string name="speech_language_desc">A fixed language can improve accuracy</string>
+    <string name="speech_language_auto">Auto</string>
+    <string name="speech_vocabulary">Vocabulary</string>
+    <string name="speech_vocabulary_desc">Names and terms to favor, separated by commas. Ignored by providers without hint support.</string>
+    <string name="speech_prefer_offline">Prefer On-Device</string>
+    <string name="speech_prefer_offline_desc">Use the offline recognizer when Android provides one</string>
+    <string name="speech_input_start">Voice input</string>
+    <string name="speech_input_cancel">Cancel recording</string>
+    <string name="speech_input_stop">Stop and transcribe</string>
+    <string name="speech_input_no_result">No speech recognized</string>
+    <string name="speech_input_failed">Speech recognition failed: %1$s</string>
+    <string name="speech_input_permission_denied">Microphone permission is required for voice input</string>
+</resources>

@@ -266,6 +266,7 @@ internal val baseSettingsGroups = listOf(
     SettingsGroupData(titleRes = R.string.settings_group_multimodal, items = listOf(
         SettingsCategory("transcription", R.string.settings_transcription, R.string.settings_transcription_desc, Icons.Rounded.ImageSearch),
         SettingsCategory("imagegen", R.string.settings_image_gen, R.string.settings_image_gen_desc, Icons.Rounded.AddPhotoAlternate),
+        SettingsCategory("speechrecognition", R.string.settings_speech_recognition, R.string.settings_speech_recognition_desc, Icons.Rounded.Mic),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_tools, items = listOf(
         SettingsCategory("websearch", R.string.settings_web_search, R.string.settings_web_search_desc, Icons.Rounded.Language),
