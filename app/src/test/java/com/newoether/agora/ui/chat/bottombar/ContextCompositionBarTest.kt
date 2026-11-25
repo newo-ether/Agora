@@ -5,14 +5,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.R
@@ -129,6 +132,35 @@ class ContextCompositionBarTest {
         }
         compose.onNodeWithContentDescription(resources.getString(R.string.context_title)).assertIsNotEnabled()
         compose.onNodeWithText(resources.getString(R.string.context_part_used)).assertDoesNotExist()
+    }
+
+    @Test fun segmentedBarStartsFromTheEndUnderRtl() {
+        compose.setContent {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                MaterialTheme {
+                    Column(Modifier.width(100.dp).testTag("segmented-bar")) {
+                        SegmentedBar(listOf(0.5f), listOf(Color.Red))
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        val view = compose.activity.window.decorView
+        val bitmap = android.graphics.Bitmap.createBitmap(view.width, view.height,
+            android.graphics.Bitmap.Config.ARGB_8888)
+        compose.runOnUiThread { view.draw(android.graphics.Canvas(bitmap)) }
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val barBounds = compose.onNodeWithTag("segmented-bar").fetchSemanticsNode().boundsInRoot
+        val redXs = pixels.indices.filter { pixels[it] == Color.Red.toArgb() }
+            .map { it % bitmap.width }
+            .filter { it >= barBounds.left && it < barBounds.right }
+        try {
+            assertTrue("A segment must be drawn", redXs.isNotEmpty())
+            assertTrue("RTL segments start at the end", redXs.average() > barBounds.left + barBounds.width / 2)
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     @Test fun zeroAndOverBudgetTotalsAreNotClippedInTheUsedLegend() {

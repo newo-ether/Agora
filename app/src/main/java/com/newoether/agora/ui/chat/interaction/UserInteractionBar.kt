@@ -71,6 +71,7 @@ import com.newoether.agora.ui.chat.message.ToolPathHeader
 import com.newoether.agora.ui.chat.message.shellEditHunks
 import com.newoether.agora.ui.chat.message.toolDetailPath
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.viewmodel.AskUserController
 import com.newoether.agora.viewmodel.ShellActionDetail
 import com.newoether.agora.viewmodel.ShellConfirmationController
@@ -402,7 +403,9 @@ private fun ShellBody(
             if (pending.description.isNotBlank()) {
                 Text(
                     text = pending.description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        textDirection = rememberContentTextDirection(pending.description),
+                    ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -504,29 +507,37 @@ internal fun CardHeader(
     ) {
         icon(MaterialTheme.colorScheme.primary)
         Spacer(Modifier.width(8.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        detail?.let {
-            Spacer(Modifier.width(8.dp))
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = it,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
             )
+            detail?.let {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        textDirection = rememberContentTextDirection(it),
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+            }
         }
-        Spacer(Modifier.weight(1f))
         position?.let {
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = it,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
             )
         }
     }

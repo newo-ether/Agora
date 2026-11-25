@@ -57,6 +57,7 @@ import com.newoether.agora.model.ConversationTodoItem
 import com.newoether.agora.ui.components.SmoothBottomSheet
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.rememberContentTextDirection
 import kotlinx.coroutines.flow.first
 import kotlin.math.roundToInt
 
@@ -156,9 +157,12 @@ internal fun ConversationTodoBar(
                     Icon(Icons.Rounded.Checklist, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                     Text(
                         title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                     )
-                    Text(count, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        count, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                    )
                 }
             }
         }
@@ -224,8 +228,13 @@ internal fun ConversationTodoBar(
                                 }
                             },
                         ) {
-                            Text(item.content, style = MaterialTheme.typography.bodyMedium,
-                                onTextLayout = { textLayout = it })
+                            Text(
+                                item.content,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    textDirection = rememberContentTextDirection(item.content),
+                                ),
+                                onTextLayout = { textLayout = it },
+                            )
                         }
                     }
                 }

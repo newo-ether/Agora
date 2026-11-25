@@ -46,6 +46,7 @@ import com.newoether.agora.model.SubagentSummary
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 import com.newoether.agora.ui.motion.rememberIdentityClipWidth
+import com.newoether.agora.util.contentTextDirection
 import kotlin.math.roundToInt
 
 internal fun subagentStatusIcon(status: String): ImageVector = when (status) {
@@ -109,13 +110,15 @@ internal fun SubagentNavigationCapsule(
         val canvasWidth = minOf(maxWidth, 240.dp)
         val textMaxWidth = (canvasWidth - 58.dp).coerceAtLeast(0.dp)
         val label = stringResource(R.string.message_source_subagent)
+        val titleStyle = MaterialTheme.typography.titleSmall.copy(textDirection = contentTextDirection(title))
+        val labelStyle = MaterialTheme.typography.labelSmall.copy(textDirection = contentTextDirection(label))
         val textMeasurer = rememberTextMeasurer()
         val targetWidth = with(density) {
             val titleWidth = textMeasurer.measure(
-                AnnotatedString(title), MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false,
+                AnnotatedString(title), titleStyle, maxLines = 1, softWrap = false,
             ).size.width.toDp()
             val labelWidth = textMeasurer.measure(
-                AnnotatedString(label), MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false,
+                AnnotatedString(label), labelStyle, maxLines = 1, softWrap = false,
             ).size.width.toDp()
             minOf(maxOf(titleWidth, labelWidth) + 58.dp, canvasWidth)
         }
@@ -158,7 +161,7 @@ internal fun SubagentNavigationCapsule(
                 Column(Modifier.weight(1f, fill = false)) {
                     Text(
                         label,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = labelStyle,
                         color = labelColor,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
@@ -168,7 +171,7 @@ internal fun SubagentNavigationCapsule(
                         label = "subagent-title:$identity",
                     ) { text ->
                         Text(
-                            text, style = MaterialTheme.typography.titleSmall,
+                            text, style = titleStyle,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.width(textMaxWidth),
                         )

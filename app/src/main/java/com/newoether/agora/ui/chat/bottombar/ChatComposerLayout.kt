@@ -20,15 +20,20 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.util.noOpBringIntoView
+import com.newoether.agora.util.rememberContentTextDirection
 
 /** Shared composer drawing; callers own drafts, attachment work and submission. */
 @Composable
@@ -48,6 +53,16 @@ internal fun ChatComposerLayout(
     controls: @Composable RowScope.() -> Unit,
 ) {
     val allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions
+    // An empty field follows the UI locale; once typed, the content decides where text starts.
+    val layoutDirection = LocalLayoutDirection.current
+    val contentDirection = rememberContentTextDirection(textFieldState.text)
+    val fieldIsRtl = textFieldState.text.isNotBlank() && contentDirection == TextDirection.Rtl ||
+        textFieldState.text.isBlank() && layoutDirection == LayoutDirection.Rtl
+    val inputStyle = ChatType.input.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        textDirection = if (fieldIsRtl) TextDirection.Rtl else TextDirection.Ltr,
+        textAlign = if (fieldIsRtl) TextAlign.Right else TextAlign.Left,
+    )
     val composerOcclusionColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
     val composerOcclusionShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
     Box(modifier = modifier.fillMaxWidth().then(if (isExpanded) Modifier.fillMaxHeight() else Modifier).padding(start = COMPOSER_HOST_SIDE_PADDING, end = COMPOSER_HOST_SIDE_PADDING, top = COMPOSER_HOST_TOP_PADDING, bottom = COMPOSER_CONTROLS_INSET)) {
@@ -108,8 +123,7 @@ internal fun ChatComposerLayout(
                 placeholder = {
                     Text(
                         stringResource(R.string.ask_agora),
-                        style = ChatType.input,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        style = inputStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)),
                     )
                 },
                 lineLimits = TextFieldLineLimits.MultiLine(1, if (isExpanded) Int.MAX_VALUE else 6),
@@ -128,7 +142,7 @@ internal fun ChatComposerLayout(
                     disabledContainerColor = Color.Transparent,
                     cursorColor = MaterialTheme.colorScheme.primary
                 ),
-                textStyle = ChatType.input.copy(color = MaterialTheme.colorScheme.onSurface)
+                textStyle = inputStyle
             )
             androidx.compose.animation.AnimatedVisibility(
                 visible = !isExpanded,

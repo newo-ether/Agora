@@ -38,6 +38,7 @@ import com.newoether.agora.model.SubagentSummary
 import com.newoether.agora.ui.components.OPTION_HIGHLIGHT_SHAPE
 import com.newoether.agora.ui.components.SmoothBottomSheet
 import com.newoether.agora.ui.components.rememberSmoothBottomSheetState
+import com.newoether.agora.util.rememberContentTextDirection
 
 /** The shared row keeps this entry's family key at both sides of the single/count threshold. */
 @Composable
@@ -143,6 +144,7 @@ internal fun ConversationSubagentsSheet(
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(agent.title, style = MaterialTheme.typography.titleMedium.copy(
                                 fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium,
+                                textDirection = rememberContentTextDirection(agent.title),
                             ))
                             Text(
                                 subagentStatusLabel(agent.status), style = MaterialTheme.typography.labelMedium,
