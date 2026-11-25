@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -63,6 +64,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.newoether.agora.R
+import com.newoether.agora.ui.chat.message.COMPOSER_ICON_CROSSFADE_DURATION_MS
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.viewmodel.SpeechInputController
@@ -232,6 +234,8 @@ private val COMPOSER_STOP_SIZE = 32.dp
 /**
  * The stop square inside the capsule's right end. It belongs to [ComposerRecordingOverlay], so the
  * capsule's own rounded clip trims it during the collapse instead of the mic slot carrying it.
+ * Colour and glyph both fade. The two glyphs share one fixed 18 dp box and swap by alpha only, so
+ * their different intrinsic sizes never animate against each other.
  */
 @Composable
 private fun ComposerStopButton(
@@ -242,6 +246,21 @@ private fun ComposerStopButton(
     modifier: Modifier = Modifier,
 ) {
     val label = stringResource(R.string.speech_input_stop)
+    val glyphColor by animateColorAsState(
+        targetValue = color,
+        animationSpec = tween(durationMillis = 400),
+        label = "composerStopColor",
+    )
+    val squareAlpha by animateFloatAsState(
+        targetValue = if (loading) 0f else 1f,
+        animationSpec = tween(durationMillis = COMPOSER_ICON_CROSSFADE_DURATION_MS),
+        label = "composerStopSquareAlpha",
+    )
+    val spinnerAlpha by animateFloatAsState(
+        targetValue = if (loading) 1f else 0f,
+        animationSpec = tween(durationMillis = COMPOSER_ICON_CROSSFADE_DURATION_MS),
+        label = "composerStopSpinnerAlpha",
+    )
     Box(
         modifier = modifier
             .size(COMPOSER_STOP_SIZE)
@@ -250,18 +269,21 @@ private fun ComposerStopButton(
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        if (loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = color,
-            )
-        } else {
-            Canvas(Modifier.size(14.dp)) {
-                drawRoundRect(
-                    color = color,
-                    size = size,
-                    cornerRadius = CornerRadius(3.5.dp.toPx()),
+        Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
+            if (squareAlpha > 0.001f) {
+                Canvas(Modifier.size(14.dp).graphicsLayer { alpha = squareAlpha }) {
+                    drawRoundRect(
+                        color = glyphColor,
+                        size = size,
+                        cornerRadius = CornerRadius(3.5.dp.toPx()),
+                    )
+                }
+            }
+            if (spinnerAlpha > 0.001f) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp).graphicsLayer { alpha = spinnerAlpha },
+                    strokeWidth = 2.dp,
+                    color = glyphColor,
                 )
             }
         }
