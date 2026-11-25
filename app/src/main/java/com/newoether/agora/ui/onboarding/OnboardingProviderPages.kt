@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,6 +50,7 @@ import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.components.providerIcon
 import com.newoether.agora.util.Constants
 import com.newoether.agora.ui.components.SecretVisibilityToggle
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.ui.components.secretVisualTransformation
 
 @Composable
@@ -88,7 +90,9 @@ internal fun ProviderPage(providers: List<String>, selected: String?, onSelect: 
                         else -> Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text(p, style = MaterialTheme.typography.titleMedium,
+                    Text(p, style = MaterialTheme.typography.titleMedium.copy(
+                        textDirection = rememberContentTextDirection(p),
+                    ),
                         fontWeight = if (selected == p) FontWeight.SemiBold else FontWeight.Normal)
                 }
             }
@@ -120,7 +124,7 @@ internal fun ApiKeyPage(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(LocalModelIcon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     Spacer(Modifier.width(12.dp))
-                    Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    Text(provider, style = MaterialTheme.typography.headlineSmall.copy(textDirection = rememberContentTextDirection(provider)), fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(20.dp))
                 OutlinedButton(onClick = onImportGGUF, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(50), enabled = !isImporting) {
@@ -137,13 +141,14 @@ internal fun ApiKeyPage(
                         Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     }
                     Spacer(Modifier.width(12.dp))
-                    Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    Text(provider, style = MaterialTheme.typography.headlineSmall.copy(textDirection = rememberContentTextDirection(provider)), fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(20.dp))
                 OutlinedTextField(
                     value = apiKeyText, onValueChange = onApiKeyChange, modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(R.string.onboarding_ollama_hint)) },
-                    singleLine = true, shape = RoundedCornerShape(50)
+                    singleLine = true, shape = RoundedCornerShape(50),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(apiKeyText)),
                 )
             }
         } else if (isCustom) {
@@ -151,7 +156,7 @@ internal fun ApiKeyPage(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     Spacer(Modifier.width(12.dp))
-                    Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    Text(provider, style = MaterialTheme.typography.headlineSmall.copy(textDirection = rememberContentTextDirection(provider)), fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(20.dp))
                 CustomEndpointProtocolSelector(
@@ -162,7 +167,8 @@ internal fun ApiKeyPage(
                 OutlinedTextField(
                     value = baseUrlText, onValueChange = onBaseUrlChange, modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(R.string.onboarding_custom_base_url_hint), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    singleLine = true, shape = RoundedCornerShape(50)
+                    singleLine = true, shape = RoundedCornerShape(50),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(baseUrlText)),
                 )
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
@@ -170,7 +176,8 @@ internal fun ApiKeyPage(
                     placeholder = { Text(stringResource(R.string.onboarding_api_key_hint)) },
                     visualTransformation = secretVisualTransformation(apiKeyVisible),
                     trailingIcon = { SecretVisibilityToggle(apiKeyVisible, onToggleVisibility) },
-                    singleLine = true, shape = RoundedCornerShape(50)
+                    singleLine = true, shape = RoundedCornerShape(50),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(apiKeyText)),
                 )
             }
         } else {
@@ -183,7 +190,7 @@ internal fun ApiKeyPage(
                         Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     }
                     Spacer(Modifier.width(12.dp))
-                    Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    Text(provider, style = MaterialTheme.typography.headlineSmall.copy(textDirection = rememberContentTextDirection(provider)), fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(20.dp))
                 OutlinedTextField(
@@ -191,7 +198,8 @@ internal fun ApiKeyPage(
                     placeholder = { Text(stringResource(R.string.onboarding_api_key_hint)) },
                     visualTransformation = secretVisualTransformation(apiKeyVisible),
                     trailingIcon = { SecretVisibilityToggle(apiKeyVisible, onToggleVisibility) },
-                    singleLine = true, shape = RoundedCornerShape(50)
+                    singleLine = true, shape = RoundedCornerShape(50),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(apiKeyText)),
                 )
             }
         }

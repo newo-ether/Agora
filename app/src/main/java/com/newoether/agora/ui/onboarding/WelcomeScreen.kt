@@ -44,6 +44,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -90,6 +91,7 @@ import com.newoether.agora.ui.components.TypewriterText
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.util.Constants
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.Dispatchers
@@ -668,7 +670,7 @@ private fun ModelPage(models: List<String>, modelAliases: Map<String, String>, c
                         Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp).clip(RoundedCornerShape(28.dp)).clickable { onSelect(m) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(selected = selectedId == m, onClick = { onSelect(m) })
                             Spacer(Modifier.width(8.dp))
-                            Text(name, style = MaterialTheme.typography.titleMedium,
+                            Text(name, style = MaterialTheme.typography.titleMedium.copy(textDirection = rememberContentTextDirection(name)),
                                 fontWeight = if (selectedId == m) FontWeight.SemiBold else FontWeight.Normal,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }

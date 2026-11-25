@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.data.PredefinedVariables
 import com.newoether.agora.data.PromptItemType
 import com.newoether.agora.data.PromptTemplateItem
@@ -188,7 +189,8 @@ fun SystemPromptEditorPage(
                 } else null,
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(title)),
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -500,7 +502,8 @@ private fun TemplateItemRow(
                     },
                     label = { Text(stringResource(R.string.template_custom_text_label)) },
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(text)),
                 )
             }
             PromptItemType.PREDEFINED -> {

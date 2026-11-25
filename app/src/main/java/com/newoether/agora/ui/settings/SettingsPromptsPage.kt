@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
@@ -39,6 +40,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.ui.components.sheetOptionClickable
 
 private const val DUPLICATE_TITLE_TOKEN = "__AGORA_PROMPT_TITLE__"
@@ -205,7 +207,7 @@ fun SettingsPromptsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             onDismissRequest = { showDeletePromptConfirm = null },
             title = { Text(stringResource(R.string.prompts_delete_title), fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.prompts_delete_text, entry.title)) },
+            text = { Text(stringResource(R.string.prompts_delete_text, entry.title), style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(entry.title))) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -266,14 +268,15 @@ private fun PromptList(
                     add {
                         var showMenu by remember { mutableStateOf(false) }
                         SettingsItem(
-                            headlineContent = { Text(entry.title, fontWeight = FontWeight.Medium) },
+                            headlineContent = { Text(entry.title, fontWeight = FontWeight.Medium, style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(entry.title))) },
                             supportingContent = {
                                 val preview = entry.resolvedSystemItems
                                     .firstOrNull { it.value.isNotBlank() }
                                     ?.value
                                     ?: entry.content
                                 val text = preview.ifBlank { stringResource(R.string.prompts_empty_preview) }
-                                Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                     style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(text)))
                             },
                             leadingContent = {
                                 RadioButton(selected = entry.id == activeSystemPromptId, onClick = { onSelectPrompt(entry.id) }, modifier = Modifier.size(24.dp))

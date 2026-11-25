@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.chat.message.ChatMarkdownCodeBlock
+import com.newoether.agora.util.rememberContentTextDirection
 
 internal const val CONCH_USER_UNIX_INSTALL =
     "curl -fsSL https://raw.githubusercontent.com/newo-ether/conch/main/scripts/install.sh | bash"
@@ -181,7 +182,7 @@ private fun InstallSourceLink(url: String, active: Boolean, tag: String) {
     val latestActive by rememberUpdatedState(active)
     SettingsItem(
         headlineContent = { Text(stringResource(R.string.about_github)) },
-        supportingContent = { Text(url.removePrefix("https://")) },
+        supportingContent = { Text(url.removePrefix("https://"), style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(url))) },
         leadingContent = { Icon(Icons.Rounded.Code, null, tint = MaterialTheme.colorScheme.primary) },
         trailingContent = { Icon(Icons.Rounded.OpenInNew, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.testTag(tag).clickable(enabled = active, role = Role.Button) {

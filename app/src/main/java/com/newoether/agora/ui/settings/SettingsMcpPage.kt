@@ -27,6 +27,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.McpServerConfig
@@ -64,6 +66,7 @@ import com.newoether.agora.ui.components.SecretVisibilityToggle
 import com.newoether.agora.ui.components.rememberSecretVisible
 import com.newoether.agora.ui.components.rememberUnsavedChangesBack
 import com.newoether.agora.ui.components.secretVisualTransformation
+import com.newoether.agora.util.rememberContentTextDirection
 
 private data class McpEditorRoute(
     val initial: McpServerConfig,
@@ -170,6 +173,9 @@ fun SettingsMcpPage(
                                                         text = server.name.ifBlank { server.url },
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
+                                                        style = LocalTextStyle.current.copy(
+                                                            textDirection = rememberContentTextDirection(server.name.ifBlank { server.url }),
+                                                        ),
                                                         modifier = Modifier.weight(1f, fill = false),
                                                     )
                                                     Spacer(Modifier.width(8.dp))
@@ -307,6 +313,9 @@ fun SettingsMcpPage(
                     stringResource(
                         R.string.mcp_delete_message,
                         server?.name?.ifBlank { server.url }.orEmpty(),
+                    ),
+                    style = LocalTextStyle.current.copy(
+                        textDirection = rememberContentTextDirection(server?.name?.ifBlank { server.url }.orEmpty()),
                     ),
                 )
             },
@@ -627,6 +636,7 @@ private fun McpHeaderField(
         shape = RoundedCornerShape(16.dp),
         textStyle = MaterialTheme.typography.bodyMedium.copy(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textDirection = rememberContentTextDirection(value),
         ),
     )
 }
@@ -676,6 +686,7 @@ internal fun McpLabeledField(
                 shape = RoundedCornerShape(16.dp),
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textDirection = rememberContentTextDirection(value),
                 ),
             )
         }

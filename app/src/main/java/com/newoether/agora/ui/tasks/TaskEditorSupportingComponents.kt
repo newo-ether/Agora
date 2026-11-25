@@ -37,6 +37,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
@@ -74,6 +75,7 @@ import java.util.TimeZone
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.optionClickable
+import com.newoether.agora.util.rememberContentTextDirection
 
 internal fun daysInYearlyMonth(month: Int): Int = when (month) {
     2 -> 29 // A yearly cron may intentionally target leap day.
@@ -499,6 +501,11 @@ internal fun ExecutionRow(
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    style = LocalTextStyle.current.copy(
+                        textDirection = rememberContentTextDirection(
+                            displayTitle.ifBlank { displayPreview.ifBlank { statusText } },
+                        ),
+                    ),
                 )
             },
             supportingContent = {
@@ -520,6 +527,9 @@ internal fun ExecutionRow(
                             text = displayPreview,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
+                            style = LocalTextStyle.current.copy(
+                                textDirection = rememberContentTextDirection(displayPreview),
+                            ),
                         )
                     }
                 }
@@ -622,7 +632,8 @@ private fun ChoiceRow(label: String, sub: String?, selected: Boolean, onClick: (
         // Dialog options press inside the shared rounded option highlight, never a bare rectangle.
         modifier = Modifier.optionClickable(onClick = onClick),
         headlineContent = {
-            Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+            Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(label)))
         },
         supportingContent = sub?.let {
             {
