@@ -52,6 +52,7 @@ class ContentTextDirectionTest {
     @Test
     fun `text direction maps from the detected content`() {
         assertEquals(TextDirection.Rtl, contentTextDirection("مرحبا"))
+        assertEquals(TextDirection.Rtl, contentTextDirection("שלום"))
         assertEquals(TextDirection.Ltr, contentTextDirection("hello"))
     }
 }
