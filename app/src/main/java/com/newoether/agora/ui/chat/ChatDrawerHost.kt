@@ -33,11 +33,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
@@ -57,9 +60,11 @@ internal fun resolveDrawerSettleTarget(
     velocity: Float,
     revealedPosition: Float,
     drawerWidth: Float,
+    isRtl: Boolean = false,
 ): DrawerValue = when {
-    velocity > 0f -> DrawerValue.Open
-    velocity < 0f -> DrawerValue.Closed
+    // In RTL, dragging toward open is the opposite horizontal direction, so velocity sign is flipped.
+    if (isRtl) velocity < 0f else velocity > 0f -> DrawerValue.Open
+    if (isRtl) velocity > 0f else velocity < 0f -> DrawerValue.Closed
     revealedPosition >= drawerWidth / 2f -> DrawerValue.Open
     else -> DrawerValue.Closed
 }
@@ -70,17 +75,22 @@ internal class ChatDrawerState internal constructor(
 ) {
     private var drawerWidthPx by mutableFloatStateOf(0f)
     private var drawerEnabled by mutableStateOf(true)
+    private var isRtl by mutableStateOf(false)
 
     var sideBySide by mutableStateOf(false)
         private set
 
     val offsetPx: Float
         get() = anchoredState.offset.takeUnless(Float::isNaN)
-            ?: if (anchoredState.currentValue == DrawerValue.Open) 0f else -drawerWidthPx
+            ?: if (anchoredState.currentValue == DrawerValue.Open) 0f else if (isRtl) drawerWidthPx else -drawerWidthPx
 
     val progress: Float
         get() = if (drawerWidthPx > 0f) {
-            ((offsetPx + drawerWidthPx) / drawerWidthPx).coerceIn(0f, 1f)
+            if (isRtl) {
+                (1f - (offsetPx / drawerWidthPx)).coerceIn(0f, 1f)
+            } else {
+                ((offsetPx + drawerWidthPx) / drawerWidthPx).coerceIn(0f, 1f)
+            }
         } else {
             0f
         }
@@ -94,15 +104,21 @@ internal class ChatDrawerState internal constructor(
     val isAnimationRunning: Boolean
         get() = anchoredState.isAnimationRunning
 
-    fun updateLayout(drawerWidthPx: Float, sideBySide: Boolean, drawerEnabled: Boolean) {
+    fun updateLayout(drawerWidthPx: Float, sideBySide: Boolean, drawerEnabled: Boolean, isRtl: Boolean) {
         if (drawerWidthPx <= 0f) return
         this.drawerWidthPx = drawerWidthPx
         this.sideBySide = sideBySide
         this.drawerEnabled = drawerEnabled
+        this.isRtl = isRtl
         anchoredState.updateAnchors(
             DraggableAnchors {
-                DrawerValue.Closed at -drawerWidthPx
-                DrawerValue.Open at 0f
+                if (isRtl) {
+                    DrawerValue.Closed at drawerWidthPx
+                    DrawerValue.Open at 0f
+                } else {
+                    DrawerValue.Closed at -drawerWidthPx
+                    DrawerValue.Open at 0f
+                }
             },
             anchoredState.targetValue,
         )
@@ -127,11 +143,13 @@ internal class ChatDrawerState internal constructor(
 
     suspend fun settle(velocity: Float, motionPolicy: AgoraMotionPolicy) {
         if (!drawerEnabled || sideBySide || drawerWidthPx <= 0f) return
+        val revealedPosition = if (isRtl) (drawerWidthPx - offsetPx) else (offsetPx + drawerWidthPx)
         animateTo(
             resolveDrawerSettleTarget(
                 velocity = velocity,
-                revealedPosition = offsetPx + drawerWidthPx,
+                revealedPosition = revealedPosition,
                 drawerWidth = drawerWidthPx,
+                isRtl = isRtl,
             ),
             motionPolicy,
         )
@@ -195,6 +213,8 @@ internal fun ChatDrawerHost(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val scrimInteractionSource = remember { MutableInteractionSource() }
+    val layoutDirection = LocalLayoutDirection.current
+    val isRtl = layoutDirection == LayoutDirection.Rtl
     val screenWidth = with(density) { LocalWindowInfo.current.containerSize.width.toDp() }
     val drawerWidth = drawerWidthFor(screenWidth)
     val drawerWidthPx = with(density) { drawerWidth.toPx() }
@@ -205,6 +225,7 @@ internal fun ChatDrawerHost(
             drawerWidthPx = drawerWidthPx,
             sideBySide = sideBySide,
             drawerEnabled = drawerEnabled,
+            isRtl = isRtl,
         )
     }
     LaunchedEffect(drawerEnabled, motionPolicy.allowSpatialTransitions) {
@@ -233,7 +254,8 @@ internal fun ChatDrawerHost(
                 .fillMaxSize()
                 .then(
                     if (sideBySide) {
-                        Modifier.padding(start = drawerWidth * progress)
+                        if (isRtl) Modifier.padding(end = drawerWidth * progress)
+                        else Modifier.padding(start = drawerWidth * progress)
                     } else {
                         Modifier
                     }
@@ -261,6 +283,7 @@ internal fun ChatDrawerHost(
 
         Box(
             modifier = Modifier
+                .align(Alignment.CenterStart)
                 .fillMaxHeight()
                 .width(drawerWidth)
                 .offset { IntOffset(state.offsetPx.roundToInt(), 0) }

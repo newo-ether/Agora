@@ -67,6 +67,7 @@ import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.ui.common.LocalAgoraHaptics
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.viewmodel.ChatViewModel
 
 private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
@@ -527,7 +528,9 @@ internal fun ChatTopBar(
                                             text = presentation.third.orEmpty(),
                                             // Single-line (no token subtitle) uses a slightly-smaller-than-brand
                                             // solo size; with the token subtitle stacked below, the compact size.
-                                            style = conversationTitleStyle,
+                                            style = conversationTitleStyle.copy(
+                                                textDirection = rememberContentTextDirection(presentation.third),
+                                            ),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
