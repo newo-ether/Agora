@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.math.roundToInt
 
 /**
  * App-side half of the background screen for one lease. The app owns the ImageReader and hands its
@@ -47,13 +46,11 @@ internal class PhoneVirtualScreen(context: Context, private val privileged: Phon
         val main = displays.getDisplay(Display.DEFAULT_DISPLAY) ?: throw PhoneFailure("display_unavailable")
         val size = android.graphics.Point().also(main::getRealSize)
         val metrics = android.util.DisplayMetrics().also(main::getRealMetrics)
-        // Portrait, short side 720: apps lay out like on the phone at a fraction of the pixel cost.
-        val short = minOf(size.x, size.y)
-        val long = maxOf(size.x, size.y)
-        val scale = minOf(1f, SHORT_SIDE.toFloat() / short)
-        width = (short * scale).roundToInt() and 1.inv()
-        height = (long * scale).roundToInt() and 1.inv()
-        dpi = (metrics.densityDpi * scale).roundToInt().coerceAtLeast(120)
+        // Portrait at the phone's native resolution; screenshots then go through the same
+        // image-quality downscale as main-screen captures.
+        width = minOf(size.x, size.y) and 1.inv()
+        height = maxOf(size.x, size.y) and 1.inv()
+        dpi = metrics.densityDpi
     }
 
     /** Returns the live display id, creating a fresh empty display when none exists. */
@@ -146,7 +143,6 @@ internal class PhoneVirtualScreen(context: Context, private val privileged: Phon
     }
 
     private companion object {
-        const val SHORT_SIDE = 720
         const val FRAME_INTERVAL_MS = 66L
         const val FIRST_FRAME_TIMEOUT_MS = 1500L
     }
