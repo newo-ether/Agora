@@ -4,6 +4,7 @@ import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.data.local.ManagedAttachmentDirectories
 import com.newoether.agora.data.local.StorageUsageDao
 import com.newoether.agora.sandbox.sandboxPrivateUsageBytes
+import com.newoether.agora.speech.SPEECH_MODELS_DIR
 import com.newoether.agora.util.DebugLog
 import java.io.File
 import java.nio.file.FileVisitResult
@@ -161,6 +162,7 @@ internal class StorageUsageCalculator(
                 child.isFile && ATTACHMENT_FILE_PREFIXES.any(child.name::startsWith) ->
                     attachmentBytes += child.length()
                 child.isFile && child.name.endsWith(".gguf") -> localModelBytes += child.length()
+                child.isDirectory && child.name == SPEECH_MODELS_DIR -> localModelBytes += directoryBytes(child)
                 child.isDirectory && child.name in ATTACHMENT_DIRECTORIES ->
                     attachmentBytes += directoryBytes(child)
             }

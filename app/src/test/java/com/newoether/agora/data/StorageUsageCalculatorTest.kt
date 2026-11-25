@@ -65,6 +65,17 @@ class StorageUsageCalculatorTest {
     }
 
     @Test
+    fun speechModelsCountAsLocalModels() = runBlocking {
+        val files = temporary.newFolder("files")
+        File(files, "chat_model_a.gguf").writeBytes(ByteArray(40))
+        File(files, "speech-models/sense-voice").apply { mkdirs() }
+            .let { File(it, "model.int8.onnx").writeBytes(ByteArray(300)) }
+        val breakdown = StorageUsageCalculator(files, temporary.newFolder("cache"), File(files, "db"), FakeDao(mutableListOf()))
+            .computeBreakdown()
+        assertEquals(340L, breakdown.localModelBytes)
+    }
+
+    @Test
     fun parentCyclesTerminate() = runBlocking {
         val files = temporary.newFolder("files")
         val dao = FakeDao(owners = mutableListOf(owner("a", parent = "b"), owner("b", parent = "a")))

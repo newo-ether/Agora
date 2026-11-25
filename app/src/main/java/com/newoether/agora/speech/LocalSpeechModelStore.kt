@@ -31,13 +31,16 @@ internal sealed interface LocalSpeechModelStatus {
     data class Failed(val message: String) : LocalSpeechModelStatus
 }
 
+/** Directory under `filesDir` holding downloaded speech models; Storage counts it as local models. */
+internal const val SPEECH_MODELS_DIR = "speech-models"
+
 /**
  * Downloads, verifies and deletes model files under `filesDir/speech-models/<id>/`. A model counts
  * as installed only after every file passed its SHA-256 and the revision marker was written, so a
  * killed download never loads. Interrupted files keep a `.part` suffix and resume with HTTP Range.
  */
 internal class LocalSpeechModelStore(context: Context, private val scope: CoroutineScope) {
-    private val root = File(context.applicationContext.filesDir, "speech-models")
+    private val root = File(context.applicationContext.filesDir, SPEECH_MODELS_DIR)
     private val jobs = mutableMapOf<String, Job>()
     private val client = HttpClient.client.newBuilder()
         .readTimeout(60, TimeUnit.SECONDS)
