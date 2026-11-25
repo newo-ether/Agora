@@ -179,7 +179,6 @@ private fun CapsuleLabel(kind: InteractionKind, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(10.dp))
         Icon(

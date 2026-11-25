@@ -325,14 +325,11 @@ internal fun ComposerContextIndicator(
             ) {
                 // The usage heads the popup; "Context" stays the anchor's accessibility label.
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = usage, style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Text(text = usage, style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.weight(1f))
                     if (usagePercent != null) {
                         Spacer(Modifier.width(12.dp))
-                        Text(text = usagePercent, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        Text(text = usagePercent, style = MaterialTheme.typography.titleSmall)
                     }
                 }
                 ContextCompositionBar(

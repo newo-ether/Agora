@@ -157,7 +157,7 @@ internal fun ConversationTodoBar(
                     Icon(Icons.Rounded.Checklist, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                     Text(
                         title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         count, style = MaterialTheme.typography.labelMedium,
