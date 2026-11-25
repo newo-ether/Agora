@@ -10,7 +10,7 @@
     <string name="speech_add">Thêm Bộ Nhận Dạng</string>
     <string name="speech_edit">Sửa Bộ Nhận Dạng</string>
     <string name="speech_choose_type">Chọn Loại Bộ Nhận Dạng</string>
-    <string name="speech_type_cloud">Đám Mây</string>
+    <string name="speech_type_cloud">Từ xa</string>
     <string name="speech_type_cloud_desc">Tải bản ghi âm lên API chuyển giọng nói thành văn bản</string>
     <string name="speech_type_system">Bộ Nhận Dạng Hệ Thống</string>
     <string name="speech_type_system_desc">Dùng dịch vụ giọng nói đã cài trên thiết bị này</string>

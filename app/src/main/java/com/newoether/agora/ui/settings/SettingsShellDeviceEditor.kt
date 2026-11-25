@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
@@ -88,13 +87,11 @@ internal fun SettingsShellDeviceEditor(
     DisposableEffect(Unit) {
         onDispose { close() }
     }
-    val guardedBack = if (pageActive && ownsEditor()) {
-        rememberUnsavedChangesBack(
-            hasUnsavedChanges = draft != openingSnapshot || portInput != openingSnapshot.sshPort.toString() || importingKey,
-            onBack = ::leave,
-        )
-    } else ({})
-    BackHandler(enabled = pageActive && ownsEditor()) { guardedBack() }
+    val guardedBack = rememberUnsavedChangesBack(
+        hasUnsavedChanges = draft != openingSnapshot || portInput != openingSnapshot.sshPort.toString() || importingKey,
+        onBack = ::leave,
+        enabled = pageActive && ownsEditor(),
+    )
 
     fun update(next: ShellDeviceConfig) {
         if (!ownsEditor() || saving) return

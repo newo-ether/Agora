@@ -1,5 +1,6 @@
 package com.newoether.agora.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,37 +21,51 @@ import com.newoether.agora.R
  *
  * The returned lambda leaves immediately when nothing changed. When the page
  * holds unsaved edits it shows the "Unsaved changes" dialog instead, and only
- * calls [onBack] after the user picks Discard. Use the returned lambda for both
- * the top-bar back button and the system BackHandler.
+ * calls [onBack] after the user picks Discard. Use the returned lambda for the
+ * top-bar back button.
+ *
+ * This also registers the system BackHandler, so call sites must not add their
+ * own. Once [onBack] has run, the handler disables itself: the page stays
+ * composed during its exit animation with the same unsaved draft, and a second
+ * back press there must reach the parent instead of reopening the dialog.
+ * [enabled] gates only the system BackHandler.
  */
 @Composable
 fun rememberUnsavedChangesBack(
     hasUnsavedChanges: Boolean,
     onBack: () -> Unit,
+    enabled: Boolean = true,
 ): () -> Unit {
     var showDialog by rememberSaveable { mutableStateOf(false) }
+    var left by remember { mutableStateOf(false) }
     val currentHasUnsavedChanges by rememberUpdatedState(hasUnsavedChanges)
     val currentOnBack by rememberUpdatedState(onBack)
 
-    if (showDialog) {
+    fun leave() {
+        if (left) return
+        left = true
+        currentOnBack()
+    }
+
+    if (showDialog && !left) {
         UnsavedChangesDialog(
             onDiscard = {
                 showDialog = false
-                currentOnBack()
+                leave()
             },
             onKeepEditing = { showDialog = false },
         )
     }
 
-    return remember {
+    val guardedBack = remember {
         {
-            if (currentHasUnsavedChanges) {
-                showDialog = true
-            } else {
-                currentOnBack()
+            if (!left) {
+                if (currentHasUnsavedChanges) showDialog = true else leave()
             }
         }
     }
+    BackHandler(enabled = enabled && !left, onBack = guardedBack)
+    return guardedBack
 }
 
 @Composable

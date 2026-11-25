@@ -10,7 +10,7 @@
     <string name="speech_add">添加识别器</string>
     <string name="speech_edit">编辑识别器</string>
     <string name="speech_choose_type">选择识别器类型</string>
-    <string name="speech_type_cloud">云端</string>
+    <string name="speech_type_cloud">远程</string>
     <string name="speech_type_cloud_desc">把录音上传到语音转文字 API</string>
     <string name="speech_type_system">系统识别器</string>
     <string name="speech_type_system_desc">使用本机安装的语音服务</string>

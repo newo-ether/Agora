@@ -10,7 +10,7 @@
     <string name="speech_add">Добавить Распознаватель</string>
     <string name="speech_edit">Изменить Распознаватель</string>
     <string name="speech_choose_type">Выберите Тип Распознавателя</string>
-    <string name="speech_type_cloud">Облако</string>
+    <string name="speech_type_cloud">Удалённая</string>
     <string name="speech_type_cloud_desc">Загрузить запись в API распознавания речи</string>
     <string name="speech_type_system">Системный Распознаватель</string>
     <string name="speech_type_system_desc">Использовать речевой сервис, установленный на устройстве</string>

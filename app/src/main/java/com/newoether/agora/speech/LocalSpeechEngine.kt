@@ -29,7 +29,9 @@ private data class LoadedKey(val modelId: String, val language: String, val hotw
  * Runs sherpa-onnx offline recognition. Keeps one recognizer resident between dictations and frees
  * it after [IDLE_RELEASE_MS] so a 1 GB model does not stay in memory. Silero VAD splits the clip
  * into speech segments of at most [MAX_SEGMENT_SECONDS] seconds, which bounds per-call decoder
- * length and drops silence that some models would otherwise hallucinate over.
+ * length and drops silence that some models would otherwise hallucinate over. Adjacent segments
+ * are then packed back into chunks up to the same limit, because models with punctuation (Qwen3-ASR)
+ * end every decode call with a full stop and would otherwise break one sentence at each short pause.
  */
 internal class LocalSpeechEngine(
     context: Context,
@@ -57,8 +59,8 @@ internal class LocalSpeechEngine(
                 releaseJob?.cancel()
                 try {
                     val active = obtain(model, config)
-                    val segments = speechSegments(samples)
-                    joinSegments(segments.map { segment -> decode(active, segment) })
+                    val chunks = packSegments(speechSegments(samples), MAX_SEGMENT_SAMPLES, SEGMENT_GAP_SAMPLES)
+                    joinSegments(chunks.map { chunk -> decode(active, chunk) })
                 } finally {
                     scheduleRelease()
                 }
@@ -148,6 +150,10 @@ internal class LocalSpeechEngine(
         const val VAD_ASSET = "speech/silero_vad.onnx"
         const val VAD_WINDOW = 512
         const val MAX_SEGMENT_SECONDS = 20f
+        const val MAX_SEGMENT_SAMPLES = 20 * SpeechAudioFormat.SAMPLE_RATE
+
+        /** Silence kept between packed segments so the decoder still hears the pause. */
+        const val SEGMENT_GAP_SAMPLES = SpeechAudioFormat.SAMPLE_RATE * 3 / 10
         const val IDLE_RELEASE_MS = 90_000L
     }
 }
@@ -195,6 +201,38 @@ private fun recognizerConfig(
         )
     }.apply { numThreads = threads }
     return OfflineRecognizerConfig(modelConfig = modelConfig)
+}
+
+/**
+ * Concatenates consecutive VAD segments, separated by [gapSamples] of silence, into chunks of at
+ * most [maxSamples]. A segment that alone exceeds the limit stays its own chunk.
+ */
+internal fun packSegments(segments: List<FloatArray>, maxSamples: Int, gapSamples: Int): List<FloatArray> {
+    val chunks = mutableListOf<FloatArray>()
+    val group = mutableListOf<FloatArray>()
+    var groupSize = 0
+    fun flush() {
+        if (group.isEmpty()) return
+        val out = FloatArray(groupSize)
+        var pos = 0
+        group.forEachIndexed { index, segment ->
+            if (index > 0) pos += gapSamples
+            segment.copyInto(out, pos)
+            pos += segment.size
+        }
+        chunks += out
+        group.clear()
+        groupSize = 0
+    }
+    for (segment in segments) {
+        if (segment.isEmpty()) continue
+        val added = if (group.isEmpty()) segment.size else gapSamples + segment.size
+        if (group.isNotEmpty() && groupSize + added > maxSamples) flush()
+        groupSize += if (group.isEmpty()) segment.size else added
+        group += segment
+    }
+    flush()
+    return chunks
 }
 
 /** Joins segment transcripts, adding a space only between two Latin-script words. */

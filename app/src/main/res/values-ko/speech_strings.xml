@@ -10,7 +10,7 @@
     <string name="speech_add">인식기 추가</string>
     <string name="speech_edit">인식기 편집</string>
     <string name="speech_choose_type">인식기 유형 선택</string>
-    <string name="speech_type_cloud">클라우드</string>
+    <string name="speech_type_cloud">원격</string>
     <string name="speech_type_cloud_desc">녹음을 음성-텍스트 API에 업로드</string>
     <string name="speech_type_system">시스템 인식기</string>
     <string name="speech_type_system_desc">이 기기에 설치된 음성 서비스 사용</string>

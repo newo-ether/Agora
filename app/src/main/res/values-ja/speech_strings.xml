@@ -10,7 +10,7 @@
     <string name="speech_add">認識エンジンを追加</string>
     <string name="speech_edit">認識エンジンを編集</string>
     <string name="speech_choose_type">認識エンジンの種類を選択</string>
-    <string name="speech_type_cloud">クラウド</string>
+    <string name="speech_type_cloud">リモート</string>
     <string name="speech_type_cloud_desc">録音を音声認識 API にアップロード</string>
     <string name="speech_type_system">システム認識エンジン</string>
     <string name="speech_type_system_desc">この端末にインストールされた音声サービスを使用</string>

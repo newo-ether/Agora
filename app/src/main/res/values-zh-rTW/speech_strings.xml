@@ -10,7 +10,7 @@
     <string name="speech_add">新增辨識器</string>
     <string name="speech_edit">編輯辨識器</string>
     <string name="speech_choose_type">選擇辨識器類型</string>
-    <string name="speech_type_cloud">雲端</string>
+    <string name="speech_type_cloud">遠端</string>
     <string name="speech_type_cloud_desc">將錄音上傳至語音轉文字 API</string>
     <string name="speech_type_system">系統辨識器</string>
     <string name="speech_type_system_desc">使用本機安裝的語音服務</string>

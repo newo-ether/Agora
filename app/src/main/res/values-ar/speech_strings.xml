@@ -10,7 +10,7 @@
     <string name="speech_add">إضافة أداة تعرف</string>
     <string name="speech_edit">تعديل أداة التعرف</string>
     <string name="speech_choose_type">اختر نوع أداة التعرف</string>
-    <string name="speech_type_cloud">سحابي</string>
+    <string name="speech_type_cloud">عن بُعد</string>
     <string name="speech_type_cloud_desc">رفع التسجيل إلى واجهة API لتحويل الكلام إلى نص</string>
     <string name="speech_type_system">أداة تعرف النظام</string>
     <string name="speech_type_system_desc">استخدام خدمة الكلام المثبتة على هذا الجهاز</string>

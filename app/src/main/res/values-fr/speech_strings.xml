@@ -10,7 +10,7 @@
     <string name="speech_add">Ajouter un Moteur</string>
     <string name="speech_edit">Modifier le Moteur</string>
     <string name="speech_choose_type">Choisir le Type de Moteur</string>
-    <string name="speech_type_cloud">Cloud</string>
+    <string name="speech_type_cloud">Distant</string>
     <string name="speech_type_cloud_desc">Envoie l\'enregistrement à une API de transcription</string>
     <string name="speech_type_system">Moteur Système</string>
     <string name="speech_type_system_desc">Utilise le service vocal installé sur cet appareil</string>

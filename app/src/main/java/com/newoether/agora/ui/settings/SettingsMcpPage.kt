@@ -359,8 +359,8 @@ private fun McpServerEditor(
         hasUnsavedChanges = hasUnsavedChanges,
         onBack = onBack,
     )
-    // Registered after the page-level handler, so it takes system back while the editor is shown.
-    BackHandler { guardedBack() }
+    // The guard registers its BackHandler after the page-level one, so it takes system back
+    // while the editor is shown.
     val scrollState = rememberSettingsScrollState()
     fun save() {
         if (!canSave) return

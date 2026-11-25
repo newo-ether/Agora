@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -151,7 +150,6 @@ internal fun ProviderRemoteEditor(
         hasUnsavedChanges = draft != start,
         onBack = onBack,
     )
-    BackHandler { guardedBack() }
 
     val notify = LocalSnackbarMessage.current
     val scope = rememberCoroutineScope()

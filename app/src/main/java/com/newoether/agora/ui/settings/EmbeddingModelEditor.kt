@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -194,7 +193,6 @@ internal fun EmbeddingModelEditor(
         onBack()
     }
     val guardedBack = rememberUnsavedChangesBack(hasUnsavedChanges = draft != start || isImporting, onBack = leave)
-    BackHandler { guardedBack() }
 
     fun save() {
         if (lifecycle.closed || !canSave) return

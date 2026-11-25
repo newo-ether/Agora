@@ -1,7 +1,6 @@
 package com.newoether.agora.ui.settings
 
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Spacer
@@ -76,8 +75,8 @@ internal fun LocalChatModelEditor(
     val guardedBack = rememberUnsavedChangesBack(
         hasUnsavedChanges = draft != start || busy,
         onBack = leave,
+        enabled = !closed,
     )
-    BackHandler(enabled = !closed) { guardedBack() }
 
     fun importFile(uri: Uri, projector: Boolean) {
         importingProjector = projector

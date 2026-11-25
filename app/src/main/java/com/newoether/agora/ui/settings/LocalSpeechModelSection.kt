@@ -12,7 +12,7 @@ import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Memory
+import com.newoether.agora.ui.icons.LocalModelIcon
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -74,7 +74,7 @@ internal fun LocalSpeechModelGroup(
                 SpeechDropdownItem(
                     title = stringResource(R.string.speech_local_model),
                     description = stringResource(R.string.speech_local_model_desc),
-                    icon = Icons.Rounded.Memory,
+                    icon = LocalModelIcon,
                     selectedLabel = model.displayName,
                     options = LocalSpeechModels.all.map { it.id to "${it.displayName} · ${formatSize(it.totalBytes)}" },
                     selectedKey = model.id,

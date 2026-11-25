@@ -10,7 +10,7 @@
     <string name="speech_add">Adicionar Reconhecedor</string>
     <string name="speech_edit">Editar Reconhecedor</string>
     <string name="speech_choose_type">Escolher Tipo de Reconhecedor</string>
-    <string name="speech_type_cloud">Nuvem</string>
+    <string name="speech_type_cloud">Remoto</string>
     <string name="speech_type_cloud_desc">Envia a gravação para uma API de fala para texto</string>
     <string name="speech_type_system">Reconhecedor do Sistema</string>
     <string name="speech_type_system_desc">Usa o serviço de voz instalado neste dispositivo</string>

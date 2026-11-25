@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import com.newoether.agora.ui.icons.LocalModelIcon
 import androidx.compose.material.icons.rounded.Api
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -86,7 +85,6 @@ internal fun ProviderPage(providers: List<String>, selected: String?, onSelect: 
                     when {
                         iconRes != 0 -> Icon(painterResource(iconRes), null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                         p == Constants.PROVIDER_LOCAL -> Icon(LocalModelIcon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                        p == "Custom" -> Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                         else -> Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                     }
                     Spacer(Modifier.width(8.dp))
@@ -151,7 +149,7 @@ internal fun ApiKeyPage(
         } else if (isCustom) {
             Column(Modifier.padding(32.dp).fillMaxWidth().clearFocusOnTap()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                     Spacer(Modifier.width(12.dp))
                     Text(provider, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                 }

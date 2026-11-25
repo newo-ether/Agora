@@ -147,13 +147,11 @@ fun SystemPromptEditorPage(
     val guardedBack = rememberUnsavedChangesBack(
         hasUnsavedChanges = hasUnsavedChanges,
         onBack = onBack,
+        enabled = !showVariablePicker,
     )
 
     BackHandler(enabled = showVariablePicker) {
         showVariablePicker = false
-    }
-    BackHandler(enabled = !showVariablePicker) {
-        guardedBack()
     }
 
     CollapsingSettingsScaffold(

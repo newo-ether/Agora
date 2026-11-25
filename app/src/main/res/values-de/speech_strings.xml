@@ -10,7 +10,7 @@
     <string name="speech_add">Erkenner Hinzufügen</string>
     <string name="speech_edit">Erkenner Bearbeiten</string>
     <string name="speech_choose_type">Erkennertyp Wählen</string>
-    <string name="speech_type_cloud">Cloud</string>
+    <string name="speech_type_cloud">Entfernt</string>
     <string name="speech_type_cloud_desc">Aufnahme an eine Speech-to-Text-API hochladen</string>
     <string name="speech_type_system">Systemerkenner</string>
     <string name="speech_type_system_desc">Den auf diesem Gerät installierten Sprachdienst verwenden</string>

@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.tasks
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
@@ -239,9 +238,8 @@ internal fun TaskDetailPage(
     val guardedBack = rememberUnsavedChangesBack(
         hasUnsavedChanges = editorSession.hasUnsavedChanges,
         onBack = onBack,
+        enabled = backHandlingEnabled,
     )
-
-    BackHandler(enabled = backHandlingEnabled) { guardedBack() }
 
     LaunchedEffect(task.id, previewPhase, liveExecutionSnapshot) {
         val latest = liveExecutionSnapshot ?: return@LaunchedEffect

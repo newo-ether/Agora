@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Cloud
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Api
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicNone
 import androidx.compose.material.icons.rounded.MoreVert
@@ -206,9 +206,9 @@ internal fun newSpeechConfig(type: SpeechEngineType): SpeechRecognitionConfig = 
 }
 
 internal fun speechTypeIcon(type: SpeechEngineType) = when (type) {
-    SpeechEngineType.CLOUD -> Icons.Rounded.Cloud
+    SpeechEngineType.CLOUD -> Icons.Rounded.Api
     SpeechEngineType.SYSTEM -> Icons.Rounded.PhoneAndroid
-    SpeechEngineType.LOCAL -> Icons.Rounded.Memory
+    SpeechEngineType.LOCAL -> LocalModelIcon
 }
 
 @Composable

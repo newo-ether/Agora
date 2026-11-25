@@ -10,7 +10,7 @@
     <string name="speech_add">Add Recognizer</string>
     <string name="speech_edit">Edit Recognizer</string>
     <string name="speech_choose_type">Choose Recognizer Type</string>
-    <string name="speech_type_cloud">Cloud</string>
+    <string name="speech_type_cloud">Remote</string>
     <string name="speech_type_cloud_desc">Upload the recording to a speech-to-text API</string>
     <string name="speech_type_system">System Recognizer</string>
     <string name="speech_type_system_desc">Use the speech service installed on this device</string>

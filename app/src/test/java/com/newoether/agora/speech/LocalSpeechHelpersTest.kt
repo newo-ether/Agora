@@ -14,6 +14,18 @@ class LocalSpeechHelpersTest {
     }
 
     @Test
+    fun packSegmentsMergesUpToLimitWithGaps() {
+        val a = FloatArray(4) { 1f }
+        val b = FloatArray(3) { 2f }
+        val c = FloatArray(5) { 3f }
+        val long = FloatArray(12) { 4f }
+        val chunks = packSegments(listOf(a, FloatArray(0), b, c, long), maxSamples = 10, gapSamples = 2)
+        assertEquals(listOf(9, 5, 12), chunks.map { it.size })
+        assertEquals(listOf(1f, 1f, 1f, 1f, 0f, 0f, 2f, 2f, 2f), chunks[0].toList())
+        assertTrue(packSegments(emptyList(), 10, 2).isEmpty())
+    }
+
+    @Test
     fun pcm16ToFloatDecodesLittleEndian() {
         val pcm = byteArrayOf(0x00, 0x40, 0x00, 0x80.toByte(), 0xFF.toByte(), 0x7F)
         val out = pcm16ToFloat(pcm)
