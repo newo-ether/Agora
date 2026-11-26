@@ -1,10 +1,13 @@
 package com.newoether.agora.viewmodel
 
 import com.newoether.agora.api.ToolDefinition
+import com.newoether.agora.api.ToolFunction
+import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.model.ConversationCommand
 import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.model.ToolExecutionStates
 import com.newoether.agora.tool.AskUserToolProvider
+import com.newoether.agora.tool.SessionToolGroup
 import com.newoether.agora.tool.ToolExecutionEvent
 import com.newoether.agora.tool.ToolExecutionResult
 import com.newoether.agora.tool.ToolProvider
@@ -404,6 +407,70 @@ class GenerationToolExecutorTest {
         withTimeout(5_000L) { state.stopping.first { stopping -> !stopping } }
         assertFalse(state.generating.value)
         assertFalse(state.stopping.value)
+    }
+
+    @Test
+    fun `a disabled tool group leaves the request and is refused on execution`() = runTest {
+        val controller = AskUserController()
+        val executor = GenerationToolExecutor.forTest(listOf(AskUserToolProvider(controller)))
+        val enabledContext = GenerationContext(askUserEnabled = true)
+        assertTrue(executor.definitions(enabledContext).any { it.function.name == "ask_user" })
+
+        val disabledContext = enabledContext.copy(
+            disabledToolGroups = setOf(SessionToolGroup.ASK_USER.id),
+        )
+        assertTrue(executor.definitions(disabledContext).none { it.function.name == "ask_user" })
+
+        val executed = executor.execute(
+            call = AuthorizedToolCall(
+                batchIdentity = BATCH_IDENTITY,
+                callId = "ask-disabled",
+                name = "ask_user",
+                arguments = """{"question":"Choose?","options":["A"]}""",
+                context = disabledContext,
+                authorizedToolNames = setOf("ask_user"),
+            ),
+            onEvent = {},
+        )
+
+        assertTrue(executed.result.isError)
+        assertTrue(executed.result.text.contains("disabled for this session"))
+        assertTrue(controller.requests.value.isEmpty())
+    }
+
+    @Test
+    fun `session tool catalog separates switch-off from empty groups`() {
+        val definition = ToolDefinition(
+            function = ToolFunction(
+                name = "web_search",
+                description = "Search the web",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val catalog = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(webSearchEnabled = false),
+            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(definition)),
+        )
+
+        val web = catalog.groups.first { it.group == SessionToolGroup.WEB }
+        assertEquals(SessionToolUnavailable.SWITCH_OFF, web.unavailable)
+        assertEquals(1, web.tools.size)
+        assertTrue(web.tokens > 0)
+        val memory = catalog.groups.first { it.group == SessionToolGroup.MEMORY }
+        assertEquals(SessionToolUnavailable.NO_TOOLS, memory.unavailable)
+
+        val disabled = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(
+                webSearchEnabled = true,
+                disabledToolGroups = setOf(SessionToolGroup.WEB.id),
+            ),
+            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(definition)),
+        )
+        assertEquals(1, disabled.totalToolCount)
+        assertEquals(0, disabled.enabledToolCount)
+        assertEquals(setOf(SessionToolGroup.WEB.id), disabled.disabledIds())
     }
 
     private class FakeToolProvider : ToolProvider {

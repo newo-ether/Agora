@@ -10,41 +10,91 @@ class MarkdownLinkTargetsTest {
     @Test
     fun networkSchemesStayRemote() {
         assertEquals(
-            MarkdownLinkTarget.Remote("https://example.com/a?b=1"),
-            classifyMarkdownLink("https://example.com/a?b=1"),
+            MarkdownDestination.Web("https://example.com/a?b=1"),
+            resolveMarkdownDestination("https://example.com/a?b=1"),
         )
-        assertEquals(MarkdownLinkTarget.Remote("mailto:a@b.c"), classifyMarkdownLink("mailto:a@b.c"))
+        assertEquals(MarkdownDestination.Web("mailto:a@b.c"), resolveMarkdownDestination("mailto:a@b.c"))
     }
 
     @Test
     fun sandboxLinkResolvesUnderHome() {
         assertEquals(
-            MarkdownLinkTarget.Local(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "attachments/a.mp4")),
-            classifyMarkdownLink("shell://Local%20Sandbox/home/agora/attachments/a.mp4"),
+            MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "attachments/a.mp4")),
+            resolveMarkdownDestination("shell://Local%20Sandbox/home/agora/attachments/a.mp4"),
         )
         assertEquals(
-            MarkdownLinkTarget.Local(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "notes.md")),
-            classifyMarkdownLink("/home/agora/notes.md"),
+            MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "notes.md")),
+            resolveMarkdownDestination("/home/agora/notes.md"),
         )
+    }
+
+    @Test
+    fun sandboxSpellingOfSharedStorageJoinsTheSameRoot() {
+        val expected = MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Download/a.pdf"))
+        assertEquals(expected, resolveMarkdownDestination("shell://Local Sandbox/storage/emulated/0/Download/a.pdf"))
+        assertEquals(expected, resolveMarkdownDestination("shell://Local%20Sandbox/mnt/shared/Download/a.pdf"))
     }
 
     @Test
     fun sharedStorageSpellingsShareOneRoot() {
-        val expected = MarkdownLinkTarget.Local(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Download/a.pdf"))
-        assertEquals(expected, classifyMarkdownLink("/storage/emulated/0/Download/a.pdf"))
-        assertEquals(expected, classifyMarkdownLink("/mnt/shared/Download/a.pdf"))
-        assertEquals(expected, classifyMarkdownLink("/storage/self/primary/Download/a.pdf"))
+        val expected = MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Download/a.pdf"))
+        assertEquals(expected, resolveMarkdownDestination("/storage/emulated/0/Download/a.pdf"))
+        assertEquals(expected, resolveMarkdownDestination("/mnt/shared/Download/a.pdf"))
+        assertEquals(expected, resolveMarkdownDestination("/storage/self/primary/Download/a.pdf"))
+    }
+
+    @Test
+    fun handWrittenPathsDecodePercentAndAcceptSdcard() {
+        assertEquals(
+            MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Download/a b.png")),
+            resolveMarkdownDestination("/storage/emulated/0/Download/a%20b.png"),
+        )
+        assertEquals(
+            MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Download/a.pdf")),
+            resolveMarkdownDestination("/sdcard/Download/a.pdf"),
+        )
+        // A malformed escape keeps the literal percent sign instead of dropping the destination.
+        assertEquals(
+            MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "100%.png")),
+            resolveMarkdownDestination("/mnt/shared/100%.png"),
+        )
+    }
+
+    @Test
+    fun otherDevicesKeepTheirServerAndPath() {
+        assertEquals(
+            MarkdownDestination.Device(ShellMediaLink("Local Sandbox", "/etc/passwd")),
+            resolveMarkdownDestination("shell://Local%20Sandbox/etc/passwd"),
+        )
+        assertEquals(
+            MarkdownDestination.Device(ShellMediaLink("Workstation", "F:/out/a.png")),
+            resolveMarkdownDestination("shell://Workstation/F:/out/a.png"),
+        )
+        assertEquals(
+            MarkdownDestination.Device(ShellMediaLink("OnePlus 13T", "/storage/emulated/0/Download/a.pdf")),
+            resolveMarkdownDestination("shell://OnePlus%2013T/storage/emulated/0/Download/a.pdf"),
+        )
+    }
+
+    @Test
+    fun fileUrlsFoldToTheSameLocalRoots() {
+        val shared = MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Download/a b.png"))
+        assertEquals(shared, resolveMarkdownDestination("file:///sdcard/Download/a%20b.png"))
+        assertEquals(shared, resolveMarkdownDestination("file://localhost/storage/emulated/0/Download/a%20b.png"))
+        assertEquals(
+            MarkdownDestination.File(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "out/a.png")),
+            resolveMarkdownDestination("file:///home/agora/out/a.png"),
+        )
+        assertNull(resolveMarkdownDestination("file:///etc/passwd"))
     }
 
     @Test
     fun unsupportedDestinationsStayInert() {
-        assertNull(classifyMarkdownLink("file:///home/agora/a.png"))
-        assertNull(classifyMarkdownLink("javascript:alert(1)"))
-        assertNull(classifyMarkdownLink("/etc/passwd"))
-        assertNull(classifyMarkdownLink("/home/agora"))
-        assertNull(classifyMarkdownLink("shell://Workstation/F:/out/a.png"))
-        assertNull(classifyMarkdownLink("/home/agora/../../etc/passwd"))
-        assertNull(classifyMarkdownLink("/storage/emulated/0/../etc/passwd"))
+        assertNull(resolveMarkdownDestination("javascript:alert(1)"))
+        assertNull(resolveMarkdownDestination("/etc/passwd"))
+        assertNull(resolveMarkdownDestination("/home/agora"))
+        assertNull(resolveMarkdownDestination("/home/agora/../../etc/passwd"))
+        assertNull(resolveMarkdownDestination("/storage/emulated/0/../etc/passwd"))
     }
 
     @Test

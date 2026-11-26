@@ -137,6 +137,8 @@ data class ConversationSettings(
     val webSearchEnabled: Boolean? = null,
     val shellEnabled: Boolean? = null,
     val lowContextModeEnabled: Boolean? = null,
+    /** Tool groups this conversation hides from the model. Null means every group stays on. */
+    val disabledToolGroups: Set<String>? = null,
 ) {
     fun isAllNull() = contextWindow == null && temperature == null && maxTokens == null && topP == null
         && frequencyPenalty == null && presencePenalty == null
@@ -145,5 +147,5 @@ data class ConversationSettings(
         && thinkingLevel == null && thinkingBudgetEnabled == null && thinkingBudgetTokens == null
         && openAiServiceTierEnabled == null && openAiServiceTier == null
         && webSearchEnabled == null && shellEnabled == null
-        && lowContextModeEnabled == null
+        && lowContextModeEnabled == null && disabledToolGroups == null
 }

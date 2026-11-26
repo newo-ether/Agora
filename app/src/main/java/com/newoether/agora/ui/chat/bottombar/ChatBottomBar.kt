@@ -143,6 +143,7 @@ internal fun ChatBottomBar(
     showWebSearch: Boolean = true,
     showShell: Boolean = true,
     onAdvancedClick: () -> Unit = {},
+    onToolsClick: () -> Unit = {},
     compactDefaultModel: String? = null,
     compactDefaultPrompt: String = "",
     compactDefaultRetainCount: Int = 6,
@@ -667,6 +668,7 @@ internal fun ChatBottomBar(
                             isCompacting = isCompacting,
                             onCompactClick = onCompactClick,
                             onAdvancedClick = onAdvancedClick,
+                            onToolsClick = onToolsClick,
                         )
                     }
                 }

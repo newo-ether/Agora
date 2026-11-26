@@ -11,15 +11,13 @@ import { htmlPreviewFence } from "./html-preview-fence.js";
 import { mountHtmlPreview } from "./html-preview.js";
 import { mountMarkdownImage } from "./markdown-images.js";
 import { mountMarkdownVideo } from "./markdown-videos.js";
-import { embedVideos, linkBarePaths, linkedMediaType, openLinkedMedia } from "./markdown-links.js";
+import { embedVideos, linkBarePaths, linkedMediaType, localMediaPath, openLinkedMedia } from "./markdown-links.js";
 
 const escapeHtml = (text) =>
   text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 // Keep occurrence admission aligned with markdownImageSnapshotKey / parseShellMediaLink.
 const VIDEO_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi", "3gp", "ogv"]);
-// Readable roots the phone resolves itself; the WebUI streams them through the app, not the browser.
-const LOCAL_VIDEO_ROOTS = ["/home/agora/", "/mnt/shared/", "/storage/emulated/0/", "/storage/self/primary/"];
 
 function videoExtension(raw) {
   const name = raw.split("?")[0].split("#")[0].toLowerCase();
@@ -30,7 +28,7 @@ function videoExtension(raw) {
 // Native renders these as player cards and excludes them from the image occurrence set.
 function isMarkdownVideo(link) {
   const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
-  const local = LOCAL_VIDEO_ROOTS.some(root => raw.startsWith(root));
+  const local = !!localMediaPath(raw);
   if (!(/^shell:\/\//i.test(raw) || /^https?:\/\//i.test(raw) || local)) return false;
   return VIDEO_EXTENSIONS.has(videoExtension(raw));
 }
@@ -45,6 +43,8 @@ function supportsImageSnapshot(link) {
   const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
   if (isMarkdownVideo(raw)) return false;
   if (/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(raw)) return true;
+  // Readable roots and `file:` URLs over them stream through the phone, never the browser.
+  if (localMediaPath(raw)) return true;
   if (!/^shell:\/\//i.test(raw)) return false;
   const rest = raw.slice("shell://".length), slash = rest.indexOf("/");
   if (slash <= 0) return false;

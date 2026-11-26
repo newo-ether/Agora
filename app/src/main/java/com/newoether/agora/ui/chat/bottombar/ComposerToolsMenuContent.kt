@@ -3,6 +3,7 @@ package com.newoether.agora.ui.chat.bottombar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Memory
@@ -66,6 +67,7 @@ internal fun ComposerToolsMenuContent(
     isCompacting: Boolean,
     onCompactClick: () -> Unit,
     onAdvancedClick: () -> Unit,
+    onToolsClick: () -> Unit,
 ) {
     var activeMenu by activeMenuState
     var showThinkingSheet by showThinkingSheetState
@@ -274,6 +276,16 @@ internal fun ComposerToolsMenuContent(
         },
         enabled = canCompact && !isCompacting,
         onClick = { activeMenu = null; onCompactClick() },
+    )
+    AgoraDropdownMenuItem(
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Build, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(stringResource(R.string.tools))
+            }
+        },
+        onClick = { activeMenu = null; onToolsClick() }
     )
     AgoraDropdownMenuItem(
         text = {

@@ -905,6 +905,8 @@
     <string name="tool_agent_results_empty">Результаты субагентов не получены</string>
     <string name="markdown_link_file_missing">Файл не найден</string>
     <string name="markdown_link_file_unavailable">Не удалось открыть этот файл</string>
+    <string name="markdown_link_file_downloading">Скачивание файла…</string>
+    <string name="markdown_link_file_too_large">Файл больше 512 МБ</string>
     <string name="markdown_link_shared_storage_required">Предоставьте доступ ко всем файлам, чтобы открывать ссылки на общее хранилище</string>
     <string name="markdown_link_no_handler">Нет приложения, которое может открыть эту ссылку</string>
     <string name="storage_title">Хранилище</string>
@@ -937,15 +939,30 @@
     <string name="usage_activity">Активность</string>
     <string name="usage_metric_tokens">Токены</string>
     <string name="usage_metric_requests">Запросы</string>
-    <string name="usage_day_tokens">%1$s · токенов: %2$s</string>
-    <string name="usage_day_requests">%1$s · запросов: %2$s</string>
+    <plurals name="usage_day_tokens">
+        <item quantity="one">%1$s · токен: %2$s</item>
+        <item quantity="few">%1$s · токена: %2$s</item>
+        <item quantity="many">%1$s · токенов: %2$s</item>
+        <item quantity="other">%1$s · токенов: %2$s</item>
+    </plurals>
+    <plurals name="usage_day_requests">
+        <item quantity="one">%1$s · запрос: %2$s</item>
+        <item quantity="few">%1$s · запроса: %2$s</item>
+        <item quantity="many">%1$s · запросов: %2$s</item>
+        <item quantity="other">%1$s · запросов: %2$s</item>
+    </plurals>
     <string name="usage_less">Меньше</string>
     <string name="usage_more">Больше</string>
     <string name="usage_overview">Обзор</string>
     <string name="usage_total_tokens">Всего токенов</string>
     <string name="usage_total_requests">Запросы</string>
     <string name="usage_streak">Текущая серия</string>
-    <string name="usage_streak_days">Дней: %1$d</string>
+    <plurals name="usage_streak_days">
+        <item quantity="one">День: %1$d</item>
+        <item quantity="few">Дня: %1$d</item>
+        <item quantity="many">Дней: %1$d</item>
+        <item quantity="other">Дней: %1$d</item>
+    </plurals>
     <string name="usage_longest_streak">Самая длинная серия</string>
     <string name="usage_tokens">Статистика токенов</string>
     <string name="usage_period_week">7 дней</string>
@@ -960,4 +977,24 @@
             <string name="usage_chart_weekly">Токены по неделям</string>
             <string name="usage_by_model">Токены по моделям</string>
         <string name="usage_other">Другое</string>
+    <string name="session_tools_subtitle">Затрагивает только последующие запросы в этом разговоре. Уже выполненные вызовы не меняются.</string>
+    <string name="session_tools_summary">Включено %1$d из %2$d · фиксированный контекст ≈ %3$d</string>
+    <string name="session_tools_group_meta">инструментов: %1$d · ≈ %2$d</string>
+    <string name="session_tools_enable_all">Включить все</string>
+    <string name="session_tools_off_switch">Отключено в этом сеансе</string>
+    <string name="session_tools_off_empty">Нет доступных инструментов</string>
+    <string name="session_tools_loading">Чтение списка инструментов…</string>
+    <string name="session_tools_failed">Не удалось прочитать список инструментов</string>
+    <string name="session_tools_group_memory">Память</string>
+    <string name="session_tools_group_skills">Навыки</string>
+    <string name="session_tools_group_history">Прошлые разговоры</string>
+    <string name="session_tools_group_web">Веб</string>
+    <string name="session_tools_group_terminal">Терминал и файлы</string>
+    <string name="session_tools_group_image">Генерация изображений</string>
+    <string name="session_tools_group_todo">Задачи</string>
+    <string name="session_tools_group_phone">Телефон</string>
+    <string name="session_tools_group_subagent">Субагенты</string>
+    <string name="session_tools_group_automation">Автоматизация</string>
+    <string name="session_tools_group_ask_user">Спросить пользователя</string>
+    <string name="session_tools_group_mcp">MCP</string>
 </resources>

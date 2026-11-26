@@ -20,7 +20,7 @@ class DefaultSystemPromptRenderingTest {
         assertEquals(listOf("skill_catalog", "active_memory"),
             items.filter { it.type == PromptItemType.PREDEFINED }.map { it.value })
         assertEquals(listOf("Response", "Tools", "Memory", "Skills", "Past conversations", "Web",
-            "Devices", "Subagents and automation", "Asking the user", "Interactive HTML preview"),
+            "Devices", "Subagents and automation", "Asking the user", "Interactive HTML preview", "Media links"),
             Regex("(?m)^## (.+)$").findAll(items.first().value).map { it.groupValues[1] }.toList())
     }
 
@@ -83,11 +83,14 @@ class DefaultSystemPromptRenderingTest {
         assertFalse(expected.contains("\n\n\n"))
 
         val current = DefaultSystemPrompt.create(Locale.ENGLISH).systemItems
-        val expectedCurrent = expected.replace("\n\n<skill_catalog>", HtmlPreviewGuidance.text + "\n\n<skill_catalog>")
+        val expectedCurrent = expected.replace("\n\n<skill_catalog>",
+            HtmlPreviewGuidance.text + MarkdownMediaGuidance.text + "\n\n<skill_catalog>")
         assertEquals(expectedCurrent, PredefinedVariables.compile(current, values, emptyMap()))
         assertEquals(expectedCurrent, PredefinedVariables.compile(current, values))
         assertTrue(current[0].value.contains(HtmlPreviewGuidance.text))
+        assertTrue(current[0].value.contains(MarkdownMediaGuidance.text))
         assertEquals(1, Regex("(?m)^## Interactive HTML preview$").findAll(expectedCurrent).count())
+        assertEquals(1, Regex("(?m)^## Media links$").findAll(expectedCurrent).count())
         assertFalse(expectedCurrent.contains("\n\n\n"))
     }
 

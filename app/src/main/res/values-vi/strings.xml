@@ -911,6 +911,8 @@
     <string name="tool_agent_results_empty">Không có kết quả nào từ tác nhân phụ được trả về</string>
     <string name="markdown_link_file_missing">Không tìm thấy tệp</string>
     <string name="markdown_link_file_unavailable">Không thể mở tệp này</string>
+    <string name="markdown_link_file_downloading">Đang tải tệp…</string>
+    <string name="markdown_link_file_too_large">Tệp lớn hơn 512 MB</string>
     <string name="markdown_link_shared_storage_required">Cấp quyền truy cập tất cả tệp để mở liên kết bộ nhớ chia sẻ</string>
     <string name="markdown_link_no_handler">Không có ứng dụng nào có thể mở liên kết này</string>
     <string name="storage_title">Bộ nhớ</string>
@@ -943,15 +945,21 @@
     <string name="usage_activity">Hoạt động</string>
     <string name="usage_metric_tokens">Token</string>
     <string name="usage_metric_requests">Yêu cầu</string>
-    <string name="usage_day_tokens">%1$s · %2$s token</string>
-    <string name="usage_day_requests">%1$s · %2$s yêu cầu</string>
+    <plurals name="usage_day_tokens">
+        <item quantity="other">%1$s · %2$s token</item>
+    </plurals>
+    <plurals name="usage_day_requests">
+        <item quantity="other">%1$s · %2$s yêu cầu</item>
+    </plurals>
     <string name="usage_less">Ít</string>
     <string name="usage_more">Nhiều</string>
     <string name="usage_overview">Tổng quan</string>
     <string name="usage_total_tokens">Tổng token</string>
     <string name="usage_total_requests">Yêu cầu</string>
     <string name="usage_streak">Chuỗi hiện tại</string>
-    <string name="usage_streak_days">%1$d ngày</string>
+    <plurals name="usage_streak_days">
+        <item quantity="other">%1$d ngày</item>
+    </plurals>
     <string name="usage_longest_streak">Chuỗi dài nhất</string>
     <string name="usage_tokens">Thống kê token</string>
     <string name="usage_period_week">7 ngày</string>
@@ -966,4 +974,24 @@
             <string name="usage_chart_weekly">Token mỗi tuần</string>
             <string name="usage_by_model">Token theo mô hình</string>
         <string name="usage_other">Khác</string>
+    <string name="session_tools_subtitle">Chỉ ảnh hưởng đến các yêu cầu sau trong cuộc trò chuyện này. Các lệnh gọi đã chạy không thay đổi.</string>
+    <string name="session_tools_summary">Đã bật %1$d/%2$d · ngữ cảnh cố định khoảng %3$d</string>
+    <string name="session_tools_group_meta">%1$d công cụ · khoảng %2$d</string>
+    <string name="session_tools_enable_all">Bật tất cả</string>
+    <string name="session_tools_off_switch">Tắt trong phiên này</string>
+    <string name="session_tools_off_empty">Không có công cụ khả dụng</string>
+    <string name="session_tools_loading">Đang đọc danh sách công cụ…</string>
+    <string name="session_tools_failed">Không đọc được danh sách công cụ</string>
+    <string name="session_tools_group_memory">Bộ nhớ</string>
+    <string name="session_tools_group_skills">Kỹ năng</string>
+    <string name="session_tools_group_history">Hội thoại trước</string>
+    <string name="session_tools_group_web">Web</string>
+    <string name="session_tools_group_terminal">Terminal và tệp</string>
+    <string name="session_tools_group_image">Tạo ảnh</string>
+    <string name="session_tools_group_todo">Việc cần làm</string>
+    <string name="session_tools_group_phone">Điện thoại</string>
+    <string name="session_tools_group_subagent">Tác nhân con</string>
+    <string name="session_tools_group_automation">Tự động hóa</string>
+    <string name="session_tools_group_ask_user">Hỏi người dùng</string>
+    <string name="session_tools_group_mcp">MCP</string>
 </resources>

@@ -31,8 +31,8 @@ internal fun parseShellMediaLink(link: String): ShellMediaLink? {
     val rest = raw.substring(SHELL_MEDIA_SCHEME.length)
     val slash = rest.indexOf('/')
     if (slash <= 0) return null
-    val server = percentDecode(rest.substring(0, slash))?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    val tail = percentDecode(rest.substring(slash + 1)) ?: return null
+    val server = percentDecodePath(rest.substring(0, slash))?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val tail = percentDecodePath(rest.substring(slash + 1)) ?: return null
     if (tail.isBlank() || '\u0000' in tail) return null
     val drive = tail.length >= 2 && tail[0].isLetter() && tail[1] == ':'
     val path = if (drive || tail.startsWith('/')) tail else "/$tail"
@@ -42,9 +42,13 @@ internal fun parseShellMediaLink(link: String): ShellMediaLink? {
 /** The same supported destination set determines native and browser occurrence ordinals. */
 internal fun markdownImageSnapshotKey(link: String): String? {
     if (markdownVideoLink(link) != null) return null
-    parseShellMediaLink(link)?.let { return it.key }
     val raw = link.trim().removeSurrounding("<", ">")
-    return raw.takeIf { HTTP_MARKDOWN_IMAGE.matches(it) }
+    if (HTTP_MARKDOWN_IMAGE.matches(raw)) return raw
+    return when (val destination = resolveMarkdownDestination(raw)) {
+        is MarkdownDestination.File -> destination.identity()
+        is MarkdownDestination.Device -> destination.identity()
+        else -> null
+    }
 }
 
 private val VIDEO_EXTENSIONS = setOf("mp4", "m4v", "webm", "mov", "mkv", "avi", "3gp", "ogv")
@@ -59,14 +63,17 @@ internal fun markdownVideoLink(link: String): String? {
     val extension = raw.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase()
     if (extension !in VIDEO_EXTENSIONS) return null
     val supported = parseShellMediaLink(raw) != null || HTTP_MARKDOWN_IMAGE.matches(raw) ||
-        classifyMarkdownLink(raw) is MarkdownLinkTarget.Local
+        resolveMarkdownDestination(raw) is MarkdownDestination.File
     return raw.takeIf { supported }
 }
 
 private val HTTP_MARKDOWN_IMAGE = Regex("""https?://[^\s/?#]+(?:[/?#][^\s]*)?""", RegexOption.IGNORE_CASE)
 
-/** Strict RFC 3986 percent decoding; `+` stays literal because these are paths, not forms. */
-private fun percentDecode(value: String): String? {
+/**
+ * Strict RFC 3986 percent decoding for a path written by hand; `+` stays literal because these are
+ * paths, not forms. Returns null when an escape is malformed, so callers can keep the raw spelling.
+ */
+internal fun percentDecodePath(value: String): String? {
     if ('%' !in value) return value
     val bytes = ByteArrayOutputStream(value.length)
     var index = 0

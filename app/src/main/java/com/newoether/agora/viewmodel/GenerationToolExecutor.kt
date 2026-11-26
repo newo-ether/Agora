@@ -17,6 +17,7 @@ import com.newoether.agora.tool.ImageGenToolProvider
 import com.newoether.agora.tool.MemoryToolProvider
 import com.newoether.agora.tool.SkillToolProvider
 import com.newoether.agora.tool.RagToolProvider
+import com.newoether.agora.tool.SessionToolGroup
 import com.newoether.agora.tool.ShellToolProvider
 import com.newoether.agora.tool.ToolExecutionEvent
 import com.newoether.agora.tool.ToolExecutionResult
@@ -127,10 +128,10 @@ internal class GenerationToolExecutor private constructor(
     }
 
     override fun definitions(context: GenerationContext): List<ToolDefinition> =
-        providers.flatMap { it.definitions(context) }
+        enabledProviders(context).flatMap { it.definitions(context) }
 
     override fun minimalDefinitions(context: GenerationContext): List<ToolDefinition> =
-        providers.flatMap { provider ->
+        enabledProviders(context).flatMap { provider ->
             when (provider) {
                 is ShellToolProvider -> provider.minimalDefinitions(context)
                 is WebSearchToolProvider -> provider.definitions(context)
@@ -138,25 +139,58 @@ internal class GenerationToolExecutor private constructor(
             }
         }
 
+    /**
+     * Providers this session still exposes. A provider that maps to no group is never hidden, so a
+     * provider added by an extension keeps behaving exactly as it did before grouping existed.
+     */
+    private fun enabledProviders(context: GenerationContext): List<ToolProvider> {
+        val disabled = SessionToolGroup.fromIds(context.disabledToolGroups)
+        if (disabled.isEmpty()) return providers
+        return providers.filter { provider ->
+            SessionToolGroup.of(provider)?.let { it !in disabled } ?: true
+        }
+    }
+
+    private fun isGroupEnabled(group: SessionToolGroup, context: GenerationContext): Boolean =
+        group !in SessionToolGroup.fromIds(context.disabledToolGroups)
+
+    /** Definitions per user-facing group, ignoring the session's disabled set. Selector only. */
+    fun sessionToolGroups(context: GenerationContext): Map<SessionToolGroup, List<ToolDefinition>> =
+        providers.mapNotNull { provider ->
+            val group = SessionToolGroup.of(provider) ?: return@mapNotNull null
+            group to provider.definitions(context)
+        }.toMap()
+
     fun imageDefinitions(context: GenerationContext): List<ToolDefinition> =
-        imageGenProvider?.definitions(context).orEmpty()
+        imageGenProvider
+            ?.takeIf { isGroupEnabled(SessionToolGroup.IMAGE, context) }
+            ?.definitions(context)
+            .orEmpty()
 
     fun memoryDefinitions(context: GenerationContext): List<ToolDefinition> =
-        providers.filterIsInstance<MemoryToolProvider>().flatMap { it.definitions(context) }
+        providers.filterIsInstance<MemoryToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.MEMORY, context) }
+            .flatMap { it.definitions(context) }
 
     fun webSearchDefinitions(context: GenerationContext): List<ToolDefinition> =
-        providers.filterIsInstance<WebSearchToolProvider>().flatMap { it.definitions(context) }
+        providers.filterIsInstance<WebSearchToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.WEB, context) }
+            .flatMap { it.definitions(context) }
 
     fun ragDefinitions(context: GenerationContext): List<ToolDefinition> =
-        providers.filterIsInstance<RagToolProvider>().flatMap { it.definitions(context) }
+        providers.filterIsInstance<RagToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.PAST_CONVERSATIONS, context) }
+            .flatMap { it.definitions(context) }
 
     fun shellDefinitions(context: GenerationContext): List<ToolDefinition> =
         providers.filterIsInstance<ShellToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.TERMINAL, context) }
             .flatMap { it.definitions(context) }
             .filter { it.function.name !in FILE_TOOL_NAMES }
 
     fun fileDefinitions(context: GenerationContext): List<ToolDefinition> =
         providers.filterIsInstance<ShellToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.TERMINAL, context) }
             .flatMap { it.definitions(context) }
             .filter { it.function.name in FILE_TOOL_NAMES }
 
@@ -232,6 +266,17 @@ internal class GenerationToolExecutor private constructor(
                 ?: return call.result(
                     ToolExecutionResult(text = "Unknown tool: ${call.name}", isError = true),
                 )
+            SessionToolGroup.of(provider)
+                ?.takeUnless { isGroupEnabled(it, call.context) }
+                ?.let { group ->
+                    return call.result(
+                        ToolExecutionResult(
+                            text = "Error executing tool '${call.name}': " +
+                                "the ${group.id} tool group is disabled for this session",
+                            isError = true,
+                        ),
+                    )
+                }
             // A blocking provider must not pin the stream consumer forever. The detached attempt
             // lets the deadline stop awaiting immediately; cancellation still reaches cooperative
             // provider work and the tool round receives a recoverable error.

@@ -8,12 +8,25 @@ import com.newoether.agora.sandbox.SandboxSharedStorageAccess
 import java.io.File
 
 /**
- * One destination a Markdown link can open. Only network destinations and the two storage roots
- * the app can read directly are admitted; everything else stays inert text.
+ * One normalized Markdown destination. Links, images and videos all classify through
+ * [resolveMarkdownDestination], so one spelling of a path behaves the same in every component.
  */
-internal sealed interface MarkdownLinkTarget {
-    data class Remote(val url: String) : MarkdownLinkTarget
-    data class Local(val file: LocalFileTarget) : MarkdownLinkTarget
+internal sealed interface MarkdownDestination {
+    /** A network destination the platform handler opens. */
+    data class Web(val url: String) : MarkdownDestination
+
+    /** A file this app reads through one of its own storage roots. */
+    data class File(val target: LocalFileTarget) : MarkdownDestination
+
+    /** A file on another shell device; only that device can serve its bytes. */
+    data class Device(val link: ShellMediaLink) : MarkdownDestination
+}
+
+/** Stable identity for snapshot caches, independent of how the destination was spelled. */
+internal fun MarkdownDestination.identity(): String = when (this) {
+    is MarkdownDestination.Web -> "web:$url"
+    is MarkdownDestination.File -> "file:${target.root}:${target.relativePath}"
+    is MarkdownDestination.Device -> "device:${link.key}"
 }
 
 internal enum class LocalFileRoot {
@@ -38,6 +51,7 @@ private val SHARED_STORAGE_PREFIXES = listOf(
     "/mnt/shared/",
     "/storage/emulated/0/",
     "/storage/self/primary/",
+    "/sdcard/",
 )
 
 /** Characters that end a bare path written in prose, including full-width punctuation. */
@@ -46,41 +60,64 @@ private const val PATH_DELIMITERS = " \t\r\n\"'`<>()[]{}|，。；：！？、�
 private val PATH_TRAILING_CHARS = charArrayOf('.', ',', ';', ':', '!', '?', ')', ']', '}', '"', '\'')
 
 /**
- * Classifies a link destination. Network schemes stay with the platform handler; sandbox and
- * shared-storage paths resolve to host files. Unsupported schemes return null (inert text).
+ * Classifies a Markdown destination into the one file or address it names. A `shell://` path names
+ * a shell device, except on the Local Sandbox, where its home and shared storage join this app's
+ * own roots and everything else stays a sandbox-served path. Unsupported schemes return null and
+ * stay inert text.
  */
-internal fun classifyMarkdownLink(raw: String): MarkdownLinkTarget? {
+internal fun resolveMarkdownDestination(raw: String): MarkdownDestination? {
     val link = raw.trim().removeSurrounding("<", ">")
     if (link.isEmpty()) return null
     parseShellMediaLink(link)?.let { shell ->
-        return if (shell.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
-            sandboxTarget(shell.path)
-        } else null
+        if (!shell.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) return MarkdownDestination.Device(shell)
+        return localDestination(shell.path) ?: MarkdownDestination.Device(shell)
     }
     val lower = link.lowercase()
     if (lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("mailto:")) {
-        return MarkdownLinkTarget.Remote(link)
+        return MarkdownDestination.Web(link)
     }
-    if (link == "/home/agora") return null
-    if (link.startsWith(SANDBOX_HOME_PREFIX)) return sandboxTarget(link)
-    SHARED_STORAGE_PREFIXES.firstOrNull { link.startsWith(it) }?.let { prefix ->
-        return sharedTarget(link.removePrefix(prefix.trimEnd('/')))
+    // `file:` names a path on this device; any authority in the URL is dropped like Android does.
+    return localPathDestination(if (lower.startsWith("file:")) fileUrlPath(link) else link)
+}
+
+/** A hand-written path may percent-encode a space; a malformed escape keeps its literal `%`. */
+private fun localPathDestination(path: String): MarkdownDestination? =
+    localDestination(percentDecodePath(path) ?: path)
+
+/** Path of a `file:` URL: `file:/p`, `file:///p` and `file://host/p` all fold to `/p`. */
+internal fun fileUrlPath(link: String): String {
+    val rest = link.substring("file:".length)
+    if (!rest.startsWith("//")) return rest
+    val afterSlashes = rest.substring(2)
+    if (afterSlashes.startsWith("/")) return afterSlashes
+    val path = afterSlashes.substringAfter('/', "")
+    return if (path.isEmpty()) "" else "/$path"
+}
+
+/** Cheap check before parsing: some supported destination spelling appears in [text]. */
+internal fun mentionsMarkdownDestination(text: String): Boolean =
+    text.contains("shell://", ignoreCase = true) ||
+        text.contains("file://", ignoreCase = true) ||
+        text.contains("http://", ignoreCase = true) ||
+        text.contains("https://", ignoreCase = true) ||
+        SANDBOX_HOME_PREFIX in text || SHARED_STORAGE_PREFIXES.any { it in text }
+
+/** A guest path as the file this app opens: the sandbox home or shared storage. */
+private fun localDestination(path: String): MarkdownDestination? {
+    if (path == "/home/agora") return null
+    if (path.startsWith(SANDBOX_HOME_PREFIX)) {
+        return localFile(LocalFileRoot.SANDBOX_HOME, path.removePrefix(SANDBOX_HOME_PREFIX))
+    }
+    SHARED_STORAGE_PREFIXES.firstOrNull { path.startsWith(it) }?.let { prefix ->
+        return localFile(LocalFileRoot.SHARED_STORAGE, path.removePrefix(prefix.trimEnd('/')))
     }
     return null
 }
 
-private fun sandboxTarget(path: String): MarkdownLinkTarget? {
-    // A `shell://` path is the host path on the sandbox device: only the guest home is readable.
-    if (!path.startsWith(SANDBOX_HOME_PREFIX)) return null
-    val relative = path.removePrefix(SANDBOX_HOME_PREFIX)
-    return relative.takeIf { it.isNotEmpty() && ".." !in it.split('/') }
-        ?.let { MarkdownLinkTarget.Local(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, it)) }
-}
-
-private fun sharedTarget(path: String): MarkdownLinkTarget? {
-    val relative = path.trimStart('/')
-    return relative.takeIf { it.isNotEmpty() && ".." !in it.split('/') }
-        ?.let { MarkdownLinkTarget.Local(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, it)) }
+private fun localFile(root: LocalFileRoot, relative: String): MarkdownDestination? {
+    val path = relative.trimStart('/')
+    return path.takeIf { it.isNotEmpty() && ".." !in it.split('/') }
+        ?.let { MarkdownDestination.File(LocalFileTarget(root, it)) }
 }
 
 /** Resolves a link destination through the same roots the sandbox mounts expose. */
@@ -88,6 +125,7 @@ internal fun resolveLocalFileTarget(context: Context, target: LocalFileTarget): 
     val root = when (target.root) {
         LocalFileRoot.SANDBOX_HOME -> File(context.applicationContext.filesDir, "sandbox-home")
         LocalFileRoot.SHARED_STORAGE -> {
+            if (!SandboxSharedStorageAccess.isSharedStorageMounted) return LocalFileResolution.Unavailable
             if (!SandboxSharedStorageAccess.isGranted(context)) {
                 return LocalFileResolution.NeedsSharedStorageAccess
             }
@@ -232,9 +270,9 @@ internal fun markdownBarePathAt(text: CharSequence, offset: Int): String? {
     while (end < text.length && text[end] !in PATH_DELIMITERS) end++
     val candidate = text.subSequence(start, end).toString().trimEnd(*PATH_TRAILING_CHARS)
     if (candidate.isEmpty()) return null
-    val supported = candidate.startsWith(SANDBOX_HOME_PREFIX) || SHARED_STORAGE_PREFIXES.any {
-        candidate.startsWith(it)
-    }
+    val supported = candidate.startsWith(SANDBOX_HOME_PREFIX) ||
+        candidate.startsWith("file://", ignoreCase = true) ||
+        SHARED_STORAGE_PREFIXES.any { candidate.startsWith(it) }
     return candidate.takeIf { supported }
 }
 

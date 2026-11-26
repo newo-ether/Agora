@@ -10,8 +10,8 @@ import com.newoether.agora.util.ShellClient
 import com.newoether.agora.ui.chat.message.LOCAL_SANDBOX_SERVER
 import com.newoether.agora.ui.chat.message.LocalFileResolution
 import com.newoether.agora.ui.chat.message.MarkdownDocumentReferenceHandler
-import com.newoether.agora.ui.chat.message.MarkdownLinkTarget
-import com.newoether.agora.ui.chat.message.classifyMarkdownLink
+import com.newoether.agora.ui.chat.message.MarkdownDestination
+import com.newoether.agora.ui.chat.message.resolveMarkdownDestination
 import com.newoether.agora.ui.chat.message.embedHtmlVideoTags
 import com.newoether.agora.ui.chat.message.embedStandaloneVideoPaths
 import com.newoether.agora.ui.chat.message.markdownImageLink
@@ -76,7 +76,7 @@ internal fun ChatMessage.ownsMarkdownVideo(link: String, sourceStart: Int, docum
  * other files and other devices stay inert in the browser.
  */
 internal fun ChatMessage.ownsMarkdownLinkedMedia(link: String, document: String): Boolean {
-    if (linkedMediaMimeType(link) == null || classifyMarkdownLink(link) !is MarkdownLinkTarget.Local) return false
+    if (linkedMediaMimeType(link) == null || resolveMarkdownDestination(link) !is MarkdownDestination.File) return false
     val source = markdownDocumentText(document) ?: return false
     return namesLinkDestination(source, link)
 }
@@ -102,9 +102,9 @@ internal class WebUiMarkdownVideos(
         val mimeType = videoMimeType(destination)
         val shell = parseShellMediaLink(destination)
         if (shell == null || shell.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
-            val target = classifyMarkdownLink(destination) as? MarkdownLinkTarget.Local ?: return null
+            val target = resolveMarkdownDestination(destination) as? MarkdownDestination.File ?: return null
             val file = withContext(Dispatchers.IO) {
-                (resolveLocalFileTarget(context, target.file) as? LocalFileResolution.Ready)?.file
+                (resolveLocalFileTarget(context, target.target) as? LocalFileResolution.Ready)?.file
             } ?: return null
             return WebUiMarkdownVideoSource.Local(file, mimeType)
         }
@@ -141,9 +141,9 @@ internal class WebUiMarkdownVideos(
         val message = loadMessage(conversationId, messageId)?.takeIf { it.id == messageId } ?: return null
         val owned = withContext(Dispatchers.Default) { message.ownsMarkdownLinkedMedia(link, document) }
         if (!owned) return null
-        val target = classifyMarkdownLink(link) as? MarkdownLinkTarget.Local ?: return null
+        val target = resolveMarkdownDestination(link) as? MarkdownDestination.File ?: return null
         val file = withContext(Dispatchers.IO) {
-            (resolveLocalFileTarget(context, target.file) as? LocalFileResolution.Ready)?.file
+            (resolveLocalFileTarget(context, target.target) as? LocalFileResolution.Ready)?.file
         } ?: return null
         return WebUiMarkdownVideoSource.Local(file, mimeType)
     }

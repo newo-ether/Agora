@@ -17,12 +17,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.newoether.agora.R
 import com.newoether.agora.ui.chat.FullScreenMediaViewer
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Opens a tapped Markdown destination. Network links leave through the platform handler; sandbox
@@ -32,21 +37,42 @@ import java.io.File
 @Stable
 internal class MarkdownLinkOpener(
     private val context: Context,
+    private val scope: CoroutineScope,
+    private val fetchDeviceFile: (suspend (ShellMediaLink) -> File)?,
     private val openRemote: (String) -> Unit,
     private val showMedia: (String) -> Unit,
     private val notify: (Int) -> Unit,
 ) {
     fun activate(raw: String) {
-        when (val target = classifyMarkdownLink(raw)) {
-            is MarkdownLinkTarget.Remote -> openRemote(target.url)
-            is MarkdownLinkTarget.Local -> when (val resolved = resolveLocalFileTarget(context, target.file)) {
+        when (val target = resolveMarkdownDestination(raw)) {
+            is MarkdownDestination.Web -> openRemote(target.url)
+            is MarkdownDestination.File -> when (val resolved = resolveLocalFileTarget(context, target.target)) {
                 is LocalFileResolution.Ready -> openLocalFile(resolved.file)
                 LocalFileResolution.NotFound -> notify(R.string.markdown_link_file_missing)
                 LocalFileResolution.NeedsSharedStorageAccess ->
                     notify(R.string.markdown_link_shared_storage_required)
                 LocalFileResolution.Unavailable -> notify(R.string.markdown_link_file_unavailable)
             }
+            is MarkdownDestination.Device -> download(target.link)
             null -> Unit
+        }
+    }
+
+    /** A file on another device becomes a cache copy first; the system app opens the copy. */
+    private fun download(link: ShellMediaLink) {
+        val fetch = fetchDeviceFile ?: return notify(R.string.markdown_link_file_unavailable)
+        scope.launch {
+            notify(R.string.markdown_link_file_downloading)
+            val file = try {
+                withContext(Dispatchers.IO) { fetch(link) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                return@launch
+            } catch (_: MarkdownDeviceFileTooLarge) {
+                return@launch notify(R.string.markdown_link_file_too_large)
+            } catch (_: Exception) {
+                return@launch notify(R.string.markdown_link_file_unavailable)
+            }
+            openLocalFile(file)
         }
     }
 
@@ -80,11 +106,17 @@ internal fun rememberMarkdownLinkOpener(): MarkdownLinkOpener {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val snackbar = LocalSnackbarMessage.current
+    val scope = rememberCoroutineScope()
+    val media = LocalShellMarkdownMedia.current
     var mediaUri by remember { mutableStateOf<String?>(null) }
     val notify: (Int) -> Unit = { resId -> snackbar(context.getString(resId)) }
-    val opener = remember(context, uriHandler, snackbar) {
+    val opener = remember(context, uriHandler, snackbar, scope, media) {
         MarkdownLinkOpener(
             context = context,
+            scope = scope,
+            fetchDeviceFile = media?.let { loader ->
+                { link: ShellMediaLink -> loader.downloadDeviceFile(link) }
+            },
             openRemote = { url ->
                 if (runCatching { uriHandler.openUri(url) }.isFailure) {
                     notify(R.string.markdown_link_no_handler)

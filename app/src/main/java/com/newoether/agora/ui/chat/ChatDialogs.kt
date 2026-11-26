@@ -43,6 +43,7 @@ import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.ui.components.SystemPromptPickerDialog
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.viewmodel.SessionToolCatalog
 import kotlinx.coroutines.launch
 
 /** Rename-conversation dialog. Owns its own editable text, seeded from [initialName]. */
@@ -335,4 +336,59 @@ internal fun ChatAdvancedSettingsDialog(
         },
         onDismiss = onDismiss
     )
+}
+
+/**
+ * Session tool selector wrapper: loads the tools this conversation currently sends, lets the user
+ * edit a copy, then persists only the disabled group ids on confirm.
+ */
+@Composable
+internal fun ChatSessionToolsDialog(
+    viewModel: ChatViewModel,
+    onDismiss: () -> Unit,
+) {
+    val currentConversationId by viewModel.currentConversationId.collectAsState()
+    val isNewChatMode by viewModel.isNewChatMode.collectAsState()
+    var catalog by remember { mutableStateOf<SessionToolCatalog?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val loaded = viewModel.captureSessionToolCatalog()
+        if (loaded == null) failed = true else catalog = loaded
+    }
+    val loadedCatalog = catalog
+    when {
+        failed -> AlertDialog(
+            onDismissRequest = onDismiss,
+            text = { Text(stringResource(R.string.session_tools_failed)) },
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+
+        loadedCatalog == null -> AlertDialog(
+            onDismissRequest = onDismiss,
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(stringResource(R.string.session_tools_loading))
+                }
+            },
+            confirmButton = {},
+        )
+
+        else -> SessionToolsDialog(
+            catalog = loadedCatalog,
+            onDismiss = onDismiss,
+            onSave = { disabledIds ->
+                val ownerId = conversationSettingsOwnerId(isNewChatMode, currentConversationId)
+                viewModel.updateConversationSetting(ownerId) {
+                    it.copy(disabledToolGroups = disabledIds.ifEmpty { null })
+                }
+                onDismiss()
+            },
+        )
+    }
 }

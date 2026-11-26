@@ -905,6 +905,8 @@
     <string name="tool_agent_results_empty">サブエージェントの結果は返されませんでした</string>
     <string name="markdown_link_file_missing">ファイルが見つかりません</string>
     <string name="markdown_link_file_unavailable">このファイルを開けません</string>
+    <string name="markdown_link_file_downloading">ファイルをダウンロード中…</string>
+    <string name="markdown_link_file_too_large">ファイルが 512 MB を超えています</string>
     <string name="markdown_link_shared_storage_required">共有ストレージのリンクを開くには、すべてのファイルへのアクセスを許可してください</string>
     <string name="markdown_link_no_handler">このリンクを開けるアプリがありません</string>
     <string name="storage_title">ストレージ</string>
@@ -937,15 +939,21 @@
     <string name="usage_activity">アクティビティ</string>
     <string name="usage_metric_tokens">トークン</string>
     <string name="usage_metric_requests">リクエスト</string>
-    <string name="usage_day_tokens">%1$s · %2$s トークン</string>
-    <string name="usage_day_requests">%1$s · %2$s 件のリクエスト</string>
+    <plurals name="usage_day_tokens">
+        <item quantity="other">%1$s · %2$s トークン</item>
+    </plurals>
+    <plurals name="usage_day_requests">
+        <item quantity="other">%1$s · %2$s 件のリクエスト</item>
+    </plurals>
     <string name="usage_less">少</string>
     <string name="usage_more">多</string>
     <string name="usage_overview">概要</string>
     <string name="usage_total_tokens">合計トークン</string>
     <string name="usage_total_requests">リクエスト数</string>
     <string name="usage_streak">現在の連続日数</string>
-    <string name="usage_streak_days">%1$d 日</string>
+    <plurals name="usage_streak_days">
+        <item quantity="other">%1$d 日</item>
+    </plurals>
     <string name="usage_longest_streak">最長連続日数</string>
     <string name="usage_tokens">トークン統計</string>
     <string name="usage_period_week">7 日</string>
@@ -960,4 +968,24 @@
             <string name="usage_chart_weekly">週別トークン</string>
             <string name="usage_by_model">モデル別トークン</string>
         <string name="usage_other">その他</string>
+    <string name="session_tools_subtitle">この会話の以降のリクエストにのみ影響します。実行済みの呼び出しは変わりません。</string>
+    <string name="session_tools_summary">有効 %1$d / %2$d · 固定コンテキスト約 %3$d</string>
+    <string name="session_tools_group_meta">%1$d 個のツール · 約 %2$d</string>
+    <string name="session_tools_enable_all">すべて有効化</string>
+    <string name="session_tools_off_switch">このセッションではオフ</string>
+    <string name="session_tools_off_empty">利用できるツールがありません</string>
+    <string name="session_tools_loading">ツール一覧を読み込み中…</string>
+    <string name="session_tools_failed">ツール一覧を読み込めませんでした</string>
+    <string name="session_tools_group_memory">メモリ</string>
+    <string name="session_tools_group_skills">スキル</string>
+    <string name="session_tools_group_history">過去の会話</string>
+    <string name="session_tools_group_web">Web</string>
+    <string name="session_tools_group_terminal">ターミナルとファイル</string>
+    <string name="session_tools_group_image">画像生成</string>
+    <string name="session_tools_group_todo">ToDo</string>
+    <string name="session_tools_group_phone">電話</string>
+    <string name="session_tools_group_subagent">サブエージェント</string>
+    <string name="session_tools_group_automation">自動化</string>
+    <string name="session_tools_group_ask_user">ユーザーに質問</string>
+    <string name="session_tools_group_mcp">MCP</string>
 </resources>

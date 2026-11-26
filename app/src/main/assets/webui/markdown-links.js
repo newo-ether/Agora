@@ -8,14 +8,41 @@ import { AttachmentViewer } from "./attachments.js";
 const VIDEO_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi", "3gp", "ogv"]);
 // Kept equal to linkedMediaMimeType on the phone; SVG stays out because it can script.
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"]);
-// The roots classifyMarkdownLink reads on the phone.
+// The roots resolveMarkdownDestination reads on the phone, plus `file:` URLs over them.
 const SANDBOX_HOME = "/home/agora/";
-const LOCAL_ROOTS = [SANDBOX_HOME, "/mnt/shared/", "/storage/emulated/0/", "/storage/self/primary/"];
+const LOCAL_ROOTS = [SANDBOX_HOME, "/mnt/shared/", "/storage/emulated/0/", "/storage/self/primary/", "/sdcard/"];
 // PATH_DELIMITERS and PATH_TRAILING_CHARS of markdownBarePathAt.
 const PATH_DELIMITERS = " \t\r\n\"'`<>()[]{}|，。；：！？、）】》”’";
 const PATH_TRAILING = ".,;:!?)]}\"'";
 
 const unwrap = link => link.trim().replace(/^<([\s\S]*)>$/, "$1");
+
+/** Path of a `file:` URL, the same folding fileUrlPath does on the phone. */
+function fileUrlPath(raw) {
+  const rest = raw.slice("file:".length);
+  if (!rest.startsWith("//")) return rest;
+  const afterSlashes = rest.slice(2);
+  if (afterSlashes.startsWith("/")) return afterSlashes;
+  const path = afterSlashes.split("/").slice(1).join("/");
+  return path ? `/${path}` : "";
+}
+
+function decodePath(value) {
+  if (!value.includes("%")) return value;
+  try { return decodeURIComponent(value); } catch { return value; }
+}
+
+/**
+ * The readable-root path this link names, or null. Admission only: the request still carries the
+ * original spelling, and the phone resolves it again before reading a byte.
+ */
+export function localMediaPath(link) {
+  const raw = unwrap(link);
+  const path = decodePath(/^file:/i.test(raw) ? fileUrlPath(raw) : raw);
+  const root = LOCAL_ROOTS.find(candidate => path.startsWith(candidate));
+  if (!root || !path.slice(root.length)) return null;
+  return path.split("/").includes("..") ? null : path;
+}
 
 function extension(raw) {
   const name = raw.split("?")[0].split("#")[0].toLowerCase();
@@ -35,7 +62,7 @@ export function linkedMediaType(link) {
       path = decodeURIComponent(rest.slice(slash));
     } catch { return null; }
     if (!path.startsWith(SANDBOX_HOME)) return null;
-  } else if (!LOCAL_ROOTS.some(root => raw.startsWith(root))) return null;
+  } else if (!localMediaPath(raw)) return null;
   if (path.split("/").includes("..")) return null;
   const type = extension(raw);
   return IMAGE_EXTENSIONS.has(type) ? "image" : VIDEO_EXTENSIONS.has(type) ? "video" : null;
@@ -45,7 +72,7 @@ export function linkedMediaType(link) {
 function videoDestination(link) {
   const raw = unwrap(link);
   const supported = /^shell:\/\//i.test(raw) || /^https?:\/\/[^\s/?#]+(?:[/?#]\S*)?$/i.test(raw) ||
-    LOCAL_ROOTS.some(root => raw.startsWith(root));
+    !!localMediaPath(raw);
   return raw && supported && VIDEO_EXTENSIONS.has(extension(raw)) ? raw : null;
 }
 

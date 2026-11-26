@@ -898,6 +898,8 @@
     <string name="tool_agent_results_empty">未返回子代理结果</string>
     <string name="markdown_link_file_missing">未找到文件</string>
     <string name="markdown_link_file_unavailable">无法打开此文件</string>
+    <string name="markdown_link_file_downloading">正在下载文件…</string>
+    <string name="markdown_link_file_too_large">文件超过 512 MB</string>
     <string name="markdown_link_shared_storage_required">授予所有文件访问权限以打开共享存储链接</string>
     <string name="markdown_link_no_handler">没有可打开此链接的应用</string>
     <string name="storage_title">存储</string>
@@ -930,15 +932,21 @@
     <string name="usage_activity">活跃度</string>
     <string name="usage_metric_tokens">Token</string>
     <string name="usage_metric_requests">请求</string>
-    <string name="usage_day_tokens">%1$s · %2$s token</string>
-    <string name="usage_day_requests">%1$s · %2$s 次请求</string>
+    <plurals name="usage_day_tokens">
+        <item quantity="other">%1$s · %2$s Token</item>
+    </plurals>
+    <plurals name="usage_day_requests">
+        <item quantity="other">%1$s · %2$s 次请求</item>
+    </plurals>
     <string name="usage_less">少</string>
     <string name="usage_more">多</string>
     <string name="usage_overview">概览</string>
-    <string name="usage_total_tokens">总 token</string>
+    <string name="usage_total_tokens">总 Token</string>
     <string name="usage_total_requests">请求数</string>
     <string name="usage_streak">当前连续</string>
-    <string name="usage_streak_days">%1$d 天</string>
+    <plurals name="usage_streak_days">
+        <item quantity="other">%1$d 天</item>
+    </plurals>
     <string name="usage_longest_streak">最长连续</string>
     <string name="usage_tokens">Token 统计</string>
     <string name="usage_period_week">7 天</string>
@@ -949,8 +957,28 @@
     <string name="usage_output">输出</string>
     <string name="usage_cached">缓存输入</string>
     <string name="usage_cache_hit">缓存命中率</string>
-            <string name="usage_chart_daily">每日 token</string>
-            <string name="usage_chart_weekly">每周 token</string>
+            <string name="usage_chart_daily">每日 Token</string>
+            <string name="usage_chart_weekly">每周 Token</string>
             <string name="usage_by_model">各模型 Token</string>
         <string name="usage_other">其他</string>
+    <string name="session_tools_subtitle">只影响本会话之后的请求，已经发生的调用不变。</string>
+    <string name="session_tools_summary">已启用 %1$d / %2$d · 固定上下文约 %3$d</string>
+    <string name="session_tools_group_meta">%1$d 个工具 · 约 %2$d</string>
+    <string name="session_tools_enable_all">全部启用</string>
+    <string name="session_tools_off_switch">本会话未开启</string>
+    <string name="session_tools_off_empty">没有可用工具</string>
+    <string name="session_tools_loading">正在读取工具列表…</string>
+    <string name="session_tools_failed">无法读取工具列表</string>
+    <string name="session_tools_group_memory">记忆</string>
+    <string name="session_tools_group_skills">技能</string>
+    <string name="session_tools_group_history">历史会话</string>
+    <string name="session_tools_group_web">网页</string>
+    <string name="session_tools_group_terminal">终端与文件</string>
+    <string name="session_tools_group_image">图片生成</string>
+    <string name="session_tools_group_todo">待办</string>
+    <string name="session_tools_group_phone">手机</string>
+    <string name="session_tools_group_subagent">子智能体</string>
+    <string name="session_tools_group_automation">自动化</string>
+    <string name="session_tools_group_ask_user">询问用户</string>
+    <string name="session_tools_group_mcp">MCP</string>
 </resources>

@@ -905,6 +905,8 @@
     <string name="tool_agent_results_empty">반환된 하위 에이전트 결과가 없습니다</string>
     <string name="markdown_link_file_missing">파일을 찾을 수 없습니다</string>
     <string name="markdown_link_file_unavailable">이 파일을 열 수 없습니다</string>
+    <string name="markdown_link_file_downloading">파일 다운로드 중…</string>
+    <string name="markdown_link_file_too_large">파일이 512MB를 넘습니다</string>
     <string name="markdown_link_shared_storage_required">공유 저장소 링크를 열려면 모든 파일 접근 권한을 허용하세요</string>
     <string name="markdown_link_no_handler">이 링크를 열 수 있는 앱이 없습니다</string>
     <string name="storage_title">저장공간</string>
@@ -937,15 +939,21 @@
     <string name="usage_activity">활동</string>
     <string name="usage_metric_tokens">토큰</string>
     <string name="usage_metric_requests">요청</string>
-    <string name="usage_day_tokens">%1$s · 토큰 %2$s개</string>
-    <string name="usage_day_requests">%1$s · 요청 %2$s회</string>
+    <plurals name="usage_day_tokens">
+        <item quantity="other">%1$s · 토큰 %2$s개</item>
+    </plurals>
+    <plurals name="usage_day_requests">
+        <item quantity="other">%1$s · 요청 %2$s회</item>
+    </plurals>
     <string name="usage_less">적음</string>
     <string name="usage_more">많음</string>
     <string name="usage_overview">개요</string>
     <string name="usage_total_tokens">총 토큰</string>
     <string name="usage_total_requests">요청 수</string>
     <string name="usage_streak">현재 연속 사용</string>
-    <string name="usage_streak_days">%1$d일</string>
+    <plurals name="usage_streak_days">
+        <item quantity="other">%1$d일</item>
+    </plurals>
     <string name="usage_longest_streak">최장 연속 사용</string>
     <string name="usage_tokens">토큰 통계</string>
     <string name="usage_period_week">7일</string>
@@ -960,4 +968,24 @@
             <string name="usage_chart_weekly">주별 토큰</string>
             <string name="usage_by_model">모델별 토큰</string>
         <string name="usage_other">기타</string>
+    <string name="session_tools_subtitle">이 대화의 이후 요청에만 영향을 줍니다. 이미 실행된 호출은 그대로 유지됩니다.</string>
+    <string name="session_tools_summary">%2$d개 중 %1$d개 활성 · 고정 컨텍스트 약 %3$d</string>
+    <string name="session_tools_group_meta">도구 %1$d개 · 약 %2$d</string>
+    <string name="session_tools_enable_all">모두 활성화</string>
+    <string name="session_tools_off_switch">이 세션에서 꺼짐</string>
+    <string name="session_tools_off_empty">사용할 수 있는 도구 없음</string>
+    <string name="session_tools_loading">도구 목록을 읽는 중…</string>
+    <string name="session_tools_failed">도구 목록을 읽을 수 없습니다</string>
+    <string name="session_tools_group_memory">메모리</string>
+    <string name="session_tools_group_skills">스킬</string>
+    <string name="session_tools_group_history">지난 대화</string>
+    <string name="session_tools_group_web">웹</string>
+    <string name="session_tools_group_terminal">터미널과 파일</string>
+    <string name="session_tools_group_image">이미지 생성</string>
+    <string name="session_tools_group_todo">할 일</string>
+    <string name="session_tools_group_phone">휴대폰</string>
+    <string name="session_tools_group_subagent">하위 에이전트</string>
+    <string name="session_tools_group_automation">자동화</string>
+    <string name="session_tools_group_ask_user">사용자에게 묻기</string>
+    <string name="session_tools_group_mcp">MCP</string>
 </resources>

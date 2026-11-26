@@ -110,6 +110,8 @@
     <string name="file_path_unknown">Unknown file</string>
     <string name="markdown_link_file_missing">File not found</string>
     <string name="markdown_link_file_unavailable">Cannot open this file</string>
+    <string name="markdown_link_file_downloading">Downloading file…</string>
+    <string name="markdown_link_file_too_large">File is larger than 512 MB</string>
     <string name="markdown_link_shared_storage_required">Grant all-files access to open shared storage links</string>
     <string name="markdown_link_no_handler">No app can open this link</string>
     <string name="tool_exit_code">Exit %1$d</string>
@@ -918,15 +920,24 @@
     <string name="usage_activity">Activity</string>
     <string name="usage_metric_tokens">Tokens</string>
     <string name="usage_metric_requests">Requests</string>
-    <string name="usage_day_tokens">%1$s · %2$s tokens</string>
-    <string name="usage_day_requests">%1$s · %2$s requests</string>
+    <plurals name="usage_day_tokens">
+        <item quantity="one">%1$s · %2$s token</item>
+        <item quantity="other">%1$s · %2$s tokens</item>
+    </plurals>
+    <plurals name="usage_day_requests">
+        <item quantity="one">%1$s · %2$s request</item>
+        <item quantity="other">%1$s · %2$s requests</item>
+    </plurals>
     <string name="usage_less">Less</string>
     <string name="usage_more">More</string>
     <string name="usage_overview">Overview</string>
     <string name="usage_total_tokens">Total Tokens</string>
     <string name="usage_total_requests">Requests</string>
     <string name="usage_streak">Current Streak</string>
-    <string name="usage_streak_days">%1$d days</string>
+    <plurals name="usage_streak_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
     <string name="usage_longest_streak">Longest Streak</string>
     <string name="usage_tokens">Token Statistics</string>
     <string name="usage_period_week">7 days</string>
@@ -941,4 +952,24 @@
             <string name="usage_chart_weekly">Tokens per Week</string>
             <string name="usage_by_model">Tokens per Model</string>
         <string name="usage_other">Other</string>
+    <string name="session_tools_subtitle">Affects later requests in this conversation only. Calls that already ran are unchanged.</string>
+    <string name="session_tools_summary">Enabled %1$d of %2$d · fixed context ≈ %3$d</string>
+    <string name="session_tools_group_meta">%1$d tools · ≈ %2$d</string>
+    <string name="session_tools_enable_all">Enable all</string>
+    <string name="session_tools_off_switch">Off for this session</string>
+    <string name="session_tools_off_empty">No tools available</string>
+    <string name="session_tools_loading">Reading the tool list…</string>
+    <string name="session_tools_failed">Could not read the tool list</string>
+    <string name="session_tools_group_memory">Memory</string>
+    <string name="session_tools_group_skills">Skills</string>
+    <string name="session_tools_group_history">Past conversations</string>
+    <string name="session_tools_group_web">Web</string>
+    <string name="session_tools_group_terminal">Terminal and files</string>
+    <string name="session_tools_group_image">Image generation</string>
+    <string name="session_tools_group_todo">To-do</string>
+    <string name="session_tools_group_phone">Phone</string>
+    <string name="session_tools_group_subagent">Subagents</string>
+    <string name="session_tools_group_automation">Automation</string>
+    <string name="session_tools_group_ask_user">Ask user</string>
+    <string name="session_tools_group_mcp">MCP</string>
 </resources>

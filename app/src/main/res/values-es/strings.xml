@@ -905,6 +905,8 @@
     <string name="tool_agent_results_empty">No se devolvieron resultados de subagentes</string>
     <string name="markdown_link_file_missing">Archivo no encontrado</string>
     <string name="markdown_link_file_unavailable">No se puede abrir este archivo</string>
+    <string name="markdown_link_file_downloading">Descargando archivo…</string>
+    <string name="markdown_link_file_too_large">El archivo supera los 512 MB</string>
     <string name="markdown_link_shared_storage_required">Concede acceso a todos los archivos para abrir enlaces de almacenamiento compartido</string>
     <string name="markdown_link_no_handler">Ninguna aplicación puede abrir este enlace</string>
     <string name="storage_title">Almacenamiento</string>
@@ -937,15 +939,24 @@
     <string name="usage_activity">Actividad</string>
     <string name="usage_metric_tokens">Tokens</string>
     <string name="usage_metric_requests">Solicitudes</string>
-    <string name="usage_day_tokens">%1$s · %2$s tokens</string>
-    <string name="usage_day_requests">%1$s · %2$s solicitudes</string>
+    <plurals name="usage_day_tokens">
+        <item quantity="one">%1$s · %2$s token</item>
+        <item quantity="other">%1$s · %2$s tokens</item>
+    </plurals>
+    <plurals name="usage_day_requests">
+        <item quantity="one">%1$s · %2$s solicitud</item>
+        <item quantity="other">%1$s · %2$s solicitudes</item>
+    </plurals>
     <string name="usage_less">Menos</string>
     <string name="usage_more">Más</string>
     <string name="usage_overview">Resumen</string>
     <string name="usage_total_tokens">Tokens totales</string>
     <string name="usage_total_requests">Solicitudes</string>
     <string name="usage_streak">Racha actual</string>
-    <string name="usage_streak_days">%1$d días</string>
+    <plurals name="usage_streak_days">
+        <item quantity="one">%1$d día</item>
+        <item quantity="other">%1$d días</item>
+    </plurals>
     <string name="usage_longest_streak">Racha más larga</string>
     <string name="usage_tokens">Estadísticas de tokens</string>
     <string name="usage_period_week">7 días</string>
@@ -960,4 +971,24 @@
             <string name="usage_chart_weekly">Tokens por semana</string>
             <string name="usage_by_model">Tokens por modelo</string>
         <string name="usage_other">Otros</string>
+    <string name="session_tools_subtitle">Solo afecta a las solicitudes posteriores de esta conversación. Las llamadas ya realizadas no cambian.</string>
+    <string name="session_tools_summary">Activadas %1$d de %2$d · contexto fijo ≈ %3$d</string>
+    <string name="session_tools_group_meta">%1$d herramientas · ≈ %2$d</string>
+    <string name="session_tools_enable_all">Activar todo</string>
+    <string name="session_tools_off_switch">Desactivado en esta sesión</string>
+    <string name="session_tools_off_empty">No hay herramientas disponibles</string>
+    <string name="session_tools_loading">Leyendo la lista de herramientas…</string>
+    <string name="session_tools_failed">No se pudo leer la lista de herramientas</string>
+    <string name="session_tools_group_memory">Memoria</string>
+    <string name="session_tools_group_skills">Habilidades</string>
+    <string name="session_tools_group_history">Conversaciones anteriores</string>
+    <string name="session_tools_group_web">Web</string>
+    <string name="session_tools_group_terminal">Terminal y archivos</string>
+    <string name="session_tools_group_image">Generación de imágenes</string>
+    <string name="session_tools_group_todo">Tareas</string>
+    <string name="session_tools_group_phone">Teléfono</string>
+    <string name="session_tools_group_subagent">Subagentes</string>
+    <string name="session_tools_group_automation">Automatización</string>
+    <string name="session_tools_group_ask_user">Preguntar al usuario</string>
+    <string name="session_tools_group_mcp">MCP</string>
 </resources>

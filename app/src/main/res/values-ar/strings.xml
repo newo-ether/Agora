@@ -905,6 +905,8 @@
     <string name="tool_agent_results_empty">لم تُرجع أي نتائج من الوكلاء الفرعيين</string>
     <string name="markdown_link_file_missing">لم يتم العثور على الملف</string>
     <string name="markdown_link_file_unavailable">لا يمكن فتح هذا الملف</string>
+    <string name="markdown_link_file_downloading">جارٍ تنزيل الملف…</string>
+    <string name="markdown_link_file_too_large">حجم الملف أكبر من 512 ميغابايت</string>
     <string name="markdown_link_shared_storage_required">امنح إذن الوصول إلى جميع الملفات لفتح روابط وحدة التخزين المشتركة</string>
     <string name="markdown_link_no_handler">لا يوجد تطبيق يمكنه فتح هذا الرابط</string>
     <string name="storage_title">التخزين</string>
@@ -937,15 +939,36 @@
     <string name="usage_activity">النشاط</string>
     <string name="usage_metric_tokens">الرموز</string>
     <string name="usage_metric_requests">الطلبات</string>
-    <string name="usage_day_tokens">%1$s · %2$s رمز</string>
-    <string name="usage_day_requests">%1$s · %2$s طلب</string>
+    <plurals name="usage_day_tokens">
+        <item quantity="zero">%1$s · %2$s رمز</item>
+        <item quantity="one">%1$s · %2$s رمز</item>
+        <item quantity="two">%1$s · %2$s رمزان</item>
+        <item quantity="few">%1$s · %2$s رموز</item>
+        <item quantity="many">%1$s · %2$s رمزًا</item>
+        <item quantity="other">%1$s · %2$s رمز</item>
+    </plurals>
+    <plurals name="usage_day_requests">
+        <item quantity="zero">%1$s · %2$s طلب</item>
+        <item quantity="one">%1$s · %2$s طلب</item>
+        <item quantity="two">%1$s · %2$s طلبان</item>
+        <item quantity="few">%1$s · %2$s طلبات</item>
+        <item quantity="many">%1$s · %2$s طلبًا</item>
+        <item quantity="other">%1$s · %2$s طلب</item>
+    </plurals>
     <string name="usage_less">أقل</string>
     <string name="usage_more">أكثر</string>
     <string name="usage_overview">نظرة عامة</string>
     <string name="usage_total_tokens">إجمالي الرموز</string>
     <string name="usage_total_requests">الطلبات</string>
     <string name="usage_streak">السلسلة الحالية</string>
-    <string name="usage_streak_days">%1$d يوم</string>
+    <plurals name="usage_streak_days">
+        <item quantity="zero">%1$d يوم</item>
+        <item quantity="one">%1$d يوم</item>
+        <item quantity="two">%1$d يومان</item>
+        <item quantity="few">%1$d أيام</item>
+        <item quantity="many">%1$d يومًا</item>
+        <item quantity="other">%1$d يوم</item>
+    </plurals>
     <string name="usage_longest_streak">أطول سلسلة</string>
     <string name="usage_tokens">إحصاءات الرموز</string>
     <string name="usage_period_week">7 أيام</string>
@@ -960,4 +983,24 @@
             <string name="usage_chart_weekly">الرموز أسبوعيًا</string>
             <string name="usage_by_model">الرموز حسب النموذج</string>
         <string name="usage_other">أخرى</string>
+    <string name="session_tools_subtitle">يؤثر على الطلبات اللاحقة في هذه المحادثة فقط. الاستدعاءات المنتهية تبقى كما هي.</string>
+    <string name="session_tools_summary">مفعّل %1$d من %2$d · السياق الثابت ≈ %3$d</string>
+    <string name="session_tools_group_meta">%1$d أدوات · ≈ %2$d</string>
+    <string name="session_tools_enable_all">تفعيل الكل</string>
+    <string name="session_tools_off_switch">متوقف لهذه الجلسة</string>
+    <string name="session_tools_off_empty">لا توجد أدوات متاحة</string>
+    <string name="session_tools_loading">جارٍ قراءة قائمة الأدوات…</string>
+    <string name="session_tools_failed">تعذّرت قراءة قائمة الأدوات</string>
+    <string name="session_tools_group_memory">الذاكرة</string>
+    <string name="session_tools_group_skills">المهارات</string>
+    <string name="session_tools_group_history">المحادثات السابقة</string>
+    <string name="session_tools_group_web">الويب</string>
+    <string name="session_tools_group_terminal">الطرفية والملفات</string>
+    <string name="session_tools_group_image">توليد الصور</string>
+    <string name="session_tools_group_todo">المهام</string>
+    <string name="session_tools_group_phone">الهاتف</string>
+    <string name="session_tools_group_subagent">الوكلاء الفرعيون</string>
+    <string name="session_tools_group_automation">الأتمتة</string>
+    <string name="session_tools_group_ask_user">سؤال المستخدم</string>
+    <string name="session_tools_group_mcp">MCP</string>
 </resources>

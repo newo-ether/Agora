@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -190,12 +191,12 @@ fun SettingsUsagePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     StatsCard(
                         Icons.Rounded.LocalFireDepartment,
                         stringResource(R.string.usage_streak),
-                        overview?.let { stringResource(R.string.usage_streak_days, it.currentStreakDays) },
+                        overview?.let { pluralStringResource(R.plurals.usage_streak_days, it.currentStreakDays, it.currentStreakDays) },
                     ),
                     StatsCard(
                         Icons.Rounded.EmojiEvents,
                         stringResource(R.string.usage_longest_streak),
-                        overview?.let { stringResource(R.string.usage_streak_days, it.longestStreakDays) },
+                        overview?.let { pluralStringResource(R.plurals.usage_streak_days, it.longestStreakDays, it.longestStreakDays) },
                     ),
                 ),
             )
@@ -566,8 +567,9 @@ private fun UsageBarChart(
     val shown = picked?.let(bars::getOrNull) ?: bars.lastOrNull()
     val shortDate = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
     Text(
-        stringResource(
-            R.string.usage_day_tokens,
+        pluralStringResource(
+            R.plurals.usage_day_tokens,
+            (shown?.tokens ?: 0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
             (shown?.start ?: today).format(shortDate),
             format(shown?.tokens ?: 0),
         ),
@@ -750,11 +752,13 @@ private fun UsageHeatmap(
         val dateText = remember(shown, locale) {
             shown.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
         }
+        val value = valueOf(days[shown], metric)
         Text(
-            stringResource(
-                if (metric == UsageMetric.TOKENS) R.string.usage_day_tokens else R.string.usage_day_requests,
+            pluralStringResource(
+                if (metric == UsageMetric.TOKENS) R.plurals.usage_day_tokens else R.plurals.usage_day_requests,
+                value.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
                 dateText,
-                format(valueOf(days[shown], metric)),
+                format(value),
             ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

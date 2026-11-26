@@ -228,6 +228,7 @@ class GenerationRequestBuilder(
             shellEnabled = if (settings.shellEnabled.value) (overrides.shellEnabled ?: true) else false,
             lowContextModeEnabled =
                 overrides.lowContextModeEnabled ?: settings.localLowContextModeEnabled.value,
+            disabledToolGroups = overrides.disabledToolGroups,
         )
     }
 
@@ -603,6 +604,7 @@ class GenerationRequestBuilder(
             imageGenSize = settings.imageGenSize.value,
             automationToolsEnabled = settings.automationToolsEnabled.value,
             shellEnabled = effectiveSettings.shellEnabled ?: settings.shellEnabled.value,
+            disabledToolGroups = effectiveSettings.disabledToolGroups.orEmpty(),
             shellDevices = settings.shellDevices.value,
             sandboxEnabled = settings.sandboxEnabled.value,
             sandboxSharedStorageEnabled = settings.sandboxSharedStorageEnabled.value,

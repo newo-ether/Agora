@@ -17,6 +17,8 @@ data class GenerationContext(
     val subagentModelIds: List<String>? = null,
     val subagentRecommendedModel: String? = null,
     val todoEnabled: Boolean = true,
+    /** Tool groups this session does not expose; ids match [com.newoether.agora.tool.SessionToolGroup.id]. */
+    val disabledToolGroups: Set<String> = emptySet(),
     /** Supplied only by the authorized executor, never by Provider arguments. */
     val toolEffectIdentity: RunEffectIdentity? = null,
     val accessSavedMemories: Boolean = true,

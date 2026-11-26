@@ -5,6 +5,7 @@ import com.newoether.agora.model.OpenAiServiceTiers
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.int
@@ -71,6 +72,10 @@ object ExportExtraSettings {
                 webSearchEnabled = s["webSearchEnabled"]?.jsonPrimitive?.boolean,
                 shellEnabled = s["shellEnabled"]?.jsonPrimitive?.boolean,
                 lowContextModeEnabled = s["lowContextModeEnabled"]?.jsonPrimitive?.boolean,
+                disabledToolGroups = s["disabledToolGroups"]
+                    ?.jsonArray
+                    ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+                    ?.toSet(),
             )
             if (!cs.isAllNull()) sm.saveConversationSettings(convId, cs)
         }

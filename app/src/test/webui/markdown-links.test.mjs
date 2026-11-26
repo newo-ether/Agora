@@ -4,7 +4,7 @@ import test from "node:test";
 // The module's viewer imports read the page language at load; the pure helpers need no DOM.
 globalThis.document ??= { documentElement: {} };
 globalThis.navigator ??= { language: "en" };
-const { embedVideos, linkBarePaths, linkedMediaType } = await import("../../main/assets/webui/markdown-links.js");
+const { embedVideos, linkBarePaths, linkedMediaType, localMediaPath } = await import("../../main/assets/webui/markdown-links.js");
 
 test("local images and videos open in the viewer; other files and devices stay inert", () => {
   assert.equal(linkedMediaType("/home/agora/out/plot.png"), "image");
@@ -15,6 +15,18 @@ test("local images and videos open in the viewer; other files and devices stay i
   assert.equal(linkedMediaType("shell://Quantum/F:/a.png"), null);
   assert.equal(linkedMediaType("/home/agora/../etc/a.png"), null);
   assert.equal(linkedMediaType("/etc/a.png"), null);
+  assert.equal(linkedMediaType("/sdcard/Download/a.png"), "image");
+  assert.equal(linkedMediaType("file:///sdcard/Download/a.mp4"), "video");
+  assert.equal(linkedMediaType("/sdcard/a.pdf"), null);
+});
+
+test("local media admission folds file: URLs over the readable roots only", () => {
+  assert.equal(localMediaPath("file:///home/agora/a.png"), "/home/agora/a.png");
+  assert.equal(localMediaPath("file://localhost/sdcard/a%20b.png"), "/sdcard/a b.png");
+  assert.equal(localMediaPath("file:/mnt/shared/a.png"), "/mnt/shared/a.png");
+  assert.equal(localMediaPath("file:///etc/a.png"), null);
+  assert.equal(localMediaPath("/home/agora/"), null);
+  assert.equal(localMediaPath("file:///home/agora/../etc/a.png"), null);
 });
 
 test("bare media paths become tappable spans with trailing prose punctuation left out", () => {

@@ -31,8 +31,7 @@ internal fun markdownImageOccurrences(
 }
 
 internal fun shellMarkdownImageCount(source: String, beforeOffset: Int = source.length): Int {
-    if (!source.contains("shell://", ignoreCase = true) &&
-        !source.contains("http://", ignoreCase = true) && !source.contains("https://", ignoreCase = true)) return 0
+    if (!mentionsMarkdownDestination(source)) return 0
     val root = org.intellij.markdown.parser.MarkdownParser(
         org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor(),
     ).buildMarkdownTreeFromString(source)

@@ -4,7 +4,7 @@ import com.newoether.agora.tool.BuiltInToolNames
 import java.util.Locale
 
 object DefaultSystemPrompt {
-    internal const val BUILT_IN_MIGRATION_VERSION = 1
+    internal const val BUILT_IN_MIGRATION_VERSION = 2
     private const val ENGLISH_TITLE = "Default"
     private const val ARABIC_TITLE = "\u0627\u0641\u062a\u0631\u0627\u0636\u064a"
     private const val FRENCH_TITLE = "Par d\u00e9faut"
@@ -74,6 +74,16 @@ object DefaultSystemPrompt {
     ): SystemPromptEntry = SystemPromptEntry(
         title = titleForLocale(locale),
         systemItems = systemItemsWithSeparateHtmlPreview(),
+        userItems = userItems(),
+        assistantItems = assistantItems(),
+    )
+
+    /** Exact default after the HTML preview guidance, before the media link guidance. */
+    internal fun versionBeforeMediaGuidanceForMigration(
+        locale: Locale = Locale.getDefault(),
+    ): SystemPromptEntry = SystemPromptEntry(
+        title = titleForLocale(locale),
+        systemItems = mergeAdjacentText(systemItemsWithSeparateHtmlPreview()),
         userItems = userItems(),
         assistantItems = assistantItems(),
     )
@@ -178,7 +188,8 @@ object DefaultSystemPrompt {
                 entry.sameTemplateAs(versionBeforeToolRenameForMigration()) ||
                 entry.sameTemplateAs(versionBeforeToolGuidesForMigration()) ||
                 entry.sameTemplateAs(versionWithToolGuidesForMigration()) ||
-                entry.sameTemplateAs(versionBeforeHtmlPreviewForMigration()))
+                entry.sameTemplateAs(versionBeforeHtmlPreviewForMigration()) ||
+                entry.sameTemplateAs(versionBeforeMediaGuidanceForMigration()))
 
     private fun SystemPromptEntry.sameTemplateAs(other: SystemPromptEntry): Boolean =
         resolvedSystemItems.sameTemplateItems(other.resolvedSystemItems) &&
@@ -192,7 +203,14 @@ object DefaultSystemPrompt {
     }
 
     private fun currentSystemItems(): List<PromptTemplateItem> =
-        mergeAdjacentText(systemItemsWithSeparateHtmlPreview())
+        mergeAdjacentText(systemItemsWithMediaGuidance())
+
+    private fun systemItemsWithMediaGuidance(): List<PromptTemplateItem> {
+        // systemItemsWithSeparateHtmlPreview already starts with the policy text and the HTML
+        // guidance, so the media item slots in right after those two.
+        val previous = systemItemsWithSeparateHtmlPreview()
+        return previous.take(2) + MarkdownMediaGuidance.item() + previous.drop(2)
+    }
 
     private fun systemItemsWithSeparateHtmlPreview(): List<PromptTemplateItem> {
         val previous = systemItemsBeforeHtmlPreview()

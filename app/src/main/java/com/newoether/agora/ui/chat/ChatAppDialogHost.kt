@@ -38,6 +38,8 @@ internal class ChatAppDialogState internal constructor(
         private set
     var advancedVisible by mutableStateOf(false)
         private set
+    var toolsVisible by mutableStateOf(false)
+        private set
     val manualCompactVisible: Boolean
         get() = manualCompactVisibleState.value
 
@@ -103,6 +105,14 @@ internal class ChatAppDialogState internal constructor(
 
     fun dismissAdvanced() {
         advancedVisible = false
+    }
+
+    fun showTools() {
+        toolsVisible = true
+    }
+
+    fun dismissTools() {
+        toolsVisible = false
     }
 
     fun showManualCompact() {
@@ -189,6 +199,10 @@ internal fun ChatAppDialogHost(
 
     if (state.advancedVisible) {
         ChatAdvancedSettingsDialog(viewModel = viewModel, onDismiss = state::dismissAdvanced)
+    }
+
+    if (state.toolsVisible) {
+        ChatSessionToolsDialog(viewModel = viewModel, onDismiss = state::dismissTools)
     }
 
     if (state.manualCompactVisible) {

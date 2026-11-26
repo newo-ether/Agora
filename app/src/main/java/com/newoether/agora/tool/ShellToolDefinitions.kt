@@ -48,10 +48,12 @@ internal object ShellToolDefinitions {
             add(ToolDefinition(function = ToolFunction(
                 name = "shell_list",
                 description = "List configured shell servers including the local sandbox (if enabled). " +
-                    "To show the user an image or video file from Local Sandbox or a Conch server inline in your reply, " +
-                    "write Markdown ![alt](shell://<server>/<absolute path>) with spaces percent-encoded as %20, " +
-                    "e.g. ![plot](shell://Local%20Sandbox/home/agora/plot.png) or " +
-                    "![clip](shell://Local%20Sandbox/home/agora/clip.mp4). " +
+                    "To show the user an image or video file inline in your reply, write Markdown " +
+                    "![alt](/absolute/path) with the file's absolute path on this phone: /home/agora/... for the " +
+                    "Local Sandbox home, or /storage/emulated/0/... (/sdcard/...) and /mnt/shared/... for shared " +
+                    "storage. Encode a space as %20, e.g. ![plot](/home/agora/plot.png). " +
+                    "Use shell://<server>/<absolute path> only for a device other than this phone, " +
+                    "e.g. ![plot](shell://Workstation/F:/out/plot.png). " +
                     "A destination whose file name ends in a video extension (.mp4, .m4v, .webm, .mov, .mkv, .avi, .3gp, .ogv) " +
                     "renders as an inline player card; a line holding only the video path, or a [name](path) link to it, " +
                     "renders the same card, and a raw <video src=\"...\"></video> element is accepted too.",
@@ -292,8 +294,10 @@ internal object ShellToolDefinitions {
         val tools = mutableListOf(
             ToolDefinition(function = ToolFunction(
                 name = "shell_list",
-                description = "List configured shell servers. To show the user a server file inline, " +
-                    "write Markdown ![alt](shell://</<server>/<absolute path>) with spaces percent-encoded as %20.",
+                description = "List configured shell servers. To show the user a file inline, " +
+                    "write Markdown ![alt](/absolute/path) with the file's absolute path on this phone " +
+                    "(/home/agora/..., /storage/emulated/0/..., /mnt/shared/...), a space as %20, " +
+                    "or shell://<server>/<absolute path> for a device other than this phone.",
                 parameters = ToolParameters(
                     properties = mapOf("description" to ToolProperty("string", SHELL_DESCRIPTION)),
                     required = listOf("description"),

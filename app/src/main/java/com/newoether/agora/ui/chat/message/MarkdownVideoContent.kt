@@ -64,14 +64,15 @@ internal fun markdownVideoSource(link: String): MarkdownVideoSource? {
     val raw = markdownVideoLink(link) ?: return null
     parseShellMediaLink(raw)?.let { shell ->
         if (shell.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
-            return (classifyMarkdownLink(raw) as? MarkdownLinkTarget.Local)
-                ?.let { MarkdownVideoSource.Local(it.file) }
+            return (resolveMarkdownDestination(raw) as? MarkdownDestination.File)
+                ?.let { MarkdownVideoSource.Local(it.target) }
         }
         return MarkdownVideoSource.Conch(shell.server, shell.path)
     }
-    return when (val target = classifyMarkdownLink(raw)) {
-        is MarkdownLinkTarget.Remote -> MarkdownVideoSource.Remote(target.url)
-        is MarkdownLinkTarget.Local -> MarkdownVideoSource.Local(target.file)
+    return when (val target = resolveMarkdownDestination(raw)) {
+        is MarkdownDestination.Web -> MarkdownVideoSource.Remote(target.url)
+        is MarkdownDestination.File -> MarkdownVideoSource.Local(target.target)
+        is MarkdownDestination.Device -> MarkdownVideoSource.Conch(target.link.server, target.link.path)
         null -> null
     }
 }
