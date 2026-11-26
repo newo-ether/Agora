@@ -26,7 +26,6 @@ import com.newoether.agora.tool.AutomationToolProvider
 import com.newoether.agora.tool.McpToolProvider
 import com.newoether.agora.mcp.McpRegistry
 import com.newoether.agora.sandbox.SandboxManagerFactory
-import com.newoether.agora.sandbox.SandboxSharedStorageAccess
 import com.newoether.agora.service.MaintenanceDebtWorker
 import com.newoether.agora.service.AskUserNotifier
 import com.newoether.agora.service.ShellConfirmationNotifier
@@ -158,7 +157,6 @@ class AppContainer(
             },
         ).also {
             LocalModelRuntime.bindIdleRetention(it.localModelIdleRetentionMinutes, appScope)
-            SandboxSharedStorageAccess.bindSharedStorageSetting(it.sandboxSharedStorageEnabled, appScope)
         }
     }
     val conversationSettingsTransfers: ConversationSettingsTransferCoordinator by lazy {

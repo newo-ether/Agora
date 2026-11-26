@@ -244,12 +244,19 @@ internal class ShellMarkdownMedia(
         val manager = sandbox() ?: throw IOException("Local Sandbox is unavailable")
         if (!manager.isAvailable()) throw IOException("Local Sandbox is not installed")
         val source = manager.resolveHostFile(path) ?: throw IOException("Local Sandbox is unavailable")
-        if (!source.isFile || source.length() !in 1..MARKDOWN_FILE_MAX_BYTES) {
-            throw MarkdownDeviceFileTooLarge(source.length())
-        }
+        if (!source.isFile) throw IOException("Not a regular file")
+        val size = source.length()
+        if (size <= 0L) throw IOException("File is empty")
+        if (size > MARKDOWN_FILE_MAX_BYTES) throw MarkdownDeviceFileTooLarge(size)
         val directory = sharedFileDirectory()
+        // Path, size and mtime name one version, so repeated taps reuse the copy instead of
+        // leaving one cache file per tap.
+        val key = MessageDigest.getInstance("SHA-256")
+            .digest("$path\u0000$size\u0000${source.lastModified()}".toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        val file = File(directory, "sandbox_${key.take(16)}_${downloadFileName(path)}")
+        if (file.isFile && file.length() == size) return file
         val staging = File.createTempFile(".markdown-file-", ".tmp", directory)
-        val file = File(directory, "sandbox_${System.currentTimeMillis()}_${downloadFileName(path)}")
         return try {
             source.inputStream().use { input ->
                 staging.outputStream().use { output -> input.copyTo(output, TRANSFER_CHUNK_BYTES) }

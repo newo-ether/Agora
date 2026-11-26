@@ -125,7 +125,6 @@ internal fun resolveLocalFileTarget(context: Context, target: LocalFileTarget): 
     val root = when (target.root) {
         LocalFileRoot.SANDBOX_HOME -> File(context.applicationContext.filesDir, "sandbox-home")
         LocalFileRoot.SHARED_STORAGE -> {
-            if (!SandboxSharedStorageAccess.isSharedStorageMounted) return LocalFileResolution.Unavailable
             if (!SandboxSharedStorageAccess.isGranted(context)) {
                 return LocalFileResolution.NeedsSharedStorageAccess
             }
@@ -271,10 +270,18 @@ internal fun markdownBarePathAt(text: CharSequence, offset: Int): String? {
     val candidate = text.subSequence(start, end).toString().trimEnd(*PATH_TRAILING_CHARS)
     if (candidate.isEmpty()) return null
     val supported = candidate.startsWith(SANDBOX_HOME_PREFIX) ||
-        candidate.startsWith("file://", ignoreCase = true) ||
+        isFileUrlSpelling(candidate) ||
         SHARED_STORAGE_PREFIXES.any { candidate.startsWith(it) }
     return candidate.takeIf { supported }
 }
+
+/** `file:///p` and `file:/p` both name a path; a bare `file:` without a slash names nothing. */
+private fun isFileUrlSpelling(value: String): Boolean =
+    value.length > FILE_SCHEME.length &&
+        value.startsWith(FILE_SCHEME, ignoreCase = true) &&
+        value[FILE_SCHEME.length] == '/'
+
+private const val FILE_SCHEME = "file:"
 
 /**
  * Whether [text] spells [link] as one whole token: a bare path in prose, a link destination or a

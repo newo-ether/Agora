@@ -72,7 +72,7 @@ internal fun markdownVideoSource(link: String): MarkdownVideoSource? {
     return when (val target = resolveMarkdownDestination(raw)) {
         is MarkdownDestination.Web -> MarkdownVideoSource.Remote(target.url)
         is MarkdownDestination.File -> MarkdownVideoSource.Local(target.target)
-        is MarkdownDestination.Device -> MarkdownVideoSource.Conch(target.link.server, target.link.path)
+        is MarkdownDestination.Device -> null
         null -> null
     }
 }

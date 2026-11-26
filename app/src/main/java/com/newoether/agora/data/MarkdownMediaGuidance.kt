@@ -14,7 +14,7 @@ object MarkdownMediaGuidance {
         - Encode a space as `%20`, or wrap the whole destination in angle brackets: `![preview](</storage/emulated/0/My Files/a b.png>)`.
         - Use `shell://SERVER/absolute/path` only for a device other than this phone; a local path stays local even when the target is the Local Sandbox.
         - An external SD card path such as `/storage/1A2B-3C4D/...` is not readable; copy the file into built-in storage first.
-        - Any other local file, such as a PDF or an archive, becomes a link that downloads before it opens.
+        - Any other file, such as a PDF or an archive, stays tappable as a link. A phone-local file opens in place; a file on another shell device is copied into the app cache before it opens.
     """.trimIndent()
 
     fun item(): PromptTemplateItem = PromptTemplateItem(type = PromptItemType.CUSTOM, value = text)
