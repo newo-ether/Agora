@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">Đã cài Shizuku</string>
     <string name="phone_shizuku_running">Shizuku đang chạy</string>
     <string name="phone_shizuku_permission">Quyền Shizuku</string>
-    <string name="phone_automation">Cho phép tác vụ và vòng lặp</string>
-    <string name="phone_automation_description">Cho phép lượt chạy tự động và tác nhân con yêu cầu điều khiển thiết bị.</string>
+    <string name="phone_automation">Cho phép chạy tự động</string>
+    <string name="phone_automation_description">Cho phép tác vụ đã lên lịch, vòng lặp và tác nhân con nhận quyền điều khiển.</string>
     <string name="phone_background">Màn hình nền</string>
     <string name="phone_background_description">Chỉ dùng với Shizuku. Ứng dụng chạy trên màn hình ảo ẩn, cửa sổ xem trước nổi hiển thị thao tác của AI. Chạm để xem toàn màn hình.</string>
     <string name="phone_app_access">Kiểm soát truy cập ứng dụng</string>
@@ -86,8 +86,11 @@
     <string name="phone_background_long_side">Cạnh dài (px)</string>
     <string name="phone_background_size_range">Cạnh ngắn tối thiểu %1$d px, mỗi cạnh tối đa %2$d px.</string>
     <string name="phone_background_landscape">Ngang</string>
-    <string name="phone_background_landscape_description">Chạy màn hình nền theo chiều ngang. Áp dụng từ lần yêu cầu điều khiển tiếp theo.</string>
-    <string name="phone_confirm_claim">Duyệt yêu cầu điều khiển</string>
+    <string name="phone_background_landscape_description">Hướng của màn hình nền. Áp dụng từ lần yêu cầu điều khiển tiếp theo.</string>
+    <string name="phone_background_portrait">Dọc</string>
+    <string name="phone_background_orientation">Hướng màn hình</string>
+    <string name="phone_authorization">Ủy quyền</string>
+    <string name="phone_confirm_claim">Hỏi trước khi điều khiển</string>
     <string name="phone_confirm_claim_description">Hiện thẻ phê duyệt khi một cuộc trò chuyện yêu cầu điều khiển điện thoại.</string>
     <string name="phone_claim_request">“%1$s” yêu cầu điều khiển điện thoại này.</string>
     <string name="phone_claim_request_untitled">Một cuộc trò chuyện yêu cầu điều khiển điện thoại này.</string>

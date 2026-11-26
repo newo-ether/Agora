@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">Shizuku Installed</string>
     <string name="phone_shizuku_running">Shizuku Running</string>
     <string name="phone_shizuku_permission">Shizuku Permission</string>
-    <string name="phone_automation">Allow Task and Loop Runs</string>
-    <string name="phone_automation_description">Allow automated runs and their subagents to claim device control.</string>
+    <string name="phone_automation">Allow Automated Runs</string>
+    <string name="phone_automation_description">Allow scheduled tasks, Loops and their subagents to take control.</string>
     <string name="phone_background">Background Screen</string>
     <string name="phone_background_description">Shizuku only. Apps run on a hidden virtual display while a floating preview shows the AI at work. Tap it for full screen.</string>
     <string name="phone_app_access">App Access Control</string>
@@ -86,8 +86,11 @@
     <string name="phone_background_long_side">Long side (px)</string>
     <string name="phone_background_size_range">Short side at least %1$d px, each side at most %2$d px.</string>
     <string name="phone_background_landscape">Landscape</string>
-    <string name="phone_background_landscape_description">Lay the background screen out wide. Applies at the next claim.</string>
-    <string name="phone_confirm_claim">Approve Control Requests</string>
+    <string name="phone_background_landscape_description">How the background screen is laid out. Applies at the next claim.</string>
+    <string name="phone_background_portrait">Portrait</string>
+    <string name="phone_background_orientation">Orientation</string>
+    <string name="phone_authorization">Authorization</string>
+    <string name="phone_confirm_claim">Ask Before Taking Control</string>
     <string name="phone_confirm_claim_description">Show an approval card when a conversation requests control of the phone.</string>
     <string name="phone_claim_request">“%1$s” requests control of this phone.</string>
     <string name="phone_claim_request_untitled">A conversation requests control of this phone.</string>

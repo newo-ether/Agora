@@ -1,21 +1,16 @@
 package com.newoether.agora.ui.settings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,8 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -43,130 +36,114 @@ internal val PhoneBackgroundSizeChoices = listOf(
     "custom" to R.string.phone_background_custom,
 )
 
+private val PhoneBackgroundOrientationChoices = listOf(
+    "portrait" to R.string.phone_background_portrait,
+    "landscape" to R.string.phone_background_landscape,
+)
+
 /**
- * The one row for the background screen size: the resolved pixels the next claim uses, with the
- * preset on the right. Tapping it opens the preset picker and custom fields in one dialog.
+ * Background screen size as a dropdown like the other choices on the page. Presets apply at
+ * once; Custom opens a small dialog for the two sides. The row shows the pixels the next claim uses.
  */
 @Composable
 internal fun PhoneBackgroundSizeItem(config: PhoneUseSettings, onSave: (size: String, short: Int, long: Int) -> Unit) {
     val context = LocalContext.current
     val native = remember { runCatching { PhoneBackgroundGeometry.native(context) }.getOrNull() } ?: return
     val spec = PhoneBackgroundGeometry.resolve(native, config)
-    val choiceLabel = PhoneBackgroundSizeChoices.firstOrNull { it.first == config.backgroundSize }?.second
-        ?: R.string.phone_background_native
     var editing by remember { mutableStateOf(false) }
-    SettingsItem(
-        headlineContent = { Text(stringResource(R.string.phone_background_size)) },
-        supportingContent = {
-            Text(stringResource(R.string.phone_background_resolution_value, spec.width, spec.height, spec.shortDp))
-        },
-        leadingContent = { Icon(Icons.Rounded.AspectRatio, null, tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = {
-            Text(stringResource(choiceLabel), color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelLarge)
-        },
-        modifier = Modifier.clickable { editing = true },
-    )
+    SettingsChoiceItem(
+        titleRes = R.string.phone_background_size,
+        descRes = R.string.phone_background_size_description,
+        icon = Icons.Rounded.AspectRatio,
+        selected = config.backgroundSize.takeIf { it in PhoneBackgroundGeometry.SIZES } ?: "native",
+        choices = PhoneBackgroundSizeChoices,
+        supporting = stringResource(R.string.phone_background_resolution_value, spec.width, spec.height, spec.shortDp),
+    ) { size ->
+        if (size == "custom") editing = true else onSave(size, 0, 0)
+    }
     if (editing) {
-        PhoneBackgroundSizeDialog(
+        PhoneBackgroundCustomDialog(
             native = native,
             config = config,
             onDismiss = { editing = false },
-            onSave = { size, a, b -> editing = false; onSave(size, a, b) },
+            onSave = { a, b -> editing = false; onSave("custom", a, b) },
         )
     }
 }
 
 @Composable
-internal fun PhoneBackgroundLandscapeItem(checked: Boolean, onChange: (Boolean) -> Unit) {
-    SettingsItem(
-        headlineContent = { Text(stringResource(R.string.phone_background_landscape)) },
-        supportingContent = { Text(stringResource(R.string.phone_background_landscape_description)) },
-        leadingContent = { Icon(Icons.Rounded.ScreenRotation, null, tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = { Switch(checked, onCheckedChange = null) },
-        modifier = Modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange),
-    )
+internal fun PhoneBackgroundOrientationItem(landscape: Boolean, onChange: (Boolean) -> Unit) {
+    SettingsChoiceItem(
+        titleRes = R.string.phone_background_orientation,
+        descRes = R.string.phone_background_landscape_description,
+        icon = Icons.Rounded.ScreenRotation,
+        selected = if (landscape) "landscape" else "portrait",
+        choices = PhoneBackgroundOrientationChoices,
+    ) { onChange(it == "landscape") }
 }
 
+/** Custom sides only; presets never reach this dialog. */
 @Composable
-private fun PhoneBackgroundSizeDialog(
+private fun PhoneBackgroundCustomDialog(
     native: PhoneNativeDisplay,
     config: PhoneUseSettings,
     onDismiss: () -> Unit,
-    onSave: (size: String, short: Int, long: Int) -> Unit,
+    onSave: (short: Int, long: Int) -> Unit,
 ) {
-    var size by remember { mutableStateOf(config.backgroundSize.takeIf { it in PhoneBackgroundGeometry.SIZES } ?: "native") }
-    val customSpec = PhoneBackgroundGeometry.resolve(native, config.copy(backgroundSize = "custom", backgroundLandscape = false))
-    var short by remember { mutableStateOf(customSpec.width.toString()) }
-    var long by remember { mutableStateOf(customSpec.height.toString()) }
-    val custom = size == "custom"
+    val initial = PhoneBackgroundGeometry.resolve(native, config.copy(backgroundSize = "custom", backgroundLandscape = false))
+    var short by remember { mutableStateOf(initial.width.toString()) }
+    var long by remember { mutableStateOf(initial.height.toString()) }
     val minShort = PhoneBackgroundGeometry.minShortPx(native.dpi)
     val max = PhoneBackgroundGeometry.MAX_SIDE
     val a = short.toIntOrNull()
     val b = long.toIntOrNull()
-    val customValid = a != null && b != null && minOf(a, b) >= minShort && maxOf(a, b) <= max
-    // Presets always resolve; the preview and the read-only fields show what they produce.
-    val preview = if (custom) {
-        if (customValid) PhoneBackgroundGeometry.resolve(native, config.copy(backgroundSize = "custom",
-            backgroundCustomShort = minOf(a!!, b!!), backgroundCustomLong = maxOf(a, b))) else null
+    val valid = a != null && b != null && minOf(a, b) >= minShort && maxOf(a, b) <= max
+    val preview = if (valid) {
+        PhoneBackgroundGeometry.resolve(native, config.copy(backgroundSize = "custom",
+            backgroundCustomShort = minOf(a!!, b!!), backgroundCustomLong = maxOf(a, b)))
     } else {
-        PhoneBackgroundGeometry.resolve(native, config.copy(backgroundSize = size))
+        null
     }
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.phone_background_size), fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.phone_background_custom), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PhoneBackgroundSizeChoices.forEach { (value, label) ->
-                        FilterChip(
-                            selected = size == value,
-                            onClick = { size = value },
-                            label = { Text(stringResource(label)) },
-                        )
-                    }
-                }
-                val shownShort = if (custom) short else preview?.let { minOf(it.width, it.height).toString() }.orEmpty()
-                val shownLong = if (custom) long else preview?.let { maxOf(it.width, it.height).toString() }.orEmpty()
-                SizeField(shownShort, R.string.phone_background_short_side, enabled = custom) { short = it }
-                SizeField(shownLong, R.string.phone_background_long_side, enabled = custom) { long = it }
-                if (preview != null) {
-                    Text(
-                        stringResource(R.string.phone_background_resolution_value, preview.width, preview.height, preview.shortDp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SizeField(short, R.string.phone_background_short_side, Modifier.weight(1f)) { short = it }
+                    SizeField(long, R.string.phone_background_long_side, Modifier.weight(1f)) { long = it }
                 }
                 Text(
-                    if (custom) stringResource(R.string.phone_background_size_range, minShort, max)
-                        else stringResource(R.string.phone_background_size_description),
+                    preview?.let {
+                        stringResource(R.string.phone_background_resolution_value, it.width, it.height, it.shortDp)
+                    } ?: stringResource(R.string.phone_background_size_range, minShort, max),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (valid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                )
+                Text(
+                    stringResource(R.string.phone_background_size_description),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (!custom || customValid) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.error,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { if (custom) onSave(size, a!!, b!!) else onSave(size, 0, 0) },
-                enabled = !custom || customValid,
-            ) { Text(stringResource(R.string.save)) }
+            TextButton(onClick = { onSave(a!!, b!!) }, enabled = valid) { Text(stringResource(R.string.save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
 @Composable
-private fun SizeField(value: String, label: Int, enabled: Boolean, onChange: (String) -> Unit) {
+private fun SizeField(value: String, label: Int, modifier: Modifier, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = { input -> onChange(input.filter(Char::isDigit).take(4)) },
         label = { Text(stringResource(label)) },
         singleLine = true,
-        enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
     )
 }

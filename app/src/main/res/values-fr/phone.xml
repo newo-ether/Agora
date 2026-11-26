@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">Shizuku installé</string>
     <string name="phone_shizuku_running">Shizuku en cours</string>
     <string name="phone_shizuku_permission">Autorisation Shizuku</string>
-    <string name="phone_automation">Autoriser les tâches et boucles</string>
-    <string name="phone_automation_description">Autoriser les exécutions automatiques et leurs sous-agents à prendre le contrôle.</string>
+    <string name="phone_automation">Autoriser les exécutions automatiques</string>
+    <string name="phone_automation_description">Autoriser les tâches planifiées, les boucles et leurs sous-agents à prendre le contrôle.</string>
     <string name="phone_background">Écran en arrière-plan</string>
     <string name="phone_background_description">Shizuku uniquement. Les applis tournent sur un écran virtuel masqué et un aperçu flottant montre le travail de l\'IA. Touchez-le pour le plein écran.</string>
     <string name="phone_app_access">Accès aux applications</string>
@@ -86,8 +86,11 @@
     <string name="phone_background_long_side">Grand côté (px)</string>
     <string name="phone_background_size_range">Petit côté d\'au moins %1$d px, chaque côté de %2$d px au plus.</string>
     <string name="phone_background_landscape">Paysage</string>
-    <string name="phone_background_landscape_description">Affiche l\'écran d\'arrière-plan en paysage. S\'applique à la prochaine prise de contrôle.</string>
-    <string name="phone_confirm_claim">Approuver les demandes de contrôle</string>
+    <string name="phone_background_landscape_description">Orientation de l\'écran d\'arrière-plan. S\'applique à la prochaine prise de contrôle.</string>
+    <string name="phone_background_portrait">Portrait</string>
+    <string name="phone_background_orientation">Orientation</string>
+    <string name="phone_authorization">Autorisation</string>
+    <string name="phone_confirm_claim">Demander avant de prendre le contrôle</string>
     <string name="phone_confirm_claim_description">Affiche une carte d\'approbation quand une conversation demande le contrôle du téléphone.</string>
     <string name="phone_claim_request">« %1$s » demande le contrôle de ce téléphone.</string>
     <string name="phone_claim_request_untitled">Une conversation demande le contrôle de ce téléphone.</string>

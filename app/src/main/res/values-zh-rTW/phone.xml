@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">已安裝 Shizuku</string>
     <string name="phone_shizuku_running">Shizuku 正在執行</string>
     <string name="phone_shizuku_permission">Shizuku 授權</string>
-    <string name="phone_automation">允許任務與循環執行</string>
-    <string name="phone_automation_description">允許自動執行及其子代理申請裝置控制權。</string>
+    <string name="phone_automation">允許自動執行接管</string>
+    <string name="phone_automation_description">允許排程任務、Loop 及其子代理接管裝置。</string>
     <string name="phone_background">背景螢幕</string>
     <string name="phone_background_description">僅限 Shizuku。應用程式在隱藏的虛擬螢幕上執行，懸浮小窗顯示 AI 的操作，點開可全螢幕檢視。</string>
     <string name="phone_app_access">應用程式存取控制</string>
@@ -86,8 +86,11 @@
     <string name="phone_background_long_side">長邊（px）</string>
     <string name="phone_background_size_range">短邊至少 %1$d px，每邊最多 %2$d px。</string>
     <string name="phone_background_landscape">橫向</string>
-    <string name="phone_background_landscape_description">背景螢幕以橫向版面執行。下次申請控制時生效。</string>
-    <string name="phone_confirm_claim">確認申請控制</string>
+    <string name="phone_background_landscape_description">背景螢幕的版面方向。下次申請控制時生效。</string>
+    <string name="phone_background_portrait">直向</string>
+    <string name="phone_background_orientation">螢幕方向</string>
+    <string name="phone_authorization">授權</string>
+    <string name="phone_confirm_claim">接管前詢問</string>
     <string name="phone_confirm_claim_description">對話申請控制手機時，先顯示審批卡片。</string>
     <string name="phone_claim_request">「%1$s」申請控制本機。</string>
     <string name="phone_claim_request_untitled">有對話申請控制本機。</string>

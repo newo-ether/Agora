@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">تثبيت Shizuku</string>
     <string name="phone_shizuku_running">تشغيل Shizuku</string>
     <string name="phone_shizuku_permission">إذن Shizuku</string>
-    <string name="phone_automation">السماح بالمهام والحلقات</string>
-    <string name="phone_automation_description">السماح للتشغيل التلقائي ووكلائه الفرعيين بطلب التحكم في الجهاز.</string>
+    <string name="phone_automation">السماح بالتشغيل التلقائي</string>
+    <string name="phone_automation_description">السماح للمهام المجدولة والحلقات ووكلائها الفرعيين بتولي التحكم.</string>
     <string name="phone_background">الشاشة الخلفية</string>
     <string name="phone_background_description">مع Shizuku فقط. تعمل التطبيقات على شاشة افتراضية مخفية، وتعرض نافذة معاينة عائمة ما يفعله الذكاء الاصطناعي. انقر عليها لملء الشاشة.</string>
     <string name="phone_app_access">التحكم في الوصول إلى التطبيقات</string>
@@ -86,8 +86,11 @@
     <string name="phone_background_long_side">الضلع الطويل (بكسل)</string>
     <string name="phone_background_size_range">الضلع القصير %1$d بكسل على الأقل، وكل ضلع %2$d بكسل على الأكثر.</string>
     <string name="phone_background_landscape">أفقي</string>
-    <string name="phone_background_landscape_description">تشغيل الشاشة الخلفية بالوضع الأفقي. يُطبَّق عند طلب التحكم التالي.</string>
-    <string name="phone_confirm_claim">الموافقة على طلبات التحكم</string>
+    <string name="phone_background_landscape_description">اتجاه الشاشة الخلفية. يُطبَّق عند طلب التحكم التالي.</string>
+    <string name="phone_background_portrait">عمودي</string>
+    <string name="phone_background_orientation">الاتجاه</string>
+    <string name="phone_authorization">التفويض</string>
+    <string name="phone_confirm_claim">السؤال قبل تولي التحكم</string>
     <string name="phone_confirm_claim_description">عرض بطاقة موافقة عندما تطلب محادثة التحكم في الهاتف.</string>
     <string name="phone_claim_request">تطلب «%1$s» التحكم في هذا الهاتف.</string>
     <string name="phone_claim_request_untitled">تطلب محادثة التحكم في هذا الهاتف.</string>

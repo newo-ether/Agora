@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">Shizuku установлен</string>
     <string name="phone_shizuku_running">Shizuku запущен</string>
     <string name="phone_shizuku_permission">Разрешение Shizuku</string>
-    <string name="phone_automation">Разрешить задачи и циклы</string>
-    <string name="phone_automation_description">Разрешить автоматическим запускам и их субагентам запрашивать управление.</string>
+    <string name="phone_automation">Разрешить автоматические запуски</string>
+    <string name="phone_automation_description">Разрешить запланированным задачам, циклам и их субагентам брать управление.</string>
     <string name="phone_background">Фоновый экран</string>
     <string name="phone_background_description">Только с Shizuku. Приложения работают на скрытом виртуальном дисплее, а плавающее окно показывает действия ИИ. Нажмите, чтобы открыть на весь экран.</string>
     <string name="phone_app_access">Доступ к приложениям</string>
@@ -85,9 +85,12 @@
     <string name="phone_background_short_side">Короткая сторона (px)</string>
     <string name="phone_background_long_side">Длинная сторона (px)</string>
     <string name="phone_background_size_range">Короткая сторона не меньше %1$d px, каждая сторона не больше %2$d px.</string>
-    <string name="phone_background_landscape">Альбомная ориентация</string>
-    <string name="phone_background_landscape_description">Запускать фоновый экран в альбомной ориентации. Применяется при следующем захвате управления.</string>
-    <string name="phone_confirm_claim">Подтверждать запросы управления</string>
+    <string name="phone_background_landscape">Альбомная</string>
+    <string name="phone_background_landscape_description">Ориентация фонового экрана. Применяется при следующем захвате управления.</string>
+    <string name="phone_background_portrait">Портретная</string>
+    <string name="phone_background_orientation">Ориентация</string>
+    <string name="phone_authorization">Авторизация</string>
+    <string name="phone_confirm_claim">Спрашивать перед захватом управления</string>
     <string name="phone_confirm_claim_description">Показывать карточку подтверждения, когда беседа запрашивает управление телефоном.</string>
     <string name="phone_claim_request">«%1$s» запрашивает управление этим телефоном.</string>
     <string name="phone_claim_request_untitled">Беседа запрашивает управление этим телефоном.</string>

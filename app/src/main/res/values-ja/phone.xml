@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">Shizuku のインストール</string>
     <string name="phone_shizuku_running">Shizuku の実行</string>
     <string name="phone_shizuku_permission">Shizuku の権限</string>
-    <string name="phone_automation">タスクとループを許可</string>
-    <string name="phone_automation_description">自動実行とそのサブエージェントによる端末操作を許可します。</string>
+    <string name="phone_automation">自動実行を許可</string>
+    <string name="phone_automation_description">スケジュールタスク、ループとそのサブエージェントによる制御取得を許可します。</string>
     <string name="phone_background">バックグラウンド画面</string>
     <string name="phone_background_description">Shizuku 専用です。アプリは非表示の仮想ディスプレイで動作し、フローティングプレビューで AI の操作を確認できます。タップで全画面表示。</string>
     <string name="phone_app_access">アプリへのアクセス制御</string>
@@ -86,8 +86,11 @@
     <string name="phone_background_long_side">長辺（px）</string>
     <string name="phone_background_size_range">短辺は %1$d px 以上、各辺は %2$d px 以下。</string>
     <string name="phone_background_landscape">横向き</string>
-    <string name="phone_background_landscape_description">バックグラウンド画面を横長で実行します。次回の制御取得時に反映されます。</string>
-    <string name="phone_confirm_claim">制御リクエストを確認</string>
+    <string name="phone_background_landscape_description">バックグラウンド画面の向きです。次回の制御取得時に反映されます。</string>
+    <string name="phone_background_portrait">縦向き</string>
+    <string name="phone_background_orientation">向き</string>
+    <string name="phone_authorization">許可設定</string>
+    <string name="phone_confirm_claim">制御取得前に確認</string>
     <string name="phone_confirm_claim_description">会話が端末の制御をリクエストしたときに承認カードを表示します。</string>
     <string name="phone_claim_request">「%1$s」が端末の制御をリクエストしています。</string>
     <string name="phone_claim_request_untitled">会話が端末の制御をリクエストしています。</string>

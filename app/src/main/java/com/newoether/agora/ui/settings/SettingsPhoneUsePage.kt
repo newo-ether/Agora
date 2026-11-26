@@ -85,9 +85,42 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         scope.launch { settings.phoneUseStore.setMode(mode) }
                     }
                 })
-                SettingsGroup(title = stringResource(R.string.phone_confirm_claim), items = listOf {
-                    PhoneSwitch(R.string.phone_confirm_claim, R.string.phone_confirm_claim_description, config.confirmClaim) {
-                        scope.launch { settings.phoneUseStore.setConfirmClaim(it) }
+                // Order: what controls the phone, what it may touch, then runtime tuning.
+                SettingsPhonePermissions(config.mode, revision, runtime?.permissions) { key ->
+                    when {
+                        key == "root" -> Unit
+                        key == "notifications" && Build.VERSION.SDK_INT >= 33 &&
+                            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED ->
+                            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        else -> runtime?.permissions?.open(key)
+                    }
+                    revision++
+                }
+                SettingsGroup(title = stringResource(R.string.phone_authorization), items = listOf(
+                    {
+                        PhoneSwitch(R.string.phone_confirm_claim, R.string.phone_confirm_claim_description, config.confirmClaim) {
+                            scope.launch { settings.phoneUseStore.setConfirmClaim(it) }
+                        }
+                    },
+                    {
+                        PhoneSwitch(R.string.phone_automation, R.string.phone_automation_description, config.allowAutomation) {
+                            scope.launch { settings.phoneUseStore.setAutomation(it) }
+                        }
+                    },
+                ))
+                SettingsGroup(title = stringResource(R.string.phone_app_access), items = buildList {
+                    add {
+                        SettingsChoiceItem(R.string.phone_app_access, R.string.phone_app_access_description, Icons.Rounded.Apps,
+                            config.accessMode, listOf("off" to R.string.phone_access_off,
+                                "blocklist" to R.string.phone_blocklist, "allowlist" to R.string.phone_allowlist)) { mode ->
+                            scope.launch { settings.phoneUseStore.setAccessMode(mode) }
+                        }
+                    }
+                    if (config.accessMode != "off") add {
+                        SettingsItem(headlineContent = { Text(stringResource(R.string.phone_choose_apps)) },
+                            supportingContent = { Text(stringResource(R.string.phone_choose_apps_description, config.packages.size)) },
+                            leadingContent = { Icon(Icons.Rounded.Apps, null, tint = MaterialTheme.colorScheme.primary) },
+                            modifier = Modifier.clickable { picker = true })
                     }
                 })
                 if (config.mode == "shizuku") SettingsGroup(title = stringResource(R.string.phone_background), items = buildList {
@@ -106,45 +139,15 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             }
                         }
                         add {
-                            PhoneBackgroundLandscapeItem(config.backgroundLandscape) {
+                            PhoneBackgroundOrientationItem(config.backgroundLandscape) {
                                 scope.launch { settings.phoneUseStore.setBackgroundLandscape(it) }
                             }
                         }
                     }
                 })
-                SettingsPhonePermissions(config.mode, revision, runtime?.permissions) { key ->
-                    when {
-                        key == "root" -> Unit
-                        key == "notifications" && Build.VERSION.SDK_INT >= 33 &&
-                            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED ->
-                            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        else -> runtime?.permissions?.open(key)
-                    }
-                    revision++
-                }
                 SettingsGroup(title = stringResource(R.string.phone_max_screenshots), items = listOf {
                     PhoneMaxScreenshotsSlider(config.maxScreenshots) { value ->
                         scope.launch { settings.phoneUseStore.setMaxScreenshots(value) }
-                    }
-                })
-                SettingsGroup(title = stringResource(R.string.phone_automation), items = listOf {
-                    PhoneSwitch(R.string.phone_automation, R.string.phone_automation_description, config.allowAutomation) {
-                        scope.launch { settings.phoneUseStore.setAutomation(it) }
-                    }
-                })
-                SettingsGroup(title = stringResource(R.string.phone_app_access), items = buildList {
-                    add {
-                        SettingsChoiceItem(R.string.phone_app_access, R.string.phone_app_access_description, Icons.Rounded.Apps,
-                            config.accessMode, listOf("off" to R.string.phone_access_off,
-                                "blocklist" to R.string.phone_blocklist, "allowlist" to R.string.phone_allowlist)) { mode ->
-                            scope.launch { settings.phoneUseStore.setAccessMode(mode) }
-                        }
-                    }
-                    if (config.accessMode != "off") add {
-                        SettingsItem(headlineContent = { Text(stringResource(R.string.phone_choose_apps)) },
-                            supportingContent = { Text(stringResource(R.string.phone_choose_apps_description, config.packages.size)) },
-                            leadingContent = { Icon(Icons.Rounded.Apps, null, tint = MaterialTheme.colorScheme.primary) },
-                            modifier = Modifier.clickable { picker = true })
                     }
                 })
             }

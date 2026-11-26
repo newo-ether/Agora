@@ -29,12 +29,14 @@ internal fun SettingsChoiceItem(
     selected: String,
     choices: List<Pair<String, Int>>,
     enabled: (String) -> Boolean = { true },
+    /** Replaces the [descRes] line, e.g. with a value the current choice resolves to. */
+    supporting: String? = null,
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     SettingsItem(
         headlineContent = { Text(stringResource(titleRes)) },
-        supportingContent = { Text(stringResource(descRes)) },
+        supportingContent = { Text(supporting ?: stringResource(descRes)) },
         leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
         trailingContent = {
             Box {

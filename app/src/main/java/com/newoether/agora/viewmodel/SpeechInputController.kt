@@ -33,6 +33,17 @@ import java.util.concurrent.atomic.AtomicReference
 /** Interval between loudness samples in [SpeechInputController.levels]; the UI scrolls at this rate. */
 internal const val SPEECH_LEVEL_TICK_MS = 70L
 
+/**
+ * Loudness history. Sample number [total] (1-based) belongs to the instant
+ * [startNanos] + [total] ticks on the System.nanoTime clock, the clock Compose frames use, so the
+ * UI can place every bar from the frame time alone. [samples] keeps only the newest ones.
+ */
+data class SpeechLevels(
+    val samples: List<Float> = emptyList(),
+    val total: Int = 0,
+    val startNanos: Long = 0L,
+)
+
 /** Composer voice-input phase. Both active phases are bound to the composer that started them. */
 sealed interface SpeechInputState {
     data object Idle : SpeechInputState
@@ -71,9 +82,9 @@ class SpeechInputController internal constructor(
     private val _state = MutableStateFlow<SpeechInputState>(SpeechInputState.Idle)
     val state: StateFlow<SpeechInputState> = _state.asStateFlow()
 
-    private val _levels = MutableStateFlow<List<Float>>(emptyList())
+    private val _levels = MutableStateFlow(SpeechLevels())
     /** Loudness history, oldest first, one sample per [TICK_MS]. */
-    val levels: StateFlow<List<Float>> = _levels.asStateFlow()
+    val levels: StateFlow<SpeechLevels> = _levels.asStateFlow()
 
     private val _elapsedMs = MutableStateFlow(0L)
     val elapsedMs: StateFlow<Long> = _elapsedMs.asStateFlow()
@@ -111,7 +122,7 @@ class SpeechInputController internal constructor(
         if (_state.value != SpeechInputState.Idle) return false
         val config = settings.value.takeIf { it.usable }?.active ?: return false
         peak.set(0f)
-        _levels.value = emptyList()
+        _levels.value = SpeechLevels()
         _elapsedMs.value = 0L
         val created = runCatching {
             SpeechCaptureSessions.create(appContext, config, localEngine) { level ->
@@ -125,7 +136,8 @@ class SpeechInputController internal constructor(
         // The system recognizer manages audio focus itself.
         if (config.type != SpeechEngineType.SYSTEM) requestFocus()
         _state.value = SpeechInputState.Recording(ownerId)
-        val startedAt = System.currentTimeMillis()
+        val startedAt = System.nanoTime()
+        _levels.value = SpeechLevels(startNanos = startedAt)
         val maxDurationMs = if (config.type == SpeechEngineType.CLOUD) {
             SpeechCloudPresets.maxDurationMs(config.protocol)
         } else {
@@ -136,9 +148,13 @@ class SpeechInputController internal constructor(
             while (isActive) {
                 // Absolute schedule: a late tick shortens the next wait instead of drifting.
                 tick++
-                delay((startedAt + tick * TICK_MS - System.currentTimeMillis()).coerceAtLeast(0L))
-                _elapsedMs.value = System.currentTimeMillis() - startedAt
-                _levels.value = (_levels.value + peak.getAndSet(0f)).takeLast(MAX_LEVELS)
+                delay(((startedAt + tick * TICK_NANOS - System.nanoTime()) / 1_000_000L).coerceAtLeast(0L))
+                _elapsedMs.value = (System.nanoTime() - startedAt) / 1_000_000L
+                val current = _levels.value
+                _levels.value = current.copy(
+                    samples = (current.samples + peak.getAndSet(0f)).takeLast(MAX_LEVELS),
+                    total = tick.toInt(),
+                )
                 if (created.reachedLimit || _elapsedMs.value >= maxDurationMs) {
                     finish(ownerId, onAutoStop)
                     break
@@ -191,7 +207,7 @@ class SpeechInputController internal constructor(
         session?.cancel()
         session = null
         _state.value = SpeechInputState.Idle
-        _levels.value = emptyList()
+        _levels.value = SpeechLevels()
         _elapsedMs.value = 0L
     }
 
@@ -244,6 +260,7 @@ class SpeechInputController internal constructor(
     private companion object {
         const val TAG = "SpeechInput"
         const val TICK_MS = SPEECH_LEVEL_TICK_MS
+        const val TICK_NANOS = TICK_MS * 1_000_000L
         const val MAX_LEVELS = 96
     }
 }

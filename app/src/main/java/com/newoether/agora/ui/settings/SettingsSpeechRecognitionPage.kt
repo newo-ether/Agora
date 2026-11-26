@@ -230,7 +230,7 @@ private fun SpeechRecognitionList(
     ) {
         SettingsGroupColumn {
             SettingsGroup(
-                title = stringResource(R.string.speech_general),
+                title = stringResource(R.string.settings_speech_recognition),
                 items = listOf {
                     SettingsItem(
                         headlineContent = { Text(stringResource(R.string.speech_enable)) },

@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">Shizuku instalado</string>
     <string name="phone_shizuku_running">Shizuku em execução</string>
     <string name="phone_shizuku_permission">Permissão do Shizuku</string>
-    <string name="phone_automation">Permitir tarefas e ciclos</string>
-    <string name="phone_automation_description">Permita que execuções automáticas e seus subagentes solicitem o controle.</string>
+    <string name="phone_automation">Permitir execuções automáticas</string>
+    <string name="phone_automation_description">Permita que tarefas agendadas, ciclos e seus subagentes assumam o controle.</string>
     <string name="phone_background">Tela em segundo plano</string>
     <string name="phone_background_description">Somente com Shizuku. Os apps rodam em uma tela virtual oculta e uma prévia flutuante mostra o que a IA faz. Toque para ver em tela cheia.</string>
     <string name="phone_app_access">Controle de acesso a apps</string>
@@ -86,8 +86,11 @@
     <string name="phone_background_long_side">Lado maior (px)</string>
     <string name="phone_background_size_range">Lado menor com pelo menos %1$d px e cada lado com no máximo %2$d px.</string>
     <string name="phone_background_landscape">Paisagem</string>
-    <string name="phone_background_landscape_description">Usa a tela em segundo plano na horizontal. Vale a partir do próximo pedido de controle.</string>
-    <string name="phone_confirm_claim">Aprovar pedidos de controle</string>
+    <string name="phone_background_landscape_description">Orientação da tela em segundo plano. Vale a partir do próximo pedido de controle.</string>
+    <string name="phone_background_portrait">Retrato</string>
+    <string name="phone_background_orientation">Orientação</string>
+    <string name="phone_authorization">Autorização</string>
+    <string name="phone_confirm_claim">Perguntar antes de assumir o controle</string>
     <string name="phone_confirm_claim_description">Mostra um cartão de aprovação quando uma conversa pede o controle do celular.</string>
     <string name="phone_claim_request">“%1$s” pede o controle deste celular.</string>
     <string name="phone_claim_request_untitled">Uma conversa pede o controle deste celular.</string>

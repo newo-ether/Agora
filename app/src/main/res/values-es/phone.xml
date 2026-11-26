@@ -17,8 +17,8 @@
     <string name="phone_shizuku_installed">Shizuku instalado</string>
     <string name="phone_shizuku_running">Shizuku en ejecución</string>
     <string name="phone_shizuku_permission">Permiso de Shizuku</string>
-    <string name="phone_automation">Permitir tareas y bucles</string>
-    <string name="phone_automation_description">Permite que las ejecuciones automáticas y sus subagentes soliciten el control.</string>
+    <string name="phone_automation">Permitir ejecuciones automáticas</string>
+    <string name="phone_automation_description">Permite que las tareas programadas, los bucles y sus subagentes tomen el control.</string>
     <string name="phone_background">Pantalla en segundo plano</string>
     <string name="phone_background_description">Solo con Shizuku. Las apps se ejecutan en una pantalla virtual oculta y una vista previa flotante muestra lo que hace la IA. Tócala para verla a pantalla completa.</string>
     <string name="phone_app_access">Acceso a aplicaciones</string>
@@ -86,8 +86,11 @@
     <string name="phone_background_long_side">Lado largo (px)</string>
     <string name="phone_background_size_range">Lado corto de al menos %1$d px y cada lado de %2$d px como máximo.</string>
     <string name="phone_background_landscape">Horizontal</string>
-    <string name="phone_background_landscape_description">Usa la pantalla en segundo plano en horizontal. Se aplica en la próxima toma de control.</string>
-    <string name="phone_confirm_claim">Aprobar solicitudes de control</string>
+    <string name="phone_background_landscape_description">Orientación de la pantalla en segundo plano. Se aplica en la próxima toma de control.</string>
+    <string name="phone_background_portrait">Vertical</string>
+    <string name="phone_background_orientation">Orientación</string>
+    <string name="phone_authorization">Autorización</string>
+    <string name="phone_confirm_claim">Preguntar antes de tomar el control</string>
     <string name="phone_confirm_claim_description">Muestra una tarjeta de aprobación cuando una conversación solicita el control del teléfono.</string>
     <string name="phone_claim_request">«%1$s» solicita el control de este teléfono.</string>
     <string name="phone_claim_request_untitled">Una conversación solicita el control de este teléfono.</string>
