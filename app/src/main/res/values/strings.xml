@@ -111,6 +111,7 @@
     <string name="markdown_link_file_missing">File not found</string>
     <string name="markdown_link_file_unavailable">Cannot open this file</string>
     <string name="markdown_link_file_downloading">Downloading file…</string>
+    <string name="markdown_link_file_downloaded">Downloaded</string>
     <string name="markdown_link_file_too_large">File is larger than 512 MB</string>
     <string name="markdown_link_shared_storage_required">Grant all-files access to open shared storage links</string>
     <string name="markdown_link_no_handler">No app can open this link</string>
@@ -954,6 +955,8 @@
         <string name="usage_other">Other</string>
     <string name="session_tools_subtitle">Affects later requests in this conversation only. Calls that already ran are unchanged.</string>
     <string name="session_tools_summary">Enabled %1$d of %2$d · fixed context ≈ %3$d</string>
+    <string name="session_tools_sent_here">Sent in this session</string>
+    <string name="session_tools_not_sent">Not sent</string>
     <string name="session_tools_group_meta">%1$d tools · ≈ %2$d</string>
     <string name="session_tools_enable_all">Enable all</string>
     <string name="session_tools_off_switch">Off for this session</string>

@@ -1,25 +1,48 @@
 package com.newoether.agora.ui.chat
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Lan
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,19 +54,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.tool.SessionToolGroup
+import com.newoether.agora.ui.components.SmoothBottomSheet
+import com.newoether.agora.ui.components.SmoothBottomSheetValue
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.settings.SettingsGroupLabel
+import com.newoether.agora.ui.settings.settingsGroupRowShape
+import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.viewmodel.SessionToolCatalog
+import com.newoether.agora.viewmodel.SessionToolEntry
 import com.newoether.agora.viewmodel.SessionToolGroupTools
 import com.newoether.agora.viewmodel.SessionToolUnavailable
 
 /**
  * Per-session tool selector. Group switches decide what the next request sends; individual rows
  * only describe a tool, so one switch never hides a tool the model can still call.
+ *
+ * The panel reuses the settings page's grouped cards: one card stack of groups this request
+ * carries, one of groups it does not, so an unavailable group stays explained instead of looking
+ * like a switch that failed to turn on. Every group starts collapsed; the whole sheet opens
+ * expanded because the list is the point of the panel.
  */
 @Composable
 internal fun SessionToolsDialog(
@@ -57,32 +94,26 @@ internal fun SessionToolsDialog(
     var enabled by remember(catalog) {
         mutableStateOf<Set<SessionToolGroup>>(catalog.enabledGroups intersect switchable)
     }
-    var expandedGroups by remember(catalog) {
-        mutableStateOf<Set<SessionToolGroup>>(
-            catalog.groups.filter { it.unavailable == null }.map { it.group }.toSet(),
-        )
-    }
+    var expandedGroups by remember(catalog) { mutableStateOf(emptySet<SessionToolGroup>()) }
     var expandedTools by remember(catalog) { mutableStateOf(emptySet<String>()) }
+    val carried = catalog.groups.filter { it.unavailable == null }
+    val leftOut = catalog.groups.filter { it.unavailable != null }
+    val enabledTools = catalog.groups.filter { it.group in enabled }.sumOf { it.tools.size }
+    val enabledTokens = catalog.groups.filter { it.group in enabled }.sumOf { it.tokens }
+    val listState = rememberLazyListState()
 
-    val enabledGroups = catalog.groups.filter { it.group in enabled }
-    val enabledTools = enabledGroups.sumOf { it.tools.size }
-    val enabledTokens = enabledGroups.sumOf { it.tokens }
-
-    AlertDialog(
+    SmoothBottomSheet(
+        initialValue = SmoothBottomSheetValue.Expanded,
         onDismissRequest = onDismiss,
-        title = {
-            Column {
-                Text(stringResource(R.string.tools), fontWeight = FontWeight.Bold)
+        contentAtTop = { !listState.canScrollBackward },
+        header = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 24.dp, top = 2.dp, bottom = 12.dp),
+            ) {
+                Text(stringResource(R.string.tools), style = ChatType.detailTitle)
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.session_tools_subtitle),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        text = {
-            Column {
                 Text(
                     text = stringResource(
                         R.string.session_tools_summary,
@@ -93,18 +124,48 @@ internal fun SessionToolsDialog(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(8.dp))
-                LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
-                    items(catalog.groups, key = { it.group.id }) { groupTools ->
-                        SessionToolGroupBlock(
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.session_tools_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                )
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 24.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+            )
+        },
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                if (carried.isNotEmpty()) {
+                    item(key = "carried_label") {
+                        SettingsGroupLabel(stringResource(R.string.session_tools_sent_here))
+                    }
+                    itemsIndexed(
+                        items = carried,
+                        key = { _, groupTools -> groupTools.group.id },
+                    ) { index, groupTools ->
+                        SessionToolGroupCard(
                             groupTools = groupTools,
                             enabled = groupTools.group in enabled,
                             expanded = groupTools.group in expandedGroups,
+                            shape = settingsGroupRowShape(index, carried.size),
                             isToolExpanded = { name -> name in expandedTools },
-                            onToggleGroup = { on ->
-                                enabled = if (on) enabled + groupTools.group else enabled - groupTools.group
+                            onToggle = { on ->
+                                enabled = if (on) {
+                                    enabled + groupTools.group
+                                } else {
+                                    enabled - groupTools.group
+                                }
                             },
-                            onToggleExpanded = {
+                            onExpand = {
                                 expandedGroups = if (groupTools.group in expandedGroups) {
                                     expandedGroups - groupTools.group
                                 } else {
@@ -121,124 +182,236 @@ internal fun SessionToolsDialog(
                         )
                     }
                 }
-            }
-        },
-        confirmButton = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = { enabled = switchable }) {
-                    Text(stringResource(R.string.session_tools_enable_all))
-                }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.cancel))
-                }
-                TextButton(
-                    onClick = { onSave(catalog.disabledIds(enabled)) },
-                ) {
-                    Text(stringResource(R.string.save))
-                }
-            }
-        },
-    )
-}
-
-@Composable
-private fun SessionToolGroupBlock(
-    groupTools: SessionToolGroupTools,
-    enabled: Boolean,
-    expanded: Boolean,
-    isToolExpanded: (String) -> Boolean,
-    onToggleGroup: (Boolean) -> Unit,
-    onToggleExpanded: () -> Unit,
-    onToolClick: (String) -> Unit,
-) {
-    val available = groupTools.unavailable == null
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onToggleExpanded)
-                .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = groupLabel(groupTools.group),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (available) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-                Text(
-                    text = groupMeta(groupTools),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(
-                checked = enabled && available,
-                onCheckedChange = onToggleGroup,
-                enabled = available,
-                modifier = Modifier.size(width = 40.dp, height = 24.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                imageVector = Icons.Rounded.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(20.dp)
-                    .rotate(if (expanded) 180f else 0f),
-            )
-        }
-        if (expanded && groupTools.tools.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 8.dp, bottom = 8.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                        shape = RoundedCornerShape(10.dp),
-                    )
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                groupTools.tools.forEach { tool ->
-                    val descriptionExpanded = isToolExpanded(tool.name)
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onToolClick(tool.name) }
-                            .padding(vertical = 6.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = tool.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = "≈${tool.tokens}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Text(
-                            text = tool.description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = if (descriptionExpanded) Int.MAX_VALUE else 2,
-                            overflow = TextOverflow.Ellipsis,
+                if (leftOut.isNotEmpty()) {
+                    item(key = "left_out_label") {
+                        if (carried.isNotEmpty()) Spacer(Modifier.height(10.dp))
+                        SettingsGroupLabel(stringResource(R.string.session_tools_not_sent))
+                    }
+                    itemsIndexed(
+                        items = leftOut,
+                        key = { _, groupTools -> "off_${groupTools.group.id}" },
+                    ) { index, groupTools ->
+                        SessionToolUnavailableCard(
+                            groupTools = groupTools,
+                            shape = settingsGroupRowShape(index, leftOut.size),
                         )
                     }
                 }
+            }
+            SessionToolsFooter(
+                canEnableAll = enabled.size < switchable.size,
+                onEnableAll = { enabled = switchable },
+                onCancel = onDismiss,
+                onSave = { onSave(catalog.disabledIds(enabled)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SessionToolGroupCard(
+    groupTools: SessionToolGroupTools,
+    enabled: Boolean,
+    expanded: Boolean,
+    shape: Shape,
+    isToolExpanded: (String) -> Boolean,
+    onToggle: (Boolean) -> Unit,
+    onExpand: () -> Unit,
+    onToolClick: (String) -> Unit,
+) {
+    val motion = LocalAgoraMotionPolicy.current
+    val chevron by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = if (motion.allowSpatialTransitions) tween(220) else snap(),
+        label = "sessionToolsChevron",
+    )
+    Surface(
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onExpand)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = groupIcon(groupTools.group),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = groupLabel(groupTools.group),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = groupMeta(groupTools),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Switch(checked = enabled, onCheckedChange = onToggle)
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Rounded.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp).rotate(chevron),
+                )
+            }
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(
+                    animationSpec = tween(if (motion.allowSpatialTransitions) 220 else 0),
+                    expandFrom = Alignment.Top,
+                ) + fadeIn(animationSpec = tween(if (motion.allowSpatialTransitions) 180 else 0)),
+                exit = shrinkVertically(
+                    animationSpec = tween(if (motion.allowSpatialTransitions) 160 else 0),
+                    shrinkTowards = Alignment.Top,
+                ) + fadeOut(animationSpec = tween(if (motion.allowSpatialTransitions) 120 else 0)),
+            ) {
+                Column {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                    )
+                    groupTools.tools.forEach { tool ->
+                        SessionToolRow(
+                            tool = tool,
+                            expanded = isToolExpanded(tool.name),
+                            onToggle = { onToolClick(tool.name) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One tool inside an expanded group: name and price on top, a clamped description below. */
+@Composable
+private fun SessionToolRow(
+    tool: SessionToolEntry,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val motion = LocalAgoraMotionPolicy.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(start = 54.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = tool.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "\u2248 ${tool.tokens}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = tool.description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (expanded) Int.MAX_VALUE else 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = if (motion.allowSpatialTransitions) {
+                Modifier.animateContentSize()
+            } else {
+                Modifier
+            },
+        )
+    }
+}
+
+/** A group this request does not carry: the reason replaces the switch, so nothing looks broken. */
+@Composable
+private fun SessionToolUnavailableCard(
+    groupTools: SessionToolGroupTools,
+    shape: Shape,
+) {
+    Surface(
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = groupIcon(groupTools.group),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = groupLabel(groupTools.group),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = groupMeta(groupTools),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionToolsFooter(
+    canEnableAll: Boolean,
+    onEnableAll: () -> Unit,
+    onCancel: () -> Unit,
+    onSave: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onEnableAll, enabled = canEnableAll) {
+                Text(stringResource(R.string.session_tools_enable_all))
+            }
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.cancel))
+            }
+            TextButton(onClick = onSave) {
+                Text(stringResource(R.string.save))
             }
         }
     }
@@ -254,6 +427,21 @@ private fun groupMeta(groupTools: SessionToolGroupTools): String = when (groupTo
         groupTools.tools.size,
         groupTools.tokens,
     )
+}
+
+private fun groupIcon(group: SessionToolGroup): ImageVector = when (group) {
+    SessionToolGroup.MEMORY -> Icons.Rounded.Psychology
+    SessionToolGroup.SKILLS -> Icons.Rounded.Extension
+    SessionToolGroup.PAST_CONVERSATIONS -> Icons.Rounded.History
+    SessionToolGroup.WEB -> Icons.Rounded.Language
+    SessionToolGroup.TERMINAL -> Icons.Rounded.Terminal
+    SessionToolGroup.IMAGE -> Icons.Rounded.Image
+    SessionToolGroup.TODO -> Icons.Rounded.Checklist
+    SessionToolGroup.PHONE -> Icons.Rounded.PhoneAndroid
+    SessionToolGroup.SUBAGENT -> Icons.Rounded.AccountTree
+    SessionToolGroup.AUTOMATION -> Icons.Rounded.Schedule
+    SessionToolGroup.ASK_USER -> Icons.AutoMirrored.Rounded.HelpOutline
+    SessionToolGroup.MCP -> Icons.Rounded.Lan
 }
 
 @Composable

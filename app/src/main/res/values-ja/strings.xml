@@ -906,6 +906,7 @@
     <string name="markdown_link_file_missing">ファイルが見つかりません</string>
     <string name="markdown_link_file_unavailable">このファイルを開けません</string>
     <string name="markdown_link_file_downloading">ファイルをダウンロード中…</string>
+    <string name="markdown_link_file_downloaded">ダウンロードしました</string>
     <string name="markdown_link_file_too_large">ファイルが 512 MB を超えています</string>
     <string name="markdown_link_shared_storage_required">共有ストレージのリンクを開くには、すべてのファイルへのアクセスを許可してください</string>
     <string name="markdown_link_no_handler">このリンクを開けるアプリがありません</string>
@@ -970,6 +971,8 @@
         <string name="usage_other">その他</string>
     <string name="session_tools_subtitle">この会話の以降のリクエストにのみ影響します。実行済みの呼び出しは変わりません。</string>
     <string name="session_tools_summary">有効 %1$d / %2$d · 固定コンテキスト約 %3$d</string>
+    <string name="session_tools_sent_here">このセッションで送信</string>
+    <string name="session_tools_not_sent">送信しない</string>
     <string name="session_tools_group_meta">%1$d 個のツール · 約 %2$d</string>
     <string name="session_tools_enable_all">すべて有効化</string>
     <string name="session_tools_off_switch">このセッションではオフ</string>

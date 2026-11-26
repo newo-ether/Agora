@@ -906,6 +906,7 @@
     <string name="markdown_link_file_missing">لم يتم العثور على الملف</string>
     <string name="markdown_link_file_unavailable">لا يمكن فتح هذا الملف</string>
     <string name="markdown_link_file_downloading">جارٍ تنزيل الملف…</string>
+    <string name="markdown_link_file_downloaded">تم التنزيل</string>
     <string name="markdown_link_file_too_large">حجم الملف أكبر من 512 ميغابايت</string>
     <string name="markdown_link_shared_storage_required">امنح إذن الوصول إلى جميع الملفات لفتح روابط وحدة التخزين المشتركة</string>
     <string name="markdown_link_no_handler">لا يوجد تطبيق يمكنه فتح هذا الرابط</string>
@@ -985,6 +986,8 @@
         <string name="usage_other">أخرى</string>
     <string name="session_tools_subtitle">يؤثر على الطلبات اللاحقة في هذه المحادثة فقط. الاستدعاءات المنتهية تبقى كما هي.</string>
     <string name="session_tools_summary">مفعّل %1$d من %2$d · السياق الثابت ≈ %3$d</string>
+    <string name="session_tools_sent_here">تُرسل في هذه الجلسة</string>
+    <string name="session_tools_not_sent">لا تُرسل</string>
     <string name="session_tools_group_meta">%1$d أدوات · ≈ %2$d</string>
     <string name="session_tools_enable_all">تفعيل الكل</string>
     <string name="session_tools_off_switch">متوقف لهذه الجلسة</string>

@@ -906,6 +906,7 @@
     <string name="markdown_link_file_missing">Datei nicht gefunden</string>
     <string name="markdown_link_file_unavailable">Diese Datei kann nicht geöffnet werden</string>
     <string name="markdown_link_file_downloading">Datei wird heruntergeladen…</string>
+    <string name="markdown_link_file_downloaded">Heruntergeladen</string>
     <string name="markdown_link_file_too_large">Die Datei ist größer als 512 MB</string>
     <string name="markdown_link_shared_storage_required">Gewähre Zugriff auf alle Dateien, um Links zum gemeinsamen Speicher zu öffnen</string>
     <string name="markdown_link_no_handler">Keine App kann diesen Link öffnen</string>
@@ -973,6 +974,8 @@
         <string name="usage_other">Sonstige</string>
     <string name="session_tools_subtitle">Betrifft nur spätere Anfragen in dieser Unterhaltung. Bereits ausgeführte Aufrufe bleiben unverändert.</string>
     <string name="session_tools_summary">Aktiviert %1$d von %2$d · fester Kontext ≈ %3$d</string>
+    <string name="session_tools_sent_here">In dieser Sitzung gesendet</string>
+    <string name="session_tools_not_sent">Nicht gesendet</string>
     <string name="session_tools_group_meta">%1$d Werkzeuge · ≈ %2$d</string>
     <string name="session_tools_enable_all">Alle aktivieren</string>
     <string name="session_tools_off_switch">In dieser Sitzung aus</string>

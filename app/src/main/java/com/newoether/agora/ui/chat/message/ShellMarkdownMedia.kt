@@ -183,12 +183,26 @@ internal class ShellMarkdownMedia(
     }
 
     /**
+     * A device file resolved for opening, plus whether this call had to move its bytes. A cache hit
+     * reports false so the caller stays quiet instead of announcing a download already on disk.
+     */
+    internal data class DeviceFileCopy(val file: File, val fromCache: Boolean)
+
+    /**
      * Copies one non-image file named by a Markdown link into the shared cache, so the system app
      * that opens it reads a local file. A copy is named after the source SHA-256, which makes an
      * existing file provably current and lets a repeated tap skip the transfer.
+     *
+     * [onTransfer] runs right before the first byte moves, and only for a real transfer; the caller
+     * uses it to announce progress without a notice on cache hits.
      */
-    suspend fun downloadDeviceFile(target: ShellMediaLink): File = withContext(Dispatchers.IO) {
-        if (target.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) return@withContext copySandboxFile(target.path)
+    suspend fun downloadDeviceFile(
+        target: ShellMediaLink,
+        onTransfer: () -> Unit = {},
+    ): DeviceFileCopy = withContext(Dispatchers.IO) {
+        if (target.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
+            return@withContext copySandboxFile(target.path, onTransfer)
+        }
         val device = devices().firstOrNull { it.name.equals(target.server, ignoreCase = true) }
             ?: throw IOException("Unknown shell device")
         if (device.type == "ssh") throw IOException("SSH devices do not serve files")
@@ -205,7 +219,10 @@ internal class ShellMarkdownMedia(
         require(MARKDOWN_FILE_SHA256.matches(hash)) { "Invalid file source metadata" }
         val directory = sharedFileDirectory()
         val file = File(directory, "${hash.take(16)}_${downloadFileName(actual)}")
-        if (file.isFile && file.length() == size) return@withContext file
+        if (file.isFile && file.length() == size) {
+            return@withContext DeviceFileCopy(file, fromCache = true)
+        }
+        onTransfer()
         val staging = File.createTempFile(".markdown-file-", ".tmp", directory)
         try {
             val digest = MessageDigest.getInstance("SHA-256")
@@ -232,14 +249,14 @@ internal class ShellMarkdownMedia(
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING,
             )
-            file
+            DeviceFileCopy(file, fromCache = false)
         } finally {
             staging.delete()
         }
     }
 
     /** A rootfs file of the Local Sandbox has no FileProvider root of its own; copy it out. */
-    private suspend fun copySandboxFile(path: String): File {
+    private suspend fun copySandboxFile(path: String, onTransfer: () -> Unit): DeviceFileCopy {
         if (!sandboxEnabled()) throw IOException("Local Sandbox is disabled")
         val manager = sandbox() ?: throw IOException("Local Sandbox is unavailable")
         if (!manager.isAvailable()) throw IOException("Local Sandbox is not installed")
@@ -255,7 +272,10 @@ internal class ShellMarkdownMedia(
             .digest("$path\u0000$size\u0000${source.lastModified()}".toByteArray())
             .joinToString("") { "%02x".format(it) }
         val file = File(directory, "sandbox_${key.take(16)}_${downloadFileName(path)}")
-        if (file.isFile && file.length() == size) return file
+        if (file.isFile && file.length() == size) {
+            return DeviceFileCopy(file, fromCache = true)
+        }
+        onTransfer()
         val staging = File.createTempFile(".markdown-file-", ".tmp", directory)
         return try {
             source.inputStream().use { input ->
@@ -267,7 +287,7 @@ internal class ShellMarkdownMedia(
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING,
             )
-            file
+            DeviceFileCopy(file, fromCache = false)
         } finally {
             staging.delete()
         }

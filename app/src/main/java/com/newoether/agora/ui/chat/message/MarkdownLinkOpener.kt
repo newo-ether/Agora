@@ -25,9 +25,7 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.chat.FullScreenMediaViewer
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Opens a tapped Markdown destination. Network links leave through the platform handler; sandbox
@@ -38,7 +36,7 @@ import kotlinx.coroutines.withContext
 internal class MarkdownLinkOpener(
     private val context: Context,
     private val scope: CoroutineScope,
-    private val fetchDeviceFile: (suspend (ShellMediaLink) -> File)?,
+    private val fetchDeviceFile: (suspend (ShellMediaLink, () -> Unit) -> ShellMarkdownMedia.DeviceFileCopy)?,
     private val openRemote: (String) -> Unit,
     private val showMedia: (String) -> Unit,
     private val notify: (Int) -> Unit,
@@ -62,9 +60,13 @@ internal class MarkdownLinkOpener(
     private fun download(link: ShellMediaLink) {
         val fetch = fetchDeviceFile ?: return notify(R.string.markdown_link_file_unavailable)
         scope.launch {
-            notify(R.string.markdown_link_file_downloading)
-            val file = try {
-                withContext(Dispatchers.IO) { fetch(link) }
+            // Only a real transfer announces itself: a copy already on disk opens at once and quiet.
+            var transferring = false
+            val copy = try {
+                fetch(link) {
+                    transferring = true
+                    notify(R.string.markdown_link_file_downloading)
+                }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 return@launch
             } catch (_: MarkdownDeviceFileTooLarge) {
@@ -72,7 +74,10 @@ internal class MarkdownLinkOpener(
             } catch (_: Exception) {
                 return@launch notify(R.string.markdown_link_file_unavailable)
             }
-            openLocalFile(file)
+            if (transferring && !copy.fromCache) {
+                notify(R.string.markdown_link_file_downloaded)
+            }
+            openLocalFile(copy.file)
         }
     }
 
@@ -115,7 +120,9 @@ internal fun rememberMarkdownLinkOpener(): MarkdownLinkOpener {
             context = context,
             scope = scope,
             fetchDeviceFile = media?.let { loader ->
-                { link: ShellMediaLink -> loader.downloadDeviceFile(link) }
+                { link: ShellMediaLink, onTransfer: () -> Unit ->
+                    loader.downloadDeviceFile(link, onTransfer)
+                }
             },
             openRemote = { url ->
                 if (runCatching { uriHandler.openUri(url) }.isFailure) {

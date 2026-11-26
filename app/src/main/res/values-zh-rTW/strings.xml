@@ -909,6 +909,7 @@
     <string name="markdown_link_file_missing">找不到檔案</string>
     <string name="markdown_link_file_unavailable">無法開啟此檔案</string>
     <string name="markdown_link_file_downloading">正在下載檔案…</string>
+    <string name="markdown_link_file_downloaded">已下載</string>
     <string name="markdown_link_file_too_large">檔案超過 512 MB</string>
     <string name="markdown_link_shared_storage_required">授予所有檔案存取權限以開啟共用儲存空間連結</string>
     <string name="markdown_link_no_handler">沒有可開啟此連結的應用程式</string>
@@ -973,6 +974,8 @@
         <string name="usage_other">其他</string>
     <string name="session_tools_subtitle">只影響本會話之後的請求，已經發生的呼叫不變。</string>
     <string name="session_tools_summary">已啟用 %1$d / %2$d · 固定上下文約 %3$d</string>
+    <string name="session_tools_sent_here">本工作階段傳送</string>
+    <string name="session_tools_not_sent">不傳送</string>
     <string name="session_tools_group_meta">%1$d 個工具 · 約 %2$d</string>
     <string name="session_tools_enable_all">全部啟用</string>
     <string name="session_tools_off_switch">本會話未開啟</string>

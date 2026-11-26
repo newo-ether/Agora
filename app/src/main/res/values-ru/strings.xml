@@ -906,6 +906,7 @@
     <string name="markdown_link_file_missing">Файл не найден</string>
     <string name="markdown_link_file_unavailable">Не удалось открыть этот файл</string>
     <string name="markdown_link_file_downloading">Скачивание файла…</string>
+    <string name="markdown_link_file_downloaded">Загружено</string>
     <string name="markdown_link_file_too_large">Файл больше 512 МБ</string>
     <string name="markdown_link_shared_storage_required">Предоставьте доступ ко всем файлам, чтобы открывать ссылки на общее хранилище</string>
     <string name="markdown_link_no_handler">Нет приложения, которое может открыть эту ссылку</string>
@@ -979,6 +980,8 @@
         <string name="usage_other">Другое</string>
     <string name="session_tools_subtitle">Затрагивает только последующие запросы в этом разговоре. Уже выполненные вызовы не меняются.</string>
     <string name="session_tools_summary">Включено %1$d из %2$d · фиксированный контекст ≈ %3$d</string>
+    <string name="session_tools_sent_here">Отправляется в этой сессии</string>
+    <string name="session_tools_not_sent">Не отправляется</string>
     <string name="session_tools_group_meta">инструментов: %1$d · ≈ %2$d</string>
     <string name="session_tools_enable_all">Включить все</string>
     <string name="session_tools_off_switch">Отключено в этом сеансе</string>

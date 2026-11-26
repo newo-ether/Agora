@@ -110,6 +110,8 @@ internal fun rememberSmoothBottomSheetState(): SmoothBottomSheetState =
 @Composable
 internal fun SmoothBottomSheet(
     state: SmoothBottomSheetState = rememberSmoothBottomSheetState(),
+    /** Anchor the sheet rests at on open; the caller can still drag between all anchors. */
+    initialValue: SmoothBottomSheetValue = SmoothBottomSheetValue.Partial,
     onDismissRequest: () -> Unit,
     onBackRequest: () -> Boolean = { false },
     contentAtTop: () -> Boolean,
@@ -159,10 +161,10 @@ internal fun SmoothBottomSheet(
         }
     }
 
-    LaunchedEffect(state) {
-        animateTo(SmoothBottomSheetValue.Partial)
+    LaunchedEffect(state, initialValue) {
+        animateTo(initialValue)
         state.snapJob?.join()
-        state.rawFraction = SMOOTH_SHEET_PARTIAL_FRACTION
+        state.rawFraction = initialValue.fraction
     }
 
     LaunchedEffect(state.dismissRequestVersion) {

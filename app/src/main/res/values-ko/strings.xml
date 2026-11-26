@@ -906,6 +906,7 @@
     <string name="markdown_link_file_missing">파일을 찾을 수 없습니다</string>
     <string name="markdown_link_file_unavailable">이 파일을 열 수 없습니다</string>
     <string name="markdown_link_file_downloading">파일 다운로드 중…</string>
+    <string name="markdown_link_file_downloaded">다운로드됨</string>
     <string name="markdown_link_file_too_large">파일이 512MB를 넘습니다</string>
     <string name="markdown_link_shared_storage_required">공유 저장소 링크를 열려면 모든 파일 접근 권한을 허용하세요</string>
     <string name="markdown_link_no_handler">이 링크를 열 수 있는 앱이 없습니다</string>
@@ -970,6 +971,8 @@
         <string name="usage_other">기타</string>
     <string name="session_tools_subtitle">이 대화의 이후 요청에만 영향을 줍니다. 이미 실행된 호출은 그대로 유지됩니다.</string>
     <string name="session_tools_summary">%2$d개 중 %1$d개 활성 · 고정 컨텍스트 약 %3$d</string>
+    <string name="session_tools_sent_here">이 세션에서 전송</string>
+    <string name="session_tools_not_sent">전송하지 않음</string>
     <string name="session_tools_group_meta">도구 %1$d개 · 약 %2$d</string>
     <string name="session_tools_enable_all">모두 활성화</string>
     <string name="session_tools_off_switch">이 세션에서 꺼짐</string>

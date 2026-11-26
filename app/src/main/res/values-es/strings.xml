@@ -906,6 +906,7 @@
     <string name="markdown_link_file_missing">Archivo no encontrado</string>
     <string name="markdown_link_file_unavailable">No se puede abrir este archivo</string>
     <string name="markdown_link_file_downloading">Descargando archivo…</string>
+    <string name="markdown_link_file_downloaded">Descargado</string>
     <string name="markdown_link_file_too_large">El archivo supera los 512 MB</string>
     <string name="markdown_link_shared_storage_required">Concede acceso a todos los archivos para abrir enlaces de almacenamiento compartido</string>
     <string name="markdown_link_no_handler">Ninguna aplicación puede abrir este enlace</string>
@@ -973,6 +974,8 @@
         <string name="usage_other">Otros</string>
     <string name="session_tools_subtitle">Solo afecta a las solicitudes posteriores de esta conversación. Las llamadas ya realizadas no cambian.</string>
     <string name="session_tools_summary">Activadas %1$d de %2$d · contexto fijo ≈ %3$d</string>
+    <string name="session_tools_sent_here">Se envía en esta sesión</string>
+    <string name="session_tools_not_sent">No se envía</string>
     <string name="session_tools_group_meta">%1$d herramientas · ≈ %2$d</string>
     <string name="session_tools_enable_all">Activar todo</string>
     <string name="session_tools_off_switch">Desactivado en esta sesión</string>

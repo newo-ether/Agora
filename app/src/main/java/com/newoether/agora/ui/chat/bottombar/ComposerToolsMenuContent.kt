@@ -266,6 +266,18 @@ internal fun ComposerToolsMenuContent(
             onClick = { onShellToggle(!shellEnabled) }
         )
     }
+    // Tools sits with the other session controls, above Context Compact: it edits what the next
+    // request sends, while compacting only cuts down what was already sent.
+    AgoraDropdownMenuItem(
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Build, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(stringResource(R.string.tools))
+            }
+        },
+        onClick = { activeMenu = null; onToolsClick() }
+    )
     AgoraDropdownMenuItem(
         text = {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -276,16 +288,6 @@ internal fun ComposerToolsMenuContent(
         },
         enabled = canCompact && !isCompacting,
         onClick = { activeMenu = null; onCompactClick() },
-    )
-    AgoraDropdownMenuItem(
-        text = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Build, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(stringResource(R.string.tools))
-            }
-        },
-        onClick = { activeMenu = null; onToolsClick() }
     )
     AgoraDropdownMenuItem(
         text = {

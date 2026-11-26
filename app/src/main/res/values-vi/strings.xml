@@ -912,6 +912,7 @@
     <string name="markdown_link_file_missing">Không tìm thấy tệp</string>
     <string name="markdown_link_file_unavailable">Không thể mở tệp này</string>
     <string name="markdown_link_file_downloading">Đang tải tệp…</string>
+    <string name="markdown_link_file_downloaded">Đã tải xuống</string>
     <string name="markdown_link_file_too_large">Tệp lớn hơn 512 MB</string>
     <string name="markdown_link_shared_storage_required">Cấp quyền truy cập tất cả tệp để mở liên kết bộ nhớ chia sẻ</string>
     <string name="markdown_link_no_handler">Không có ứng dụng nào có thể mở liên kết này</string>
@@ -976,6 +977,8 @@
         <string name="usage_other">Khác</string>
     <string name="session_tools_subtitle">Chỉ ảnh hưởng đến các yêu cầu sau trong cuộc trò chuyện này. Các lệnh gọi đã chạy không thay đổi.</string>
     <string name="session_tools_summary">Đã bật %1$d/%2$d · ngữ cảnh cố định khoảng %3$d</string>
+    <string name="session_tools_sent_here">Gửi trong phiên này</string>
+    <string name="session_tools_not_sent">Không gửi</string>
     <string name="session_tools_group_meta">%1$d công cụ · khoảng %2$d</string>
     <string name="session_tools_enable_all">Bật tất cả</string>
     <string name="session_tools_off_switch">Tắt trong phiên này</string>

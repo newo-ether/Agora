@@ -906,6 +906,7 @@
     <string name="markdown_link_file_missing">Fichier introuvable</string>
     <string name="markdown_link_file_unavailable">Impossible d’ouvrir ce fichier</string>
     <string name="markdown_link_file_downloading">Téléchargement du fichier…</string>
+    <string name="markdown_link_file_downloaded">Téléchargé</string>
     <string name="markdown_link_file_too_large">Le fichier dépasse 512 Mo</string>
     <string name="markdown_link_shared_storage_required">Accordez l’accès à tous les fichiers pour ouvrir les liens de stockage partagé</string>
     <string name="markdown_link_no_handler">Aucune application ne peut ouvrir ce lien</string>
@@ -973,6 +974,8 @@
         <string name="usage_other">Autres</string>
     <string name="session_tools_subtitle">Ne concerne que les requêtes suivantes de cette conversation. Les appels déjà effectués restent inchangés.</string>
     <string name="session_tools_summary">%1$d activés sur %2$d · contexte fixe ≈ %3$d</string>
+    <string name="session_tools_sent_here">Envoyé dans cette session</string>
+    <string name="session_tools_not_sent">Non envoyé</string>
     <string name="session_tools_group_meta">%1$d outils · ≈ %2$d</string>
     <string name="session_tools_enable_all">Tout activer</string>
     <string name="session_tools_off_switch">Désactivé pour cette session</string>

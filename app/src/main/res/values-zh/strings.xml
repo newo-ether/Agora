@@ -899,6 +899,7 @@
     <string name="markdown_link_file_missing">未找到文件</string>
     <string name="markdown_link_file_unavailable">无法打开此文件</string>
     <string name="markdown_link_file_downloading">正在下载文件…</string>
+    <string name="markdown_link_file_downloaded">已下载</string>
     <string name="markdown_link_file_too_large">文件超过 512 MB</string>
     <string name="markdown_link_shared_storage_required">授予所有文件访问权限以打开共享存储链接</string>
     <string name="markdown_link_no_handler">没有可打开此链接的应用</string>
@@ -963,6 +964,8 @@
         <string name="usage_other">其他</string>
     <string name="session_tools_subtitle">只影响本会话之后的请求，已经发生的调用不变。</string>
     <string name="session_tools_summary">已启用 %1$d / %2$d · 固定上下文约 %3$d</string>
+    <string name="session_tools_sent_here">本会话发送</string>
+    <string name="session_tools_not_sent">不发送</string>
     <string name="session_tools_group_meta">%1$d 个工具 · 约 %2$d</string>
     <string name="session_tools_enable_all">全部启用</string>
     <string name="session_tools_off_switch">本会话未开启</string>
