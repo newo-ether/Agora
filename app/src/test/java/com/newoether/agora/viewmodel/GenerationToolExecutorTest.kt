@@ -460,7 +460,55 @@ class GenerationToolExecutorTest {
         val memory = catalog.groups.first { it.group == SessionToolGroup.MEMORY }
         assertEquals(SessionToolUnavailable.NO_TOOLS, memory.unavailable)
 
+        val memoryRead = ToolDefinition(
+            function = ToolFunction(
+                name = "memory_read",
+                description = "Read a saved memory",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
         val disabled = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(
+                accessSavedMemories = true,
+                disabledToolGroups = setOf(SessionToolGroup.MEMORY.id),
+            ),
+            definitionsByGroup = mapOf(SessionToolGroup.MEMORY to listOf(memoryRead)),
+        )
+        assertEquals(1, disabled.totalToolCount)
+        assertEquals(0, disabled.enabledToolCount)
+        assertEquals(setOf(SessionToolGroup.MEMORY.id), disabled.disabledIds(emptySet()))
+    }
+
+    @Test
+    fun `linked groups follow the conversation switch, not the disabled ids`() {
+        val definition = ToolDefinition(
+            function = ToolFunction(
+                name = "web_search",
+                description = "Search the web",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        // Conversation turned Web off; the global switch is on, so the probe still lists it.
+        val context = GenerationContext(
+            webSearchEnabled = false,
+            disabledToolGroups = setOf(SessionToolGroup.WEB.id, "retired_group"),
+        )
+        val catalog = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = context,
+            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(definition)),
+            probe = context.copy(webSearchEnabled = true),
+        )
+        val web = catalog.groups.first { it.group == SessionToolGroup.WEB }
+        assertNull(web.unavailable)
+        assertTrue(SessionToolGroup.WEB !in catalog.enabledGroups)
+        // A stale linked id is dropped and never written again.
+        assertEquals(setOf("retired_group"), catalog.disabledIds(emptySet()))
+        assertEquals(setOf("retired_group"), catalog.disabledIds(setOf(SessionToolGroup.WEB)))
+        assertTrue(SessionToolGroup.fromIds(context.disabledToolGroups).isEmpty())
+
+        val on = SessionToolCatalog.build(
             modelId = "openai:gpt-5",
             context = GenerationContext(
                 webSearchEnabled = true,
@@ -468,9 +516,7 @@ class GenerationToolExecutorTest {
             ),
             definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(definition)),
         )
-        assertEquals(1, disabled.totalToolCount)
-        assertEquals(0, disabled.enabledToolCount)
-        assertEquals(setOf(SessionToolGroup.WEB.id), disabled.disabledIds(emptySet()))
+        assertTrue(SessionToolGroup.WEB in on.enabledGroups)
     }
 
     @Test
@@ -512,36 +558,36 @@ class GenerationToolExecutorTest {
 
     @Test
     fun `saving keeps stored ids for groups this session cannot switch`() {
-        val web = ToolDefinition(
+        val todo = ToolDefinition(
             function = ToolFunction(
-                name = "web_search",
-                description = "Search the web",
+                name = "todo_read",
+                description = "Read the todo list",
                 parameters = ToolParameters(properties = emptyMap()),
             ),
         )
         val unavailable = SessionToolCatalog.build(
             modelId = "openai:gpt-5",
             context = GenerationContext(
-                webSearchEnabled = false,
+                todoEnabled = false,
                 disabledToolGroups = setOf("mcp", SessionToolGroup.MEMORY.id, "retired_group"),
             ),
-            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(web)),
+            definitionsByGroup = mapOf(SessionToolGroup.TODO to listOf(todo)),
         )
         assertEquals(
             setOf("mcp", SessionToolGroup.MEMORY.id, "retired_group"),
-            unavailable.disabledIds(setOf(SessionToolGroup.WEB)),
+            unavailable.disabledIds(setOf(SessionToolGroup.TODO)),
         )
 
         val switchable = SessionToolCatalog.build(
             modelId = "openai:gpt-5",
             context = GenerationContext(
-                webSearchEnabled = true,
+                todoEnabled = true,
                 disabledToolGroups = setOf("retired_group"),
             ),
-            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(web)),
+            definitionsByGroup = mapOf(SessionToolGroup.TODO to listOf(todo)),
         )
-        assertEquals(setOf("retired_group", SessionToolGroup.WEB.id), switchable.disabledIds(emptySet()))
-        assertEquals(setOf("retired_group"), switchable.disabledIds(setOf(SessionToolGroup.WEB)))
+        assertEquals(setOf("retired_group", SessionToolGroup.TODO.id), switchable.disabledIds(emptySet()))
+        assertEquals(setOf("retired_group"), switchable.disabledIds(setOf(SessionToolGroup.TODO)))
     }
 
     private class FakeToolProvider : ToolProvider {

@@ -45,7 +45,8 @@ internal class ShellMarkdownMedia(
     private val devices: () -> List<ShellDeviceConfig>,
     private val sandboxEnabled: () -> Boolean,
     private val sandbox: () -> SandboxManager?,
-    private val scope: CoroutineScope,
+    /** Lives as long as the ViewModel; work started here survives the message that asked for it. */
+    val scope: CoroutineScope,
 ) {
     // Created on the first rendered image, never during ViewModel construction.
     private val directory by lazy { File(context.applicationContext.filesDir, "markdown-media") }

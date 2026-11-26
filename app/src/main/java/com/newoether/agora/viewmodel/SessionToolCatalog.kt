@@ -7,7 +7,7 @@ import com.newoether.agora.tool.featureEnabled
 
 /** Why a listed group currently contributes nothing to the request. */
 internal enum class SessionToolUnavailable {
-    /** The conversation switch for this family of tools is off. */
+    /** The switch for this family of tools is off (the global one, for a linked group). */
     SWITCH_OFF,
 
     /** Low Context Mode sends only the compact Shell and Web definitions. */
@@ -55,12 +55,13 @@ internal data class SessionToolCatalog(
     /**
      * Ids to persist after the dialog's edit. Only a group this session can switch follows the
      * new switches; a group that is off for another reason keeps whatever was stored, and ids this
-     * build no longer knows survive untouched.
+     * build no longer knows survive untouched. Linked groups never appear: their feature switch
+     * holds their state, and ids older builds stored for them are dropped.
      */
     fun disabledIds(enabled: Set<SessionToolGroup>): Set<String> {
-        val ids = storedDisabledIds.toMutableSet()
+        val ids = storedDisabledIds.filterTo(mutableSetOf()) { SessionToolGroup.fromId(it)?.linked != true }
         groups.forEach { groupTools ->
-            if (groupTools.unavailable != null) return@forEach
+            if (groupTools.unavailable != null || groupTools.group.linked) return@forEach
             val id = groupTools.group.id
             if (groupTools.group in enabled) ids -= id else ids += id
         }
@@ -71,11 +72,17 @@ internal data class SessionToolCatalog(
         /** The only groups whose definitions a Low Context request still carries. */
         private val LOW_CONTEXT_GROUPS = setOf(SessionToolGroup.TERMINAL, SessionToolGroup.WEB)
 
+        /**
+         * [probe] is [context] with each linked group's feature switch at its global value, so a
+         * linked group the conversation turned off still lists its tools and can be switched back
+         * on here. [definitionsByGroup] must come from the same probe.
+         */
         fun build(
             modelId: String,
             context: GenerationContext,
             definitionsByGroup: Map<SessionToolGroup, List<ToolDefinition>>,
             lowContextMode: Boolean = false,
+            probe: GenerationContext = context,
         ): SessionToolCatalog {
             val estimator = ContextTokenEstimator.forModel(
                 modelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
@@ -104,7 +111,7 @@ internal data class SessionToolCatalog(
                     unavailable = when {
                         lowContextMode && group !in LOW_CONTEXT_GROUPS ->
                             SessionToolUnavailable.LOW_CONTEXT
-                        !group.featureEnabled(context) -> SessionToolUnavailable.SWITCH_OFF
+                        !group.featureEnabled(probe) -> SessionToolUnavailable.SWITCH_OFF
                         entries.isEmpty() -> SessionToolUnavailable.NO_TOOLS
                         else -> null
                     },
@@ -113,7 +120,9 @@ internal data class SessionToolCatalog(
             val disabled = SessionToolGroup.fromIds(context.disabledToolGroups)
             return SessionToolCatalog(
                 groups = groups,
-                enabledGroups = SessionToolGroup.entries.filterNotTo(mutableSetOf()) { it in disabled },
+                enabledGroups = SessionToolGroup.entries.filterTo(mutableSetOf()) { group ->
+                    if (group.linked) group.featureEnabled(context) else group !in disabled
+                },
                 storedDisabledIds = context.disabledToolGroups,
             )
         }

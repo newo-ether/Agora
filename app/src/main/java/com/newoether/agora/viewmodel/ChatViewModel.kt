@@ -597,7 +597,16 @@ class ChatViewModel(
         } catch (_: Exception) {
             return null
         }
-        return generationManager.sessionToolCatalog(snapshot.config, snapshot.context)
+        // Web and Shell are linked to the conversation's own switches: list them whenever the
+        // global switch allows them, so a conversation that turned one off can turn it back on.
+        val probe = snapshot.context.copy(
+            webSearchEnabled = settings.webSearchEnabled.value,
+            shellEnabled = settings.shellEnabled.value,
+        )
+        // Pricing every definition runs the tokenizer; keep it off the main thread.
+        return withContext(Dispatchers.Default) {
+            generationManager.sessionToolCatalog(snapshot.config, snapshot.context, probe)
+        }
     }
 
     private val generationController: MessageGenerationController

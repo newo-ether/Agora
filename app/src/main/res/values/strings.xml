@@ -953,16 +953,10 @@
             <string name="usage_chart_weekly">Tokens per Week</string>
             <string name="usage_by_model">Tokens per Model</string>
         <string name="usage_other">Other</string>
-    <string name="session_tools_subtitle">Affects later requests in this conversation only. Calls that already ran are unchanged.</string>
-    <string name="session_tools_summary">Enabled %1$d of %2$d · fixed context ≈ %3$d</string>
-    <string name="session_tools_sent_here">Sent in this session</string>
-    <string name="session_tools_not_sent">Not sent</string>
     <string name="session_tools_group_meta">%1$d tools · ≈ %2$d</string>
-    <string name="session_tools_enable_all">Enable all</string>
     <string name="session_tools_off_switch">Off for this session</string>
     <string name="session_tools_off_empty">No tools available</string>
     <string name="session_tools_off_low_context">Not sent in Low Context Mode</string>
-    <string name="session_tools_loading">Reading the tool list…</string>
     <string name="session_tools_failed">Could not read the tool list</string>
     <string name="session_tools_group_memory">Memory</string>
     <string name="session_tools_group_skills">Skills</string>

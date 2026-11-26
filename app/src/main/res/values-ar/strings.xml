@@ -984,16 +984,10 @@
             <string name="usage_chart_weekly">الرموز أسبوعيًا</string>
             <string name="usage_by_model">الرموز حسب النموذج</string>
         <string name="usage_other">أخرى</string>
-    <string name="session_tools_subtitle">يؤثر على الطلبات اللاحقة في هذه المحادثة فقط. الاستدعاءات المنتهية تبقى كما هي.</string>
-    <string name="session_tools_summary">مفعّل %1$d من %2$d · السياق الثابت ≈ %3$d</string>
-    <string name="session_tools_sent_here">تُرسل في هذه الجلسة</string>
-    <string name="session_tools_not_sent">لا تُرسل</string>
     <string name="session_tools_group_meta">%1$d أدوات · ≈ %2$d</string>
-    <string name="session_tools_enable_all">تفعيل الكل</string>
     <string name="session_tools_off_switch">متوقف لهذه الجلسة</string>
     <string name="session_tools_off_empty">لا توجد أدوات متاحة</string>
     <string name="session_tools_off_low_context">لا يُرسَل في وضع السياق المنخفض</string>
-    <string name="session_tools_loading">جارٍ قراءة قائمة الأدوات…</string>
     <string name="session_tools_failed">تعذّرت قراءة قائمة الأدوات</string>
     <string name="session_tools_group_memory">الذاكرة</string>
     <string name="session_tools_group_skills">المهارات</string>

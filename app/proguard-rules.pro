@@ -1,3 +1,7 @@
+# Readable crash stacks: shrink and optimize, but keep every name and the line table.
+-dontobfuscate
+-keepattributes SourceFile,LineNumberTable
+
 # kotlinx.serialization
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt

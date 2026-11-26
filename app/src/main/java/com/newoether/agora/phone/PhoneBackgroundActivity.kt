@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,11 +55,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect as ComposeRect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
@@ -92,6 +98,8 @@ class PhoneBackgroundActivity : ComponentActivity() {
         val control = runCatching { (application as AgoraApplication).requireContainer().phoneUse }.getOrNull()
         val screen = control?.background?.value
         if (control == null || screen == null) {
+            // The card hides while full screen is requested; never leave it hidden behind nothing.
+            control?.fullscreen?.value = false
             finish()
             return
         }
@@ -215,81 +223,79 @@ private fun FullScreen(
 
     val scale = if (viewport.width > 0 && viewport.height > 0) {
         min(viewport.width / screen.width.toFloat(), viewport.height / screen.height.toFloat())
-    } else 1f
-    val origin = card
-    val reveal = progress.value
+    } else 0f
+    // Composition only needs to know which half of the reveal it is in; the frames read progress
+    // in the draw phase alone.
+    val shown by remember { derivedStateOf { progress.value > 0.5f } }
+    val image = remember(frame) { frame?.asImageBitmap() }
 
+    /** Viewport point to display pixels. A finger past the image edge sticks to the edge. */
     fun toDisplay(x: Float, y: Float): Offset? {
         if (scale <= 0f) return null
         val left = (viewport.width - screen.width * scale) / 2
         val top = (viewport.height - screen.height * scale) / 2
-        val px = (x - left) / scale
-        val py = (y - top) / scale
-        return if (px in 0f..screen.width.toFloat() && py in 0f..screen.height.toFloat()) Offset(px, py) else null
+        val px = ((x - left) / scale).coerceIn(0f, (screen.width - 1).toFloat())
+        val py = ((y - top) / scale).coerceIn(0f, (screen.height - 1).toFloat())
+        return Offset(px, py)
     }
 
     Box(Modifier.fillMaxSize().onSizeChanged { viewport = it }) {
-        Box(
+        Canvas(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    translationX = (origin?.left ?: 0) * (1f - reveal)
-                    translationY = (origin?.top ?: 0) * (1f - reveal)
-                    scaleX = if (origin != null && viewport.width > 0) {
-                        origin.width().toFloat() / viewport.width * (1f - reveal) + reveal
-                    } else 1f
-                    scaleY = if (origin != null && viewport.height > 0) {
-                        origin.height().toFloat() / viewport.height * (1f - reveal) + reveal
-                    } else 1f
-                    transformOrigin = TransformOrigin(0f, 0f)
-                }
-                .clip(RoundedCornerShape((CARD_CORNER_DP * (1f - reveal)).dp))
-                .background(Color.Black)
                 .pointerInteropFilter { event ->
                     if (mode == FullScreenMode.PREVIEW) {
                         if (event.actionMasked == MotionEvent.ACTION_UP) barVisible = !barVisible
-                        true
-                    } else {
-                        when (event.actionMasked) {
-                            MotionEvent.ACTION_DOWN -> toDisplay(event.x, event.y)?.let { point ->
+                        return@pointerInteropFilter true
+                    }
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> toDisplay(event.x, event.y)?.let { point ->
+                            injected = point
+                            runtime.touchBackground(MotionEvent.ACTION_DOWN, point.x, point.y, event.downTime)
+                        }
+                        // A move without an injected down would reach the display as a stray gesture.
+                        MotionEvent.ACTION_MOVE -> if (injected != null) {
+                            toDisplay(event.x, event.y)?.let { point ->
                                 injected = point
-                                runtime.touchBackground(MotionEvent.ACTION_DOWN, point.x, point.y, event.downTime)
-                            }
-                            MotionEvent.ACTION_MOVE -> toDisplay(event.x, event.y)?.let { point ->
                                 runtime.touchBackground(MotionEvent.ACTION_MOVE, point.x, point.y, event.downTime)
                             }
-                            MotionEvent.ACTION_UP -> {
-                                injected?.let { point ->
-                                    runtime.touchBackground(MotionEvent.ACTION_UP, point.x, point.y, event.downTime)
-                                }
-                                injected = null
-                            }
-                            MotionEvent.ACTION_CANCEL -> {
-                                injected?.let { point ->
-                                    runtime.touchBackground(MotionEvent.ACTION_CANCEL, point.x, point.y, event.downTime)
-                                }
-                                injected = null
-                            }
                         }
-                        true
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            injected?.let { point ->
+                                runtime.touchBackground(event.actionMasked, point.x, point.y, event.downTime)
+                            }
+                            injected = null
+                        }
                     }
+                    true
                 },
         ) {
-            Canvas(Modifier.fillMaxSize()) {
-                val bitmap = frame ?: return@Canvas
-                val fit = min(size.width / bitmap.width, size.height / bitmap.height)
-                val width = bitmap.width * fit
-                val height = bitmap.height * fit
+            val reveal = progress.value
+            drawRect(Color.Black, alpha = reveal)
+            val bitmap = image ?: return@Canvas
+            val fitScale = min(size.width / bitmap.width, size.height / bitmap.height)
+            val fitSize = Size(bitmap.width * fitScale, bitmap.height * fitScale)
+            val fit = ComposeRect(
+                Offset((size.width - fitSize.width) / 2, (size.height - fitSize.height) / 2),
+                fitSize,
+            )
+            val from = card?.let {
+                ComposeRect(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat())
+            } ?: fit
+            val bounds = lerp(from, fit, reveal)
+            val corner = CARD_CORNER_DP.dp.toPx() * (1f - reveal)
+            val outline = Path().apply { addRoundRect(RoundRect(bounds, CornerRadius(corner))) }
+            clipPath(outline) {
                 drawImage(
-                    bitmap.asImageBitmap(),
-                    dstOffset = IntOffset(((size.width - width) / 2).roundToInt(), ((size.height - height) / 2).roundToInt()),
-                    dstSize = IntSize(width.roundToInt(), height.roundToInt()),
+                    bitmap,
+                    dstOffset = IntOffset(bounds.left.roundToInt(), bounds.top.roundToInt()),
+                    dstSize = IntSize(bounds.width.roundToInt(), bounds.height.roundToInt()),
                 )
             }
         }
 
         AnimatedVisibility(
-            visible = reveal > 0.5f,
+            visible = shown,
             enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it / 3 },
             exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 3 },
         ) {
@@ -304,7 +310,7 @@ private fun FullScreen(
             )
         }
         AnimatedVisibility(
-            visible = reveal > 0.5f && barVisible && mode == FullScreenMode.OPERATE,
+            visible = shown && barVisible && mode == FullScreenMode.OPERATE,
             enter = fadeIn(tween(160)),
             exit = fadeOut(tween(120)),
             modifier = Modifier.align(Alignment.BottomCenter),

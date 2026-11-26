@@ -2,7 +2,9 @@ package com.newoether.agora.phone
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.content.ComponentCallbacks
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Build
@@ -91,14 +93,38 @@ internal class PhoneBackgroundPreview(
     private var added = false
 
     /** Screen area that excludes the system bars, so the card never hides under them. */
-    private val safe: Rect = if (Build.VERSION.SDK_INT >= 30) {
-        val metrics = windows.currentWindowMetrics
-        val bars = metrics.windowInsets.getInsets(WindowInsets.Type.systemBars())
-        Rect(0, bars.top, metrics.bounds.width(), metrics.bounds.height() - bars.bottom)
-    } else {
-        val metrics = context.resources.displayMetrics
-        Rect(0, (24 * density).roundToInt(), metrics.widthPixels,
-            metrics.heightPixels - (48 * density).roundToInt())
+    private var safe: Rect = safeArea()
+    private var settling: ValueAnimator? = null
+
+    /** A rotation changes the safe area; the card is refitted into the new one. */
+    private val configuration = object : ComponentCallbacks {
+        override fun onConfigurationChanged(newConfig: Configuration) {
+            safe = safeArea()
+            settling?.cancel()
+            resize(cardWidth)
+            moveTo(params.x, params.y)
+            savePlacement()
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun onLowMemory() = Unit
+    }
+
+    /**
+     * Read from the application context every time: a configuration context made for the app
+     * language keeps the metrics of the orientation it was created in.
+     */
+    private fun safeArea(): Rect {
+        val app = context.applicationContext
+        return if (Build.VERSION.SDK_INT >= 30) {
+            val metrics = app.getSystemService(WindowManager::class.java).currentWindowMetrics
+            val bars = metrics.windowInsets.getInsets(WindowInsets.Type.systemBars())
+            Rect(0, bars.top, metrics.bounds.width(), metrics.bounds.height() - bars.bottom)
+        } else {
+            val metrics = app.resources.displayMetrics
+            Rect(0, (24 * density).roundToInt(), metrics.widthPixels,
+                metrics.heightPixels - (48 * density).roundToInt())
+        }
     }
 
     private val params = WindowManager.LayoutParams(
@@ -139,17 +165,22 @@ internal class PhoneBackgroundPreview(
             setViewTreeLifecycleOwner(this@PhoneBackgroundPreview)
             setViewTreeSavedStateRegistryOwner(this@PhoneBackgroundPreview)
             setViewTreeViewModelStoreOwner(this@PhoneBackgroundPreview)
-            setContent { PhoneOverlayTheme(runtime.settings) { Content() } }
+            // Inside apply, a bare Content() binds to ComposeView.Content, which calls this lambda again without end.
+            setContent { PhoneOverlayTheme(runtime.settings) { PreviewCard() } }
         }
         root = view
         try { windows.addView(view, params) } catch (error: Exception) { view.disposeComposition(); throw error }
         added = true
+        context.applicationContext.registerComponentCallbacks(configuration)
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         scope.launch { runtime.fullscreen.collect { hidden -> setHidden(hidden) } }
     }
 
     fun remove() {
         scope.cancel()
+        settling?.cancel()
+        settling = null
+        if (added) context.applicationContext.unregisterComponentCallbacks(configuration)
         root?.let { view ->
             runCatching { windows.removeViewImmediate(view) }
             view.disposeComposition()
@@ -193,7 +224,7 @@ internal class PhoneBackgroundPreview(
         root?.let { view -> runCatching { windows.updateViewLayout(view, params) } }
     }
 
-    private fun remember() {
+    private fun savePlacement() {
         storedWidth = cardWidth
         storedX = params.x
         storedY = params.y
@@ -201,13 +232,15 @@ internal class PhoneBackgroundPreview(
 
     /** Snap fully on screen with a short ease; the drag itself follows the finger exactly. */
     private fun settle() {
-        remember()
+        settling?.cancel()
+        settling = null
+        savePlacement()
         val targetX = params.x.coerceIn(safe.left + margin, (safe.right - params.width - margin).coerceAtLeast(safe.left))
         val targetY = params.y.coerceIn(safe.top, (safe.bottom - params.height - margin).coerceAtLeast(safe.top))
         if (targetX == params.x && targetY == params.y) return
         val fromX = params.x
         val fromY = params.y
-        ValueAnimator.ofFloat(0f, 1f).apply {
+        settling = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 260
             interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
             addUpdateListener { animation ->
@@ -215,6 +248,8 @@ internal class PhoneBackgroundPreview(
                 params.x = (fromX + (targetX - fromX) * progress).roundToInt()
                 params.y = (fromY + (targetY - fromY) * progress).roundToInt()
                 update()
+                // A grab mid-snap cancels this animator; the place it stopped is the place kept.
+                savePlacement()
             }
             start()
         }
@@ -236,6 +271,8 @@ internal class PhoneBackgroundPreview(
     private fun cardTouch(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                // A running snap would keep writing the position under the finger.
+                settling?.cancel()
                 downRawX = event.rawX
                 downRawY = event.rawY
                 startX = params.x
@@ -249,7 +286,7 @@ internal class PhoneBackgroundPreview(
                 val dx = event.rawX - downRawX
                 val dy = event.rawY - downRawY
                 if (!moved && hypot(dx, dy) > slop) moved = true
-                if (moved) apply(gesture, dx, dy)
+                if (moved) applyGesture(gesture, dx, dy)
             }
             MotionEvent.ACTION_UP -> {
                 if (moved) settle() else if (gesture == Gesture.MOVE) openFullscreen()
@@ -267,6 +304,7 @@ internal class PhoneBackgroundPreview(
     private fun handleTouch(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                settling?.cancel()
                 downRawX = event.rawX
                 downRawY = event.rawY
                 startX = params.x
@@ -300,7 +338,8 @@ internal class PhoneBackgroundPreview(
         }
     }
 
-    private fun apply(kind: Gesture, dx: Float, dy: Float) {
+    /** Named apart from Kotlin's `apply`; this class composes, so stdlib names stay unshadowed. */
+    private fun applyGesture(kind: Gesture, dx: Float, dy: Float) {
         if (kind == Gesture.MOVE) {
             moveTo((startX + dx).roundToInt(), (startY + dy).roundToInt())
             return
@@ -323,7 +362,7 @@ internal class PhoneBackgroundPreview(
     }
 
     @Composable
-    private fun Content() {
+    private fun PreviewCard() {
         val frame by screen.frame.collectAsState()
         Box(Modifier.fillMaxSize()) {
             Box(

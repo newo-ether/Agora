@@ -962,16 +962,10 @@
             <string name="usage_chart_weekly">每周 Token</string>
             <string name="usage_by_model">各模型 Token</string>
         <string name="usage_other">其他</string>
-    <string name="session_tools_subtitle">只影响本会话之后的请求，已经发生的调用不变。</string>
-    <string name="session_tools_summary">已启用 %1$d / %2$d · 固定上下文约 %3$d</string>
-    <string name="session_tools_sent_here">本会话发送</string>
-    <string name="session_tools_not_sent">不发送</string>
     <string name="session_tools_group_meta">%1$d 个工具 · 约 %2$d</string>
-    <string name="session_tools_enable_all">全部启用</string>
     <string name="session_tools_off_switch">本会话未开启</string>
     <string name="session_tools_off_empty">没有可用工具</string>
     <string name="session_tools_off_low_context">低上下文模式不发送</string>
-    <string name="session_tools_loading">正在读取工具列表…</string>
     <string name="session_tools_failed">无法读取工具列表</string>
     <string name="session_tools_group_memory">记忆</string>
     <string name="session_tools_group_skills">技能</string>

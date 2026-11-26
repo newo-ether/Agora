@@ -127,16 +127,15 @@ class GenerationManager(
     internal fun includesAssistantReasoning(config: GenerationConfig, context: GenerationContext): Boolean =
         contextAccounting.includesAssistantReasoning(config, context)
 
-    /** Definitions, availability and per-group cost for the session tool selector. */
-    internal fun sessionToolCatalog(
-        config: GenerationConfig,
-        context: GenerationContext,
-    ): SessionToolCatalog = SessionToolCatalog.build(
-        modelId = config.modelId,
-        context = context,
-        definitionsByGroup = toolExecutor.sessionToolGroups(context, config.lowContextModeEnabled),
-        lowContextMode = config.lowContextModeEnabled,
-    )
+    /** Session tool selector data; [probe] is explained at [SessionToolCatalog.build]. */
+    internal fun sessionToolCatalog(config: GenerationConfig, context: GenerationContext, probe: GenerationContext = context) =
+        SessionToolCatalog.build(
+            modelId = config.modelId,
+            context = context,
+            definitionsByGroup = toolExecutor.sessionToolGroups(probe, config.lowContextModeEnabled),
+            lowContextMode = config.lowContextModeEnabled,
+            probe = probe,
+        )
 
     internal suspend fun resolvedFixedContextTokenCost(config: GenerationConfig, context: GenerationContext): Int =
         contextAccounting.resolvedFixedContextTokenCost(config, context)

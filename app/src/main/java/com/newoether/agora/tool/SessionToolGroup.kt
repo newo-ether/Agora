@@ -8,13 +8,17 @@ import com.newoether.agora.phone.PhoneToolProvider
  * Declarations are ordered the way the selector lists them, and each [id] is the persisted key in
  * `ConversationSettings.disabledToolGroups`. A provider that maps to no group is never filtered:
  * unknown extensions stay exactly as the plugin gave them.
+ *
+ * A [linked] group has no entry in that set: its selector switch is the conversation's own feature
+ * switch (Web Search, Shell), so the composer and the selector always agree. Ids of linked groups
+ * stored by older builds are ignored.
  */
-internal enum class SessionToolGroup(val id: String) {
+internal enum class SessionToolGroup(val id: String, val linked: Boolean = false) {
     MEMORY("memory"),
     SKILLS("skills"),
     PAST_CONVERSATIONS("past_conversations"),
-    WEB("web"),
-    TERMINAL("terminal"),
+    WEB("web", linked = true),
+    TERMINAL("terminal", linked = true),
     IMAGE("image"),
     TODO("todo"),
     PHONE("phone"),
@@ -29,9 +33,12 @@ internal enum class SessionToolGroup(val id: String) {
 
         fun fromId(id: String): SessionToolGroup? = byId[id]
 
-        /** Groups named by a stored setting, ignoring ids this build no longer knows. */
+        /**
+         * Groups disabled by a stored setting, ignoring ids this build no longer knows and linked
+         * groups, which only their feature switch controls.
+         */
         fun fromIds(ids: Iterable<String>): Set<SessionToolGroup> =
-            ids.mapNotNullTo(mutableSetOf(), ::fromId)
+            ids.mapNotNullTo(mutableSetOf()) { id -> fromId(id)?.takeUnless { it.linked } }
 
         fun of(provider: ToolProvider): SessionToolGroup? = when (provider) {
             is MemoryToolProvider -> MEMORY

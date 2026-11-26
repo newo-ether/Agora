@@ -969,16 +969,10 @@
             <string name="usage_chart_weekly">주별 토큰</string>
             <string name="usage_by_model">모델별 토큰</string>
         <string name="usage_other">기타</string>
-    <string name="session_tools_subtitle">이 대화의 이후 요청에만 영향을 줍니다. 이미 실행된 호출은 그대로 유지됩니다.</string>
-    <string name="session_tools_summary">%2$d개 중 %1$d개 활성 · 고정 컨텍스트 약 %3$d</string>
-    <string name="session_tools_sent_here">이 세션에서 전송</string>
-    <string name="session_tools_not_sent">전송하지 않음</string>
     <string name="session_tools_group_meta">도구 %1$d개 · 약 %2$d</string>
-    <string name="session_tools_enable_all">모두 활성화</string>
     <string name="session_tools_off_switch">이 세션에서 꺼짐</string>
     <string name="session_tools_off_empty">사용할 수 있는 도구 없음</string>
     <string name="session_tools_off_low_context">낮은 컨텍스트 모드에서는 전송되지 않음</string>
-    <string name="session_tools_loading">도구 목록을 읽는 중…</string>
     <string name="session_tools_failed">도구 목록을 읽을 수 없습니다</string>
     <string name="session_tools_group_memory">메모리</string>
     <string name="session_tools_group_skills">스킬</string>

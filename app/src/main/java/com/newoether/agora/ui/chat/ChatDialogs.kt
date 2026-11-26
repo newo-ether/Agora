@@ -44,6 +44,8 @@ import com.newoether.agora.ui.components.SystemPromptPickerDialog
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.viewmodel.SessionToolCatalog
+import com.newoether.agora.tool.SessionToolGroup
+import com.newoether.agora.ui.common.LocalAgoraHaptics
 import kotlinx.coroutines.launch
 
 /** Rename-conversation dialog. Owns its own editable text, seeded from [initialName]. */
@@ -339,8 +341,9 @@ internal fun ChatAdvancedSettingsDialog(
 }
 
 /**
- * Session tool selector wrapper: loads the tools this conversation currently sends, lets the user
- * edit a copy, then persists only the disabled group ids on confirm.
+ * Session tool selector wrapper: loads the tools this conversation currently sends and applies each
+ * switch at once. Web and Terminal write the same conversation settings as the composer switches;
+ * every other group writes the disabled group ids.
  */
 @Composable
 internal fun ChatSessionToolsDialog(
@@ -349,46 +352,31 @@ internal fun ChatSessionToolsDialog(
 ) {
     val currentConversationId by viewModel.currentConversationId.collectAsState()
     val isNewChatMode by viewModel.isNewChatMode.collectAsState()
+    val haptics = LocalAgoraHaptics.current
     var catalog by remember { mutableStateOf<SessionToolCatalog?>(null) }
     var failed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val loaded = viewModel.captureSessionToolCatalog()
         if (loaded == null) failed = true else catalog = loaded
     }
-    val loadedCatalog = catalog
-    when {
-        failed -> AlertDialog(
-            onDismissRequest = onDismiss,
-            text = { Text(stringResource(R.string.session_tools_failed)) },
-            confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.cancel))
+    // No loading state: the sheet appears once the list is read (it is computed off the main thread).
+    if (catalog == null && !failed) return
+    SessionToolsDialog(
+        catalog = catalog,
+        failed = failed,
+        onDismiss = onDismiss,
+        onToggle = { group, enabled ->
+            val loaded = catalog ?: return@SessionToolsDialog
+            val on = group in enabled
+            haptics.toggle(on)
+            val ownerId = conversationSettingsOwnerId(isNewChatMode, currentConversationId)
+            viewModel.updateConversationSetting(ownerId) {
+                when (group) {
+                    SessionToolGroup.WEB -> it.copy(webSearchEnabled = on)
+                    SessionToolGroup.TERMINAL -> it.copy(shellEnabled = on)
+                    else -> it.copy(disabledToolGroups = loaded.disabledIds(enabled).ifEmpty { null })
                 }
-            },
-        )
-
-        loadedCatalog == null -> AlertDialog(
-            onDismissRequest = onDismiss,
-            text = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.session_tools_loading))
-                }
-            },
-            confirmButton = {},
-        )
-
-        else -> SessionToolsDialog(
-            catalog = loadedCatalog,
-            onDismiss = onDismiss,
-            onSave = { disabledIds ->
-                val ownerId = conversationSettingsOwnerId(isNewChatMode, currentConversationId)
-                viewModel.updateConversationSetting(ownerId) {
-                    it.copy(disabledToolGroups = disabledIds.ifEmpty { null })
-                }
-                onDismiss()
-            },
-        )
-    }
+            }
+        },
+    )
 }

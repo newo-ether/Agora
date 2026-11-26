@@ -111,8 +111,10 @@ internal fun rememberMarkdownLinkOpener(): MarkdownLinkOpener {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val snackbar = LocalSnackbarMessage.current
-    val scope = rememberCoroutineScope()
+    val composition = rememberCoroutineScope()
     val media = LocalShellMarkdownMedia.current
+    // A download outlives the message row: scrolling it off screen must not cancel the transfer.
+    val scope = media?.scope ?: composition
     var mediaUri by remember { mutableStateOf<String?>(null) }
     val notify: (Int) -> Unit = { resId -> snackbar(context.getString(resId)) }
     val opener = remember(context, uriHandler, snackbar, scope, media) {

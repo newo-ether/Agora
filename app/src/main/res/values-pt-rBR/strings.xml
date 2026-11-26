@@ -972,16 +972,10 @@
             <string name="usage_chart_weekly">Tokens por semana</string>
             <string name="usage_by_model">Tokens por modelo</string>
         <string name="usage_other">Outros</string>
-    <string name="session_tools_subtitle">Afeta apenas as próximas solicitações desta conversa. Chamadas já feitas não mudam.</string>
-    <string name="session_tools_summary">%1$d de %2$d ativados · contexto fixo ≈ %3$d</string>
-    <string name="session_tools_sent_here">Enviado nesta sessão</string>
-    <string name="session_tools_not_sent">Não enviado</string>
     <string name="session_tools_group_meta">%1$d ferramentas · ≈ %2$d</string>
-    <string name="session_tools_enable_all">Ativar tudo</string>
     <string name="session_tools_off_switch">Desativado nesta sessão</string>
     <string name="session_tools_off_empty">Nenhuma ferramenta disponível</string>
     <string name="session_tools_off_low_context">Não é enviado no modo de contexto reduzido</string>
-    <string name="session_tools_loading">Lendo a lista de ferramentas…</string>
     <string name="session_tools_failed">Não foi possível ler a lista de ferramentas</string>
     <string name="session_tools_group_memory">Memória</string>
     <string name="session_tools_group_skills">Habilidades</string>

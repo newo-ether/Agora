@@ -969,16 +969,10 @@
             <string name="usage_chart_weekly">週別トークン</string>
             <string name="usage_by_model">モデル別トークン</string>
         <string name="usage_other">その他</string>
-    <string name="session_tools_subtitle">この会話の以降のリクエストにのみ影響します。実行済みの呼び出しは変わりません。</string>
-    <string name="session_tools_summary">有効 %1$d / %2$d · 固定コンテキスト約 %3$d</string>
-    <string name="session_tools_sent_here">このセッションで送信</string>
-    <string name="session_tools_not_sent">送信しない</string>
     <string name="session_tools_group_meta">%1$d 個のツール · 約 %2$d</string>
-    <string name="session_tools_enable_all">すべて有効化</string>
     <string name="session_tools_off_switch">このセッションではオフ</string>
     <string name="session_tools_off_empty">利用できるツールがありません</string>
     <string name="session_tools_off_low_context">低コンテキストモードでは送信されません</string>
-    <string name="session_tools_loading">ツール一覧を読み込み中…</string>
     <string name="session_tools_failed">ツール一覧を読み込めませんでした</string>
     <string name="session_tools_group_memory">メモリ</string>
     <string name="session_tools_group_skills">スキル</string>

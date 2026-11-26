@@ -975,16 +975,10 @@
             <string name="usage_chart_weekly">Token mỗi tuần</string>
             <string name="usage_by_model">Token theo mô hình</string>
         <string name="usage_other">Khác</string>
-    <string name="session_tools_subtitle">Chỉ ảnh hưởng đến các yêu cầu sau trong cuộc trò chuyện này. Các lệnh gọi đã chạy không thay đổi.</string>
-    <string name="session_tools_summary">Đã bật %1$d/%2$d · ngữ cảnh cố định khoảng %3$d</string>
-    <string name="session_tools_sent_here">Gửi trong phiên này</string>
-    <string name="session_tools_not_sent">Không gửi</string>
     <string name="session_tools_group_meta">%1$d công cụ · khoảng %2$d</string>
-    <string name="session_tools_enable_all">Bật tất cả</string>
     <string name="session_tools_off_switch">Tắt trong phiên này</string>
     <string name="session_tools_off_empty">Không có công cụ khả dụng</string>
     <string name="session_tools_off_low_context">Không được gửi trong chế độ ngữ cảnh thấp</string>
-    <string name="session_tools_loading">Đang đọc danh sách công cụ…</string>
     <string name="session_tools_failed">Không đọc được danh sách công cụ</string>
     <string name="session_tools_group_memory">Bộ nhớ</string>
     <string name="session_tools_group_skills">Kỹ năng</string>
