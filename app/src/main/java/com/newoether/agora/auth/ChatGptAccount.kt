@@ -33,6 +33,8 @@ internal data class ChatGptCredential(
     val clientId: String? = null,
     val subject: String? = null,
     val email: String? = null,
+    /** ChatGPT plan from the ID token's auth claim, e.g. "plus". */
+    val plan: String? = null,
     val idToken: String? = null,
     val accessToken: String? = null,
     val refreshToken: String? = null,
@@ -119,57 +121,104 @@ class ChatGptAccount internal constructor(
         }.onFailure { if (it is CancellationException) throw it }
     }
 
-    private suspend fun authorize(previous: ChatGptCredential): ChatGptCredential {
-        val registered = previous.clientId?.takeIf(String::isNotBlank)
+    /** One authorization request: its own state, nonce and PKCE verifier. */
+    private class Attempt(val clientId: String?) {
         val state = Pkce.randomToken()
         val nonce = Pkce.randomToken()
         val verifier = Pkce.randomToken(48)
+    }
+
+    private fun authorizeUrl(previous: ChatGptCredential, attempt: Attempt, redirectUri: String): String {
+        val registered = attempt.clientId
+        return "$ISSUER/api/accounts/authorize".toHttpUrl().newBuilder().apply {
+            addQueryParameter("client_id", registered ?: DYNAMIC_CLIENT)
+            if (registered == null) addQueryParameter("agent_name_hint", AGENT_NAME)
+            addQueryParameter("ext_agent_host_id", previous.hostId)
+            if (registered != null) previous.email?.let { addQueryParameter("login_hint", it) }
+            addQueryParameter("response_type", "code")
+            addQueryParameter("redirect_uri", redirectUri)
+            addQueryParameter("scope", SCOPE)
+            addQueryParameter("resource", RESOURCE)
+            addQueryParameter("state", attempt.state)
+            addQueryParameter("nonce", attempt.nonce)
+            addQueryParameter("code_challenge", Pkce.challenge(attempt.verifier))
+            addQueryParameter("code_challenge_method", "S256")
+        }.build().toString()
+    }
+
+    /**
+     * Browser flow on one loopback listener. When the code exchange returns invalid_grant the
+     * guide says to discard the code and authorize again with the issued client id, so the
+     * callback page redirects straight into a fresh attempt instead of failing.
+     */
+    private suspend fun authorize(previous: ChatGptCredential): ChatGptCredential {
         LoopbackCallbackServer.open(PREFERRED_PORT).use { server ->
             val redirectUri = "http://127.0.0.1:${server.port}$CALLBACK_PATH"
-            val url = "$ISSUER/api/accounts/authorize".toHttpUrl().newBuilder().apply {
-                addQueryParameter("client_id", registered ?: DYNAMIC_CLIENT)
-                if (registered == null) addQueryParameter("agent_name_hint", AGENT_NAME)
-                addQueryParameter("ext_agent_host_id", previous.hostId)
-                if (registered != null) previous.email?.let { addQueryParameter("login_hint", it) }
-                addQueryParameter("response_type", "code")
-                addQueryParameter("redirect_uri", redirectUri)
-                addQueryParameter("scope", SCOPE)
-                addQueryParameter("resource", RESOURCE)
-                addQueryParameter("state", state)
-                addQueryParameter("nonce", nonce)
-                addQueryParameter("code_challenge", Pkce.challenge(verifier))
-                addQueryParameter("code_challenge_method", "S256")
-            }.build().toString()
-            openInBrowser(appContext, url)
+            var attempt = Attempt(previous.clientId?.takeIf(String::isNotBlank))
+            openInBrowser(appContext, authorizeUrl(previous, attempt, redirectUri))
             return withTimeout(SIGN_IN_TIMEOUT_MS) {
-                server.await(CALLBACK_PATH) { params ->
-                    val outcome = runCatching {
-                        if (params["state"] != state) throw OAuthException("Sign-in state mismatch")
-                        params["error"]?.let { error ->
-                            throw OAuthException(
-                                if (error == "access_denied") "ChatGPT sign-in was cancelled"
-                                else params["error_description"] ?: error,
-                            )
+                var restarts = 0
+                var signedIn: ChatGptCredential? = null
+                while (signedIn == null) {
+                    val current = attempt
+                    val outcome = server.await<Result<ChatGptCredential>?>(CALLBACK_PATH) { params ->
+                        val result = runCatching {
+                            callback(previous, current, params, redirectUri)
                         }
-                        val code = params["code"]?.takeIf(String::isNotBlank)
-                            ?: throw OAuthException("Callback has no authorization code")
-                        val issued = params["client_id"]?.takeIf(String::isNotBlank)
-                        val clientId = when {
-                            registered == null -> issued?.takeIf { it != DYNAMIC_CLIENT }
-                                ?: throw OAuthException("Registration did not return a client id")
-                            issued != null && issued != registered ->
-                                throw OAuthException("Callback returned a different client id")
-                            else -> registered
+                        val failure = result.exceptionOrNull()
+                        if (failure is InvalidGrantException && restarts < MAX_RESTARTS) {
+                            restarts++
+                            DebugLog.w(TAG, "code exchange invalid_grant; restarting authorization ($restarts)")
+                            val next = Attempt(failure.clientId)
+                            attempt = next
+                            return@await null to CallbackReply.Redirect(authorizeUrl(previous, next, redirectUri))
                         }
-                        exchange(previous, clientId, code, verifier, redirectUri, nonce, params["scope"])
+                        val reply = result.fold(
+                            onSuccess = { CallbackReply.Page("Signed in", "You can return to Agora now.") },
+                            onFailure = { CallbackReply.Page("Sign-in failed", it.message ?: "Unknown error") },
+                        )
+                        result to reply
                     }
-                    val reply = outcome.fold(
-                        onSuccess = { CallbackReply.Page("Signed in", "You can return to Agora now.") },
-                        onFailure = { CallbackReply.Page("Sign-in failed", it.message ?: "Unknown error") },
-                    )
-                    outcome to reply
-                }.getOrThrow()
+                    if (outcome != null) signedIn = outcome.getOrThrow()
+                }
+                checkNotNull(signedIn)
             }
+        }
+    }
+
+    private class InvalidGrantException(val clientId: String, message: String) : OAuthException(message)
+
+    private suspend fun callback(
+        previous: ChatGptCredential,
+        attempt: Attempt,
+        params: Map<String, String>,
+        redirectUri: String,
+    ): ChatGptCredential {
+        if (params["state"] != attempt.state) throw OAuthException("Sign-in state mismatch")
+        params["error"]?.let { error ->
+            DebugLog.w(TAG, "authorize error: $error")
+            throw OAuthException(
+                if (error == "access_denied") "ChatGPT sign-in was cancelled"
+                else params["error_description"] ?: error,
+            )
+        }
+        val code = params["code"]?.takeIf(String::isNotBlank)
+            ?: throw OAuthException("Callback has no authorization code")
+        val registered = attempt.clientId
+        val issued = params["client_id"]?.takeIf(String::isNotBlank)
+        val clientId = when {
+            registered == null -> issued?.takeIf { it != DYNAMIC_CLIENT }
+                ?: throw OAuthException("Registration did not return a client id")
+            issued != null && issued != registered ->
+                throw OAuthException("Callback returned a different client id")
+            else -> registered
+        }
+        return try {
+            exchange(previous, clientId, code, attempt.verifier, redirectUri, attempt.nonce, params["scope"])
+        } catch (error: SessionEndedException) {
+            // For an authorization code, a rejected grant only means this code is spent.
+            if (error.code == "invalid_grant") throw InvalidGrantException(clientId, error.message ?: "invalid_grant")
+            throw OAuthException(error.message ?: "Sign-in failed")
         }
     }
 
@@ -204,6 +253,7 @@ class ChatGptAccount internal constructor(
             clientId = clientId,
             subject = identity.subject,
             email = identity.email,
+            plan = identity.plan,
             idToken = idToken,
         ).withTokens(tokens, scopes)
     }
@@ -244,15 +294,17 @@ class ChatGptAccount internal constructor(
         )
     }
 
-    private class SessionEndedException(message: String) : OAuthException(message)
+    private class SessionEndedException(val code: String?, message: String) : OAuthException(message)
 
     private suspend fun tokenRequest(body: FormBody): JsonObject {
-        val (code, text) = executeForText(Request.Builder().url("$ISSUER/api/accounts/oauth/token").post(body).build())
+        val request = Request.Builder().url("$ISSUER/api/accounts/oauth/token").post(body).build()
+        val (code, text) = executeForText(request, replayable = false)
         val parsed = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
         if (code in 200..299) return parsed ?: throw OAuthException("Unreadable token response")
         val error = parsed?.string("error") ?: parsed?.get("error")?.let { (it as? JsonObject)?.string("code") }
+        DebugLog.w(TAG, "token endpoint HTTP $code error=${error ?: "-"} grant=${body.grantType()}")
         val description = parsed?.string("error_description") ?: error ?: "HTTP $code"
-        if (error in SESSION_ENDED_ERRORS || code == 401) throw SessionEndedException(description)
+        if (error in SESSION_ENDED_ERRORS || code == 401) throw SessionEndedException(error, description)
         throw OAuthException(description)
     }
 
@@ -265,8 +317,17 @@ class ChatGptAccount internal constructor(
         record = next
     }
 
-    private fun stateOf(credential: ChatGptCredential) =
-        OAuthAccountState(signedIn = credential.signedIn, account = credential.email.takeIf { credential.signedIn })
+    private fun FormBody.grantType(): String =
+        (0 until size).firstOrNull { name(it) == "grant_type" }?.let { value(it) } ?: "-"
+
+    private fun stateOf(credential: ChatGptCredential) = OAuthAccountState(
+        signedIn = credential.signedIn,
+        account = credential.email.takeIf { credential.signedIn },
+        details = listOfNotNull(
+            credential.plan?.takeIf { credential.signedIn && it.isNotBlank() }
+                ?.let { AccountDetail(AccountDetail.Kind.PLAN, it.replaceFirstChar(Char::titlecase)) },
+        ),
+    )
 
     private companion object {
         const val TAG = "ChatGptAccount"
@@ -281,6 +342,7 @@ class ChatGptAccount internal constructor(
         const val REFRESH_MARGIN_MS = 2 * 60 * 1000L
         const val RECENT_REFRESH_MS = 10_000L
         const val SIGN_IN_TIMEOUT_MS = 10 * 60 * 1000L
+        const val MAX_RESTARTS = 2
         val SESSION_ENDED_ERRORS = setOf(
             "invalid_grant",
             "refresh_token_expired",

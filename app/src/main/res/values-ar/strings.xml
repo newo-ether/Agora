@@ -830,6 +830,10 @@
     <string name="provider_account">الحساب</string>
     <string name="provider_account_signed_in">تم تسجيل الدخول</string>
     <string name="provider_account_signed_out">لم يتم تسجيل الدخول</string>
+    <string name="provider_account_info">معلومات الحساب</string>
+    <string name="provider_account_plan">الخطة</string>
+    <string name="provider_account_balance">الرصيد المشحون</string>
+    <string name="provider_account_bonus_balance">الرصيد الممنوح</string>
     <string name="provider_account_waiting">بانتظار المتصفح…</string>
     <string name="provider_account_desc">سجّل الدخول بحسابك في المتصفح. لا حاجة إلى مفتاح API.</string>
     <string name="provider_account_sign_in">تسجيل الدخول</string>

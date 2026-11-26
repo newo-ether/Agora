@@ -833,6 +833,10 @@
     <string name="provider_account">帳號</string>
     <string name="provider_account_signed_in">已登入</string>
     <string name="provider_account_signed_out">未登入</string>
+    <string name="provider_account_info">帳號資訊</string>
+    <string name="provider_account_plan">方案</string>
+    <string name="provider_account_balance">儲值餘額</string>
+    <string name="provider_account_bonus_balance">贈金餘額</string>
     <string name="provider_account_waiting">正在等待瀏覽器…</string>
     <string name="provider_account_desc">在瀏覽器中登入帳號，無需 API Key。</string>
     <string name="provider_account_sign_in">登入</string>

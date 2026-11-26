@@ -54,6 +54,10 @@ class DeepSeekAccount internal constructor(
     @Volatile
     private var record: DeepSeekCredential = load()
 
+    /** Last wallet read for the current token; memory only, re-read when the page opens. */
+    @Volatile
+    private var details: List<AccountDetail> = emptyList()
+
     private val _state = MutableStateFlow(stateOf(record))
     override val state: StateFlow<OAuthAccountState> = _state.asStateFlow()
 
@@ -63,6 +67,7 @@ class DeepSeekAccount internal constructor(
 
     override suspend fun onUnauthorized(): Boolean {
         if (signedIn) {
+            details = emptyList()
             save(record.copy(token = null, account = null))
             _state.value = stateOf(record).copy(error = "DeepSeek session ended; sign in again")
         }
@@ -88,6 +93,7 @@ class DeepSeekAccount internal constructor(
     /** Ends the platform session, then forgets the token even when the server is unreachable. */
     override suspend fun signOut() {
         val token = record.token
+        details = emptyList()
         save(record.copy(token = null, account = null))
         _state.value = stateOf(record)
         if (token.isNullOrBlank()) return
@@ -99,6 +105,64 @@ class DeepSeekAccount internal constructor(
                 .build()
             executeForText(request)
         }.onFailure { if (it is CancellationException) throw it }
+    }
+
+    /** Reads recharge and granted wallets the way DSH's account page does (get_user_summary). */
+    override suspend fun refreshDetails() {
+        val token = record.token?.takeIf(String::isNotBlank) ?: return
+        val request = Request.Builder().url("$ORIGIN/api/v0/users/get_user_summary")
+            .headers(clientHeaders())
+            .header(TOKEN_HEADER, token)
+            .get()
+            .build()
+        val summary = try {
+            val (code, text) = executeForText(request)
+            if (code == 401) {
+                if (record.token == token) onUnauthorized()
+                return
+            }
+            val root = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
+            val rootCode = (root?.get("code") as? JsonPrimitive)?.intOrNull
+            if (rootCode == UNAUTHORIZED_CODE) {
+                if (record.token == token) onUnauthorized()
+                return
+            }
+            val data = root?.get("data") as? JsonObject
+            if (code !in 200..299 || rootCode != 0 || (data?.get("biz_code") as? JsonPrimitive)?.intOrNull != 0) {
+                DebugLog.w(TAG, "balance query failed: HTTP $code code=$rootCode")
+                return
+            }
+            data?.get("biz_data") as? JsonObject ?: return
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            DebugLog.w(TAG, "balance query failed: ${error.javaClass.simpleName}")
+            return
+        }
+        val next = listOfNotNull(
+            walletText(summary["normal_wallets"])?.let { AccountDetail(AccountDetail.Kind.BALANCE, it) },
+            walletText(summary["bonus_wallets"])?.let { AccountDetail(AccountDetail.Kind.BONUS_BALANCE, it) },
+        )
+        if (record.token != token) return
+        details = next
+        _state.update { it.copy(details = next) }
+    }
+
+    /** Sums wallets per currency, e.g. "¥12.30 · $1.00"; null when the field is malformed. */
+    private fun walletText(element: JsonElement?): String? {
+        val wallets = (element as? kotlinx.serialization.json.JsonArray) ?: return null
+        val sums = linkedMapOf<String, java.math.BigDecimal>()
+        for (wallet in wallets) {
+            val obj = wallet as? JsonObject ?: return null
+            val currency = obj.string("currency") ?: return null
+            val amount = obj.string("balance")?.toBigDecimalOrNull() ?: return null
+            sums[currency] = (sums[currency] ?: java.math.BigDecimal.ZERO) + amount
+        }
+        if (sums.isEmpty()) return "¥0.00"
+        return sums.entries.joinToString(" · ") { (currency, amount) ->
+            val symbol = when (currency) { "CNY" -> "¥"; "USD" -> "$"; else -> "$currency " }
+            symbol + amount.setScale(2, java.math.RoundingMode.DOWN).toPlainString()
+        }
     }
 
     private suspend fun authorize() {
@@ -225,6 +289,7 @@ class DeepSeekAccount internal constructor(
     private fun stateOf(credential: DeepSeekCredential) = OAuthAccountState(
         signedIn = !credential.token.isNullOrBlank(),
         account = credential.account.takeIf { !credential.token.isNullOrBlank() },
+        details = details.takeIf { !credential.token.isNullOrBlank() }.orEmpty(),
     )
 
     private companion object {
@@ -232,6 +297,7 @@ class DeepSeekAccount internal constructor(
         const val HOST = "platform.deepseek.com"
         const val ORIGIN = "https://$HOST"
         const val TOKEN_HEADER = "x-dsh-auth-token"
+        const val UNAUTHORIZED_CODE = 40003
         const val PREFERRED_PORT = 1456
         const val CALLBACK_PATH = "/oauth/callback"
         val TOKEN_PATTERN = Regex("^[\\x21-\\x7e]+$")

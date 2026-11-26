@@ -836,6 +836,10 @@
     <string name="provider_account">Tài khoản</string>
     <string name="provider_account_signed_in">Đã đăng nhập</string>
     <string name="provider_account_signed_out">Chưa đăng nhập</string>
+    <string name="provider_account_info">Thông tin tài khoản</string>
+    <string name="provider_account_plan">Gói</string>
+    <string name="provider_account_balance">Số dư đã nạp</string>
+    <string name="provider_account_bonus_balance">Số dư được tặng</string>
     <string name="provider_account_waiting">Đang chờ trình duyệt…</string>
     <string name="provider_account_desc">Đăng nhập bằng tài khoản của bạn trong trình duyệt. Không cần khóa API.</string>
     <string name="provider_account_sign_in">Đăng nhập</string>

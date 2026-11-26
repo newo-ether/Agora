@@ -11,13 +11,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.CardGiftcard
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.auth.AccountDetail
 import com.newoether.agora.auth.OAuthAccount
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 
@@ -34,6 +39,10 @@ internal fun ProviderAccountSettings(
     onCancel: () -> Unit,
 ) {
     val state by account.state.collectAsState()
+    // Balance and plan are read each time the page opens or the account signs in.
+    LaunchedEffect(account, state.signedIn) {
+        if (state.signedIn) account.refreshDetails()
+    }
     SettingsGroup(
         title = stringResource(R.string.provider_account),
         items = listOf {
@@ -80,4 +89,33 @@ internal fun ProviderAccountSettings(
             )
         },
     )
+    val details = state.details.takeIf { state.signedIn }.orEmpty()
+    if (details.isNotEmpty()) {
+        SettingsGroup(
+            title = stringResource(R.string.provider_account_info),
+            items = details.map<AccountDetail, @Composable () -> Unit> { detail ->
+                {
+                    SettingsItem(
+                        headlineContent = { Text(detail.value) },
+                        supportingContent = { Text(stringResource(detail.kind.label())) },
+                        leadingContent = {
+                            Icon(detail.kind.icon(), null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                    )
+                }
+            },
+        )
+    }
+}
+
+private fun AccountDetail.Kind.label(): Int = when (this) {
+    AccountDetail.Kind.PLAN -> R.string.provider_account_plan
+    AccountDetail.Kind.BALANCE -> R.string.provider_account_balance
+    AccountDetail.Kind.BONUS_BALANCE -> R.string.provider_account_bonus_balance
+}
+
+private fun AccountDetail.Kind.icon() = when (this) {
+    AccountDetail.Kind.PLAN -> Icons.Rounded.WorkspacePremium
+    AccountDetail.Kind.BALANCE -> Icons.Rounded.AccountBalanceWallet
+    AccountDetail.Kind.BONUS_BALANCE -> Icons.Rounded.CardGiftcard
 }

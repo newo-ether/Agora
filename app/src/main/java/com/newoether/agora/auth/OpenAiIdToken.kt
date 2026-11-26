@@ -44,7 +44,7 @@ internal object OpenAiOidc {
 }
 
 /** Verified identity from a SIWC ID token. */
-internal data class OpenAiIdentity(val subject: String, val email: String?)
+internal data class OpenAiIdentity(val subject: String, val email: String?, val plan: String? = null)
 
 /**
  * Checks an ID token the way the SIWC guide requires: RS256 signature against OpenAI's JWKS, then
@@ -79,7 +79,8 @@ internal object OpenAiIdToken {
         if (payload.string("nonce") != nonce) throw OAuthException("ID token nonce mismatch")
         val subject = payload.string("sub")?.takeIf(String::isNotBlank)
             ?: throw OAuthException("ID token has no subject")
-        return OpenAiIdentity(subject, payload.string("email"))
+        val plan = (payload[AUTH_CLAIM] as? JsonObject)?.string("chatgpt_plan_type")
+        return OpenAiIdentity(subject, payload.string("email"), plan)
     }
 
     private fun verifyWith(keys: JsonArray, kid: String?, signed: ByteArray, signature: ByteArray): Boolean =
@@ -103,6 +104,7 @@ internal object OpenAiIdToken {
     }.getOrElse { throw OAuthException("Malformed ID token") }
 
     private const val CLOCK_SKEW_MS = 5 * 60 * 1000L
+    private const val AUTH_CLAIM = "https://api.openai.com/auth"
 }
 
 internal fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull

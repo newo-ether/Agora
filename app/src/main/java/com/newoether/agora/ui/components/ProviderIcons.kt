@@ -8,7 +8,7 @@ import com.newoether.agora.R
  */
 fun providerIcon(name: String): Int = when (name.lowercase()) {
     "google" -> R.drawable.provider_google
-    "openai", "chatgpt" -> R.drawable.provider_openai
+    "openai", "chatgpt account" -> R.drawable.provider_openai
     "anthropic" -> R.drawable.provider_anthropic
     "deepseek", "deepseek account" -> R.drawable.provider_deepseek
     "qwen" -> R.drawable.provider_qwen

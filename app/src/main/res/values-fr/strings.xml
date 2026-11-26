@@ -830,6 +830,10 @@
     <string name="provider_account">Compte</string>
     <string name="provider_account_signed_in">Connecté</string>
     <string name="provider_account_signed_out">Non connecté</string>
+    <string name="provider_account_info">Informations du compte</string>
+    <string name="provider_account_plan">Forfait</string>
+    <string name="provider_account_balance">Solde rechargé</string>
+    <string name="provider_account_bonus_balance">Solde accordé</string>
     <string name="provider_account_waiting">En attente du navigateur…</string>
     <string name="provider_account_desc">Connectez-vous avec votre compte dans le navigateur. Aucune clé API nécessaire.</string>
     <string name="provider_account_sign_in">Se connecter</string>

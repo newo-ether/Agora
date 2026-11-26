@@ -830,6 +830,10 @@
     <string name="provider_account">Аккаунт</string>
     <string name="provider_account_signed_in">Вход выполнен</string>
     <string name="provider_account_signed_out">Вход не выполнен</string>
+    <string name="provider_account_info">Сведения об аккаунте</string>
+    <string name="provider_account_plan">Тариф</string>
+    <string name="provider_account_balance">Пополненный баланс</string>
+    <string name="provider_account_bonus_balance">Бонусный баланс</string>
     <string name="provider_account_waiting">Ожидание браузера…</string>
     <string name="provider_account_desc">Войдите в аккаунт через браузер. Ключ API не нужен.</string>
     <string name="provider_account_sign_in">Войти</string>

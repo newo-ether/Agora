@@ -830,6 +830,10 @@
     <string name="provider_account">Konto</string>
     <string name="provider_account_signed_in">Angemeldet</string>
     <string name="provider_account_signed_out">Nicht angemeldet</string>
+    <string name="provider_account_info">Kontoinformationen</string>
+    <string name="provider_account_plan">Tarif</string>
+    <string name="provider_account_balance">Aufgeladenes Guthaben</string>
+    <string name="provider_account_bonus_balance">Bonusguthaben</string>
     <string name="provider_account_waiting">Warte auf den Browser…</string>
     <string name="provider_account_desc">Melde dich im Browser mit deinem Konto an. Kein API-Schlüssel nötig.</string>
     <string name="provider_account_sign_in">Anmelden</string>

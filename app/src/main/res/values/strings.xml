@@ -548,6 +548,10 @@
     <string name="provider_account">Account</string>
     <string name="provider_account_signed_in">Signed in</string>
     <string name="provider_account_signed_out">Not signed in</string>
+    <string name="provider_account_info">Account info</string>
+    <string name="provider_account_plan">Plan</string>
+    <string name="provider_account_balance">Topped-up balance</string>
+    <string name="provider_account_bonus_balance">Granted balance</string>
     <string name="provider_account_waiting">Waiting for the browser…</string>
     <string name="provider_account_desc">Sign in with your account in the browser. No API key needed.</string>
     <string name="provider_account_sign_in">Sign in</string>

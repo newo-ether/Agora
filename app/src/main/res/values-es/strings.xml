@@ -830,6 +830,10 @@
     <string name="provider_account">Cuenta</string>
     <string name="provider_account_signed_in">Sesión iniciada</string>
     <string name="provider_account_signed_out">Sin iniciar sesión</string>
+    <string name="provider_account_info">Información de la cuenta</string>
+    <string name="provider_account_plan">Plan</string>
+    <string name="provider_account_balance">Saldo recargado</string>
+    <string name="provider_account_bonus_balance">Saldo concedido</string>
     <string name="provider_account_waiting">Esperando al navegador…</string>
     <string name="provider_account_desc">Inicia sesión con tu cuenta en el navegador. No se necesita clave de API.</string>
     <string name="provider_account_sign_in">Iniciar sesión</string>

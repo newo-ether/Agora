@@ -148,6 +148,19 @@ internal fun providerStatus(
     baseUrls: Map<String, String>,
 ): ProviderStatus {
     val notConfigured = stringResource(R.string.not_configured)
+    // Account Providers have no keys: signed in is configured, and the account names the summary.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val account = androidx.compose.runtime.remember(name) {
+        (context.applicationContext as com.newoether.agora.AgoraApplication).requireContainer().oauthAccount(name)
+    }
+    if (account != null) {
+        val state by account.state.collectAsState()
+        return if (state.signedIn) {
+            ProviderStatus(true, state.account ?: stringResource(R.string.provider_account_signed_in))
+        } else {
+            ProviderStatus(false, stringResource(R.string.provider_account_signed_out))
+        }
+    }
     if (isUrlConfigured || name == Constants.PROVIDER_OLLAMA) {
         val url = baseUrls[name]?.takeIf(String::isNotBlank)
         return ProviderStatus(url != null, url ?: notConfigured)

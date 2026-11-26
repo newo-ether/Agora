@@ -830,6 +830,10 @@
     <string name="provider_account">계정</string>
     <string name="provider_account_signed_in">로그인됨</string>
     <string name="provider_account_signed_out">로그인 안 됨</string>
+    <string name="provider_account_info">계정 정보</string>
+    <string name="provider_account_plan">요금제</string>
+    <string name="provider_account_balance">충전 잔액</string>
+    <string name="provider_account_bonus_balance">지급 잔액</string>
     <string name="provider_account_waiting">브라우저를 기다리는 중…</string>
     <string name="provider_account_desc">브라우저에서 계정으로 로그인합니다. API 키가 필요 없습니다.</string>
     <string name="provider_account_sign_in">로그인</string>

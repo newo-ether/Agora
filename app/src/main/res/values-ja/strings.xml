@@ -830,6 +830,10 @@
     <string name="provider_account">アカウント</string>
     <string name="provider_account_signed_in">ログイン済み</string>
     <string name="provider_account_signed_out">未ログイン</string>
+    <string name="provider_account_info">アカウント情報</string>
+    <string name="provider_account_plan">プラン</string>
+    <string name="provider_account_balance">チャージ残高</string>
+    <string name="provider_account_bonus_balance">付与残高</string>
     <string name="provider_account_waiting">ブラウザを待っています…</string>
     <string name="provider_account_desc">ブラウザでアカウントにログインします。API キーは不要です。</string>
     <string name="provider_account_sign_in">ログイン</string>

@@ -37,13 +37,23 @@ data class OAuthAccountState(
     val account: String? = null,
     val busy: Boolean = false,
     val error: String? = null,
+    /** Account facts shown under the sign-in row; empty until known. */
+    val details: List<AccountDetail> = emptyList(),
 )
+
+/** One labelled account fact; the settings page localizes [kind]. */
+data class AccountDetail(val kind: Kind, val value: String) {
+    enum class Kind { PLAN, BALANCE, BONUS_BALANCE }
+}
 
 /** A browser sign-in account as the settings page sees it. */
 interface OAuthAccount {
     val state: kotlinx.coroutines.flow.StateFlow<OAuthAccountState>
     suspend fun signIn()
     suspend fun signOut()
+
+    /** Re-reads server-side account facts such as balance; failures keep the last values. */
+    suspend fun refreshDetails() {}
 }
 
 internal object Pkce {
@@ -195,9 +205,15 @@ internal fun openInBrowser(context: Context, url: String) {
     context.startActivity(intent)
 }
 
-/** Executes [request] on the shared client; returns status and body. Cancelling aborts the call. */
-internal suspend fun executeForText(request: Request): Pair<Int, String> = suspendCancellableCoroutine { cont ->
-    val call = HttpClient.client.newCall(request)
+/** Shared client that never replays a request; a resent code exchange burns the one-time code. */
+private val noRetryClient by lazy { HttpClient.client.newBuilder().retryOnConnectionFailure(false).build() }
+
+/**
+ * Executes [request]; returns status and body. Cancelling aborts the call. One-time grants
+ * (authorization codes, rotating refresh tokens) must pass [replayable] = false.
+ */
+internal suspend fun executeForText(request: Request, replayable: Boolean = true): Pair<Int, String> = suspendCancellableCoroutine { cont ->
+    val call = (if (replayable) HttpClient.client else noRetryClient).newCall(request)
     cont.invokeOnCancellation { call.cancel() }
     call.enqueue(object : Callback {
         override fun onFailure(call: Call, e: IOException) {
