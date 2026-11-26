@@ -52,6 +52,13 @@ interface OAuthAccount {
     suspend fun signIn()
     suspend fun signOut()
 
+    /**
+     * Facts this provider reports. The page lists every kind even before a value arrives, so the
+     * group keeps its place instead of appearing after the first refresh.
+     */
+    val detailKinds: List<AccountDetail.Kind>
+        get() = emptyList()
+
     /** Re-reads server-side account facts such as balance; failures keep the last values. */
     suspend fun refreshDetails() {}
 }

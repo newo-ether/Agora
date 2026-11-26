@@ -61,6 +61,11 @@ class DeepSeekAccount internal constructor(
     private val _state = MutableStateFlow(stateOf(record))
     override val state: StateFlow<OAuthAccountState> = _state.asStateFlow()
 
+    override val detailKinds: List<AccountDetail.Kind> = listOf(
+        AccountDetail.Kind.BALANCE,
+        AccountDetail.Kind.BONUS_BALANCE,
+    )
+
     override val signedIn: Boolean get() = !record.token.isNullOrBlank()
 
     override suspend fun accessToken(): String? = record.token?.takeIf(String::isNotBlank)

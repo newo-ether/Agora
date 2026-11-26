@@ -68,6 +68,8 @@ class ChatGptAccount internal constructor(
     private val _state = MutableStateFlow(stateOf(record))
     override val state: StateFlow<OAuthAccountState> = _state.asStateFlow()
 
+    override val detailKinds: List<AccountDetail.Kind> = listOf(AccountDetail.Kind.PLAN)
+
     override val signedIn: Boolean get() = record.signedIn
 
     override suspend fun accessToken(): String? = mutex.withLock {

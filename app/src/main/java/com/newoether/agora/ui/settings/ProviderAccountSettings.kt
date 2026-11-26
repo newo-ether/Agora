@@ -6,20 +6,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.CardGiftcard
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.CardGiftcard
-import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.auth.AccountDetail
@@ -40,8 +45,15 @@ internal fun ProviderAccountSettings(
 ) {
     val state by account.state.collectAsState()
     // Balance and plan are read each time the page opens or the account signs in.
+    var detailsRefreshing by remember(account) { mutableStateOf(false) }
     LaunchedEffect(account, state.signedIn) {
-        if (state.signedIn) account.refreshDetails()
+        if (!state.signedIn) return@LaunchedEffect
+        detailsRefreshing = true
+        try {
+            account.refreshDetails()
+        } finally {
+            detailsRefreshing = false
+        }
     }
     SettingsGroup(
         title = stringResource(R.string.provider_account),
@@ -89,17 +101,32 @@ internal fun ProviderAccountSettings(
             )
         },
     )
-    val details = state.details.takeIf { state.signedIn }.orEmpty()
-    if (details.isNotEmpty()) {
+    // The group stays put once signed in. A value that has not arrived yet renders as the same
+    // solid capsule with the sweeping gradient the Storage page uses, instead of the group
+    // appearing only after the first refresh returns.
+    val kinds = account.detailKinds
+    if (state.signedIn && kinds.isNotEmpty()) {
         SettingsGroup(
             title = stringResource(R.string.provider_account_info),
-            items = details.map<AccountDetail, @Composable () -> Unit> { detail ->
+            items = kinds.map<AccountDetail.Kind, @Composable () -> Unit> { kind ->
                 {
+                    val value = state.details.firstOrNull { it.kind == kind }?.value
                     SettingsItem(
-                        headlineContent = { Text(detail.value) },
-                        supportingContent = { Text(stringResource(detail.kind.label())) },
+                        headlineContent = {
+                            StatsLoadingValue(
+                                loading = detailsRefreshing && value == null,
+                                placeholderWidth = 88.dp,
+                                placeholderHeight = 20.dp,
+                                text = value ?: "—",
+                                alignment = Alignment.CenterStart,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        },
+                        supportingContent = { Text(stringResource(kind.label())) },
                         leadingContent = {
-                            Icon(detail.kind.icon(), null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(kind.icon(), null, tint = MaterialTheme.colorScheme.primary)
                         },
                     )
                 }
