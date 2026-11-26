@@ -16,6 +16,8 @@ internal data class SpeechCloudPreset(
     val savedKeyProvider: String? = null,
     val keyRequired: Boolean = true,
     val custom: Boolean = false,
+    /** Default config name when the model id is only a label and makes a poor name. */
+    val configName: String? = null,
 )
 
 internal object SpeechCloudPresets {
@@ -78,6 +80,7 @@ internal object SpeechCloudPresets {
             // The endpoint takes no model field; the name only labels the config.
             models = listOf("deepseek-asr"),
             savedKeyProvider = "DeepSeek",
+            configName = "DeepSeek ASR",
         ),
         SpeechCloudPreset(
             id = "elevenlabs",

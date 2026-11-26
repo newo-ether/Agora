@@ -113,7 +113,7 @@ internal fun SpeechRecognitionEditor(
     val effectiveKey = if (usingSavedKey) savedKey!! else draft.apiKey.trim()
     val systemName = stringResource(R.string.speech_type_system)
     val defaultName = when {
-        isCloud -> draft.model.trim().ifBlank { preset.displayName }
+        isCloud -> preset.configName ?: draft.model.trim().ifBlank { preset.displayName }
         localModel != null -> localModel.displayName
         else -> systemName
     }
