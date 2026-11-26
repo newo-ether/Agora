@@ -26,6 +26,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextIndent
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -341,7 +344,13 @@ private fun CodeEditorText(content: String, autoWrap: Boolean) {
                 }
             }
             else -> {
-                // A huge file keeps its numbering without one composable pair per line.
+                // A huge file keeps its numbering without one composable pair per line. A hanging
+                // indent as wide as the number column keeps wrapped rows out of the gutter.
+                val measurer = rememberTextMeasurer()
+                val density = LocalDensity.current
+                val hanging = remember(style, digits, density) {
+                    with(density) { measurer.measure("0".repeat(digits + 2), style).size.width.toSp() }
+                }
                 val numbered = remember(lines, gutterColor, digits) {
                     buildAnnotatedString {
                         lines.forEachIndexed { index, line ->
@@ -361,7 +370,11 @@ private fun CodeEditorText(content: String, autoWrap: Boolean) {
                         .verticalScroll(rememberScrollState())
                         .padding(start = 12.dp, end = 20.dp, top = 96.dp, bottom = 56.dp)
                 ) {
-                    Text(text = numbered, style = style, color = textColor)
+                    Text(
+                        text = numbered,
+                        style = style.copy(textIndent = TextIndent(firstLine = 0.sp, restLine = hanging)),
+                        color = textColor,
+                    )
                 }
             }
         }

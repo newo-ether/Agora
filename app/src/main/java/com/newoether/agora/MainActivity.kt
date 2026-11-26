@@ -407,16 +407,17 @@ fun MainNavigation(
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
     val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
     val pdfPages by viewModel.mediaPreview.pdfPages.collectAsState()
+    val textPreviewOpen = viewModel.mediaPreview.fileContent.collectAsState().value != null
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarVersionState = remember { mutableIntStateOf(0) }
     var snackbarVersion by snackbarVersionState
     val accessibilityManager = LocalAccessibilityManager.current
     var chatSnackbarOffset by remember { mutableStateOf(0.dp) }
     val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    // Full-screen media viewer, Settings, Tasks and Remote sit at the bottom (nav-bar inset only),
-    // like the Settings pages; in chat the snackbar floats above the bottom bar. The
+    // Full-screen media and text viewers, Settings, Tasks and Remote sit at the bottom (nav-bar
+    // inset only), like the Settings pages; in chat the snackbar floats above the bottom bar. The
     // animateDpAsState below turns the change into a rise/fall animation.
-    val targetSnackbarPadding = if (showSettings || mediaPreviewTarget != null || showTasks || showRemote) {
+    val targetSnackbarPadding = if (showSettings || mediaPreviewTarget != null || textPreviewOpen || showTasks || showRemote) {
         navBarPadding
     } else {
         chatSnackbarOffset

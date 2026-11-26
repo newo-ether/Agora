@@ -11,6 +11,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.ripple
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -220,9 +223,12 @@ fun AttachmentThumbnailItem(
         "file" -> {
             val canOpen = handlers.onFileClick != null &&
                 (textContent != null || originalUri != null)
+            // The whole tile, name included, is the touch target, but the ripple stays on the
+            // rounded icon so it never clips the file name.
+            val interaction = remember { MutableInteractionSource() }
             val clickMod = if (canOpen) {
                 Modifier
-                    .clickable {
+                    .clickable(interactionSource = interaction, indication = null) {
                         scope.launch {
                             val content = textContent ?: originalUri?.let {
                                 readFileContent(
@@ -240,7 +246,12 @@ fun AttachmentThumbnailItem(
                 Modifier
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(72.dp).then(clickMod)) {
-                FileThumbnail(fileName = fileName, isPdf = false, modifier = Modifier.size(64.dp), shape = shape)
+                FileThumbnail(
+                    fileName = fileName,
+                    isPdf = false,
+                    modifier = Modifier.size(64.dp).clip(shape).indication(interaction, ripple()),
+                    shape = shape,
+                )
                 if (showFileName && fileName != null) {
                     Text(fileName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                 }
