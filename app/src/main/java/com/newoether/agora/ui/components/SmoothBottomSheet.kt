@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,6 +44,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -100,6 +104,17 @@ internal class SmoothBottomSheetState internal constructor() {
 @Composable
 internal fun rememberSmoothBottomSheetState(): SmoothBottomSheetState =
     remember { SmoothBottomSheetState() }
+
+/**
+ * Bottom padding for a sheet's scrolling content. Every sheet scrolls under the transparent
+ * navigation bar and only pads its last item clear of it, so no sheet shows a plain band there.
+ * Apply it inside the scroll (content padding), never as a modifier outside it.
+ */
+@Composable
+internal fun smoothSheetBottomPadding(extra: Dp = SMOOTH_SHEET_CONTENT_BOTTOM): Dp =
+    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + extra
+
+internal val SMOOTH_SHEET_CONTENT_BOTTOM = 32.dp
 
 /**
  * Agora's interruptible spring sheet shell.

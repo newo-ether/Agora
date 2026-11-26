@@ -953,21 +953,11 @@
             <string name="usage_chart_weekly">Tokens per Week</string>
             <string name="usage_by_model">Tokens per Model</string>
         <string name="usage_other">Other</string>
-    <string name="session_tools_group_meta">%1$d tools · ≈ %2$d</string>
+    <string name="session_tools_header">%1$d / %2$d (%3$d tokens)</string>
+    <string name="session_tools_group_meta">%1$d tools (%2$d tokens)</string>
+    <string name="session_tools_tokens">%1$d tokens</string>
     <string name="session_tools_off_switch">Off for this session</string>
     <string name="session_tools_off_empty">No tools available</string>
     <string name="session_tools_off_low_context">Not sent in Low Context Mode</string>
     <string name="session_tools_failed">Could not read the tool list</string>
-    <string name="session_tools_group_memory">Memory</string>
-    <string name="session_tools_group_skills">Skills</string>
-    <string name="session_tools_group_history">Past conversations</string>
-    <string name="session_tools_group_web">Web</string>
-    <string name="session_tools_group_terminal">Terminal and files</string>
-    <string name="session_tools_group_image">Image generation</string>
-    <string name="session_tools_group_todo">To-do</string>
-    <string name="session_tools_group_phone">Phone</string>
-    <string name="session_tools_group_subagent">Subagents</string>
-    <string name="session_tools_group_automation">Automation</string>
-    <string name="session_tools_group_ask_user">Ask user</string>
-    <string name="session_tools_group_mcp">MCP</string>
 </resources>

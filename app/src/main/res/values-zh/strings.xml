@@ -962,21 +962,11 @@
             <string name="usage_chart_weekly">每周 Token</string>
             <string name="usage_by_model">各模型 Token</string>
         <string name="usage_other">其他</string>
-    <string name="session_tools_group_meta">%1$d 个工具 · 约 %2$d</string>
+    <string name="session_tools_header">%1$d / %2$d（%3$d Token）</string>
+    <string name="session_tools_group_meta">%1$d 个工具（%2$d Token）</string>
+    <string name="session_tools_tokens">%1$d Token</string>
     <string name="session_tools_off_switch">本会话未开启</string>
     <string name="session_tools_off_empty">没有可用工具</string>
     <string name="session_tools_off_low_context">低上下文模式不发送</string>
     <string name="session_tools_failed">无法读取工具列表</string>
-    <string name="session_tools_group_memory">记忆</string>
-    <string name="session_tools_group_skills">技能</string>
-    <string name="session_tools_group_history">历史会话</string>
-    <string name="session_tools_group_web">网页</string>
-    <string name="session_tools_group_terminal">终端与文件</string>
-    <string name="session_tools_group_image">图片生成</string>
-    <string name="session_tools_group_todo">待办</string>
-    <string name="session_tools_group_phone">手机</string>
-    <string name="session_tools_group_subagent">子智能体</string>
-    <string name="session_tools_group_automation">自动化</string>
-    <string name="session_tools_group_ask_user">询问用户</string>
-    <string name="session_tools_group_mcp">MCP</string>
 </resources>

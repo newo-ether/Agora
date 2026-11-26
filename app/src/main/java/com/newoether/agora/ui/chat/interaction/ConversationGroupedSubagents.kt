@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import com.newoether.agora.ui.components.smoothSheetBottomPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -115,8 +115,8 @@ internal fun ConversationSubagentsSheet(
     ) {
         LazyColumn(
             state = list,
-            modifier = Modifier.fillMaxSize().navigationBarsPadding().testTag("subagents-sheet-list"),
-            contentPadding = PaddingValues(bottom = 32.dp),
+            modifier = Modifier.fillMaxSize().testTag("subagents-sheet-list"),
+            contentPadding = PaddingValues(bottom = smoothSheetBottomPadding()),
         ) {
             items(agents, key = { it.id }) { agent ->
                 val selected = agent.id == conversationId

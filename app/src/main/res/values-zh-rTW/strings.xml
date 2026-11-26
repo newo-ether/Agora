@@ -972,21 +972,11 @@
             <string name="usage_chart_weekly">每週 Token</string>
             <string name="usage_by_model">各模型 Token</string>
         <string name="usage_other">其他</string>
-    <string name="session_tools_group_meta">%1$d 個工具 · 約 %2$d</string>
+    <string name="session_tools_header">%1$d / %2$d（%3$d Token）</string>
+    <string name="session_tools_group_meta">%1$d 個工具（%2$d Token）</string>
+    <string name="session_tools_tokens">%1$d Token</string>
     <string name="session_tools_off_switch">本會話未開啟</string>
     <string name="session_tools_off_empty">沒有可用工具</string>
     <string name="session_tools_off_low_context">低上下文模式不傳送</string>
     <string name="session_tools_failed">無法讀取工具清單</string>
-    <string name="session_tools_group_memory">記憶</string>
-    <string name="session_tools_group_skills">技能</string>
-    <string name="session_tools_group_history">歷史會話</string>
-    <string name="session_tools_group_web">網頁</string>
-    <string name="session_tools_group_terminal">終端與檔案</string>
-    <string name="session_tools_group_image">圖片生成</string>
-    <string name="session_tools_group_todo">待辦</string>
-    <string name="session_tools_group_phone">手機</string>
-    <string name="session_tools_group_subagent">子智慧體</string>
-    <string name="session_tools_group_automation">自動化</string>
-    <string name="session_tools_group_ask_user">詢問使用者</string>
-    <string name="session_tools_group_mcp">MCP</string>
 </resources>

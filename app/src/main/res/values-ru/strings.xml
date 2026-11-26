@@ -978,21 +978,11 @@
             <string name="usage_chart_weekly">Токены по неделям</string>
             <string name="usage_by_model">Токены по моделям</string>
         <string name="usage_other">Другое</string>
-    <string name="session_tools_group_meta">инструментов: %1$d · ≈ %2$d</string>
+    <string name="session_tools_header">%1$d / %2$d (токенов: %3$d)</string>
+    <string name="session_tools_group_meta">инструментов: %1$d (токенов: %2$d)</string>
+    <string name="session_tools_tokens">токенов: %1$d</string>
     <string name="session_tools_off_switch">Отключено в этом сеансе</string>
     <string name="session_tools_off_empty">Нет доступных инструментов</string>
     <string name="session_tools_off_low_context">Не отправляется в режиме малого контекста</string>
     <string name="session_tools_failed">Не удалось прочитать список инструментов</string>
-    <string name="session_tools_group_memory">Память</string>
-    <string name="session_tools_group_skills">Навыки</string>
-    <string name="session_tools_group_history">Прошлые разговоры</string>
-    <string name="session_tools_group_web">Веб</string>
-    <string name="session_tools_group_terminal">Терминал и файлы</string>
-    <string name="session_tools_group_image">Генерация изображений</string>
-    <string name="session_tools_group_todo">Задачи</string>
-    <string name="session_tools_group_phone">Телефон</string>
-    <string name="session_tools_group_subagent">Субагенты</string>
-    <string name="session_tools_group_automation">Автоматизация</string>
-    <string name="session_tools_group_ask_user">Спросить пользователя</string>
-    <string name="session_tools_group_mcp">MCP</string>
 </resources>

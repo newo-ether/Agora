@@ -975,21 +975,11 @@
             <string name="usage_chart_weekly">Token mỗi tuần</string>
             <string name="usage_by_model">Token theo mô hình</string>
         <string name="usage_other">Khác</string>
-    <string name="session_tools_group_meta">%1$d công cụ · khoảng %2$d</string>
+    <string name="session_tools_header">%1$d / %2$d (%3$d token)</string>
+    <string name="session_tools_group_meta">%1$d công cụ (%2$d token)</string>
+    <string name="session_tools_tokens">%1$d token</string>
     <string name="session_tools_off_switch">Tắt trong phiên này</string>
     <string name="session_tools_off_empty">Không có công cụ khả dụng</string>
     <string name="session_tools_off_low_context">Không được gửi trong chế độ ngữ cảnh thấp</string>
     <string name="session_tools_failed">Không đọc được danh sách công cụ</string>
-    <string name="session_tools_group_memory">Bộ nhớ</string>
-    <string name="session_tools_group_skills">Kỹ năng</string>
-    <string name="session_tools_group_history">Hội thoại trước</string>
-    <string name="session_tools_group_web">Web</string>
-    <string name="session_tools_group_terminal">Terminal và tệp</string>
-    <string name="session_tools_group_image">Tạo ảnh</string>
-    <string name="session_tools_group_todo">Việc cần làm</string>
-    <string name="session_tools_group_phone">Điện thoại</string>
-    <string name="session_tools_group_subagent">Tác nhân con</string>
-    <string name="session_tools_group_automation">Tự động hóa</string>
-    <string name="session_tools_group_ask_user">Hỏi người dùng</string>
-    <string name="session_tools_group_mcp">MCP</string>
 </resources>

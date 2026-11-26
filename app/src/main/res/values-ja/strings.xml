@@ -969,21 +969,11 @@
             <string name="usage_chart_weekly">週別トークン</string>
             <string name="usage_by_model">モデル別トークン</string>
         <string name="usage_other">その他</string>
-    <string name="session_tools_group_meta">%1$d 個のツール · 約 %2$d</string>
+    <string name="session_tools_header">%1$d / %2$d（%3$d トークン）</string>
+    <string name="session_tools_group_meta">%1$d 個のツール（%2$d トークン）</string>
+    <string name="session_tools_tokens">%1$d トークン</string>
     <string name="session_tools_off_switch">このセッションではオフ</string>
     <string name="session_tools_off_empty">利用できるツールがありません</string>
     <string name="session_tools_off_low_context">低コンテキストモードでは送信されません</string>
     <string name="session_tools_failed">ツール一覧を読み込めませんでした</string>
-    <string name="session_tools_group_memory">メモリ</string>
-    <string name="session_tools_group_skills">スキル</string>
-    <string name="session_tools_group_history">過去の会話</string>
-    <string name="session_tools_group_web">Web</string>
-    <string name="session_tools_group_terminal">ターミナルとファイル</string>
-    <string name="session_tools_group_image">画像生成</string>
-    <string name="session_tools_group_todo">ToDo</string>
-    <string name="session_tools_group_phone">電話</string>
-    <string name="session_tools_group_subagent">サブエージェント</string>
-    <string name="session_tools_group_automation">自動化</string>
-    <string name="session_tools_group_ask_user">ユーザーに質問</string>
-    <string name="session_tools_group_mcp">MCP</string>
 </resources>

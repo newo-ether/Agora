@@ -972,21 +972,11 @@
             <string name="usage_chart_weekly">Tokens por semana</string>
             <string name="usage_by_model">Tokens por modelo</string>
         <string name="usage_other">Otros</string>
-    <string name="session_tools_group_meta">%1$d herramientas · ≈ %2$d</string>
+    <string name="session_tools_header">%1$d / %2$d (%3$d tokens)</string>
+    <string name="session_tools_group_meta">%1$d herramientas (%2$d tokens)</string>
+    <string name="session_tools_tokens">%1$d tokens</string>
     <string name="session_tools_off_switch">Desactivado en esta sesión</string>
     <string name="session_tools_off_empty">No hay herramientas disponibles</string>
     <string name="session_tools_off_low_context">No se envía en el modo de contexto reducido</string>
     <string name="session_tools_failed">No se pudo leer la lista de herramientas</string>
-    <string name="session_tools_group_memory">Memoria</string>
-    <string name="session_tools_group_skills">Habilidades</string>
-    <string name="session_tools_group_history">Conversaciones anteriores</string>
-    <string name="session_tools_group_web">Web</string>
-    <string name="session_tools_group_terminal">Terminal y archivos</string>
-    <string name="session_tools_group_image">Generación de imágenes</string>
-    <string name="session_tools_group_todo">Tareas</string>
-    <string name="session_tools_group_phone">Teléfono</string>
-    <string name="session_tools_group_subagent">Subagentes</string>
-    <string name="session_tools_group_automation">Automatización</string>
-    <string name="session_tools_group_ask_user">Preguntar al usuario</string>
-    <string name="session_tools_group_mcp">MCP</string>
 </resources>

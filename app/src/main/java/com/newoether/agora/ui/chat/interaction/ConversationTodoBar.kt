@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import com.newoether.agora.ui.components.smoothSheetBottomPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -191,8 +191,8 @@ internal fun ConversationTodoBar(
         ) {
             LazyColumn(
                 state = list,
-                modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-                contentPadding = PaddingValues(bottom = 32.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = smoothSheetBottomPadding()),
             ) {
                 itemsIndexed(items) { _, item ->
                     val status = when (item.status) {

@@ -2,6 +2,7 @@ package com.newoether.agora.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -27,18 +28,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Extension
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Lan
 import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.PhoneAndroid
-import androidx.compose.material.icons.rounded.Psychology
-import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.QuestionAnswer
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -58,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,7 +66,9 @@ import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.tool.SessionToolGroup
 import com.newoether.agora.ui.components.OPTION_HIGHLIGHT_SHAPE
+import com.newoether.agora.phone.PhoneUseIcon
 import com.newoether.agora.ui.components.SmoothBottomSheet
+import com.newoether.agora.ui.components.smoothSheetBottomPadding
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.viewmodel.SessionToolCatalog
 import com.newoether.agora.viewmodel.SessionToolEntry
@@ -123,7 +125,10 @@ internal fun SessionToolsDialog(
                 if (catalog != null) {
                     val on = carried.filter { it.group in enabled }
                     Text(
-                        "${on.sumOf { it.tools.size }}/${catalog.totalToolCount} · \u2248 ${on.sumOf { it.tokens }}",
+                        stringResource(
+                            R.string.session_tools_header,
+                            on.sumOf { it.tools.size }, catalog.totalToolCount, on.sumOf { it.tokens },
+                        ),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -140,8 +145,8 @@ internal fun SessionToolsDialog(
                 SheetMessage { Text(stringResource(R.string.session_tools_failed)) }
             else -> LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 32.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 4.dp, bottom = smoothSheetBottomPadding()),
             ) {
                 items(carried, key = { it.group.id }) { groupTools ->
                     val group = groupTools.group
@@ -206,9 +211,10 @@ private fun GroupRow(
 ) {
     val motion = LocalAgoraMotionPolicy.current
     val spatial = motion.allowSpatialTransitions
+    // Same curves as the thinking card's expand and collapse (MessageItemTimeline).
     val chevron by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = if (spatial) tween(220) else snap(),
+        animationSpec = if (spatial) tween(EXPAND_MS, easing = LinearOutSlowInEasing) else snap(),
         label = "sessionToolsChevron",
     )
     Column(Modifier.fillMaxWidth()) {
@@ -239,10 +245,10 @@ private fun GroupRow(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(tween(if (spatial) 220 else 0), expandFrom = Alignment.Top) +
-                fadeIn(tween(if (spatial) 180 else 0)),
-            exit = shrinkVertically(tween(if (spatial) 160 else 0), shrinkTowards = Alignment.Top) +
-                fadeOut(tween(if (spatial) 120 else 0)),
+            enter = if (spatial) fadeIn(tween(EXPAND_MS)) + expandVertically(tween(EXPAND_MS))
+                else fadeIn(tween(EXPAND_MS)),
+            exit = if (spatial) fadeOut(tween(EXPAND_MS)) + shrinkVertically(tween(EXPAND_MS))
+                else fadeOut(tween(EXPAND_MS)),
         ) {
             Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
                 groupTools.tools.forEach { tool ->
@@ -279,7 +285,7 @@ private fun ToolRow(tool: SessionToolEntry, expanded: Boolean, onClick: () -> Un
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text = "\u2248 ${tool.tokens}",
+                text = stringResource(R.string.session_tools_tokens, tool.tokens),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -291,7 +297,7 @@ private fun ToolRow(tool: SessionToolEntry, expanded: Boolean, onClick: () -> Un
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (expanded) Int.MAX_VALUE else 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = if (spatial) Modifier.animateContentSize() else Modifier,
+            modifier = if (spatial) Modifier.animateContentSize(tween(EXPAND_MS)) else Modifier,
         )
     }
 }
@@ -313,10 +319,16 @@ private fun UnavailableRow(groupTools: SessionToolGroupTools) {
     }
 }
 
+/** The icon of the group's settings page, so the sheet and Settings name each family the same way. */
 @Composable
 private fun GroupIcon(group: SessionToolGroup, tint: Color) {
     Box(Modifier.size(ICON_SIZE), contentAlignment = Alignment.Center) {
-        Icon(groupIcon(group), contentDescription = null, tint = tint, modifier = Modifier.size(ICON_SIZE))
+        val modifier = Modifier.size(ICON_SIZE)
+        if (group == SessionToolGroup.MCP) {
+            Icon(painterResource(R.drawable.ic_mcp), contentDescription = null, tint = tint, modifier = modifier)
+        } else {
+            Icon(groupIcon(group), contentDescription = null, tint = tint, modifier = modifier)
+        }
     }
 }
 
@@ -349,35 +361,40 @@ private fun groupMeta(groupTools: SessionToolGroupTools): String = when (groupTo
     null -> stringResource(R.string.session_tools_group_meta, groupTools.tools.size, groupTools.tokens)
 }
 
+/** Mirrors `baseSettingsGroups` in SettingsScreen; MCP draws its own drawable in [GroupIcon]. */
 private fun groupIcon(group: SessionToolGroup): ImageVector = when (group) {
-    SessionToolGroup.MEMORY -> Icons.Rounded.Psychology
+    SessionToolGroup.MEMORY -> Icons.Rounded.Description
     SessionToolGroup.SKILLS -> Icons.Rounded.Extension
-    SessionToolGroup.PAST_CONVERSATIONS -> Icons.Rounded.History
+    SessionToolGroup.PAST_CONVERSATIONS -> Icons.Rounded.Search
     SessionToolGroup.WEB -> Icons.Rounded.Language
     SessionToolGroup.TERMINAL -> Icons.Rounded.Terminal
-    SessionToolGroup.IMAGE -> Icons.Rounded.Image
+    SessionToolGroup.IMAGE -> Icons.Rounded.AddPhotoAlternate
     SessionToolGroup.TODO -> Icons.Rounded.Checklist
-    SessionToolGroup.PHONE -> Icons.Rounded.PhoneAndroid
+    SessionToolGroup.PHONE -> PhoneUseIcon
     SessionToolGroup.SUBAGENT -> Icons.Rounded.AccountTree
-    SessionToolGroup.AUTOMATION -> Icons.Rounded.Schedule
-    SessionToolGroup.ASK_USER -> Icons.AutoMirrored.Rounded.HelpOutline
-    SessionToolGroup.MCP -> Icons.Rounded.Lan
+    SessionToolGroup.AUTOMATION -> Icons.Rounded.Repeat
+    SessionToolGroup.ASK_USER -> Icons.Rounded.QuestionAnswer
+    SessionToolGroup.MCP -> Icons.Rounded.Extension
 }
 
+/** The title of the group's settings page. */
 @Composable
 private fun groupLabel(group: SessionToolGroup): String = stringResource(
     when (group) {
-        SessionToolGroup.MEMORY -> R.string.session_tools_group_memory
-        SessionToolGroup.SKILLS -> R.string.session_tools_group_skills
-        SessionToolGroup.PAST_CONVERSATIONS -> R.string.session_tools_group_history
-        SessionToolGroup.WEB -> R.string.session_tools_group_web
-        SessionToolGroup.TERMINAL -> R.string.session_tools_group_terminal
-        SessionToolGroup.IMAGE -> R.string.session_tools_group_image
-        SessionToolGroup.TODO -> R.string.session_tools_group_todo
-        SessionToolGroup.PHONE -> R.string.session_tools_group_phone
-        SessionToolGroup.SUBAGENT -> R.string.session_tools_group_subagent
-        SessionToolGroup.AUTOMATION -> R.string.session_tools_group_automation
-        SessionToolGroup.ASK_USER -> R.string.session_tools_group_ask_user
-        SessionToolGroup.MCP -> R.string.session_tools_group_mcp
+        SessionToolGroup.MEMORY -> R.string.settings_memory
+        SessionToolGroup.SKILLS -> R.string.settings_skills
+        SessionToolGroup.PAST_CONVERSATIONS -> R.string.search_title
+        SessionToolGroup.WEB -> R.string.settings_web_search
+        SessionToolGroup.TERMINAL -> R.string.shell_title
+        SessionToolGroup.IMAGE -> R.string.settings_image_gen
+        SessionToolGroup.TODO -> R.string.settings_todo
+        SessionToolGroup.PHONE -> R.string.phone_title
+        SessionToolGroup.SUBAGENT -> R.string.settings_subagents
+        SessionToolGroup.AUTOMATION -> R.string.settings_automation
+        SessionToolGroup.ASK_USER -> R.string.settings_interaction
+        SessionToolGroup.MCP -> R.string.mcp_title
     },
 )
+
+/** Thinking card expand and collapse duration. */
+private const val EXPAND_MS = 400
