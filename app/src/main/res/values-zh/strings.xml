@@ -967,6 +967,7 @@
     <string name="session_tools_enable_all">全部启用</string>
     <string name="session_tools_off_switch">本会话未开启</string>
     <string name="session_tools_off_empty">没有可用工具</string>
+    <string name="session_tools_off_low_context">低上下文模式不发送</string>
     <string name="session_tools_loading">正在读取工具列表…</string>
     <string name="session_tools_failed">无法读取工具列表</string>
     <string name="session_tools_group_memory">记忆</string>

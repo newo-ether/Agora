@@ -958,6 +958,7 @@
     <string name="session_tools_enable_all">Enable all</string>
     <string name="session_tools_off_switch">Off for this session</string>
     <string name="session_tools_off_empty">No tools available</string>
+    <string name="session_tools_off_low_context">Not sent in Low Context Mode</string>
     <string name="session_tools_loading">Reading the tool list…</string>
     <string name="session_tools_failed">Could not read the tool list</string>
     <string name="session_tools_group_memory">Memory</string>

@@ -974,6 +974,7 @@
     <string name="session_tools_enable_all">すべて有効化</string>
     <string name="session_tools_off_switch">このセッションではオフ</string>
     <string name="session_tools_off_empty">利用できるツールがありません</string>
+    <string name="session_tools_off_low_context">低コンテキストモードでは送信されません</string>
     <string name="session_tools_loading">ツール一覧を読み込み中…</string>
     <string name="session_tools_failed">ツール一覧を読み込めませんでした</string>
     <string name="session_tools_group_memory">メモリ</string>

@@ -989,6 +989,7 @@
     <string name="session_tools_enable_all">تفعيل الكل</string>
     <string name="session_tools_off_switch">متوقف لهذه الجلسة</string>
     <string name="session_tools_off_empty">لا توجد أدوات متاحة</string>
+    <string name="session_tools_off_low_context">لا يُرسَل في وضع السياق المنخفض</string>
     <string name="session_tools_loading">جارٍ قراءة قائمة الأدوات…</string>
     <string name="session_tools_failed">تعذّرت قراءة قائمة الأدوات</string>
     <string name="session_tools_group_memory">الذاكرة</string>

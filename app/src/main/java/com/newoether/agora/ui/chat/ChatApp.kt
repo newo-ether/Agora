@@ -175,6 +175,7 @@ fun ChatApp(
             shellDevices,
             currentConversation?.systemPromptId,
             conversationControls.lowContextModeEnabled,
+            conversationControls.disabledToolGroups,
         ),
     )
     val contextProjection by viewModel.conversationContextProjection.collectAsState()

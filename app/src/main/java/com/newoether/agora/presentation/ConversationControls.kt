@@ -25,6 +25,8 @@ internal data class EffectiveConversationControls(
     val showLowContextMode: Boolean,
     val lowContextModeEnabled: Boolean,
     val contextWindow: Int,
+    /** Tool groups this conversation hides; a save in the tool selector changes request cost. */
+    val disabledToolGroups: Set<String>,
 )
 
 /** New Chat owns its settings even while the previous conversation id remains under transition. */
@@ -96,6 +98,7 @@ internal fun resolveEffectiveConversationControls(
         lowContextModeEnabled = isEmbeddedLocalModel &&
             (conversationOverride?.lowContextModeEnabled ?: requireNotNull(global.lowContextModeEnabled)),
         contextWindow = ContextBudget.normalize(conversationOverride?.contextWindow ?: requireNotNull(global.contextWindow)),
+        disabledToolGroups = conversationOverride?.disabledToolGroups.orEmpty(),
     )
 }
 

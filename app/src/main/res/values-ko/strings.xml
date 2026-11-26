@@ -974,6 +974,7 @@
     <string name="session_tools_enable_all">모두 활성화</string>
     <string name="session_tools_off_switch">이 세션에서 꺼짐</string>
     <string name="session_tools_off_empty">사용할 수 있는 도구 없음</string>
+    <string name="session_tools_off_low_context">낮은 컨텍스트 모드에서는 전송되지 않음</string>
     <string name="session_tools_loading">도구 목록을 읽는 중…</string>
     <string name="session_tools_failed">도구 목록을 읽을 수 없습니다</string>
     <string name="session_tools_group_memory">메모리</string>

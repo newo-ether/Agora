@@ -977,6 +977,7 @@
     <string name="session_tools_enable_all">Ativar tudo</string>
     <string name="session_tools_off_switch">Desativado nesta sessão</string>
     <string name="session_tools_off_empty">Nenhuma ferramenta disponível</string>
+    <string name="session_tools_off_low_context">Não é enviado no modo de contexto reduzido</string>
     <string name="session_tools_loading">Lendo a lista de ferramentas…</string>
     <string name="session_tools_failed">Não foi possível ler a lista de ferramentas</string>
     <string name="session_tools_group_memory">Memória</string>

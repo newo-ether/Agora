@@ -470,7 +470,78 @@ class GenerationToolExecutorTest {
         )
         assertEquals(1, disabled.totalToolCount)
         assertEquals(0, disabled.enabledToolCount)
-        assertEquals(setOf(SessionToolGroup.WEB.id), disabled.disabledIds())
+        assertEquals(setOf(SessionToolGroup.WEB.id), disabled.disabledIds(emptySet()))
+    }
+
+    @Test
+    fun `low context catalog prices only the groups the request still carries`() {
+        val web = ToolDefinition(
+            function = ToolFunction(
+                name = "web_search",
+                description = "Search the web",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val memory = ToolDefinition(
+            function = ToolFunction(
+                name = "memory_read",
+                description = "Read a saved memory",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val catalog = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(webSearchEnabled = true, accessSavedMemories = true),
+            definitionsByGroup = mapOf(
+                SessionToolGroup.WEB to listOf(web),
+                SessionToolGroup.MEMORY to listOf(memory),
+            ),
+            lowContextMode = true,
+        )
+
+        val webGroup = catalog.groups.first { it.group == SessionToolGroup.WEB }
+        assertNull(webGroup.unavailable)
+        assertEquals(1, webGroup.tools.size)
+        assertTrue(webGroup.tokens > 0)
+        val memoryGroup = catalog.groups.first { it.group == SessionToolGroup.MEMORY }
+        assertEquals(SessionToolUnavailable.LOW_CONTEXT, memoryGroup.unavailable)
+        assertTrue(memoryGroup.tools.isEmpty())
+        assertEquals(0, memoryGroup.tokens)
+        assertEquals(1, catalog.totalToolCount)
+    }
+
+    @Test
+    fun `saving keeps stored ids for groups this session cannot switch`() {
+        val web = ToolDefinition(
+            function = ToolFunction(
+                name = "web_search",
+                description = "Search the web",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val unavailable = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(
+                webSearchEnabled = false,
+                disabledToolGroups = setOf("mcp", SessionToolGroup.MEMORY.id, "retired_group"),
+            ),
+            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(web)),
+        )
+        assertEquals(
+            setOf("mcp", SessionToolGroup.MEMORY.id, "retired_group"),
+            unavailable.disabledIds(setOf(SessionToolGroup.WEB)),
+        )
+
+        val switchable = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(
+                webSearchEnabled = true,
+                disabledToolGroups = setOf("retired_group"),
+            ),
+            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(web)),
+        )
+        assertEquals(setOf("retired_group", SessionToolGroup.WEB.id), switchable.disabledIds(emptySet()))
+        assertEquals(setOf("retired_group"), switchable.disabledIds(setOf(SessionToolGroup.WEB)))
     }
 
     private class FakeToolProvider : ToolProvider {

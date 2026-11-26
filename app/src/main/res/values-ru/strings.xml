@@ -983,6 +983,7 @@
     <string name="session_tools_enable_all">Включить все</string>
     <string name="session_tools_off_switch">Отключено в этом сеансе</string>
     <string name="session_tools_off_empty">Нет доступных инструментов</string>
+    <string name="session_tools_off_low_context">Не отправляется в режиме малого контекста</string>
     <string name="session_tools_loading">Чтение списка инструментов…</string>
     <string name="session_tools_failed">Не удалось прочитать список инструментов</string>
     <string name="session_tools_group_memory">Память</string>

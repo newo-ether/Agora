@@ -977,6 +977,7 @@
     <string name="session_tools_enable_all">Tout activer</string>
     <string name="session_tools_off_switch">Désactivé pour cette session</string>
     <string name="session_tools_off_empty">Aucun outil disponible</string>
+    <string name="session_tools_off_low_context">Non envoyé en mode à faible contexte</string>
     <string name="session_tools_loading">Lecture de la liste des outils…</string>
     <string name="session_tools_failed">Impossible de lire la liste des outils</string>
     <string name="session_tools_group_memory">Mémoire</string>

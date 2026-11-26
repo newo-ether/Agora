@@ -154,11 +154,27 @@ internal class GenerationToolExecutor private constructor(
     private fun isGroupEnabled(group: SessionToolGroup, context: GenerationContext): Boolean =
         group !in SessionToolGroup.fromIds(context.disabledToolGroups)
 
-    /** Definitions per user-facing group, ignoring the session's disabled set. Selector only. */
-    fun sessionToolGroups(context: GenerationContext): Map<SessionToolGroup, List<ToolDefinition>> =
+    /**
+     * Definitions per user-facing group, ignoring the session's disabled set. Selector only.
+     * Low Context Mode sends only the compact Shell and Web definitions, so the selector prices
+     * exactly those instead of the full catalog the request never carries.
+     */
+    fun sessionToolGroups(
+        context: GenerationContext,
+        lowContextMode: Boolean = false,
+    ): Map<SessionToolGroup, List<ToolDefinition>> =
         providers.mapNotNull { provider ->
             val group = SessionToolGroup.of(provider) ?: return@mapNotNull null
-            group to provider.definitions(context)
+            val definitions = if (!lowContextMode) {
+                provider.definitions(context)
+            } else {
+                when (provider) {
+                    is ShellToolProvider -> provider.minimalDefinitions(context)
+                    is WebSearchToolProvider -> provider.definitions(context)
+                    else -> emptyList()
+                }
+            }
+            group to definitions
         }.toMap()
 
     fun imageDefinitions(context: GenerationContext): List<ToolDefinition> =

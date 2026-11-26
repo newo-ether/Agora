@@ -977,6 +977,7 @@
     <string name="session_tools_enable_all">全部啟用</string>
     <string name="session_tools_off_switch">本會話未開啟</string>
     <string name="session_tools_off_empty">沒有可用工具</string>
+    <string name="session_tools_off_low_context">低上下文模式不傳送</string>
     <string name="session_tools_loading">正在讀取工具清單…</string>
     <string name="session_tools_failed">無法讀取工具清單</string>
     <string name="session_tools_group_memory">記憶</string>

@@ -977,6 +977,7 @@
     <string name="session_tools_enable_all">Alle aktivieren</string>
     <string name="session_tools_off_switch">In dieser Sitzung aus</string>
     <string name="session_tools_off_empty">Keine Werkzeuge verfügbar</string>
+    <string name="session_tools_off_low_context">Wird im Modus mit kleinem Kontext nicht gesendet</string>
     <string name="session_tools_loading">Werkzeugliste wird gelesen…</string>
     <string name="session_tools_failed">Werkzeugliste konnte nicht gelesen werden</string>
     <string name="session_tools_group_memory">Gedächtnis</string>

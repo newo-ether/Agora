@@ -134,7 +134,8 @@ class GenerationManager(
     ): SessionToolCatalog = SessionToolCatalog.build(
         modelId = config.modelId,
         context = context,
-        definitionsByGroup = toolExecutor.sessionToolGroups(context),
+        definitionsByGroup = toolExecutor.sessionToolGroups(context, config.lowContextModeEnabled),
+        lowContextMode = config.lowContextModeEnabled,
     )
 
     internal suspend fun resolvedFixedContextTokenCost(config: GenerationConfig, context: GenerationContext): Int =

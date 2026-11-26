@@ -136,13 +136,7 @@ internal fun SessionToolsDialog(
                     Text(stringResource(R.string.cancel))
                 }
                 TextButton(
-                    onClick = {
-                        onSave(
-                            catalog.groups
-                                .filter { it.tools.isNotEmpty() && it.group !in enabled }
-                                .mapTo(mutableSetOf()) { it.group.id },
-                        )
-                    },
+                    onClick = { onSave(catalog.disabledIds(enabled)) },
                 ) {
                     Text(stringResource(R.string.save))
                 }
@@ -253,6 +247,7 @@ private fun SessionToolGroupBlock(
 @Composable
 private fun groupMeta(groupTools: SessionToolGroupTools): String = when (groupTools.unavailable) {
     SessionToolUnavailable.SWITCH_OFF -> stringResource(R.string.session_tools_off_switch)
+    SessionToolUnavailable.LOW_CONTEXT -> stringResource(R.string.session_tools_off_low_context)
     SessionToolUnavailable.NO_TOOLS -> stringResource(R.string.session_tools_off_empty)
     null -> stringResource(
         R.string.session_tools_group_meta,
