@@ -29,6 +29,8 @@ internal class PhoneToolProvider(
     private val status: suspend (String?) -> Unit,
     private val operating: suspend (suspend () -> ToolExecutionResult) -> ToolExecutionResult = { it() },
     private val releaseControl: suspend (Long) -> Boolean = { true },
+    /** Asks the user to approve a new claim; returns false when denied. */
+    private val approve: suspend (RunEffectIdentity, String) -> Boolean = { _, _ -> true },
 ) : ToolProvider {
     private var executionMode = "accessibility"
     private val executing = AtomicBoolean(false)
@@ -77,6 +79,13 @@ internal class PhoneToolProvider(
                     // Occupied is a pure lease decision. Do not start a service or alter windows.
                     val conversationTitle = title(identity.conversationId)
                     if (!accepts(identity)) throw PhoneFailure("stale_identity")
+                    // A reclaim by the current holder needs no new approval.
+                    if (permit == null && config.confirmClaim) {
+                        if (!approve(identity, conversationTitle)) throw PhoneFailure("claim_denied")
+                        if (!accepts(identity)) throw PhoneFailure("stale_identity")
+                        lease.claimRefusal(identity)?.let { return@run refused(it) }
+                        if (locked()) throw PhoneFailure("screen_locked")
+                    }
                     when (val claim = lease.claim(identity, conversationTitle, ctx.phoneMode)) {
                         is PhoneControlLease.Decision.Refused -> return@run refused(claim)
                         is PhoneControlLease.Decision.Granted -> permit = claim.permit

@@ -119,11 +119,11 @@ internal fun rememberComposerVoice(
         SpeechInputState.Idle -> ComposerVoicePhase.IDLE
     }
     LaunchedEffect(phase) { if (phase == ComposerVoicePhase.IDLE) sendPending = false }
-    DisposableEffect(controller, ownerId) { onDispose { controller.cancel(ownerId) } }
+    DisposableEffect(controller, ownerId) { onDispose { controller.cancel(ownerId, "owner_left") } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(controller, ownerId, lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) controller.cancel(ownerId)
+            if (event == Lifecycle.Event.ON_STOP) controller.cancel(ownerId, "background")
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }

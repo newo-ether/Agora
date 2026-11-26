@@ -19,6 +19,7 @@ import android.view.Surface
 internal class PhoneVirtualDisplayHost(private val context: Context?) {
     private val lock = Any()
     private var display: VirtualDisplay? = null
+    private val tree by lazy { PhoneDisplayTree(privileged) }
 
     private val privileged: Context by lazy {
         val base = context ?: systemContext()
@@ -29,7 +30,7 @@ internal class PhoneVirtualDisplayHost(private val context: Context?) {
     }
 
     fun open(request: Bundle): Int = synchronized(lock) {
-        close()
+        releaseDisplay()
         request.classLoader = Surface::class.java.classLoader
         @Suppress("DEPRECATION")
         val surface = request.getParcelable<Surface>(KEY_SURFACE) ?: throw IllegalArgumentException("surface")
@@ -51,9 +52,23 @@ internal class PhoneVirtualDisplayHost(private val context: Context?) {
         id
     }
 
-    fun close() = synchronized(lock) {
+    private fun displayId(): Int = synchronized(lock) {
+        display?.display?.displayId ?: throw IllegalStateException("display_missing")
+    }
+
+    fun foreground(): String = tree.foreground(displayId()).orEmpty()
+    fun nodes(): String = tree.nodes(displayId())
+    fun setText(text: String): Boolean = tree.setText(displayId(), text)
+
+    private fun releaseDisplay() {
         display?.let { runCatching { it.release() } }
         display = null
+    }
+
+    /** Ends the background screen; also frees the single UiAutomation slot for other tools. */
+    fun close() = synchronized(lock) {
+        releaseDisplay()
+        runCatching { tree.close() }
     }
 
     private fun setImePolicyHide(displayId: Int) {

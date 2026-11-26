@@ -20,7 +20,7 @@
     <string name="phone_automation">Aufgaben und Schleifen zulassen</string>
     <string name="phone_automation_description">Automatisierte Ausführungen und ihre Unteragenten dürfen die Gerätesteuerung anfordern.</string>
     <string name="phone_background">Hintergrundbildschirm</string>
-    <string name="phone_background_description">Nur mit Shizuku und benötigt den Bedienungshilfen-Dienst. Apps laufen auf einem unsichtbaren virtuellen Display, ein schwebendes Vorschaufenster zeigt die Arbeit der KI. Tippen für Vollbild.</string>
+    <string name="phone_background_description">Nur mit Shizuku. Apps laufen auf einem unsichtbaren virtuellen Display, ein schwebendes Vorschaufenster zeigt die Arbeit der KI. Tippen für Vollbild.</string>
     <string name="phone_app_access">App-Zugriff</string>
     <string name="phone_app_access_description">Beobachtbare und bedienbare Apps einschränken. Agora ist immer zugelassen.</string>
     <string name="phone_access_off">Aus</string>
@@ -74,4 +74,22 @@
     <string name="phone_max_screenshots">Maximale Screenshots</string>
     <string name="phone_max_screenshots_description">Wähle ein Limit von 1 bis 16 oder ganz rechts „Unbegrenzt“. Das Limit gilt nur für Bilder aus Telefonwerkzeugen, die an das Modell gesendet werden, beginnend mit den neuesten. Ältere Bilder bleiben im Gespräch gespeichert; andere Bilder sind nicht betroffen.</string>
     <string name="phone_max_screenshots_unlimited">Unbegrenzt</string>
+    <string name="phone_background_size">Bildschirmgröße</string>
+    <string name="phone_background_size_description">Gilt ab der nächsten Übernahme. Die Dichte entspricht diesem Gerät, ein größerer Bildschirm zeigt also mehr Inhalt.</string>
+    <string name="phone_background_native">Nativ</string>
+    <string name="phone_background_125">1.25×</string>
+    <string name="phone_background_150">1.5×</string>
+    <string name="phone_background_custom">Benutzerdefiniert</string>
+    <string name="phone_background_resolution">Auflösung</string>
+    <string name="phone_background_resolution_value">%1$d × %2$d px, kurze Seite %3$d dp</string>
+    <string name="phone_background_short_side">Kurze Seite (px)</string>
+    <string name="phone_background_long_side">Lange Seite (px)</string>
+    <string name="phone_background_size_range">Kurze Seite mindestens %1$d px, jede Seite höchstens %2$d px.</string>
+    <string name="phone_background_landscape">Querformat</string>
+    <string name="phone_background_landscape_description">Den Hintergrundbildschirm im Querformat anlegen. Gilt ab der nächsten Übernahme.</string>
+    <string name="phone_confirm_claim">Steuerungsanfragen bestätigen</string>
+    <string name="phone_confirm_claim_description">Zeigt eine Freigabekarte, wenn eine Unterhaltung die Steuerung des Geräts anfordert.</string>
+    <string name="phone_claim_request">„%1$s“ fordert die Steuerung dieses Geräts an.</string>
+    <string name="phone_claim_request_untitled">Eine Unterhaltung fordert die Steuerung dieses Geräts an.</string>
+    <string name="phone_claim_always">Für diese App-Sitzung erlauben</string>
 </resources>

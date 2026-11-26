@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import com.newoether.agora.R
+import com.newoether.agora.phone.PhoneUseIcon
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import kotlin.math.roundToInt
 
@@ -61,12 +62,14 @@ private const val MorphDurationMs = 320
 internal enum class InteractionKind(val icon: ImageVector, val titleRes: Int) {
     Question(Icons.AutoMirrored.Outlined.HelpOutline, R.string.interaction_ask_user),
     Approval(Icons.Rounded.Terminal, R.string.interaction_approval),
+    PhoneApproval(PhoneUseIcon, R.string.interaction_approval),
 }
 
 internal val UserInteraction.kind: InteractionKind
     get() = when (this) {
         is UserInteraction.Question -> InteractionKind.Question
-        is UserInteraction.ShellCommand -> InteractionKind.Approval
+        is UserInteraction.ShellCommand ->
+            if (pending.phone) InteractionKind.PhoneApproval else InteractionKind.Approval
     }
 
 /**

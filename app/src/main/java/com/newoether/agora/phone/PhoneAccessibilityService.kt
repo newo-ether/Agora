@@ -68,64 +68,7 @@ class PhoneAccessibilityService : AccessibilityService() {
 
     internal fun snapshot(): List<PhoneNode> {
         val root = rootInActiveWindow ?: throw PhoneFailure("ui_tree_unavailable")
-        return collect(listOf(root))
-    }
-
-    /** Window roots on [displayId], topmost first. Requires flagRetrieveInteractiveWindows (API 30). */
-    private fun displayRoots(displayId: Int): List<AccessibilityNodeInfo> {
-        if (Build.VERSION.SDK_INT < 30) throw PhoneFailure("background_requires_api_30")
-        return windowsOnAllDisplays.get(displayId).orEmpty().mapNotNull { it.root }
-    }
-
-    /** Package of the top application window on [displayId]; null while the display is empty. */
-    internal fun foregroundPackage(displayId: Int): String? {
-        if (Build.VERSION.SDK_INT < 30) throw PhoneFailure("background_requires_api_30")
-        val window = windowsOnAllDisplays.get(displayId).orEmpty()
-            .firstOrNull { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
-        val root = window?.root ?: return null
-        return try { root.packageName?.toString() } finally { root.recycle() }
-    }
-
-    internal fun snapshot(displayId: Int): List<PhoneNode> = collect(displayRoots(displayId))
-
-    /** Sets text on the focused field of [displayId]; false when no field there has input focus. */
-    internal fun setText(text: String, displayId: Int): Boolean {
-        val roots = displayRoots(displayId)
-        try {
-            for (root in roots) {
-                val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: continue
-                try {
-                    if (!focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply {
-                            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
-                        })) throw PhoneFailure("text_input_failed")
-                    return true
-                } finally { focused.recycle() }
-            }
-            return false
-        } finally { roots.forEach { it.recycle() } }
-    }
-
-    /** Recycles every root in [roots]. */
-    private fun collect(roots: List<AccessibilityNodeInfo>): List<PhoneNode> {
-        val nodes = ArrayList<PhoneNode>()
-        fun visit(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > 64 || nodes.size >= 1000) return
-            if (node.isVisibleToUser && (node.isClickable || node.isLongClickable || node.isEditable ||
-                    node.isScrollable || node.isFocusable || !node.text.isNullOrEmpty())) {
-                val rect = Rect().also(node::getBoundsInScreen)
-                if (!rect.isEmpty) nodes += PhoneNode(
-                    nodes.size, rect,
-                    if (node.isPassword) "" else (node.text ?: node.contentDescription)?.toString().orEmpty().take(500),
-                    node.className?.toString().orEmpty().substringAfterLast('.'),
-                    node.isEnabled, node.isSelected || node.isChecked, node.isEditable, node.isPassword,
-                )
-            }
-            for (index in 0 until node.childCount) {
-                node.getChild(index)?.let { child -> try { visit(child, depth + 1) } finally { child.recycle() } }
-            }
-        }
-        try { roots.forEach { visit(it, 0) } } finally { roots.forEach { it.recycle() } }
-        return nodes
+        return collectPhoneNodes(listOf(root))
     }
 
     internal fun setText(text: String) {

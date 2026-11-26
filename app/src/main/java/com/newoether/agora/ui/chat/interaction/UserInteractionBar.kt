@@ -88,6 +88,8 @@ private sealed interface DeckPage {
 
     data class Shell(val pending: ShellConfirmationController.PendingShellCommand) : DeckPage {
         override val key: String get() = "shell:${pending.id}"
+        val kind: InteractionKind
+            get() = if (pending.phone) InteractionKind.PhoneApproval else InteractionKind.Approval
     }
 
     data class Question(val request: AskUserController.Request) : DeckPage {
@@ -284,7 +286,10 @@ internal fun InteractionDeck(
         Box(modifier = Modifier.widthIn(max = ContentMaxWidth)
             .then(if (inSharedRow) Modifier else Modifier.padding(horizontal = 12.dp))) {
             MorphingInteractionCard(
-                kind = if (current is DeckPage.Shell) InteractionKind.Approval else InteractionKind.Question,
+                kind = when (current) {
+                    is DeckPage.Shell -> current.kind
+                    is DeckPage.Question -> InteractionKind.Question
+                },
                 minimized = minimized,
                 onMinimizedChange = { if (active) onMinimizedChange(it) },
                 inSharedRow = inSharedRow,
@@ -295,9 +300,9 @@ internal fun InteractionDeck(
                 when (current) {
                     is DeckPage.Shell -> CardHeader(
                         icon = { tint ->
-                            Icon(InteractionKind.Approval.icon, null, modifier = Modifier.size(18.dp), tint = tint)
+                            Icon(current.kind.icon, null, modifier = Modifier.size(18.dp), tint = tint)
                         },
-                        title = stringResource(InteractionKind.Approval.titleRes),
+                        title = stringResource(current.kind.titleRes),
                         detail = current.pending.server,
                         position = position,
                     )
@@ -405,7 +410,11 @@ private fun ShellBody(
             when (val detail = pending.detail) {
                 is ShellActionDetail.Write -> ShellWriteDetail(detail)
                 is ShellActionDetail.Edit -> ShellEditDetail(detail)
-                null -> ChatMarkdownCodeBlock(
+                null -> if (pending.phone) Text(
+                    text = pending.summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                ) else ChatMarkdownCodeBlock(
                     code = pending.summary,
                     autoWrap = autoWrapCodeBlocks,
                 )
@@ -425,7 +434,7 @@ private fun ShellBody(
         Checkbox(checked = alwaysAllow, onCheckedChange = null)
         Spacer(Modifier.width(12.dp))
         Text(
-            text = stringResource(R.string.shell_confirm_always),
+            text = stringResource(if (pending.phone) R.string.phone_claim_always else R.string.shell_confirm_always),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )

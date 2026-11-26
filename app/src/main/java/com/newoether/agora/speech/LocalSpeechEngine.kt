@@ -1,7 +1,6 @@
 package com.newoether.agora.speech
 
 import android.content.Context
-import com.k2fsa.sherpa.onnx.OfflineFireRedAsrCtcModelConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineQwen3AsrModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
@@ -173,10 +172,6 @@ private fun recognizerConfig(
                 language = language,
                 useInverseTextNormalization = true,
             ),
-            tokens = path("tokens.txt"),
-        )
-        LocalSpeechModelKind.FIRE_RED_CTC -> OfflineModelConfig(
-            fireRedAsrCtc = OfflineFireRedAsrCtcModelConfig(model = path("model.int8.onnx")),
             tokens = path("tokens.txt"),
         )
         LocalSpeechModelKind.QWEN3_ASR -> OfflineModelConfig(

@@ -56,6 +56,8 @@ class ShellConfirmationController internal constructor(
         val detail: ShellActionDetail? = null,
         /** Model-written one-line intent for this action; shown above the command text. */
         val description: String = "",
+        /** A phone_claim request: [server] names Phone Use and [summary] is plain text. */
+        val phone: Boolean = false,
     )
     val notificationSessionId: String = java.util.UUID.randomUUID().toString()
 
@@ -86,15 +88,28 @@ class ShellConfirmationController internal constructor(
         description: String = "",
     ): Boolean {
         if (!confirmEnabled.value) return true
-        if (sessionAllowedServers.contains(server)) return true
+        return prompt(PendingShellCommand(0, server, summary, CompletableDeferred(), conversationId, detail, description))
+    }
+
+    /**
+     * Asks before a phone_claim. Gated by Phone Use's own setting rather than the shell one, and
+     * trusted separately, so "always allow" on a shell server never admits phone control.
+     */
+    suspend fun confirmPhone(label: String, summary: String, conversationId: String?): Boolean =
+        prompt(PendingShellCommand(0, label, summary, CompletableDeferred(), conversationId, phone = true))
+
+    private fun PendingShellCommand.trustKey() = if (phone) PHONE_TRUST_KEY else server
+
+    private suspend fun prompt(request: PendingShellCommand): Boolean {
+        val key = request.trustKey()
+        if (sessionAllowedServers.contains(key)) return true
         return promptMutex.withLock {
-            // Re-check after the wait — the user may have trusted this server while an
+            // Re-check after the wait: the user may have trusted this target while an
             // earlier conversation's prompt was up.
-            if (sessionAllowedServers.contains(server)) return@withLock true
-            val deferred = CompletableDeferred<Boolean>()
+            if (sessionAllowedServers.contains(key)) return@withLock true
+            val deferred = request.deferred
             val promptId = nextPromptId.getAndIncrement()
-            _pendingShellCommand.value =
-                PendingShellCommand(promptId, server, summary, deferred, conversationId, detail, description)
+            _pendingShellCommand.value = request.copy(id = promptId)
             try {
                 // Backgrounding the app does not answer the request. There is no visible dialog
                 // there, so the app layer re-surfaces the wait as a notification with the same
@@ -122,9 +137,14 @@ class ShellConfirmationController internal constructor(
         val pending = _pendingShellCommand.value ?: return
         if (pending.id != promptId) return
         if (!_pendingShellCommand.compareAndSet(pending, null)) return
-        if (allow && alwaysAllowServer) sessionAllowedServers.add(pending.server)
+        if (allow && alwaysAllowServer) sessionAllowedServers.add(pending.trustKey())
         pending.deferred.complete(allow)
     }
 
     fun setEnabled(enabled: Boolean) = persistEnabled(enabled)
+
+    private companion object {
+        /** Not a valid server name, so it can never collide with one. */
+        const val PHONE_TRUST_KEY = "\u0000phone"
+    }
 }

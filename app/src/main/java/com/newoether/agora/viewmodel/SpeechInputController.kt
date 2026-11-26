@@ -14,6 +14,7 @@ import com.newoether.agora.speech.LocalSpeechModelStore
 import com.newoether.agora.speech.SpeechAudioFormat
 import com.newoether.agora.speech.SpeechCaptureSession
 import com.newoether.agora.speech.SpeechCaptureSessions
+import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -125,8 +126,11 @@ class SpeechInputController internal constructor(
         _state.value = SpeechInputState.Recording(ownerId)
         val startedAt = System.currentTimeMillis()
         tickJob = scope.launch(Dispatchers.Main.immediate) {
+            var tick = 0L
             while (isActive) {
-                delay(TICK_MS)
+                // Absolute schedule: a late tick shortens the next wait instead of drifting.
+                tick++
+                delay((startedAt + tick * TICK_MS - System.currentTimeMillis()).coerceAtLeast(0L))
                 _elapsedMs.value = System.currentTimeMillis() - startedAt
                 _levels.value = (_levels.value + peak.getAndSet(0f)).takeLast(MAX_LEVELS)
                 if (created.reachedLimit || _elapsedMs.value >= SpeechAudioFormat.MAX_DURATION_MS) {
@@ -166,13 +170,14 @@ class SpeechInputController internal constructor(
     }
 
     /** Drops the capture or in-flight transcription for [ownerId]; null matches any owner. */
-    fun cancel(ownerId: String? = null) {
+    fun cancel(ownerId: String? = null, reason: String = "user") {
         val owner = _state.value.activeOwnerId ?: return
         if (ownerId != null && owner != ownerId) return
-        cancelAll()
+        cancelAll(reason)
     }
 
-    fun cancelAll() {
+    fun cancelAll(reason: String = "reset") {
+        if (_state.value != SpeechInputState.Idle) DebugLog.w(TAG, "capture cancelled: $reason")
         stopTicking()
         abandonFocus()
         transcribeJob?.cancel()
@@ -198,12 +203,13 @@ class SpeechInputController internal constructor(
         emitSnackbar(appContext.getString(R.string.speech_input_failed, detail))
     }
 
+    /**
+     * Focus only pauses other players while the user dictates. Losing it never ends capture: the
+     * microphone records regardless, and a music app re-taking focus (next track, replay) must not
+     * discard what the user is saying. During calls the platform silences other recorders itself.
+     */
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
-        if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-            scope.launch(Dispatchers.Main.immediate) {
-                if (_state.value is SpeechInputState.Recording) cancelAll()
-            }
-        }
+        DebugLog.d(TAG, "audio focus change: $change")
     }
 
     private fun requestFocus() {
@@ -217,7 +223,9 @@ class SpeechInputController internal constructor(
             )
             .setOnAudioFocusChangeListener(focusListener)
             .build()
-        manager.requestAudioFocus(request)
+        // Recording does not depend on focus, so a refused request only gets logged.
+        val granted = manager.requestAudioFocus(request)
+        if (granted != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) DebugLog.w(TAG, "audio focus not granted: $granted")
         focusRequest = request
     }
 
@@ -228,6 +236,7 @@ class SpeechInputController internal constructor(
     }
 
     private companion object {
+        const val TAG = "SpeechInput"
         const val TICK_MS = SPEECH_LEVEL_TICK_MS
         const val MAX_LEVELS = 96
     }

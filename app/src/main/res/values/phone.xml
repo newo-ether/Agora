@@ -20,7 +20,7 @@
     <string name="phone_automation">Allow Task and Loop Runs</string>
     <string name="phone_automation_description">Allow automated runs and their subagents to claim device control.</string>
     <string name="phone_background">Background Screen</string>
-    <string name="phone_background_description">Shizuku only, and needs the accessibility service. Apps run on a hidden virtual display while a floating preview shows the AI at work. Tap it for full screen.</string>
+    <string name="phone_background_description">Shizuku only. Apps run on a hidden virtual display while a floating preview shows the AI at work. Tap it for full screen.</string>
     <string name="phone_app_access">App Access Control</string>
     <string name="phone_app_access_description">Restrict which apps conversations can observe and operate. Agora is always allowed.</string>
     <string name="phone_access_off">Off</string>
@@ -74,4 +74,22 @@
     <string name="phone_max_screenshots">Max Screenshots</string>
     <string name="phone_max_screenshots_description">Choose a limit from 1 to 16, or select Unlimited at the far right. The limit applies only to images from built-in Phone tools sent to the model, newest first. Older images stay saved in the conversation; other images are unaffected.</string>
     <string name="phone_max_screenshots_unlimited">Unlimited</string>
+    <string name="phone_background_size">Screen Size</string>
+    <string name="phone_background_size_description">Applies at the next claim. Density matches this phone, so a larger screen fits more content.</string>
+    <string name="phone_background_native">Native</string>
+    <string name="phone_background_125">1.25×</string>
+    <string name="phone_background_150">1.5×</string>
+    <string name="phone_background_custom">Custom</string>
+    <string name="phone_background_resolution">Resolution</string>
+    <string name="phone_background_resolution_value">%1$d × %2$d px, short side %3$d dp</string>
+    <string name="phone_background_short_side">Short side (px)</string>
+    <string name="phone_background_long_side">Long side (px)</string>
+    <string name="phone_background_size_range">Short side at least %1$d px, each side at most %2$d px.</string>
+    <string name="phone_background_landscape">Landscape</string>
+    <string name="phone_background_landscape_description">Lay the background screen out wide. Applies at the next claim.</string>
+    <string name="phone_confirm_claim">Approve Control Requests</string>
+    <string name="phone_confirm_claim_description">Show an approval card when a conversation requests control of the phone.</string>
+    <string name="phone_claim_request">“%1$s” requests control of this phone.</string>
+    <string name="phone_claim_request_untitled">A conversation requests control of this phone.</string>
+    <string name="phone_claim_always">Allow for this app session</string>
 </resources>

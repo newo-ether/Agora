@@ -20,7 +20,7 @@
     <string name="phone_automation">Разрешить задачи и циклы</string>
     <string name="phone_automation_description">Разрешить автоматическим запускам и их субагентам запрашивать управление.</string>
     <string name="phone_background">Фоновый экран</string>
-    <string name="phone_background_description">Только с Shizuku, нужна служба специальных возможностей. Приложения работают на скрытом виртуальном дисплее, а плавающее окно показывает действия ИИ. Нажмите, чтобы открыть на весь экран.</string>
+    <string name="phone_background_description">Только с Shizuku. Приложения работают на скрытом виртуальном дисплее, а плавающее окно показывает действия ИИ. Нажмите, чтобы открыть на весь экран.</string>
     <string name="phone_app_access">Доступ к приложениям</string>
     <string name="phone_app_access_description">Ограничьте доступные для просмотра и управления приложения. Agora разрешена всегда.</string>
     <string name="phone_access_off">Выкл.</string>
@@ -74,4 +74,22 @@
     <string name="phone_max_screenshots">Максимум снимков экрана</string>
     <string name="phone_max_screenshots_description">Выберите лимит от 1 до 16 или «Без ограничений» в крайнем правом положении. Лимит действует только для изображений инструментов управления телефоном, отправляемых модели, начиная с самых новых. Старые изображения остаются в переписке; остальные изображения не затрагиваются.</string>
     <string name="phone_max_screenshots_unlimited">Без ограничений</string>
+    <string name="phone_background_size">Размер экрана</string>
+    <string name="phone_background_size_description">Применяется при следующем захвате управления. Плотность совпадает с этим телефоном, поэтому на большем экране помещается больше содержимого.</string>
+    <string name="phone_background_native">Исходный</string>
+    <string name="phone_background_125">1.25×</string>
+    <string name="phone_background_150">1.5×</string>
+    <string name="phone_background_custom">Свой</string>
+    <string name="phone_background_resolution">Разрешение</string>
+    <string name="phone_background_resolution_value">%1$d × %2$d px, короткая сторона %3$d dp</string>
+    <string name="phone_background_short_side">Короткая сторона (px)</string>
+    <string name="phone_background_long_side">Длинная сторона (px)</string>
+    <string name="phone_background_size_range">Короткая сторона не меньше %1$d px, каждая сторона не больше %2$d px.</string>
+    <string name="phone_background_landscape">Альбомная ориентация</string>
+    <string name="phone_background_landscape_description">Запускать фоновый экран в альбомной ориентации. Применяется при следующем захвате управления.</string>
+    <string name="phone_confirm_claim">Подтверждать запросы управления</string>
+    <string name="phone_confirm_claim_description">Показывать карточку подтверждения, когда беседа запрашивает управление телефоном.</string>
+    <string name="phone_claim_request">«%1$s» запрашивает управление этим телефоном.</string>
+    <string name="phone_claim_request_untitled">Беседа запрашивает управление этим телефоном.</string>
+    <string name="phone_claim_always">Разрешить до конца сеанса приложения</string>
 </resources>

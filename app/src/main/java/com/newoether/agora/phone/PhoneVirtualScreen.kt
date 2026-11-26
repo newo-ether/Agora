@@ -24,10 +24,14 @@ import kotlinx.coroutines.withTimeoutOrNull
  * Surface to the privileged process, which owns the display. Frames are converted at most
  * [FRAME_INTERVAL_MS] apart; the virtual display only produces frames when its content changes.
  */
-internal class PhoneVirtualScreen(context: Context, private val privileged: PhonePrivilegedConnection) {
-    val width: Int
-    val height: Int
-    private val dpi: Int
+internal class PhoneVirtualScreen(
+    context: Context,
+    private val privileged: PhonePrivilegedConnection,
+    spec: PhoneBackgroundSpec,
+) {
+    val width: Int = spec.width
+    val height: Int = spec.height
+    private val dpi: Int = spec.dpi
     private val thread = HandlerThread("AgoraBackgroundScreen").apply { start() }
     private val handler = Handler(thread.looper)
     private val lock = Mutex()
@@ -41,17 +45,6 @@ internal class PhoneVirtualScreen(context: Context, private val privileged: Phon
     /** Latest frame for the preview. Bitmaps are never recycled here, since a view may still draw one. */
     val frame: StateFlow<Bitmap?> = _frame.asStateFlow()
     private val displays = context.getSystemService(DisplayManager::class.java)
-
-    init {
-        val main = displays.getDisplay(Display.DEFAULT_DISPLAY) ?: throw PhoneFailure("display_unavailable")
-        val size = android.graphics.Point().also(main::getRealSize)
-        val metrics = android.util.DisplayMetrics().also(main::getRealMetrics)
-        // Portrait at the phone's native resolution; screenshots then go through the same
-        // image-quality downscale as main-screen captures.
-        width = minOf(size.x, size.y) and 1.inv()
-        height = maxOf(size.x, size.y) and 1.inv()
-        dpi = metrics.densityDpi
-    }
 
     /** Returns the live display id, creating a fresh empty display when none exists. */
     suspend fun ensureOpen(): Int = lock.withLock {

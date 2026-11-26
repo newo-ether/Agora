@@ -33,9 +33,23 @@ import kotlin.math.exp
 private class LevelScroll {
     var drawn: List<Float> = emptyList()
     var seen: List<Float>? = null
-    var arrivedAt = 0L
-    var intervalNanos = SPEECH_LEVEL_TICK_MS * 1_000_000f
+    /** Samples received since the history was last cleared. */
+    var received = 0
+    /** Scroll position in samples; the newest bar is fully in view at [received]. */
+    var head = 0f
+    var lastFrame = 0L
 }
+
+private const val TICK_NANOS = SPEECH_LEVEL_TICK_MS * 1_000_000f
+
+/**
+ * Where [head] settles behind the newest sample. Half a sample of slack absorbs early and late
+ * ticks, so arrival jitter changes the scroll speed slightly instead of moving the bars in steps.
+ */
+private const val HEAD_LAG = 0.5f
+
+/** How strongly the scroll speed corrects toward [HEAD_LAG] per sample of error. */
+private const val HEAD_GAIN = 0.6f
 
 /**
  * Loudness history that scrolls continuously instead of stepping one bar per sample. Each new
@@ -60,19 +74,25 @@ internal fun ComposerLevelHistory(
                 val current = levels.value
                 if (current !== scroll.seen) {
                     val previous = scroll.seen
-                    if (previous != null && scroll.arrivedAt > 0L) {
-                        // Follow the real tick rate (delay plus dispatch) so bars never pause.
-                        val measured = (now - scroll.arrivedAt).toFloat().coerceIn(30e6f, 200e6f)
-                        scroll.intervalNanos += (measured - scroll.intervalNanos) * 0.2f
-                    }
                     scroll.seen = current
                     scroll.drawn = current
-                    scroll.arrivedAt = now
-                    // A cleared history has nothing to slide in.
-                    if (previous == null || current.size < previous.size) scroll.arrivedAt = 0L
+                    if (previous == null || current.size < previous.size) {
+                        // A cleared or first history has nothing to slide in.
+                        scroll.received = current.size
+                        scroll.head = current.size.toFloat()
+                    } else {
+                        // Each emission appends one sample, also once the list is capped.
+                        scroll.received += 1
+                    }
                 }
-                shift.floatValue = if (scroll.arrivedAt == 0L) 1f
-                else ((now - scroll.arrivedAt) / scroll.intervalNanos).coerceIn(0f, 1f)
+                // Advance at the nominal tick rate, nudged toward a fixed lag behind the newest sample.
+                val dt = if (scroll.lastFrame == 0L) 0L else now - scroll.lastFrame
+                scroll.lastFrame = now
+                val target = scroll.received - HEAD_LAG
+                val rate = (1f + HEAD_GAIN * (target - scroll.head)).coerceIn(0.25f, 3f)
+                scroll.head = (scroll.head + dt / TICK_NANOS * rate)
+                    .coerceIn(scroll.received - 2f, scroll.received.toFloat())
+                shift.floatValue = (scroll.head - (scroll.received - 1)).coerceIn(-1f, 1f)
             }
         }
     }

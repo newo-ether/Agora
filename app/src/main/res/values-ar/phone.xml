@@ -20,7 +20,7 @@
     <string name="phone_automation">السماح بالمهام والحلقات</string>
     <string name="phone_automation_description">السماح للتشغيل التلقائي ووكلائه الفرعيين بطلب التحكم في الجهاز.</string>
     <string name="phone_background">الشاشة الخلفية</string>
-    <string name="phone_background_description">مع Shizuku فقط، ويتطلب خدمة إمكانية الوصول. تعمل التطبيقات على شاشة افتراضية مخفية، وتعرض نافذة معاينة عائمة ما يفعله الذكاء الاصطناعي. انقر عليها لملء الشاشة.</string>
+    <string name="phone_background_description">مع Shizuku فقط. تعمل التطبيقات على شاشة افتراضية مخفية، وتعرض نافذة معاينة عائمة ما يفعله الذكاء الاصطناعي. انقر عليها لملء الشاشة.</string>
     <string name="phone_app_access">التحكم في الوصول إلى التطبيقات</string>
     <string name="phone_app_access_description">تقييد التطبيقات التي يمكن مراقبتها والتحكم فيها. يُسمح دائمًا بتطبيق Agora.</string>
     <string name="phone_access_off">إيقاف</string>
@@ -74,4 +74,22 @@
     <string name="phone_max_screenshots">الحد الأقصى للقطات الشاشة</string>
     <string name="phone_max_screenshots_description">اختر حدًا من 1 إلى 16، أو اختر «غير محدود» في أقصى اليمين. يقتصر الحد على صور أدوات الهاتف المرسلة إلى النموذج، بدءًا من الأحدث. تبقى الصور الأقدم محفوظة في المحادثة، ولا تتأثر الصور الأخرى.</string>
     <string name="phone_max_screenshots_unlimited">غير محدود</string>
+    <string name="phone_background_size">حجم الشاشة</string>
+    <string name="phone_background_size_description">يُطبَّق عند طلب التحكم التالي. تبقى الكثافة مثل هذا الهاتف، لذا تعرض الشاشة الأكبر محتوى أكثر.</string>
+    <string name="phone_background_native">الأصلي</string>
+    <string name="phone_background_125">1.25×</string>
+    <string name="phone_background_150">1.5×</string>
+    <string name="phone_background_custom">مخصص</string>
+    <string name="phone_background_resolution">الدقة</string>
+    <string name="phone_background_resolution_value">%1$d × %2$d بكسل، الضلع القصير %3$d dp</string>
+    <string name="phone_background_short_side">الضلع القصير (بكسل)</string>
+    <string name="phone_background_long_side">الضلع الطويل (بكسل)</string>
+    <string name="phone_background_size_range">الضلع القصير %1$d بكسل على الأقل، وكل ضلع %2$d بكسل على الأكثر.</string>
+    <string name="phone_background_landscape">أفقي</string>
+    <string name="phone_background_landscape_description">تشغيل الشاشة الخلفية بالوضع الأفقي. يُطبَّق عند طلب التحكم التالي.</string>
+    <string name="phone_confirm_claim">الموافقة على طلبات التحكم</string>
+    <string name="phone_confirm_claim_description">عرض بطاقة موافقة عندما تطلب محادثة التحكم في الهاتف.</string>
+    <string name="phone_claim_request">تطلب «%1$s» التحكم في هذا الهاتف.</string>
+    <string name="phone_claim_request_untitled">تطلب محادثة التحكم في هذا الهاتف.</string>
+    <string name="phone_claim_always">السماح طوال جلسة التطبيق هذه</string>
 </resources>

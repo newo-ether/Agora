@@ -20,7 +20,7 @@
     <string name="phone_automation">작업 및 루프 실행 허용</string>
     <string name="phone_automation_description">자동 실행과 하위 에이전트가 기기 제어를 요청하도록 허용합니다.</string>
     <string name="phone_background">백그라운드 화면</string>
-    <string name="phone_background_description">Shizuku 전용이며 접근성 서비스가 필요합니다. 앱이 숨겨진 가상 디스플레이에서 실행되고, 떠 있는 미리보기로 AI의 작업을 볼 수 있습니다. 탭하면 전체 화면으로 봅니다.</string>
+    <string name="phone_background_description">Shizuku 전용입니다. 앱이 숨겨진 가상 디스플레이에서 실행되고, 떠 있는 미리보기로 AI의 작업을 볼 수 있습니다. 탭하면 전체 화면으로 봅니다.</string>
     <string name="phone_app_access">앱 접근 제어</string>
     <string name="phone_app_access_description">확인하고 조작할 수 있는 앱을 제한합니다. Agora는 항상 허용됩니다.</string>
     <string name="phone_access_off">끄기</string>
@@ -74,4 +74,22 @@
     <string name="phone_max_screenshots">최대 스크린샷 수</string>
     <string name="phone_max_screenshots_description">1~16 중에서 한도를 선택하거나 맨 오른쪽의 ‘무제한’을 선택하세요. 이 한도는 모델에 전송되는 휴대전화 도구 이미지에만 적용되며, 최신 이미지가 우선됩니다. 이전 이미지는 대화에 계속 저장되며 다른 이미지에는 영향을 주지 않습니다.</string>
     <string name="phone_max_screenshots_unlimited">무제한</string>
+    <string name="phone_background_size">화면 크기</string>
+    <string name="phone_background_size_description">다음 제어 요청 때 적용됩니다. 밀도는 이 기기와 같으므로 화면이 클수록 더 많은 내용이 보입니다.</string>
+    <string name="phone_background_native">기본</string>
+    <string name="phone_background_125">1.25×</string>
+    <string name="phone_background_150">1.5×</string>
+    <string name="phone_background_custom">사용자 지정</string>
+    <string name="phone_background_resolution">해상도</string>
+    <string name="phone_background_resolution_value">%1$d × %2$d px, 짧은 변 %3$d dp</string>
+    <string name="phone_background_short_side">짧은 변(px)</string>
+    <string name="phone_background_long_side">긴 변(px)</string>
+    <string name="phone_background_size_range">짧은 변은 %1$d px 이상, 각 변은 %2$d px 이하입니다.</string>
+    <string name="phone_background_landscape">가로 모드</string>
+    <string name="phone_background_landscape_description">백그라운드 화면을 가로로 실행합니다. 다음 제어 요청 때 적용됩니다.</string>
+    <string name="phone_confirm_claim">제어 요청 승인</string>
+    <string name="phone_confirm_claim_description">대화가 휴대폰 제어를 요청하면 승인 카드를 표시합니다.</string>
+    <string name="phone_claim_request">“%1$s” 대화가 이 휴대폰의 제어를 요청합니다.</string>
+    <string name="phone_claim_request_untitled">대화가 이 휴대폰의 제어를 요청합니다.</string>
+    <string name="phone_claim_always">이번 앱 세션 동안 항상 허용</string>
 </resources>

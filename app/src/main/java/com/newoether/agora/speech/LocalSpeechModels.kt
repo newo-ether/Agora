@@ -1,7 +1,7 @@
 package com.newoether.agora.speech
 
 /** Which sherpa-onnx offline model family a preset loads; decides the recognizer config shape. */
-internal enum class LocalSpeechModelKind { SENSE_VOICE, FIRE_RED_CTC, QWEN3_ASR, NEMO_TRANSDUCER }
+internal enum class LocalSpeechModelKind { SENSE_VOICE, QWEN3_ASR, NEMO_TRANSDUCER }
 
 /** One file of a model, pinned by size and SHA-256 so either mirror yields identical bytes. */
 internal data class LocalSpeechModelFile(val path: String, val size: Long, val sha256: String)
@@ -58,17 +58,6 @@ internal object LocalSpeechModels {
             languages = listOf("zh", "en", "yue", "ja", "ko"),
         ),
         LocalSpeechModel(
-            id = "fire-red-asr2-ctc-int8-2026-02-25",
-            displayName = "FireRedASR2 CTC",
-            kind = LocalSpeechModelKind.FIRE_RED_CTC,
-            repo = "csukuangfj2/sherpa-onnx-fire-red-asr2-ctc-zh_en-int8-2026-02-25",
-            revision = "423be1acfdc5d8aaa5a485fb6263fe4ea8570b06",
-            files = listOf(
-                LocalSpeechModelFile("model.int8.onnx", 775_861_420L, "ca3dbabd82170110cc0b343c2890866d449984bc9cd92b9a18371ff80a81bb99"),
-                LocalSpeechModelFile("tokens.txt", 79_172L, "1bc613de2112d257e61a349c3e72d1b1a9cf19c33d3ca954197ad2171e5ea07b"),
-            ),
-        ),
-        LocalSpeechModel(
             id = "qwen3-asr-0.6b-int8-2026-03-25",
             displayName = "Qwen3-ASR 0.6B",
             kind = LocalSpeechModelKind.QWEN3_ASR,
@@ -100,7 +89,11 @@ internal object LocalSpeechModels {
     )
 
     /** Retired preset ids mapped to their replacement, so saved configurations keep working. */
-    private val renamed = mapOf("sense-voice-int8-2025-09-09" to SENSE_VOICE_ID)
+    // FireRedASR2 CTC was dropped: its vocabulary has no punctuation and only upper-case English.
+    private val renamed = mapOf(
+        "sense-voice-int8-2025-09-09" to SENSE_VOICE_ID,
+        "fire-red-asr2-ctc-int8-2026-02-25" to SENSE_VOICE_ID,
+    )
 
     fun byId(id: String): LocalSpeechModel? {
         val current = renamed[id] ?: id

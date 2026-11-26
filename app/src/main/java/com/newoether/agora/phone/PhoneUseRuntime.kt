@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
+import com.newoether.agora.R
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.tool.ToolImageStore
@@ -11,6 +12,7 @@ import com.newoether.agora.util.appLanguageResources
 import com.newoether.agora.util.withAppLocale
 import com.newoether.agora.viewmodel.AskUserController
 import com.newoether.agora.viewmodel.ConversationStateRegistry
+import com.newoether.agora.viewmodel.ShellConfirmationController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -32,11 +34,12 @@ internal class PhoneUseRuntime(
     private val registry: ConversationStateRegistry,
     conversations: ConversationRepository,
     private val scope: CoroutineScope,
+    private val confirmation: ShellConfirmationController,
 ) {
     val privileged = PhonePrivilegedConnection(context) { epoch ->
         lease.releaseEpoch(epoch, "permission_lost:shizuku_service_disconnected")
     }
-    val permissions = PhonePermissions(context, privileged) { settings.phoneUse.value.backgroundActive }
+    val permissions = PhonePermissions(context, privileged)
     /** Background screen of the current Shizuku lease, when the setting was on at claim. */
     @Volatile private var virtual: PhoneVirtualScreen? = null
     private var preview: PhoneBackgroundPreview? = null
@@ -93,8 +96,10 @@ internal class PhoneUseRuntime(
                         try { next.show(mode) } catch (error: Exception) { next.remove(); throw error }
                         overlay = next
                         overlayEpoch = held.epoch
-                        if (mode == "shizuku" && settings.phoneUse.value.backgroundActive) {
-                            val screen = PhoneVirtualScreen(context, privileged)
+                        val phoneUse = settings.phoneUse.value
+                        if (mode == "shizuku" && phoneUse.backgroundActive) {
+                            val spec = PhoneBackgroundGeometry.resolve(PhoneBackgroundGeometry.native(context), phoneUse)
+                            val screen = PhoneVirtualScreen(context, privileged, spec)
                             virtual = screen
                             preview = PhoneBackgroundPreview(context.withAppLocale(settings.appLanguage.value), screen)
                                 .also { it.show() }
@@ -113,6 +118,12 @@ internal class PhoneUseRuntime(
                 }
                 throw error
             }
+        },
+        approve = { identity, title ->
+            val res = context.appLanguageResources(settings.appLanguage.value)
+            val summary = if (title.isBlank()) res.getString(R.string.phone_claim_request_untitled)
+                else res.getString(R.string.phone_claim_request, title)
+            confirmation.confirmPhone(res.getString(R.string.phone_title), summary, identity.conversationId)
         },
         releaseControl = { epoch ->
             withContext(NonCancellable) {

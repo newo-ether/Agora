@@ -229,7 +229,8 @@ class AppContainer(
     ) }
     internal val phoneUse by lazy {
         com.newoether.agora.phone.PhoneUseRuntime(appContext, settingsRepository, phoneLease,
-            askUserController, conversationStateRegistry, conversationRepository, appScope)
+            askUserController, conversationStateRegistry, conversationRepository, appScope,
+            shellConfirmationController)
     }
     val conversationStateRegistry: ConversationStateRegistry by lazy {
         ConversationStateRegistry(

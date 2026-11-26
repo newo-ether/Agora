@@ -6,8 +6,8 @@ import kotlinx.coroutines.delay
 
 /**
  * Shizuku device that drives [screen] instead of the phone's own display. Input and launches carry
- * the display id, so nothing reaches the screen the user is holding. Reads come from the
- * accessibility service's per-display windows.
+ * the display id, so nothing reaches the screen the user is holding. Reads come from a shell-owned
+ * UiAutomation in the Shizuku process ([PhoneDisplayTree]).
  */
 internal class VirtualPhoneDevice(
     private val context: Context,
@@ -15,15 +15,18 @@ internal class VirtualPhoneDevice(
     private val privileged: PhonePrivilegedConnection,
 ) : PhoneDevice {
     private val main = AndroidPhoneDevice(context, MODE, privileged)
-    private fun accessibility() = PhoneAccessibilityService.instance
-        ?: throw PhoneFailure("permission_lost:accessibility_unavailable")
     private suspend fun command(value: String) = privileged.command(MODE, value)
 
     // An empty display shows nothing to protect; Agora's own package is always admitted.
-    override suspend fun foreground(): String =
-        accessibility().foregroundPackage(screen.ensureOpen()) ?: context.packageName
+    override suspend fun foreground(): String {
+        screen.ensureOpen()
+        return privileged.displayForeground() ?: context.packageName
+    }
     override suspend fun screenshot(): Bitmap = screen.capture()
-    override suspend fun nodes(): List<PhoneNode> = accessibility().snapshot(screen.ensureOpen())
+    override suspend fun nodes(): List<PhoneNode> {
+        screen.ensureOpen()
+        return privileged.displayNodes()
+    }
     override suspend fun tap(x: Int, y: Int, durationMs: Long) {
         val id = screen.ensureOpen()
         if (durationMs <= 100) command("input -d $id tap $x $y")
@@ -34,8 +37,8 @@ internal class VirtualPhoneDevice(
     }
     override suspend fun type(text: String) {
         val id = screen.ensureOpen()
-        if (accessibility().setText(text, id)) return
-        // No accessibility focus: plain ASCII can still go through the display's key input.
+        if (privileged.displaySetText(text)) return
+        // No focused field found: plain ASCII can still go through the display's key input.
         if (phoneInputPath(MODE, text) != "input_text") throw PhoneFailure("no_focused_field")
         command("input -d $id text ${phoneShellQuote(text.replace(" ", "%s"))}")
     }
@@ -56,7 +59,7 @@ internal class VirtualPhoneDevice(
         command("am start --user current --display $id -f 0x18000000 -n ${phoneShellQuote(component)} " +
             "-a android.intent.action.MAIN -c android.intent.category.LAUNCHER")
         repeat(LAUNCH_POLLS) {
-            if (accessibility().foregroundPackage(id) == packageName) return
+            if (privileged.displayForeground() == packageName) return
             delay(LAUNCH_POLL_MS)
         }
         throw PhoneFailure("background_launch_unconfirmed",

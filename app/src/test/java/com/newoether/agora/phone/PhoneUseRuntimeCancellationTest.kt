@@ -85,7 +85,7 @@ class PhoneUseRuntimeCancellationTest {
         val registry = mockk<ConversationStateRegistry>()
         every { registry.get(identity.conversationId) } returns null
         val runtime = PhoneUseRuntime(
-            context, settings, lease, ask, registry, mockk(), backgroundScope,
+            context, settings, lease, ask, registry, mockk(), backgroundScope, mockk(),
         )
         runCurrent()
         assertEquals(claim.permit.epoch, lease.held.value?.epoch)
@@ -141,7 +141,7 @@ class PhoneUseRuntimeCancellationTest {
         lease.pause(identity.owner(), true)
         val ask = AskUserController()
         ask.open(identity.conversationId, "Status regression", emptyList(), false, false, runId = identity.runId)
-        return PhoneUseRuntime(context, settings, lease, ask, registry, mockk(), backgroundScope)
+        return PhoneUseRuntime(context, settings, lease, ask, registry, mockk(), backgroundScope, mockk())
     }
 
     /** Hold an already captured notification while .value continues to expose the live source. */

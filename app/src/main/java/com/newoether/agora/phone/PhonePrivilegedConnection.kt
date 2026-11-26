@@ -26,7 +26,7 @@ internal class PhonePrivilegedConnection(
     private var pending: CompletableDeferred<IPhoneUserService>? = null
     private var connection: ServiceConnection? = null
     private val args get() = Shizuku.UserServiceArgs(ComponentName(context, PhoneUserService::class.java))
-        .daemon(false).processNameSuffix("phone").tag("agora-phone").version(2)
+        .daemon(false).processNameSuffix("phone").tag("agora-phone").version(3)
 
     fun ready(): Boolean = runCatching {
         Shizuku.pingBinder() && !Shizuku.isPreV11() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
@@ -98,6 +98,16 @@ internal class PhonePrivilegedConnection(
         catch (error: SecurityException) { throw PhoneFailure("background_display_denied", error.message ?: "denied") }
         catch (error: RuntimeException) { throw PhoneFailure("background_display_unsupported", error.message ?: error.javaClass.simpleName) }
     }
+
+    private suspend fun <T> displayCall(block: (IPhoneUserService) -> T): T = withContext(Dispatchers.IO) {
+        try { block(service()) }
+        catch (error: android.os.DeadObjectException) { throw PhoneFailure("permission_lost:shizuku_binder_dead") }
+        catch (error: IllegalStateException) { throw PhoneFailure("background_display_missing", error.message ?: "display_missing") }
+        catch (error: RuntimeException) { throw PhoneFailure("ui_tree_unavailable", error.message ?: error.javaClass.simpleName) }
+    }
+    suspend fun displayForeground(): String? = displayCall { it.displayForeground() }.ifEmpty { null }
+    suspend fun displayNodes(): List<PhoneNode> = decodePhoneNodes(displayCall { it.displayNodes() })
+    suspend fun displaySetText(text: String): Boolean = displayCall { it.displaySetText(text) }
 
     /** One-way and non-suspending, so Main-thread cleanup can call it; a lost binding has no display. */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)

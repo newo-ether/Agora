@@ -10,5 +10,11 @@ interface IPhoneUserService {
     /** Creates the one background display on request["surface"]; returns its display id. */
     int openDisplay(in Bundle request) = 2;
     oneway void closeDisplay() = 3;
+    /** Top application package on the background display; empty while it shows nothing. */
+    String displayForeground() = 4;
+    /** Background display nodes as JSON. */
+    String displayNodes() = 5;
+    /** Sets text on the background display's focused field; false when none has focus. */
+    boolean displaySetText(String text) = 6;
     void destroy() = 16777114;
 }

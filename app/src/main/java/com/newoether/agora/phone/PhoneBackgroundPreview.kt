@@ -33,7 +33,7 @@ internal class PhoneBackgroundPreview(private val context: Context, private val 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val density = context.resources.displayMetrics.density
     private val displayWidth = context.resources.displayMetrics.widthPixels
-    private val smallWidth = (SMALL_WIDTH_DP * density).roundToInt()
+    private val smallWidth = ((if (screen.width > screen.height) SMALL_LANDSCAPE_WIDTH_DP else SMALL_WIDTH_DP) * density).roundToInt()
     private val smallHeight = smallWidth * screen.height / screen.width
     private val margin = (MARGIN_DP * density).roundToInt()
     private var corner = CORNER_DP * density
@@ -142,6 +142,7 @@ internal class PhoneBackgroundPreview(private val context: Context, private val 
 
     private companion object {
         const val SMALL_WIDTH_DP = 112
+        const val SMALL_LANDSCAPE_WIDTH_DP = 200
         const val MARGIN_DP = 12
         const val TOP_DP = 96
         const val CORNER_DP = 14f

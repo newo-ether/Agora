@@ -15,8 +15,6 @@ import kotlinx.coroutines.withContext
 internal class PhonePermissions(
     private val context: Context,
     private val privileged: PhonePrivilegedConnection,
-    /** True while the background screen setting is on; it reads windows through accessibility. */
-    private val background: () -> Boolean = { false },
 ) {
     @Volatile var rootGranted = false
         private set
@@ -31,7 +29,6 @@ internal class PhonePermissions(
                 put("shizuku_installed", runCatching { context.packageManager.getApplicationInfo("moe.shizuku.privileged.api", 0) }.isSuccess)
                 put("shizuku_running", rikka.shizuku.Shizuku.pingBinder())
                 put("shizuku_permission", privileged.ready())
-                if (background()) put("accessibility", PhoneAccessibilityService.instance != null)
             }
             "root" -> put("root", rootGranted)
         }

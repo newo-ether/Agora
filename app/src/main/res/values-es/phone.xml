@@ -20,7 +20,7 @@
     <string name="phone_automation">Permitir tareas y bucles</string>
     <string name="phone_automation_description">Permite que las ejecuciones automáticas y sus subagentes soliciten el control.</string>
     <string name="phone_background">Pantalla en segundo plano</string>
-    <string name="phone_background_description">Solo con Shizuku y requiere el servicio de accesibilidad. Las apps se ejecutan en una pantalla virtual oculta y una vista previa flotante muestra lo que hace la IA. Tócala para verla a pantalla completa.</string>
+    <string name="phone_background_description">Solo con Shizuku. Las apps se ejecutan en una pantalla virtual oculta y una vista previa flotante muestra lo que hace la IA. Tócala para verla a pantalla completa.</string>
     <string name="phone_app_access">Acceso a aplicaciones</string>
     <string name="phone_app_access_description">Restringe las aplicaciones que se pueden observar y controlar. Agora siempre está permitido.</string>
     <string name="phone_access_off">Desactivado</string>
@@ -74,4 +74,22 @@
     <string name="phone_max_screenshots">Máximo de capturas</string>
     <string name="phone_max_screenshots_description">Elige un límite de 1 a 16 o selecciona «Sin límite» en el extremo derecho. El límite solo se aplica a las imágenes de las herramientas del teléfono enviadas al modelo, empezando por las más recientes. Las antiguas siguen guardadas en la conversación; las demás imágenes no se ven afectadas.</string>
     <string name="phone_max_screenshots_unlimited">Sin límite</string>
+    <string name="phone_background_size">Tamaño de pantalla</string>
+    <string name="phone_background_size_description">Se aplica en la próxima toma de control. La densidad es la de este teléfono, así que una pantalla más grande muestra más contenido.</string>
+    <string name="phone_background_native">Nativo</string>
+    <string name="phone_background_125">1.25×</string>
+    <string name="phone_background_150">1.5×</string>
+    <string name="phone_background_custom">Personalizado</string>
+    <string name="phone_background_resolution">Resolución</string>
+    <string name="phone_background_resolution_value">%1$d × %2$d px, lado corto %3$d dp</string>
+    <string name="phone_background_short_side">Lado corto (px)</string>
+    <string name="phone_background_long_side">Lado largo (px)</string>
+    <string name="phone_background_size_range">Lado corto de al menos %1$d px y cada lado de %2$d px como máximo.</string>
+    <string name="phone_background_landscape">Horizontal</string>
+    <string name="phone_background_landscape_description">Usa la pantalla en segundo plano en horizontal. Se aplica en la próxima toma de control.</string>
+    <string name="phone_confirm_claim">Aprobar solicitudes de control</string>
+    <string name="phone_confirm_claim_description">Muestra una tarjeta de aprobación cuando una conversación solicita el control del teléfono.</string>
+    <string name="phone_claim_request">«%1$s» solicita el control de este teléfono.</string>
+    <string name="phone_claim_request_untitled">Una conversación solicita el control de este teléfono.</string>
+    <string name="phone_claim_always">Permitir durante esta sesión de la app</string>
 </resources>

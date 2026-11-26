@@ -85,12 +85,37 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         scope.launch { settings.phoneUseStore.setMode(mode) }
                     }
                 })
-                if (config.mode == "shizuku") SettingsGroup(title = stringResource(R.string.phone_background), items = listOf {
-                    PhoneSwitch(R.string.phone_background, R.string.phone_background_description, config.background) {
-                        scope.launch { settings.phoneUseStore.setBackground(it) }
+                SettingsGroup(title = stringResource(R.string.phone_confirm_claim), items = listOf {
+                    PhoneSwitch(R.string.phone_confirm_claim, R.string.phone_confirm_claim_description, config.confirmClaim) {
+                        scope.launch { settings.phoneUseStore.setConfirmClaim(it) }
                     }
                 })
-                SettingsPhonePermissions(config.mode, revision, runtime?.permissions, background = config.backgroundActive, onClick = { key ->
+                if (config.mode == "shizuku") SettingsGroup(title = stringResource(R.string.phone_background), items = buildList {
+                    add {
+                        PhoneSwitch(R.string.phone_background, R.string.phone_background_description, config.background) {
+                            scope.launch { settings.phoneUseStore.setBackground(it) }
+                        }
+                    }
+                    if (config.background) {
+                        add {
+                            PhoneBackgroundSizeItem(config) { size ->
+                                scope.launch { settings.phoneUseStore.setBackgroundSize(size) }
+                            }
+                        }
+                        add {
+                            PhoneBackgroundResolutionItem(config) { a, b ->
+                                scope.launch { settings.phoneUseStore.setBackgroundCustom(a, b) }
+                            }
+                        }
+                        add {
+                            PhoneSwitch(R.string.phone_background_landscape, R.string.phone_background_landscape_description,
+                                config.backgroundLandscape) {
+                                scope.launch { settings.phoneUseStore.setBackgroundLandscape(it) }
+                            }
+                        }
+                    }
+                })
+                SettingsPhonePermissions(config.mode, revision, runtime?.permissions) { key ->
                     when {
                         key == "root" -> Unit
                         key == "notifications" && Build.VERSION.SDK_INT >= 33 &&
@@ -99,7 +124,7 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         else -> runtime?.permissions?.open(key)
                     }
                     revision++
-                })
+                }
                 SettingsGroup(title = stringResource(R.string.phone_max_screenshots), items = listOf {
                     PhoneMaxScreenshotsSlider(config.maxScreenshots) { value ->
                         scope.launch { settings.phoneUseStore.setMaxScreenshots(value) }
@@ -276,11 +301,10 @@ internal fun SettingsPhonePermissions(
     revision: Int,
     permissions: PhonePermissions?,
     onClick: (String) -> Unit,
-    background: Boolean = false,
 ) {
     // This is only the page's current projection, independent of claim readiness.
-    var grants by remember(permissions, mode, revision, background) { mutableStateOf(emptyMap<String, Boolean>()) }
-    LaunchedEffect(permissions, mode, revision, background) {
+    var grants by remember(permissions, mode, revision) { mutableStateOf(emptyMap<String, Boolean>()) }
+    LaunchedEffect(permissions, mode, revision) {
         permissions ?: return@LaunchedEffect
         grants = permissions.granted(mode).filterKeys { it != "root" }
         if (mode == "root") {
@@ -290,8 +314,7 @@ internal fun SettingsPhonePermissions(
         }
     }
     val keys = listOf("overlay", "write_settings", "notifications") + when (mode) {
-        "shizuku" -> listOf("shizuku_installed", "shizuku_running", "shizuku_permission") +
-            if (background) listOf("accessibility") else emptyList()
+        "shizuku" -> listOf("shizuku_installed", "shizuku_running", "shizuku_permission")
         "root" -> listOf("root")
         else -> listOf("accessibility")
     }

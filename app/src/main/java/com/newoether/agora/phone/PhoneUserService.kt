@@ -16,7 +16,10 @@ class PhoneUserService(context: Context?) : IPhoneUserService.Stub() {
     constructor() : this(null)
     private val displays = PhoneVirtualDisplayHost(context)
     override fun openDisplay(request: Bundle): Int = displays.open(request)
-    override fun closeDisplay() = displays.close()
+    override fun closeDisplay() { displays.close() }
+    override fun displayForeground(): String = displays.foreground()
+    override fun displayNodes(): String = displays.nodes()
+    override fun displaySetText(text: String): Boolean = displays.setText(text)
     override fun command(command: String): ParcelFileDescriptor {
         // The image payload must never be marshalled into a Binder transaction.
         val pipe = ParcelFileDescriptor.createReliablePipe()
