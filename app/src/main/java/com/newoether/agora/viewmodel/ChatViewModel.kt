@@ -479,7 +479,14 @@ class ChatViewModel(
     fun showUpdateDialog(info: UpdateInfo) { _updateDialogData.value = info }
 
     /** PDF / text-file preview state shared by the existing UI consumers. */
-    val mediaPreview = MediaPreviewState()
+    val mediaPreview = MediaPreviewState { limit ->
+        emitSnackbar(
+            appContext.getString(
+                R.string.text_preview_truncated,
+                java.text.NumberFormat.getIntegerInstance().format(limit),
+            ),
+        )
+    }
 
     val messages: StateFlow<List<ChatMessage>> = conversationUi.messages
     val isLoading: StateFlow<Boolean> = conversationUi.isLoading

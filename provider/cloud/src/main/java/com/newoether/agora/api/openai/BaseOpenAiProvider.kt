@@ -55,6 +55,21 @@ abstract class BaseOpenAiProvider : LlmProvider {
      */
     protected open fun getExtraHeaders(config: ProviderConfig): Map<String, String> = emptyMap()
 
+    /** Credential headers; account-backed providers replace the Bearer API key. */
+    protected open suspend fun authHeaders(config: ProviderConfig): Map<String, String> =
+        if (config.apiKey.isNotBlank()) mapOf("Authorization" to "Bearer ${config.apiKey}") else emptyMap()
+
+    /** Called at most once per request on HTTP 401; true replays it with fresh [authHeaders]. */
+    protected open suspend fun reauthorize(config: ProviderConfig): Boolean = false
+
+    /** Transport choice; an endpoint that only speaks Responses forces it on. */
+    protected open fun usesResponsesApi(config: ProviderConfig): Boolean = config.responsesApiEnabled
+
+    protected open fun customizeResponsesRequest(
+        request: OpenAiResponsesRequest,
+        config: ProviderConfig,
+    ): OpenAiResponsesRequest = request
+
     /**
      * Transform the system prompt before it is sent. Default: pass-through.
      */
@@ -109,16 +124,17 @@ abstract class BaseOpenAiProvider : LlmProvider {
         config: ProviderConfig
     ): Flow<StreamEvent> = flow {
         val baseUrl = config.baseUrl?.trimEnd('/')?.ifBlank { null } ?: defaultBaseUrl
+        val responses = usesResponsesApi(config)
         val endpointUrls = openAiEndpointCandidates(
             baseUrl = baseUrl,
-            path = if (config.responsesApiEnabled) "responses" else "chat/completions",
+            path = if (responses) "responses" else "chat/completions",
             retryMissingV1BaseUrl = retryMissingV1BaseUrl,
         )
         // A prose-only model or a model that rejects reasoning fields must not fail forever:
         // retry the same request once with the rejected part removed.
         val recovery = ProviderControlRecovery(config.modelId)
         try {
-            if (config.openAiWebSearchEnabled && !config.responsesApiEnabled) {
+            if (config.openAiWebSearchEnabled && !responses) {
                 throw RequestFormatException(
                     name,
                     listOf("hosted web search requires Responses API transport"),
@@ -128,8 +144,11 @@ abstract class BaseOpenAiProvider : LlmProvider {
                 apiMessages: List<OpenAiMessage>,
                 base64Files: Base64FileRegistry,
             ): Pair<String, StreamingJsonRequest?> {
-                val requestBodyJson = if (config.responsesApiEnabled) {
-                    val request = buildOpenAiResponsesRequest(config, apiMessages, name, thinkingProviderFamily)
+                val requestBodyJson = if (responses) {
+                    val request = customizeResponsesRequest(
+                        buildOpenAiResponsesRequest(config, apiMessages, name, thinkingProviderFamily),
+                        config,
+                    )
                     request.requireValidWireFormat(name)
                     json.encodeToString(OpenAiResponsesRequest.serializer(), request)
                 } else {
@@ -162,15 +181,16 @@ abstract class BaseOpenAiProvider : LlmProvider {
                     body = requestBodyJson,
                     requiredStringFields = setOf("model"),
                     requiredArrayFields = setOf(
-                        if (config.responsesApiEnabled) "input" else "messages",
+                        if (responses) "input" else "messages",
                     ),
                 )
                 return requestBodyJson to base64Files.prepare(requestBodyJson)
             }
 
             val headers = mutableMapOf("Content-Type" to "application/json")
-            if (config.apiKey.isNotBlank()) headers["Authorization"] = "Bearer ${config.apiKey}"
+            headers += authHeaders(config)
             for ((key, value) in getExtraHeaders(config)) headers[key] = value
+            var reauthorized = false
 
             val maxAttempts = ProviderRetryPolicy.MAX_ATTEMPTS
             var attempt = 0
@@ -202,7 +222,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
                     DebugLog.d(
                         "AgoraAPI",
                         "[$name] request transport=" +
-                            "${if (config.responsesApiEnabled) "responses" else "chat"} " +
+                            "${if (responses) "responses" else "chat"} " +
                             "model=${config.modelId} messages=${apiMessages.size} " +
                             "tools=${config.tools?.size ?: 0}",
                     )
@@ -246,7 +266,7 @@ abstract class BaseOpenAiProvider : LlmProvider {
                             // completed is decided from semantic markers below, so a relay that
                             // cuts the stream at a content-block boundary can no longer pass as a
                             // finished answer.
-                            val termination = if (config.responsesApiEnabled) {
+                            val termination = if (responses) {
                                 consumeResponsesStream(handle, config) { emit(it) }
                             } else {
                                 consumeSuccessfulStream(handle, config) { emit(it) }
@@ -280,6 +300,12 @@ abstract class BaseOpenAiProvider : LlmProvider {
                             }
                         } else {
                             val errorRaw = handle.errorBody.orEmpty()
+                            if (handle.code == 401 && !reauthorized && reauthorize(config)) {
+                                reauthorized = true
+                                headers += authHeaders(config)
+                                retryScheduled = true
+                                continue
+                            }
                             if (recovery.recoveredByDropping(handle.code, errorRaw, name)) {
                                 retryScheduled = true
                                 continue
@@ -658,24 +684,6 @@ abstract class BaseOpenAiProvider : LlmProvider {
             alreadyReportedError = reportedError,
             timedOut = timedOut,
         )
-    }
-
-    private fun buildGenerationError(
-        statusCode: Int,
-        errorRaw: String,
-        endpointUrls: List<String>
-    ): GenerationError {
-        val endpointHint = if (statusCode == 404 && endpointUrls.size > 1) {
-            "\nTried ${endpointUrls.joinToString(" and ")}. OpenAI-compatible servers often require a /v1 Base URL."
-        } else {
-            ""
-        }
-        val error = providerHttpError(statusCode, errorRaw)
-        return if (endpointHint.isEmpty()) {
-            error
-        } else {
-            error.copy(message = error.message + endpointHint)
-        }
     }
 
     private fun fetchModelPages(

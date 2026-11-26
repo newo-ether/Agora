@@ -32,8 +32,9 @@ object SpeechProtocols {
     const val DASHSCOPE = "dashscope"
     const val ELEVENLABS = "elevenlabs"
     const val DEEPGRAM = "deepgram"
+    const val DEEPSEEK = "deepseek"
 
-    val all = setOf(OPENAI, GEMINI, DASHSCOPE, ELEVENLABS, DEEPGRAM)
+    val all = setOf(OPENAI, GEMINI, DASHSCOPE, ELEVENLABS, DEEPGRAM, DEEPSEEK)
 }
 
 /**

@@ -199,6 +199,45 @@ class AppContainer(
 
     val localProvider: LocalProvider by lazy { LocalProvider(appContext, settingsRepository) }
 
+    /** Account sign-ins backing the ChatGPT and DeepSeek Account providers. */
+    val chatGptAccount: com.newoether.agora.auth.ChatGptAccount by lazy {
+        com.newoether.agora.auth.ChatGptAccount(appContext)
+    }
+    val deepSeekAccount: com.newoether.agora.auth.DeepSeekAccount by lazy {
+        com.newoether.agora.auth.DeepSeekAccount(appContext, currentAppVersion())
+    }
+
+    fun oauthAccount(providerName: String): com.newoether.agora.auth.OAuthAccount? = when (providerName) {
+        com.newoether.agora.util.Constants.PROVIDER_CHATGPT -> chatGptAccount
+        com.newoether.agora.util.Constants.PROVIDER_DEEPSEEK_ACCOUNT -> deepSeekAccount
+        else -> null
+    }
+
+    /**
+     * Runs a sign-in or sign-out on the app scope, so leaving the settings page while the browser
+     * is open does not cancel the loopback wait, then syncs the Provider's model catalog.
+     */
+    fun launchAccountAction(providerName: String, signIn: Boolean) {
+        val account = oauthAccount(providerName) ?: return
+        accountJobs[providerName]?.cancel()
+        accountJobs[providerName] = appScope.launch {
+            try {
+                if (signIn) account.signIn() else account.signOut()
+            } finally {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    providerRegistry.refreshAccountProvider(providerName)
+                }
+            }
+        }
+    }
+
+    /** Abandons a pending browser sign-in; the account keeps its previous state. */
+    fun cancelAccountAction(providerName: String) {
+        accountJobs.remove(providerName)?.cancel()
+    }
+
+    private val accountJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+
     val providerRegistry: ProviderRegistry by lazy {
         ProviderRegistry(
             settingsRepository,
@@ -206,6 +245,12 @@ class AppContainer(
             localProvider,
             appScope,
             currentAppVersion(),
+            accountProviders = mapOf(
+                com.newoether.agora.util.Constants.PROVIDER_CHATGPT to
+                    com.newoether.agora.api.openai.ChatGptProvider(chatGptAccount),
+                com.newoether.agora.util.Constants.PROVIDER_DEEPSEEK_ACCOUNT to
+                    com.newoether.agora.api.openai.DeepSeekAccountProvider(deepSeekAccount, currentAppVersion()),
+            ),
         )
     }
 

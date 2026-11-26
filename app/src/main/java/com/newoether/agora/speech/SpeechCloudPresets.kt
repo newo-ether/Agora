@@ -71,6 +71,15 @@ internal object SpeechCloudPresets {
             savedKeyProvider = "Mistral",
         ),
         SpeechCloudPreset(
+            id = "deepseek",
+            displayName = "DeepSeek",
+            protocol = SpeechProtocols.DEEPSEEK,
+            baseUrl = "https://api.deepseek.com/v1",
+            // The endpoint takes no model field; the name only labels the config.
+            models = listOf("deepseek-asr"),
+            savedKeyProvider = "DeepSeek",
+        ),
+        SpeechCloudPreset(
             id = "elevenlabs",
             displayName = "ElevenLabs",
             protocol = SpeechProtocols.ELEVENLABS,
@@ -96,6 +105,10 @@ internal object SpeechCloudPresets {
     )
 
     fun byId(id: String): SpeechCloudPreset = all.firstOrNull { it.id == id } ?: all.last()
+
+    /** Capture cap for [protocol]; the DeepSeek protocol rejects audio over two minutes. */
+    fun maxDurationMs(protocol: String): Long =
+        if (protocol == SpeechProtocols.DEEPSEEK) 120_000L else SpeechAudioFormat.MAX_DURATION_MS
 }
 
 /** Language choices offered in the editor; blank is automatic detection. */

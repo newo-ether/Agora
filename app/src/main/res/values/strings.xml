@@ -544,6 +544,14 @@
     <string name="cached_partial_failed">Cached %1$d of %2$d. %3$d failed.</string>
     <string name="retry">Retry</string>
     <string name="composer_clear_failed">Message sent, but the draft could not be cleared.</string>
+    <string name="text_preview_truncated">File is too large to preview. Showing the first %1$s characters.</string>
+    <string name="provider_account">Account</string>
+    <string name="provider_account_signed_in">Signed in</string>
+    <string name="provider_account_signed_out">Not signed in</string>
+    <string name="provider_account_waiting">Waiting for the browser…</string>
+    <string name="provider_account_desc">Sign in with your account in the browser. No API key needed.</string>
+    <string name="provider_account_sign_in">Sign in</string>
+    <string name="provider_account_sign_out">Sign out</string>
     <string name="parse_error">Parse error</string>
     <string name="unknown_error">Unknown error</string>
     <string name="could_not_read_file">Could not read file</string>

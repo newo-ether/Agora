@@ -82,6 +82,8 @@ object Constants {
     const val PROVIDER_GROQ = ModelConstants.PROVIDER_GROQ
     const val PROVIDER_OPEN_ROUTER = ModelConstants.PROVIDER_OPEN_ROUTER
     const val PROVIDER_OPENCODE_GO = ModelConstants.PROVIDER_OPENCODE_GO
+    const val PROVIDER_CHATGPT = ModelConstants.PROVIDER_CHATGPT
+    const val PROVIDER_DEEPSEEK_ACCOUNT = ModelConstants.PROVIDER_DEEPSEEK_ACCOUNT
     const val PROVIDER_UNKNOWN = ModelConstants.PROVIDER_UNKNOWN
     /** Placeholder model ID used as StateFlow/DataStore cold-start fallback and
      *  template preview sample. NOT the real default model — it is overwritten

@@ -826,6 +826,14 @@
     <string name="delete_conversation_title">Excluir conversa?</string>
     <string name="delete_conversation_from_message_confirm">Excluir esta mensagem removerá toda a conversa. Esta ação não pode ser desfeita.</string>
     <string name="composer_clear_failed">A mensagem foi enviada, mas não foi possível limpar o rascunho.</string>
+    <string name="text_preview_truncated">O arquivo é grande demais para a visualização. Mostrando os primeiros %1$s caracteres.</string>
+    <string name="provider_account">Conta</string>
+    <string name="provider_account_signed_in">Conectado</string>
+    <string name="provider_account_signed_out">Não conectado</string>
+    <string name="provider_account_waiting">Aguardando o navegador…</string>
+    <string name="provider_account_desc">Entre com sua conta no navegador. Não é preciso chave de API.</string>
+    <string name="provider_account_sign_in">Entrar</string>
+    <string name="provider_account_sign_out">Sair</string>
     <string name="models_show_provider_name">Mostrar nome do provedor</string>
     <string name="models_show_provider_name_desc">Adicionar o nome do provedor após o nome do modelo.</string>
     <string name="remote_resume_history">Continuar esta conversa</string>

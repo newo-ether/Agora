@@ -826,6 +826,14 @@
     <string name="delete_conversation_title">Unterhaltung löschen?</string>
     <string name="delete_conversation_from_message_confirm">Durch das Löschen dieser Nachricht wird die gesamte Unterhaltung entfernt. Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="composer_clear_failed">Nachricht gesendet, aber der Entwurf konnte nicht gelöscht werden.</string>
+    <string name="text_preview_truncated">Die Datei ist zu groß für die Vorschau. Es werden die ersten %1$s Zeichen angezeigt.</string>
+    <string name="provider_account">Konto</string>
+    <string name="provider_account_signed_in">Angemeldet</string>
+    <string name="provider_account_signed_out">Nicht angemeldet</string>
+    <string name="provider_account_waiting">Warte auf den Browser…</string>
+    <string name="provider_account_desc">Melde dich im Browser mit deinem Konto an. Kein API-Schlüssel nötig.</string>
+    <string name="provider_account_sign_in">Anmelden</string>
+    <string name="provider_account_sign_out">Abmelden</string>
     <string name="models_show_provider_name">Anbieternamen anzeigen</string>
     <string name="models_show_provider_name_desc">Den Anbieternamen an den Modellnamen anhängen.</string>
     <string name="remote_resume_history">Diese Unterhaltung fortsetzen</string>

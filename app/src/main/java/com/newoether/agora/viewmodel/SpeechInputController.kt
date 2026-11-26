@@ -14,6 +14,7 @@ import com.newoether.agora.speech.LocalSpeechModelStore
 import com.newoether.agora.speech.SpeechAudioFormat
 import com.newoether.agora.speech.SpeechCaptureSession
 import com.newoether.agora.speech.SpeechCaptureSessions
+import com.newoether.agora.speech.SpeechCloudPresets
 import com.newoether.agora.util.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -125,6 +126,11 @@ class SpeechInputController internal constructor(
         if (config.type != SpeechEngineType.SYSTEM) requestFocus()
         _state.value = SpeechInputState.Recording(ownerId)
         val startedAt = System.currentTimeMillis()
+        val maxDurationMs = if (config.type == SpeechEngineType.CLOUD) {
+            SpeechCloudPresets.maxDurationMs(config.protocol)
+        } else {
+            SpeechAudioFormat.MAX_DURATION_MS
+        }
         tickJob = scope.launch(Dispatchers.Main.immediate) {
             var tick = 0L
             while (isActive) {
@@ -133,7 +139,7 @@ class SpeechInputController internal constructor(
                 delay((startedAt + tick * TICK_MS - System.currentTimeMillis()).coerceAtLeast(0L))
                 _elapsedMs.value = System.currentTimeMillis() - startedAt
                 _levels.value = (_levels.value + peak.getAndSet(0f)).takeLast(MAX_LEVELS)
-                if (created.reachedLimit || _elapsedMs.value >= SpeechAudioFormat.MAX_DURATION_MS) {
+                if (created.reachedLimit || _elapsedMs.value >= maxDurationMs) {
                     finish(ownerId, onAutoStop)
                     break
                 }

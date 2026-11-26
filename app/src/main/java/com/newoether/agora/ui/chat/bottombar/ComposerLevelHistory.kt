@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -37,19 +38,30 @@ private class LevelScroll {
     var received = 0
     /** Scroll position in samples; the newest bar is fully in view at [received]. */
     var head = 0f
-    var lastFrame = 0L
+    /** Frame time at which the scroll sat at [anchorHead]; position is a pure function of elapsed. */
+    var anchorNanos = 0L
+    var anchorHead = 0f
+
+    fun anchor(now: Long, at: Float) {
+        anchorNanos = now
+        anchorHead = at
+        head = at
+    }
 }
 
 private const val TICK_NANOS = SPEECH_LEVEL_TICK_MS * 1_000_000f
 
 /**
- * Where [head] settles behind the newest sample. Half a sample of slack absorbs early and late
- * ticks, so arrival jitter changes the scroll speed slightly instead of moving the bars in steps.
+ * How far the scroll runs behind the newest sample. A sample arriving up to one tick late still
+ * lands before its slot reaches the right edge, so arrival jitter never shows.
  */
-private const val HEAD_LAG = 0.5f
+private const val HEAD_LAG = 1f
 
-/** How strongly the scroll speed corrects toward [HEAD_LAG] per sample of error. */
-private const val HEAD_GAIN = 0.6f
+/** Beyond this many samples ahead of the data (a stalled producer), the scroll holds still. */
+private const val MAX_LEAD = 0.5f
+
+/** A larger error than this (first frame, resumed from background) snaps instead of scrolling. */
+private const val SNAP_ERROR = 3f
 
 /**
  * Loudness history that scrolls continuously instead of stepping one bar per sample. Each new
@@ -68,6 +80,7 @@ internal fun ComposerLevelHistory(
     val scroll = remember { LevelScroll() }
     // 0: the newest bar sits just past the right edge. 1: it has slid fully into view.
     val shift = remember { mutableFloatStateOf(1f) }
+    val frozen by rememberUpdatedState(transcribing)
     LaunchedEffect(levels) {
         while (true) {
             withFrameNanos { now ->
@@ -79,20 +92,24 @@ internal fun ComposerLevelHistory(
                     if (previous == null || current.size < previous.size) {
                         // A cleared or first history has nothing to slide in.
                         scroll.received = current.size
-                        scroll.head = current.size.toFloat()
+                        scroll.anchor(now, current.size - HEAD_LAG)
                     } else {
                         // Each emission appends one sample, also once the list is capped.
                         scroll.received += 1
                     }
                 }
-                // Advance at the nominal tick rate, nudged toward a fixed lag behind the newest sample.
-                val dt = if (scroll.lastFrame == 0L) 0L else now - scroll.lastFrame
-                scroll.lastFrame = now
+                // Travel is bound to elapsed frame time, not to per-frame deltas or sample
+                // arrival, so an uneven frame or tick cadence cannot change the speed.
+                val timed = scroll.anchorHead + (now - scroll.anchorNanos) / TICK_NANOS
                 val target = scroll.received - HEAD_LAG
-                val rate = (1f + HEAD_GAIN * (target - scroll.head)).coerceIn(0.25f, 3f)
-                scroll.head = (scroll.head + dt / TICK_NANOS * rate)
-                    .coerceIn(scroll.received - 2f, scroll.received.toFloat())
-                shift.floatValue = (scroll.head - (scroll.received - 1)).coerceIn(-1f, 1f)
+                when {
+                    frozen -> scroll.anchor(now, scroll.head)
+                    kotlin.math.abs(timed - target) > SNAP_ERROR -> scroll.anchor(now, target)
+                    // Data stopped arriving: hold, then resume from here at the same speed.
+                    timed > scroll.received + MAX_LEAD -> scroll.anchor(now, scroll.received + MAX_LEAD)
+                    else -> scroll.head = timed
+                }
+                shift.floatValue = (scroll.head - (scroll.received - 1)).coerceIn(-SNAP_ERROR, 2f)
             }
         }
     }
@@ -125,7 +142,7 @@ internal fun ComposerLevelHistory(
         val offset = shift.floatValue
         val strength = sweepStrength
         val sweepCenter = sweep?.let { -0.25f + 1.5f * it.value } ?: 0f
-        val count = minOf(bars.size, (size.width / step).toInt() + 2)
+        val count = minOf(bars.size, (size.width / step).toInt() + 5)
         clipRect {
             for (k in 0 until count) {
                 val level = bars[bars.size - 1 - k]

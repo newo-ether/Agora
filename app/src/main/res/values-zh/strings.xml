@@ -819,6 +819,14 @@
     <string name="delete_conversation_title">删除对话？</string>
     <string name="delete_conversation_from_message_confirm">删除此消息将移除整个对话。此操作无法撤销。</string>
     <string name="composer_clear_failed">消息已发送，但无法清除草稿。</string>
+    <string name="text_preview_truncated">文件过大，仅预览前 %1$s 个字符。</string>
+    <string name="provider_account">账号</string>
+    <string name="provider_account_signed_in">已登录</string>
+    <string name="provider_account_signed_out">未登录</string>
+    <string name="provider_account_waiting">正在等待浏览器…</string>
+    <string name="provider_account_desc">在浏览器中登录账号，无需 API Key。</string>
+    <string name="provider_account_sign_in">登录</string>
+    <string name="provider_account_sign_out">退出登录</string>
     <string name="models_show_provider_name">显示 Provider 名称</string>
     <string name="models_show_provider_name_desc">在模型名称后附加服务商名称。</string>
     <string name="remote_resume_history">继续此会话</string>

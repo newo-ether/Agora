@@ -36,7 +36,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import com.newoether.agora.AgoraApplication
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -108,6 +110,12 @@ internal fun ProviderRemoteEditor(
     val isBuiltIn = !creating && providerName in BUILT_IN_REMOTE_PROVIDERS
     // Nullable: after deleting a custom Provider this page can recompose once before it pops.
     val providerInstance = if (creating) null else viewModel.getProviderInstanceOrNull(providerName)
+    // Account Providers sign in through the browser: no URL, Responses switch or API keys.
+    val context = LocalContext.current
+    val container = remember { (context.applicationContext as AgoraApplication).requireContainer() }
+    val oauthAccount = remember(providerName) {
+        if (creating || !isBuiltIn) null else container.oauthAccount(providerName)
+    }
     val defaultUrl = providerInstance?.defaultBaseUrl.orEmpty()
     val storedUrl = providerBaseUrls[providerName].orEmpty()
 
@@ -223,7 +231,19 @@ internal fun ProviderRemoteEditor(
                     },
                 )
             }
-            SettingsGroup(
+            if (oauthAccount != null) {
+                ProviderAccountSettings(
+                    account = oauthAccount,
+                    onSignIn = {
+                        // Signing in is the explicit choice for an account Provider; it joins
+                        // the list without waiting for Save, like a key Provider's Save does.
+                        viewModel.settings.addBuiltInProvider(providerName)
+                        container.launchAccountAction(providerName, signIn = true)
+                    },
+                    onSignOut = { container.launchAccountAction(providerName, signIn = false) },
+                    onCancel = { container.cancelAccountAction(providerName) },
+                )
+            } else SettingsGroup(
                 title = stringResource(
                     if (isCustomEditor) R.string.provider_connection else R.string.provider_base_url,
                 ),
@@ -279,7 +299,7 @@ internal fun ProviderRemoteEditor(
                 },
             )
 
-            ProviderApiKeysSettings(
+            if (oauthAccount == null) ProviderApiKeysSettings(
                 apiKeys = draft.apiKeys,
                 currentName = if (creating) draft.name.trim() else providerName,
                 displayName = draft.name.trim().ifBlank { stringResource(R.string.provider_custom_entry) },

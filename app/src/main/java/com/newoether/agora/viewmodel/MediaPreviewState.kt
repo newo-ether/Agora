@@ -11,8 +11,11 @@ import kotlinx.coroutines.flow.asStateFlow
  * is a single self-contained responsibility, independent of chat and generation
  * concerns. The two viewers are mutually exclusive in the UI but tracked separately
  * so each can be cleared without disturbing the other's last-shown content.
+ *
+ * Text shown in the viewer is capped at [TEXT_PREVIEW_MAX_CHARS]; laying out more than that in
+ * Compose text crashes or stalls the app. [onTextTruncated] reports each cut so the UI can say so.
  */
-class MediaPreviewState {
+class MediaPreviewState(private val onTextTruncated: (limit: Int) -> Unit = {}) {
     private val _pdfPages = MutableStateFlow<List<String>>(emptyList())
     val pdfPages: StateFlow<List<String>> = _pdfPages.asStateFlow()
     private val _pdfIndex = MutableStateFlow(0)
@@ -29,12 +32,30 @@ class MediaPreviewState {
     }
 
     fun showFile(fileName: String, content: String) {
+        val capped = capTextPreview(content)
         _fileName.value = fileName
-        _fileContent.value = content
+        _fileContent.value = capped
+        if (capped.length < content.length) onTextTruncated(TEXT_PREVIEW_MAX_CHARS)
     }
 
     fun clear() {
         _pdfPages.value = emptyList()
         _fileContent.value = null
     }
+
+    companion object {
+        const val TEXT_PREVIEW_MAX_CHARS = 100_000
+    }
+}
+
+/**
+ * Cuts [content] to at most [limit] chars, preferring the last line break in the final tenth so
+ * the viewer does not end mid-line, and never splitting a surrogate pair.
+ */
+internal fun capTextPreview(content: String, limit: Int = MediaPreviewState.TEXT_PREVIEW_MAX_CHARS): String {
+    if (content.length <= limit) return content
+    val lineEnd = content.lastIndexOf('\n', limit - 1)
+    var end = if (lineEnd >= limit - limit / 10) lineEnd else limit
+    if (end > 0 && Character.isHighSurrogate(content[end - 1])) end--
+    return content.substring(0, end)
 }

@@ -83,6 +83,23 @@ class CloudSpeechProtocolTest {
     }
 
     @Test
+    fun deepSeekSendsOnlyTheFile() {
+        val request = CloudSpeechProtocol.buildRequest(
+            config(SpeechProtocols.DEEPSEEK, "https://api.deepseek.com/v1/", "deepseek-asr", "zh", "Agora"),
+            wav,
+            encoder,
+        )
+        assertEquals("https://api.deepseek.com/v1/tools/asr", request.url.toString())
+        assertEquals("Bearer sk-test", request.header("Authorization"))
+        val body = request.bodyText()
+        assertTrue(body.contains("name=\"file\""))
+        assertFalse(body.contains("name=\"model\""))
+        assertFalse(body.contains("Agora"))
+        assertEquals("hi", CloudSpeechProtocol.parseTranscript(SpeechProtocols.DEEPSEEK, """{"request_id":"r","text":"hi","duration_ms":900}"""))
+        assertEquals(120_000L, SpeechCloudPresets.maxDurationMs(SpeechProtocols.DEEPSEEK))
+    }
+
+    @Test
     fun blankBaseUrlIsRejected() {
         try {
             CloudSpeechProtocol.buildRequest(config(SpeechProtocols.OPENAI, " ", "whisper-1"), wav, encoder)

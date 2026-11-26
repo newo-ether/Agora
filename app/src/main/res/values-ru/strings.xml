@@ -826,6 +826,14 @@
     <string name="delete_conversation_title">Удалить разговор?</string>
     <string name="delete_conversation_from_message_confirm">Удаление этого сообщения приведёт к удалению всего разговора. Это действие нельзя отменить.</string>
     <string name="composer_clear_failed">Сообщение отправлено, но не удалось очистить черновик.</string>
+    <string name="text_preview_truncated">Файл слишком большой для просмотра. Показаны первые %1$s символов.</string>
+    <string name="provider_account">Аккаунт</string>
+    <string name="provider_account_signed_in">Вход выполнен</string>
+    <string name="provider_account_signed_out">Вход не выполнен</string>
+    <string name="provider_account_waiting">Ожидание браузера…</string>
+    <string name="provider_account_desc">Войдите в аккаунт через браузер. Ключ API не нужен.</string>
+    <string name="provider_account_sign_in">Войти</string>
+    <string name="provider_account_sign_out">Выйти</string>
     <string name="models_show_provider_name">Показывать имя провайдера</string>
     <string name="models_show_provider_name_desc">Добавлять имя провайдера после имени модели.</string>
     <string name="remote_resume_history">Продолжить разговор</string>

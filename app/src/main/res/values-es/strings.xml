@@ -826,6 +826,14 @@
     <string name="delete_conversation_title">¿Eliminar conversación?</string>
     <string name="delete_conversation_from_message_confirm">Al eliminar este mensaje se borrará toda la conversación. Esta acción no se puede deshacer.</string>
     <string name="composer_clear_failed">El mensaje se envió, pero no se pudo borrar el borrador.</string>
+    <string name="text_preview_truncated">El archivo es demasiado grande para la vista previa. Se muestran los primeros %1$s caracteres.</string>
+    <string name="provider_account">Cuenta</string>
+    <string name="provider_account_signed_in">Sesión iniciada</string>
+    <string name="provider_account_signed_out">Sin iniciar sesión</string>
+    <string name="provider_account_waiting">Esperando al navegador…</string>
+    <string name="provider_account_desc">Inicia sesión con tu cuenta en el navegador. No se necesita clave de API.</string>
+    <string name="provider_account_sign_in">Iniciar sesión</string>
+    <string name="provider_account_sign_out">Cerrar sesión</string>
     <string name="models_show_provider_name">Mostrar nombre del proveedor</string>
     <string name="models_show_provider_name_desc">Añadir el nombre del proveedor al nombre del modelo.</string>
     <string name="remote_resume_history">Continuar esta conversación</string>

@@ -826,6 +826,14 @@
     <string name="delete_conversation_title">대화를 삭제할까요?</string>
     <string name="delete_conversation_from_message_confirm">이 메시지를 삭제하면 전체 대화가 삭제됩니다. 이 작업은 실행 취소할 수 없습니다.</string>
     <string name="composer_clear_failed">메시지는 전송되었지만 초안을 지우지 못했습니다.</string>
+    <string name="text_preview_truncated">파일이 너무 커서 처음 %1$s자만 표시합니다.</string>
+    <string name="provider_account">계정</string>
+    <string name="provider_account_signed_in">로그인됨</string>
+    <string name="provider_account_signed_out">로그인 안 됨</string>
+    <string name="provider_account_waiting">브라우저를 기다리는 중…</string>
+    <string name="provider_account_desc">브라우저에서 계정으로 로그인합니다. API 키가 필요 없습니다.</string>
+    <string name="provider_account_sign_in">로그인</string>
+    <string name="provider_account_sign_out">로그아웃</string>
     <string name="models_show_provider_name">제공업체 이름 표시</string>
     <string name="models_show_provider_name_desc">모델 이름 뒤에 제공업체 이름을 추가합니다.</string>
     <string name="remote_resume_history">이 대화 계속하기</string>

@@ -832,6 +832,14 @@
     <string name="delete_conversation_title">Xóa cuộc trò chuyện?</string>
     <string name="delete_conversation_from_message_confirm">Xóa tin nhắn này sẽ xóa toàn bộ cuộc trò chuyện. Bạn không thể hoàn tác thao tác này.</string>
     <string name="composer_clear_failed">Đã gửi tin nhắn nhưng không thể xóa bản nháp.</string>
+    <string name="text_preview_truncated">Tệp quá lớn để xem trước. Đang hiển thị %1$s ký tự đầu tiên.</string>
+    <string name="provider_account">Tài khoản</string>
+    <string name="provider_account_signed_in">Đã đăng nhập</string>
+    <string name="provider_account_signed_out">Chưa đăng nhập</string>
+    <string name="provider_account_waiting">Đang chờ trình duyệt…</string>
+    <string name="provider_account_desc">Đăng nhập bằng tài khoản của bạn trong trình duyệt. Không cần khóa API.</string>
+    <string name="provider_account_sign_in">Đăng nhập</string>
+    <string name="provider_account_sign_out">Đăng xuất</string>
     <string name="models_show_provider_name">Hiện tên nhà cung cấp</string>
     <string name="models_show_provider_name_desc">Thêm tên nhà cung cấp sau tên mô hình.</string>
     <string name="remote_resume_history">Tiếp tục cuộc trò chuyện</string>

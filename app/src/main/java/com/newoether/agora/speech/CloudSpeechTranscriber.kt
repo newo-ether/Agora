@@ -53,6 +53,7 @@ internal object CloudSpeechProtocol {
             SpeechProtocols.DASHSCOPE -> dashScopeRequest(base, key, model, language, terms, base64(wav))
             SpeechProtocols.ELEVENLABS -> elevenLabsRequest(base, key, model, language, terms, wav)
             SpeechProtocols.DEEPGRAM -> deepgramRequest(base, key, model, config.language.trim(), terms, wav)
+            SpeechProtocols.DEEPSEEK -> deepSeekRequest(base, key, wav)
             else -> openAiRequest(base, key, model, language, terms, wav)
         }
     }
@@ -80,6 +81,16 @@ internal object CloudSpeechProtocol {
         }
         return Request.Builder().url("$base/audio/transcriptions").post(body.build())
             .apply { if (key.isNotEmpty()) header("Authorization", "Bearer $key") }
+            .build()
+    }
+
+    /** DeepSeek ASR: only the audio file; no model, language or vocabulary fields exist. */
+    private fun deepSeekRequest(base: String, key: String, wav: ByteArray): Request {
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", "speech.wav", wav.toRequestBody(wavType))
+            .build()
+        return Request.Builder().url("$base/tools/asr").post(body)
+            .header("Authorization", "Bearer $key")
             .build()
     }
 

@@ -826,6 +826,14 @@
     <string name="delete_conversation_title">会話を削除しますか？</string>
     <string name="delete_conversation_from_message_confirm">このメッセージを削除すると、会話全体が削除されます。この操作は元に戻せません。</string>
     <string name="composer_clear_failed">メッセージは送信されましたが、下書きを消去できませんでした。</string>
+    <string name="text_preview_truncated">ファイルが大きすぎるため、先頭の %1$s 文字のみ表示しています。</string>
+    <string name="provider_account">アカウント</string>
+    <string name="provider_account_signed_in">ログイン済み</string>
+    <string name="provider_account_signed_out">未ログイン</string>
+    <string name="provider_account_waiting">ブラウザを待っています…</string>
+    <string name="provider_account_desc">ブラウザでアカウントにログインします。API キーは不要です。</string>
+    <string name="provider_account_sign_in">ログイン</string>
+    <string name="provider_account_sign_out">ログアウト</string>
     <string name="models_show_provider_name">プロバイダー名を表示</string>
     <string name="models_show_provider_name_desc">モデル名の後にプロバイダー名を追加します。</string>
     <string name="remote_resume_history">この会話を続ける</string>

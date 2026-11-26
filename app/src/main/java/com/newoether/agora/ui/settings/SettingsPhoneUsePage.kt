@@ -98,18 +98,15 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     }
                     if (config.background) {
                         add {
-                            PhoneBackgroundSizeItem(config) { size ->
-                                scope.launch { settings.phoneUseStore.setBackgroundSize(size) }
+                            PhoneBackgroundSizeItem(config) { size, a, b ->
+                                scope.launch {
+                                    if (size == "custom") settings.phoneUseStore.setBackgroundCustom(a, b)
+                                    else settings.phoneUseStore.setBackgroundSize(size)
+                                }
                             }
                         }
                         add {
-                            PhoneBackgroundResolutionItem(config) { a, b ->
-                                scope.launch { settings.phoneUseStore.setBackgroundCustom(a, b) }
-                            }
-                        }
-                        add {
-                            PhoneSwitch(R.string.phone_background_landscape, R.string.phone_background_landscape_description,
-                                config.backgroundLandscape) {
+                            PhoneBackgroundLandscapeItem(config.backgroundLandscape) {
                                 scope.launch { settings.phoneUseStore.setBackgroundLandscape(it) }
                             }
                         }

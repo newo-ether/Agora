@@ -71,6 +71,10 @@ data class OpenAiResponsesRequest(
     @SerialName("max_output_tokens") val maxOutputTokens: Int? = null,
     @SerialName("top_p") val topP: Float? = null,
     @SerialName("prompt_cache_key") val promptCacheKey: String? = null,
+    /** ChatGPT-plan transport only: stateless requests, replayed reasoning, system prompt. */
+    val store: Boolean? = null,
+    val include: List<String>? = null,
+    val instructions: String? = null,
 )
 
 @Serializable
@@ -101,6 +105,8 @@ data class OpenAiResponseTool(
     val name: String? = null,
     val description: String? = null,
     val parameters: ToolParameters? = null,
+    /** Members of a `namespace` tool group. */
+    val tools: List<OpenAiResponseTool>? = null,
 )
 
 @Serializable

@@ -15,6 +15,9 @@ object ModelConstants {
     const val PROVIDER_GOOGLE = "Google"
     const val PROVIDER_ANTHROPIC = "Anthropic"
     const val PROVIDER_DEEPSEEK = "DeepSeek"
+    /** Account sign-in providers: ChatGPT plan through SIWC, DeepSeek through its DSH login. */
+    const val PROVIDER_CHATGPT = "ChatGPT"
+    const val PROVIDER_DEEPSEEK_ACCOUNT = "DeepSeek Account"
     const val PROVIDER_QWEN = "Qwen"
     const val PROVIDER_GROQ = "Groq"
     const val PROVIDER_UNKNOWN = "Unknown"

@@ -23,8 +23,10 @@ internal val HIDDEN_PROVIDER_MODELS_JSON = stringPreferencesKey("hidden_provider
 val BUILT_IN_REMOTE_PROVIDERS: List<String> = listOf(
     Constants.PROVIDER_GOOGLE,
     Constants.PROVIDER_OPENAI,
+    Constants.PROVIDER_CHATGPT,
     Constants.PROVIDER_ANTHROPIC,
     Constants.PROVIDER_DEEPSEEK,
+    Constants.PROVIDER_DEEPSEEK_ACCOUNT,
     Constants.PROVIDER_QWEN,
     Constants.PROVIDER_GROQ,
     Constants.PROVIDER_OLLAMA,

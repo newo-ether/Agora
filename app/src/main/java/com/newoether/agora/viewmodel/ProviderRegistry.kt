@@ -5,6 +5,7 @@ import com.newoether.agora.api.DebugProvider
 import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.api.ModelFetchEmptyResultException
 import com.newoether.agora.api.ModelFetchTimeoutException
+import com.newoether.agora.api.OAuthBackedProvider
 import com.newoether.agora.api.anthropic.AnthropicProvider
 import com.newoether.agora.api.gemini.GeminiProvider
 import com.newoether.agora.api.local.LocalProvider
@@ -108,9 +109,12 @@ internal fun providerConfigurationIsValid(
     builtIn: Boolean,
     effectiveBaseUrl: String?,
     debugProviderEnabled: Boolean = false,
+    /** Non-null for account sign-in providers, which need a stored login instead of a key. */
+    accountSignedIn: Boolean? = null,
 ): Boolean = when {
     providerName == Constants.PROVIDER_UNKNOWN -> false
     !registered -> false
+    accountSignedIn != null -> accountSignedIn
     providerName == DebugProvider.PROVIDER_NAME -> debugProviderEnabled
     providerName == Constants.PROVIDER_LOCAL -> true
     !builtIn || providerName == Constants.PROVIDER_OLLAMA -> !effectiveBaseUrl.isNullOrBlank()
@@ -134,8 +138,9 @@ class ProviderRegistry(
     localProvider: LocalProvider,
     private val scope: CoroutineScope,
     appVersion: String = "?",
+    accountProviders: Map<String, LlmProvider> = emptyMap(),
 ) {
-    private val builtInProviders: Map<String, LlmProvider> = mapOf(
+    private val builtInProviders: Map<String, LlmProvider> = accountProviders + mapOf(
         Constants.PROVIDER_GOOGLE to GeminiProvider(),
         Constants.PROVIDER_OPENAI to OpenAiProvider(),
         Constants.PROVIDER_ANTHROPIC to AnthropicProvider(),
@@ -210,6 +215,7 @@ class ProviderRegistry(
             builtIn = isBuiltIn(providerName),
             effectiveBaseUrl = getEffectiveBaseUrl(providerName),
             debugProviderEnabled = isDebugProviderEnabled(),
+            accountSignedIn = (getInstanceOrNull(providerName) as? OAuthBackedProvider)?.tokenSource?.signedIn,
         )
 
     fun providerForModel(modelId: String): String {
@@ -496,6 +502,19 @@ class ProviderRegistry(
             initialCustomProviderSync.await()
             collectCredentialChanges()
         }
+    }
+
+    /** After an account sign-in or sign-out: fetch that account's models, or drop them. */
+    suspend fun refreshAccountProvider(name: String): List<String> {
+        val provider = providers[name] as? OAuthBackedProvider ?: return emptyList()
+        if (provider.tokenSource.signedIn) return fetchModelsForProvider(name)
+        if (!settings.getAvailableModels()[name].isNullOrEmpty()) {
+            settings.saveAvailableModels(name, emptyList())
+            val known = settings.getAvailableModels().values.flatten().toSet() + settings.customModels.value
+            val enabled = settings.enabledModels.value.intersect(known)
+            if (enabled != settings.enabledModels.value) settings.setEnabledModels(enabled)
+        }
+        return emptyList()
     }
 
     private suspend fun collectCredentialChanges() {

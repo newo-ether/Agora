@@ -214,6 +214,7 @@ private fun JsonObject.toResponseInputItem(): OpenAiResponseInputItem {
         else -> OpenAiResponseInputItem(
             type = type,
             id = stringField("id"),
+            encryptedContent = stringField("encrypted_content"),
             callId = stringField("call_id"),
             name = stringField("name"),
             arguments = stringField("arguments"),
@@ -255,6 +256,16 @@ internal fun OpenAiResponsesRequest.requireValidWireFormat(provider: String) {
             "function" -> if (!tool.name.orEmpty().matches(safeWireToolName)) {
                 violations += "tools[$index] name is not wire-safe"
             }
+            "namespace" -> {
+                if (!tool.name.orEmpty().matches(safeWireToolName)) {
+                    violations += "tools[$index] namespace name is not wire-safe"
+                }
+                tool.tools.orEmpty().forEachIndexed { member, inner ->
+                    if (inner.type != "function" || !inner.name.orEmpty().matches(safeWireToolName)) {
+                        violations += "tools[$index].tools[$member] is not a wire-safe function"
+                    }
+                }
+            }
             else -> violations += "tools[$index] has unsupported type ${tool.type}"
         }
     }
@@ -292,7 +303,10 @@ internal fun OpenAiResponsesRequest.requireValidWireFormat(provider: String) {
                 }
             }
             "reasoning" -> {
-                if (item.id.isNullOrBlank()) violations += "$location reasoning id is blank"
+                // Stateless (store=false) replay identifies reasoning by its encrypted content.
+                if (item.id.isNullOrBlank() && item.encryptedContent.isNullOrBlank()) {
+                    violations += "$location reasoning has neither id nor encrypted content"
+                }
                 if (
                     item.role != null || item.content != null || item.callId != null ||
                     item.name != null || item.arguments != null || item.output != null

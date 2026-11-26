@@ -8,7 +8,7 @@ import com.newoether.agora.model.ResolvedThinking
 import com.newoether.agora.model.ThinkingProviderFamily
 import com.newoether.agora.model.ModelConstants as Constants
 
-class DeepSeekProvider : BaseOpenAiProvider() {
+open class DeepSeekProvider : BaseOpenAiProvider() {
     override val name: String = Constants.PROVIDER_DEEPSEEK
     override val thinkingProviderFamily = ThinkingProviderFamily.DEEPSEEK
     override val defaultBaseUrl: String = "https://api.deepseek.com"

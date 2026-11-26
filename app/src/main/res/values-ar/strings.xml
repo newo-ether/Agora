@@ -826,6 +826,14 @@
     <string name="delete_conversation_title">حذف المحادثة؟</string>
     <string name="delete_conversation_from_message_confirm">سيؤدي حذف هذه الرسالة إلى إزالة المحادثة بالكامل. لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="composer_clear_failed">تم إرسال الرسالة، ولكن تعذر مسح المسودة.</string>
+    <string name="text_preview_truncated">الملف كبير جدًا للمعاينة. يتم عرض أول %1$s حرف.</string>
+    <string name="provider_account">الحساب</string>
+    <string name="provider_account_signed_in">تم تسجيل الدخول</string>
+    <string name="provider_account_signed_out">لم يتم تسجيل الدخول</string>
+    <string name="provider_account_waiting">بانتظار المتصفح…</string>
+    <string name="provider_account_desc">سجّل الدخول بحسابك في المتصفح. لا حاجة إلى مفتاح API.</string>
+    <string name="provider_account_sign_in">تسجيل الدخول</string>
+    <string name="provider_account_sign_out">تسجيل الخروج</string>
     <string name="models_show_provider_name">إظهار اسم المزوّد</string>
     <string name="models_show_provider_name_desc">إضافة اسم المزوّد بعد اسم النموذج.</string>
     <string name="remote_resume_history">متابعة هذه المحادثة</string>

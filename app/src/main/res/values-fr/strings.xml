@@ -826,6 +826,14 @@
     <string name="delete_conversation_title">Supprimer la conversation ?</string>
     <string name="delete_conversation_from_message_confirm">La suppression de ce message supprimera toute la conversation. Cette action est irréversible.</string>
     <string name="composer_clear_failed">Le message a été envoyé, mais le brouillon n’a pas pu être effacé.</string>
+    <string name="text_preview_truncated">Fichier trop volumineux pour l’aperçu. Affichage des %1$s premiers caractères.</string>
+    <string name="provider_account">Compte</string>
+    <string name="provider_account_signed_in">Connecté</string>
+    <string name="provider_account_signed_out">Non connecté</string>
+    <string name="provider_account_waiting">En attente du navigateur…</string>
+    <string name="provider_account_desc">Connectez-vous avec votre compte dans le navigateur. Aucune clé API nécessaire.</string>
+    <string name="provider_account_sign_in">Se connecter</string>
+    <string name="provider_account_sign_out">Se déconnecter</string>
     <string name="models_show_provider_name">Afficher le nom du fournisseur</string>
     <string name="models_show_provider_name_desc">Ajouter le nom du fournisseur après le nom du modèle.</string>
     <string name="remote_resume_history">Continuer cette conversation</string>
