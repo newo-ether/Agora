@@ -31,6 +31,10 @@
     <string name="phone_find_app">Buscar una aplicación</string>
     <string name="phone_done">Listo</string>
     <string name="phone_stop">Detener</string>
+    <string name="phone_background_operate">Operar</string>
+    <string name="phone_background_preview">Vista previa</string>
+    <string name="phone_background_minimize">Minimizar</string>
+    <string name="phone_background_back">Atrás</string>
     <string name="phone_thinking">Pensando</string>
     <string name="phone_waiting">Esperando tu respuesta</string>
     <string name="phone_answer">Tu respuesta</string>

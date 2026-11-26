@@ -31,6 +31,10 @@
     <string name="phone_find_app">アプリを検索</string>
     <string name="phone_done">完了</string>
     <string name="phone_stop">停止</string>
+    <string name="phone_background_operate">操作</string>
+    <string name="phone_background_preview">プレビュー</string>
+    <string name="phone_background_minimize">最小化</string>
+    <string name="phone_background_back">戻る</string>
     <string name="phone_thinking">思考中</string>
     <string name="phone_waiting">回答を待っています</string>
     <string name="phone_answer">回答</string>

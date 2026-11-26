@@ -1,151 +1,422 @@
 package com.newoether.agora.phone
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Color
-import android.graphics.Outline
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
+import android.graphics.Rect
 import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.View
 import android.view.ViewConfiguration
-import android.view.ViewGroup
-import android.view.ViewOutlineProvider
+import android.view.WindowInsets
 import android.view.WindowManager
-import android.widget.FrameLayout
-import android.widget.ImageView
+import android.view.animation.PathInterpolator
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.hypot
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Floating live view of the background screen. Drag to move; tap to open it full screen and tap
- * again to shrink it back. It only shows frames and never forwards input to the display.
+ * The floating window of the background screen. The card shows live frames, a handle above it drags
+ * it, and three grips on its edge resize it with the display's aspect ratio locked. Tapping the card
+ * opens [PhoneBackgroundActivity]; the window hides itself while that view owns the screen.
  */
-internal class PhoneBackgroundPreview(private val context: Context, private val screen: PhoneVirtualScreen) {
+internal class PhoneBackgroundPreview(
+    private val context: Context,
+    private val screen: PhoneVirtualScreen,
+    private val runtime: PhoneUseRuntime,
+) : LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
+    override val viewModelStore = ViewModelStore()
+    private val savedState = SavedStateRegistryController.create(this)
+    override val savedStateRegistry: SavedStateRegistry get() = savedState.savedStateRegistry
     private val windows = context.getSystemService(WindowManager::class.java)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val density = context.resources.displayMetrics.density
-    private val displayWidth = context.resources.displayMetrics.widthPixels
-    private val smallWidth = ((if (screen.width > screen.height) SMALL_LANDSCAPE_WIDTH_DP else SMALL_WIDTH_DP) * density).roundToInt()
-    private val smallHeight = smallWidth * screen.height / screen.width
+    private val aspect = screen.width.toFloat() / screen.height.toFloat()
+    private val slop = ViewConfiguration.get(context).scaledTouchSlop
+    private val pad = (PAD_DP * density).roundToInt()
+    private val handleZone = (HANDLE_ZONE_DP * density).roundToInt()
     private val margin = (MARGIN_DP * density).roundToInt()
-    private var corner = CORNER_DP * density
-    private val accent = if (Build.VERSION.SDK_INT >= 31) {
-        context.getColor(android.R.color.system_accent1_400)
-    } else Color.rgb(0x4C, 0xAF, 0x50)
-    private val image = ImageView(context).apply {
-        scaleType = ImageView.ScaleType.FIT_CENTER
-        setBackgroundColor(Color.BLACK)
+    private val minWidth = (MIN_WIDTH_DP * density).roundToInt()
+    private var cardWidth by mutableIntStateOf(0)
+    private var cardHeight by mutableIntStateOf(0)
+    private var root: ComposeView? = null
+    private var added = false
+
+    /** Screen area that excludes the system bars, so the card never hides under them. */
+    private val safe: Rect = if (Build.VERSION.SDK_INT >= 30) {
+        val metrics = windows.currentWindowMetrics
+        val bars = metrics.windowInsets.getInsets(WindowInsets.Type.systemBars())
+        Rect(0, bars.top, metrics.bounds.width(), metrics.bounds.height() - bars.bottom)
+    } else {
+        val metrics = context.resources.displayMetrics
+        Rect(0, (24 * density).roundToInt(), metrics.widthPixels,
+            metrics.heightPixels - (48 * density).roundToInt())
     }
-    private val border = GradientDrawable().apply {
-        setStroke((BORDER_DP * density).roundToInt(), accent)
-        cornerRadius = corner
-    }
-    private val root = FrameLayout(context).apply {
-        addView(image, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        foreground = border
-        outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) = outline.setRoundRect(0, 0, view.width, view.height, corner)
-        }
-        clipToOutline = true
-        elevation = 6 * density
-    }
+
     private val params = WindowManager.LayoutParams(
-        smallWidth, smallHeight, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        0, 0, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
         PixelFormat.TRANSLUCENT,
     ).apply {
         gravity = Gravity.TOP or Gravity.START
-        x = displayWidth - smallWidth - margin
-        y = (TOP_DP * density).roundToInt()
+        if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
         if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode =
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
     }
-    private var expanded = false
-    private var smallX = params.x
-    private var smallY = params.y
-    private var added = false
+
+    private var gesture = Gesture.NONE
+    private var downRawX = 0f
+    private var downRawY = 0f
+    private var startX = 0
+    private var startY = 0
+    private var startWidth = 0
+    private var startHeight = 0
+    private var moved = false
+
+    init {
+        savedState.performAttach()
+        savedState.performRestore(null)
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+        val initial = if (storedWidth > 0) storedWidth.toFloat()
+            else (if (screen.width > screen.height) WIDE_WIDTH_DP else CARD_WIDTH_DP) * density
+        resize(initial.roundToInt())
+        val x = if (storedX != Int.MIN_VALUE) storedX else safe.right - params.width
+        val y = if (storedY != Int.MIN_VALUE) storedY else safe.top + (TOP_DP * density).roundToInt()
+        moveTo(x, y)
+    }
 
     fun show() {
-        windows.addView(root, params)
+        val view = ComposeView(context).apply {
+            setViewTreeLifecycleOwner(this@PhoneBackgroundPreview)
+            setViewTreeSavedStateRegistryOwner(this@PhoneBackgroundPreview)
+            setViewTreeViewModelStoreOwner(this@PhoneBackgroundPreview)
+            setContent { PhoneOverlayTheme(runtime.settings) { Content() } }
+        }
+        root = view
+        try { windows.addView(view, params) } catch (error: Exception) { view.disposeComposition(); throw error }
         added = true
-        root.setOnTouchListener(touch())
-        scope.launch { screen.frame.collect { image.setImageBitmap(it) } }
+        lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+        scope.launch { runtime.fullscreen.collect { hidden -> setHidden(hidden) } }
     }
 
     fun remove() {
         scope.cancel()
-        if (added) runCatching { windows.removeViewImmediate(root) }
+        root?.let { view ->
+            runCatching { windows.removeViewImmediate(view) }
+            view.disposeComposition()
+        }
+        root = null
         added = false
-        image.setImageDrawable(null)
+        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        viewModelStore.clear()
     }
 
-    private fun setExpanded(value: Boolean) {
-        expanded = value
-        if (value) {
-            smallX = params.x; smallY = params.y
-            params.width = WindowManager.LayoutParams.MATCH_PARENT
-            params.height = WindowManager.LayoutParams.MATCH_PARENT
-            params.x = 0; params.y = 0
-            corner = 0f
-        } else {
-            params.width = smallWidth; params.height = smallHeight
-            params.x = smallX; params.y = smallY
-            corner = CORNER_DP * density
+    /** The full-screen view is opaque over this window; it must not intercept touches there. */
+    private fun setHidden(hidden: Boolean) {
+        params.alpha = if (hidden) 0f else 1f
+        params.flags = if (hidden) params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            else params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        update()
+    }
+
+    private fun maxWidth(): Int {
+        val byWidth = safe.width() - 2 * margin
+        val byHeight = ((safe.height() - 2 * margin) * aspect).toInt()
+        return min(byWidth, byHeight).coerceAtLeast(minWidth)
+    }
+
+    private fun resize(width: Int) {
+        val w = width.coerceIn(minWidth, maxWidth())
+        cardWidth = w
+        cardHeight = (w / aspect).roundToInt()
+        params.width = w + 2 * pad
+        params.height = cardHeight + 2 * pad + handleZone
+    }
+
+    private fun moveTo(x: Int, y: Int) {
+        params.x = x.coerceIn(safe.left, (safe.right - params.width).coerceAtLeast(safe.left))
+        params.y = y.coerceIn(safe.top, (safe.bottom - params.height).coerceAtLeast(safe.top))
+        update()
+    }
+
+    private fun update() {
+        if (!added) return
+        root?.let { view -> runCatching { windows.updateViewLayout(view, params) } }
+    }
+
+    private fun remember() {
+        storedWidth = cardWidth
+        storedX = params.x
+        storedY = params.y
+    }
+
+    /** Snap fully on screen with a short ease; the drag itself follows the finger exactly. */
+    private fun settle() {
+        remember()
+        val targetX = params.x.coerceIn(safe.left + margin, (safe.right - params.width - margin).coerceAtLeast(safe.left))
+        val targetY = params.y.coerceIn(safe.top, (safe.bottom - params.height - margin).coerceAtLeast(safe.top))
+        if (targetX == params.x && targetY == params.y) return
+        val fromX = params.x
+        val fromY = params.y
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 260
+            interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
+            addUpdateListener { animation ->
+                val progress = animation.animatedValue as Float
+                params.x = (fromX + (targetX - fromX) * progress).roundToInt()
+                params.y = (fromY + (targetY - fromY) * progress).roundToInt()
+                update()
+            }
+            start()
         }
-        border.cornerRadius = corner
-        root.invalidateOutline()
-        if (added) runCatching { windows.updateViewLayout(root, params) }
+    }
+
+    private fun openFullscreen() {
+        if (runtime.fullscreen.value) return
+        val card = Rect(
+            params.x + pad, params.y + pad + handleZone,
+            params.x + pad + cardWidth, params.y + pad + handleZone + cardHeight,
+        )
+        runtime.previewCard = card
+        runtime.fullscreen.value = true
+        runCatching { context.startActivity(PhoneBackgroundActivity.intent(context, card)) }
+            .onFailure { runtime.fullscreen.value = false }
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun touch() = object : View.OnTouchListener {
-        private val slop = ViewConfiguration.get(context).scaledTouchSlop
-        private var downX = 0f
-        private var downY = 0f
-        private var startX = 0
-        private var startY = 0
-        private var dragging = false
-        override fun onTouch(view: View, event: MotionEvent): Boolean {
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    downX = event.rawX; downY = event.rawY
-                    startX = params.x; startY = params.y
-                    dragging = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - downX
-                    val dy = event.rawY - downY
-                    if (!expanded && (dragging || abs(dx) > slop || abs(dy) > slop)) {
-                        dragging = true
-                        params.x = (startX + dx).roundToInt()
-                        params.y = (startY + dy).roundToInt().coerceAtLeast(0)
-                        if (added) runCatching { windows.updateViewLayout(root, params) }
-                    }
-                }
-                MotionEvent.ACTION_UP -> if (!dragging) {
-                    view.performClick()
-                    setExpanded(!expanded)
-                }
+    private fun cardTouch(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downRawX = event.rawX
+                downRawY = event.rawY
+                startX = params.x
+                startY = params.y
+                startWidth = cardWidth
+                startHeight = cardHeight
+                moved = false
+                gesture = hit(event.x, event.y)
             }
-            return true
+            MotionEvent.ACTION_MOVE -> {
+                val dx = event.rawX - downRawX
+                val dy = event.rawY - downRawY
+                if (!moved && hypot(dx, dy) > slop) moved = true
+                if (moved) apply(gesture, dx, dy)
+            }
+            MotionEvent.ACTION_UP -> {
+                if (moved) settle() else if (gesture == Gesture.MOVE) openFullscreen()
+                gesture = Gesture.NONE
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (moved) settle()
+                gesture = Gesture.NONE
+            }
+        }
+        return true
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun handleTouch(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downRawX = event.rawX
+                downRawY = event.rawY
+                startX = params.x
+                startY = params.y
+                moved = false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = event.rawX - downRawX
+                val dy = event.rawY - downRawY
+                if (!moved && hypot(dx, dy) > slop) moved = true
+                if (moved) moveTo((startX + dx).roundToInt(), (startY + dy).roundToInt())
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (moved) settle()
+                moved = false
+            }
+        }
+        return true
+    }
+
+    /** Corner and edge grips own the outer band of the card; the rest of it drags. */
+    private fun hit(x: Float, y: Float): Gesture {
+        val corner = CORNER_HIT_DP * density
+        val width = cardWidth.toFloat()
+        val height = cardHeight.toFloat()
+        return when {
+            y > height - corner * 1.6f && x < corner -> Gesture.BOTTOM_START
+            y > height - corner * 1.6f && x > width - corner -> Gesture.BOTTOM_END
+            y > height - CENTER_HIT_DP * density && abs(x - width / 2) < 44 * density -> Gesture.BOTTOM_CENTER
+            else -> Gesture.MOVE
         }
     }
 
+    private fun apply(kind: Gesture, dx: Float, dy: Float) {
+        if (kind == Gesture.MOVE) {
+            moveTo((startX + dx).roundToInt(), (startY + dy).roundToInt())
+            return
+        }
+        val byWidth = when (kind) {
+            Gesture.BOTTOM_START -> startWidth - dx
+            Gesture.BOTTOM_END -> startWidth + dx
+            else -> startWidth + dx * 2
+        }
+        val byHeight = (startHeight + dy) * aspect
+        // The axis the finger moved further along wins, so the locked ratio still feels tracked.
+        val width = if (abs(byWidth - startWidth) >= abs(byHeight - startWidth)) byWidth else byHeight
+        resize(width.roundToInt())
+        val x = when (kind) {
+            Gesture.BOTTOM_START -> startX + startWidth - cardWidth
+            Gesture.BOTTOM_END -> startX
+            else -> startX + startWidth / 2 - cardWidth / 2
+        }
+        moveTo(x, startY)
+    }
+
+    @Composable
+    private fun Content() {
+        val frame by screen.frame.collectAsState()
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .padding(start = PAD_DP.dp, top = (PAD_DP + HANDLE_ZONE_DP).dp, end = PAD_DP.dp, bottom = PAD_DP.dp)
+                    .fillMaxSize()
+                    .shadow(SHADOW_DP.dp, RoundedCornerShape(CORNER_DP.dp), clip = false)
+                    .clip(RoundedCornerShape(CORNER_DP.dp))
+                    .background(Color.Black)
+                    .pointerInteropFilter { event -> cardTouch(event) },
+            ) {
+                Canvas(Modifier.fillMaxSize()) {
+                    frame?.let { bitmap ->
+                        drawImage(
+                            bitmap.asImageBitmap(),
+                            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                        )
+                    }
+                }
+                Canvas(Modifier.fillMaxSize()) { drawGrips() }
+            }
+            Box(
+                Modifier
+                    .padding(start = PAD_DP.dp, top = PAD_DP.dp, end = PAD_DP.dp)
+                    .fillMaxWidth()
+                    .height(HANDLE_ZONE_DP.dp)
+                    .pointerInteropFilter { event -> handleTouch(event) },
+            ) {
+                Canvas(Modifier.fillMaxSize()) { drawHandle() }
+            }
+        }
+    }
+
+    private fun DrawScope.drawHandle() {
+        val width = 3.dp.toPx()
+        val half = 22.dp.toPx()
+        val centerX = size.width / 2
+        val centerY = size.height - 1.5.dp.toPx()
+        drawLine(
+            Color.Black.copy(alpha = 0.35f),
+            Offset(centerX - half, centerY + 1.5.dp.toPx()), Offset(centerX + half, centerY + 1.5.dp.toPx()),
+            strokeWidth = width + 1.6.dp.toPx(), cap = StrokeCap.Round,
+        )
+        drawLine(
+            Color.White.copy(alpha = 0.92f),
+            Offset(centerX - half, centerY), Offset(centerX + half, centerY),
+            strokeWidth = width, cap = StrokeCap.Round,
+        )
+    }
+
+    /** Two corner arcs and one bottom line; each is drawn twice for a shadow that reads on any app. */
+    private fun DrawScope.drawGrips() {
+        val light = Color.White.copy(alpha = 0.9f)
+        val dark = Color.Black.copy(alpha = 0.35f)
+        val stroke = 2.2.dp.toPx()
+        val radius = 20.dp.toPx()
+        val inset = 2.dp.toPx()
+        fun arc(startAngle: Float, centerX: Float, centerY: Float) {
+            val topLeft = Offset(centerX - radius, centerY - radius)
+            val arcSize = Size(radius * 2, radius * 2)
+            drawArc(dark, startAngle, 48f, false, topLeft + Offset(0f, 1.5.dp.toPx()), arcSize,
+                style = Stroke(stroke + 1.6.dp.toPx(), cap = StrokeCap.Round))
+            drawArc(light, startAngle, 48f, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        }
+        arc(90f, inset + radius, size.height - inset - radius)
+        arc(42f, size.width - inset - radius, size.height - inset - radius)
+        val y = size.height - inset - stroke / 2
+        val half = 22.dp.toPx()
+        val centerX = size.width / 2
+        drawLine(dark, Offset(centerX - half, y + 1.5.dp.toPx()), Offset(centerX + half, y + 1.5.dp.toPx()),
+            strokeWidth = stroke + 1.6.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(light, Offset(centerX - half, y), Offset(centerX + half, y),
+            strokeWidth = stroke, cap = StrokeCap.Round)
+    }
+
+    private enum class Gesture { NONE, MOVE, BOTTOM_START, BOTTOM_END, BOTTOM_CENTER }
+
     private companion object {
-        const val SMALL_WIDTH_DP = 112
-        const val SMALL_LANDSCAPE_WIDTH_DP = 200
-        const val MARGIN_DP = 12
-        const val TOP_DP = 96
-        const val CORNER_DP = 14f
-        const val BORDER_DP = 2f
+        const val CARD_WIDTH_DP = 132
+        const val WIDE_WIDTH_DP = 220
+        const val MIN_WIDTH_DP = 88
+        const val PAD_DP = 10
+        const val HANDLE_ZONE_DP = 16
+        const val CORNER_DP = 14
+        const val SHADOW_DP = 8
+        const val MARGIN_DP = 10
+        const val TOP_DP = 88
+        const val CORNER_HIT_DP = 22f
+        const val CENTER_HIT_DP = 26f
+
+        // Survives release and reclaim within the process, so the card returns where it was left.
+        private var storedWidth = 0
+        private var storedX = Int.MIN_VALUE
+        private var storedY = Int.MIN_VALUE
     }
 }

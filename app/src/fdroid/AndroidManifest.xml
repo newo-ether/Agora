@@ -50,5 +50,16 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-authorized UI control with a visible overlay and an immediate Stop action" />
         </service>
+        <!-- The background screen grows out of its floating card. An empty affinity with the new
+             task flag keeps it in its own task, so the translucent window shows the user's app
+             underneath instead of Agora's own list. -->
+        <activity
+            android:name=".phone.PhoneBackgroundActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Agora.Translucent"
+            android:configChanges="uiMode|density|fontScale|orientation|screenSize|screenLayout|smallestScreenSize|locale|layoutDirection|keyboardHidden|navigation" />
     </application>
 </manifest>

@@ -16,5 +16,7 @@ interface IPhoneUserService {
     String displayNodes() = 5;
     /** Sets text on the background display's focused field; false when none has focus. */
     boolean displaySetText(String text) = 6;
+    /** Injects one single-finger MotionEvent action on the background display. */
+    oneway void displayTouch(int action, float x, float y, long downTime) = 7;
     void destroy() = 16777114;
 }

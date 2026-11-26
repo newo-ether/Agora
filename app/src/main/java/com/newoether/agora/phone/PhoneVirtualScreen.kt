@@ -8,6 +8,7 @@ import android.media.ImageReader
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.PowerManager
 import android.os.SystemClock
 import android.view.Display
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,8 @@ internal class PhoneVirtualScreen(
     context: Context,
     private val privileged: PhonePrivilegedConnection,
     spec: PhoneBackgroundSpec,
+    /** Runs after every (re)open; must return quickly, since the display lock is held. */
+    private val opened: suspend (Int) -> Unit = {},
 ) {
     val width: Int = spec.width
     val height: Int = spec.height
@@ -44,13 +47,24 @@ internal class PhoneVirtualScreen(
     private val _frame = MutableStateFlow<Bitmap?>(null)
     /** Latest frame for the preview. Bitmaps are never recycled here, since a view may still draw one. */
     val frame: StateFlow<Bitmap?> = _frame.asStateFlow()
+    private val _frames = MutableStateFlow(0L)
+    /** Counts converted frames, so a capture can wait for one drawn after an overlay change. */
+    val frames: StateFlow<Long> = _frames.asStateFlow()
+    /** Shorter while the full-screen view is open. */
+    @Volatile var frameIntervalMs: Long = FRAME_INTERVAL_MS
     private val displays = context.getSystemService(DisplayManager::class.java)
+    // The CPU must keep running for the display to draw while the phone's own screen is off.
+    private val wake = context.getSystemService(PowerManager::class.java)
+        .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Agora:backgroundScreen").apply { setReferenceCounted(false) }
 
     /** Returns the live display id, creating a fresh empty display when none exists. */
     suspend fun ensureOpen(): Int = lock.withLock {
         if (released) throw PhoneFailure("not_claimed")
         val current = displayId
-        if (current != Display.INVALID_DISPLAY && displays.getDisplay(current) != null) return@withLock current
+        if (current != Display.INVALID_DISPLAY && displays.getDisplay(current) != null) {
+            wake.acquire(WAKE_MS)
+            return@withLock current
+        }
         openLocked()
     }
 
@@ -80,7 +94,16 @@ internal class PhoneVirtualScreen(
             throw error
         }
         displayId = id
+        wake.acquire(WAKE_MS)
+        // release() may have run during the binder call; it must not leave the lock held.
+        if (released) runCatching { wake.release() }
+        runCatching { opened(id) }
         return id
+    }
+
+    /** Waits briefly for a frame newer than [after]; an unchanged display produces none. */
+    suspend fun awaitFrameAfter(after: Long, timeoutMs: Long) {
+        withTimeoutOrNull(timeoutMs) { frames.first { it > after } }
     }
 
     /** A copy of the latest frame; an empty display that never drew yields black. */
@@ -96,6 +119,7 @@ internal class PhoneVirtualScreen(
         if (released) return
         released = true
         displayId = Display.INVALID_DISPLAY
+        runCatching { if (wake.isHeld) wake.release() }
         privileged.closeDisplay()
         handler.post {
             reader?.close()
@@ -116,7 +140,7 @@ internal class PhoneVirtualScreen(
     private fun schedule() {
         if (scheduled) return
         scheduled = true
-        val wait = (lastFrameAt + FRAME_INTERVAL_MS - SystemClock.uptimeMillis()).coerceAtLeast(0)
+        val wait = (lastFrameAt + frameIntervalMs - SystemClock.uptimeMillis()).coerceAtLeast(0)
         handler.postDelayed(::convert, wait)
     }
 
@@ -132,11 +156,15 @@ internal class PhoneVirtualScreen(
             _frame.value = if (rowPixels == image.width) padded else {
                 Bitmap.createBitmap(padded, 0, 0, image.width, image.height).also { padded.recycle() }
             }
+            _frames.value += 1
         } finally { image.close() }
     }
 
-    private companion object {
+    companion object {
         const val FRAME_INTERVAL_MS = 66L
-        const val FIRST_FRAME_TIMEOUT_MS = 1500L
+        const val LIVE_FRAME_INTERVAL_MS = 33L
+        // Re-armed on every use; the lease's idle limit ends a forgotten screen well before this.
+        private const val WAKE_MS = 30 * 60 * 1000L
+        private const val FIRST_FRAME_TIMEOUT_MS = 1500L
     }
 }

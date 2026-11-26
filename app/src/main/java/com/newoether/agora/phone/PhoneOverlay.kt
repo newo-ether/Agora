@@ -6,6 +6,7 @@ import android.graphics.Rect
 import android.graphics.Region
 import android.os.Build
 import android.view.Choreographer
+import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -52,7 +53,14 @@ internal class PhoneOverlay(
     private val savedState = SavedStateRegistryController.create(this)
     override val savedStateRegistry: SavedStateRegistry get() = savedState.savedStateRegistry
     private var manager: WindowManager? = null
+    private var mainContext: Context? = null
     private var effect: ComposeView? = null
+    private var effectManager: WindowManager? = null
+    private var effectType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+    private var effectAlpha = 1f
+    /** The background display the effect window draws on; INVALID_DISPLAY while it is on the phone. */
+    var effectDisplayId: Int = Display.INVALID_DISPLAY
+        private set
     private var control: ComposeView? = null
     private var controlParams: WindowManager.LayoutParams? = null
     private val controlScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -68,38 +76,84 @@ internal class PhoneOverlay(
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
     }
 
-    fun show(mode: String) {
+    private fun composeView(viewContext: Context) = ComposeView(viewContext).apply {
+        setViewTreeLifecycleOwner(this@PhoneOverlay)
+        setViewTreeSavedStateRegistryOwner(this@PhoneOverlay)
+        setViewTreeViewModelStoreOwner(this@PhoneOverlay)
+    }
+
+    private fun addEffect(windows: WindowManager, viewContext: Context, keepScreenOn: Boolean) {
+        val effectView = composeView(viewContext)
+        effectView.setContent { PhoneOverlayTheme(runtime.settings) { PhoneEffect(runtime, this) } }
+        val effectParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, effectType,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                (if (keepScreenOn) WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON else 0) or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            PixelFormat.TRANSLUCENT,
+        )
+        // InputDispatcher combines both windows' alpha even outside their touchable regions.
+        effectParams.alpha = effectAlpha
+        if (Build.VERSION.SDK_INT >= 30) effectParams.setFitInsetsTypes(0)
+        if (Build.VERSION.SDK_INT >= 28) effectParams.layoutInDisplayCutoutMode =
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        try { windows.addView(effectView, effectParams) }
+        catch (error: Exception) { effectView.disposeComposition(); throw error }
+        effect = effectView
+        effectManager = windows
+    }
+
+    private fun removeEffect() {
+        val view = effect ?: return
+        runCatching { (effectManager ?: manager)?.removeViewImmediate(view) }
+        view.disposeComposition()
+        effect = null
+        effectManager = null
+    }
+
+    /**
+     * Main only. Moves the border and cursor onto [display], the background screen, so they appear
+     * where the AI acts. Returns false after falling back to the phone's own screen.
+     */
+    fun attachEffect(display: Display?): Boolean {
+        if (removed) return false
+        removeEffect()
+        effectDisplayId = Display.INVALID_DISPLAY
+        if (display != null) {
+            val placed = runCatching {
+                val displayContext = context.createDisplayContext(display)
+                val windowContext = if (Build.VERSION.SDK_INT >= 30) {
+                    displayContext.createWindowContext(effectType, null)
+                } else displayContext
+                addEffect(windowContext.getSystemService(WindowManager::class.java), windowContext, keepScreenOn = false)
+            }.isSuccess
+            if (placed) {
+                effectDisplayId = display.displayId
+                return true
+            }
+        }
+        val windows = manager ?: return false
+        runCatching { addEffect(windows, mainContext ?: context, keepScreenOn = true) }
+        return false
+    }
+
+    /** @param effectOnPhone false when [attachEffect] will place the effect on the background screen. */
+    fun show(mode: String, effectOnPhone: Boolean = true) {
         val windowContext = if (mode == "accessibility") PhoneAccessibilityService.instance
             ?: throw PhoneFailure("permission_lost:accessibility_unavailable") else context
         val windows = windowContext.getSystemService(WindowManager::class.java)
         val localizedContext = windowContext.withAppLocale(runtime.settings.appLanguage.value)
         manager = windows
+        mainContext = localizedContext
         val type = if (mode == "accessibility") WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
             else WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        fun view() = ComposeView(localizedContext).apply {
-            setViewTreeLifecycleOwner(this@PhoneOverlay)
-            setViewTreeSavedStateRegistryOwner(this@PhoneOverlay)
-            setViewTreeViewModelStoreOwner(this@PhoneOverlay)
-        }
-        val effectView = view().also { effect = it }
-        effectView.setContent { PhoneOverlayTheme(runtime.settings) { PhoneEffect(runtime, this) } }
-        val effectParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, type,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-            PixelFormat.TRANSLUCENT,
-        )
+        effectType = type
         val windowAlpha = if (Build.VERSION.SDK_INT >= 31 && mode != "accessibility") {
             phoneOverlayWindowAlpha(context.getSystemService(android.hardware.input.InputManager::class.java)
                 .maximumObscuringOpacityForTouch)
         } else 1f
-        // InputDispatcher combines both windows' alpha even outside their touchable regions.
-        effectParams.alpha = windowAlpha
-        if (Build.VERSION.SDK_INT >= 30) effectParams.setFitInsetsTypes(0)
-        if (Build.VERSION.SDK_INT >= 28) effectParams.layoutInDisplayCutoutMode =
-            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        val controls = view().also { control = it }
+        effectAlpha = windowAlpha
+        val controls = composeView(localizedContext).also { control = it }
         controls.setContent { PhoneOverlayTheme(runtime.settings) {
             PhoneControls(runtime, epoch, ::focusable, ::bounds, visible = visible.value)
         } }
@@ -120,7 +174,7 @@ internal class PhoneOverlay(
             false
         }
         try {
-            windows.addView(effectView, effectParams)
+            if (effectOnPhone) addEffect(windows, localizedContext, keepScreenOn = true)
             windows.addView(controls, params)
             controlWindow = PhoneControlWindow(controls, params, windows, operationAlpha = windowAlpha)
             controlScope.launch {
@@ -218,6 +272,30 @@ internal class PhoneOverlay(
             }
         }
 
+    /**
+     * Capture for the background screen while the effect draws on it. The border stays; the cursor is
+     * hidden and, when it was showing, a newer frame is awaited so the model never sees it.
+     */
+    suspend fun captureOnDisplay(
+        screen: PhoneVirtualScreen,
+        cursorShown: Boolean,
+        block: suspend () -> android.graphics.Bitmap,
+    ): android.graphics.Bitmap = withContext(Dispatchers.Main.immediate) {
+        if (removed) throw PhoneFailure("overlay_unavailable")
+        try {
+            val before = screen.frames.value
+            capturing.value = true
+            if (cursorShown) {
+                frame()
+                frame()
+                screen.awaitFrameAfter(before, CURSOR_FRAME_TIMEOUT_MS)
+            }
+            block()
+        } finally {
+            withContext(NonCancellable + Dispatchers.Main.immediate) { capturing.value = false }
+        }
+    }
+
     suspend fun hide() {
         visible.value = false
         controlWindow?.close()
@@ -231,14 +309,18 @@ internal class PhoneOverlay(
         controlWindow?.close()
         controlScope.cancel()
         controlWindow = null
-        listOfNotNull(effect, control).forEach { view ->
+        removeEffect()
+        control?.let { view ->
             runCatching { manager?.removeViewImmediate(view) }
             view.disposeComposition()
         }
-        effect = null
         control = null
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         viewModelStore.clear()
+    }
+
+    private companion object {
+        const val CURSOR_FRAME_TIMEOUT_MS = 400L
     }
 
     private suspend fun frame() = suspendCancellableCoroutine<Unit> { continuation ->

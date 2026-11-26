@@ -2,7 +2,9 @@ package com.newoether.agora.phone
 
 import android.content.Context
 import android.content.Intent
+import android.hardware.display.DisplayManager
 import android.os.SystemClock
+import android.view.Display
 import androidx.core.content.ContextCompat
 import com.newoether.agora.R
 import com.newoether.agora.data.repository.ConversationRepository
@@ -17,6 +19,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -40,9 +44,18 @@ internal class PhoneUseRuntime(
         lease.releaseEpoch(epoch, "permission_lost:shizuku_service_disconnected")
     }
     val permissions = PhonePermissions(context, privileged)
+    private val _background = MutableStateFlow<PhoneVirtualScreen?>(null)
     /** Background screen of the current Shizuku lease, when the setting was on at claim. */
-    @Volatile private var virtual: PhoneVirtualScreen? = null
+    val background: StateFlow<PhoneVirtualScreen?> = _background.asStateFlow()
+    private var virtual: PhoneVirtualScreen?
+        get() = _background.value
+        set(value) { _background.value = value }
     private var preview: PhoneBackgroundPreview? = null
+    /** True while [PhoneBackgroundActivity] shows the background screen; the floating card hides. */
+    val fullscreen = MutableStateFlow(false)
+    /** Screen bounds of the floating card, where the full-screen view grows from and returns to. */
+    @Volatile var previewCard: android.graphics.Rect? = null
+    private val displays = context.getSystemService(DisplayManager::class.java)
     private val actionStatus = PhoneActionStatus(
         CoroutineScope(scope.coroutineContext + Dispatchers.Main.immediate), SystemClock::elapsedRealtime,
     )
@@ -77,10 +90,16 @@ internal class PhoneUseRuntime(
         persist = { source -> withContext(Dispatchers.IO) {
             images.persistBitmap(source, "phone")
         } },
-        // The background screen never shows the overlay, so there is nothing to hide for capture.
+        // On the background screen the controls stay on the phone; only the cursor is hidden.
         captured = { capture ->
-            if (virtual != null) capture()
-            else (overlay ?: throw PhoneFailure("overlay_unavailable")).capture(capture)
+            val screen = virtual
+            val active = overlay
+            when {
+                screen != null && active != null && active.effectDisplayId != Display.INVALID_DISPLAY ->
+                    active.captureOnDisplay(screen, cursorShown()) { capture() }
+                screen != null -> capture()
+                else -> (active ?: throw PhoneFailure("overlay_unavailable")).capture(capture)
+            }
         },
         showControl = { mode ->
             val held = lease.held.value ?: throw PhoneFailure("not_claimed")
@@ -93,15 +112,22 @@ internal class PhoneUseRuntime(
                         // Main-thread replacement is synchronous: an old exit never overlaps fresh windows.
                         if (overlayEpoch != null || exitingOverlay != null) clearResources(animate = false)
                         val next = PhoneOverlay(context.withAppLocale(settings.appLanguage.value), this@PhoneUseRuntime, held.epoch)
-                        try { next.show(mode) } catch (error: Exception) { next.remove(); throw error }
+                        val phoneUse = settings.phoneUse.value
+                        val inBackground = mode == "shizuku" && phoneUse.backgroundActive
+                        try { next.show(mode, effectOnPhone = !inBackground) } catch (error: Exception) { next.remove(); throw error }
                         overlay = next
                         overlayEpoch = held.epoch
-                        val phoneUse = settings.phoneUse.value
-                        if (mode == "shizuku" && phoneUse.backgroundActive) {
+                        if (inBackground) {
                             val spec = PhoneBackgroundGeometry.resolve(PhoneBackgroundGeometry.native(context), phoneUse)
-                            val screen = PhoneVirtualScreen(context, privileged, spec)
+                            // Each (re)open moves the border and cursor onto the new display id. The
+                            // display lock is held here, so this must not wait for another thread.
+                            val screen = PhoneVirtualScreen(context, privileged, spec) { id ->
+                                scope.launch(Dispatchers.Main.immediate) {
+                                    if (overlay === next) next.attachEffect(displays.getDisplay(id))
+                                }
+                            }
                             virtual = screen
-                            preview = PhoneBackgroundPreview(context.withAppLocale(settings.appLanguage.value), screen)
+                            preview = PhoneBackgroundPreview(context.withAppLocale(settings.appLanguage.value), screen, this@PhoneUseRuntime)
                                 .also { it.show() }
                         }
                     }
@@ -135,8 +161,10 @@ internal class PhoneUseRuntime(
             }
         },
         action = { name, x, y, endX, endY, duration ->
-            // Background coordinates belong to the hidden display, not the screen the cursor draws on.
-            if (virtual == null) cursor.value = PhoneCursor(name, x, y, endX, endY, duration, SystemClock.elapsedRealtime())
+            // Background coordinates only match the cursor once the effect draws on that display.
+            if (virtual == null || overlay?.effectDisplayId?.let { it != Display.INVALID_DISPLAY } == true) {
+                cursor.value = PhoneCursor(name, x, y, endX, endY, duration, SystemClock.elapsedRealtime())
+            }
         },
         status = { name ->
             if (name != null) withContext(Dispatchers.Main.immediate) {
@@ -222,6 +250,7 @@ internal class PhoneUseRuntime(
         preview = null
         virtual?.release()
         virtual = null
+        fullscreen.value = false
         privileged.close()
         syncActionStatus()
         cursor.value = null
@@ -241,6 +270,27 @@ internal class PhoneUseRuntime(
         return permissions.ready(mode)
     }
     fun revoke(owner: PhoneControlLease.Owner, epoch: Long) = lease.revokeByUser(owner, epoch)
+
+    /** Stop from the full-screen view, same as the notification's Stop. */
+    fun stopByUser() {
+        val held = lease.held.value ?: return
+        lease.revokeEpochByUser(held.owner.conversationId, held.epoch)
+    }
+
+    /** Main-safe; forwards one touch of the full-screen view to the background display. */
+    fun touchBackground(action: Int, x: Float, y: Float, downTime: Long) {
+        if (virtual == null) return
+        privileged.displayTouch(action, x, y, downTime)
+    }
+
+    suspend fun backgroundBack() {
+        val screen = virtual ?: return
+        runCatching { privileged.command("shizuku", "input -d ${screen.ensureOpen()} keyevent 4") }
+    }
+
+    private fun cursorShown(): Boolean = cursor.value?.let {
+        SystemClock.elapsedRealtime() - it.startedAt < it.durationMs + 1000
+    } == true
 }
 
 internal data class PhoneCursor(

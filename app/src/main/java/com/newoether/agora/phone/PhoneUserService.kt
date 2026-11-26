@@ -20,6 +20,10 @@ class PhoneUserService(context: Context?) : IPhoneUserService.Stub() {
     override fun displayForeground(): String = displays.foreground()
     override fun displayNodes(): String = displays.nodes()
     override fun displaySetText(text: String): Boolean = displays.setText(text)
+    override fun displayTouch(action: Int, x: Float, y: Float, downTime: Long) {
+        // One-way: a failure has no caller to report to, and must not kill the service.
+        runCatching { displays.touch(action, x, y, downTime) }
+    }
     override fun command(command: String): ParcelFileDescriptor {
         // The image payload must never be marshalled into a Binder transaction.
         val pipe = ParcelFileDescriptor.createReliablePipe()

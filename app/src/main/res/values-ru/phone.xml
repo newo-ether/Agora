@@ -31,6 +31,10 @@
     <string name="phone_find_app">Найти приложение</string>
     <string name="phone_done">Готово</string>
     <string name="phone_stop">Остановить</string>
+    <string name="phone_background_operate">Управление</string>
+    <string name="phone_background_preview">Просмотр</string>
+    <string name="phone_background_minimize">Свернуть</string>
+    <string name="phone_background_back">Назад</string>
     <string name="phone_thinking">Думает</string>
     <string name="phone_waiting">Ожидает вашего ответа</string>
     <string name="phone_answer">Ваш ответ</string>

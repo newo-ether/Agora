@@ -26,7 +26,7 @@ internal class PhonePrivilegedConnection(
     private var pending: CompletableDeferred<IPhoneUserService>? = null
     private var connection: ServiceConnection? = null
     private val args get() = Shizuku.UserServiceArgs(ComponentName(context, PhoneUserService::class.java))
-        .daemon(false).processNameSuffix("phone").tag("agora-phone").version(3)
+        .daemon(false).processNameSuffix("phone").tag("agora-phone").version(4)
 
     fun ready(): Boolean = runCatching {
         Shizuku.pingBinder() && !Shizuku.isPreV11() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
@@ -110,11 +110,19 @@ internal class PhonePrivilegedConnection(
     suspend fun displaySetText(text: String): Boolean = displayCall { it.displaySetText(text) }
 
     /** One-way and non-suspending, so Main-thread cleanup can call it; a lost binding has no display. */
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun closeDisplay() {
-        val bound = synchronized(bindingLock) { pending?.takeIf { it.isCompleted && !it.isCancelled } }
-        val service = runCatching { bound?.getCompleted() }.getOrNull() ?: return
-        runCatching { service.closeDisplay() }
+        runCatching { bound()?.closeDisplay() }
+    }
+
+    /** One-way and Main-safe for live touch forwarding; dropped while no binding exists. */
+    fun displayTouch(action: Int, x: Float, y: Float, downTime: Long) {
+        runCatching { bound()?.displayTouch(action, x, y, downTime) }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private fun bound(): IPhoneUserService? {
+        val ready = synchronized(bindingLock) { pending?.takeIf { it.isCompleted && !it.isCancelled } }
+        return runCatching { ready?.getCompleted() }.getOrNull()
     }
 
     fun close() {

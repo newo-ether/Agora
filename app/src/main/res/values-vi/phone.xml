@@ -31,6 +31,10 @@
     <string name="phone_find_app">Tìm ứng dụng</string>
     <string name="phone_done">Xong</string>
     <string name="phone_stop">Dừng</string>
+    <string name="phone_background_operate">Thao tác</string>
+    <string name="phone_background_preview">Xem trước</string>
+    <string name="phone_background_minimize">Thu nhỏ</string>
+    <string name="phone_background_back">Quay lại</string>
     <string name="phone_thinking">Đang suy nghĩ</string>
     <string name="phone_waiting">Đang chờ bạn trả lời</string>
     <string name="phone_answer">Câu trả lời của bạn</string>
