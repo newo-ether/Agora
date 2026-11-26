@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
@@ -54,6 +55,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -402,11 +406,22 @@ internal fun ComposerRecordingOverlay(voice: ComposerVoice) {
                 modifier = Modifier.weight(1f).height(24.dp),
             )
             Spacer(Modifier.width(8.dp))
+            // The bars are anchored to the history's right edge, so the timer must not change
+            // width as its digits change: tabular figures plus a width reserved for all zeros.
+            val elapsedText = formatSpeechElapsed(elapsed)
+            val timerStyle = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
+            val measurer = rememberTextMeasurer()
+            val template = elapsedText.map { if (it.isDigit()) '0' else it }.joinToString("")
+            val reserved = with(LocalDensity.current) {
+                remember(template, timerStyle) { measurer.measure(template, timerStyle).size.width }.toDp()
+            }
             Text(
-                formatSpeechElapsed(elapsed),
-                style = MaterialTheme.typography.labelMedium,
+                elapsedText,
+                style = timerStyle,
                 color = contentColor,
-                modifier = Modifier.graphicsLayer { alpha = progress },
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                modifier = Modifier.widthIn(min = reserved).graphicsLayer { alpha = progress },
             )
             Spacer(Modifier.width(4.dp))
         }
