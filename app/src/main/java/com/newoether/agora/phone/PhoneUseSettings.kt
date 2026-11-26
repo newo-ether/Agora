@@ -36,6 +36,8 @@ data class PhoneUseSettings(
     /** Custom size as short and long side in pixels; 0 means unset. */
     val backgroundCustomShort: Int = 0,
     val backgroundCustomLong: Int = 0,
+    /** Custom density; 0 means the phone's own. */
+    val backgroundCustomDpi: Int = 0,
     val backgroundLandscape: Boolean = false,
     /** Ask the user before a conversation takes control of the phone. */
     val confirmClaim: Boolean = true,
@@ -56,6 +58,7 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
     private val backgroundSize = stringPreferencesKey("phone_use_background_size")
     private val backgroundShort = intPreferencesKey("phone_use_background_short")
     private val backgroundLong = intPreferencesKey("phone_use_background_long")
+    private val backgroundDpi = intPreferencesKey("phone_use_background_dpi")
     private val backgroundLandscape = booleanPreferencesKey("phone_use_background_landscape")
     private val confirmClaim = booleanPreferencesKey("phone_use_confirm_claim")
     // A raw legacy count must never opt into Unlimited, even if it matches the domain sentinel.
@@ -72,6 +75,7 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
         backgroundSize = pref[backgroundSize]?.takeIf { it in PhoneBackgroundGeometry.SIZES } ?: "native",
         backgroundCustomShort = pref[backgroundShort] ?: 0,
         backgroundCustomLong = pref[backgroundLong] ?: 0,
+        backgroundCustomDpi = pref[backgroundDpi] ?: 0,
         backgroundLandscape = pref[backgroundLandscape] ?: false,
         confirmClaim = pref[confirmClaim] ?: true,
     ) }
@@ -81,12 +85,13 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
         require(value in PhoneBackgroundGeometry.SIZES)
         store.edit { it[backgroundSize] = value }
     }
-    /** Stores a custom size and selects it; the sides are kept as short and long. */
-    suspend fun setBackgroundCustom(a: Int, b: Int) {
-        require(a > 0 && b > 0)
+    /** Stores a custom size and density and selects it; the sides are kept as short and long. */
+    suspend fun setBackgroundCustom(a: Int, b: Int, dpi: Int) {
+        require(a > 0 && b > 0 && dpi > 0)
         store.edit {
             it[backgroundShort] = minOf(a, b)
             it[backgroundLong] = maxOf(a, b)
+            it[backgroundDpi] = dpi
             it[backgroundSize] = "custom"
         }
     }

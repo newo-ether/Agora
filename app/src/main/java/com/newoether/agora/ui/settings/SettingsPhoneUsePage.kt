@@ -131,9 +131,9 @@ fun SettingsPhoneUsePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     }
                     if (config.background) {
                         add {
-                            PhoneBackgroundSizeItem(config) { size, a, b ->
+                            PhoneBackgroundSizeItem(config) { size, a, b, dpi ->
                                 scope.launch {
-                                    if (size == "custom") settings.phoneUseStore.setBackgroundCustom(a, b)
+                                    if (size == "custom") settings.phoneUseStore.setBackgroundCustom(a, b, dpi)
                                     else settings.phoneUseStore.setBackgroundSize(size)
                                 }
                             }
