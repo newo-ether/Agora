@@ -338,7 +338,7 @@ private fun GroupText(groupTools: SessionToolGroupTools, modifier: Modifier) {
         Text(
             groupLabel(groupTools.group),
             style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium,
             ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

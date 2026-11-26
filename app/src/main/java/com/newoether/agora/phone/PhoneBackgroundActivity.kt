@@ -13,8 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -207,11 +206,11 @@ private fun FullScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        if (reduce) progress.snapTo(1f) else progress.animateTo(1f, tween(300, easing = FastOutSlowInEasing))
+        if (reduce) progress.snapTo(1f) else progress.animateTo(1f, tween(OPEN_MS, easing = EmphasizedEasing))
     }
     LaunchedEffect(closing) {
         if (!closing) return@LaunchedEffect
-        if (reduce) progress.snapTo(0f) else progress.animateTo(0f, tween(220, easing = LinearOutSlowInEasing))
+        if (reduce) progress.snapTo(0f) else progress.animateTo(0f, tween(CLOSE_MS, easing = EmphasizedEasing))
         onFinished()
     }
     LaunchedEffect(mode, barVisible) {
@@ -229,14 +228,30 @@ private fun FullScreen(
     val shown by remember { derivedStateOf { progress.value > 0.5f } }
     val image = remember(frame) { frame?.asImageBitmap() }
 
-    /** Viewport point to display pixels. A finger past the image edge sticks to the edge. */
-    fun toDisplay(x: Float, y: Float): Offset? {
+    /**
+     * Viewport point to display pixels. A gesture starts only on the image; once started, a finger
+     * past the image edge sticks to the edge.
+     */
+    fun toDisplay(x: Float, y: Float, starting: Boolean): Offset? {
         if (scale <= 0f) return null
         val left = (viewport.width - screen.width * scale) / 2
         val top = (viewport.height - screen.height * scale) / 2
-        val px = ((x - left) / scale).coerceIn(0f, (screen.width - 1).toFloat())
-        val py = ((y - top) / scale).coerceIn(0f, (screen.height - 1).toFloat())
+        val rawX = (x - left) / scale
+        val rawY = (y - top) / scale
+        if (starting && (rawX < 0f || rawY < 0f || rawX >= screen.width || rawY >= screen.height)) return null
+        val px = rawX.coerceIn(0f, (screen.width - 1).toFloat())
+        val py = rawY.coerceIn(0f, (screen.height - 1).toFloat())
         return Offset(px, py)
+    }
+
+    /** Ends a forwarded gesture without a tap, so the display never keeps a finger down. */
+    fun cancelInjected(downTime: Long) {
+        injected?.let { point -> runtime.touchBackground(MotionEvent.ACTION_CANCEL, point.x, point.y, downTime) }
+        injected = null
+    }
+
+    LaunchedEffect(closing, mode) {
+        if (closing || mode == FullScreenMode.PREVIEW) cancelInjected(android.os.SystemClock.uptimeMillis())
     }
 
     Box(Modifier.fillMaxSize().onSizeChanged { viewport = it }) {
@@ -244,18 +259,23 @@ private fun FullScreen(
             Modifier
                 .fillMaxSize()
                 .pointerInteropFilter { event ->
+                    // Touches during the reveal would land where the image is heading, not where it is.
+                    if (closing || progress.value < 1f) {
+                        cancelInjected(event.downTime)
+                        return@pointerInteropFilter true
+                    }
                     if (mode == FullScreenMode.PREVIEW) {
                         if (event.actionMasked == MotionEvent.ACTION_UP) barVisible = !barVisible
                         return@pointerInteropFilter true
                     }
                     when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> toDisplay(event.x, event.y)?.let { point ->
+                        MotionEvent.ACTION_DOWN -> toDisplay(event.x, event.y, starting = true)?.let { point ->
                             injected = point
                             runtime.touchBackground(MotionEvent.ACTION_DOWN, point.x, point.y, event.downTime)
                         }
                         // A move without an injected down would reach the display as a stray gesture.
                         MotionEvent.ACTION_MOVE -> if (injected != null) {
-                            toDisplay(event.x, event.y)?.let { point ->
+                            toDisplay(event.x, event.y, starting = false)?.let { point ->
                                 injected = point
                                 runtime.touchBackground(MotionEvent.ACTION_MOVE, point.x, point.y, event.downTime)
                             }
@@ -279,7 +299,8 @@ private fun FullScreen(
                 Offset((size.width - fitSize.width) / 2, (size.height - fitSize.height) / 2),
                 fitSize,
             )
-            val from = card?.let {
+            // Read each frame: a rotation while full screen refits the hidden card.
+            val from = (runtime.previewCard ?: card)?.let {
                 ComposeRect(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat())
             } ?: fit
             val bounds = lerp(from, fit, reveal)
@@ -295,9 +316,10 @@ private fun FullScreen(
         }
 
         AnimatedVisibility(
-            visible = shown,
-            enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it / 3 },
-            exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 3 },
+            // Preview mode taps toggle the bar; operating mode keeps it so Stop stays one tap away.
+            visible = shown && (barVisible || mode == FullScreenMode.OPERATE),
+            enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EmphasizedEasing)) { -it / 2 },
+            exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 2 },
         ) {
             TopBar(
                 mode = mode,
@@ -311,8 +333,8 @@ private fun FullScreen(
         }
         AnimatedVisibility(
             visible = shown && barVisible && mode == FullScreenMode.OPERATE,
-            enter = fadeIn(tween(160)),
-            exit = fadeOut(tween(120)),
+            enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EmphasizedEasing)) { it / 2 },
+            exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { it / 2 },
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             Box(Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 28.dp)) {
@@ -404,3 +426,8 @@ private fun TopBar(
 }
 
 private const val CARD_CORNER_DP = 14
+private const val OPEN_MS = 360
+private const val CLOSE_MS = 300
+
+/** Material 3 emphasized curve; the card launches quickly and settles slowly into place. */
+private val EmphasizedEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)

@@ -142,7 +142,7 @@ internal fun ConversationSubagentsSheet(
                         SubagentStatus(agent.status, "subagents-sheet-status:${agent.id}")
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(agent.title, style = MaterialTheme.typography.titleMedium.copy(
-                                fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium,
                             ))
                             Text(
                                 subagentStatusLabel(agent.status), style = MaterialTheme.typography.labelMedium,

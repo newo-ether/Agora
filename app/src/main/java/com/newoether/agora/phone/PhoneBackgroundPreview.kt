@@ -14,31 +14,36 @@ import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.animation.PathInterpolator
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -60,6 +65,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -67,6 +73,10 @@ import kotlin.math.roundToInt
  * The floating window of the background screen. The card shows live frames, a handle above it drags
  * it, and three grips on its edge resize it with the display's aspect ratio locked. Tapping the card
  * opens [PhoneBackgroundActivity]; the window hides itself while that view owns the screen.
+ *
+ * The card's screen rect is the model; the window is derived from it. While a grip resizes the card,
+ * the window spans the whole safe area and only the card moves inside it, so no frame waits on a
+ * window relayout and the card cannot shudder against its own window.
  */
 internal class PhoneBackgroundPreview(
     private val context: Context,
@@ -87,10 +97,25 @@ internal class PhoneBackgroundPreview(
     private val handleZone = (HANDLE_ZONE_DP * density).roundToInt()
     private val margin = (MARGIN_DP * density).roundToInt()
     private val minWidth = (MIN_WIDTH_DP * density).roundToInt()
+
+    /** Card rect on screen. */
+    private var cardX = 0
+    private var cardY = 0
     private var cardWidth by mutableIntStateOf(0)
     private var cardHeight by mutableIntStateOf(0)
+
+    /** Card origin inside the window. */
+    private var cardLeft by mutableIntStateOf(0)
+    private var cardTop by mutableIntStateOf(0)
+
+    /** True while a drag holds the card; the card grows a little under the finger. */
+    private var lifted by mutableStateOf(false)
+
+    /** True while a grip resizes the card and the window spans the safe area. */
+    private var workspace = false
     private var root: ComposeView? = null
     private var added = false
+    private val pushed = IntArray(6) { Int.MIN_VALUE }
 
     /** Screen area that excludes the system bars, so the card never hides under them. */
     private var safe: Rect = safeArea()
@@ -101,8 +126,12 @@ internal class PhoneBackgroundPreview(
         override fun onConfigurationChanged(newConfig: Configuration) {
             safe = safeArea()
             settling?.cancel()
-            resize(cardWidth)
-            moveTo(params.x, params.y)
+            settling = null
+            workspace = false
+            lifted = false
+            gesture = Gesture.NONE
+            setSize(cardWidth)
+            placeCard(cardX, cardY)
             savePlacement()
         }
 
@@ -154,10 +183,10 @@ internal class PhoneBackgroundPreview(
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         val initial = if (storedWidth > 0) storedWidth.toFloat()
             else (if (screen.width > screen.height) WIDE_WIDTH_DP else CARD_WIDTH_DP) * density
-        resize(initial.roundToInt())
-        val x = if (storedX != Int.MIN_VALUE) storedX else safe.right - params.width
+        setSize(initial.roundToInt())
+        val x = if (storedX != Int.MIN_VALUE) storedX else safe.right - pad - margin - cardWidth
         val y = if (storedY != Int.MIN_VALUE) storedY else safe.top + (TOP_DP * density).roundToInt()
-        moveTo(x, y)
+        placeCard(x, y)
     }
 
     fun show() {
@@ -171,6 +200,7 @@ internal class PhoneBackgroundPreview(
         root = view
         try { windows.addView(view, params) } catch (error: Exception) { view.disposeComposition(); throw error }
         added = true
+        markPushed()
         context.applicationContext.registerComponentCallbacks(configuration)
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         scope.launch { runtime.fullscreen.collect { hidden -> setHidden(hidden) } }
@@ -200,54 +230,89 @@ internal class PhoneBackgroundPreview(
     }
 
     private fun maxWidth(): Int {
-        val byWidth = safe.width() - 2 * margin
-        val byHeight = ((safe.height() - 2 * margin) * aspect).toInt()
+        val byWidth = safe.width() - 2 * (pad + margin)
+        val byHeight = ((safe.height() - 2 * (pad + margin) - handleZone) * aspect).toInt()
         return min(byWidth, byHeight).coerceAtLeast(minWidth)
     }
 
-    private fun resize(width: Int) {
+    private fun setSize(width: Int) {
         val w = width.coerceIn(minWidth, maxWidth())
         cardWidth = w
         cardHeight = (w / aspect).roundToInt()
-        params.width = w + 2 * pad
-        params.height = cardHeight + 2 * pad + handleZone
     }
 
-    private fun moveTo(x: Int, y: Int) {
-        params.x = x.coerceIn(safe.left, (safe.right - params.width).coerceAtLeast(safe.left))
-        params.y = y.coerceIn(safe.top, (safe.bottom - params.height).coerceAtLeast(safe.top))
+    private fun minCardX() = safe.left + pad
+    private fun maxCardX() = max(minCardX(), safe.right - pad - cardWidth)
+    private fun minCardY() = safe.top + pad + handleZone
+    private fun maxCardY() = max(minCardY(), safe.bottom - pad - cardHeight)
+
+    private fun placeCard(x: Int, y: Int) {
+        cardX = x.coerceIn(minCardX(), maxCardX())
+        cardY = y.coerceIn(minCardY(), maxCardY())
+        layoutWindow()
+    }
+
+    /** Derives the window from the card: a tight frame normally, the safe area while resizing. */
+    private fun layoutWindow() {
+        if (workspace) {
+            params.x = safe.left
+            params.y = safe.top
+            params.width = safe.width()
+            params.height = safe.height()
+        } else {
+            params.x = cardX - pad
+            params.y = cardY - pad - handleZone
+            params.width = cardWidth + 2 * pad
+            params.height = cardHeight + 2 * pad + handleZone
+        }
+        cardLeft = cardX - params.x
+        cardTop = cardY - params.y
         update()
     }
 
+    /** Skips relayouts that change nothing; during a resize only the card state moves. */
     private fun update() {
         if (!added) return
+        val now = intArrayOf(params.x, params.y, params.width, params.height, params.flags, params.alpha.toRawBits())
+        if (now.contentEquals(pushed)) return
         root?.let { view -> runCatching { windows.updateViewLayout(view, params) } }
+        now.copyInto(pushed)
+    }
+
+    private fun markPushed() {
+        intArrayOf(params.x, params.y, params.width, params.height, params.flags, params.alpha.toRawBits())
+            .copyInto(pushed)
     }
 
     private fun savePlacement() {
         storedWidth = cardWidth
-        storedX = params.x
-        storedY = params.y
+        storedX = cardX
+        storedY = cardY
+        // The full screen view shrinks back into this rect, which a rotation may have moved.
+        runtime.previewCard = Rect(cardX, cardY, cardX + cardWidth, cardY + cardHeight)
     }
 
-    /** Snap fully on screen with a short ease; the drag itself follows the finger exactly. */
+    /** Snap clear of the screen edge with a short ease; the drag itself follows the finger exactly. */
     private fun settle() {
         settling?.cancel()
         settling = null
         savePlacement()
-        val targetX = params.x.coerceIn(safe.left + margin, (safe.right - params.width - margin).coerceAtLeast(safe.left))
-        val targetY = params.y.coerceIn(safe.top, (safe.bottom - params.height - margin).coerceAtLeast(safe.top))
-        if (targetX == params.x && targetY == params.y) return
-        val fromX = params.x
-        val fromY = params.y
+        val loX = minCardX() + margin
+        val loY = minCardY()
+        val targetX = cardX.coerceIn(loX, max(loX, maxCardX() - margin))
+        val targetY = cardY.coerceIn(loY, max(loY, maxCardY() - margin))
+        if (targetX == cardX && targetY == cardY) return
+        val fromX = cardX
+        val fromY = cardY
         settling = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 260
+            duration = 320
             interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
             addUpdateListener { animation ->
                 val progress = animation.animatedValue as Float
-                params.x = (fromX + (targetX - fromX) * progress).roundToInt()
-                params.y = (fromY + (targetY - fromY) * progress).roundToInt()
-                update()
+                placeCard(
+                    (fromX + (targetX - fromX) * progress).roundToInt(),
+                    (fromY + (targetY - fromY) * progress).roundToInt(),
+                )
                 // A grab mid-snap cancels this animator; the place it stopped is the place kept.
                 savePlacement()
             }
@@ -257,45 +322,67 @@ internal class PhoneBackgroundPreview(
 
     private fun openFullscreen() {
         if (runtime.fullscreen.value) return
-        val card = Rect(
-            params.x + pad, params.y + pad + handleZone,
-            params.x + pad + cardWidth, params.y + pad + handleZone + cardHeight,
-        )
+        val card = Rect(cardX, cardY, cardX + cardWidth, cardY + cardHeight)
         runtime.previewCard = card
         runtime.fullscreen.value = true
         runCatching { context.startActivity(PhoneBackgroundActivity.intent(context, card)) }
             .onFailure { runtime.fullscreen.value = false }
     }
 
+    private fun begin(event: MotionEvent, kind: Gesture) {
+        // A running snap would keep writing the position under the finger.
+        settling?.cancel()
+        settling = null
+        downRawX = event.rawX
+        downRawY = event.rawY
+        startX = cardX
+        startY = cardY
+        startWidth = cardWidth
+        startHeight = cardHeight
+        moved = false
+        gesture = kind
+        lifted = kind == Gesture.MOVE
+    }
+
+    private fun track(event: MotionEvent) {
+        if (gesture == Gesture.NONE) return
+        val dx = event.rawX - downRawX
+        val dy = event.rawY - downRawY
+        if (!moved) {
+            if (hypot(dx, dy) <= slop) return
+            moved = true
+            // Measured from where the finger crossed the slop, so the card does not jump by it.
+            downRawX = event.rawX
+            downRawY = event.rawY
+            if (gesture != Gesture.MOVE) {
+                workspace = true
+                layoutWindow()
+            }
+            return
+        }
+        if (gesture == Gesture.MOVE) placeCard((startX + dx).roundToInt(), (startY + dy).roundToInt())
+        else resizeBy(gesture, dx, dy)
+    }
+
+    private fun finish(tap: Boolean) {
+        val kind = gesture
+        gesture = Gesture.NONE
+        lifted = false
+        if (workspace) {
+            workspace = false
+            layoutWindow()
+        }
+        if (moved) settle() else if (tap && kind == Gesture.MOVE) openFullscreen()
+        moved = false
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     private fun cardTouch(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                // A running snap would keep writing the position under the finger.
-                settling?.cancel()
-                downRawX = event.rawX
-                downRawY = event.rawY
-                startX = params.x
-                startY = params.y
-                startWidth = cardWidth
-                startHeight = cardHeight
-                moved = false
-                gesture = hit(event.x, event.y)
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val dx = event.rawX - downRawX
-                val dy = event.rawY - downRawY
-                if (!moved && hypot(dx, dy) > slop) moved = true
-                if (moved) applyGesture(gesture, dx, dy)
-            }
-            MotionEvent.ACTION_UP -> {
-                if (moved) settle() else if (gesture == Gesture.MOVE) openFullscreen()
-                gesture = Gesture.NONE
-            }
-            MotionEvent.ACTION_CANCEL -> {
-                if (moved) settle()
-                gesture = Gesture.NONE
-            }
+            MotionEvent.ACTION_DOWN -> begin(event, hit(event.x, event.y))
+            MotionEvent.ACTION_MOVE -> track(event)
+            MotionEvent.ACTION_UP -> finish(tap = true)
+            MotionEvent.ACTION_CANCEL -> finish(tap = false)
         }
         return true
     }
@@ -303,24 +390,9 @@ internal class PhoneBackgroundPreview(
     @SuppressLint("ClickableViewAccessibility")
     private fun handleTouch(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                settling?.cancel()
-                downRawX = event.rawX
-                downRawY = event.rawY
-                startX = params.x
-                startY = params.y
-                moved = false
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val dx = event.rawX - downRawX
-                val dy = event.rawY - downRawY
-                if (!moved && hypot(dx, dy) > slop) moved = true
-                if (moved) moveTo((startX + dx).roundToInt(), (startY + dy).roundToInt())
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (moved) settle()
-                moved = false
-            }
+            MotionEvent.ACTION_DOWN -> begin(event, Gesture.MOVE)
+            MotionEvent.ACTION_MOVE -> track(event)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> finish(tap = false)
         }
         return true
     }
@@ -331,76 +403,113 @@ internal class PhoneBackgroundPreview(
         val width = cardWidth.toFloat()
         val height = cardHeight.toFloat()
         return when {
-            y > height - corner * 1.6f && x < corner -> Gesture.BOTTOM_START
-            y > height - corner * 1.6f && x > width - corner -> Gesture.BOTTOM_END
+            y > height - corner * 1.4f && x < corner -> Gesture.BOTTOM_START
+            y > height - corner * 1.4f && x > width - corner -> Gesture.BOTTOM_END
             y > height - CENTER_HIT_DP * density && abs(x - width / 2) < 44 * density -> Gesture.BOTTOM_CENTER
             else -> Gesture.MOVE
         }
     }
 
-    /** Named apart from Kotlin's `apply`; this class composes, so stdlib names stay unshadowed. */
-    private fun applyGesture(kind: Gesture, dx: Float, dy: Float) {
-        if (kind == Gesture.MOVE) {
-            moveTo((startX + dx).roundToInt(), (startY + dy).roundToInt())
-            return
+    /**
+     * The grabbed point slides along the line the locked ratio allows; the finger's offset is
+     * projected onto that line, so diagonal drags track smoothly instead of flipping between axes.
+     */
+    private fun resizeBy(kind: Gesture, dx: Float, dy: Float) {
+        val w0 = startWidth.toFloat()
+        val h0 = startHeight.toFloat()
+        val growth = when (kind) {
+            Gesture.BOTTOM_END -> (dx * w0 + dy * h0) / (w0 * w0 + h0 * h0)
+            Gesture.BOTTOM_START -> (-dx * w0 + dy * h0) / (w0 * w0 + h0 * h0)
+            else -> dy / h0
         }
-        val byWidth = when (kind) {
-            Gesture.BOTTOM_START -> startWidth - dx
-            Gesture.BOTTOM_END -> startWidth + dx
-            else -> startWidth + dx * 2
+        val right = startX + startWidth
+        val centerX = startX + startWidth / 2f
+        // The anchored edge stays put, so the room on the free side bounds the size.
+        val room = when (kind) {
+            Gesture.BOTTOM_END -> (safe.right - pad - startX).toFloat()
+            Gesture.BOTTOM_START -> (right - safe.left - pad).toFloat()
+            else -> 2f * min(centerX - safe.left - pad, safe.right - pad - centerX)
         }
-        val byHeight = (startHeight + dy) * aspect
-        // The axis the finger moved further along wins, so the locked ratio still feels tracked.
-        val width = if (abs(byWidth - startWidth) >= abs(byHeight - startWidth)) byWidth else byHeight
-        resize(width.roundToInt())
-        val x = when (kind) {
-            Gesture.BOTTOM_START -> startX + startWidth - cardWidth
+        val roomBelow = (safe.bottom - pad - startY) * aspect
+        val limit = min(min(room, roomBelow), maxWidth().toFloat()).coerceAtLeast(minWidth.toFloat())
+        val width = (w0 * (1f + growth)).coerceIn(minWidth.toFloat(), limit).roundToInt()
+        setSize(width)
+        cardX = when (kind) {
             Gesture.BOTTOM_END -> startX
-            else -> startX + startWidth / 2 - cardWidth / 2
+            Gesture.BOTTOM_START -> right - cardWidth
+            else -> (centerX - cardWidth / 2f).roundToInt()
         }
-        moveTo(x, startY)
+        cardY = startY
+        layoutWindow()
     }
 
     @Composable
     private fun PreviewCard() {
         val frame by screen.frame.collectAsState()
+        val lift by animateFloatAsState(
+            targetValue = if (lifted) 1f else 0f,
+            animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
+            label = "lift",
+        )
+        val shape = RoundedCornerShape(CORNER_DP.dp)
         Box(Modifier.fillMaxSize()) {
             Box(
                 Modifier
-                    .padding(start = PAD_DP.dp, top = (PAD_DP + HANDLE_ZONE_DP).dp, end = PAD_DP.dp, bottom = PAD_DP.dp)
-                    .fillMaxSize()
-                    .shadow(SHADOW_DP.dp, RoundedCornerShape(CORNER_DP.dp), clip = false)
-                    .clip(RoundedCornerShape(CORNER_DP.dp))
-                    .background(Color.Black)
-                    .pointerInteropFilter { event -> cardTouch(event) },
-            ) {
-                Canvas(Modifier.fillMaxSize()) {
-                    frame?.let { bitmap ->
-                        drawImage(
-                            bitmap.asImageBitmap(),
-                            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                    .offset { IntOffset(cardLeft, cardTop - handleZone) }
+                    .exactSize(cardWidth, cardHeight + handleZone)
+                    .graphicsLayer {
+                        val grow = 1f + lift * LIFT_DP.dp.toPx() * 2f / cardWidth.coerceAtLeast(1)
+                        scaleX = grow
+                        scaleY = grow
+                        transformOrigin = TransformOrigin(
+                            0.5f, (handleZone + cardHeight / 2f) / (handleZone + cardHeight).coerceAtLeast(1),
                         )
-                    }
-                }
-                Canvas(Modifier.fillMaxSize()) { drawGrips() }
-            }
-            Box(
-                Modifier
-                    .padding(start = PAD_DP.dp, top = PAD_DP.dp, end = PAD_DP.dp)
-                    .fillMaxWidth()
-                    .height(HANDLE_ZONE_DP.dp)
-                    .pointerInteropFilter { event -> handleTouch(event) },
+                    },
             ) {
-                Canvas(Modifier.fillMaxSize()) { drawHandle() }
+                Box(
+                    Modifier
+                        .exactSize(cardWidth, handleZone)
+                        .pointerInteropFilter { event -> handleTouch(event) },
+                ) {
+                    Canvas(Modifier.fillMaxSize()) { drawHandle() }
+                }
+                Box(
+                    Modifier
+                        .offset { IntOffset(0, handleZone) }
+                        .exactSize(cardWidth, cardHeight)
+                        .graphicsLayer {
+                            shadowElevation = (SHADOW_DP + (LIFTED_SHADOW_DP - SHADOW_DP) * lift).dp.toPx()
+                            this.shape = shape
+                            clip = true
+                        }
+                        .background(Color.Black)
+                        .pointerInteropFilter { event -> cardTouch(event) },
+                ) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        frame?.let { bitmap ->
+                            drawImage(
+                                bitmap.asImageBitmap(),
+                                dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                            )
+                        }
+                    }
+                    Canvas(Modifier.fillMaxSize()) { drawGrips() }
+                }
             }
         }
+    }
+
+    /** Pixel-exact size; dp round trips would leave the card a pixel off its window frame. */
+    private fun Modifier.exactSize(width: Int, height: Int) = layout { measurable, _ ->
+        val placeable = measurable.measure(Constraints.fixed(width.coerceAtLeast(0), height.coerceAtLeast(0)))
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
     }
 
     private fun DrawScope.drawHandle() {
         val width = 3.dp.toPx()
         val half = 22.dp.toPx()
         val centerX = size.width / 2
-        val centerY = size.height - 1.5.dp.toPx()
+        val centerY = size.height - HANDLE_GAP_DP.dp.toPx() - width / 2
         drawLine(
             Color.Black.copy(alpha = 0.35f),
             Offset(centerX - half, centerY + 1.5.dp.toPx()), Offset(centerX + half, centerY + 1.5.dp.toPx()),
@@ -418,8 +527,8 @@ internal class PhoneBackgroundPreview(
         val light = Color.White.copy(alpha = 0.9f)
         val dark = Color.Black.copy(alpha = 0.35f)
         val stroke = 2.2.dp.toPx()
-        val radius = 20.dp.toPx()
-        val inset = 2.dp.toPx()
+        val radius = 16.dp.toPx()
+        val inset = GRIP_INSET_DP.dp.toPx()
         fun arc(startAngle: Float, centerX: Float, centerY: Float) {
             val topLeft = Offset(centerX - radius, centerY - radius)
             val arcSize = Size(radius * 2, radius * 2)
@@ -444,14 +553,20 @@ internal class PhoneBackgroundPreview(
         const val CARD_WIDTH_DP = 132
         const val WIDE_WIDTH_DP = 220
         const val MIN_WIDTH_DP = 88
-        const val PAD_DP = 10
-        const val HANDLE_ZONE_DP = 16
+        /** Transparent frame around the card: room for the lift and its deeper shadow. */
+        const val PAD_DP = 14
+        const val HANDLE_ZONE_DP = 20
+        const val HANDLE_GAP_DP = 7
+        const val GRIP_INSET_DP = 7
         const val CORNER_DP = 14
         const val SHADOW_DP = 8
-        const val MARGIN_DP = 10
+        const val LIFTED_SHADOW_DP = 14
+        /** Each side of a held card grows by this much, whatever the card's size. */
+        const val LIFT_DP = 4
+        const val MARGIN_DP = 6
         const val TOP_DP = 88
-        const val CORNER_HIT_DP = 22f
-        const val CENTER_HIT_DP = 26f
+        const val CORNER_HIT_DP = 30f
+        const val CENTER_HIT_DP = 30f
 
         // Survives release and reclaim within the process, so the card returns where it was left.
         private var storedWidth = 0
