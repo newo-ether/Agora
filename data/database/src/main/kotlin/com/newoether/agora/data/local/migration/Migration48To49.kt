@@ -16,6 +16,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 val MIGRATION_48_49 = object : Migration(48, 49) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        // v48 always carries the ledger, but an intermediate local v48 reused that version number
+        // without it; the backfill then still has a table to write into.
+        db.execSQL(CREATE_USAGE_LEDGER_SQL)
         db.execSQL(
             """
             INSERT INTO usage_ledger (bucket, provider, model, source, requests, totalTokens,

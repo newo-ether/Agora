@@ -65,6 +65,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val blurEffectsEnabled by viewModel.settings.blurEffectsEnabled.collectAsState()
     val reduceMotion by viewModel.settings.reduceMotion.collectAsState()
     val stickToBottom by viewModel.settings.stickToBottom.collectAsState()
+    val showGenerationSpeed by viewModel.settings.showGenerationSpeed.collectAsState()
     val parseInlineDollarMath by viewModel.settings.parseInlineDollarMath.collectAsState()
     val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
@@ -438,6 +439,12 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 SettingsGroup(
                     title = stringResource(R.string.appearance_chat_display),
                     items = buildList {
+                        add {
+                            GenerationSpeedSettingRow(
+                                enabled = showGenerationSpeed,
+                                onEnabledChange = viewModel.settings::setShowGenerationSpeed,
+                            )
+                        }
                         add {
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.stick_to_bottom)) },

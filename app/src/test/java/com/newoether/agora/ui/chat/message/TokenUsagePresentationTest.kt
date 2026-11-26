@@ -64,6 +64,22 @@ class TokenUsagePresentationTest {
     }
 
     @Test
+    fun timingFigures_comeFromTheReportedUsage() {
+        val presentation = tokenUsagePresentation(
+            TokenUsage(
+                totalTokenCount = 40,
+                outputTokenCount = 40,
+                generationDurationMs = 2_000,
+                timeToFirstTokenMs = 500,
+                totalGenerationMs = 2_500,
+            )
+        )
+        assertEquals(20.0, presentation.generationTokensPerSecond!!, 0.001)
+        assertEquals(500L, presentation.timeToFirstTokenMs)
+        assertEquals(2_500L, presentation.totalGenerationMs)
+    }
+
+    @Test
     fun legacyTotalOnlyUsage_doesNotInventInputOutputSplit() {
         val unknown = TokenUsagePresentation(input = null, cachedInput = null, output = null)
         assertEquals(unknown, tokenUsagePresentation(TokenUsage(totalTokenCount = 140)))

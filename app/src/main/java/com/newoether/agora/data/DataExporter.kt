@@ -61,17 +61,6 @@ class DataExporter(
     }
 
     @Serializable
-    private data class ExportManifest(
-        @SerialName("agora_export_version") val version: Int,
-        @SerialName("app_version") val appVersion: String,
-        @SerialName("exported_at") val exportedAt: String,
-        val categories: List<String>,
-        @SerialName("has_api_keys") val hasApiKeys: Boolean = false,
-        @SerialName("incremental_baseline") val incrementalBaseline: Int =
-            NativeBackupFormat.INCREMENTAL_BASELINE_REVISION,
-    )
-
-    @Serializable
     private data class ExportChatEntity(
         val id: String,
         val title: String,
@@ -154,6 +143,8 @@ class DataExporter(
         val outputTokenCount: Int? = null,
         val reasoningTokenCount: Int? = null,
         val generationDurationMs: Long? = null,
+        val timeToFirstTokenMs: Long? = null,
+        val totalGenerationMs: Long? = null,
         val status: String = "SUCCESS",
         val participant: String = "MODEL",
         val timestamp: Long,
@@ -348,6 +339,8 @@ class DataExporter(
                                         outputTokenCount = message.outputTokenCount,
                                         reasoningTokenCount = message.reasoningTokenCount,
                                         generationDurationMs = message.generationDurationMs,
+                                        timeToFirstTokenMs = message.timeToFirstTokenMs,
+                                        totalGenerationMs = message.totalGenerationMs,
                                         status = message.status.name,
                                         participant = message.participant.name,
                                         timestamp = message.timestamp,

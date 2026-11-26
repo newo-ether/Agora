@@ -17,6 +17,7 @@ Open **Settings → Appearance** to configure Agora's theme, motion, chat presen
 
 ## Chat Display
 
+- **Generation Speed** prints each finished reply's average tokens per second and total generation time beside its action icons. It stays off by default; the same figures are always available from the message's ⋮ → Info dialog.
 - **Stick to Bottom** follows new content automatically while a response is generating.
 - **Parse $…$ as Inline Math** treats single-dollar expressions as inline math. When disabled, they remain ordinary text; other math delimiters are unchanged.
 - **Thinking & Tool Blocks** offers Timeline or Grouped. Grouped preserves chronological order and merges consecutive thinking, tool, and image blocks. Saved Compact preferences and older Settings backups automatically use Grouped.
