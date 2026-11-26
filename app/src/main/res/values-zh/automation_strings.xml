@@ -68,7 +68,7 @@
     <string name="settings_automation">自动化</string>
     <string name="settings_automation_desc">任务、会话循环与调度精度</string>
     <string name="automation_ai_tools">访问任务与循环</string>
-    <string name="automation_ai_tools_desc">允许模型创建和管理任务，或启动、停止会话循环。默认关闭。</string>
+    <string name="automation_ai_tools_desc">允许模型创建和管理任务，或启动、停止会话循环。</string>
     <string name="automation_background_execution">后台运行</string>
     <string name="automation_wake_lock">唤醒锁</string>
     <string name="automation_wake_lock_desc">让每次任务或循环执行期间保持唤醒。WorkManager 已保障普通计划任务；开启这项额外唤醒锁会增加耗电。</string>

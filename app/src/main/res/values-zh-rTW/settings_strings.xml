@@ -181,7 +181,7 @@
     <string name="thinking_effort_label">思考深度</string>
     <string name="thinking_effort_desc">控制模型回答前推理的徹底程度</string>
     <string name="thinking_use_budget">使用思考預算</string>
-    <string name="thinking_budget_input_label">預算 (tokens)</string>
+    <string name="thinking_budget_input_label">預算（tokens）</string>
     <string name="thinking_control_off">關閉</string>
     <string name="thinking_control_auto">自動</string>
     <string name="thinking_control_quick">快速</string>

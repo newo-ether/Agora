@@ -67,7 +67,7 @@
     <string name="settings_automation">Автоматизация</string>
     <string name="settings_automation_desc">Задачи, циклы и точность планирования</string>
     <string name="automation_ai_tools">Доступ к задачам и циклам</string>
-    <string name="automation_ai_tools_desc">Разрешить модели создавать задачи и управлять ими, а также запускать и останавливать циклы бесед. По умолчанию отключено.</string>
+    <string name="automation_ai_tools_desc">Разрешить модели создавать задачи и управлять ими, а также запускать и останавливать циклы бесед.</string>
     <string name="automation_background_execution">Фоновое выполнение</string>
     <string name="automation_wake_lock">Блокировка сна</string>
     <string name="automation_wake_lock_desc">Не давать устройству засыпать во время каждого запуска задачи или цикла. Обычную запланированную работу уже обслуживает WorkManager; эта дополнительная блокировка может увеличить расход батареи.</string>

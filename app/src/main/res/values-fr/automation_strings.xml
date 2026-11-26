@@ -67,7 +67,7 @@
     <string name="settings_automation">Automatisation</string>
     <string name="settings_automation_desc">Tâches, boucles et précision de planification</string>
     <string name="automation_ai_tools">Accéder aux tâches et aux boucles</string>
-    <string name="automation_ai_tools_desc">Autoriser le modèle à créer et gérer des tâches, ou à démarrer et arrêter des boucles de conversation. Désactivé par défaut.</string>
+    <string name="automation_ai_tools_desc">Autoriser le modèle à créer et gérer des tâches, ou à démarrer et arrêter des boucles de conversation.</string>
     <string name="automation_background_execution">Exécution en arrière-plan</string>
     <string name="automation_wake_lock">Verrouillage d’éveil</string>
     <string name="automation_wake_lock_desc">Maintient chaque exécution de tâche ou de boucle éveillée. WorkManager gère déjà le travail planifié normal ; ce verrou supplémentaire peut augmenter la consommation de batterie.</string>

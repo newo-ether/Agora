@@ -69,7 +69,7 @@
     <string name="settings_automation">Automation</string>
     <string name="settings_automation_desc">Tasks, loops, and scheduling precision</string>
     <string name="automation_ai_tools">Access Tasks and Loops</string>
-    <string name="automation_ai_tools_desc">Let the model create and manage tasks or start and stop conversation loops. Disabled by default.</string>
+    <string name="automation_ai_tools_desc">Let the model create and manage tasks or start and stop conversation loops.</string>
     <string name="automation_background_execution">Background Execution</string>
     <string name="automation_wake_lock">Wake Lock</string>
     <string name="automation_wake_lock_desc">Keep each Task or Loop execution awake. WorkManager already handles normal scheduled work; this extra wake lock can increase battery use.</string>

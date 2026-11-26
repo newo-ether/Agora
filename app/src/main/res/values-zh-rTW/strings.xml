@@ -303,17 +303,17 @@
     <string name="result_label">結果：</string>
 
     <!-- Cost & Tokens -->
-    <string name="cost_tokens">消耗 %1$d Tokens</string>
+    <string name="cost_tokens">消耗 %1$d tokens</string>
     <string name="token_usage_with_label">Token 用量：%1$d</string>
     <string name="input_tokens_with_label">輸入：%1$s</string>
     <string name="output_tokens_with_label">輸出：%1$s</string>
-    <string name="token_count">%1$d Tokens</string>
-    <string name="token_count_with_cached">%1$d Tokens（%2$d 已快取）</string>
+    <string name="token_count">%1$d tokens</string>
+    <string name="token_count_with_cached">%1$d tokens（%2$d 已快取）</string>
     <string name="detailed_token_usage">詳細 Token 用量</string>
     <string name="detailed_token_usage_desc">在已完成的回覆中顯示輸入和輸出 Token 數量</string>
     <string name="token_usage_detail">輸入 %1$s · 輸出 %2$s</string>
     <string name="token_usage_detail_cached">輸入 %1$s（%2$s 已快取）· 輸出 %3$s</string>
-    <string name="total_tokens">總計：%1$d Tokens</string>
+    <string name="total_tokens">總計：%1$d tokens</string>
 
     <!-- General Actions -->
     <string name="action">操作</string>
@@ -944,7 +944,7 @@
     <string name="usage_metric_tokens">Token</string>
     <string name="usage_metric_requests">請求</string>
     <plurals name="usage_day_tokens">
-        <item quantity="other">%1$s · %2$s Token</item>
+        <item quantity="other">%1$s · %2$s tokens</item>
     </plurals>
     <plurals name="usage_day_requests">
         <item quantity="other">%1$s · %2$s 次請求</item>
@@ -972,9 +972,9 @@
             <string name="usage_chart_weekly">每週 Token</string>
             <string name="usage_by_model">各模型 Token</string>
         <string name="usage_other">其他</string>
-    <string name="session_tools_header">%1$d / %2$d（%3$d Token）</string>
-    <string name="session_tools_group_meta">%1$d 個工具（%2$d Token）</string>
-    <string name="session_tools_tokens">%1$d Token</string>
+    <string name="session_tools_header">%1$d / %2$d（%3$d tokens）</string>
+    <string name="session_tools_group_meta">%1$d 個工具（%2$d tokens）</string>
+    <string name="session_tools_tokens">%1$d tokens</string>
     <string name="session_tools_off_switch">本會話未開啟</string>
     <string name="session_tools_off_empty">沒有可用工具</string>
     <string name="session_tools_off_low_context">低上下文模式不傳送</string>
