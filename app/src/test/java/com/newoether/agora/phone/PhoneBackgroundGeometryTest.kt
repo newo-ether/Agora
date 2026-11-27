@@ -25,9 +25,12 @@ class PhoneBackgroundGeometryTest {
         }
     }
 
-    @Test fun nativeTabletAndCustomKeepTheirIndependentGeometry() {
-        assertEquals(PhoneBackgroundSpec(1080, 2400, 440),
+    @Test fun defaultIsHdWhileNativeTabletAndCustomKeepTheirIndependentGeometry() {
+        assertEquals("phone_hd", PhoneBackgroundGeometry.DEFAULT_SIZE)
+        assertEquals(PhoneBackgroundSpec(720, 1600, 320),
             PhoneBackgroundGeometry.resolve(native, PhoneUseSettings()))
+        assertEquals(PhoneBackgroundSpec(1080, 2400, 440),
+            PhoneBackgroundGeometry.resolve(native, PhoneUseSettings(backgroundSize = "native")))
         assertEquals(PhoneBackgroundSpec(1280, 2048, 320),
             PhoneBackgroundGeometry.resolve(native, PhoneUseSettings(backgroundSize = "tablet")))
         assertEquals(PhoneBackgroundSpec(900, 2000, 400), PhoneBackgroundGeometry.resolve(native,

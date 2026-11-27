@@ -20,6 +20,7 @@ internal data class PhoneNativeDisplay(val short: Int, val long: Int, val dpi: I
  * decides how much fits and which layout apps pick, the pixels decide how sharp screenshots are.
  */
 internal object PhoneBackgroundGeometry {
+    const val DEFAULT_SIZE = "phone_hd"
     val SIZES = listOf("native", "phone_hd", "phone_fhd", "phone_qhd", "tablet", "custom")
     /** Below this short side many apps clip or break their phone layout. */
     const val MIN_SHORT_DP = 320
@@ -48,8 +49,8 @@ internal object PhoneBackgroundGeometry {
     fun resolve(native: PhoneNativeDisplay, settings: PhoneUseSettings): PhoneBackgroundSpec {
         val custom = settings.backgroundCustomShort > 0 && settings.backgroundCustomLong > 0
         val (short, long, dpi) = when (settings.backgroundSize) {
+            "native" -> Triple(native.short, native.long, native.dpi)
             // All phone presets are 20:9 at 360 x 800 dp; only pixel cost and sharpness differ.
-            "phone_hd" -> Triple(720, 1600, 320)
             "phone_fhd" -> Triple(1080, 2400, 480)
             "phone_qhd" -> Triple(1440, 3200, 640)
             "tablet" -> Triple(TABLET_SHORT, TABLET_LONG, TABLET_DPI)
@@ -57,7 +58,8 @@ internal object PhoneBackgroundGeometry {
                 Triple(settings.backgroundCustomShort, settings.backgroundCustomLong,
                     settings.backgroundCustomDpi.takeIf { it > 0 }?.coerceIn(MIN_DPI, MAX_DPI) ?: native.dpi)
             } else Triple(native.short, native.long, native.dpi)
-            else -> Triple(native.short, native.long, native.dpi)
+            // phone_hd is the default; unknown IDs also fall back to the lightest preset.
+            else -> Triple(720, 1600, 320)
         }
         // Only custom input is range-checked; the phone's own density is used as reported.
         val d = dpi

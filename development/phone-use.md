@@ -38,8 +38,9 @@ Sub-page, top to bottom:
 4. Background Screen appears only in Shizuku mode. While enabled, Screen Size uses the shared
    dropdown and offers Native, 720 × 1600 at 320 dpi, 1080 × 2400 at 480 dpi, 1440 × 3200 at
    640 dpi, Tablet (1280 × 2048 at 320 dpi), and Custom. The three phone presets are 20:9 and all
-   resolve to 360 × 800 dp; they differ only in pixel cost and sharpness. Native remains the
-   default and uses the main display's real portrait size and density. Custom retains the existing
+   resolve to 360 × 800 dp; they differ only in pixel cost and sharpness. The 720 × 1600 preset is
+   the default when no valid choice is stored. An explicitly stored Native selection remains
+   unchanged and uses the main display's real portrait size and density. Custom retains the existing
    short-side, long-side and density editor. Orientation remains a separate Portrait/Landscape
    choice. Selection persists immediately and applies at the next claim; existing values and custom
    fields remain valid.
@@ -465,7 +466,8 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
   automatic Compact accounting.
 - Background geometry: every persisted size is present in the dropdown, phone presets resolve to
   their exact pixels/density and 360 × 800 dp layout, landscape swaps the sides, Native/Tablet/
-  Custom remain independent, and new selections survive DataStore reopen while invalid IDs fall
-  back to Native. All supported locales define the three numeric labels.
+  Custom remain independent, and new selections survive DataStore reopen while missing or invalid
+  IDs fall back to 720 × 1600 without overwriting an explicit Native selection. All supported
+  locales define the three numeric labels.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.

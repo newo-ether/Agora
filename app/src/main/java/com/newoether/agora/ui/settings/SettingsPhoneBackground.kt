@@ -67,7 +67,8 @@ internal fun PhoneBackgroundSizeItem(
         titleRes = R.string.phone_background_size,
         descRes = R.string.phone_background_size_description,
         icon = Icons.Rounded.AspectRatio,
-        selected = config.backgroundSize.takeIf { it in PhoneBackgroundGeometry.SIZES } ?: "native",
+        selected = config.backgroundSize.takeIf { it in PhoneBackgroundGeometry.SIZES }
+            ?: PhoneBackgroundGeometry.DEFAULT_SIZE,
         choices = PhoneBackgroundSizeChoices,
         supporting = specText(spec),
     ) { size ->

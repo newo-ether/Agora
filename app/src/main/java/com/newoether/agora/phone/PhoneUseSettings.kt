@@ -32,7 +32,7 @@ data class PhoneUseSettings(
     /** Drive a hidden virtual display. Only takes effect in Shizuku mode. */
     val background: Boolean = false,
     /** One of [PhoneBackgroundGeometry.SIZES]. */
-    val backgroundSize: String = "native",
+    val backgroundSize: String = PhoneBackgroundGeometry.DEFAULT_SIZE,
     /** Custom size as short and long side in pixels; 0 means unset. */
     val backgroundCustomShort: Int = 0,
     val backgroundCustomLong: Int = 0,
@@ -75,7 +75,8 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
         maxScreenshots = if (pref[unlimitedScreenshots] == true) PHONE_MAX_SCREENSHOTS_UNLIMITED
             else normalizePhoneScreenshotCount(pref[maxScreenshots] ?: PHONE_MAX_SCREENSHOTS_DEFAULT),
         background = pref[background] ?: false,
-        backgroundSize = pref[backgroundSize]?.takeIf { it in PhoneBackgroundGeometry.SIZES } ?: "native",
+        backgroundSize = pref[backgroundSize]?.takeIf { it in PhoneBackgroundGeometry.SIZES }
+            ?: PhoneBackgroundGeometry.DEFAULT_SIZE,
         backgroundCustomShort = pref[backgroundShort] ?: 0,
         backgroundCustomLong = pref[backgroundLong] ?: 0,
         backgroundCustomDpi = pref[backgroundDpi] ?: 0,

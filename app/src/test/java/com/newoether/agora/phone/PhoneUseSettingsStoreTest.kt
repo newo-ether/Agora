@@ -60,7 +60,7 @@ class PhoneUseSettingsStoreTest {
                 it[stringPreferencesKey("phone_use_background_fullscreen_mode")] = "invalid"
                 it[stringPreferencesKey("phone_use_background_size")] = "invalid"
             }
-            assertEquals("native", reopened.values.first().backgroundSize)
+            assertEquals(PhoneBackgroundGeometry.DEFAULT_SIZE, reopened.values.first().backgroundSize)
             assertEquals("accessibility", reopened.values.first().mode)
             assertEquals("off", reopened.values.first().accessMode)
             assertEquals("operate", reopened.values.first().backgroundFullscreenMode)
