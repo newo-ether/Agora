@@ -79,6 +79,8 @@ internal val SPEECH_RECOGNITION_CONFIGS_JSON = stringPreferencesKey("speech_reco
 internal val SPEECH_RECOGNITION_ACTIVE_ID = stringPreferencesKey("speech_recognition_active_id")
 
 private val speechJson = Json { ignoreUnknownKeys = true }
+private const val QWEN_LEGACY_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+private const val QWEN_INTERNATIONAL_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
 internal fun decodeSpeechConfigs(stored: String?): List<SpeechRecognitionConfig> {
     if (stored.isNullOrBlank()) return emptyList()
@@ -87,13 +89,16 @@ internal fun decodeSpeechConfigs(stored: String?): List<SpeechRecognitionConfig>
     }.getOrDefault(emptyList()).map(::normalizeSpeechConfig)
 }
 
-internal fun normalizeSpeechConfig(config: SpeechRecognitionConfig): SpeechRecognitionConfig =
-    config.copy(
+internal fun normalizeSpeechConfig(config: SpeechRecognitionConfig): SpeechRecognitionConfig {
+    val storedUrl = config.baseUrl.trim().trimEnd('/')
+    return config.copy(
         protocol = config.protocol.takeIf { it in SpeechProtocols.all } ?: SpeechProtocols.OPENAI,
-        baseUrl = config.baseUrl.trim().trimEnd('/'),
+        baseUrl = if (config.presetId == "qwen" && storedUrl == QWEN_LEGACY_BASE_URL)
+            QWEN_INTERNATIONAL_BASE_URL else storedUrl,
         model = config.model.trim(),
         language = config.language.trim(),
     )
+}
 
 /** Cross-device copy: no secrets, and no LOCAL entries because their model files stay on this device. */
 internal fun SpeechRecognitionConfig.asPortableConfig(): SpeechRecognitionConfig? =

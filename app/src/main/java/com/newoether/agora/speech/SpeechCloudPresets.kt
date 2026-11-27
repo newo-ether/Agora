@@ -44,7 +44,7 @@ internal object SpeechCloudPresets {
             id = "qwen",
             displayName = "Qwen (DashScope)",
             protocol = SpeechProtocols.DASHSCOPE,
-            baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            baseUrl = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
             models = listOf("qwen3-asr-flash"),
             savedKeyProvider = "Qwen",
         ),

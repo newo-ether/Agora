@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferencesSerializer
 import androidx.datastore.preferences.core.edit
+import com.newoether.agora.speech.SpeechCloudPresets
 import com.newoether.agora.util.SecretCrypto
 import io.mockk.every
 import io.mockk.mockkObject
@@ -174,6 +175,19 @@ class SpeechRecognitionPortableSettingsTest {
         val merged = store.snapshot().configs.associateBy { it.id }
         assertEquals("sk-merge", merged.getValue("cloud").apiKey)
         assertEquals("keep2", merged.getValue("system").apiKey)
+    }
+
+    @Test
+    fun qwenUsesInternationalPresetAndOnlyMigratesItsLegacyDefault() {
+        val international = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+        assertEquals(international, SpeechCloudPresets.byId("qwen").baseUrl)
+        val legacy = cloud.copy(presetId = "qwen", protocol = SpeechProtocols.DASHSCOPE,
+            baseUrl = " https://dashscope.aliyuncs.com/compatible-mode/v1/ ")
+        assertEquals(international, normalizeSpeechConfig(legacy).baseUrl)
+        val custom = legacy.copy(baseUrl = "https://example.test/dashscope/v1")
+        assertEquals(custom.baseUrl, normalizeSpeechConfig(custom).baseUrl)
+        val nonQwen = legacy.copy(presetId = "custom")
+        assertEquals("https://dashscope.aliyuncs.com/compatible-mode/v1", normalizeSpeechConfig(nonQwen).baseUrl)
     }
 
     private fun portable(config: SpeechRecognitionConfig) = JsonObject(
