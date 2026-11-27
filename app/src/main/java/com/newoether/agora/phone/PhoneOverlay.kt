@@ -10,6 +10,7 @@ import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.platform.ComposeView
@@ -32,6 +33,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.newoether.agora.util.DebugLog
 import com.newoether.agora.util.withAppLocale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -48,6 +50,7 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.math.ceil
 import kotlin.math.floor
+import org.lsposed.hiddenapibypass.HiddenApiBypass
 
 /** Owns exactly two windows. Transparent control gaps are excluded from the input region. */
 internal class PhoneOverlay(
@@ -203,10 +206,14 @@ internal class PhoneOverlay(
                 }) focusable(true)
             false
         }
+        val touchRegion = touchRegionInstaller()
+        // Without an input region the full-screen window would swallow every touch, so it takes none.
+        if (touchRegion == null) params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         try {
             if (effectOnPhone) addEffect(windows, localizedContext, keepScreenOn = true)
             windows.addView(controls, params)
-            controlWindow = PhoneControlWindow(controls, params, windows, operationAlpha = windowAlpha)
+            controlWindow = PhoneControlWindow(controls, params, windows, operationAlpha = windowAlpha,
+                inputAllowed = touchRegion != null)
             controlScope.launch {
                 combine(runtime.lease.held.map { it?.takeIf { current -> current.epoch == epoch }?.owner }
                     .distinctUntilChanged(), runtime.askUser.requests) { owner, requests ->
@@ -215,7 +222,7 @@ internal class PhoneOverlay(
                     }
                 }.collect { waiting -> controlWindow?.showForUser(waiting) }
             }
-            installTouchRegion(controls)
+            touchRegion?.invoke(controls)
             lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         } catch (error: Exception) { remove(); throw error }
     }
@@ -232,15 +239,21 @@ internal class PhoneOverlay(
             touchBounds.values.forEach { op(it, Region.Op.UNION) }
     }
 
-    private fun installTouchRegion(view: View) {
-        if (Build.VERSION.SDK_INT >= 33) {
+    /**
+     * Returns null when the OS denies the input-region API. Claim then proceeds with untouchable
+     * controls (Stop stays in the notification and the chat) instead of intercepting other apps.
+     */
+    private fun touchRegionInstaller(): ((View) -> Unit)? {
+        if (Build.VERSION.SDK_INT >= 33) return { view: View ->
             view.viewTreeObserver.addOnPreDrawListener {
                 view.rootSurfaceControl?.setTouchableRegion(region())
                 true
             }
-        } else {
-            // Before API 33 this platform window-insets API has no public SDK equivalent.
-            // Fail claim if the OEM denies it, rather than silently intercepting other apps.
+        }
+        return runCatching {
+            // Before API 33 this window-insets API has no public SDK equivalent, and target SDK 28+
+            // hides it from plain reflection (Huawei failed on touchableRegion), so exempt it first.
+            if (Build.VERSION.SDK_INT >= 28) HiddenApiBypass.addHiddenApiExemptions("Landroid/view/ViewTreeObserver")
             val listener = Class.forName("android.view.ViewTreeObserver\$OnComputeInternalInsetsListener")
             val info = Class.forName("android.view.ViewTreeObserver\$InternalInsetsInfo")
             val setInsets = info.getMethod("setTouchableInsets", Integer.TYPE)
@@ -259,9 +272,11 @@ internal class PhoneOverlay(
                     else -> null
                 }
             }
-            view.viewTreeObserver.javaClass.getMethod("addOnComputeInternalInsetsListener", listener)
-                .invoke(view.viewTreeObserver, proxy)
-        }
+            val add = ViewTreeObserver::class.java.getMethod("addOnComputeInternalInsetsListener", listener)
+            val install: (View) -> Unit = { view -> add.invoke(view.viewTreeObserver, proxy) }
+            install
+        }.onFailure { DebugLog.w("PhoneOverlay", "Input region unavailable; controls stay untouchable", it) }
+            .getOrNull()
     }
 
     private fun focusable(focused: Boolean) {

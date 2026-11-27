@@ -15,6 +15,8 @@ internal class PhoneControlWindow(
     private val params: WindowManager.LayoutParams,
     private val manager: WindowManager,
     private val operationAlpha: Float,
+    /** False when the OS denies the input-region API; the full-screen window then never takes touches. */
+    private val inputAllowed: Boolean = true,
 ) {
     private val operationReady = MutableStateFlow(false)
     private val captureReady = MutableStateFlow(false)
@@ -122,7 +124,7 @@ internal class PhoneControlWindow(
 
     private fun publish() {
         val passThrough = capturing || (operating && !userPriority.value)
-        touchable = !closed && !capturing && (!passThrough || params.alpha > operationAlpha)
+        touchable = inputAllowed && !closed && !capturing && (!passThrough || params.alpha > operationAlpha)
         params.flags = if (touchable) params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
         else params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         manager.updateViewLayout(view, params)

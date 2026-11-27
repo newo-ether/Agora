@@ -181,6 +181,7 @@ dependencies {
     implementation(files("libs/sherpa-onnx-static-link-onnxruntime-2.0.3.aar"))
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
