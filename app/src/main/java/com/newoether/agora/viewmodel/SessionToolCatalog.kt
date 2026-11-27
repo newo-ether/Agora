@@ -5,6 +5,9 @@ import com.newoether.agora.api.util.ContextTokenEstimator
 import com.newoether.agora.tool.SessionToolGroup
 import com.newoether.agora.tool.featureEnabled
 
+/** Stand-in id so a New Chat can list and price tools before it owns a conversation row. */
+internal const val SESSION_TOOLS_PREVIEW_CONVERSATION_ID = "session-tools-preview-conversation"
+
 /** Why a listed group currently contributes nothing to the request. */
 internal enum class SessionToolUnavailable {
     /** The switch for this family of tools is off (the global one, for a linked group). */

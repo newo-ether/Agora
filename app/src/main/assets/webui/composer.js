@@ -4,8 +4,9 @@ import { CircularProgress, Spinner } from "./material/progress.js";
 import { AttachmentTile, AttachmentEditor, AttachmentViewer } from "./attachments.js";
 import { installFileDrop } from "./file-drop.js";
 import { ConversationEditor } from "./conversation-editor.js";
+import { SessionTools } from "./session-tools.js";
 import { t } from "./i18n.js";
-import { icon, ICON_ADD, ICON_ARROW_UPWARD, ICON_EXPAND_ALL, ICON_COLLAPSE_ALL, ICON_MORE_VERT, ICON_STOP, ICON_CHECK, ICON_CLOSE, ICON_ATTACH_FILE } from "./icons.js";
+import { icon, ICON_ADD, ICON_ARROW_UPWARD, ICON_EXPAND_ALL, ICON_COLLAPSE_ALL, ICON_MORE_VERT, ICON_STOP, ICON_CHECK, ICON_CLOSE, ICON_ATTACH_FILE, ICON_BUILD } from "./icons.js";
 import { sync } from "./sync.js";
 import { ChatToolsRow } from "./tools-row.js";
 import { ComposerSettings, thinkingSummary } from "./composer-settings.js";
@@ -88,6 +89,7 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
   const [retainedTools, setRetainedTools] = useState(false);
   const [toolPanel, setToolPanel] = useState(null);
   const [editor, setEditor] = useState(null);
+  const [toolsSheet, setToolsSheet] = useState(null);
   const controls = state.composer?.controls;
   // One connection's own context window, priced on the phone by ConversationContextProjector.
   // ChatApp takes it as `projection.usage ?: ContextWindowUsage(0, contextWindow, 0, false)`: a known
@@ -108,18 +110,29 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
   const validPanel = toolPanel && toolPanel.connectionId === state.connectionId && toolPanel.seq === state.composer?.seq &&
     !!controls && (toolPanel.kind === "thinking" || (controls.openAiServiceTierAvailable && state.composer.modelValid));
   useEffect(() => { setToolsOpen(false); setToolPanel(null); setEditor(null); setContextOpen(false); }, [state.openId, state.connectionId]);
+  useEffect(() => { setToolsSheet(null); }, [state.openId, state.connectionId, state.composer?.seq]);
   useEffect(() => { if (!contextReady) setContextOpen(false); }, [contextReady]);
   function openTool(kind) {
     setToolPanel({ ...sync.attachmentTarget(), kind });
     setToolsOpen(false);
   }
   const validEditor = editor && state.connected && editor.connectionId === state.connectionId && editor.seq === state.composer?.seq && editor.conversationId === state.openId;
+  const toolsCatalog = state.sessionTools;
+  const validToolsSheet = toolsSheet && toolsCatalog && !toolsCatalog.pending && toolsCatalog.revision === toolsSheet.revision &&
+    toolsCatalog.connectionId === state.connectionId && toolsCatalog.seq === state.composer?.seq &&
+    toolsCatalog.conversationId === state.openId;
   // ComposerToolsMenuContent: enabled = canCompact && !isCompacting, where canCompact is
   // "a conversation, not loading, not switching, not stopping".
   const compactAvailable = settingsAvailable && !!state.openId && state.openStatus === "ready" &&
     !state.generating && !state.composer.stopping && !!state.composer.compact && !state.composer.compact.compacting;
   function openEditor(kind) {
     setEditor({ ...sync.attachmentTarget(), conversationId: state.openId, kind, initial: kind === "advanced" ? state.composer.advanced : state.composer.compact });
+    setToolsOpen(false);
+  }
+  function openSessionTools() {
+    const request = sync.requestSessionTools();
+    if (!request) return;
+    setToolsSheet(request);
     setToolsOpen(false);
   }
   const [addOpen, setAddOpen] = useState(false);
@@ -735,9 +748,12 @@ export function Composer({ state, MoreMenu, expanded = false, onExpandedChange }
           .filter(([available]) => controls?.[available] && (available !== "openAiWebSearchAvailable" || state.composer.modelValid)).map(([, key, label, path]) => html`
           <button class=${`dropdown-item${key === "openAiWebSearchEnabled" ? " provider-capability" : ""}`} role="menuitemcheckbox" aria-checked=${controls[key]} data-pending=${capabilityAvailable && !!state.pendingAction} disabled=${!capabilityEnabled} onClick=${() => sync.setting(key, !controls[key])}>
             ${icon(path)}<span class="tool-label">${label}</span>${key === "openAiWebSearchEnabled" && html`<small class="provider-badge">OpenAI</small>`}<span class="tool-switch" data-checked=${controls[key]}></span></button>`)}
+        <button class="dropdown-item" role="menuitem" disabled=${!composerReady} onClick=${openSessionTools}>${icon(ICON_BUILD)}<span>${t.tools}</span></button>
         <button class="dropdown-item" role="menuitem" disabled=${!compactAvailable} onClick=${() => openEditor("compact")}>${icon(ICON_COMPRESS)}<span>${t.compact}</span></button>
         <button class="dropdown-item" role="menuitem" disabled=${!settingsAvailable || !state.composer.advanced} onClick=${() => openEditor("advanced")}>${icon(ICON_TUNE)}<span>${t.advanced}</span></button>
       </${MoreMenu}>`}
+      ${validToolsSheet && !retainedTools && html`<${SessionTools} key=${toolsSheet.revision} state=${state}
+        focusReturn=${toolsButton} onClose=${() => setToolsSheet(null)} />`}
       ${validPanel && !retainedTools && html`<${ComposerSettings} key=${`${toolPanel.connectionId}:${toolPanel.seq}:${toolPanel.kind}`}
         state=${state} target=${toolPanel} focusReturn=${toolsButton} onClose=${() => setToolPanel(null)} />`}
       ${validEditor && !retainedTools && html`<${ConversationEditor} key=${`${editor.connectionId}:${editor.seq}:${editor.kind}`} MoreMenu=${MoreMenu}

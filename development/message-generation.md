@@ -641,8 +641,10 @@ protocol names and remain stable.
 
 Memory entries belong to Agora's named internal store, while file_* tools target device files.
 Memory read/edit path and missing-entry errors suggest file_read with server. Bare Markdown disk reads
-remain legal and receive an additive memory_read hint. Active-memory replace mode and its default,
-all argument schemas and edit operations remain unchanged. Only exact unmodified built-in prompt
+remain legal and receive an additive memory_read hint. `active_memory_update` requires an explicit `mode`
+in its schema and execution. Missing, blank or unknown modes fail without writing; no implicit replace
+remains. Historical stored conversation rows keep their original arguments and read-side presentation.
+Other argument schemas and edit operations remain unchanged. Only exact unmodified built-in prompt
 versions are migrated; custom prompts and stored conversation history are never renamed in place.
 
 ## 8.14 Isolated Subagents

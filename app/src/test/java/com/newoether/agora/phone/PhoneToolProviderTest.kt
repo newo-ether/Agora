@@ -535,7 +535,8 @@ class PhoneToolProviderTest {
     @Test fun targetDefinitionsExplainNodePriority() {
         for (name in listOf("phone_tap", "phone_long_press")) {
             val definition = provider.definitions(context).single { it.function.name == name }
-            assertTrue(definition.function.description.contains("If node is given, x/y are ignored."))
+            assertTrue(definition.function.parameters.properties.getValue("node")
+                .description.contains("If node is given, x/y are ignored."))
         }
     }
 
@@ -583,9 +584,12 @@ class PhoneToolProviderTest {
     }
 
     @Test fun definitionsDescribeOptionalObservationAndConsecutiveActions() {
-        val definition = provider.definitions(context).single { it.function.name == "phone_tap" }
-        assertTrue(definition.function.description.contains("reading the screen between actions is optional"))
-        assertTrue(definition.function.parameters.properties.getValue("screenshot").description.contains("Default false"))
+        val definitions = provider.definitions(context).associateBy { it.function.name }
+        val tap = definitions.getValue("phone_tap")
+        assertTrue(definitions.getValue("phone_ui_tree").function.description.contains("without rereading the screen"))
+        assertTrue(definitions.getValue("phone_screenshot").function.description
+            .contains("Reuse known coordinates for consecutive actions"))
+        assertTrue(tap.function.parameters.properties.getValue("screenshot").description.contains("Default false"))
     }
 
     @Test fun definitionsRespectFrozenReadinessAndAutomationLineage() {

@@ -140,6 +140,7 @@ private fun codeArgument(kind: ToolKind, arguments: JsonObject): ToolDetailCodeA
         ToolKind.FILE_WRITE, ToolKind.MEMORY_CREATE, ToolKind.SKILL_CREATE -> true
         ToolKind.MEMORY_EDIT, ToolKind.SKILL_EDIT ->
             if (arguments.option("operation") == "replace") true else return null
+        // Historical calls could omit mode; retain only their read-side rendering.
         ToolKind.MEMORY_UPDATE_ACTIVE -> when (arguments.option("mode") ?: "replace") {
             "replace" -> true
             "append", "prepend" -> false

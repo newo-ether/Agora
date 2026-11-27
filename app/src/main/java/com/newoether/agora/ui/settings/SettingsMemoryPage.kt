@@ -362,7 +362,7 @@ fun SettingsMemoryPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 val saved = withContext(Dispatchers.IO) {
                                     runCatching {
                                         if (isActiveMemory) {
-                                            viewModel.memoryManager.updateActiveMemory(contentSnapshot)
+                                            viewModel.memoryManager.updateActiveMemory(contentSnapshot, "replace")
                                             viewModel.memoryManager.getActiveMemory() to null
                                         } else {
                                             viewModel.memoryManager.editFile(

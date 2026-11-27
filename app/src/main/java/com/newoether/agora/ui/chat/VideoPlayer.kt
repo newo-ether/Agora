@@ -198,12 +198,7 @@ fun VideoPlayer(
 
     Box(modifier = modifier.fillMaxSize()) {
         // Video surface (no built-in controls)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             AndroidView(
                 factory = { ctx ->
                     (LayoutInflater.from(ctx).inflate(

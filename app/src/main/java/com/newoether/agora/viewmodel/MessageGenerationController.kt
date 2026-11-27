@@ -65,6 +65,16 @@ internal class MessageGenerationController(
     private val onUserMessagePersisted: (messageId: String, text: String) -> Unit = { _, _ -> },
     private val pauseConversationTasks: suspend (String) -> Unit = {},
 ) {
+    internal suspend fun captureSessionToolCatalog(
+        conversationId: String?,
+        modelId: String,
+        systemPromptIdOverride: String?,
+        conversationSettingsOverride: ConversationSettings?,
+    ): SessionToolCatalog? = captureSessionToolCatalog(
+        requestBuilder, generationManagerProvider(), settings, conversationId, modelId,
+        systemPromptIdOverride, conversationSettingsOverride,
+    )
+
     private val titleGenerator = ConversationTitleGenerator(convRepo, settings, providerRegistry)
     private val contextCompactor = ContextCompactor(
         conversations = convRepo,

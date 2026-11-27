@@ -1,0 +1,166 @@
+/*
+ * Per-session tool catalog sheet. DetailSheet owns the 0.45/0.94 anchors, the fixed header row and
+ * the scrolling body; this file owns the rows, following SessionToolsDialog.kt: a 24 dp highlight
+ * with a 12 dp side gap and a 12 dp inner padding, so group and tool text share one column.
+ */
+
+/* SessionToolsDialog's header title is headlineSmall at 24/32 Bold. */
+.detail-sheet:has(.session-tools-body) .detail-sheet-header h2 {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+}
+/* LazyColumn contentPadding: 4 dp above the list, then the sheet's usual bottom safe area. */
+.session-tools-body { padding: 4px 0 calc(24px + env(safe-area-inset-bottom)); }
+.session-tools-body[data-failed="true"] { padding-top: 0; }
+
+/* The row highlight spans the whole group; the switch is a sibling above it, never inside it. */
+/* Non-collapsing vertical padding keeps each Compose row's 2 dp outer spacing. */
+.session-tools-group { margin: 0 12px; padding: 2px 0; border-radius: 24px; }
+.session-tools-group-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 62px;
+  padding: 10px 12px;
+  border-radius: 24px;
+  color: var(--md-on-surface);
+}
+.session-tools-group-toggle {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.session-tools-group-toggle:focus-visible { outline: none; }
+.session-tools-group-row > :not(.session-tools-group-toggle) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+.session-tools-group-row > .session-tools-switch { pointer-events: auto; }
+
+.session-tools-icon { flex: none; display: grid; place-items: center; width: 24px; height: 24px; color: var(--md-primary); }
+.session-tools-icon svg { width: 24px; height: 24px; fill: currentColor; }
+.session-tools-group-text { flex: 1; min-width: 0; margin-left: 16px; display: flex; flex-direction: column; gap: 2px; }
+.session-tools-group-title {
+  overflow: hidden;
+  color: var(--md-on-surface);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-tools-group-meta {
+  overflow: hidden;
+  color: var(--md-on-surface-variant);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: .5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-tools-switch { --switch-scale: 1; margin-left: 12px; }
+.session-tools-chevron {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 16px;
+  color: var(--md-on-surface-variant);
+  transition: transform 400ms cubic-bezier(0, 0, .2, 1);
+}
+.session-tools-chevron svg { width: 22px; height: 22px; fill: currentColor; }
+.session-tools-group[data-expanded="true"] .session-tools-chevron { transform: rotate(180deg); }
+
+/* AnimatedVisibility over the tool rows: 400 ms expandVertically plus fadeIn. */
+.session-tools-tools {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 400ms cubic-bezier(0, 0, .2, 1), opacity 400ms linear;
+}
+.session-tools-group[data-expanded="true"] .session-tools-tools { grid-template-rows: 1fr; opacity: 1; }
+.session-tools-tools-inner { min-height: 0; overflow: hidden; }
+.session-tools-group[data-expanded="true"] .session-tools-tools-inner { padding-bottom: 4px; }
+
+/* The tool highlight starts at the group's text column and ends at the same 12 dp sheet gap.
+   The group's own 12 dp margin is already inside the coordinate, so the row adds only 40 dp. */
+.session-tools-tool-row { padding: 0 0 0 40px; }
+.session-tools-tool {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  color: var(--md-on-surface);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.session-tools-tool-head { display: flex; align-items: center; gap: 12px; }
+.session-tools-tool-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: .25px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-tools-tool-tokens {
+  flex: none;
+  color: var(--md-on-surface-variant);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: .5px;
+}
+.session-tools-tool-description {
+  display: -webkit-box;
+  margin-top: 2px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--md-on-surface-variant);
+  font-size: 12px;
+  line-height: 16px;
+}
+.session-tools-tool-description[data-expanded="true"] { display: block; -webkit-line-clamp: unset; }
+
+.session-tools-divider { height: 1px; margin: 8px 24px; background: color-mix(in srgb, var(--md-outline-variant) 30%, transparent); }
+.session-tools-group.unavailable { opacity: .6; }
+.session-tools-group.unavailable .session-tools-icon { color: var(--md-on-surface-variant); }
+.session-tools-message {
+  padding: 24px;
+  color: var(--md-on-surface-variant);
+  font-size: 13px;
+  line-height: 19px;
+  letter-spacing: .25px;
+}
+
+/* Reduced Motion keeps AnimatedVisibility's 400 ms fade. Opening gets full height at once;
+   closing retains that height until the fade ends, then snaps to zero without spatial travel. */
+.shell[data-reduce-motion="true"] .session-tools-chevron { transition: none; }
+.shell[data-reduce-motion="true"] .session-tools-tools {
+  transition: grid-template-rows 0s 400ms, opacity 400ms linear;
+}
+.shell[data-reduce-motion="true"] .session-tools-group[data-expanded="true"] .session-tools-tools {
+  transition: grid-template-rows 0s, opacity 400ms linear;
+}

@@ -39,9 +39,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Stand-in id so a New Chat can still price and list tools before it owns a conversation row. */
-private const val SESSION_TOOLS_PREVIEW_CONVERSATION_ID = "session-tools-preview-conversation"
-
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ChatViewModel(
     application: Application,
@@ -581,32 +578,13 @@ class ChatViewModel(
      * as the context indicator, so a group's token figure matches what the request pays.
      */
     internal suspend fun captureSessionToolCatalog(): SessionToolCatalog? {
-        val modelId = currentActiveModel.value
-        if (modelId.isBlank()) return null
         val isNewChat = isNewChatMode.value
-        val snapshot = try {
-            chatRuntime.requestBuilder.captureContextProjectionSnapshot(
-                conversationId = currentConversationId.value ?: SESSION_TOOLS_PREVIEW_CONVERSATION_ID,
-                modelId = modelId,
-                systemPromptIdOverride = if (isNewChat) pendingSystemPromptId.value else null,
-                conversationSettingsOverride =
-                    if (isNewChat) pendingConversationSettings.value else null,
-            )
-        } catch (cancelled: kotlinx.coroutines.CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            return null
-        }
-        // Web and Shell are linked to the conversation's own switches: list them whenever the
-        // global switch allows them, so a conversation that turned one off can turn it back on.
-        val probe = snapshot.context.copy(
-            webSearchEnabled = settings.webSearchEnabled.value,
-            shellEnabled = settings.shellEnabled.value,
+        return generationController.captureSessionToolCatalog(
+            conversationId = currentConversationId.value,
+            modelId = currentActiveModel.value,
+            systemPromptIdOverride = if (isNewChat) pendingSystemPromptId.value else null,
+            conversationSettingsOverride = if (isNewChat) pendingConversationSettings.value else null,
         )
-        // Pricing every definition runs the tokenizer; keep it off the main thread.
-        return withContext(Dispatchers.Default) {
-            generationManager.sessionToolCatalog(snapshot.config, snapshot.context, probe)
-        }
     }
 
     private val generationController: MessageGenerationController

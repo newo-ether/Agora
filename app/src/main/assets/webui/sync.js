@@ -46,6 +46,8 @@ let state = {
   initialToolsReady: 0,
   interactions: [],
   interactionPending: 0,
+  /** This connection's own tool catalog: target identity, revision and the answered list. */
+  sessionTools: null,
   pendingPastes: [],
   snackbar: null,
   scrollRequest: null,
@@ -65,6 +67,8 @@ let onSessionEnded = () => {};
 let running = false;
 let retryTimer = 0;
 let openSeq = 0;
+let sessionToolsRevision = 0;
+let sessionToolsToggles = [];
 let editRevision = 0;
 let nextAction = 0;
 let searchRevision = 0;
@@ -105,6 +109,8 @@ function send(command) {
 }
 
 function select(conversationId, patch = {}) {
+  sessionToolsRevision += 1;
+  sessionToolsToggles = [];
   streamFrame = null;
   watched = new Set();
   kept = new Set();
@@ -118,6 +124,7 @@ function select(conversationId, patch = {}) {
   update({ openId: conversationId, openStatus: conversationId ? "loading" : null,
     path: [], generating: false, streaming: null, bodies: new Map(), scrollRequest: null, branchReplacement: null,
     pageAction: null, pageResult: null, shareText: null, todo: [], initialToolsReady: 0,
+    sessionTools: null,
     subagents: sameFamily ? state.subagents : [],
     parentConversationId: sameFamily && conversationId !== family ? family : null,
     interactions: [], interactionPending: 0, conversationSearch: null,
@@ -204,11 +211,32 @@ function receive(event, size) {
       update({ interactions: event.items, initialToolsReady: state.initialToolsReady | 4,
         interactionPending: event.actionId >= state.interactionPending ? 0 : state.interactionPending });
       break;
-    case "connection":
-      streamFrame = null;
-      update({ connectionId: event.connectionId,
-        ...(event.connectionId !== state.connectionId ? { subagents: [], parentConversationId: null, initialToolsReady: 0 } : {}) });
+    case "session_tools": {
+      const tools = state.sessionTools;
+      if (!tools || event.revision !== sessionToolsRevision || event.revision !== tools.revision ||
+          event.connectionId !== state.connectionId || event.connectionId !== tools.connectionId ||
+          event.seq !== openSeq || (event.conversationId ?? null) !== state.openId ||
+          (event.conversationId ?? null) !== tools.conversationId) return;
+      if (sessionToolsToggles.length > 0) sessionToolsToggles.shift();
+      const enabledGroups = new Set(event.enabledGroups ?? []);
+      // Replies are ordered, but a later optimistic switch may already be visible. Reapply the
+      // still-unanswered suffix so an earlier reply cannot roll it back between the two replies.
+      for (const toggle of sessionToolsToggles) {
+        if (toggle.enabled) enabledGroups.add(toggle.groupId); else enabledGroups.delete(toggle.groupId);
+      }
+      update({ sessionTools: { ...tools, pending: false, failed: !!event.failed,
+        groups: event.groups ?? [], enabledGroups: [...enabledGroups], toolSetTokens: event.toolSetTokens ?? 0 } });
       break;
+    }
+    case "connection": {
+      streamFrame = null;
+      const changed = event.connectionId !== state.connectionId;
+      if (changed) sessionToolsRevision += 1;
+      if (changed) sessionToolsToggles = [];
+      update({ connectionId: event.connectionId,
+        ...(changed ? { subagents: [], parentConversationId: null, initialToolsReady: 0, sessionTools: null } : {}) });
+      break;
+    }
     case "branch_replacement":
       if (event.connectionId !== state.connectionId || event.seq !== openSeq || event.conversationId !== state.openId) return;
       update({ branchReplacement: event.request ? event : null });
@@ -330,8 +358,10 @@ function connect() {
   ws.onopen = () => {
     if (socket !== ws || !running) return;
     retryMs = 1_000;
+    sessionToolsRevision += 1;
+    sessionToolsToggles = [];
     update({ connected: true, composer: null, context: null, pendingAction: 0, pageAction: null, pageResult: null, shareText: null, branchReplacement: null, connectionId: null,
-      conversationDelete: null, conversationDeleteResult: null,
+      conversationDelete: null, conversationDeleteResult: null, sessionTools: null,
       listLoading: true, listLimit: 0, todo: [], subagents: [], parentConversationId: null,
       initialToolsReady: 0, interactions: [], interactionPending: 0 });
     update({ searchQuery: "", searchResults: [], searchLoading: false, searchFailed: false });
@@ -348,10 +378,12 @@ function connect() {
   ws.onclose = async (close) => {
     if (socket !== ws) return;
     socket = null;
+    sessionToolsRevision += 1;
+    sessionToolsToggles = [];
     uploads.forEach(controller => controller.abort());
     update({ connected: false, switching: state.switching ? { ...state.switching, phase: "settling", confirmation: false } : null,
       composer: null, context: null, pendingAction: 0, pageAction: null, pageResult: null, shareText: null, branchReplacement: null, connectionId: null,
-      conversationDelete: null, conversationDeleteResult: null,
+      conversationDelete: null, conversationDeleteResult: null, sessionTools: null,
       todo: [], subagents: [], parentConversationId: null, initialToolsReady: 0, interactions: [], interactionPending: 0,
       conversationSearch: null,
       searchQuery: "", searchResults: [], searchLoading: false, searchFailed: false,
@@ -401,6 +433,40 @@ export const sync = {
   },
   interactionTarget() {
     return state.connected && state.connectionId ? { connectionId: state.connectionId, seq: openSeq, conversationId: state.openId } : null;
+  },
+  /** Ask the phone for this target's tool catalog; the newest revision alone may answer. */
+  requestSessionTools() {
+    if (!state.connected || !state.connectionId || !state.composer || state.composer.seq !== openSeq) return null;
+    const revision = ++sessionToolsRevision;
+    sessionToolsToggles = [];
+    const conversationId = state.openId;
+    const command = { type: "session_tools", connectionId: state.connectionId, seq: openSeq, revision,
+      ...(conversationId != null ? { conversationId } : {}) };
+    if (!send(command)) {
+      if (state.sessionTools) update({ sessionTools: null });
+      return null;
+    }
+    const request = { connectionId: command.connectionId, seq: command.seq, conversationId, revision };
+    update({ sessionTools: { ...request, pending: true } });
+    return request;
+  },
+  /** A switch in the open catalog; the reply carries the same revision as the catalog it edits. */
+  toggleSessionToolGroup(groupId, enabled) {
+    const tools = state.sessionTools;
+    if (!tools || tools.pending || tools.failed || tools.revision !== sessionToolsRevision ||
+        !state.connected || !state.connectionId || tools.connectionId !== state.connectionId ||
+        tools.seq !== openSeq || tools.conversationId !== state.openId) return false;
+    const group = (tools.groups ?? []).find(item => item.id === groupId);
+    if (!group || group.unavailable != null) return false;
+    const command = { type: "session_tool_toggle", connectionId: tools.connectionId, seq: tools.seq, revision: tools.revision,
+      toolGroup: groupId, enabled: !!enabled,
+      ...(tools.conversationId != null ? { conversationId: tools.conversationId } : {}) };
+    if (!send(command)) return false;
+    sessionToolsToggles.push({ groupId, enabled: !!enabled });
+    const enabledGroups = new Set(tools.enabledGroups ?? []);
+    if (enabled) enabledGroups.add(groupId); else enabledGroups.delete(groupId);
+    update({ sessionTools: { ...tools, enabledGroups: [...enabledGroups] } });
+    return true;
   },
   interactionCommand(type, values, target) {
     if (!["question_submit", "question_skip", "shell_decision"].includes(type) || !state.connected || state.interactionPending || !target || target.connectionId !== state.connectionId ||

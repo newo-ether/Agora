@@ -267,6 +267,15 @@ unchanged. The long-press Image Actions sheet remains a modal window created aft
 Dialog. Its system window dim is disabled so the sheet-owned animated scrim is the only black overlay;
 long press must not introduce a one-frame opaque dim flash before the scrim fade.
 
+The image/PDF viewport and video surface lay out against the complete media Dialog bounds. They do not
+subtract status-bar or navigation-bar heights; only the viewer's overlay controls retain their own system-bar
+insets. Double-tap zoom always uses the viewport center as its single pivot, in both animated and Reduced
+Motion paths. Each pinch frame applies centroid-relative scale and that frame's two-finger pan together,
+then constrains the two axes independently from the scaled content bounds. A pan component therefore remains
+effective while the other axis is clamped or while the same frame also zooms. `ZoomableImageGeometry.kt`
+owns the pure transform and per-axis bound calculations; pager navigation, fling and fling cancellation are
+unchanged.
+
 ## 14. Composer clipboard images
 
 The Chat composer TextField participates in Compose Foundation receive-content dispatch for
@@ -1542,7 +1551,30 @@ plain body is 14px/24.2px with 12px top, 24px sides and 32px bottom padding. The
 selected automatically; sheet motion, input exclusion and close/focus remain with the shared owner.
 Composer owns the chat input and tools menu in composer.js; composer-settings.js owns the shared
 Thinking/Service Tier panel presentation, attachments.js owns attachment tiles/editors/viewers,
-and conversation-editor.js owns the conversation editor. shell.js remains the chat frame and popup presenter.
+conversation-editor.js owns the conversation editor, and session-tools.js owns the per-session tool
+catalog. shell.js remains the chat frame and popup presenter.
+The composer More menu places Tools immediately before Context Compact. Selecting Tools requests the
+current target's real session catalog in the background and shows no loading sheet; only its matching
+completed answer opens the DetailSheet. The sheet mirrors Compose SessionToolsDialog: available groups
+have disclosure rows and sibling switches, expandable tool descriptions, group icons, tool counts and
+token costs, while unavailable groups show their reason without a switch or disclosure. The header
+reports selected and total tool counts and the selected definitions' token total, including the shared
+tool-use preamble. Group toggles use the canonical session editor capture. Existing conversations
+transform their linked settings without replacing unrelated fields; New Chat updates its browser-session
+overrides and carries them into the frozen first-send workspace.
+Catalog requests and toggles are fenced by the exact conversation target, connection ID, composer seq
+and catalog revision. The server runs one connection's command loop serially and returns same-revision
+snapshots in command order. The browser applies each toggle optimistically, consumes one ordered reply,
+then reapplies the still-unanswered toggle suffix so an earlier reply cannot roll back a newer switch.
+A new catalog request, target selection, connection change or disconnect invalidates old replies and
+clears pending optimistic operations. Unknown and unavailable groups cannot emit toggle commands.
+Group expansion uses a clipped 400ms height/fade transition and chevron rotation; a tool description
+uses a clipped 400ms height interpolation between its two-line and full text. App Reduced Motion alone
+snaps spatial geometry and description height while retaining the allowed group fade. Browser and OS
+motion preferences do not participate.
+The Compact dialog carries `data-editor="compact"`. Its title uses onSurfaceVariant and Compose's
+23px/29px Bold headlineSmall metrics. Compact-model supporting text uses bodySmall at 11px/16px with
+0.4px tracking, a 4px top inset and 16px horizontal insets.
 Effective tool controls use the same pure Compose projection of global preferences, provider
 availability and per-conversation overrides. Existing-conversation edits transform the canonical
 SettingsRepository value instead of replacing unrelated fields; New Chat overrides remain in the

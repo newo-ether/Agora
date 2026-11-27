@@ -31,7 +31,7 @@ class MemoryToolProviderTest {
     )
 
     @Test
-    fun diskPathsAndMissingEntriesSuggestDiskToolsWithoutChangingActiveReplace() = runTest {
+    fun diskPathsAndMissingEntriesSuggestDiskToolsAndActiveReplaceStaysExplicit() = runTest {
         for (tool in listOf("memory_read", "memory_edit", "read_memory_file", "edit_memory_file")) {
             val result = provider.executeOneShotResult(tool, """{"name":"C:/notes.md","operation":"replace","content":"x"}""", enabled)
             assertTrue(result.isError)
@@ -48,13 +48,15 @@ class MemoryToolProviderTest {
         ).text.contains("file_read"))
         every { memoryManager.readFile("missing.md") } throws IllegalArgumentException("File not found: missing.md")
         assertTrue(provider.executeOneShotResult("memory_read", """{"name":"missing.md"}""", enabled).text.contains("file_read"))
-        assertEquals("Updated", provider.execute("active_memory_update", """{"content":"all"}""", enabled))
+        assertEquals("Updated", provider.execute(
+            "active_memory_update", """{"content":"all","mode":"replace"}""", enabled,
+        ))
         verify { memoryManager.updateActiveMemory("all", "replace", null, null) }
         assertEquals("file content", provider.execute("read_memory_file", """{"name":"notes.md"}""", enabled))
     }
 
     @Test
-    fun definitionsExposeSevenMemoryToolsAndExplicitEditOperation() {
+    fun definitionsExposeSevenMemoryToolsAndExplicitOperations() {
         val definitions = provider.definitions(enabled)
         assertEquals(7, definitions.size)
         assertEquals(
@@ -84,6 +86,10 @@ class MemoryToolProviderTest {
             ),
             edit.properties.keys,
         )
+        val active = definitions.single { it.function.name == "active_memory_update" }.function
+        assertEquals(listOf("content", "mode"), active.parameters.required)
+        assertFalse(active.description.contains("Default is replace"))
+        assertFalse(active.parameters.properties.getValue("mode").description.contains("Default is replace"))
     }
 
     @Test
@@ -280,6 +286,28 @@ class MemoryToolProviderTest {
         verify(exactly = 0) {
             memoryManager.editFile(any(), any(), any(), any(), any(), any())
         }
+    }
+
+    @Test
+    fun activeMemoryUpdateRequiresAValidExplicitModeWithoutWritingOnFailure() = runTest {
+        listOf(
+            """{"content":"all"}""",
+            """{"content":"all","mode":""}""",
+            """{"content":"all","mode":"replace_all"}""",
+        ).forEach { arguments ->
+            val result = provider.executeOneShotResult("active_memory_update", arguments, enabled)
+            assertTrue(result.isError)
+            assertTrue(result.text.contains("mode", ignoreCase = true))
+        }
+        verify(exactly = 0) { memoryManager.updateActiveMemory(any(), any(), any(), any()) }
+
+        assertEquals(
+            "Updated",
+            provider.execute(
+                "active_memory_update", """{"content":"all","mode":"replace"}""", enabled,
+            ),
+        )
+        verify(exactly = 1) { memoryManager.updateActiveMemory("all", "replace", null, null) }
     }
 
     @Test

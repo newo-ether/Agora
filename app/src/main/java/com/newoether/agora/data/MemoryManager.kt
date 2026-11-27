@@ -36,7 +36,7 @@ class MemoryManager(context: Context) {
     @Synchronized
     fun updateActiveMemory(
         content: String,
-        mode: String = "replace",
+        mode: String,
         oldString: String? = null,
         newString: String? = null,
     ): String {
@@ -63,10 +63,11 @@ class MemoryManager(context: Context) {
                 activeMemoryFile.writeText(existing.replace(oldString, newString.orEmpty()))
                 "Active memory patched."
             }
-            else -> {
+            "replace" -> {
                 activeMemoryFile.writeText(content)
                 "Active memory updated."
             }
+            else -> throw IllegalArgumentException("mode must be replace, append, prepend, or patch")
         }
         _activeMemoryRevision.value += 1
         return result

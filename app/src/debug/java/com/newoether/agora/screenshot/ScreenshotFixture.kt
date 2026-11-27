@@ -57,6 +57,7 @@ object ScreenshotFixture {
 
         container.memoryManager.updateActiveMemory(
             "# Active Memory\n\n- Use metric units for recipes.\n- Favorite season: autumn.",
+            "replace",
         )
         runCatching {
             container.memoryManager.createFile(

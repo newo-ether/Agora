@@ -38,7 +38,7 @@ export function ConversationEditor({ editor, state, focusReturn, onClose, MoreMe
       else if (sync.editorCommand("compact", { modelId: model, text: prompt, retainCount: count }, editor)) dismiss();
     }
   }
-  return html`<dialog ref=${dialog} class="attachment-editor conversation-editor" aria-label=${advanced ? t.advancedTitle : t.compactTitle}
+  return html`<dialog ref=${dialog} class="attachment-editor conversation-editor" data-editor=${advanced ? "advanced" : "compact"} aria-label=${advanced ? t.advancedTitle : t.compactTitle}
     onCancel=${event => { event.preventDefault(); close(); }} onClick=${event => { if (event.target === dialog.current) close(); }}
     onKeyDown=${event => event.stopPropagation()}>
     <section><h2>${advanced ? t.advancedTitle : t.compactTitle}</h2>
@@ -62,14 +62,14 @@ export function ConversationEditor({ editor, state, focusReturn, onClose, MoreMe
             min=${presets ? 0 : bounds[0]} max=${presets ? presets.length - 1 : bounds[1]} step=${presets ? 1 : "any"} value=${presets ? index : effective}
             onInput=${event => setDraft({ ...draft, [key]: presets ? presets[Math.round(Number(event.currentTarget.value))] : Number(event.currentTarget.value) })} />
         </div>`;
-      }) : html`<div class="outlined-field"><span class="outlined-label" id="compact-model-label">${t.compactModel}</span>
+      }) : html`<div class="compact-model-section"><div class="outlined-field"><span class="outlined-label" id="compact-model-label">${t.compactModel}</span>
           <button ref=${modelField} class="editor-dropdown-field" type="button" aria-haspopup="menu" aria-expanded=${modelMenu}
             aria-labelledby="compact-model-label" disabled=${busy || compactPreserved}
             onClick=${() => { setRetainedModelMenu(true); setModelMenu(!modelMenu); }}>
             <span>${state.composer.models[model] ?? (model || t.selectModel)}</span>
             <span class=${`editor-dropdown-icon ${modelMenu ? "open" : ""}`}>${icon(ICON_ARROW_DROP_DOWN)}</span>
           </button></div>
-        ${compactPreserved && html`<p class="supporting">${t.compactModelPreserved}</p>`}
+        ${compactPreserved && html`<p class="supporting">${t.compactModelPreserved}</p>`}</div>
         ${retainedModelMenu && html`<${MoreMenu} expanded=${modelMenu} reduceMotion=${state.display.reduceMotion}
           anchor=${modelField} matchAnchorWidth=${true} onClose=${() => setModelMenu(false)}
           onExited=${(restoreFocus) => { setRetainedModelMenu(false); if (restoreFocus) modelField.current?.focus(); }}>

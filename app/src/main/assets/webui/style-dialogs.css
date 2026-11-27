@@ -215,7 +215,15 @@
 }
 .conversation-editor section { padding: 24px; }
 .conversation-editor h2 { margin-bottom: 16px; }
+/* ChatManualCompactDialog's AlertDialog title is bold headlineSmall in onSurfaceVariant. */
+.conversation-editor[data-editor="compact"] h2 {
+  color: var(--md-on-surface-variant); font-size: 23px; line-height: 29px; font-weight: 700; letter-spacing: 0;
+}
 .conversation-editor-body { display: grid; gap: 12px; max-height: calc(100dvh - 230px); overflow-y: auto; }
+/* OutlinedTextField supportingText is bodySmall with 16 dp horizontal and 4 dp top inset. */
+.compact-model-section p.supporting {
+  margin: 4px 16px 0; font-size: 11px; line-height: 16px; letter-spacing: .4px;
+}
 
 .advanced-param { padding: 6px 0; }
 .conversation-editor-body:has(.advanced-param) { gap: 0; }

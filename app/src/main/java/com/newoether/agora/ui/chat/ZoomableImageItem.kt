@@ -60,23 +60,6 @@ internal fun ZoomableImageItem(
     var presentedState by remember(url) { mutableStateOf(MediaLoadPresentation.LOADING) }
     var animationJob by remember(url) { mutableStateOf<Job?>(null) }
     var lastCentroid by remember(url) { mutableStateOf(Offset.Unspecified) }
-    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val navBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-
-    // Scale factor that maps "fit between system bars" to user scale = 1f
-    val baseScale = remember(containerSize, imageSize, statusBarHeight, navBarHeight) {
-        if (containerSize == Size.Zero || imageSize == Size.Zero) 1f
-        else {
-            val imageAspect = imageSize.width / imageSize.height
-            val containerAspect = containerSize.width / containerSize.height
-            val fittedWidth = if (imageAspect > containerAspect) containerSize.width else containerSize.height * imageAspect
-            val fittedHeight = if (imageAspect > containerAspect) containerSize.width / imageAspect else containerSize.height
-            val barsPx = with(density) { statusBarHeight.toPx() + navBarHeight.toPx() }
-            val sHeight = if (fittedHeight > 0f) (containerSize.height - barsPx) / fittedHeight else 1f
-            val sWidth = if (fittedWidth > 0f) containerSize.width / fittedWidth else 1f
-            minOf(sHeight, sWidth).coerceIn(0.1f, 1f)
-        }
-    }
 
     fun rubberBandValue(fullDelta: Float, dimension: Float): Float {
         if (dimension <= 0f) return 0f
@@ -91,15 +74,8 @@ internal fun ZoomableImageItem(
     }
 
     fun getMaxOffsets(currentRaw: Float): Pair<Float, Float> {
-        if (imageSize == Size.Zero || containerSize == Size.Zero) return 0f to 0f
-        val effectiveScale = visualScale(currentRaw) * baseScale
-        val imageAspectRatio = imageSize.width / imageSize.height
-        val containerAspectRatio = containerSize.width / containerSize.height
-        val contentWidth = if (imageAspectRatio > containerAspectRatio) containerSize.width else containerSize.height * imageAspectRatio
-        val contentHeight = if (imageAspectRatio > containerAspectRatio) containerSize.width / imageAspectRatio else containerSize.height
-        val maxX = (contentWidth * effectiveScale - containerSize.width).coerceAtLeast(0f) / 2f
-        val maxY = (contentHeight * effectiveScale - containerSize.height).coerceAtLeast(0f) / 2f
-        return maxX to maxY
+        val bounds = mediaPanBounds(containerSize, imageSize, visualScale(currentRaw))
+        return bounds.x to bounds.y
     }
 
     LaunchedEffect(Unit) {
@@ -117,46 +93,27 @@ internal fun ZoomableImageItem(
                 detectTapGestures(
                     onTap = { onTap() },
                     onLongPress = onLongPress?.let { cb -> { _ -> cb() } },
-                    onDoubleTap = { tapOffset ->
+                    onDoubleTap = {
                         animationJob?.cancel()
                         animationJob = scope.launch {
                             val s0 = scale
                             val centerX = containerSize.width / 2f
                             val centerY = containerSize.height / 2f
-                            val tapRelX = tapOffset.x - centerX
-                            val tapRelY = tapOffset.y - centerY
                             val isZoomIn = s0 <= 1.05f
                             val targetScale = if (isZoomIn) 3f else 1f
                             var prevS = s0
                             var prevOX = offsetX
                             var prevOY = offsetY
+                            val center = Offset(centerX, centerY)
                             if (!motionPolicy.allowSpatialTransitions) {
                                 val r = visualScale(targetScale) / visualScale(s0)
                                 val (maxX, maxY) = getMaxOffsets(targetScale)
-                                if (isZoomIn) {
-                                    val isLandscape =
-                                        imageSize.width / imageSize.height >
-                                            containerSize.width / containerSize.height
-                                    val longO = if (isLandscape) maxX > 0f else maxY > 0f
-                                    val shortO = if (isLandscape) maxY > 0f else maxX > 0f
-                                    val pivX =
-                                        if (shortO) tapRelX
-                                        else if (longO && isLandscape) tapRelX
-                                        else 0f
-                                    val pivY =
-                                        if (shortO) tapRelY
-                                        else if (longO && !isLandscape) tapRelY
-                                        else 0f
-                                    offsetX = (offsetX * r + pivX * (1f - r))
-                                        .coerceIn(-maxX, maxX)
-                                    offsetY = (offsetY * r + pivY * (1f - r))
-                                        .coerceIn(-maxY, maxY)
-                                } else {
-                                    offsetX = (offsetX * r + tapRelX * (1f - r))
-                                        .coerceIn(-maxX, maxX)
-                                    offsetY = (offsetY * r + tapRelY * (1f - r))
-                                        .coerceIn(-maxY, maxY)
-                                }
+                                val transformed = constrainMediaOffset(
+                                    transformMediaOffset(Offset(offsetX, offsetY), r, center, center),
+                                    Offset(maxX, maxY),
+                                )
+                                offsetX = transformed.x
+                                offsetY = transformed.y
                                 scale = targetScale
                                 return@launch
                             }
@@ -164,19 +121,12 @@ internal fun ZoomableImageItem(
                                 scale = value
                                 val r = visualScale(value) / visualScale(prevS)
                                 val (maxX, maxY) = getMaxOffsets(value)
-                                if (isZoomIn) {
-                                    val isLandscape = imageSize.width / imageSize.height > containerSize.width / containerSize.height
-                                    val longO = if (isLandscape) maxX > 0f else maxY > 0f
-                                    val shortO = if (isLandscape) maxY > 0f else maxX > 0f
-                                    val pivX = if (shortO) tapRelX else if (longO && isLandscape) tapRelX else 0f
-                                    val pivY = if (shortO) tapRelY else if (longO && !isLandscape) tapRelY else 0f
-                                    offsetX = prevOX * r + pivX * (1f - r)
-                                    offsetY = prevOY * r + pivY * (1f - r)
-                                } else {
-                                    // zoom-OUT: keep content at tap, clamp to bounds
-                                    offsetX = (prevOX * r + tapRelX * (1f - r)).coerceIn(-maxX, maxX)
-                                    offsetY = (prevOY * r + tapRelY * (1f - r)).coerceIn(-maxY, maxY)
-                                }
+                                val transformed = constrainMediaOffset(
+                                    transformMediaOffset(Offset(prevOX, prevOY), r, center, center),
+                                    Offset(maxX, maxY),
+                                )
+                                offsetX = transformed.x
+                                offsetY = transformed.y
                                 prevS = value
                                 prevOX = offsetX
                                 prevOY = offsetY
@@ -227,18 +177,19 @@ internal fun ZoomableImageItem(
                                     val newVis = visualScale(rawScale)
                                     val r = if (oldVis != 0f) newVis / oldVis else 1f
                                     val center = Offset(containerSize.width / 2f, containerSize.height / 2f)
-                                    val isZooming = abs(1f - r) > 0.0001f
-                                    if (isZooming) {
-                                        logicalOffsetX = logicalOffsetX * r + (centroid.x - center.x) * (1f - r)
-                                        logicalOffsetY = logicalOffsetY * r + (centroid.y - center.y) * (1f - r)
-                                    } else {
-                                        logicalOffsetX += panChange.x
-                                        logicalOffsetY += panChange.y
-                                    }
-                                    val (maxX, maxY) = getMaxOffsets(rawScale)
+                                    val transformed = constrainMediaOffset(
+                                        transformMediaOffset(
+                                            offset = Offset(logicalOffsetX, logicalOffsetY),
+                                            scaleRatio = r,
+                                            pivot = centroid,
+                                            viewportCenter = center,
+                                            pan = panChange,
+                                        ),
+                                        mediaPanBounds(containerSize, imageSize, newVis),
+                                    )
                                     scale = rawScale
-                                    offsetX = logicalOffsetX.coerceIn(-maxX, maxX)
-                                    offsetY = logicalOffsetY.coerceIn(-maxY, maxY)
+                                    offsetX = transformed.x
+                                    offsetY = transformed.y
                                     logicalOffsetX = offsetX
                                     logicalOffsetY = offsetY
                                     if (consumeConditionally) {
@@ -325,8 +276,8 @@ internal fun ZoomableImageItem(
                     }
                 }
                 .graphicsLayer(
-                    scaleX = visualScale(scale) * baseScale,
-                    scaleY = visualScale(scale) * baseScale,
+                    scaleX = visualScale(scale),
+                    scaleY = visualScale(scale),
                     translationX = offsetX,
                     translationY = offsetY
                 ),

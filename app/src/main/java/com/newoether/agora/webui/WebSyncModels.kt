@@ -23,6 +23,7 @@ internal data class WebSyncCommand(
     val frameCount: Int? = null,
     val intervalMs: Long? = null,
     val setting: String? = null,
+    val toolGroup: String? = null,
     val enabled: Boolean? = null,
     val value: String? = null,
     val tokens: Int? = null,
@@ -187,6 +188,18 @@ internal sealed interface WebSyncEvent {
         val failed: Boolean = false,
     ) : WebSyncEvent
 
+    @Serializable @SerialName("session_tools")
+    data class SessionTools(
+        val connectionId: String,
+        val conversationId: String?,
+        val seq: Long,
+        val revision: Long,
+        val failed: Boolean = false,
+        val groups: List<WebSessionToolGroup> = emptyList(),
+        val enabledGroups: List<String> = emptyList(),
+        val toolSetTokens: Int = 0,
+    ) : WebSyncEvent
+
     @Serializable @SerialName("snackbar")
     data class Snackbar(val message: String) : WebSyncEvent
 
@@ -199,6 +212,22 @@ internal sealed interface WebSyncEvent {
     @Serializable @SerialName("scroll_to_bottom")
     data class ScrollToBottom(val conversationId: String, val messageId: String, val seq: Long) : WebSyncEvent
 }
+
+/** One concrete Provider-visible definition in the browser's session tool selector. */
+@Serializable
+internal data class WebSessionToolEntry(
+    val name: String,
+    val description: String,
+    val tokens: Int,
+)
+
+@Serializable
+internal data class WebSessionToolGroup(
+    val id: String,
+    val tokens: Int,
+    val unavailable: String? = null,
+    val tools: List<WebSessionToolEntry> = emptyList(),
+)
 
 /** One labelled part of the context window, in the order the provider is given them. */
 @Serializable

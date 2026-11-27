@@ -124,8 +124,10 @@ Rules:
 - Action tools accept `screenshot` (default `true`); when true the result includes a post-action
   screenshot captured after a short settle delay, saving one round per step. Set `screenshot=false`
   for consecutive steps without capturing each action; tool descriptions make this option explicit.
-- Tool descriptions state current-mode limits (Accessibility screenshot rate limit and API 30+,
-  `uiautomator dump` latency in Shizuku/Root, `FLAG_SECURE` windows capture black).
+- Shared rules belong to their owning tool description: `phone_claim` states the lease prerequisite and
+  control border; `phone_screenshot` states coordinate space, coordinate reuse, `FLAG_SECURE` black captures
+  and Accessibility capture limits; `phone_ui_tree` states node preference/reuse and privileged dump latency.
+  Action descriptions retain only their own operation and parameter semantics.
 - Shizuku/Root UI trees dump to `/data/local/tmp/agora_ui.xml`, read the file and delete it on
   command exit, including failures. Remove any prior file before dumping; never return stale XML.
   Do not depend on an interactive terminal. Retry once only for `could not get idle state`;

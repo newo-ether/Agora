@@ -251,6 +251,16 @@ internal class WebUiChatSession(
     private val actionId = MutableStateFlow(0L)
     private var retainedOwner: String? = null
     private var closed = false
+    internal val sessionTools = WebUiSessionToolsController(
+        generation, ownerMutex, target, activeModel,
+        isClosed = { closed },
+        newChatSystemPromptId = { newChatSystemPromptId.value },
+        newChatSettings = { newChatSettings.value },
+        updateSettings = { id, update ->
+            if (id == null) newChatSettings.value = update(newChatSettings.value ?: ConversationSettings())
+            else settings.updateConversationSettings(id, update)
+        },
+    )
     private val uploadedSources = mutableListOf<SelectedAttachment>()
     private val ownerState = MutableStateFlow<Pair<String, StateFlow<ConversationComposerSubmissionSnapshot>>?>(null)
     val composerState: Flow<WebUiComposerState> = combine(ownerState, target) { owner, selected ->

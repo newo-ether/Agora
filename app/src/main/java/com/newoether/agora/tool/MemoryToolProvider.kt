@@ -131,13 +131,13 @@ class MemoryToolProvider(
                 ToolDefinition(
                     function = ToolFunction(
                         name = "active_memory_update",
-                        description = "Update Agora's active memory, injected into the system prompt every turn. Editing it invalidates the prompt cache; batch changes. Modes: 'replace' (overwrite with 'content'), 'append' (add 'content' to end), 'prepend' (add 'content' to beginning), 'patch' (find 'old_string' exactly once and replace with 'new_string'). Default is replace.",
+                        description = "Update Agora's active memory, injected into the system prompt every turn. Editing it invalidates the prompt cache; batch changes. Specify mode explicitly: 'replace' (overwrite with 'content'), 'append' (add 'content' to end), 'prepend' (add 'content' to beginning), 'patch' (find 'old_string' exactly once and replace with 'new_string').",
                         parameters = ToolParameters(
                             properties = mapOf(
                                 "content" to ToolProperty("string", "The content to write (for replace/append/prepend modes)."),
                                 "mode" to ToolProperty(
                                     "string",
-                                    "One of: replace, append, prepend, patch. Default is replace."
+                                    "Required. One of: replace, append, prepend, patch."
                                 ),
                                 "old_string" to ToolProperty(
                                     "string",
@@ -148,7 +148,7 @@ class MemoryToolProvider(
                                     "Replacement string for old_string in patch mode. Pass empty string to delete the matched text."
                                 )
                             ),
-                            required = listOf("content")
+                            required = listOf("content", "mode")
                         )
                     )
                 )
@@ -291,7 +291,15 @@ class MemoryToolProvider(
             "active_memory_read" -> memoryManager.getActiveMemory()
 
             "active_memory_update" -> {
-                val mode = arg("mode").ifBlank { "replace" }
+                val mode = arg("mode")
+                if (mode.isBlank()) {
+                    return@withContext ToolExecutionResult("Error: 'mode' is required.", isError = true)
+                }
+                if (mode !in setOf("replace", "append", "prepend", "patch")) {
+                    return@withContext ToolExecutionResult(
+                        "Error: mode must be replace, append, prepend, or patch.", isError = true,
+                    )
+                }
                 val oldStr = arg("old_string").ifBlank { null }
                 val newStr = arg("new_string").ifBlank { null }
                 if (mode == "patch" && oldStr == null) {
