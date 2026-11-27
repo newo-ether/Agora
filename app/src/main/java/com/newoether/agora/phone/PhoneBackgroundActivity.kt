@@ -19,13 +19,9 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -33,14 +29,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
@@ -56,11 +51,9 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect as ComposeRect
@@ -77,6 +70,8 @@ import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -229,7 +224,6 @@ private fun FullScreen(
     var mode by remember { mutableStateOf(FullScreenMode.OPERATE) }
     var barVisible by remember { mutableStateOf(true) }
     var injected by remember { mutableStateOf<Offset?>(null) }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         if (reduce) progress.snapTo(1f) else progress.animateTo(1f, tween(OPEN_MS, easing = EmphasizedEasing))
@@ -388,7 +382,6 @@ private fun FullScreen(
                     mode = next
                     barVisible = true
                 },
-                onBack = { scope.launch { runtime.backgroundBack() } },
             )
         }
     }
@@ -429,51 +422,42 @@ private fun TopBar(
     }
 }
 
-/** Mode switch and, while operating, the display's Back key. */
+/** The mode switch as two segments of one strip, like the top bar; the selected one is filled. */
 @Composable
-private fun BottomBar(mode: FullScreenMode, onMode: (FullScreenMode) -> Unit, onBack: () -> Unit) {
+private fun BottomBar(mode: FullScreenMode, onMode: (FullScreenMode) -> Unit) {
     Row(
         Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 28.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ) {
-            Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                FullScreenMode.entries.forEach { option ->
-                    val selected = option == mode
-                    val fill by animateColorAsState(
-                        if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, tween(160),
-                        label = "modeFill",
-                    )
-                    val ink by animateColorAsState(
-                        if (selected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onPrimaryContainer, tween(160),
-                        label = "modeInk",
-                    )
-                    Text(
-                        stringResource(option.label),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = ink,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(fill)
-                            .clickable(role = Role.Tab) { onMode(option) }
-                            .padding(horizontal = 18.dp, vertical = 12.dp),
-                    )
+        val entries = FullScreenMode.entries
+        entries.forEachIndexed { index, option ->
+            val selected = option == mode
+            val fill by animateColorAsState(
+                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+                tween(160), label = "modeFill",
+            )
+            val ink by animateColorAsState(
+                if (selected) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onPrimaryContainer, tween(160),
+                label = "modeInk",
+            )
+            val first = index == 0
+            val last = index == entries.lastIndex
+            val shape = RoundedCornerShape(
+                topStart = if (first) 24.dp else 5.dp, bottomStart = if (first) 24.dp else 5.dp,
+                topEnd = if (last) 24.dp else 5.dp, bottomEnd = if (last) 24.dp else 5.dp,
+            )
+            Surface(
+                onClick = { onMode(option) },
+                modifier = Modifier.heightIn(min = 48.dp).semantics { role = Role.Tab },
+                shape = shape,
+                color = fill,
+                contentColor = ink,
+            ) {
+                Box(Modifier.padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+                    Text(stringResource(option.label), style = MaterialTheme.typography.labelLarge)
                 }
-            }
-        }
-        AnimatedVisibility(
-            visible = mode == FullScreenMode.OPERATE,
-            enter = fadeIn(tween(160)) + scaleIn(tween(160), initialScale = 0.8f),
-            exit = fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.8f),
-        ) {
-            BarButton(CircleShape, onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.phone_background_back))
             }
         }
     }

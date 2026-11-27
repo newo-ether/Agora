@@ -38,7 +38,6 @@
     <string name="phone_background_exit_fullscreen">Quitter le plein écran</string>
     <string name="phone_background_close">Fermer</string>
     <string name="phone_background_show">Afficher l\'aperçu</string>
-    <string name="phone_background_back">Retour</string>
     <string name="phone_thinking">Réflexion</string>
     <string name="phone_waiting">En attente de votre réponse</string>
     <string name="phone_answer">Votre réponse</string>

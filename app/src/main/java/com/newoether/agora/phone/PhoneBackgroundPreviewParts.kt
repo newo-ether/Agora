@@ -1,6 +1,7 @@
 package com.newoether.agora.phone
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Gravity
@@ -8,12 +9,19 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
+import kotlin.math.max
 import kotlin.math.roundToInt
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -26,6 +34,12 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -33,6 +47,16 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
@@ -44,6 +68,9 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.ui.motion.IdentityLabelCrossfade
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.motion.rememberIdentityClipWidth
 
 /**
  * Screen area that excludes the system bars. Read from the application context every time: a
@@ -125,28 +152,105 @@ internal fun DrawScope.drawPreviewGrips(bar: Float, start: Float, end: Float, ce
     grip(Path().apply { arcTo(Rect(Offset(w - corner, h - corner), radius), 0f, 90f, true) }, end)
 }
 
-/** The minimized card: the Phone Use mark and the current action. Touches go to the window. */
+/** The display releases its last frame before an exit animation ends; this keeps drawing it. */
+@Composable
+internal fun retainedFrame(screen: PhoneVirtualScreen): Bitmap? {
+    val frame by screen.frame.collectAsState()
+    val retained = remember { arrayOfNulls<Bitmap>(1) }
+    if (frame != null) SideEffect { retained[0] = frame }
+    return frame ?: retained[0]
+}
+
+private val CAPSULE_SHADOW = 6.dp
+private val CAPSULE_TEXT_MAX = 180.dp
+
+/**
+ * The minimized card: the Phone Use mark and the current action. Like the control strip's status
+ * capsule, a new label crossfades while the painted width moves to the new label's width; the
+ * content is always laid out at its final width. Touches go to the window.
+ */
 @Composable
 internal fun PreviewCapsule(label: String, modifier: Modifier = Modifier) {
+    val style = MaterialTheme.typography.labelLarge
+    val measurer = rememberTextMeasurer()
+    val text = with(LocalDensity.current) {
+        measurer.measure(AnnotatedString(label), style, maxLines = 1, softWrap = false).size.width.toDp()
+    }.coerceAtMost(CAPSULE_TEXT_MAX)
+    // Start and end padding, icon and gap, as laid out by PreviewCapsuleContent.
+    val target = 12.dp + 20.dp + 8.dp + text + 16.dp
+    val width = rememberIdentityClipWidth(label, target, LocalAgoraMotionPolicy.current.allowSpatialTransitions)
     Surface(
-        modifier = modifier,
+        modifier = modifier.width(width),
         shape = RoundedCornerShape(50),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shadowElevation = 6.dp,
+        shadowElevation = CAPSULE_SHADOW,
     ) {
-        Row(
-            Modifier.padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(PhoneUseIcon, contentDescription = null, modifier = Modifier.size(20.dp))
+        PreviewCapsuleContent(label, Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(target))
+    }
+}
+
+@Composable
+private fun PreviewCapsuleContent(label: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier.padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(PhoneUseIcon, contentDescription = null, modifier = Modifier.size(20.dp))
+        IdentityLabelCrossfade(label) { text ->
             Text(
-                label,
+                text,
                 style = MaterialTheme.typography.labelLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 180.dp),
+                modifier = Modifier.widthIn(max = CAPSULE_TEXT_MAX),
+            )
+        }
+    }
+}
+
+/**
+ * The card on its way to or from the capsule, sized and placed by the caller. With [progress] the
+ * corners round to a pill, the fill turns from the card's black to the capsule color, the frame
+ * fades out cropped to the shrinking rect, and the capsule's content fades in at its own size.
+ * At 0 it draws like the card, at 1 like the capsule, so either can take over without a seam.
+ */
+@Composable
+internal fun PreviewMorphBody(bitmap: Bitmap?, label: String, progress: Float, cardShadow: Dp, modifier: Modifier) {
+    val container = MaterialTheme.colorScheme.primaryContainer
+    Box(
+        modifier
+            .graphicsLayer {
+                val radius = PreviewGrip.CORNER_DP.dp.toPx() * (1f - progress) + size.height / 2f * progress
+                shape = RoundedCornerShape(radius)
+                clip = true
+                shadowElevation = (cardShadow + (CAPSULE_SHADOW - cardShadow) * progress).toPx()
+            }
+            .drawBehind { drawRect(lerp(Color.Black, container, progress)) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val image = bitmap ?: return@Canvas
+            val fade = (1f - progress / 0.6f).coerceIn(0f, 1f)
+            if (fade <= 0f || size.width < 1f || size.height < 1f) return@Canvas
+            // Cover: the frame keeps its aspect and is cropped to the rect, never squashed.
+            val scale = max(size.width / image.width, size.height / image.height)
+            val srcWidth = (size.width / scale).roundToInt().coerceIn(1, image.width)
+            val srcHeight = (size.height / scale).roundToInt().coerceIn(1, image.height)
+            drawImage(
+                image.asImageBitmap(),
+                srcOffset = IntOffset((image.width - srcWidth) / 2, (image.height - srcHeight) / 2),
+                srcSize = IntSize(srcWidth, srcHeight),
+                dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                alpha = fade,
+            )
+        }
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onPrimaryContainer) {
+            PreviewCapsuleContent(
+                label,
+                Modifier.wrapContentSize(unbounded = true)
+                    .graphicsLayer { alpha = ((progress - 0.4f) / 0.6f).coerceIn(0f, 1f) },
             )
         }
     }

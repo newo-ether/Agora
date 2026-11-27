@@ -21,14 +21,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -135,6 +133,8 @@ internal class PhoneBackgroundPreview(
     private var minimized by mutableStateOf(false)
     private var morph by mutableFloatStateOf(0f)
     private var morphing: ValueAnimator? = null
+    /** True while the morph body stands in for both the card and the capsule. */
+    private var morphShown by mutableStateOf(false)
 
     private var menuOpen by mutableStateOf(false)
 
@@ -417,23 +417,26 @@ internal class PhoneBackgroundPreview(
             .onFailure { runtime.fullscreen.value = false }
     }
 
-    /** The capsule takes the place of the bar above the card, centered on it. */
+    /** The card shrinks into the capsule at its top, on the side nearer the screen edge. */
     private fun minimize() {
         if (minimized) return
         settling?.cancel()
         settling = null
         savePlacement()
-        val width = if (capsuleWidth > 0) capsuleWidth else cardWidth / 2
+        val keepRight = cardX + cardWidth / 2 > safe.centerX()
         minimized = true
-        placeCapsule(cardX + (cardWidth - width) / 2, cardY - handleZone)
+        placeCapsule(if (keepRight) cardX + cardWidth - capsuleWidth else cardX, cardY)
         animateMorph(1f)
     }
 
-    /** The card comes back under the capsule, so its bar sits where the capsule was. */
+    /** The card grows back out of the capsule, keeping the same corner. */
     private fun restore() {
         if (!minimized) return
+        val keepRight = capsuleX + capsuleWidth / 2 > safe.centerX()
         minimized = false
-        placeCard(capsuleX + (capsuleWidth - cardWidth) / 2, capsuleY + handleZone)
+        val loX = minCardX() + margin
+        val x = if (keepRight) capsuleX + capsuleWidth - cardWidth else capsuleX
+        placeCard(x.coerceIn(loX, max(loX, maxCardX() - margin)), capsuleY.coerceAtMost(maxCardY() - margin))
         savePlacement()
         animateMorph(0f)
     }
@@ -448,15 +451,18 @@ internal class PhoneBackgroundPreview(
         animator.doOnEnd {
             if (morphing === animator) {
                 morphing = null
+                morphShown = false
                 layoutWindow()
             }
         }
+        morphShown = true
         layoutWindow()
         animator.start()
     }
 
     private fun finishMorph() {
         morphing?.let { morphing = null; it.cancel() }
+        morphShown = false
         morph = if (minimized) 1f else 0f
     }
 
@@ -630,18 +636,17 @@ internal class PhoneBackgroundPreview(
                     )
                 },
         ) {
-            Card(lift, still)
-            Capsule(lift, still)
+            val bitmap = retainedFrame(screen)
+            val action by runtime.actionName.collectAsState()
+            val label = action ?: stringResource(R.string.phone_thinking)
+            Card(bitmap, lift)
+            Capsule(label, lift)
+            if (morphShown) PreviewMorphBody(bitmap, label, morph, SHADOW_DP.dp, Modifier.morphPlacement())
         }
     }
 
     @Composable
-    private fun Card(lift: Float, still: Boolean) {
-        val frame by screen.frame.collectAsState()
-        // The display releases its last frame before the exit animation ends; keep drawing it.
-        val retained = remember { arrayOfNulls<Bitmap>(1) }
-        if (frame != null) SideEffect { retained[0] = frame }
-        val bitmap = frame ?: retained[0]
+    private fun Card(bitmap: Bitmap?, lift: Float) {
         val bar by gripWeight(Gesture.MOVE)
         val start by gripWeight(Gesture.BOTTOM_START)
         val end by gripWeight(Gesture.BOTTOM_END)
@@ -652,13 +657,12 @@ internal class PhoneBackgroundPreview(
                 .cardPlacement()
                 .graphicsLayer {
                     val grow = 1f + lift * LIFT_DP.dp.toPx() * 2f / cardWidth.coerceAtLeast(1)
-                    val shrink = if (still) 1f else 1f - (1f - MORPH_SCALE) * morph
-                    scaleX = grow * shrink
-                    scaleY = grow * shrink
-                    alpha = 1f - morph
-                    // The lift grows about the card's center; the morph shrinks toward its bar.
+                    scaleX = grow
+                    scaleY = grow
+                    alpha = if (minimized && !morphShown) 0f else 1f
+                    // The lift grows about the card's center, below the bar band.
                     val liftY = (handleZone + cardHeight / 2f) / (handleZone + cardHeight).coerceAtLeast(1)
-                    transformOrigin = TransformOrigin(0.5f, liftY * (1f - morph))
+                    transformOrigin = TransformOrigin(0.5f, liftY)
                 },
         ) {
             Box(
@@ -666,6 +670,8 @@ internal class PhoneBackgroundPreview(
                     .offset { IntOffset(0, handleZone) }
                     .previewExactSize(cardWidth, cardHeight)
                     .graphicsLayer {
+                        // The morph body draws the card while it changes shape.
+                        alpha = if (morphShown) 0f else 1f
                         shadowElevation = (SHADOW_DP + (LIFTED_SHADOW_DP - SHADOW_DP) * lift).dp.toPx()
                         this.shape = shape
                         clip = true
@@ -682,7 +688,10 @@ internal class PhoneBackgroundPreview(
                 }
             }
             // Unclipped, so the grips draw in the transparent frame outside the card.
-            Canvas(Modifier.offset { IntOffset(0, handleZone) }.previewExactSize(cardWidth, cardHeight)) {
+            Canvas(
+                Modifier.offset { IntOffset(0, handleZone) }.previewExactSize(cardWidth, cardHeight)
+                    .graphicsLayer { alpha = if (morphShown) (1f - morph * 4f).coerceAtLeast(0f) else 1f },
+            ) {
                 drawPreviewGrips(bar, start, end, center)
             }
             // The menu's anchor is the bar band, so it drops from where it was tapped.
@@ -699,22 +708,34 @@ internal class PhoneBackgroundPreview(
         }
     }
 
+    /** Always composed, so its size is known before a minimize; drawn only once minimized. */
     @Composable
-    private fun Capsule(lift: Float, still: Boolean) {
-        val action by runtime.actionName.collectAsState()
+    private fun Capsule(label: String, lift: Float) {
         PreviewCapsule(
-            label = action ?: stringResource(R.string.phone_thinking),
+            label = label,
             modifier = Modifier
                 .capsulePlacement()
                 .onSizeChanged(::capsuleMeasured)
                 .graphicsLayer {
                     val grow = 1f + lift * CAPSULE_LIFT
-                    val scale = if (still) 1f else MORPH_SCALE + (1f - MORPH_SCALE) * morph
-                    scaleX = grow * scale
-                    scaleY = grow * scale
-                    alpha = morph
+                    scaleX = grow
+                    scaleY = grow
+                    alpha = if (minimized && !morphShown) 1f else 0f
                 },
         )
+    }
+
+    /** Between the card's and the capsule's screen rects by [morph], in the safe-area window. */
+    private fun Modifier.morphPlacement() = layout { measurable, constraints ->
+        val at = IntArray(2)
+        root?.getLocationOnScreen(at)
+        fun mix(from: Int, to: Int) = (from + (to - from) * morph).roundToInt()
+        val placeable = measurable.measure(
+            Constraints.fixed(mix(cardWidth, capsuleWidth).coerceAtLeast(0), mix(cardHeight, capsuleHeight).coerceAtLeast(0)),
+        )
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            placeable.place(mix(cardX, capsuleX) - at[0], mix(cardY, capsuleY) - at[1])
+        }
     }
 
     /**
@@ -762,11 +783,9 @@ internal class PhoneBackgroundPreview(
         const val CENTER_HIT_DP = 22f
         const val ENTER_MS = 280L
         const val EXIT_MS = 200L
-        const val MORPH_MS = 340L
+        const val MORPH_MS = 380L
         /** Scale the window enters from and leaves to. */
         const val ENTER_SCALE = 0.85f
-        /** Scale the card shrinks to as it becomes the capsule, and the capsule grows from. */
-        const val MORPH_SCALE = 0.6f
         val EMPHASIZED = PathInterpolator(0.2f, 0f, 0f, 1f)
         val EXIT = PathInterpolator(0.3f, 0f, 0.8f, 0.15f)
 

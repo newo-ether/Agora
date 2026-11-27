@@ -303,11 +303,6 @@ internal class PhoneUseRuntime(
         privileged.displayTouch(action, x, y, downTime)
     }
 
-    suspend fun backgroundBack() {
-        val screen = virtual ?: return
-        runCatching { privileged.command("shizuku", "input -d ${screen.ensureOpen()} keyevent 4") }
-    }
-
     private fun cursorShown(): Boolean = cursor.value?.let {
         SystemClock.elapsedRealtime() - it.startedAt < it.durationMs + 1000
     } == true

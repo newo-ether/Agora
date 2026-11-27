@@ -38,7 +38,6 @@
     <string name="phone_background_exit_fullscreen">Exit Full Screen</string>
     <string name="phone_background_close">Close</string>
     <string name="phone_background_show">Show Preview</string>
-    <string name="phone_background_back">Back</string>
     <string name="phone_thinking">Thinking</string>
     <string name="phone_waiting">Waiting for you</string>
     <string name="phone_answer">Your answer</string>
