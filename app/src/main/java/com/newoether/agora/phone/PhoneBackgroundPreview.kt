@@ -124,6 +124,9 @@ internal class PhoneBackgroundPreview(
     private var stage: PreviewStage? = null
     private var veiled by mutableStateOf(false)
     private var handingBack = false
+    private val stageOrigin = mutableStateOf(IntOffset.Zero)
+    /** Window size of this window's last layout that held the shown element in a tight frame. */
+    private var laidTight: IntSize? = null
     /** This window's grip weights, which the stage draws with too. */
     private var sharedGrips: List<State<Float>> = emptyList()
     private var root: ComposeView? = null
@@ -310,7 +313,7 @@ internal class PhoneBackgroundPreview(
     /** Puts the stage up drawing what this window shows; once it is on screen this window hides. */
     private fun raiseStage(then: () -> Unit) {
         dropStage()
-        val next = PreviewStage(windows, composeView(staged = true), safe)
+        val next = PreviewStage(windows, composeView(staged = true), safe, stageOrigin)
         stage = next
         val shown = next.show {
             if (stage === next && !handingBack) {
@@ -324,16 +327,15 @@ internal class PhoneBackgroundPreview(
         }
     }
 
-    /** This window takes its new frame unseen and shows again; then the stage goes. */
+    /**
+     * This window takes its new frame unseen and shows again once it has laid out in that frame,
+     * so it never shows a placement guessed for a frame not yet applied; then the stage goes.
+     */
     private fun handBack() {
         val current = stage ?: return
         handingBack = true
         layoutWindow()
-        afterFrames(PreviewStage.SETTLE_FRAMES) {
-            if (stage !== current) return@afterFrames
-            veiled = false
-            afterFrames(PreviewStage.SETTLE_FRAMES) { if (stage === current) dropStage() }
-        }
+        current.handBack(ready = { laidTight == IntSize(params.width, params.height) }, reveal = { veiled = false }, done = ::dropStage)
     }
 
     private fun dropStage() {
@@ -343,28 +345,31 @@ internal class PhoneBackgroundPreview(
         veiled = false
     }
 
-    /**
-     * Origin of a screen rect inside a window of the given laid-out size. A tight frame always holds
-     * its element at [tight]; any other frame is placed by the window's real screen position.
-     */
-    private fun offsetIn(view: View, isTight: Boolean, tight: IntOffset, x: Int, y: Int): IntOffset {
-        if (isTight) return tight
+    /** Screen position of the window [staged] names: the stage's confirmed origin, or this window's. */
+    private fun windowOrigin(view: View, staged: Boolean): IntOffset {
+        if (staged) return stageOrigin.value
         val at = IntArray(2)
         view.getLocationOnScreen(at)
-        return IntOffset(x - at[0], y - at[1])
+        return IntOffset(at[0], at[1])
     }
 
-    /** The stage never holds a tight frame; it always places by its screen position. */
-    private fun cardOffset(view: View, staged: Boolean, windowWidth: Int, windowHeight: Int) = offsetIn(
-        view, !staged && !minimized && windowWidth == cardWidth + 2 * pad &&
-            windowHeight == cardHeight + 2 * pad + handleZone,
-        IntOffset(pad, pad + handleZone), cardX, cardY,
-    )
+    /**
+     * Origin of the [shown] element's screen rect inside a window of [size] as laid out. A tight
+     * frame holds it at [tight]; other frames place by the window's position, stale for this window.
+     */
+    private fun offsetIn(view: View, staged: Boolean, shown: Boolean, w: Int, h: Int, tight: IntOffset, x: Int, y: Int, size: IntSize): IntOffset {
+        val isTight = !staged && shown && size == IntSize(w + 2 * pad, h + 2 * pad + tight.y - pad)
+        if (!staged && shown) laidTight = size.takeIf { isTight }
+        if (isTight) return tight
+        val at = windowOrigin(view, staged)
+        return IntOffset(x - at.x, y - at.y)
+    }
 
-    private fun capsuleOffset(view: View, staged: Boolean, windowWidth: Int, windowHeight: Int) = offsetIn(
-        view, !staged && minimized && windowWidth == capsuleWidth + 2 * pad && windowHeight == capsuleHeight + 2 * pad,
-        IntOffset(pad, pad), capsuleX, capsuleY,
-    )
+    private fun cardOffset(view: View, staged: Boolean, size: IntSize) =
+        offsetIn(view, staged, !minimized, cardWidth, cardHeight, IntOffset(pad, pad + handleZone), cardX, cardY, size)
+
+    private fun capsuleOffset(view: View, staged: Boolean, size: IntSize) =
+        offsetIn(view, staged, minimized, capsuleWidth, capsuleHeight, IntOffset(pad, pad), capsuleX, capsuleY, size)
 
     /** Skips relayouts that change nothing; during a resize only the card state moves. */
     private fun update() {
@@ -650,7 +655,7 @@ internal class PhoneBackgroundPreview(
             val label = action ?: stringResource(R.string.phone_thinking)
             Card(bitmap, lift, grips, view, staged)
             Capsule(label, lift, view, staged)
-            if (morphShown) PreviewMorphBody(bitmap, label, morph, SHADOW_DP.dp, Modifier.morphPlacement(view))
+            if (morphShown) PreviewMorphBody(bitmap, label, morph, SHADOW_DP.dp, Modifier.morphPlacement(view, staged))
         }
     }
 
@@ -714,15 +719,14 @@ internal class PhoneBackgroundPreview(
     }
 
     /** Between the card's and the capsule's screen rects by [morph]. */
-    private fun Modifier.morphPlacement(view: View) = layout { measurable, constraints ->
-        val at = IntArray(2)
-        view.getLocationOnScreen(at)
+    private fun Modifier.morphPlacement(view: View, staged: Boolean) = layout { measurable, constraints ->
+        val at = windowOrigin(view, staged)
         fun mix(from: Int, to: Int) = (from + (to - from) * morph).roundToInt()
         val placeable = measurable.measure(
             Constraints.fixed(mix(cardWidth, capsuleWidth).coerceAtLeast(0), mix(cardHeight, capsuleHeight).coerceAtLeast(0)),
         )
         layout(constraints.maxWidth, constraints.maxHeight) {
-            placeable.place(mix(cardX, capsuleX) - at[0], mix(cardY, capsuleY) - at[1])
+            placeable.place(mix(cardX, capsuleX) - at.x, mix(cardY, capsuleY) - at.y)
         }
     }
 
@@ -734,7 +738,7 @@ internal class PhoneBackgroundPreview(
         val placeable = measurable.measure(
             Constraints.fixed(cardWidth.coerceAtLeast(0), (cardHeight + handleZone).coerceAtLeast(0)),
         )
-        val offset = cardOffset(view, staged, constraints.maxWidth, constraints.maxHeight)
+        val offset = cardOffset(view, staged, IntSize(constraints.maxWidth, constraints.maxHeight))
         if (!staged) {
             shownX = offset.x
             shownY = offset.y
@@ -745,7 +749,7 @@ internal class PhoneBackgroundPreview(
     /** Wraps the capsule's own size and places it like [cardPlacement]. */
     private fun Modifier.capsulePlacement(view: View, staged: Boolean) = layout { measurable, constraints ->
         val placeable = measurable.measure(Constraints())
-        val offset = capsuleOffset(view, staged, constraints.maxWidth, constraints.maxHeight)
+        val offset = capsuleOffset(view, staged, IntSize(constraints.maxWidth, constraints.maxHeight))
         if (!staged) {
             capsuleShownX = offset.x
             capsuleShownY = offset.y

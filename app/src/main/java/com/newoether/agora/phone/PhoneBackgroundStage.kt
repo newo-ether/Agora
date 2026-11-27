@@ -5,6 +5,8 @@ import android.graphics.Rect
 import android.view.Choreographer
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.Lifecycle
@@ -53,6 +55,11 @@ internal class PreviewStage(
     private val windows: WindowManager,
     private val view: ComposeView,
     area: Rect,
+    /**
+     * The window's screen position, which the content places by. Compose lays out during the
+     * first measure, before the window has a frame, so a position read from the view then is 0.
+     */
+    private val origin: MutableState<IntOffset>,
 ) {
     private val params = previewWindowParams().apply {
         flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
@@ -65,6 +72,7 @@ internal class PreviewStage(
 
     /** Adds the window; [onShown] runs once its first frame has had time to reach the screen. */
     fun show(onShown: () -> Unit): Boolean {
+        origin.value = IntOffset(params.x, params.y)
         try {
             windows.addView(view, params)
         } catch (_: Exception) {
@@ -72,8 +80,37 @@ internal class PreviewStage(
             return false
         }
         added = true
-        view.doOnPreDraw { afterFrames(SETTLE_FRAMES) { if (added) onShown() } }
+        view.doOnPreDraw { confirm(onShown) }
         return true
+    }
+
+    /** A system may still place the window elsewhere; then the content moves before anything relies on it. */
+    private fun confirm(onShown: () -> Unit) {
+        if (!added) return
+        val at = IntArray(2)
+        view.getLocationOnScreen(at)
+        val actual = IntOffset(at[0], at[1])
+        if (actual != origin.value) {
+            origin.value = actual
+            afterFrames(1) { confirm(onShown) }
+        } else afterFrames(SETTLE_FRAMES) { if (added) onShown() }
+    }
+
+    /**
+     * Waits up to [HAND_BACK_FRAMES] for [ready], the floating window laid out in its new frame,
+     * lets that frame reach the screen, runs [reveal], and once the revealed window is on screen
+     * runs [done], which removes this one. Nothing runs after [remove].
+     */
+    fun handBack(ready: () -> Boolean, reveal: () -> Unit, done: () -> Unit, left: Int = HAND_BACK_FRAMES) {
+        afterFrames(1) {
+            if (!added) return@afterFrames
+            if (!ready() && left > 0) return@afterFrames handBack(ready, reveal, done, left - 1)
+            afterFrames(SETTLE_FRAMES) {
+                if (!added) return@afterFrames
+                reveal()
+                afterFrames(SETTLE_FRAMES) { if (added) done() }
+            }
+        }
     }
 
     fun remove() {
@@ -86,6 +123,8 @@ internal class PreviewStage(
     companion object {
         /** Vsyncs between drawing a frame and relying on it being on screen. */
         const val SETTLE_FRAMES = 3
+        /** Longest wait for the floating window's new layout before it shows anyway. */
+        const val HAND_BACK_FRAMES = 30
     }
 }
 
