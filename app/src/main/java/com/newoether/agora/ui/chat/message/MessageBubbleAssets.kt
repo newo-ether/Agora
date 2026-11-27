@@ -34,6 +34,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,6 +44,7 @@ import com.newoether.agora.ui.components.latexSourceForLink
 import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
 import com.newoether.agora.ui.chat.visibleMarkdownMatchRanges
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.rememberContentTextAlign
 import com.newoether.agora.util.rememberContentTextDirection
 import com.mikepenz.markdown.compose.LocalMarkdownColors
 import com.mikepenz.markdown.compose.LocalMarkdownDimens
@@ -649,11 +651,18 @@ internal fun SearchHighlightedMarkdownText(
         val end = textNode.endOffset.coerceIn(start, model.content.length)
         model.content.substring(start, end)
     }
-    val style = if (style.textDirection == TextDirection.Unspecified) {
-        style.copy(textDirection = rememberContentTextDirection(sourceText))
-    } else {
-        style
-    }
+    val style = style.copy(
+        textDirection = if (style.textDirection == TextDirection.Unspecified) {
+            rememberContentTextDirection(sourceText)
+        } else {
+            style.textDirection
+        },
+        textAlign = if (style.textAlign == TextAlign.Unspecified) {
+            rememberContentTextAlign(sourceText)
+        } else {
+            style.textAlign
+        },
+    )
     val settings = annotatorSettings()
     val citationTokens = LocalCitationInlineTokens.current
     val base = remember(model.content, textNode, style, literalText, settings, citationTokens) {

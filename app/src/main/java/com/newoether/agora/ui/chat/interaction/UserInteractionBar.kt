@@ -59,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -71,6 +72,7 @@ import com.newoether.agora.ui.chat.message.ToolPathHeader
 import com.newoether.agora.ui.chat.message.shellEditHunks
 import com.newoether.agora.ui.chat.message.toolDetailPath
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.util.rememberContentTextAlign
 import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.viewmodel.AskUserController
 import com.newoether.agora.viewmodel.ShellActionDetail
@@ -406,6 +408,7 @@ private fun ShellBody(
                     style = MaterialTheme.typography.bodyMedium.copy(
                         textDirection = rememberContentTextDirection(pending.description),
                     ),
+                    textAlign = rememberContentTextAlign(pending.description),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -512,6 +515,7 @@ internal fun CardHeader(
             style = MaterialTheme.typography.titleSmall.copy(
                 textDirection = rememberContentTextDirection(title),
             ),
+            textAlign = rememberContentTextAlign(title),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -522,6 +526,7 @@ internal fun CardHeader(
                 style = MaterialTheme.typography.bodyMedium.copy(
                     textDirection = rememberContentTextDirection(it),
                 ),
+                textAlign = rememberContentTextAlign(it),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

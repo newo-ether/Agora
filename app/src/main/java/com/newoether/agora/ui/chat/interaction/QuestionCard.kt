@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.util.NoAutoScrollSelectionContainer
+import com.newoether.agora.util.rememberContentTextAlign
 import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.viewmodel.AskUserController
 
@@ -269,6 +270,7 @@ private fun QuestionPage(
                 style = MaterialTheme.typography.bodyMedium.copy(
                     textDirection = rememberContentTextDirection(request.question),
                 ),
+                textAlign = rememberContentTextAlign(request.question),
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -394,6 +396,7 @@ private fun OptionRow(
             style = MaterialTheme.typography.bodyMedium.copy(
                 textDirection = rememberContentTextDirection(option),
             ),
+            textAlign = rememberContentTextAlign(option),
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f).padding(vertical = 8.dp),
         )

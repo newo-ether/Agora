@@ -42,6 +42,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.SubagentSummary
@@ -50,6 +51,7 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 import com.newoether.agora.ui.motion.rememberIdentityClipWidth
 import com.newoether.agora.util.contentTextDirection
+import com.newoether.agora.util.rememberContentTextAlign
 import kotlin.math.roundToInt
 
 internal fun subagentStatusIcon(status: String): ImageVector = when (status) {
@@ -169,6 +171,7 @@ internal fun SubagentNavigationCapsule(
                         style = labelStyle,
                         color = labelColor,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        textAlign = rememberContentTextAlign(label),
                     )
                     Crossfade(
                         targetState = title,
@@ -178,6 +181,7 @@ internal fun SubagentNavigationCapsule(
                         Text(
                             text, style = titleStyle,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            textAlign = rememberContentTextAlign(text),
                             modifier = Modifier.width(textMaxWidth),
                         )
                     }

@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -169,6 +170,10 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
                     onRefresh = { if (current && active && !displayed.controlling) { pulled = true; vm.refresh() } },
                     title = displayed.devices.firstOrNull { it.id == displayed.deviceId }?.name
                         ?.ifBlank { null } ?: stringResource(R.string.remote_device), onBack = back,
+                    titleTextDirection = rememberContentTextDirection(
+                        displayed.devices.firstOrNull { it.id == displayed.deviceId }?.name
+                            ?.ifBlank { null } ?: stringResource(R.string.remote_device)
+                    ),
                     actions = {
                         if (displayed.capabilities.usage) IconButton(onClick = { showUsage = true }, enabled = current && active) {
                             Icon(Icons.Rounded.DataUsage, stringResource(R.string.remote_usage))
@@ -392,7 +397,7 @@ private fun RemoteDevices(state: RemoteState, vm: RemoteViewModel, onBack: () ->
                         supportingContent = {
                             Column {
                                 Text(device.address, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(device.address)))
+                                    style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
                             }
                         },
                         leadingContent = { Icon(Icons.Rounded.Devices, null) },
@@ -472,14 +477,14 @@ internal fun RemoteAddDevice(state: RemoteState, vm: RemoteViewModel, active: Bo
         }, {
             SettingsIconContent(Icons.Rounded.Link) {
                 McpLabeledField(label = stringResource(R.string.remote_address), value = address,
-                    onValueChange = { if (ownsEditor()) address = it }, keyboardType = KeyboardType.Uri,
+                    onValueChange = { if (ownsEditor()) address = it }, keyboardType = KeyboardType.Uri, forceLtr = true,
                     supportingText = stringResource(R.string.remote_connection_hint),
                     placeholder = stringResource(R.string.remote_address_placeholder))
             }
         }, {
             SettingsIconContent(Icons.Rounded.Key) {
                 McpLabeledField(label = stringResource(R.string.remote_token), value = token,
-                    onValueChange = { if (ownsEditor()) token = it }, keyboardType = KeyboardType.Password, password = true,
+                    onValueChange = { if (ownsEditor()) token = it }, keyboardType = KeyboardType.Password, password = true, forceLtr = true,
                     placeholder = stringResource(R.string.remote_token_placeholder))
             }
         }))

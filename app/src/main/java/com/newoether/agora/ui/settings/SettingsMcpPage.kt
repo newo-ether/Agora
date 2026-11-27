@@ -452,6 +452,7 @@ private fun McpServerEditor(
                                     null
                                 },
                                 keyboardType = KeyboardType.Uri,
+                                forceLtr = true,
                             )
                         }
                     },
@@ -636,7 +637,7 @@ private fun McpHeaderField(
         shape = RoundedCornerShape(16.dp),
         textStyle = MaterialTheme.typography.bodyMedium.copy(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textDirection = rememberContentTextDirection(value),
+            textDirection = TextDirection.Ltr,
         ),
     )
 }
@@ -653,6 +654,7 @@ internal fun McpLabeledField(
     password: Boolean = false,
     trailingContent: (@Composable () -> Unit)? = null,
     placeholder: String? = null,
+    forceLtr: Boolean = false,
 ) {
     var secretVisible by rememberSecretVisible()
     Column(modifier) {
@@ -686,7 +688,7 @@ internal fun McpLabeledField(
                 shape = RoundedCornerShape(16.dp),
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textDirection = rememberContentTextDirection(value),
+                    textDirection = if (forceLtr) TextDirection.Ltr else rememberContentTextDirection(value),
                 ),
             )
         }

@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
@@ -38,6 +39,7 @@ import com.newoether.agora.model.SubagentSummary
 import com.newoether.agora.ui.components.OPTION_HIGHLIGHT_SHAPE
 import com.newoether.agora.ui.components.SmoothBottomSheet
 import com.newoether.agora.ui.components.rememberSmoothBottomSheetState
+import com.newoether.agora.util.rememberContentTextAlign
 import com.newoether.agora.util.rememberContentTextDirection
 
 /** The shared row keeps this entry's family key at both sides of the single/count threshold. */
@@ -145,7 +147,7 @@ internal fun ConversationSubagentsSheet(
                             Text(agent.title, style = MaterialTheme.typography.titleMedium.copy(
                                 fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium,
                                 textDirection = rememberContentTextDirection(agent.title),
-                            ))
+                            ), textAlign = rememberContentTextAlign(agent.title))
                             Text(
                                 subagentStatusLabel(agent.status), style = MaterialTheme.typography.labelMedium,
                                 color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else

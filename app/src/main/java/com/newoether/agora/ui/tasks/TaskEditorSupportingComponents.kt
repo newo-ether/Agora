@@ -665,7 +665,12 @@ internal fun TaskSystemPromptRow(
                 selected?.title ?: stringResource(
                     R.string.global_default_format,
                     globalDefaultTitle(prompts, activeSystemPromptId),
-                )
+                ),
+                style = LocalTextStyle.current.copy(
+                    textDirection = rememberContentTextDirection(
+                        selected?.title ?: globalDefaultTitle(prompts, activeSystemPromptId),
+                    ),
+                ),
             )
         },
         leadingContent = {

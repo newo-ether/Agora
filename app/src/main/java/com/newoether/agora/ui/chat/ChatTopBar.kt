@@ -333,6 +333,7 @@ internal fun ChatTopBar(
                                 singleLine = true,
                                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
+                                    textDirection = rememberContentTextDirection(searchQuery),
                                 ),
                                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                 keyboardOptions = KeyboardOptions(

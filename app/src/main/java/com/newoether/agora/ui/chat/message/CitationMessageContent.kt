@@ -335,7 +335,7 @@ private fun CitationInlineCapsule(
         Text(
             text = primaryText,
             color = citationCapsuleForegroundColor(),
-            style = textStyle,
+            style = textStyle.copy(textDirection = rememberContentTextDirection(primaryText)),
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -423,7 +423,7 @@ internal fun CitationSourcesSummaryCapsule(
         Text(
             text = label,
             color = citationCapsuleForegroundColor(),
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelLarge.copy(textDirection = rememberContentTextDirection(label)),
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
         )
@@ -559,7 +559,7 @@ private fun CitationSourceRow(
             if (metadata.isNotBlank()) {
                 Text(
                     text = metadata,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

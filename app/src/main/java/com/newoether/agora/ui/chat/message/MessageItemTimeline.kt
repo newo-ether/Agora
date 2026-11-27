@@ -32,6 +32,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +45,8 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.util.noOpBringIntoView
+import com.newoether.agora.util.rememberContentTextAlign
+import com.newoether.agora.util.rememberContentTextDirection
 
 // ── Timeline / segment rendering (extracted from MessageItem.kt) ──────────────
 // Pure code-motion. Entry points used by MessageItem.kt are `internal`; the rest
@@ -421,7 +424,8 @@ internal fun CompactSegmentBlock(
                 ) { title ->
                     Text(
                         text = title,
-                        style = compactTitleStyle,
+                        style = compactTitleStyle.copy(textDirection = rememberContentTextDirection(title)),
+                        textAlign = rememberContentTextAlign(title),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -671,13 +675,15 @@ internal fun TimelineInfoSegmentCard(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
+                val infoTitle = when (seg.type) {
+                    "tool" -> toolDisplayName(seg)
+                    "transcription" -> transcriptionLabel(detailSegments, detailIndex)
+                    else -> stringResource(R.string.tool_thinking)
+                }
                 Text(
-                    text = when (seg.type) {
-                        "tool" -> toolDisplayName(seg)
-                        "transcription" -> transcriptionLabel(detailSegments, detailIndex)
-                        else -> stringResource(R.string.tool_thinking)
-                    },
-                    style = ChatType.meta,
+                    text = infoTitle,
+                    style = ChatType.meta.copy(textDirection = rememberContentTextDirection(infoTitle)),
+                    textAlign = rememberContentTextAlign(infoTitle),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,

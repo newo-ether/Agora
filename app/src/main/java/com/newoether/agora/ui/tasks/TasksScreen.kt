@@ -311,7 +311,7 @@ private fun TasksListPage(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             onDismissRequest = { pendingDelete = null },
             title = { Text(stringResource(R.string.task_delete), fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.task_delete_confirm, displayName)) },
+            text = { Text(stringResource(R.string.task_delete_confirm, displayName), style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(displayName))) },
             confirmButton = {
                 TextButton(
                     onClick = {

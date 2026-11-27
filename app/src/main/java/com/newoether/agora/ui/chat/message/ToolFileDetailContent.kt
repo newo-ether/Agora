@@ -200,7 +200,7 @@ private fun DiffLines(lines: List<ToolDetailDiffLine>) {
                         DisableSelection {
                             Text(
                                 text = sign,
-                                style = ChatType.thoughtCodeLarge,
+                                style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
                                 fontFamily = MonoFamily,
                                 color = if (line.kind == ToolDetailDiffKind.CONTEXT) muted else tint,
                                 modifier = Modifier.width(14.dp),
@@ -246,7 +246,7 @@ internal fun CodeRows(rows: List<ToolDetailCodeRow>) {
                 rows.forEach { row ->
                     when (row) {
                         ToolDetailCodeRow.Gap -> DisableSelection {
-                            Text(text = "\u22ef", style = ChatType.thoughtCodeLarge, color = gutterColor)
+                            Text(text = "\u22ef", style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr), color = gutterColor)
                         }
                         is ToolDetailCodeRow.Line -> Row(modifier = Modifier.fillMaxWidth()) {
                             DisableSelection {
@@ -300,7 +300,7 @@ private fun InlineGutterText(rows: List<ToolDetailCodeRow>) {
     NoAutoScrollSelectionContainer {
         Text(
             text = text,
-            style = ChatType.thoughtCodeLarge,
+            style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
             fontFamily = MonoFamily,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(10.dp),

@@ -2,6 +2,7 @@ package com.newoether.agora.util
 
 import androidx.compose.ui.text.style.TextDirection
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -54,5 +55,13 @@ class ContentTextDirectionTest {
         assertEquals(TextDirection.Rtl, contentTextDirection("مرحبا"))
         assertEquals(TextDirection.Rtl, contentTextDirection("שלום"))
         assertEquals(TextDirection.Ltr, contentTextDirection("hello"))
+    }
+
+    @Test
+    fun strongDirectionIsNullForNeutralText() {
+        assertNull(strongTextDirection("1234 — 56%"))
+        assertNull(strongTextDirection("😀 🎉"))
+        assertEquals(TextDirection.Rtl, strongTextDirection("1234 مرحبًا"))
+        assertEquals(TextDirection.Ltr, strongTextDirection("1234 Hello"))
     }
 }

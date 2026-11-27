@@ -248,7 +248,7 @@ internal fun RowScope.ComposerModelSelector(
 internal fun ComposerModelMenuItem(displayText: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     AgoraDropdownMenuItem(
         enabled = enabled,
-        text = { Text(displayText) },
+        text = { Text(displayText, style = MaterialTheme.typography.bodyMedium.copy(textDirection = rememberContentTextDirection(displayText))) },
         leadingIcon = {
             if (selected) Icon(Icons.Rounded.Check, null, Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
             else Spacer(Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))

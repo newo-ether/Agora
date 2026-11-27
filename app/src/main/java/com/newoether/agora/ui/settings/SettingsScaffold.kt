@@ -95,6 +95,7 @@ internal fun CollapsingSettingsTitleBar(
     titleAreaHeight: Dp,
     titleTravel: Dp,
     onBack: () -> Unit,
+    titleTextDirection: androidx.compose.ui.text.style.TextDirection? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -127,7 +128,11 @@ internal fun CollapsingSettingsTitleBar(
             while (fontSize > floor) {
                 val measured = textMeasurer.measure(
                     title,
-                    style = TextStyle(fontWeight = FontWeight.Bold, fontSize = fontSize.sp)
+                    style = if (titleTextDirection != null) {
+                        TextStyle(fontWeight = FontWeight.Bold, fontSize = fontSize.sp, textDirection = titleTextDirection)
+                    } else {
+                        TextStyle(fontWeight = FontWeight.Bold, fontSize = fontSize.sp)
+                    },
                 ).size.width
                 if (measured <= availablePx) break
                 fontSize -= 1f
@@ -167,8 +172,18 @@ internal fun CollapsingSettingsTitleBar(
         // pin the start edge (top-left in LTR, top-right in RTL) so it grows out from the arrow.
         Text(
             text = title,
-            fontWeight = FontWeight.Bold,
-            fontSize = expandedFont,
+            style = if (titleTextDirection != null) {
+                MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = expandedFont,
+                    textDirection = titleTextDirection,
+                )
+            } else {
+                MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = expandedFont,
+                )
+            },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onBackground,
@@ -196,6 +211,7 @@ fun CollapsingSettingsScaffold(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberSettingsScrollState(),
+    titleTextDirection: androidx.compose.ui.text.style.TextDirection? = null,
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
@@ -236,6 +252,7 @@ fun CollapsingSettingsScaffold(
             titleAreaHeight = titleAreaHeight,
             titleTravel = titleTravel,
             onBack = onBack,
+            titleTextDirection = titleTextDirection,
             actions = actions
         )
         Box(
@@ -294,6 +311,7 @@ fun CollapsingSettingsLazyScaffold(
     listState: LazyListState = rememberSettingsLazyListState(),
     contentHorizontalPadding: Dp = 24.dp,
     contentBottomPadding: Dp = 32.dp,
+    titleTextDirection: androidx.compose.ui.text.style.TextDirection? = null,
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
     refreshing: Boolean = false,
@@ -341,6 +359,7 @@ fun CollapsingSettingsLazyScaffold(
                 titleAreaHeight = titleAreaHeight,
                 titleTravel = titleTravel,
                 onBack = onBack,
+                titleTextDirection = titleTextDirection,
                 actions = actions
             )
             Box(

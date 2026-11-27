@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -28,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.chat.GenerationActivityDot
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.rememberContentTextAlign
+import com.newoether.agora.util.rememberContentTextDirection
 import java.text.BreakIterator
 import kotlin.math.floor
 
@@ -97,7 +100,7 @@ internal fun RetryActivityIndicator(
     val allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
-    val textStyle = ChatType.body
+    val textStyle = ChatType.body.copy(textDirection = rememberContentTextDirection(label))
     val baseColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
         alpha = 0.55f * opacity.coerceIn(0f, 1f),
     )
@@ -214,6 +217,7 @@ internal fun RetryActivityIndicator(
             style = textStyle,
             maxLines = 1,
             softWrap = false,
+            textAlign = rememberContentTextAlign(label),
         )
         GenerationActivityDot(
             opacity = opacity,
