@@ -12,13 +12,13 @@ import kotlin.math.max
  */
 internal object DragFeel {
     /** Share of the finger's motion kept at the bound; it falls as the overshoot grows. */
-    const val RUBBER = 0.55f
+    const val RUBBER = 0.42f
     /** How far past a bound a drag can pull, however far the finger goes. */
-    const val REACH_DP = 32f
+    const val REACH_DP = 42f
     /** Time constant of the trail while the finger holds. */
-    const val FOLLOW_MS = 28f
+    const val FOLLOW_MS = 72f
     /** Time constant of the ease to rest after release. */
-    const val RELEASE_MS = 70f
+    const val RELEASE_MS = 120f
 
     /** [value] inside [lo]..[hi] unchanged; outside, approaching [reach] past the bound. */
     fun rubberBand(value: Float, lo: Float, hi: Float, reach: Float): Float {
@@ -79,7 +79,9 @@ internal class DragFollower(size: Int, private val apply: (FloatArray) -> Unit) 
 
     override fun doFrame(frameTimeNanos: Long) {
         if (!running) return
-        val elapsed = if (lastFrame == 0L) FRAME_MS else ((frameTimeNanos - lastFrame) / 1e6f).coerceIn(0f, MAX_STEP_MS)
+        // A fresh callback has no reliable vsync interval. Starting with zero avoids treating a
+        // 120 Hz frame as 16.7 ms whenever a new drag or release starts.
+        val elapsed = if (lastFrame == 0L) 0f else ((frameTimeNanos - lastFrame) / 1e6f).coerceIn(0f, MAX_STEP_MS)
         lastFrame = frameTimeNanos
         val step = 1f - exp(-elapsed / timeConstant)
         var settled = true
@@ -88,7 +90,9 @@ internal class DragFollower(size: Int, private val apply: (FloatArray) -> Unit) 
             if (abs(target[i] - now[i]) < SETTLED_PX) now[i] = target[i] else settled = false
         }
         apply(now)
-        if (!settled) return Choreographer.getInstance().postFrameCallback(this)
+        // While held, keep the frame clock alive even after reaching the target. Stopping here
+        // made the next small finger movement restart with a different step and read as a twitch.
+        if (!settled || arrived == null) return Choreographer.getInstance().postFrameCallback(this)
         running = false
         finish()
     }
@@ -100,7 +104,6 @@ internal class DragFollower(size: Int, private val apply: (FloatArray) -> Unit) 
     }
 
     private companion object {
-        const val FRAME_MS = 16.7f
         const val MAX_STEP_MS = 50f
         const val SETTLED_PX = 0.5f
     }

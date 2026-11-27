@@ -117,7 +117,7 @@ internal fun previewWindowParams() = WindowManager.LayoutParams(
  * Returns the width asked for, unclamped, and the largest width the anchored card has room for.
  */
 internal fun previewResize(
-    anchor: Int, dx: Float, dy: Float, start: android.graphics.Rect, safe: android.graphics.Rect, pad: Int, aspect: Float, minWidth: Int, maxWidth: Int,
+    anchor: Int, dx: Float, dy: Float, start: android.graphics.Rect, safe: android.graphics.Rect, edge: Int, aspect: Float, minWidth: Int, maxWidth: Int,
 ): Pair<Float, Float> {
     val w0 = start.width().toFloat()
     val h0 = start.height().toFloat()
@@ -128,11 +128,11 @@ internal fun previewResize(
     }
     // The anchored edge stays put, so the room on the free side bounds the size.
     val room = when (anchor) {
-        1 -> (safe.right - pad - start.left).toFloat()
-        -1 -> (start.right - safe.left - pad).toFloat()
-        else -> 2f * minOf(start.exactCenterX() - safe.left - pad, safe.right - pad - start.exactCenterX())
+        1 -> (safe.right - edge - start.left).toFloat()
+        -1 -> (start.right - safe.left - edge).toFloat()
+        else -> 2f * minOf(start.exactCenterX() - safe.left - edge, safe.right - edge - start.exactCenterX())
     }
-    val roomBelow = (safe.bottom - pad - start.top) * aspect
+    val roomBelow = (safe.bottom - edge - start.top) * aspect
     val limit = minOf(room, roomBelow, maxWidth.toFloat()).coerceAtLeast(minWidth.toFloat())
     return w0 * (1f + growth) to limit
 }

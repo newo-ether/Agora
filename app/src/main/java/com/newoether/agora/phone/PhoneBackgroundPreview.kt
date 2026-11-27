@@ -597,7 +597,7 @@ internal class PhoneBackgroundPreview(
     private fun resizeBy(kind: Gesture, dx: Float, dy: Float) {
         val anchor = when (kind) { Gesture.BOTTOM_END -> 1; Gesture.BOTTOM_START -> -1; else -> 0 }
         val (width, limit) = previewResize(anchor, dx, dy, Rect(startX, startY, startX + startWidth, startY + startHeight),
-            safe, pad, aspect, minWidth, maxWidth())
+            safe, pad + margin, aspect, minWidth, maxWidth())
         resizeLimit = limit.toInt()
         following = kind
         follower.follow(DragFeel.rubberBand(width, minWidth.toFloat(), limit, rubberReach), 0f)
@@ -647,9 +647,8 @@ internal class PhoneBackgroundPreview(
                     scaleY = scale
                     val (cx, cy) = if (minimized) capsuleShownX + capsuleWidth / 2f to capsuleShownY + capsuleHeight / 2f
                         else shownX + cardWidth / 2f to shownY + (cardHeight - handleZone) / 2f
-                    transformOrigin = TransformOrigin(
-                        cx / size.width.coerceAtLeast(1f), cy / size.height.coerceAtLeast(1f),
-                    )
+                    transformOrigin = if (scale == 1f) TransformOrigin.Center else
+                        TransformOrigin(cx / size.width.coerceAtLeast(1f), cy / size.height.coerceAtLeast(1f))
                 },
         ) {
             val bitmap = retainedFrame(screen)
@@ -673,7 +672,7 @@ internal class PhoneBackgroundPreview(
                     alpha = if (minimized && !morphShown) 0f else 1f
                     // The lift grows about the card's center, below the bar band.
                     val liftY = (handleZone + cardHeight / 2f) / (handleZone + cardHeight).coerceAtLeast(1)
-                    transformOrigin = TransformOrigin(0.5f, liftY)
+                    transformOrigin = if (grow == 1f) TransformOrigin.Center else TransformOrigin(0.5f, liftY)
                 },
         ) {
             PreviewCardFace(bitmap, Modifier.offset { IntOffset(0, handleZone) }.previewExactSize(cardWidth, cardHeight)) {
@@ -684,7 +683,11 @@ internal class PhoneBackgroundPreview(
             // Unclipped, so the grips draw in the transparent frame outside the card.
             Canvas(
                 Modifier.offset { IntOffset(0, handleZone) }.previewExactSize(cardWidth, cardHeight)
-                    .graphicsLayer { alpha = if (morphShown) (1f - morph * 4f).coerceAtLeast(0f) else 1f },
+                    .graphicsLayer {
+                        val morphAlpha = if (morphShown) (1f - morph * 4f).coerceAtLeast(0f) else 1f
+                        // Only the veiling stage paints grips, so hand-over never doubles their alpha.
+                        alpha = morphAlpha * if (staged && !veiled) 0f else 1f
+                    },
             ) {
                 fun weight(index: Int) = grips.getOrNull(index)?.value ?: 0f
                 drawPreviewGrips(weight(0), weight(1), weight(2), weight(3))
