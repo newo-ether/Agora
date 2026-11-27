@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.newoether.agora.AgoraApplication
@@ -19,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /** In-memory control is never restored after process death. */
@@ -50,13 +52,14 @@ class PhoneControlService : Service() {
                     conversation, intent.getLongExtra("epoch", -1),
                 )
             }
-            control.lease.held.collect {
+            combine(control.lease.held, control.actionName) { _, _ -> }.collect {
                 // Use the current value after suspension. An older null must not stop a new claim.
                 val held = control.lease.held.value
                 observed = held
                 if (held == null) {
                     if (stopSelfResult(startId)) stopForeground(STOP_FOREGROUND_REMOVE)
-                } else getSystemService(NotificationManager::class.java).notify(1084, notification(held))
+                } else getSystemService(NotificationManager::class.java)
+                    .notify(1084, notification(held, control.actionName.value))
             }
         }
         return START_NOT_STICKY
@@ -70,13 +73,28 @@ class PhoneControlService : Service() {
         super.onDestroy()
     }
 
-    private fun notification(held: PhoneControlLease.Held?): android.app.Notification {
+    /**
+     * Ongoing control notice with Stop. It asks to be a Live Update, so Android 16 and OEM skins
+     * built on it (OxygenOS / ColorOS 16 Live Alerts) show it as a status bar chip with the elapsed
+     * time; older systems ignore the request and show an ordinary ongoing notification.
+     */
+    private fun notification(held: PhoneControlLease.Held?, action: String? = null): android.app.Notification {
         val resources = appLanguageResources(runtime?.settings?.appLanguage?.value ?: "system")
+        val status = action ?: resources.getString(R.string.phone_thinking)
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_phone_use).setContentTitle(resources.getString(R.string.phone_title))
-            .setContentText(held?.title ?: resources.getString(R.string.phone_thinking))
+            .setSmallIcon(R.drawable.ic_phone_use)
+            .setContentTitle(held?.title ?: resources.getString(R.string.phone_title))
+            .setContentText(status)
             .setOngoing(true).setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setRequestPromotedOngoing(true)
             .apply {
+                if (held != null) {
+                    // The chip counts up from the claim; claimedAt is on the elapsed-realtime clock.
+                    setWhen(System.currentTimeMillis() - (SystemClock.elapsedRealtime() - held.claimedAt))
+                    setShowWhen(true)
+                    setUsesChronometer(true)
+                }
                 if (held != null) addAction(0, resources.getString(R.string.phone_stop), PendingIntent.getService(
                     this@PhoneControlService, held.epoch.hashCode(),
                     Intent(this@PhoneControlService, PhoneControlService::class.java)

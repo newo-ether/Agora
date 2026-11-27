@@ -13,6 +13,10 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -69,6 +73,8 @@ internal class PhoneOverlay(
     private var removed = false
     val capturing = androidx.compose.runtime.mutableStateOf(false)
     val visible = androidx.compose.runtime.mutableStateOf(true)
+    /** True while the status strip draws on the background screen rather than the phone. */
+    private val stripOnDisplay = androidx.compose.runtime.mutableStateOf(false)
 
     init {
         savedState.performAttach()
@@ -82,9 +88,17 @@ internal class PhoneOverlay(
         setViewTreeViewModelStoreOwner(this@PhoneOverlay)
     }
 
-    private fun addEffect(windows: WindowManager, viewContext: Context, keepScreenOn: Boolean) {
+    private fun addEffect(windows: WindowManager, viewContext: Context, keepScreenOn: Boolean, onDisplay: Boolean = false) {
         val effectView = composeView(viewContext)
-        effectView.setContent { PhoneOverlayTheme(runtime.settings) { PhoneEffect(runtime, this) } }
+        effectView.setContent { PhoneOverlayTheme(runtime.settings) {
+            PhoneEffect(runtime, this)
+            // The strip reports status where the AI acts; Stop lives in the notification and the
+            // chat. It vanishes in the same frame a capture starts, so no screenshot shows it.
+            if (onDisplay) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (capturing.value) 0f else 1f }) {
+                PhoneControls(runtime, epoch, {}, { _, _ -> }, visible = visible.value,
+                    questionsShown = false, interactive = false)
+            }
+        } }
         val effectParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, effectType,
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -125,13 +139,17 @@ internal class PhoneOverlay(
                 val windowContext = if (Build.VERSION.SDK_INT >= 30) {
                     displayContext.createWindowContext(effectType, null)
                 } else displayContext
-                addEffect(windowContext.getSystemService(WindowManager::class.java), windowContext, keepScreenOn = false)
+                addEffect(windowContext.getSystemService(WindowManager::class.java),
+                    windowContext.withAppLocale(runtime.settings.appLanguage.value),
+                    keepScreenOn = false, onDisplay = true)
             }.isSuccess
             if (placed) {
                 effectDisplayId = display.displayId
+                stripOnDisplay.value = true
                 return true
             }
         }
+        stripOnDisplay.value = false
         val windows = manager ?: return false
         runCatching { addEffect(windows, mainContext ?: context, keepScreenOn = true) }
         return false
@@ -155,7 +173,8 @@ internal class PhoneOverlay(
         effectAlpha = windowAlpha
         val controls = composeView(localizedContext).also { control = it }
         controls.setContent { PhoneOverlayTheme(runtime.settings) {
-            PhoneControls(runtime, epoch, ::focusable, ::bounds, visible = visible.value)
+            PhoneControls(runtime, epoch, ::focusable, ::bounds, visible = visible.value,
+                strip = !stripOnDisplay.value)
         } }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, type,
@@ -273,8 +292,8 @@ internal class PhoneOverlay(
         }
 
     /**
-     * Capture for the background screen while the effect draws on it. The border stays; the cursor is
-     * hidden and, when it was showing, a newer frame is awaited so the model never sees it.
+     * Capture for the background screen while the effect draws on it. The border stays; the cursor and
+     * the status strip are hidden, and a newer frame is awaited so the model never sees them.
      */
     suspend fun captureOnDisplay(
         screen: PhoneVirtualScreen,
@@ -285,7 +304,7 @@ internal class PhoneOverlay(
         try {
             val before = screen.frames.value
             capturing.value = true
-            if (cursorShown) {
+            if (cursorShown || stripOnDisplay.value) {
                 frame()
                 frame()
                 screen.awaitFrameAfter(before, CURSOR_FRAME_TIMEOUT_MS)

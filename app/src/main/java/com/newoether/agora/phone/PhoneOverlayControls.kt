@@ -67,6 +67,12 @@ internal fun PhoneControls(
     focusable: (Boolean) -> Unit,
     bounds: (String, Rect?) -> Unit,
     visible: Boolean = true,
+    /** False on the phone while the strip shows on the background screen instead. */
+    strip: Boolean = true,
+    /** False on the background screen: questions need the phone's keyboard and touch. */
+    questionsShown: Boolean = true,
+    /** False where nobody can touch the strip; it then only reports status. */
+    interactive: Boolean = true,
 ) {
     val held by runtime.lease.held.collectAsState()
     val requests by runtime.askUser.requests.collectAsState()
@@ -111,7 +117,7 @@ internal fun PhoneControls(
             value.y.coerceIn(0f, (constraints.maxHeight - stripSize.height).coerceAtLeast(0).toFloat()),
         )
         val placed = constrained(position)
-        PhoneControlStrip(elapsed, label, {
+        if (strip) PhoneControlStrip(elapsed, label, {
             if (active) runtime.lease.held.value?.takeIf { it.epoch == epoch }?.let {
                 runtime.revoke(it.owner, it.epoch)
             }
@@ -126,12 +132,13 @@ internal fun PhoneControls(
                     transformOrigin = TransformOrigin(0f, 0.5f)
                 }.then(phoneTouchBounds("strip", bounds)),
             enabled = active,
+            interactive = interactive,
             thinking = questions.isEmpty() && displayedAction == null,
             onDrag = { if (active && runtime.lease.held.value?.epoch == epoch)
                 position = constrained(constrained(position) + it) })
         val askTop = with(LocalDensity.current) { stripSize.height.toDp() } + 8.dp
         val questionDuration = if (motion.systemAnimationsDisabled) 0 else 240
-        AnimatedVisibility(questions.isNotEmpty(), modifier = Modifier.align(Alignment.TopCenter).padding(top = askTop)
+        AnimatedVisibility(questionsShown && questions.isNotEmpty(), modifier = Modifier.align(Alignment.TopCenter).padding(top = askTop)
             .graphicsLayer { alpha = progress },
             enter = fadeIn(tween(questionDuration)) + if (reduce) androidx.compose.animation.EnterTransition.None
                 else scaleIn(tween(questionDuration), initialScale = 0.96f),
@@ -156,9 +163,11 @@ internal fun PhoneControlStrip(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    interactive: Boolean = true,
     thinking: Boolean = false,
     onDrag: (Offset) -> Unit,
 ) {
+    val touchable = enabled && interactive
     val latestDrag by rememberUpdatedState(onDrag)
     var pressed by remember { mutableStateOf(false) }
     val allowScale = LocalAgoraMotionPolicy.current.allowSpatialTransitions
@@ -188,8 +197,8 @@ internal fun PhoneControlStrip(
             scaleX = scale; scaleY = scale
             transformOrigin = TransformOrigin(0f, 0.5f)
         }
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
+            .pointerInput(touchable) {
+                if (!touchable) return@pointerInput
                 // Observe before children consume events; dragging and Stop keep their own input owners.
                 awaitEachGesture {
                     try {
@@ -206,8 +215,8 @@ internal fun PhoneControlStrip(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Row(Modifier.pointerInput(enabled) {
-            if (enabled) detectDragGestures { change, delta -> change.consume(); latestDrag(delta) }
+        Row(Modifier.pointerInput(touchable) {
+            if (touchable) detectDragGestures { change, delta -> change.consume(); latestDrag(delta) }
         }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             PhoneDurationCapsule(elapsed, containerColor = containerColor)
             PhoneStatusCapsule(status, containerColor = containerColor, thinking = thinking, active = enabled)
@@ -217,7 +226,7 @@ internal fun PhoneControlStrip(
             Box(Modifier.width(48.dp).fillMaxHeight().heightIn(min = 48.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() }, indication = null,
-                    enabled = enabled, role = Role.Button, onClick = onStop,
+                    enabled = touchable, role = Role.Button, onClick = onStop,
                 ).phoneCapsuleCenter(roundedStart = false), contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.Stop, stringResource(R.string.phone_stop), Modifier.size(24.dp))
             }
