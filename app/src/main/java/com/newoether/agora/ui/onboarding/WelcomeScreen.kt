@@ -58,6 +58,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -650,11 +652,13 @@ private fun ModelPage(models: List<String>, modelAliases: Map<String, String>, c
             val scrollState = rememberScrollState()
             val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
             val thumbColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+            val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
             Box(Modifier.fillMaxWidth().heightIn(max = 340.dp).drawBehind {
                 if (scrollState.maxValue > 0) {
                     val progress = (scrollState.value.toFloat() / scrollState.maxValue).coerceIn(0f, 1f)
                     val barW = 4.dp.toPx()
-                    val barX = size.width - barW - 8.dp.toPx()
+                    // The scrollbar rides the end edge, which is the left edge in RTL.
+                    val barX = if (isRtl) 8.dp.toPx() else size.width - barW - 8.dp.toPx()
                     val barH = size.height - 24.dp.toPx()
                     val barY = 12.dp.toPx()
                     drawRoundRect(trackColor, topLeft = Offset(barX, barY), size = Size(barW, barH), cornerRadius = CornerRadius(2.dp.toPx()))

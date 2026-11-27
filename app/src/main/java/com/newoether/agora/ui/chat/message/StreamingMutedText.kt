@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.rememberContentTextDirection
 
 private const val MUTED_STREAM_TAIL_CODE_POINTS = 42
 private const val MUTED_STREAM_TAIL_ALPHA_BANDS = 6
@@ -27,7 +28,9 @@ internal fun StreamingMutedText(
     StableStreamingText(
         text = text,
         streaming = streaming,
-        style = ChatType.metaNormal,
+        // Thinking/transcription previews carry user content, so the paragraph direction follows
+        // the text itself rather than the UI language.
+        style = ChatType.metaNormal.copy(textDirection = rememberContentTextDirection(text)),
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
