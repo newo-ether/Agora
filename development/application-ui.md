@@ -269,8 +269,11 @@ long press must not introduce a one-frame opaque dim flash before the scrim fade
 
 The image/PDF viewport and video surface lay out against the complete media Dialog bounds. They do not
 subtract status-bar or navigation-bar heights; only the viewer's overlay controls retain their own system-bar
-insets. Double-tap zoom always uses the viewport center as its single pivot, in both animated and Reduced
-Motion paths. Each pinch frame applies centroid-relative scale and that frame's two-finger pan together,
+insets. Double-tap computes one pivot from the 1x fitted geometry and keeps it fixed for the entire
+zoom in both directions, including Reduced Motion. With top/bottom letterboxing, the tap projects to
+the horizontal midline `(tap.x, viewportCenter.y)`; with left/right letterboxing, it projects to the
+vertical midline `(viewportCenter.x, tap.y)`. An exact aspect fit uses the viewport center. Each pinch
+frame applies centroid-relative scale and that frame's two-finger pan together,
 then constrains the two axes independently from the scaled content bounds. A pan component therefore remains
 effective while the other axis is clamped or while the same frame also zooms. `ZoomableImageGeometry.kt`
 owns the pure transform and per-axis bound calculations; pager navigation, fling and fling cancellation are

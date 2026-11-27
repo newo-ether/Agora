@@ -15,6 +15,28 @@ internal fun fittedMediaContentSize(containerSize: Size, imageSize: Size): Size 
     return Size(imageSize.width * fitScale, imageSize.height * fitScale)
 }
 
+/**
+ * Single pivot for a complete double-tap gesture, projected from the tap onto the midline between
+ * the fitted content edges that do not touch the viewport at 1x. Exact aspect fits use the center.
+ */
+internal fun doubleTapMediaPivot(
+    tapOffset: Offset,
+    containerSize: Size,
+    imageSize: Size,
+): Offset {
+    val center = Offset(containerSize.width / 2f, containerSize.height / 2f)
+    if (containerSize.width <= 0f || containerSize.height <= 0f ||
+        imageSize.width <= 0f || imageSize.height <= 0f
+    ) return center
+    val imageAspect = imageSize.width / imageSize.height
+    val containerAspect = containerSize.width / containerSize.height
+    return when {
+        imageAspect > containerAspect -> Offset(tapOffset.x, center.y)
+        imageAspect < containerAspect -> Offset(center.x, tapOffset.y)
+        else -> center
+    }
+}
+
 /** Maximum center displacement on each axis. A letterboxed axis has a zero bound. */
 internal fun mediaPanBounds(containerSize: Size, imageSize: Size, scale: Float): Offset {
     val contentSize = fittedMediaContentSize(containerSize, imageSize)

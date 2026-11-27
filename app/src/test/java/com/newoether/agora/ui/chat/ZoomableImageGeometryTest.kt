@@ -18,15 +18,53 @@ class ZoomableImageGeometryTest {
     }
 
     @Test
-    fun doubleTapTransformUsesViewportCenterForBothDirections() {
+    fun doubleTapUsesHorizontalMidlineWithTopAndBottomLetterboxing() {
+        val container = Size(400f, 800f)
+        val portraitImage = Size(400f, 500f)
         val center = Offset(200f, 400f)
+        val pivot = doubleTapMediaPivot(Offset(180f, 350f), container, portraitImage)
+
+        assertEquals(Offset(180f, 400f), pivot)
+        val zoomIn = transformMediaOffset(Offset.Zero, 3f, pivot, center)
+        val zoomOut = transformMediaOffset(zoomIn, 1f / 3f, pivot, center)
+        assertEquals(40f, zoomIn.x, 0.0001f)
+        assertEquals(0f, zoomIn.y, 0.0001f)
+        assertEquals(0f, zoomOut.x, 0.0001f)
+        assertEquals(0f, zoomOut.y, 0.0001f)
+    }
+
+    @Test
+    fun doubleTapUsesVerticalMidlineWithLeftAndRightLetterboxing() {
+        val container = Size(1200f, 800f)
+        val landscapeImage = Size(600f, 500f)
+        val center = Offset(600f, 400f)
+        val pivot = doubleTapMediaPivot(Offset(350f, 300f), container, landscapeImage)
+
+        assertEquals(Offset(600f, 300f), pivot)
+        val zoomIn = transformMediaOffset(Offset.Zero, 3f, pivot, center)
+        val zoomOut = transformMediaOffset(zoomIn, 1f / 3f, pivot, center)
+        assertEquals(0f, zoomIn.x, 0.0001f)
+        assertEquals(200f, zoomIn.y, 0.0001f)
+        assertEquals(0f, zoomOut.x, 0.0001f)
+        assertEquals(0f, zoomOut.y, 0.0001f)
+    }
+
+    @Test
+    fun doubleTapUsesViewportCenterForExactAspectFit() {
+        val center = Offset(200f, 400f)
+        val pivot = doubleTapMediaPivot(
+            tapOffset = Offset(120f, 240f),
+            containerSize = Size(400f, 800f),
+            imageSize = Size(200f, 400f),
+        )
+
+        assertEquals(center, pivot)
         val original = Offset(24f, -18f)
-
-        val zoomIn = transformMediaOffset(original, 3f, center, center)
-        val zoomOut = transformMediaOffset(original, 1f / 3f, center, center)
-
+        val zoomIn = transformMediaOffset(original, 3f, pivot, center)
+        val zoomOut = transformMediaOffset(zoomIn, 1f / 3f, pivot, center)
         assertEquals(Offset(72f, -54f), zoomIn)
-        assertEquals(Offset(8f, -6f), zoomOut)
+        assertEquals(24f, zoomOut.x, 0.0001f)
+        assertEquals(-18f, zoomOut.y, 0.0001f)
     }
 
     @Test

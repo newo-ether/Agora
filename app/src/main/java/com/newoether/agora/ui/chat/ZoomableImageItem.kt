@@ -93,7 +93,7 @@ internal fun ZoomableImageItem(
                 detectTapGestures(
                     onTap = { onTap() },
                     onLongPress = onLongPress?.let { cb -> { _ -> cb() } },
-                    onDoubleTap = {
+                    onDoubleTap = { tapOffset ->
                         animationJob?.cancel()
                         animationJob = scope.launch {
                             val s0 = scale
@@ -105,11 +105,12 @@ internal fun ZoomableImageItem(
                             var prevOX = offsetX
                             var prevOY = offsetY
                             val center = Offset(centerX, centerY)
+                            val pivot = doubleTapMediaPivot(tapOffset, containerSize, imageSize)
                             if (!motionPolicy.allowSpatialTransitions) {
                                 val r = visualScale(targetScale) / visualScale(s0)
                                 val (maxX, maxY) = getMaxOffsets(targetScale)
                                 val transformed = constrainMediaOffset(
-                                    transformMediaOffset(Offset(offsetX, offsetY), r, center, center),
+                                    transformMediaOffset(Offset(offsetX, offsetY), r, pivot, center),
                                     Offset(maxX, maxY),
                                 )
                                 offsetX = transformed.x
@@ -122,7 +123,7 @@ internal fun ZoomableImageItem(
                                 val r = visualScale(value) / visualScale(prevS)
                                 val (maxX, maxY) = getMaxOffsets(value)
                                 val transformed = constrainMediaOffset(
-                                    transformMediaOffset(Offset(prevOX, prevOY), r, center, center),
+                                    transformMediaOffset(Offset(prevOX, prevOY), r, pivot, center),
                                     Offset(maxX, maxY),
                                 )
                                 offsetX = transformed.x
