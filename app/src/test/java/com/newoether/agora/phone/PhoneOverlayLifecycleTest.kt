@@ -8,6 +8,7 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
 import com.newoether.agora.data.repository.SettingsRepository
+import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.viewmodel.AskUserController
 import io.mockk.every
 import io.mockk.mockk
@@ -95,6 +96,38 @@ class PhoneOverlayLifecycleTest {
             assertEquals(0, attached.last().flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
             assertTrue(attached.last().flags and WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL != 0)
             assertEquals(1f, attached.last().alpha)
+        } finally {
+            actual.remove()
+        }
+    }
+
+    @Test fun backgroundQuestionNeverRaisesThePhoneWindowOrTakesItsTouches() = runTest(dispatcher) {
+        val settings = mockk<SettingsRepository> {
+            every { appLanguage } returns MutableStateFlow("system")
+        }
+        val lease = PhoneControlLease { 0L }
+        lease.claim(RunEffectIdentity("a", 1, "run", 0, "batch"), "A")
+        val questions = AskUserController()
+        every { runtime.settings } returns settings
+        every { runtime.lease } returns lease
+        every { runtime.askUser } returns questions
+        val host = object : ContextWrapper(context) {
+            override fun getSystemService(name: String): Any? =
+                if (name == Context.WINDOW_SERVICE) manager else super.getSystemService(name)
+        }
+        val actual = PhoneOverlay(host, runtime, lease.held.value!!.epoch)
+        try {
+            actual.show("root", effectOnPhone = false)
+            questions.open("a", "Only in chat", listOf("A"), false, false, runId = "run")
+            runCurrent()
+            frames()
+            val background = PhoneOverlay::class.java.getDeclaredField("controlWindow")
+                .apply { isAccessible = true }.get(actual) as PhoneControlWindow
+            val phoneParams = PhoneOverlay::class.java.getDeclaredField("controlParams")
+                .apply { isAccessible = true }.get(actual) as WindowManager.LayoutParams
+            assertFalse(background.touchable)
+            assertTrue(phoneParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+            assertTrue("background question restored opaque alpha=${phoneParams.alpha}", phoneParams.alpha < 1f)
         } finally {
             actual.remove()
         }

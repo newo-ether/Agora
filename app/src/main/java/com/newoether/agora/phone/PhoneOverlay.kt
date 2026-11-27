@@ -82,6 +82,7 @@ internal class PhoneOverlay(
     val visible = androidx.compose.runtime.mutableStateOf(true)
     /** True while the status strip draws on the background screen rather than the phone. */
     private val stripOnDisplay = androidx.compose.runtime.mutableStateOf(false)
+    private var questionWaiting = false
 
     init {
         savedState.performAttach()
@@ -188,7 +189,7 @@ internal class PhoneOverlay(
         val controls = composeView(localizedContext).also { control = it }
         controls.setContent { PhoneOverlayTheme(runtime.settings) {
             PhoneControls(runtime, epoch, ::focusable, ::bounds, visible = visible.value,
-                strip = !stripOnDisplay.value)
+                strip = !stripOnDisplay.value, questionsShown = !stripOnDisplay.value)
         } }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, type,
@@ -220,7 +221,10 @@ internal class PhoneOverlay(
                     owner != null && requests.any {
                         it.conversationId == owner.conversationId && it.runId == owner.runId
                     }
-                }.collect { waiting -> controlWindow?.showForUser(waiting) }
+                }.collect { waiting ->
+                    questionWaiting = waiting
+                    updateQuestionPriority()
+                }
             }
             touchRegion?.invoke(controls)
             lifecycleRegistry.currentState = Lifecycle.State.RESUMED
@@ -231,6 +235,12 @@ internal class PhoneOverlay(
     private fun placeStrip(onDisplay: Boolean) {
         stripOnDisplay.value = onDisplay
         controlWindow?.idlePassThrough = onDisplay
+        updateQuestionPriority()
+    }
+
+    /** Background mode answers in chat; a question must never make the phone's window opaque or touchable. */
+    private fun updateQuestionPriority() {
+        controlWindow?.showForUser(questionWaiting && !stripOnDisplay.value)
     }
 
     private fun bounds(key: String, value: ComposeRect?) {
