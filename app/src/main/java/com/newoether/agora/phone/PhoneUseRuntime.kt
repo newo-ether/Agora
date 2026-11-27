@@ -51,8 +51,10 @@ internal class PhoneUseRuntime(
         get() = _background.value
         set(value) { _background.value = value }
     private var preview: PhoneBackgroundPreview? = null
-    /** True while [PhoneBackgroundActivity] shows the background screen; the floating card hides. */
+    /** True from the request until [PhoneBackgroundActivity] ends. */
     val fullscreen = MutableStateFlow(false)
+    /** True once the activity's first frame is on screen; only then does the floating card hide. */
+    val fullscreenCovers = MutableStateFlow(false)
     /** Screen bounds of the floating card, where the full-screen view grows from and returns to. */
     @Volatile var previewCard: android.graphics.Rect? = null
     /** True after the user closed the floating card; the notification offers to bring it back. */
@@ -268,6 +270,7 @@ internal class PhoneUseRuntime(
         virtual?.release()
         virtual = null
         fullscreen.value = false
+        fullscreenCovers.value = false
         privileged.close()
         syncActionStatus()
         cursor.value = null

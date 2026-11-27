@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.view.Choreographer
 import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -76,6 +77,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
@@ -84,6 +86,7 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -131,6 +134,7 @@ class PhoneBackgroundActivity : ComponentActivity() {
                 )
             }
         }
+        coverAfterFirstFrame(control)
         onBackPressedDispatcher.addCallback(this) { requestClose() }
         lifecycleScope.launch {
             // A revoked lease, a Stop or a permission loss all end the background screen.
@@ -147,6 +151,7 @@ class PhoneBackgroundActivity : ComponentActivity() {
     override fun onDestroy() {
         runtime?.let { control ->
             control.fullscreen.value = false
+            control.fullscreenCovers.value = false
             control.background.value?.frameIntervalMs = PhoneVirtualScreen.FRAME_INTERVAL_MS
         }
         super.onDestroy()
@@ -156,7 +161,23 @@ class PhoneBackgroundActivity : ComponentActivity() {
         closing.value = true
     }
 
+    /**
+     * The card is an overlay above this activity. It hides only after this window's first frame,
+     * drawn at the card's rect, has reached the screen; hiding it sooner shows a frame of neither.
+     */
+    private fun coverAfterFirstFrame(control: PhoneUseRuntime) {
+        val cover = {
+            Choreographer.getInstance().postFrameCallback {
+                if (!isFinishing && !closing.value && !vanishing.value) control.fullscreenCovers.value = true
+            }
+        }
+        val decor = window.decorView
+        if (Build.VERSION.SDK_INT >= 29) decor.viewTreeObserver.registerFrameCommitCallback { cover() }
+        else decor.doOnPreDraw { decor.post { cover() } }
+    }
+
     private fun finishNow() {
+        runtime?.fullscreenCovers?.value = false
         runtime?.fullscreen?.value = false
         if (!isFinishing) finish()
     }
@@ -226,6 +247,8 @@ private fun FullScreen(
     var injected by remember { mutableStateOf<Offset?>(null) }
 
     LaunchedEffect(Unit) {
+        // Grow only once the card above has handed over, so no frame shows both.
+        runtime.fullscreenCovers.first { it }
         if (reduce) progress.snapTo(1f) else progress.animateTo(1f, tween(OPEN_MS, easing = EmphasizedEasing))
     }
     LaunchedEffect(vanishing) {

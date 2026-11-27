@@ -190,7 +190,7 @@ internal class PhoneBackgroundPreview(
         markPushed()
         context.applicationContext.registerComponentCallbacks(configuration)
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
-        scope.launch { runtime.fullscreen.collect { hidden -> setHidden(hidden) } }
+        scope.launch { runtime.fullscreenCovers.collect { hidden -> setHidden(hidden) } }
         present(1f, ENTER_MS)
     }
 

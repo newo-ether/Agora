@@ -202,10 +202,13 @@ internal fun applyMessageTemplatesToMessages(
                 message.id.startsWith(Constants.RESULT_MSG_PREFIX) ||
                 message.id.startsWith(Constants.COMPACT_MSG_PREFIX) ||
                 message.id.startsWith("context_summary_") ||
+                // projectToolResultImagesToUserMessage's API-only turn carrying tool images.
+                message.id.startsWith("image_context_") ||
                 message.id.startsWith("api_initial_user_") ||
                 message.id.startsWith("api_compact_continuation_")
         val template = when {
-            isSpecialMessage || message.text.isEmpty() -> null
+            // Task, Loop, subagent and deferred ask_user turns carry a source; only typed turns get templates.
+            isSpecialMessage || message.source != null || message.text.isEmpty() -> null
             message.participant == Participant.USER -> userPrepend to userPostpend
             message.participant == Participant.MODEL -> assistantPrepend to assistantPostpend
             else -> null
