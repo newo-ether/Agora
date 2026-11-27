@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">Short side (px)</string>
     <string name="phone_background_long_side">Long side (px)</string>
     <string name="phone_background_size_range">Short side at least %1$d dp, each side at most %2$d px, density %3$d to %4$d dpi.</string>
+    <string name="phone_background_custom_layout">Apps lay out for a %1$d × %2$d dp screen (px × 160 ÷ dpi). From about 600 dp on the short side, they use tablet layouts.</string>
     <string name="phone_background_landscape">Landscape</string>
     <string name="phone_background_landscape_description">How the background screen is laid out. Applies at the next claim.</string>
     <string name="phone_background_portrait">Portrait</string>

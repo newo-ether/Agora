@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">Короткая сторона (px)</string>
     <string name="phone_background_long_side">Длинная сторона (px)</string>
     <string name="phone_background_size_range">Короткая сторона не меньше %1$d dp, каждая сторона не больше %2$d px, плотность от %3$d до %4$d dpi.</string>
+    <string name="phone_background_custom_layout">Приложения строят макет для экрана %1$d × %2$d dp (px × 160 ÷ dpi). Примерно с 600 dp по короткой стороне они переходят на планшетный макет.</string>
     <string name="phone_background_landscape">Альбомная</string>
     <string name="phone_background_landscape_description">Ориентация фонового экрана. Применяется при следующем захвате управления.</string>
     <string name="phone_background_portrait">Портретная</string>

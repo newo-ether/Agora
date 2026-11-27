@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">Kurze Seite (px)</string>
     <string name="phone_background_long_side">Lange Seite (px)</string>
     <string name="phone_background_size_range">Kurze Seite mindestens %1$d dp, jede Seite höchstens %2$d px, Dichte %3$d bis %4$d dpi.</string>
+    <string name="phone_background_custom_layout">Apps ordnen ihre Inhalte für einen Bildschirm von %1$d × %2$d dp an (px × 160 ÷ dpi). Ab etwa 600 dp an der kurzen Seite nutzen sie Tablet-Layouts.</string>
     <string name="phone_background_landscape">Querformat</string>
     <string name="phone_background_landscape_description">Ausrichtung des Hintergrundbildschirms. Gilt ab der nächsten Übernahme.</string>
     <string name="phone_background_portrait">Hochformat</string>

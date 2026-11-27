@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">Petit côté (px)</string>
     <string name="phone_background_long_side">Grand côté (px)</string>
     <string name="phone_background_size_range">Petit côté d\'au moins %1$d dp, chaque côté de %2$d px au plus, densité de %3$d à %4$d dpi.</string>
+    <string name="phone_background_custom_layout">Les applis se mettent en page pour un écran de %1$d × %2$d dp (px × 160 ÷ dpi). Dès 600 dp environ sur le petit côté, elles passent en mise en page tablette.</string>
     <string name="phone_background_landscape">Paysage</string>
     <string name="phone_background_landscape_description">Orientation de l\'écran d\'arrière-plan. S\'applique à la prochaine prise de contrôle.</string>
     <string name="phone_background_portrait">Portrait</string>

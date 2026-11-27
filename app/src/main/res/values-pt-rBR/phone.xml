@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">Lado menor (px)</string>
     <string name="phone_background_long_side">Lado maior (px)</string>
     <string name="phone_background_size_range">Lado menor com pelo menos %1$d dp, cada lado com no máximo %2$d px e densidade de %3$d a %4$d dpi.</string>
+    <string name="phone_background_custom_layout">Os apps montam o layout para uma tela de %1$d × %2$d dp (px × 160 ÷ dpi). A partir de uns 600 dp no lado menor, usam layouts de tablet.</string>
     <string name="phone_background_landscape">Paisagem</string>
     <string name="phone_background_landscape_description">Orientação da tela em segundo plano. Vale a partir do próximo pedido de controle.</string>
     <string name="phone_background_portrait">Retrato</string>

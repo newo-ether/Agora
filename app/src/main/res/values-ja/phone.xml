@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">短辺（px）</string>
     <string name="phone_background_long_side">長辺（px）</string>
     <string name="phone_background_size_range">短辺は %1$d dp 以上、各辺は %2$d px 以下、密度は %3$d〜%4$d dpi。</string>
+    <string name="phone_background_custom_layout">アプリは %1$d × %2$d dp の画面としてレイアウトします（px × 160 ÷ dpi）。短辺が約 600 dp 以上だとタブレット向けレイアウトになります。</string>
     <string name="phone_background_landscape">横向き</string>
     <string name="phone_background_landscape_description">バックグラウンド画面の向きです。次回の制御取得時に反映されます。</string>
     <string name="phone_background_portrait">縦向き</string>

@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">短邊（px）</string>
     <string name="phone_background_long_side">長邊（px）</string>
     <string name="phone_background_size_range">短邊至少 %1$d dp，每邊最多 %2$d px，密度 %3$d 到 %4$d dpi。</string>
+    <string name="phone_background_custom_layout">應用程式會按 %1$d × %2$d dp 的螢幕排版（px × 160 ÷ dpi）。短邊約 600 dp 起，會改用平板版面。</string>
     <string name="phone_background_landscape">橫向</string>
     <string name="phone_background_landscape_description">背景螢幕的版面方向。下次申請控制時生效。</string>
     <string name="phone_background_portrait">直向</string>

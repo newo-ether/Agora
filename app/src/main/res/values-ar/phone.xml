@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">الضلع القصير (بكسل)</string>
     <string name="phone_background_long_side">الضلع الطويل (بكسل)</string>
     <string name="phone_background_size_range">الضلع القصير %1$d dp على الأقل، وكل ضلع %2$d بكسل على الأكثر، والكثافة من %3$d إلى %4$d dpi.</string>
+    <string name="phone_background_custom_layout">تعرض التطبيقات تخطيطها لشاشة بحجم %1$d × %2$d dp (بكسل × 160 ÷ dpi). وعندما يبلغ الضلع القصير نحو 600 dp تنتقل إلى تخطيطات الأجهزة اللوحية.</string>
     <string name="phone_background_landscape">أفقي</string>
     <string name="phone_background_landscape_description">اتجاه الشاشة الخلفية. يُطبَّق عند طلب التحكم التالي.</string>
     <string name="phone_background_portrait">عمودي</string>

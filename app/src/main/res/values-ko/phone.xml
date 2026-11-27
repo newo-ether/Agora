@@ -92,6 +92,7 @@
     <string name="phone_background_short_side">짧은 변(px)</string>
     <string name="phone_background_long_side">긴 변(px)</string>
     <string name="phone_background_size_range">짧은 변은 %1$d dp 이상, 각 변은 %2$d px 이하, 밀도는 %3$d~%4$d dpi입니다.</string>
+    <string name="phone_background_custom_layout">앱은 %1$d × %2$d dp 화면으로 레이아웃합니다(px × 160 ÷ dpi). 짧은 변이 약 600 dp 이상이면 태블릿 레이아웃을 씁니다.</string>
     <string name="phone_background_landscape">가로</string>
     <string name="phone_background_landscape_description">백그라운드 화면의 방향입니다. 다음 제어 요청 때 적용됩니다.</string>
     <string name="phone_background_portrait">세로</string>

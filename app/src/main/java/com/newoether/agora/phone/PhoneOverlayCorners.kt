@@ -64,8 +64,9 @@ internal fun rememberPhoneCorners(view: View): List<RoundedCorner?>? {
 
 /**
  * One point of the screen outline and how it moves inward. A corner point keeps its corner's
- * center and shrinks toward it; past the radius it continues along the corner diagonal, which is
- * where the inset outline's sharp corner lies. An edge point moves straight along its normal.
+ * center and shrinks toward it until the radius reaches [inner]; deeper, the radius stays at
+ * [inner] and the center moves in along the corner diagonal, so the inset outline keeps a round
+ * corner instead of turning sharp. An edge point moves straight along its normal.
  */
 private class OutlinePoint(
     val ax: Float, val ay: Float,
@@ -73,15 +74,13 @@ private class OutlinePoint(
     val reach: Float,
     val diagonalX: Float, val diagonalY: Float,
     val corner: Boolean,
+    val inner: Float = 0f,
 ) {
     fun at(depth: Float, into: FloatArray, index: Int) {
-        if (corner && depth > reach) {
-            into[index] = ax - diagonalX * (depth - reach)
-            into[index + 1] = ay - diagonalY * (depth - reach)
-        } else {
-            into[index] = ax + ux * (reach - depth)
-            into[index + 1] = ay + uy * (reach - depth)
-        }
+        val radius = if (corner) max(reach - depth, min(inner, reach)) else reach - depth
+        val shift = if (corner) radius - reach + depth else 0f
+        into[index] = ax - diagonalX * shift + ux * radius
+        into[index + 1] = ay - diagonalY * shift + uy * radius
     }
 }
 
@@ -89,8 +88,8 @@ private class OutlinePoint(
  * Fill regions for a glow that hugs the screen edge with an uneven width. Region n covers the band
  * from the edge to depths[n] scaled by a smooth wobble along the outline, so stacked regions fade
  * inward and the inner edge breathes in and out. A corner the platform reports smaller than
- * [minRadius] (a virtual display reports none) is drawn with [minRadius], so the glow always has
- * soft corners.
+ * [minRadius] (a virtual display reports none) is drawn with [minRadius], and the inner edge never
+ * rounds tighter than [minRadius], so the glow keeps soft corners however deep it reaches.
  */
 internal fun phoneGlowBands(
     size: Size,
@@ -129,7 +128,7 @@ internal fun phoneGlowBands(
         val arcSteps = max(2, ceil(radius * PI / 2 / step).toInt())
         for (j in 0..arcSteps) {
             val angle = Math.toRadians((startAngles[position] + 90f * j / arcSteps).toDouble())
-            points += OutlinePoint(cx, cy, cos(angle).toFloat(), sin(angle).toFloat(), radius, dx, dy, true)
+            points += OutlinePoint(cx, cy, cos(angle).toFloat(), sin(angle).toFloat(), radius, dx, dy, true, minRadius)
         }
         // Straight edge to the next corner's arc, sampled so the wobble can bend it too.
         val next = (position + 1) % 4

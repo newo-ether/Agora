@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.animation.PathInterpolator
@@ -15,11 +16,9 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -29,14 +28,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
@@ -44,16 +42,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.animation.doOnEnd
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.lifecycle.setViewTreeViewModelStoreOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import kotlinx.coroutines.CoroutineScope
@@ -74,22 +62,16 @@ import kotlin.math.roundToInt
  * aspect ratio locked. Tapping the card opens [PhoneBackgroundActivity]; the window hides itself
  * while that view owns the screen. Minimized, the card becomes a capsule with the current action.
  *
- * The visible element's screen rect is the model; the window is derived from it. While a grip
- * resizes the card or the card morphs to or from the capsule, the window spans the whole safe area
- * and only the content moves inside it. Offsets inside the window are chosen at layout time from the
- * window size actually laid out, so the frame where the window switches between a tight frame and
- * the safe area cannot draw anything at the wrong place.
+ * The visible element's screen rect is the model; the window is a tight frame derived from it.
+ * A resize or a morph is drawn by a [PreviewStage] while this window hides, so this window only
+ * changes its frame unseen. Offsets inside a window are chosen at layout time from the window size
+ * actually laid out.
  */
 internal class PhoneBackgroundPreview(
     private val context: Context,
     private val screen: PhoneVirtualScreen,
     private val runtime: PhoneUseRuntime,
-) : LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
-    private val lifecycleRegistry = LifecycleRegistry(this)
-    override val lifecycle: Lifecycle get() = lifecycleRegistry
-    override val viewModelStore = ViewModelStore()
-    private val savedState = SavedStateRegistryController.create(this)
-    override val savedStateRegistry: SavedStateRegistry get() = savedState.savedStateRegistry
+) : PreviewWindowOwner() {
     private val windows = context.getSystemService(WindowManager::class.java)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val density = context.resources.displayMetrics.density
@@ -138,8 +120,12 @@ internal class PhoneBackgroundPreview(
 
     private var menuOpen by mutableStateOf(false)
 
-    /** True while a grip resizes the card and the window spans the safe area. */
-    private var workspace = false
+    /** Draws resizes and morphs while this window is [veiled]. */
+    private var stage: PreviewStage? = null
+    private var veiled by mutableStateOf(false)
+    private var handingBack = false
+    /** This window's grip weights, which the stage draws with too. */
+    private var sharedGrips: List<State<Float>> = emptyList()
     private var root: ComposeView? = null
     private var added = false
     private val pushed = IntArray(6) { Int.MIN_VALUE }
@@ -152,10 +138,10 @@ internal class PhoneBackgroundPreview(
     private val configuration = object : ComponentCallbacks {
         override fun onConfigurationChanged(newConfig: Configuration) {
             safe = previewSafeArea(context, density)
+            dropStage()
             settling?.cancel()
             settling = null
             finishMorph()
-            workspace = false
             lifted = false
             menuOpen = false
             gesture = Gesture.NONE
@@ -182,9 +168,6 @@ internal class PhoneBackgroundPreview(
     private var origin = Gesture.NONE
 
     init {
-        savedState.performAttach()
-        savedState.performRestore(null)
-        lifecycleRegistry.currentState = Lifecycle.State.CREATED
         val initial = if (storedWidth > 0) storedWidth.toFloat()
             else (if (screen.width > screen.height) WIDE_WIDTH_DP else CARD_WIDTH_DP) * density
         setSize(initial.roundToInt())
@@ -193,14 +176,11 @@ internal class PhoneBackgroundPreview(
         placeCard(x, y)
     }
 
+    private fun composeView(staged: Boolean) =
+        ownedComposeView(context) { PhoneOverlayTheme(runtime.settings) { PreviewWindow(staged) } }
+
     fun show() {
-        val view = ComposeView(context).apply {
-            setViewTreeLifecycleOwner(this@PhoneBackgroundPreview)
-            setViewTreeSavedStateRegistryOwner(this@PhoneBackgroundPreview)
-            setViewTreeViewModelStoreOwner(this@PhoneBackgroundPreview)
-            // Inside apply, a bare Content() binds to ComposeView.Content, which calls this lambda again without end.
-            setContent { PhoneOverlayTheme(runtime.settings) { PreviewWindow() } }
-        }
+        val view = composeView(staged = false)
         root = view
         try { windows.addView(view, params) } catch (error: Exception) { view.disposeComposition(); throw error }
         added = true
@@ -218,12 +198,16 @@ internal class PhoneBackgroundPreview(
         leaving = true
         menuOpen = false
         gesture = Gesture.NONE
+        dropStage()
+        finishMorph()
+        layoutWindow()
         params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         update()
         present(0f, EXIT_MS) { remove() }
     }
 
     fun remove() {
+        dropStage()
         scope.cancel()
         settling?.cancel()
         settling = null
@@ -306,55 +290,79 @@ internal class PhoneBackgroundPreview(
         if (minimized) placeCapsule(if (keepRight) right - capsuleWidth else capsuleX, capsuleY)
     }
 
-    /**
-     * Derives the window from what is shown: the safe area while resizing or morphing, else a tight
-     * frame around the card or the capsule.
-     */
+    /** A tight frame around the card or the capsule. Held while the stage draws, until the hand-back. */
     private fun layoutWindow() {
-        when {
-            workspace || morphing != null -> {
-                params.x = safe.left
-                params.y = safe.top
-                params.width = safe.width()
-                params.height = safe.height()
-            }
-            minimized -> {
-                params.x = capsuleX - pad
-                params.y = capsuleY - pad
-                params.width = capsuleWidth + 2 * pad
-                params.height = capsuleHeight + 2 * pad
-            }
-            else -> {
-                params.x = cardX - pad
-                params.y = cardY - pad - handleZone
-                params.width = cardWidth + 2 * pad
-                params.height = cardHeight + 2 * pad + handleZone
-            }
+        if (stage != null && !handingBack) return
+        if (minimized) {
+            params.x = capsuleX - pad
+            params.y = capsuleY - pad
+            params.width = capsuleWidth + 2 * pad
+            params.height = capsuleHeight + 2 * pad
+        } else {
+            params.x = cardX - pad
+            params.y = cardY - pad - handleZone
+            params.width = cardWidth + 2 * pad
+            params.height = cardHeight + 2 * pad + handleZone
         }
         update()
     }
 
+    /** Puts the stage up drawing what this window shows; once it is on screen this window hides. */
+    private fun raiseStage(then: () -> Unit) {
+        dropStage()
+        val next = PreviewStage(windows, composeView(staged = true), safe)
+        stage = next
+        val shown = next.show {
+            if (stage === next && !handingBack) {
+                veiled = true
+                then()
+            }
+        }
+        if (!shown) {
+            stage = null
+            then()
+        }
+    }
+
+    /** This window takes its new frame unseen and shows again; then the stage goes. */
+    private fun handBack() {
+        val current = stage ?: return
+        handingBack = true
+        layoutWindow()
+        afterFrames(PreviewStage.SETTLE_FRAMES) {
+            if (stage !== current) return@afterFrames
+            veiled = false
+            afterFrames(PreviewStage.SETTLE_FRAMES) { if (stage === current) dropStage() }
+        }
+    }
+
+    private fun dropStage() {
+        stage?.remove()
+        stage = null
+        handingBack = false
+        veiled = false
+    }
+
     /**
-     * Origin of a screen rect inside a window of the given laid-out size. The window manager applies
-     * a new frame asynchronously, so neither the state nor the requested params say which frame is
-     * live. A tight frame always holds its element at [tight], which also covers a move, where the
-     * window follows the element. Any other frame stays put while the element changes, and the
-     * layout pass runs after the frame is applied, so the window's real screen position is exact.
+     * Origin of a screen rect inside a window of the given laid-out size. A tight frame always holds
+     * its element at [tight]; any other frame is placed by the window's real screen position.
      */
-    private fun offsetIn(isTight: Boolean, tight: IntOffset, x: Int, y: Int): IntOffset {
+    private fun offsetIn(view: View, isTight: Boolean, tight: IntOffset, x: Int, y: Int): IntOffset {
         if (isTight) return tight
         val at = IntArray(2)
-        root?.getLocationOnScreen(at) ?: return tight
+        view.getLocationOnScreen(at)
         return IntOffset(x - at[0], y - at[1])
     }
 
-    private fun cardOffset(windowWidth: Int, windowHeight: Int) = offsetIn(
-        !minimized && windowWidth == cardWidth + 2 * pad && windowHeight == cardHeight + 2 * pad + handleZone,
+    /** The stage never holds a tight frame; it always places by its screen position. */
+    private fun cardOffset(view: View, staged: Boolean, windowWidth: Int, windowHeight: Int) = offsetIn(
+        view, !staged && !minimized && windowWidth == cardWidth + 2 * pad &&
+            windowHeight == cardHeight + 2 * pad + handleZone,
         IntOffset(pad, pad + handleZone), cardX, cardY,
     )
 
-    private fun capsuleOffset(windowWidth: Int, windowHeight: Int) = offsetIn(
-        minimized && windowWidth == capsuleWidth + 2 * pad && windowHeight == capsuleHeight + 2 * pad,
+    private fun capsuleOffset(view: View, staged: Boolean, windowWidth: Int, windowHeight: Int) = offsetIn(
+        view, !staged && minimized && windowWidth == capsuleWidth + 2 * pad && windowHeight == capsuleHeight + 2 * pad,
         IntOffset(pad, pad), capsuleX, capsuleY,
     )
 
@@ -381,7 +389,7 @@ internal class PhoneBackgroundPreview(
     }
 
     /** Snap clear of the screen edge with a short ease; the drag itself follows the finger exactly. */
-    private fun settle() {
+    private fun settle(then: () -> Unit) {
         settling?.cancel()
         settling = null
         savePlacement()
@@ -389,7 +397,7 @@ internal class PhoneBackgroundPreview(
         val loY = minCardY()
         val targetX = cardX.coerceIn(loX, max(loX, maxCardX() - margin))
         val targetY = cardY.coerceIn(loY, max(loY, maxCardY() - margin))
-        if (targetX == cardX && targetY == cardY) return
+        if (targetX == cardX && targetY == cardY) return then()
         val fromX = cardX
         val fromY = cardY
         settling = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -404,6 +412,7 @@ internal class PhoneBackgroundPreview(
                 // A grab mid-snap cancels this animator; the place it stopped is the place kept.
                 savePlacement()
             }
+            doOnEnd { then() }
             start()
         }
     }
@@ -419,26 +428,30 @@ internal class PhoneBackgroundPreview(
 
     /** The card shrinks into the capsule at its top, on the side nearer the screen edge. */
     private fun minimize() {
-        if (minimized) return
+        if (minimized || stage != null) return
         settling?.cancel()
         settling = null
         savePlacement()
-        val keepRight = cardX + cardWidth / 2 > safe.centerX()
-        minimized = true
-        placeCapsule(if (keepRight) cardX + cardWidth - capsuleWidth else cardX, cardY)
-        animateMorph(1f)
+        raiseStage {
+            val keepRight = cardX + cardWidth / 2 > safe.centerX()
+            minimized = true
+            placeCapsule(if (keepRight) cardX + cardWidth - capsuleWidth else cardX, cardY)
+            animateMorph(1f)
+        }
     }
 
     /** The card grows back out of the capsule, keeping the same corner. */
     private fun restore() {
-        if (!minimized) return
-        val keepRight = capsuleX + capsuleWidth / 2 > safe.centerX()
-        minimized = false
-        val loX = minCardX() + margin
-        val x = if (keepRight) capsuleX + capsuleWidth - cardWidth else capsuleX
-        placeCard(x.coerceIn(loX, max(loX, maxCardX() - margin)), capsuleY.coerceAtMost(maxCardY() - margin))
-        savePlacement()
-        animateMorph(0f)
+        if (!minimized || stage != null) return
+        raiseStage {
+            val keepRight = capsuleX + capsuleWidth / 2 > safe.centerX()
+            minimized = false
+            val loX = minCardX() + margin
+            val x = if (keepRight) capsuleX + capsuleWidth - cardWidth else capsuleX
+            placeCard(x.coerceIn(loX, max(loX, maxCardX() - margin)), capsuleY.coerceAtMost(maxCardY() - margin))
+            savePlacement()
+            animateMorph(0f)
+        }
     }
 
     private fun animateMorph(target: Float) {
@@ -452,11 +465,10 @@ internal class PhoneBackgroundPreview(
             if (morphing === animator) {
                 morphing = null
                 morphShown = false
-                layoutWindow()
+                handBack()
             }
         }
         morphShown = true
-        layoutWindow()
         animator.start()
     }
 
@@ -494,10 +506,8 @@ internal class PhoneBackgroundPreview(
             // Measured from where the finger crossed the slop, so the card does not jump by it.
             downRawX = event.rawX
             downRawY = event.rawY
-            if (gesture != Gesture.MOVE) {
-                workspace = true
-                layoutWindow()
-            } else if (origin != Gesture.CAPSULE) active = Gesture.MOVE
+            if (gesture != Gesture.MOVE) raiseStage {}
+            else if (origin != Gesture.CAPSULE) active = Gesture.MOVE
             return
         }
         when {
@@ -512,12 +522,8 @@ internal class PhoneBackgroundPreview(
         gesture = Gesture.NONE
         lifted = false
         active = Gesture.NONE
-        if (workspace) {
-            workspace = false
-            layoutWindow()
-        }
         if (moved) {
-            if (kind != Gesture.CAPSULE) settle()
+            if (kind != Gesture.CAPSULE) settle(::handBack)
         } else if (tap) when (kind) {
             Gesture.CARD -> openFullscreen()
             Gesture.HANDLE -> menuOpen = true
@@ -545,7 +551,7 @@ internal class PhoneBackgroundPreview(
      * above the card is the bar; the rest of the card drags and taps. Nothing is grabbed mid-morph.
      */
     private fun hit(windowX: Float, windowY: Float): Gesture {
-        if (morphing != null || leaving) return Gesture.NONE
+        if (morphing != null || stage != null || leaving) return Gesture.NONE
         if (minimized) {
             val x = windowX - capsuleShownX
             val y = windowY - capsuleShownY
@@ -610,8 +616,11 @@ internal class PhoneBackgroundPreview(
         label = "grip",
     )
 
+    /** [staged] draws in the stage window, which reads its grip weights from this window's. */
     @Composable
-    private fun PreviewWindow() {
+    private fun PreviewWindow(staged: Boolean) {
+        val view = LocalView.current
+        val grips = if (staged) sharedGrips else GRIP_KINDS.map { gripWeight(it) }.also { sharedGrips = it }
         val motion = LocalAgoraMotionPolicy.current
         val still = motion.reduceMotion || motion.systemAnimationsDisabled
         val lift by animateFloatAsState(
@@ -622,10 +631,10 @@ internal class PhoneBackgroundPreview(
         Box(
             Modifier
                 .fillMaxSize()
-                .pointerInteropFilter { event -> touch(event) }
+                .then(if (staged) Modifier else Modifier.pointerInteropFilter { event -> touch(event) })
                 .graphicsLayer {
                     // Grows from and shrinks into the center of whatever is shown.
-                    alpha = presence
+                    alpha = if (veiled && !staged) 0f else presence
                     val scale = if (still) 1f else ENTER_SCALE + (1f - ENTER_SCALE) * presence
                     scaleX = scale
                     scaleY = scale
@@ -639,22 +648,17 @@ internal class PhoneBackgroundPreview(
             val bitmap = retainedFrame(screen)
             val action by runtime.actionName.collectAsState()
             val label = action ?: stringResource(R.string.phone_thinking)
-            Card(bitmap, lift)
-            Capsule(label, lift)
-            if (morphShown) PreviewMorphBody(bitmap, label, morph, SHADOW_DP.dp, Modifier.morphPlacement())
+            Card(bitmap, lift, grips, view, staged)
+            Capsule(label, lift, view, staged)
+            if (morphShown) PreviewMorphBody(bitmap, label, morph, SHADOW_DP.dp, Modifier.morphPlacement(view))
         }
     }
 
     @Composable
-    private fun Card(bitmap: Bitmap?, lift: Float) {
-        val bar by gripWeight(Gesture.MOVE)
-        val start by gripWeight(Gesture.BOTTOM_START)
-        val end by gripWeight(Gesture.BOTTOM_END)
-        val center by gripWeight(Gesture.BOTTOM_CENTER)
-        val shape = RoundedCornerShape(PreviewGrip.CORNER_DP.dp)
+    private fun Card(bitmap: Bitmap?, lift: Float, grips: List<State<Float>>, view: View, staged: Boolean) {
         Box(
             Modifier
-                .cardPlacement()
+                .cardPlacement(view, staged)
                 .graphicsLayer {
                     val grow = 1f + lift * LIFT_DP.dp.toPx() * 2f / cardWidth.coerceAtLeast(1)
                     scaleX = grow
@@ -665,37 +669,21 @@ internal class PhoneBackgroundPreview(
                     transformOrigin = TransformOrigin(0.5f, liftY)
                 },
         ) {
-            Box(
-                Modifier
-                    .offset { IntOffset(0, handleZone) }
-                    .previewExactSize(cardWidth, cardHeight)
-                    .graphicsLayer {
-                        // The morph body draws the card while it changes shape.
-                        alpha = if (morphShown) 0f else 1f
-                        shadowElevation = (SHADOW_DP + (LIFTED_SHADOW_DP - SHADOW_DP) * lift).dp.toPx()
-                        this.shape = shape
-                        clip = true
-                    }
-                    .background(Color.Black),
-            ) {
-                Canvas(Modifier.fillMaxSize()) {
-                    bitmap?.let { image ->
-                        drawImage(
-                            image.asImageBitmap(),
-                            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-                        )
-                    }
-                }
+            PreviewCardFace(bitmap, Modifier.offset { IntOffset(0, handleZone) }.previewExactSize(cardWidth, cardHeight)) {
+                // The morph body draws the card while it changes shape.
+                alpha = if (morphShown) 0f else 1f
+                shadowElevation = (SHADOW_DP + (LIFTED_SHADOW_DP - SHADOW_DP) * lift).dp.toPx()
             }
             // Unclipped, so the grips draw in the transparent frame outside the card.
             Canvas(
                 Modifier.offset { IntOffset(0, handleZone) }.previewExactSize(cardWidth, cardHeight)
                     .graphicsLayer { alpha = if (morphShown) (1f - morph * 4f).coerceAtLeast(0f) else 1f },
             ) {
-                drawPreviewGrips(bar, start, end, center)
+                fun weight(index: Int) = grips.getOrNull(index)?.value ?: 0f
+                drawPreviewGrips(weight(0), weight(1), weight(2), weight(3))
             }
             // The menu's anchor is the bar band, so it drops from where it was tapped.
-            Box(Modifier.previewExactSize(cardWidth, handleZone)) {
+            if (!staged) Box(Modifier.previewExactSize(cardWidth, handleZone)) {
                 PreviewMenu(
                     expanded = menuOpen,
                     onDismiss = { menuOpen = false },
@@ -710,12 +698,12 @@ internal class PhoneBackgroundPreview(
 
     /** Always composed, so its size is known before a minimize; drawn only once minimized. */
     @Composable
-    private fun Capsule(label: String, lift: Float) {
+    private fun Capsule(label: String, lift: Float, view: View, staged: Boolean) {
         PreviewCapsule(
             label = label,
             modifier = Modifier
-                .capsulePlacement()
-                .onSizeChanged(::capsuleMeasured)
+                .capsulePlacement(view, staged)
+                .then(if (staged) Modifier else Modifier.onSizeChanged(::capsuleMeasured))
                 .graphicsLayer {
                     val grow = 1f + lift * CAPSULE_LIFT
                     scaleX = grow
@@ -725,10 +713,10 @@ internal class PhoneBackgroundPreview(
         )
     }
 
-    /** Between the card's and the capsule's screen rects by [morph], in the safe-area window. */
-    private fun Modifier.morphPlacement() = layout { measurable, constraints ->
+    /** Between the card's and the capsule's screen rects by [morph]. */
+    private fun Modifier.morphPlacement(view: View) = layout { measurable, constraints ->
         val at = IntArray(2)
-        root?.getLocationOnScreen(at)
+        view.getLocationOnScreen(at)
         fun mix(from: Int, to: Int) = (from + (to - from) * morph).roundToInt()
         val placeable = measurable.measure(
             Constraints.fixed(mix(cardWidth, capsuleWidth).coerceAtLeast(0), mix(cardHeight, capsuleHeight).coerceAtLeast(0)),
@@ -742,22 +730,26 @@ internal class PhoneBackgroundPreview(
      * Sizes the card with its bar band and places it for the window size this pass was handed,
      * which is the size the window manager has actually applied.
      */
-    private fun Modifier.cardPlacement() = layout { measurable, constraints ->
+    private fun Modifier.cardPlacement(view: View, staged: Boolean) = layout { measurable, constraints ->
         val placeable = measurable.measure(
             Constraints.fixed(cardWidth.coerceAtLeast(0), (cardHeight + handleZone).coerceAtLeast(0)),
         )
-        val offset = cardOffset(constraints.maxWidth, constraints.maxHeight)
-        shownX = offset.x
-        shownY = offset.y
+        val offset = cardOffset(view, staged, constraints.maxWidth, constraints.maxHeight)
+        if (!staged) {
+            shownX = offset.x
+            shownY = offset.y
+        }
         layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(offset.x, offset.y - handleZone) }
     }
 
     /** Wraps the capsule's own size and places it like [cardPlacement]. */
-    private fun Modifier.capsulePlacement() = layout { measurable, constraints ->
+    private fun Modifier.capsulePlacement(view: View, staged: Boolean) = layout { measurable, constraints ->
         val placeable = measurable.measure(Constraints())
-        val offset = capsuleOffset(constraints.maxWidth, constraints.maxHeight)
-        capsuleShownX = offset.x
-        capsuleShownY = offset.y
+        val offset = capsuleOffset(view, staged, constraints.maxWidth, constraints.maxHeight)
+        if (!staged) {
+            capsuleShownX = offset.x
+            capsuleShownY = offset.y
+        }
         layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(offset.x, offset.y) }
     }
 
@@ -765,6 +757,8 @@ internal class PhoneBackgroundPreview(
     private enum class Gesture { NONE, MOVE, CARD, HANDLE, CAPSULE, BOTTOM_START, BOTTOM_END, BOTTOM_CENTER }
 
     private companion object {
+        /** In the order [drawPreviewGrips] takes them. */
+        val GRIP_KINDS = listOf(Gesture.MOVE, Gesture.BOTTOM_START, Gesture.BOTTOM_END, Gesture.BOTTOM_CENTER)
         const val CARD_WIDTH_DP = 132
         const val WIDE_WIDTH_DP = 220
         const val MIN_WIDTH_DP = 88

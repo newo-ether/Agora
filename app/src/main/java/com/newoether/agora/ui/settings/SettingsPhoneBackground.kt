@@ -128,10 +128,9 @@ private fun PhoneBackgroundCustomDialog(
                     NumberField(long, R.string.phone_background_long_side, Modifier.weight(1f)) { long = it }
                 }
                 NumberField(density, R.string.phone_background_dpi, Modifier.fillMaxWidth()) { density = it }
-                // The fields already show px and dpi; only the resulting dp size is new information.
-                // The settings row above carries the longer explanation.
+                // The fields show px and dpi; this says what they add up to for apps.
                 Text(
-                    preview?.let { "${it.widthDp} \u00d7 ${it.heightDp} dp" } ?: stringResource(
+                    preview?.let { stringResource(R.string.phone_background_custom_layout, it.widthDp, it.heightDp) } ?: stringResource(
                         R.string.phone_background_size_range, PhoneBackgroundGeometry.MIN_SHORT_DP, max,
                         PhoneBackgroundGeometry.MIN_DPI, PhoneBackgroundGeometry.MAX_DPI,
                     ),

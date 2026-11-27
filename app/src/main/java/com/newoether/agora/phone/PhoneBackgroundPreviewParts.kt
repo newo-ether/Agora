@@ -12,6 +12,8 @@ import androidx.compose.ui.unit.Constraints
 import kotlin.math.max
 import kotlin.math.roundToInt
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -114,8 +116,9 @@ internal object PreviewGrip {
     const val GAP_DP = 5
     const val STROKE_DP = 2.6f
     const val ACTIVE_DP = 4.8f
-    /** Grip opacity while it is not the one being dragged. */
+    /** Grip opacity while it is not the one being dragged; the resize grips below sit a little fainter. */
     const val IDLE_ALPHA = 0.5f
+    const val RESIZE_IDLE_ALPHA = 0.38f
     /** Top and bottom bar length over the card width. */
     const val BAR_RATIO = 0.22f
     const val CORNER_DP = 14
@@ -136,20 +139,40 @@ internal fun DrawScope.drawPreviewGrips(bar: Float, start: Float, end: Float, ce
     val radius = corner + off
     val half = PreviewGrip.BAR_RATIO * w / 2
     fun stroke(weight: Float) = base + (PreviewGrip.ACTIVE_DP.dp.toPx() - base) * weight
-    fun grip(path: Path, weight: Float) {
+    fun grip(path: Path, weight: Float, idle: Float = PreviewGrip.RESIZE_IDLE_ALPHA) {
         val width = stroke(weight)
         translate(top = 1.2.dp.toPx()) {
             drawPath(path, Color.Black.copy(alpha = 0.16f + 0.24f * weight),
                 style = Stroke(width + 1.6.dp.toPx(), cap = StrokeCap.Round))
         }
-        drawPath(path, Color.White.copy(alpha = PreviewGrip.IDLE_ALPHA + (1f - PreviewGrip.IDLE_ALPHA) * weight),
+        drawPath(path, Color.White.copy(alpha = idle + (1f - idle) * weight),
             style = Stroke(width, cap = StrokeCap.Round))
     }
     fun line(y: Float) = Path().apply { moveTo(w / 2 - half, y); lineTo(w / 2 + half, y) }
-    grip(line(-off), bar)
+    grip(line(-off), bar, PreviewGrip.IDLE_ALPHA)
     grip(line(h + off), center)
     grip(Path().apply { arcTo(Rect(Offset(corner, h - corner), radius), 180f, -90f, true) }, start)
     grip(Path().apply { arcTo(Rect(Offset(w - corner, h - corner), radius), 0f, 90f, true) }, end)
+}
+
+/** The live frame on the black rounded card; [layer] adds the caller's alpha and shadow. */
+@Composable
+internal fun PreviewCardFace(bitmap: Bitmap?, modifier: Modifier, layer: GraphicsLayerScope.() -> Unit) {
+    val shape = RoundedCornerShape(PreviewGrip.CORNER_DP.dp)
+    Box(
+        modifier
+            .graphicsLayer {
+                layer()
+                this.shape = shape
+                clip = true
+            }
+            .background(Color.Black),
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val image = bitmap ?: return@Canvas
+            drawImage(image.asImageBitmap(), dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()))
+        }
+    }
 }
 
 /** The display releases its last frame before an exit animation ends; this keeps drawing it. */
