@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.snapTo
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -33,11 +34,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
@@ -53,13 +57,29 @@ internal fun drawerWidthFor(screenWidth: Dp): Dp = minOf(screenWidth, DRAWER_MAX
 internal fun usesSideBySideDrawer(screenWidth: Dp): Boolean =
     screenWidth > DRAWER_MAX_WIDTH + CHAT_APP_WIDTH_THRESHOLD
 
+/**
+ * The drawer's horizontal offset while it rests on [open] in a [isRtl] layout.
+ *
+ * The drawer box is anchored with [Alignment.CenterStart], so the sign of the resting offset is
+ * decided by the layout direction: positive pushes it off the right edge in RTL, negative off the
+ * left edge in LTR. Anchors and the pre-measurement fallback must agree, otherwise a frame composed
+ * before the layout direction lands on the state parks the panel at the opposite edge.
+ */
+internal fun drawerRestingOffset(drawerWidthPx: Float, isRtl: Boolean, open: Boolean): Float = when {
+    open -> 0f
+    isRtl -> drawerWidthPx
+    else -> -drawerWidthPx
+}
+
 internal fun resolveDrawerSettleTarget(
     velocity: Float,
     revealedPosition: Float,
     drawerWidth: Float,
+    isRtl: Boolean = false,
 ): DrawerValue = when {
-    velocity > 0f -> DrawerValue.Open
-    velocity < 0f -> DrawerValue.Closed
+    // In RTL, dragging toward open is the opposite horizontal direction, so velocity sign is flipped.
+    if (isRtl) velocity < 0f else velocity > 0f -> DrawerValue.Open
+    if (isRtl) velocity > 0f else velocity < 0f -> DrawerValue.Closed
     revealedPosition >= drawerWidth / 2f -> DrawerValue.Open
     else -> DrawerValue.Closed
 }
@@ -67,20 +87,26 @@ internal fun resolveDrawerSettleTarget(
 @Stable
 internal class ChatDrawerState internal constructor(
     private val anchoredState: AnchoredDraggableState<DrawerValue>,
+    initialIsRtl: Boolean,
 ) {
     private var drawerWidthPx by mutableFloatStateOf(0f)
     private var drawerEnabled by mutableStateOf(true)
+    private var isRtl by mutableStateOf(initialIsRtl)
 
     var sideBySide by mutableStateOf(false)
         private set
 
     val offsetPx: Float
         get() = anchoredState.offset.takeUnless(Float::isNaN)
-            ?: if (anchoredState.currentValue == DrawerValue.Open) 0f else -drawerWidthPx
+            ?: drawerRestingOffset(drawerWidthPx, isRtl, anchoredState.currentValue == DrawerValue.Open)
 
     val progress: Float
         get() = if (drawerWidthPx > 0f) {
-            ((offsetPx + drawerWidthPx) / drawerWidthPx).coerceIn(0f, 1f)
+            if (isRtl) {
+                (1f - (offsetPx / drawerWidthPx)).coerceIn(0f, 1f)
+            } else {
+                ((offsetPx + drawerWidthPx) / drawerWidthPx).coerceIn(0f, 1f)
+            }
         } else {
             0f
         }
@@ -94,14 +120,15 @@ internal class ChatDrawerState internal constructor(
     val isAnimationRunning: Boolean
         get() = anchoredState.isAnimationRunning
 
-    fun updateLayout(drawerWidthPx: Float, sideBySide: Boolean, drawerEnabled: Boolean) {
+    fun updateLayout(drawerWidthPx: Float, sideBySide: Boolean, drawerEnabled: Boolean, isRtl: Boolean) {
         if (drawerWidthPx <= 0f) return
         this.drawerWidthPx = drawerWidthPx
         this.sideBySide = sideBySide
         this.drawerEnabled = drawerEnabled
+        this.isRtl = isRtl
         anchoredState.updateAnchors(
             DraggableAnchors {
-                DrawerValue.Closed at -drawerWidthPx
+                DrawerValue.Closed at drawerRestingOffset(drawerWidthPx, isRtl, open = false)
                 DrawerValue.Open at 0f
             },
             anchoredState.targetValue,
@@ -127,11 +154,13 @@ internal class ChatDrawerState internal constructor(
 
     suspend fun settle(velocity: Float, motionPolicy: AgoraMotionPolicy) {
         if (!drawerEnabled || sideBySide || drawerWidthPx <= 0f) return
+        val revealedPosition = if (isRtl) (drawerWidthPx - offsetPx) else (offsetPx + drawerWidthPx)
         animateTo(
             resolveDrawerSettleTarget(
                 velocity = velocity,
-                revealedPosition = offsetPx + drawerWidthPx,
+                revealedPosition = revealedPosition,
                 drawerWidth = drawerWidthPx,
+                isRtl = isRtl,
             ),
             motionPolicy,
         )
@@ -179,8 +208,13 @@ internal class ChatDrawerState internal constructor(
 }
 
 @Composable
-internal fun rememberChatDrawerState(): ChatDrawerState = remember {
-    ChatDrawerState(AnchoredDraggableState(DrawerValue.Closed))
+internal fun rememberChatDrawerState(): ChatDrawerState {
+    // Seed the direction from the composition instead of defaulting to LTR: the state lives across
+    // the first frame, and a LTR default would place an RTL drawer at the left edge for that frame.
+    val initialIsRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    return remember {
+        ChatDrawerState(AnchoredDraggableState(DrawerValue.Closed), initialIsRtl)
+    }
 }
 
 @Composable
@@ -195,6 +229,8 @@ internal fun ChatDrawerHost(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val scrimInteractionSource = remember { MutableInteractionSource() }
+    val layoutDirection = LocalLayoutDirection.current
+    val isRtl = layoutDirection == LayoutDirection.Rtl
     val screenWidth = with(density) { LocalWindowInfo.current.containerSize.width.toDp() }
     val drawerWidth = drawerWidthFor(screenWidth)
     val drawerWidthPx = with(density) { drawerWidth.toPx() }
@@ -205,6 +241,7 @@ internal fun ChatDrawerHost(
             drawerWidthPx = drawerWidthPx,
             sideBySide = sideBySide,
             drawerEnabled = drawerEnabled,
+            isRtl = isRtl,
         )
     }
     LaunchedEffect(drawerEnabled, motionPolicy.allowSpatialTransitions) {
@@ -233,7 +270,8 @@ internal fun ChatDrawerHost(
                 .fillMaxSize()
                 .then(
                     if (sideBySide) {
-                        Modifier.padding(start = drawerWidth * progress)
+                        if (isRtl) Modifier.padding(end = drawerWidth * progress)
+                        else Modifier.padding(start = drawerWidth * progress)
                     } else {
                         Modifier
                     }
@@ -261,9 +299,13 @@ internal fun ChatDrawerHost(
 
         Box(
             modifier = Modifier
+                .align(Alignment.CenterStart)
                 .fillMaxHeight()
                 .width(drawerWidth)
-                .offset { IntOffset(state.offsetPx.roundToInt(), 0) }
+                // absoluteOffset, not offset: Modifier.offset mirrors its x component in RTL, which
+                // would flip the RTL resting offset (+width) back over the content edge and leave a
+                // sliver of the panel at the opposite side of the screen.
+                .absoluteOffset { IntOffset(state.offsetPx.roundToInt(), 0) }
                 .zIndex(2f),
         ) {
             drawerContent(drawerWidth) { state.closeFromContent(motionPolicy) }

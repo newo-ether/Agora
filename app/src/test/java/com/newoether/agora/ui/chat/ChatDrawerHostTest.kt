@@ -61,6 +61,16 @@ class ChatDrawerHostTest {
     }
 
     @Test
+    fun restingOffsetFollowsTheLayoutDirection() {
+        // Closed: the panel sits fully off the start edge, which is the left in LTR and the right in RTL.
+        assertEquals(-360f, drawerRestingOffset(drawerWidthPx = 360f, isRtl = false, open = false))
+        assertEquals(360f, drawerRestingOffset(drawerWidthPx = 360f, isRtl = true, open = false))
+        // Open: flush against the start edge, so the offset is zero in both directions.
+        assertEquals(0f, drawerRestingOffset(drawerWidthPx = 360f, isRtl = false, open = true))
+        assertEquals(0f, drawerRestingOffset(drawerWidthPx = 360f, isRtl = true, open = true))
+    }
+
+    @Test
     fun hostIsTheSingleDrawerMotionAndResponsiveLayoutOwner() {
         val host = source("ui/chat/ChatDrawerHost.kt")
         val app = source("ui/chat/ChatApp.kt")

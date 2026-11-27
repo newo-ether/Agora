@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.motion.IdentityLabelCrossfade
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.rememberIdentityClipWidth
+import com.newoether.agora.util.rememberContentTextDirection
 import kotlin.math.PI
 import kotlin.math.roundToInt
 
@@ -164,7 +165,11 @@ private fun PhoneLabelCapsule(
             } else {
                 IdentityLabelCrossfade(targetState = text,
                     modifier = Modifier.graphicsLayer { alpha = textAlpha }) { label ->
-                    Text(label, Modifier.wrapContentWidth(Alignment.Start, unbounded = true), style = style,
+                    // Status text is arbitrary content (tool and action names), so it keeps its
+                    // own paragraph direction instead of inheriting the app's UI language.
+                    val direction = rememberContentTextDirection(label)
+                    Text(label, Modifier.wrapContentWidth(Alignment.Start, unbounded = true),
+                        style = style.copy(textDirection = direction),
                         maxLines = 1, softWrap = false)
                 }
             }

@@ -51,12 +51,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.ConversationTodoItem
 import com.newoether.agora.ui.components.SmoothBottomSheet
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.rememberContentTextAlign
+import com.newoether.agora.util.rememberContentTextDirection
 import kotlinx.coroutines.flow.first
 import kotlin.math.roundToInt
 
@@ -158,7 +161,10 @@ internal fun ConversationTodoBar(
                         title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
-                    Text(count, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        count, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                    )
                 }
             }
         }
@@ -224,8 +230,14 @@ internal fun ConversationTodoBar(
                                 }
                             },
                         ) {
-                            Text(item.content, style = MaterialTheme.typography.bodyMedium,
-                                onTextLayout = { textLayout = it })
+                            Text(
+                                item.content,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    textDirection = rememberContentTextDirection(item.content),
+                                ),
+                                textAlign = rememberContentTextAlign(item.content),
+                                onTextLayout = { textLayout = it },
+                            )
                         }
                     }
                 }

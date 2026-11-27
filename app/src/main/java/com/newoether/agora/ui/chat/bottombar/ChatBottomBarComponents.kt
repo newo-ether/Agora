@@ -12,6 +12,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.model.ContextBudget
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
@@ -62,6 +63,7 @@ import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.ui.theme.chatCompactWidth
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import com.newoether.agora.util.rememberContentTextDirection
 import kotlin.math.roundToInt
 
 internal const val CHAT_DROPDOWN_MENU_ICON_SIZE_DP = 24
@@ -168,7 +170,10 @@ internal fun RowScope.ComposerModelSelector(
     enabled: Boolean = true,
     menuContent: @Composable ColumnScope.() -> Unit,
 ) {
-    val labelStyle = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp)
+    val labelStyle = MaterialTheme.typography.labelMedium.copy(
+        fontSize = 13.sp,
+        textDirection = rememberContentTextDirection(displayText),
+    )
     BoxWithConstraints(modifier = Modifier.weight(1f, fill = false)) {
         val availableWidth = if (constraints.hasBoundedWidth) maxWidth else Dp.Unspecified
         val labelMaxWidth = if (availableWidth.isSpecified) availableWidth - MODEL_SELECTOR_PADDING * 2 else Dp.Unspecified
@@ -243,7 +248,7 @@ internal fun RowScope.ComposerModelSelector(
 internal fun ComposerModelMenuItem(displayText: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     AgoraDropdownMenuItem(
         enabled = enabled,
-        text = { Text(displayText) },
+        text = { Text(displayText, style = MaterialTheme.typography.bodyMedium.copy(textDirection = rememberContentTextDirection(displayText))) },
         leadingIcon = {
             if (selected) Icon(Icons.Rounded.Check, null, Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
             else Spacer(Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
@@ -359,7 +364,12 @@ fun Modifier.verticalScrollbar(
         val totalHeight = scrollState.maxValue + viewPortHeight
         val thumbHeight = (viewPortHeight / totalHeight) * trackHeight
         val thumbOffset = trackTop + (scrollState.value / totalHeight.toFloat()) * trackHeight
-        drawRoundRect(color = color, topLeft = Offset(size.width - width.toPx() - 4.dp.toPx(), thumbOffset), size = Size(width.toPx(), thumbHeight), cornerRadius = CornerRadius(width.toPx() / 2))
+        val thumbLeft = if (layoutDirection == LayoutDirection.Rtl) {
+            4.dp.toPx()
+        } else {
+            size.width - width.toPx() - 4.dp.toPx()
+        }
+        drawRoundRect(color = color, topLeft = Offset(thumbLeft, thumbOffset), size = Size(width.toPx(), thumbHeight), cornerRadius = CornerRadius(width.toPx() / 2))
     }
 }
 

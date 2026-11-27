@@ -40,9 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
@@ -57,6 +60,7 @@ import com.newoether.agora.ui.chat.VideoPosterThumbnail
 import com.newoether.agora.ui.chat.rememberMediaLoadingVisible
 import com.newoether.agora.ui.chat.toMediaLoadPresentation
 import com.newoether.agora.ui.common.LocalAgoraHaptics
+import com.newoether.agora.util.rememberContentTextDirection
 
 private const val ATTACHMENT_STATUS_CROSSFADE_MS = 200
 
@@ -275,7 +279,9 @@ internal fun AttachmentPreviewRow(
                             attachment.fileName?.let { fileName ->
                                 Text(
                                     text = fileName,
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        textDirection = rememberContentTextDirection(fileName),
+                                    ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -308,6 +314,7 @@ private fun AttachmentPresentationContent(
     onRetry: () -> Unit,
 ) {
     val shape = RoundedCornerShape(8.dp)
+    val playArrowMirrored = LocalLayoutDirection.current == LayoutDirection.Rtl
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -401,6 +408,7 @@ private fun AttachmentPresentationContent(
                         tint = Color.White,
                         modifier = Modifier
                             .size(24.dp)
+                            .then(if (playArrowMirrored) Modifier.graphicsLayer { scaleX = -1f } else Modifier)
                             .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                             .padding(4.dp),
                     )

@@ -32,11 +32,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Shape
 import com.newoether.agora.R
 import com.newoether.agora.util.horizontalEdgeFade
+import com.newoether.agora.util.rememberContentTextAlign
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.util.noOpBringIntoView
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.ChatMessage
@@ -362,7 +365,7 @@ internal fun UserMessageBubble(
                                 )
                                 val warning = metaItem?.warning
                                 if (type == "pdf" && warning != null) {
-                                    Text(warning, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(warning, style = MaterialTheme.typography.labelSmall.copy(textDirection = rememberContentTextDirection(warning)), textAlign = rememberContentTextAlign(warning), color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }

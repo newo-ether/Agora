@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -69,6 +70,7 @@ import java.util.Locale
 import java.util.UUID
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.util.rememberContentTextDirection
 
 /**
  * Tasks feature root: a saved prompt + model you can run on demand or on a schedule.
@@ -309,7 +311,7 @@ private fun TasksListPage(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             onDismissRequest = { pendingDelete = null },
             title = { Text(stringResource(R.string.task_delete), fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.task_delete_confirm, displayName)) },
+            text = { Text(stringResource(R.string.task_delete_confirm, displayName), style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(displayName))) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -372,7 +374,9 @@ private fun TaskCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = task.name.ifBlank { stringResource(R.string.task_name_hint) },
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        textDirection = rememberContentTextDirection(task.name.ifBlank { stringResource(R.string.task_name_hint) }),
+                    ),
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -382,7 +386,9 @@ private fun TaskCard(
                     Spacer(Modifier.height(3.dp))
                     Text(
                         text = task.prompt,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            textDirection = rememberContentTextDirection(task.prompt),
+                        ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,

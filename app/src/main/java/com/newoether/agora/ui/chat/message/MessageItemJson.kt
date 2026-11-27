@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.MessagePersistenceGuard
@@ -215,7 +216,7 @@ private fun JsonScalarView(
         } else {
             scalar.content
         },
-        style = style,
+        style = style.copy(textDirection = TextDirection.Ltr),
         color = color,
         modifier = modifier,
     )
@@ -265,7 +266,7 @@ internal fun JsonOrPlainView(text: String) {
                     if (persistenceTruncated) {
                         Text(
                             text = text.substring(jsonSource.length).trimStart(),
-                            style = ChatType.meta,
+                            style = ChatType.meta.copy(textDirection = TextDirection.Ltr),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -276,7 +277,7 @@ internal fun JsonOrPlainView(text: String) {
             NoAutoScrollSelectionContainer {
                 Text(
                     text = text,
-                    style = ChatType.thoughtCodeLarge,
+                    style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }

@@ -11,21 +11,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.util.SubmissionMessage
+import com.newoether.agora.util.rememberContentTextDirection
 
 @Composable
 fun SubmissionMessageDialog(message: SubmissionMessage, onDismiss: () -> Unit) {
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         onDismissRequest = onDismiss,
-        title = { Text(message.title, fontWeight = FontWeight.Bold) },
+        title = { Text(message.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium.copy(textDirection = rememberContentTextDirection(message.title))) },
         text = {
             Text(
                 message.body,
                 modifier = Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(textDirection = rememberContentTextDirection(message.body)),
             )
         },
         confirmButton = {

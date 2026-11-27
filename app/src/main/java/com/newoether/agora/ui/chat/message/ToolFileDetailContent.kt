@@ -24,6 +24,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -41,14 +42,14 @@ internal fun ToolPathHeader(path: ToolDetailPath, modifier: Modifier = Modifier)
     Column(modifier = modifier) {
         Text(
             text = path.name,
-            style = ChatType.thoughtCodeLarge,
+            style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
             fontFamily = MonoFamily,
             color = MaterialTheme.colorScheme.primary,
         )
         path.directory?.let {
             Text(
                 text = it,
-                style = ChatType.micro,
+                style = ChatType.micro.copy(textDirection = TextDirection.Ltr),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 maxLines = 1,
                 overflow = TextOverflow.MiddleEllipsis,
@@ -199,7 +200,7 @@ private fun DiffLines(lines: List<ToolDetailDiffLine>) {
                         DisableSelection {
                             Text(
                                 text = sign,
-                                style = ChatType.thoughtCodeLarge,
+                                style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
                                 fontFamily = MonoFamily,
                                 color = if (line.kind == ToolDetailDiffKind.CONTEXT) muted else tint,
                                 modifier = Modifier.width(14.dp),
@@ -245,7 +246,7 @@ internal fun CodeRows(rows: List<ToolDetailCodeRow>) {
                 rows.forEach { row ->
                     when (row) {
                         ToolDetailCodeRow.Gap -> DisableSelection {
-                            Text(text = "\u22ef", style = ChatType.thoughtCodeLarge, color = gutterColor)
+                            Text(text = "\u22ef", style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr), color = gutterColor)
                         }
                         is ToolDetailCodeRow.Line -> Row(modifier = Modifier.fillMaxWidth()) {
                             DisableSelection {
@@ -261,7 +262,7 @@ internal fun CodeRows(rows: List<ToolDetailCodeRow>) {
                             Spacer(Modifier.width(10.dp))
                             Text(
                                 text = highlighted(row, highlight),
-                                style = ChatType.thoughtCodeLarge,
+                                style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
                                 fontFamily = MonoFamily,
                                 color = if (row.emphasized) MaterialTheme.colorScheme.onSurface
                                     else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
@@ -299,7 +300,7 @@ private fun InlineGutterText(rows: List<ToolDetailCodeRow>) {
     NoAutoScrollSelectionContainer {
         Text(
             text = text,
-            style = ChatType.thoughtCodeLarge,
+            style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
             fontFamily = MonoFamily,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(10.dp),

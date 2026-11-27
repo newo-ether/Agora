@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +36,7 @@ import com.newoether.agora.data.DefaultSystemPrompt
 import com.newoether.agora.data.SystemPromptEntry
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.ui.settings.SystemPromptEditorPage
+import com.newoether.agora.util.rememberContentTextDirection
 import kotlinx.coroutines.launch
 
 /**
@@ -99,7 +101,7 @@ internal fun SystemPromptPickerDialog(
                             onClick = { selectedPromptId = prompt.id }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(prompt.title)
+                        Text(prompt.title, style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(prompt.title)))
                     }
                 }
             }

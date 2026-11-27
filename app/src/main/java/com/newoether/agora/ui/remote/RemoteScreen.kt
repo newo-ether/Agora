@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -57,6 +58,7 @@ import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.common.rememberAgoraHaptics
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
+import com.newoether.agora.util.rememberContentTextDirection
 
 @Composable
 internal fun RemoteOverlay(
@@ -168,6 +170,10 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
                     onRefresh = { if (current && active && !displayed.controlling) { pulled = true; vm.refresh() } },
                     title = displayed.devices.firstOrNull { it.id == displayed.deviceId }?.name
                         ?.ifBlank { null } ?: stringResource(R.string.remote_device), onBack = back,
+                    titleTextDirection = rememberContentTextDirection(
+                        displayed.devices.firstOrNull { it.id == displayed.deviceId }?.name
+                            ?.ifBlank { null } ?: stringResource(R.string.remote_device)
+                    ),
                     actions = {
                         if (displayed.capabilities.usage) IconButton(onClick = { showUsage = true }, enabled = current && active) {
                             Icon(Icons.Rounded.DataUsage, stringResource(R.string.remote_usage))
@@ -238,9 +244,11 @@ internal fun RemoteScreen(vm: RemoteViewModel, settings: SettingsRepository, act
                                                 }.clickable(enabled = current) {
                                                     forward = true; focus.clearFocus(); vm.selectSession(session)
                                                 },
-                                                headlineContent = { Text(session.displayTitle(stringResource(R.string.new_chat)), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                                                headlineContent = { Text(session.displayTitle(stringResource(R.string.new_chat)), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                    style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(session.displayTitle(stringResource(R.string.new_chat))))) },
                                                 supportingContent = { Text(session.displayDirectory(),
-                                                    maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                                    style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(session.displayDirectory()))) },
                                                 leadingContent = { Icon(Icons.Rounded.ChatBubbleOutline, null) },
                                                 trailingContent = {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -381,13 +389,15 @@ private fun RemoteDevices(state: RemoteState, vm: RemoteViewModel, onBack: () ->
                         },
                         headlineContent = {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(device.name.ifBlank { stringResource(R.string.remote_device) }, Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(device.name.ifBlank { stringResource(R.string.remote_device) }, Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(device.name.ifBlank { stringResource(R.string.remote_device) })))
                                 RemoteStatusDot(status)
                             }
                         },
                         supportingContent = {
                             Column {
-                                Text(device.address, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(device.address, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
                             }
                         },
                         leadingContent = { Icon(Icons.Rounded.Devices, null) },
@@ -418,7 +428,8 @@ private fun RemoteDevices(state: RemoteState, vm: RemoteViewModel, onBack: () ->
     state.devices.firstOrNull { it.id == deleteId }?.let { device ->
         AlertDialog(onDismissRequest = { deleteId = null },
             title = { Text(stringResource(R.string.remote_delete_title)) },
-            text = { Text(stringResource(R.string.remote_delete_message, device.name.ifBlank { stringResource(R.string.remote_device) })) },
+            text = { Text(stringResource(R.string.remote_delete_message, device.name.ifBlank { stringResource(R.string.remote_device) }),
+                style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(device.name.ifBlank { stringResource(R.string.remote_device) }))) },
             confirmButton = { TextButton(enabled = enabled, onClick = { vm.removeDevice(device.id); deleteId = null }) {
                 Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
             } },
@@ -466,14 +477,14 @@ internal fun RemoteAddDevice(state: RemoteState, vm: RemoteViewModel, active: Bo
         }, {
             SettingsIconContent(Icons.Rounded.Link) {
                 McpLabeledField(label = stringResource(R.string.remote_address), value = address,
-                    onValueChange = { if (ownsEditor()) address = it }, keyboardType = KeyboardType.Uri,
+                    onValueChange = { if (ownsEditor()) address = it }, keyboardType = KeyboardType.Uri, forceLtr = true,
                     supportingText = stringResource(R.string.remote_connection_hint),
                     placeholder = stringResource(R.string.remote_address_placeholder))
             }
         }, {
             SettingsIconContent(Icons.Rounded.Key) {
                 McpLabeledField(label = stringResource(R.string.remote_token), value = token,
-                    onValueChange = { if (ownsEditor()) token = it }, keyboardType = KeyboardType.Password, password = true,
+                    onValueChange = { if (ownsEditor()) token = it }, keyboardType = KeyboardType.Password, password = true, forceLtr = true,
                     placeholder = stringResource(R.string.remote_token_placeholder))
             }
         }))

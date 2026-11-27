@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.clearFocusOnTap
@@ -33,6 +34,7 @@ import android.os.Build
 import com.newoether.agora.data.claimSubmissionMessage
 import com.newoether.agora.ui.components.SubmissionMessageDialog
 import com.newoether.agora.util.SubmissionMessage
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.util.submitFeedback
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -170,7 +172,8 @@ fun RatingForm(
             label = { Text(stringResource(R.string.rating_your_name)) },
             singleLine = true,
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(name)),
         )
 
         // Email
@@ -180,7 +183,8 @@ fun RatingForm(
             label = { Text(stringResource(R.string.rating_your_email)) },
             singleLine = true,
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(email)),
         )
 
         // Comment
@@ -193,7 +197,8 @@ fun RatingForm(
             minLines = 3,
             maxLines = 5,
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)
+            modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
+            textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = rememberContentTextDirection(comment)),
         )
         Text(
             text = "$commentLen/$commentMaxLen",

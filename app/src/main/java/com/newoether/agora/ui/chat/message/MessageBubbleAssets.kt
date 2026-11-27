@@ -34,6 +34,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +44,8 @@ import com.newoether.agora.ui.components.latexSourceForLink
 import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
 import com.newoether.agora.ui.chat.visibleMarkdownMatchRanges
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.rememberContentTextAlign
+import com.newoether.agora.util.rememberContentTextDirection
 import com.mikepenz.markdown.compose.LocalMarkdownColors
 import com.mikepenz.markdown.compose.LocalMarkdownDimens
 import com.mikepenz.markdown.compose.LocalMarkdownPadding
@@ -365,7 +369,7 @@ internal fun rememberChatMarkdownAssets(
                 if (type == MarkdownElementTypes.HTML_BLOCK) {
                     SearchHighlightedMarkdownText(
                         model = model,
-                        style = model.typography.paragraph,
+                        style = model.typography.paragraph.copy(textDirection = TextDirection.Ltr),
                         literalText = requireNotNull(
                             literalHtmlBlockText(model.content, model.node)
                         ),
@@ -620,7 +624,7 @@ private fun SearchHighlightedMarkdownTableRow(
                         node = cell,
                         typography = typography,
                     ),
-                    style = if (isHeader) style.copy(fontWeight = FontWeight.Bold) else style,
+                    style = if (isHeader) style.copy(fontWeight = FontWeight.Bold, textDirection = TextDirection.Ltr) else style.copy(textDirection = TextDirection.Ltr),
                     spec = spec,
                     highlightColor = highlightColor,
                     activeHighlightColor = activeHighlightColor,
@@ -642,6 +646,23 @@ internal fun SearchHighlightedMarkdownText(
     activeHighlightColor: Color = ActiveSearchHighlightBackground,
     promoteWideLatex: Boolean = false,
 ) {
+    val sourceText = literalText ?: run {
+        val start = textNode.startOffset.coerceIn(0, model.content.length)
+        val end = textNode.endOffset.coerceIn(start, model.content.length)
+        model.content.substring(start, end)
+    }
+    val style = style.copy(
+        textDirection = if (style.textDirection == TextDirection.Unspecified) {
+            rememberContentTextDirection(sourceText)
+        } else {
+            style.textDirection
+        },
+        textAlign = if (style.textAlign == TextAlign.Unspecified) {
+            rememberContentTextAlign(sourceText)
+        } else {
+            style.textAlign
+        },
+    )
     val settings = annotatorSettings()
     val citationTokens = LocalCitationInlineTokens.current
     val base = remember(model.content, textNode, style, literalText, settings, citationTokens) {

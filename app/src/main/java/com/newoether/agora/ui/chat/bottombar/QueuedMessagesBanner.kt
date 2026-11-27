@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.viewmodel.QueuedSend
 
 /** One fixed-height queue row. Ordering and placement motion belong to [ComposerStatusColumn]. */
@@ -58,7 +59,9 @@ internal fun QueuedMessageRow(
         ) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    textDirection = rememberContentTextDirection(text),
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),

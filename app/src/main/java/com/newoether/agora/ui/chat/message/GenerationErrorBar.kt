@@ -25,11 +25,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.chat.StreamingTailAnchorHeight
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.isRtlContent
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.util.NoAutoScrollSelectionContainer
 import com.newoether.agora.viewmodel.normalizePersistedGenerationErrorText
 
@@ -51,8 +55,9 @@ internal fun GenerationTerminalText(
     val textContent: @Composable () -> Unit = {
         Text(
             text = displayText,
-            style = ChatType.body,
+            style = ChatType.body.copy(textDirection = rememberContentTextDirection(displayText)),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+            textAlign = if (isRtlContent(displayText)) TextAlign.End else TextAlign.Start,
         )
     }
     Box(

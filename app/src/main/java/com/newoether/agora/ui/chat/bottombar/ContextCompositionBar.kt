@@ -28,6 +28,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.ContextBudget
@@ -163,15 +164,16 @@ internal fun SegmentedBar(
             .drawBehind {
                 val gap = SegmentGap.toPx()
                 val minWidth = MinSegmentWidth.toPx()
-                // Reserved first, pinned right: usage that crosses the threshold then paints over
-                // it, which is exactly the state the transcript's warning color announces.
+                val rtl = layoutDirection == LayoutDirection.Rtl
+                // Reserved first, pinned to the end: usage that crosses the threshold then paints
+                // over it, which is exactly the state the transcript's warning colour announces.
                 val reservedWidth = (size.width * animatedReserved)
                     .let { if (it > 0f) it.coerceAtLeast(minWidth) else 0f }
                     .coerceAtMost(size.width)
                 if (reservedWidth > 0f) {
                     drawRect(
                         color = reservedColor,
-                        topLeft = Offset(size.width - reservedWidth, 0f),
+                        topLeft = Offset(if (rtl) 0f else size.width - reservedWidth, 0f),
                         size = Size(reservedWidth, size.height),
                     )
                 }
@@ -183,7 +185,7 @@ internal fun SegmentedBar(
                         .coerceAtMost(size.width - start)
                     drawRect(
                         color = colors[index],
-                        topLeft = Offset(start, 0f),
+                        topLeft = Offset(if (rtl) size.width - start - width else start, 0f),
                         size = Size(width, size.height),
                     )
                     // The gap exposes the track between parts, which is what separates them.
@@ -205,6 +207,8 @@ internal fun LegendRow(color: Color, label: String, value: String) {
             text = value,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -224,6 +228,6 @@ internal fun LegendRow(color: Color, label: String, value: @Composable () -> Uni
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(12.dp))
-        value()
+        Box(Modifier.weight(1f, fill = false)) { value() }
     }
 }

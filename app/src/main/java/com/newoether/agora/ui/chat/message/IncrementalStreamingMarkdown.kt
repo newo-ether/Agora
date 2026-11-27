@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.newoether.agora.model.StreamingTextDelta
 import com.newoether.agora.util.NoAutoScrollSelectionContainer
+import com.newoether.agora.util.isRtlContent
 import com.mikepenz.markdown.compose.LocalMarkdownInlineContent
 import com.mikepenz.markdown.compose.MarkdownElement
 import com.mikepenz.markdown.model.ReferenceLinkHandler
@@ -754,14 +755,32 @@ private fun ParsedMarkdownBlockContent(
         success = { successState, components, successModifier ->
             Column(successModifier) {
                 visibleNodes.forEach { node ->
-                    MarkdownElement(
-                        node = node,
-                        components = components,
-                        content = successState.content,
-                        // The normal full-document renderer includes the block spacer for its
-                        // first node too. Matching that contract removes live/final padding drift.
-                        includeSpacer = true,
-                    )
+                    val nodeText = remember(node, successState.content) {
+                        val start = node.startOffset.coerceIn(0, successState.content.length)
+                        val end = node.endOffset.coerceIn(start, successState.content.length)
+                        successState.content.substring(start, end)
+                    }
+                    val nodeType = node.type.toString()
+                    val pinnedLtr = nodeType.contains("CODE", ignoreCase = true) ||
+                        nodeType.contains("TABLE", ignoreCase = true) ||
+                        nodeType.contains("HTML", ignoreCase = true)
+                    val layoutDirection = if (pinnedLtr || !isRtlContent(nodeText)) {
+                        androidx.compose.ui.unit.LayoutDirection.Ltr
+                    } else {
+                        androidx.compose.ui.unit.LayoutDirection.Rtl
+                    }
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        androidx.compose.ui.platform.LocalLayoutDirection provides layoutDirection,
+                    ) {
+                        MarkdownElement(
+                            node = node,
+                            components = components,
+                            content = successState.content,
+                            // The normal full-document renderer includes the block spacer for its
+                            // first node too. Matching that contract removes live/final padding drift.
+                            includeSpacer = true,
+                        )
+                    }
                 }
             }
         },

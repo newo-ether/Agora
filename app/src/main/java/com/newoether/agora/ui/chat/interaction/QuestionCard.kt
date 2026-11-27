@@ -48,8 +48,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
@@ -63,6 +66,8 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.util.NoAutoScrollSelectionContainer
+import com.newoether.agora.util.rememberContentTextAlign
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.viewmodel.AskUserController
 
 private const val FieldDurationMs = 180
@@ -214,6 +219,14 @@ private fun QuestionPage(
 ) {
     val hasOptions = request.options.isNotEmpty()
     val motion = LocalAgoraMotionPolicy.current
+    val layoutDirection = LocalLayoutDirection.current
+    val typedDirection = rememberContentTextDirection(draft.typed)
+    val fieldIsRtl = draft.typed.isNotBlank() && typedDirection == TextDirection.Rtl ||
+        draft.typed.isBlank() && layoutDirection == LayoutDirection.Rtl
+    val answerStyle = MaterialTheme.typography.bodyMedium.copy(
+        textDirection = if (fieldIsRtl) TextDirection.Rtl else TextDirection.Ltr,
+        textAlign = if (fieldIsRtl) TextAlign.Right else TextAlign.Left,
+    )
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     // Choosing to type opens the field inside the scrolling content and focuses it for the
@@ -254,7 +267,10 @@ private fun QuestionPage(
         NoAutoScrollSelectionContainer(enabled = enabled) {
             Text(
                 text = request.question,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    textDirection = rememberContentTextDirection(request.question),
+                ),
+                textAlign = rememberContentTextAlign(request.question),
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -326,9 +342,9 @@ private fun QuestionPage(
                     placeholder = if (hasOptions) {
                         null
                     } else {
-                        { Text(stringResource(R.string.ask_user_custom_answer)) }
+                        { Text(stringResource(R.string.ask_user_custom_answer), style = answerStyle) }
                     },
-                    textStyle = MaterialTheme.typography.bodyMedium,
+                    textStyle = answerStyle,
                     shape = RoundedCornerShape(16.dp),
                     maxLines = 4,
                 )
@@ -377,9 +393,12 @@ private fun OptionRow(
         Spacer(Modifier.width(12.dp))
         Text(
             text = option,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                textDirection = rememberContentTextDirection(option),
+            ),
+            textAlign = rememberContentTextAlign(option),
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(vertical = 8.dp),
+            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
         )
     }
 }

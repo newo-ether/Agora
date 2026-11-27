@@ -62,7 +62,7 @@ internal fun StreamingMarkdownMessage(
         ) {
             Text(
                 text = emptyStreamingText.orEmpty(),
-                style = emptyStreamingTextStyle,
+                style = emptyStreamingTextStyle.copy(textDirection = com.newoether.agora.util.contentTextDirection(emptyStreamingText)),
                 color = resolvedEmptyColor,
                 modifier = Modifier
                     .fillMaxWidth()

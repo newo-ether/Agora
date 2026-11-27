@@ -70,6 +70,7 @@ import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.components.rememberUnsavedChangesBack
 import com.newoether.agora.ui.settings.AnimatedActionFab
 import com.newoether.agora.ui.settings.CollapsingSettingsLazyScaffold
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.ui.settings.SettingsGroup
 import com.newoether.agora.ui.settings.SettingsItem
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -267,6 +268,7 @@ internal fun TaskDetailPage(
 
     CollapsingSettingsLazyScaffold(
         title = name.ifBlank { stringResource(if (isNew) R.string.task_new else R.string.task_edit) },
+        titleTextDirection = rememberContentTextDirection(name.ifBlank { stringResource(if (isNew) R.string.task_new else R.string.task_edit) }),
         onBack = guardedBack,
         modifier = Modifier.clearFocusOnTap(),
         listState = listState,

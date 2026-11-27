@@ -20,12 +20,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.util.rememberContentTextAlign
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.model.MessageSource
 
 /** Alpha of the question lines and the unanswered label inside an ask_user bubble. */
@@ -72,7 +76,14 @@ internal fun SubagentResultSummary(result: MessageSource.SubagentResult, textCol
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             result.name.ifBlank { stringResource(R.string.message_source_subagent) },
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleSmall.copy(
+                textDirection = rememberContentTextDirection(
+                    result.name.ifBlank { stringResource(R.string.message_source_subagent) },
+                ),
+            ),
+            textAlign = rememberContentTextAlign(
+                result.name.ifBlank { stringResource(R.string.message_source_subagent) },
+            ),
             color = textColor,
             fontWeight = FontWeight.SemiBold,
             maxLines = 2,

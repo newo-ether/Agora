@@ -91,6 +91,7 @@ import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.util.verticalEdgeFade
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -512,7 +513,9 @@ internal fun ChatDrawerContent(
                                                         text = title,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
-                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                                            textDirection = rememberContentTextDirection(title),
+                                                        ),
                                                         color = selectionContentColor,
                                                     )
                                                 }

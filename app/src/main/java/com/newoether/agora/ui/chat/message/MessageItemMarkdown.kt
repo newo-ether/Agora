@@ -414,12 +414,14 @@ private fun MarkdownSuccessWithSpacing(
     val visibleNodes = remember(state.node) { markdownVisibleBlocks(state.node) }
     Column(modifier) {
         visibleNodes.forEachIndexed { index, node ->
-            MarkdownElement(
-                node = node,
-                components = components,
-                content = state.content,
-                includeSpacer = includeFirstSpacer || index > 0
-            )
+            MarkdownBlockDirection(node = node, content = state.content) {
+                MarkdownElement(
+                    node = node,
+                    components = components,
+                    content = state.content,
+                    includeSpacer = includeFirstSpacer || index > 0
+                )
+            }
         }
     }
 }
@@ -445,12 +447,14 @@ private fun LazyMarkdownSuccessWithSpacing(
                 "${node.startOffset}:${node.endOffset}:${node.type}:$index"
             },
         ) { index, node ->
-            MarkdownElement(
-                node = node,
-                components = components,
-                content = state.content,
-                includeSpacer = includeFirstSpacer || index > 0,
-            )
+            MarkdownBlockDirection(node = node, content = state.content) {
+                MarkdownElement(
+                    node = node,
+                    components = components,
+                    content = state.content,
+                    includeSpacer = includeFirstSpacer || index > 0,
+                )
+            }
         }
     }
 }

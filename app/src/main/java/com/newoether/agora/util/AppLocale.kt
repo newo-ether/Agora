@@ -22,6 +22,21 @@ internal fun appLocaleFor(code: String): Locale? = when (code) {
     else -> null
 }
 
+/**
+ * The locale the app actually shows for [code]: its own choice, or the platform
+ * locale for "system".
+ *
+ * `withAppLocale` leaves the process default alone for "system", so after a
+ * session in another language the stale `Locale.getDefault()` keeps formatting
+ * numbers, dates and lists in the previous language. Callers that publish the
+ * app locale process-wide need this fallback instead of a nullable lookup.
+ */
+internal fun Context.effectiveAppLocale(code: String): Locale {
+    appLocaleFor(code)?.let { return it }
+    val locales = resources.configuration.locales
+    return if (locales.isEmpty) Locale.getDefault() else locales[0]
+}
+
 /** [context] configured with the locale of the app-language setting [code]. */
 internal fun Context.withAppLocale(code: String): Context {
     val locale = appLocaleFor(code) ?: return this

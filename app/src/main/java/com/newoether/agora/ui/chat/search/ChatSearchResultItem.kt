@@ -28,6 +28,7 @@ import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.model.Participant
+import com.newoether.agora.util.rememberContentTextDirection
 
 @Composable
 internal fun SearchResultItem(
@@ -84,7 +85,9 @@ internal fun SearchResultItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = highlight(displayTitle),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        textDirection = rememberContentTextDirection(displayTitle),
+                    ),
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -115,7 +118,9 @@ internal fun SearchResultItem(
                             append(highlight(snippetAroundMatch(displayMessageText, query)))
                         }
                     },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        textDirection = rememberContentTextDirection(displayMessageText),
+                    ),
                     maxLines = 2
                 )
             }

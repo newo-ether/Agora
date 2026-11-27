@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.clearFocusOnTap
@@ -58,7 +59,7 @@ internal fun LicenseDialog(onDismiss: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-                Text(text = licenseText)
+                Text(text = licenseText, style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr))
             }
         },
         confirmButton = {

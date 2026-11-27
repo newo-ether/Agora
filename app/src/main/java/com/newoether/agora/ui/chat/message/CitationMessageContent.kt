@@ -75,6 +75,8 @@ import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
 import com.newoether.agora.ui.components.SmoothBottomSheet
 import com.newoether.agora.ui.components.rememberSmoothBottomSheetState
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.isRtlContent
+import com.newoether.agora.util.rememberContentTextDirection
 
 internal const val CITATION_CAPSULE_TONAL_ELEVATION_DP = 2
 internal const val CITATION_CAPSULE_FOREGROUND_ALPHA = 0.7f
@@ -333,7 +335,7 @@ private fun CitationInlineCapsule(
         Text(
             text = primaryText,
             color = citationCapsuleForegroundColor(),
-            style = textStyle,
+            style = textStyle.copy(textDirection = rememberContentTextDirection(primaryText)),
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -421,7 +423,7 @@ internal fun CitationSourcesSummaryCapsule(
         Text(
             text = label,
             color = citationCapsuleForegroundColor(),
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelLarge.copy(textDirection = rememberContentTextDirection(label)),
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
         )
@@ -463,7 +465,7 @@ internal fun CitationSourcesBottomSheet(
                     sourceCount = citations.size,
                     sourcesLabel = stringResource(R.string.citation_sources),
                 ),
-                style = ChatType.detailTitle,
+                style = ChatType.detailTitle.copy(textDirection = rememberContentTextDirection(citationSourcesSheetTitle(citations.size, stringResource(R.string.citation_sources)))),
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
             )
@@ -557,7 +559,7 @@ private fun CitationSourceRow(
             if (metadata.isNotBlank()) {
                 Text(
                     text = metadata,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -600,20 +602,22 @@ internal fun CitationSourceDetailDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(source.title) },
+        title = { Text(source.title, style = MaterialTheme.typography.titleLarge.copy(textDirection = rememberContentTextDirection(source.title)), textAlign = if (isRtlContent(source.title)) TextAlign.End else TextAlign.Start) },
         text = {
             Column {
                 source.fileName?.let {
-                    Text("${stringResource(R.string.citation_source_file)}: $it")
+                    Text("${stringResource(R.string.citation_source_file)}: $it", style = MaterialTheme.typography.bodyMedium.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr))
                 }
                 source.location?.let {
-                    Text("${stringResource(R.string.citation_source_location)}: $it")
+                    Text("${stringResource(R.string.citation_source_location)}: $it", style = MaterialTheme.typography.bodyMedium.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr))
                 }
                 source.excerpt?.takeIf(String::isNotBlank)?.let {
                     Text(
                         text = it,
                         modifier = Modifier.padding(top = 8.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium.copy(textDirection = rememberContentTextDirection(it)),
+                        textAlign = if (isRtlContent(it)) TextAlign.End else TextAlign.Start,
                     )
                 }
             }

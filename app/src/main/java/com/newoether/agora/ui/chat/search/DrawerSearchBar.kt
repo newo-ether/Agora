@@ -51,6 +51,7 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.util.rememberContentTextDirection
 
 /** The drawer heading and its trailing, horizontally expanding search capsule. */
 @Composable
@@ -116,7 +117,7 @@ internal fun DrawerSearchBar(
                             modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
                                 .semantics { contentDescription = searchHint },
                             singleLine = true, cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            textStyle = ChatType.drawerSearch.copy(color = MaterialTheme.colorScheme.onSurface))
+                            textStyle = ChatType.drawerSearch.copy(color = MaterialTheme.colorScheme.onSurface, textDirection = rememberContentTextDirection(query)))
                     }
                     Box(modifier = Modifier.size(28.dp).testTag("DrawerSearchTrailing"),
                         contentAlignment = Alignment.Center) {

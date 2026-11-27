@@ -15,8 +15,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.settings.SettingsIconContent
+import com.newoether.agora.util.rememberContentTextDirection
 
 /** A group row whose value is typed in place. Icon-bearing fields use the same leading-icon
  *  content column as the Proxy settings page, so the label and field share its left inset. */
@@ -51,7 +53,10 @@ internal fun TaskLabeledField(
             isError = isError,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth(),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+                textDirection = rememberContentTextDirection(value),
+            ),
         )
         if (supporting != null) {
             Spacer(Modifier.height(6.dp))

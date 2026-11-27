@@ -40,6 +40,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -52,6 +54,8 @@ import com.newoether.agora.ui.chat.MEDIA_STATE_CROSSFADE_MILLIS
 import com.newoether.agora.ui.chat.MediaLoadPresentation
 import com.newoether.agora.ui.theme.ChatType
 import com.newoether.agora.ui.theme.MonoFamily
+import com.newoether.agora.util.isRtlContent
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.util.NoAutoScrollSelectionContainer
 
 internal val LocalToolImageLoader =
@@ -360,8 +364,9 @@ private fun ToolSectionLabel(text: String) {
 private fun ToolActiveContent(text: String, output: String?) {
     Text(
         text = text,
-        style = ChatType.metaNormal,
+        style = ChatType.metaNormal.copy(textDirection = rememberContentTextDirection(text)),
         color = MaterialTheme.colorScheme.primary,
+        textAlign = if (isRtlContent(text)) TextAlign.End else TextAlign.Start,
     )
     if (!output.isNullOrBlank()) {
         Spacer(Modifier.height(8.dp))
@@ -382,8 +387,9 @@ private fun ToolErrorContent(message: String) {
 internal fun ToolMutedContent(message: String) {
     Text(
         text = message,
-        style = ChatType.metaNormal,
+        style = ChatType.metaNormal.copy(textDirection = rememberContentTextDirection(message)),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = if (isRtlContent(message)) TextAlign.End else TextAlign.Start,
     )
 }
 
@@ -439,23 +445,25 @@ private fun WebSearchResult(
             ) {
                 Text(
                     text = title,
-                    style = ChatType.body,
+                    style = ChatType.body.copy(textDirection = rememberContentTextDirection(title)),
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = if (isRtlContent(title)) TextAlign.End else TextAlign.Start,
                 )
                 if (!snippet.isNullOrBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = snippet,
-                        style = ChatType.thoughtBody,
+                        style = ChatType.thoughtBody.copy(textDirection = rememberContentTextDirection(snippet)),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = if (isRtlContent(snippet)) TextAlign.End else TextAlign.Start,
                     )
                 }
                 if (!url.isNullOrBlank()) {
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = url,
-                        style = ChatType.micro,
+                        style = ChatType.micro.copy(textDirection = TextDirection.Ltr),
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -481,7 +489,7 @@ internal fun TerminalOutput(output: String) {
         NoAutoScrollSelectionContainer {
             Text(
                 text = output,
-                style = ChatType.thoughtCodeLarge,
+                style = ChatType.thoughtCodeLarge.copy(textDirection = TextDirection.Ltr),
                 fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(10.dp),

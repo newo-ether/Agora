@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -20,9 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.settings.SettingsItem
+import com.newoether.agora.util.rememberContentTextDirection
 
 /** Details-group row for the task prompt. The row previews the prompt and opens the editor, so a
  *  long prompt no longer competes with the rest of the page for height. */
@@ -36,6 +39,9 @@ internal fun TaskPromptRow(prompt: String, onClick: () -> Unit) {
                 prompt.ifBlank { stringResource(R.string.task_prompt_hint) },
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
+                style = LocalTextStyle.current.copy(
+                    textDirection = rememberContentTextDirection(prompt.ifBlank { stringResource(R.string.task_prompt_hint) }),
+                ),
             )
         },
         leadingContent = {
@@ -69,6 +75,7 @@ internal fun TaskPromptDialog(initial: String, onSave: (String) -> Unit, onDismi
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface,
+                    textDirection = rememberContentTextDirection(draft),
                 ),
             )
         },

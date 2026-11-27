@@ -42,6 +42,7 @@ import com.newoether.agora.AgoraApplication
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.common.LocalSnackbarMessage
 import com.newoether.agora.R
@@ -66,6 +67,7 @@ import com.newoether.agora.ui.components.rememberUnsavedChangesBack
 import com.newoether.agora.ui.components.secretVisualTransformation
 import com.newoether.agora.util.Constants
 import com.newoether.agora.util.noOpBringIntoView
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 
@@ -205,6 +207,13 @@ internal fun ProviderRemoteEditor(
             isCustomEditor -> draft.name.ifBlank { providerName }
             else -> providerName
         },
+        titleTextDirection = rememberContentTextDirection(
+            when {
+                creating -> stringResource(R.string.provider_custom_entry)
+                isCustomEditor -> draft.name.ifBlank { providerName }
+                else -> providerName
+            },
+        ),
         onBack = guardedBack,
         scrollState = rememberSettingsScrollState(),
         actions = {
@@ -257,6 +266,7 @@ internal fun ProviderRemoteEditor(
                                 isError = urlError,
                                 supportingText = if (urlError) stringResource(R.string.custom_provider_url_error) else null,
                                 keyboardType = KeyboardType.Uri,
+                                forceLtr = true,
                                 placeholder = providerInstance?.baseUrlPlaceholder,
                             )
                         }
@@ -481,6 +491,9 @@ private fun ApiKeyDialog(
                     label = { Text(stringResource(R.string.provider_key_name_hint)) },
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().noOpBringIntoView(),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        textDirection = rememberContentTextDirection(name),
+                    ),
                 )
                 Spacer(Modifier.height(8.dp))
                 var keyVisible by rememberSecretVisible()
@@ -493,6 +506,7 @@ private fun ApiKeyDialog(
                         trailingIcon = { SecretVisibilityToggle(keyVisible) { keyVisible = !keyVisible } },
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr),
                     )
                 }
             }

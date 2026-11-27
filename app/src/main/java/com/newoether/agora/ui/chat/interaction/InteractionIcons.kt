@@ -20,6 +20,7 @@ internal val CollapseContentIcon: ImageVector by lazy {
         defaultHeight = 24.dp,
         viewportWidth = 24f,
         viewportHeight = 24f,
+        autoMirror = true,
     ).apply {
         path(fill = SolidColor(Color.Black)) {
             moveTo(11f, 13f)
@@ -50,6 +51,7 @@ internal val ExpandContentIcon: ImageVector by lazy {
         defaultHeight = 24.dp,
         viewportWidth = 24f,
         viewportHeight = 24f,
+        autoMirror = true,
     ).apply {
         path(fill = SolidColor(Color.Black)) {
             moveTo(5f, 19f)

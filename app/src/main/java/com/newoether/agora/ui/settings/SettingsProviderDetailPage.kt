@@ -14,11 +14,13 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.*
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.newoether.agora.util.rememberContentTextDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.LocalChatModelConfig
@@ -116,7 +118,7 @@ private fun LocalProviderSettingsList(
                             add {
                                 SettingsItem(
                                     modifier = Modifier.clickable { showMenu = true },
-                                    headlineContent = { Text(model.alias, fontWeight = FontWeight.Medium) },
+                                    headlineContent = { Text(model.alias, fontWeight = FontWeight.Medium, style = LocalTextStyle.current.copy(textDirection = rememberContentTextDirection(model.alias))) },
                                     leadingContent = {
                                         Icon(
                                             LocalModelIcon,

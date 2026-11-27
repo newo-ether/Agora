@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.remote.RemoteState
+import com.newoether.agora.util.rememberContentTextDirection
 import com.newoether.agora.remote.remoteDeviceName
 
 /** Product and configured device identity share chat's existing top/composer range. */
@@ -102,7 +103,7 @@ internal fun RemoteEmptyConversation(
                     Text(
                         text = headline,
                         modifier = Modifier.semantics { heading() }.testTag("remote-welcome-headline"),
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, lineHeight = 35.sp),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, lineHeight = 35.sp, textDirection = rememberContentTextDirection(headline)),
                         color = MaterialTheme.colorScheme.onBackground,
                         textAlign = TextAlign.Center,
                     )
@@ -110,7 +111,7 @@ internal fun RemoteEmptyConversation(
                     Text(
                         text = deviceName,
                         modifier = Modifier.testTag("remote-welcome-device"),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium.copy(textDirection = rememberContentTextDirection(deviceName)),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                         maxLines = 2,

@@ -8,6 +8,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import com.newoether.agora.util.rememberContentTextAlign
+import com.newoether.agora.util.rememberContentTextDirection
 
 /**
  * Plain-text companion to streaming Markdown. The text/layout input is always the final,
@@ -37,13 +41,19 @@ internal fun StableStreamingText(
         fadeCodePoints = tailFadeCodePoints,
         spatialBands = tailFadeSpatialBands,
     )
+    val resolvedDirection = if (style.textDirection == TextDirection.Unspecified) {
+        rememberContentTextDirection(text)
+    } else {
+        style.textDirection
+    }
     Text(
         text = renderedText,
         modifier = modifier,
-        style = style,
+        style = style.copy(textDirection = resolvedDirection),
         color = color,
         fontWeight = fontWeight,
         maxLines = maxLines,
         overflow = overflow,
+        textAlign = rememberContentTextAlign(text),
     )
 }

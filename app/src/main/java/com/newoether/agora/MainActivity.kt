@@ -56,6 +56,7 @@ import com.newoether.agora.ui.common.AgoraSnackbar
 import com.newoether.agora.ui.common.LocalSnackbarMessage
 import com.newoether.agora.ui.theme.AgoraTheme
 import com.newoether.agora.util.snackbarTimeoutMillis
+import com.newoether.agora.util.effectiveAppLocale
 import com.newoether.agora.util.withAppLocale
 import com.newoether.agora.viewmodel.ChatViewModel
 import kotlinx.coroutines.*
@@ -77,7 +78,7 @@ class MainActivity : ComponentActivity() {
         val langCode = kotlinx.coroutines.runBlocking {
             SettingsManager(newBase).appLanguage.first()
         }
-        com.newoether.agora.util.appLocaleFor(langCode)?.let { java.util.Locale.setDefault(it) }
+        java.util.Locale.setDefault(newBase.effectiveAppLocale(langCode))
         super.attachBaseContext(newBase.withAppLocale(langCode))
     }
 
