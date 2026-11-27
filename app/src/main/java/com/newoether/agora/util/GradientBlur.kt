@@ -39,6 +39,7 @@ fun Modifier.gradientBlur(
     blurAtBottomDp: Float,
     fadeHeightDp: Float = 0f,
     bottomOverlayHeight: Dp = 0.dp,
+    topFadeHeightDp: Float = 0f,
 ): Modifier = composed {
     val density = LocalDensity.current.density
     val maxBlurPx = maxOf(blurAtTopDp, blurAtBottomDp)
@@ -68,7 +69,12 @@ fun Modifier.gradientBlur(
         null
     }
 
-    Modifier.verticalBottomOverlayFade(fadeHeightDp, bottomOverlayHeight, renderEffect)
+    Modifier.verticalBottomOverlayFade(
+        fadeHeightDp = fadeHeightDp,
+        bottomOverlayHeight = bottomOverlayHeight,
+        topFadeHeightDp = topFadeHeightDp,
+        renderEffect = renderEffect,
+    )
 }
 
 /**
@@ -122,6 +128,15 @@ fun Modifier.gradientBlurEdges(maxBlurDp: Float, edgeFadeDp: Float = 20f, topWei
 fun Modifier.gradientBlur(radiusDp: Float): Modifier =
     gradientBlur(radiusDp, radiusDp)
 
+/**
+ * Height, in fraction of the layer, at which a top edge fade reaches full opacity.
+ *
+ * The top blur needs a RuntimeShader (Android 13+); older devices keep only this alpha falloff,
+ * so it has to be tall enough to cover the floating top bar the list scrolls underneath.
+ */
+internal fun topEdgeFadeEnd(canvasHeightPx: Float, topFadeHeightPx: Float): Float =
+    (topFadeHeightPx.coerceAtLeast(0f) / canvasHeightPx.coerceAtLeast(1f)).coerceIn(0f, 1f)
+
 internal fun bottomOverlayFadeStops(
     canvasHeightPx: Float,
     fadeHeightPx: Float,
@@ -143,12 +158,14 @@ internal fun bottomOverlayFadeStops(
 fun Modifier.verticalBottomOverlayFade(
     fadeHeightDp: Float,
     bottomOverlayHeight: Dp,
+    topFadeHeightDp: Float = 0f,
     renderEffect: ComposeRenderEffect? = null,
 ): Modifier = composed {
     val density = LocalDensity.current.density
     val fadeHeightPx = fadeHeightDp.coerceAtLeast(0f) * density
     val bottomOverlayHeightPx = bottomOverlayHeight.value.coerceAtLeast(0f) * density
-    val hasFade = fadeHeightPx > 0f && bottomOverlayHeightPx > 0f
+    val topFadeHeightPx = topFadeHeightDp.coerceAtLeast(0f) * density
+    val hasFade = (fadeHeightPx > 0f && bottomOverlayHeightPx > 0f) || topFadeHeightPx > 0f
     if (!hasFade && renderEffect == null) return@composed this
 
     val layer = Modifier.graphicsLayer {
@@ -163,14 +180,19 @@ fun Modifier.verticalBottomOverlayFade(
             fadeHeightPx = fadeHeightPx,
             bottomOverlayHeightPx = bottomOverlayHeightPx,
         )
-        val fadeBrush = Brush.verticalGradient(
-            colorStops = arrayOf(
-                0f to Color.Black,
-                fadeStart to Color.Black,
-                fadeEnd to Color.Transparent,
-                1f to Color.Transparent,
-            ),
-        )
+        val topFadeEnd = topEdgeFadeEnd(size.height, topFadeHeightPx)
+        val stops = buildList {
+            if (topFadeEnd > 0f) {
+                add(0f to Color.Transparent)
+                add(topFadeEnd.coerceAtMost(fadeStart) to Color.Black)
+            } else {
+                add(0f to Color.Black)
+            }
+            add(fadeStart to Color.Black)
+            add(fadeEnd to Color.Transparent)
+            add(1f to Color.Transparent)
+        }.distinctBy { it.first }
+        val fadeBrush = Brush.verticalGradient(colorStops = stops.toTypedArray())
         onDrawWithContent {
             drawContent()
             drawRect(brush = fadeBrush, blendMode = BlendMode.DstIn)

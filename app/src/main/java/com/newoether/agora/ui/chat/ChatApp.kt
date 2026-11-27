@@ -1,5 +1,6 @@
 package com.newoether.agora.ui.chat
 
+import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -462,6 +463,8 @@ fun ChatApp(
                 }
             ) { padding -> Box(modifier = Modifier.fillMaxSize()) {
                     val topBarH = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 64.dp
+                    // Top blur needs a RuntimeShader (API 33+); fall back to fading the bar band.
+                    val topBarFallbackFadeDp = if (blurEffectsEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 0f else topBarH.value
                     val pivotY =
                         ((windowHeightDp + topBarH.value / 2f - bottomBarHeight.value) / 2f)
                             .coerceAtLeast(0f) / windowHeightDp
@@ -503,6 +506,7 @@ fun ChatApp(
                                     blurAtBottomDp = 0f,
                                     fadeHeightDp = 40f,
                                     bottomOverlayHeight = bottomBarHeight + with(density) { outerSpacerHeightPx.toDp() } + 12.dp,
+                                    topFadeHeightDp = topBarFallbackFadeDp,
                                 ),
                                 state = listState,
                                 // Per-conversation generation gate: isLoading mirrors the OPEN
