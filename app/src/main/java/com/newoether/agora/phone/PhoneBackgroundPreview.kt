@@ -135,15 +135,24 @@ internal class PhoneBackgroundPreview(
 
     /** Screen area that excludes the system bars, so the card never hides under them. */
     private var safe: Rect = previewSafeArea(context, density)
-    private var settling: ValueAnimator? = null
+    private val rubberReach = DragFeel.REACH_DP * density
+    /** What [follower] moves: MOVE the card, CAPSULE the capsule, a grip the card's width. */
+    private var following = Gesture.NONE
+    private var resizeLimit = 0
+    private val follower = DragFollower(2) { v ->
+        when (following) {
+            Gesture.MOVE -> { cardX = v[0].roundToInt(); cardY = v[1].roundToInt(); layoutWindow() }
+            Gesture.CAPSULE -> { capsuleX = v[0].roundToInt(); capsuleY = v[1].roundToInt(); layoutWindow() }
+            else -> sizeFrom(following, v[0].roundToInt())
+        }
+    }
 
     /** A rotation changes the safe area; the card is refitted into the new one. */
     private val configuration = object : ComponentCallbacks {
         override fun onConfigurationChanged(newConfig: Configuration) {
             safe = previewSafeArea(context, density)
             dropStage()
-            settling?.cancel()
-            settling = null
+            follower.stop()
             finishMorph()
             lifted = false
             menuOpen = false
@@ -212,8 +221,7 @@ internal class PhoneBackgroundPreview(
     fun remove() {
         dropStage()
         scope.cancel()
-        settling?.cancel()
-        settling = null
+        follower.stop()
         presenting?.let { presenting = null; it.cancel() }
         morphing?.let { morphing = null; it.cancel() }
         if (added) context.applicationContext.unregisterComponentCallbacks(configuration)
@@ -393,32 +401,22 @@ internal class PhoneBackgroundPreview(
         runtime.previewCard = Rect(cardX, cardY, cardX + cardWidth, cardY + cardHeight)
     }
 
-    /** Snap clear of the screen edge with a short ease; the drag itself follows the finger exactly. */
+    /** Where the card rests: clear of the screen edge. A drag past it meets the rubber band. */
+    private fun restX() = (minCardX() + margin).let { lo -> lo.toFloat() to max(lo, maxCardX() - margin).toFloat() }
+    private fun restY() = minCardY().let { lo -> lo.toFloat() to max(lo, maxCardY() - margin).toFloat() }
+    private fun capsuleRestX() = (safe.left + pad + margin).let { lo -> lo.toFloat() to max(lo, safe.right - pad - margin - capsuleWidth).toFloat() }
+    private fun capsuleRestY() = (safe.top + pad).let { lo -> lo.toFloat() to max(lo, safe.bottom - pad - capsuleHeight).toFloat() }
+    private fun rubber(value: Float, rest: Pair<Float, Float>) = DragFeel.rubberBand(value, rest.first, rest.second, rubberReach)
+
+    /** Eases the card to rest; a grab on the way stops it where it is. */
     private fun settle(then: () -> Unit) {
-        settling?.cancel()
-        settling = null
-        savePlacement()
-        val loX = minCardX() + margin
-        val loY = minCardY()
-        val targetX = cardX.coerceIn(loX, max(loX, maxCardX() - margin))
-        val targetY = cardY.coerceIn(loY, max(loY, maxCardY() - margin))
-        if (targetX == cardX && targetY == cardY) return then()
-        val fromX = cardX
-        val fromY = cardY
-        settling = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 320
-            interpolator = EMPHASIZED
-            addUpdateListener { animation ->
-                val progress = animation.animatedValue as Float
-                placeCard(
-                    (fromX + (targetX - fromX) * progress).roundToInt(),
-                    (fromY + (targetY - fromY) * progress).roundToInt(),
-                )
-                // A grab mid-snap cancels this animator; the place it stopped is the place kept.
-                savePlacement()
-            }
-            doOnEnd { then() }
-            start()
+        following = Gesture.MOVE
+        follower.snap(cardX.toFloat(), cardY.toFloat())
+        val (loX, hiX) = restX()
+        val (loY, hiY) = restY()
+        follower.release(cardX.toFloat().coerceIn(loX, hiX), cardY.toFloat().coerceIn(loY, hiY)) {
+            savePlacement()
+            then()
         }
     }
 
@@ -434,8 +432,8 @@ internal class PhoneBackgroundPreview(
     /** The card shrinks into the capsule at its top, on the side nearer the screen edge. */
     private fun minimize() {
         if (minimized || stage != null) return
-        settling?.cancel()
-        settling = null
+        follower.stop()
+        placeCard(cardX, cardY)
         savePlacement()
         // Placed first, so the stage can cover just the morph; unseen while the card shows.
         val keepRight = cardX + cardWidth / 2 > safe.centerX()
@@ -485,9 +483,8 @@ internal class PhoneBackgroundPreview(
     }
 
     private fun begin(event: MotionEvent, kind: Gesture) {
-        // A running snap would keep writing the position under the finger.
-        settling?.cancel()
-        settling = null
+        // A running ease would keep writing the position under the finger.
+        follower.stop()
         downRawX = event.rawX
         downRawY = event.rawY
         startX = if (kind == Gesture.CAPSULE) capsuleX else cardX
@@ -498,6 +495,7 @@ internal class PhoneBackgroundPreview(
         origin = kind
         gesture = if (kind == Gesture.CARD || kind == Gesture.HANDLE || kind == Gesture.CAPSULE) Gesture.MOVE else kind
         lifted = gesture == Gesture.MOVE
+        if (lifted) follower.snap(startX.toFloat(), startY.toFloat()) else follower.snap(cardWidth.toFloat(), 0f)
         // The card itself only shows the bar as active once it is really being dragged.
         active = if (kind == Gesture.CARD || kind == Gesture.CAPSULE) Gesture.NONE else gesture
     }
@@ -512,14 +510,20 @@ internal class PhoneBackgroundPreview(
             // Measured from where the finger crossed the slop, so the card does not jump by it.
             downRawX = event.rawX
             downRawY = event.rawY
-            if (gesture != Gesture.MOVE) raiseStage {}
+            // Touchable: the running gesture stays with this window, and a pass-through stage would
+            // get every other touch dropped and may be drawn translucent by the system.
+            if (gesture != Gesture.MOVE) raiseStage(Rect(safe).apply { inset(-2 * rubberReach.toInt(), -2 * rubberReach.toInt()) }, touchable = true) {}
             else if (origin != Gesture.CAPSULE) active = Gesture.MOVE
             return
         }
         when {
             gesture != Gesture.MOVE -> resizeBy(gesture, dx, dy)
-            origin == Gesture.CAPSULE -> placeCapsule((startX + dx).roundToInt(), (startY + dy).roundToInt())
-            else -> placeCard((startX + dx).roundToInt(), (startY + dy).roundToInt())
+            else -> {
+                val capsule = origin == Gesture.CAPSULE
+                following = if (capsule) Gesture.CAPSULE else Gesture.MOVE
+                follower.follow(rubber(startX + dx, if (capsule) capsuleRestX() else restX()),
+                    rubber(startY + dy, if (capsule) capsuleRestY() else restY()))
+            }
         }
     }
 
@@ -528,8 +532,15 @@ internal class PhoneBackgroundPreview(
         gesture = Gesture.NONE
         lifted = false
         active = Gesture.NONE
-        if (moved) {
-            if (kind != Gesture.CAPSULE) settle(::handBack)
+        if (moved) when (kind) {
+            Gesture.CARD, Gesture.HANDLE -> settle(::handBack)
+            Gesture.CAPSULE -> {
+                following = Gesture.CAPSULE
+                follower.release(capsuleX.toFloat().coerceIn(capsuleRestX().first, capsuleRestX().second),
+                    capsuleY.toFloat().coerceIn(capsuleRestY().first, capsuleRestY().second)) {}
+            }
+            // The stage stays up through both eases; the grip's width springs back first.
+            else -> follower.release(cardWidth.coerceIn(minWidth, resizeLimit).toFloat(), 0f) { settle(::handBack) }
         } else if (tap) when (kind) {
             Gesture.CARD -> openFullscreen()
             Gesture.HANDLE -> menuOpen = true
@@ -582,34 +593,24 @@ internal class PhoneBackgroundPreview(
         }
     }
 
-    /**
-     * The grabbed point slides along the line the locked ratio allows; the finger's offset is
-     * projected onto that line, so diagonal drags track smoothly instead of flipping between axes.
-     */
+    /** The width the grip asks for trails the finger and meets the rubber band past its limits. */
     private fun resizeBy(kind: Gesture, dx: Float, dy: Float) {
-        val w0 = startWidth.toFloat()
-        val h0 = startHeight.toFloat()
-        val growth = when (kind) {
-            Gesture.BOTTOM_END -> (dx * w0 + dy * h0) / (w0 * w0 + h0 * h0)
-            Gesture.BOTTOM_START -> (-dx * w0 + dy * h0) / (w0 * w0 + h0 * h0)
-            else -> dy / h0
-        }
-        val right = startX + startWidth
-        val centerX = startX + startWidth / 2f
-        // The anchored edge stays put, so the room on the free side bounds the size.
-        val room = when (kind) {
-            Gesture.BOTTOM_END -> (safe.right - pad - startX).toFloat()
-            Gesture.BOTTOM_START -> (right - safe.left - pad).toFloat()
-            else -> 2f * min(centerX - safe.left - pad, safe.right - pad - centerX)
-        }
-        val roomBelow = (safe.bottom - pad - startY) * aspect
-        val limit = min(min(room, roomBelow), maxWidth().toFloat()).coerceAtLeast(minWidth.toFloat())
-        val width = (w0 * (1f + growth)).coerceIn(minWidth.toFloat(), limit).roundToInt()
-        setSize(width)
+        val anchor = when (kind) { Gesture.BOTTOM_END -> 1; Gesture.BOTTOM_START -> -1; else -> 0 }
+        val (width, limit) = previewResize(anchor, dx, dy, Rect(startX, startY, startX + startWidth, startY + startHeight),
+            safe, pad, aspect, minWidth, maxWidth())
+        resizeLimit = limit.toInt()
+        following = kind
+        follower.follow(DragFeel.rubberBand(width, minWidth.toFloat(), limit, rubberReach), 0f)
+    }
+
+    /** The card at [width], its anchored edge where the grab found it. */
+    private fun sizeFrom(kind: Gesture, width: Int) {
+        cardWidth = width.coerceAtLeast(1)
+        cardHeight = (cardWidth / aspect).roundToInt()
         cardX = when (kind) {
             Gesture.BOTTOM_END -> startX
-            Gesture.BOTTOM_START -> right - cardWidth
-            else -> (centerX - cardWidth / 2f).roundToInt()
+            Gesture.BOTTOM_START -> startX + startWidth - cardWidth
+            else -> (startX + startWidth / 2f - cardWidth / 2f).roundToInt()
         }
         cardY = startY
         layoutWindow()

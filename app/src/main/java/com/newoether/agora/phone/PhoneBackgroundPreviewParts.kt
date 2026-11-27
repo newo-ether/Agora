@@ -97,8 +97,9 @@ internal fun previewSafeArea(context: Context, density: Float): android.graphics
 
 internal fun previewWindowParams() = WindowManager.LayoutParams(
     0, 0, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+    // No limits: a drag past the edge pulls the transparent frame, and some of the card, off screen.
     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
     PixelFormat.TRANSLUCENT,
 ).apply {
     gravity = Gravity.TOP or Gravity.START
@@ -107,6 +108,33 @@ internal fun previewWindowParams() = WindowManager.LayoutParams(
         WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
     // A new origin otherwise slides in over a few frames, behind the content laid out for it.
     if (Build.VERSION.SDK_INT >= 34) setCanPlayMoveAnimation(false)
+}
+
+/**
+ * A grip drag on the card [start], anchored at its start edge ([anchor] -1), end edge (1) or
+ * center (0). The grabbed point slides along the line the locked ratio allows; the finger's offset
+ * is projected onto that line, so diagonal drags track smoothly instead of flipping between axes.
+ * Returns the width asked for, unclamped, and the largest width the anchored card has room for.
+ */
+internal fun previewResize(
+    anchor: Int, dx: Float, dy: Float, start: android.graphics.Rect, safe: android.graphics.Rect, pad: Int, aspect: Float, minWidth: Int, maxWidth: Int,
+): Pair<Float, Float> {
+    val w0 = start.width().toFloat()
+    val h0 = start.height().toFloat()
+    val growth = when (anchor) {
+        1 -> (dx * w0 + dy * h0) / (w0 * w0 + h0 * h0)
+        -1 -> (-dx * w0 + dy * h0) / (w0 * w0 + h0 * h0)
+        else -> dy / h0
+    }
+    // The anchored edge stays put, so the room on the free side bounds the size.
+    val room = when (anchor) {
+        1 -> (safe.right - pad - start.left).toFloat()
+        -1 -> (start.right - safe.left - pad).toFloat()
+        else -> 2f * minOf(start.exactCenterX() - safe.left - pad, safe.right - pad - start.exactCenterX())
+    }
+    val roomBelow = (safe.bottom - pad - start.top) * aspect
+    val limit = minOf(room, roomBelow, maxWidth.toFloat()).coerceAtLeast(minWidth.toFloat())
+    return w0 * (1f + growth) to limit
 }
 
 /** Pixel-exact size; dp round trips would leave the card a pixel off its window frame. */

@@ -18,6 +18,17 @@ internal class PhoneControlWindow(
     /** False when the OS denies the input-region API; the full-screen window then never takes touches. */
     private val inputAllowed: Boolean = true,
 ) {
+    /**
+     * True while the phone belongs to the user, as when the AI acts on a background screen. The
+     * window then stays at [operationAlpha] and untouchable unless a question waits: the system
+     * drops touches that pass through an opaque window of another app, even outside its input region.
+     */
+    var idlePassThrough = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (!closed) refresh()
+        }
     private val operationReady = MutableStateFlow(false)
     private val captureReady = MutableStateFlow(false)
     private val userPriority = MutableStateFlow(false)
@@ -82,7 +93,7 @@ internal class PhoneControlWindow(
     private fun refresh() {
         val target = when {
             capturing -> 0f
-            operating && !userPriority.value -> operationAlpha
+            (operating || idlePassThrough) && !userPriority.value -> operationAlpha
             else -> 1f
         }
         publish()
@@ -123,7 +134,7 @@ internal class PhoneControlWindow(
     }
 
     private fun publish() {
-        val passThrough = capturing || (operating && !userPriority.value)
+        val passThrough = capturing || ((operating || idlePassThrough) && !userPriority.value)
         touchable = inputAllowed && !closed && !capturing && (!passThrough || params.alpha > operationAlpha)
         params.flags = if (touchable) params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
         else params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE

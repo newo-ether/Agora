@@ -112,11 +112,17 @@ internal fun PhoneControls(
     BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
         var position by remember(owner.epoch) { mutableStateOf(Offset.Zero) }
         var stripSize by remember { mutableStateOf(IntSize.Zero) }
-        fun constrained(value: Offset) = Offset(
-            value.x.coerceIn(0f, (constraints.maxWidth - stripSize.width).coerceAtLeast(0).toFloat()),
-            value.y.coerceIn(0f, (constraints.maxHeight - stripSize.height).coerceAtLeast(0).toFloat()),
-        )
-        val placed = constrained(position)
+        val maxX = (constraints.maxWidth - stripSize.width).coerceAtLeast(0).toFloat()
+        val maxY = (constraints.maxHeight - stripSize.height).coerceAtLeast(0).toFloat()
+        fun constrained(value: Offset) = Offset(value.x.coerceIn(0f, maxX), value.y.coerceIn(0f, maxY))
+        // The same drag feel as the background card: a slight trail and a rubber band at the edges.
+        val reach = with(LocalDensity.current) { DragFeel.REACH_DP.dp.toPx() }
+        var dragging by remember(owner.epoch) { mutableStateOf(false) }
+        val finger = remember(owner.epoch) { floatArrayOf(0f, 0f) }
+        val follower = remember(owner.epoch) { DragFollower(2) { position = Offset(it[0], it[1]) } }
+        DisposableEffect(follower) { onDispose { follower.stop() } }
+        // Off the bounds only while held or easing back; otherwise kept inside, as after a rotation.
+        val placed = if (dragging) position else constrained(position)
         if (strip) PhoneControlStrip(elapsed, label, {
             if (active) runtime.lease.held.value?.takeIf { it.epoch == epoch }?.let {
                 runtime.revoke(it.owner, it.epoch)
@@ -134,8 +140,16 @@ internal fun PhoneControls(
             enabled = active,
             interactive = interactive,
             thinking = questions.isEmpty() && displayedAction == null,
-            onDrag = { if (active && runtime.lease.held.value?.epoch == epoch)
-                position = constrained(constrained(position) + it) })
+            onDrag = { delta -> if (active && runtime.lease.held.value?.epoch == epoch) {
+                if (!dragging) {
+                    dragging = true
+                    constrained(position).let { finger[0] = it.x; finger[1] = it.y; follower.snap(it.x, it.y) }
+                }
+                finger[0] += delta.x
+                finger[1] += delta.y
+                follower.follow(DragFeel.rubberBand(finger[0], 0f, maxX, reach), DragFeel.rubberBand(finger[1], 0f, maxY, reach))
+            } },
+            onDragEnd = { if (dragging) follower.release(finger[0].coerceIn(0f, maxX), finger[1].coerceIn(0f, maxY)) { dragging = false } })
         val askTop = with(LocalDensity.current) { stripSize.height.toDp() } + 8.dp
         val questionDuration = if (motion.systemAnimationsDisabled) 0 else 240
         AnimatedVisibility(questionsShown && questions.isNotEmpty(), modifier = Modifier.align(Alignment.TopCenter).padding(top = askTop)
@@ -166,9 +180,11 @@ internal fun PhoneControlStrip(
     interactive: Boolean = true,
     thinking: Boolean = false,
     onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit = {},
 ) {
     val touchable = enabled && interactive
     val latestDrag by rememberUpdatedState(onDrag)
+    val latestDragEnd by rememberUpdatedState(onDragEnd)
     var pressed by remember { mutableStateOf(false) }
     val allowScale = LocalAgoraMotionPolicy.current.allowSpatialTransitions
     val scale by animateFloatAsState(
@@ -216,7 +232,10 @@ internal fun PhoneControlStrip(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Row(Modifier.pointerInput(touchable) {
-            if (touchable) detectDragGestures { change, delta -> change.consume(); latestDrag(delta) }
+            if (touchable) detectDragGestures(onDragEnd = { latestDragEnd() }, onDragCancel = { latestDragEnd() }) { change, delta ->
+                change.consume()
+                latestDrag(delta)
+            }
         }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             PhoneDurationCapsule(elapsed, containerColor = containerColor)
             PhoneStatusCapsule(status, containerColor = containerColor, thinking = thinking, active = enabled)

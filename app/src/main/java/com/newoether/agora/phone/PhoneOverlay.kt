@@ -157,11 +157,11 @@ internal class PhoneOverlay(
             }.isSuccess
             if (placed) {
                 effectDisplayId = display.displayId
-                stripOnDisplay.value = true
+                placeStrip(onDisplay = true)
                 return true
             }
         }
-        stripOnDisplay.value = false
+        placeStrip(onDisplay = false)
         val windows = manager ?: return false
         runCatching { addEffect(windows, mainContext ?: context, keepScreenOn = true) }
         return false
@@ -213,7 +213,7 @@ internal class PhoneOverlay(
             if (effectOnPhone) addEffect(windows, localizedContext, keepScreenOn = true)
             windows.addView(controls, params)
             controlWindow = PhoneControlWindow(controls, params, windows, operationAlpha = windowAlpha,
-                inputAllowed = touchRegion != null)
+                inputAllowed = touchRegion != null).also { it.idlePassThrough = stripOnDisplay.value }
             controlScope.launch {
                 combine(runtime.lease.held.map { it?.takeIf { current -> current.epoch == epoch }?.owner }
                     .distinctUntilChanged(), runtime.askUser.requests) { owner, requests ->
@@ -225,6 +225,12 @@ internal class PhoneOverlay(
             touchRegion?.invoke(controls)
             lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         } catch (error: Exception) { remove(); throw error }
+    }
+
+    /** With the strip on the background screen the phone is the user's, so the control window lets touches through. */
+    private fun placeStrip(onDisplay: Boolean) {
+        stripOnDisplay.value = onDisplay
+        controlWindow?.idlePassThrough = onDisplay
     }
 
     private fun bounds(key: String, value: ComposeRect?) {
