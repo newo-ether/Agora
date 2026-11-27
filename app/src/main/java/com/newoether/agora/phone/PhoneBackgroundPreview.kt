@@ -203,9 +203,9 @@ internal class PhoneBackgroundPreview(
         gesture = Gesture.NONE
         dropStage()
         finishMorph()
+        // Still touchable, so touches here end in this window while it fades: an opaque window
+        // that lets them through gets them dropped as untrusted.
         layoutWindow()
-        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        update()
         present(0f, EXIT_MS) { remove() }
     }
 
@@ -247,7 +247,7 @@ internal class PhoneBackgroundPreview(
     private fun setHidden(hidden: Boolean) {
         if (hidden) menuOpen = false
         params.alpha = if (hidden) 0f else 1f
-        params.flags = if (hidden || leaving) params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        params.flags = if (hidden) params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             else params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
         update()
     }
@@ -296,24 +296,24 @@ internal class PhoneBackgroundPreview(
     /** A tight frame around the card or the capsule. Held while the stage draws, until the hand-back. */
     private fun layoutWindow() {
         if (stage != null && !handingBack) return
-        if (minimized) {
-            params.x = capsuleX - pad
-            params.y = capsuleY - pad
-            params.width = capsuleWidth + 2 * pad
-            params.height = capsuleHeight + 2 * pad
-        } else {
-            params.x = cardX - pad
-            params.y = cardY - pad - handleZone
-            params.width = cardWidth + 2 * pad
-            params.height = cardHeight + 2 * pad + handleZone
-        }
+        val frame = frameOf(minimized)
+        params.x = frame.left
+        params.y = frame.top
+        params.width = frame.width()
+        params.height = frame.height()
         update()
     }
 
+    private fun frameOf(capsule: Boolean) = if (capsule) Rect(capsuleX - pad, capsuleY - pad, capsuleX + capsuleWidth + pad, capsuleY + capsuleHeight + pad)
+        else Rect(cardX - pad, cardY - pad - handleZone, cardX + cardWidth + pad, cardY + cardHeight + pad)
+
+    /** Both frames a morph passes between; a stage this size covers nothing else on screen. */
+    private fun morphArea() = Rect(frameOf(false)).apply { union(frameOf(true)) }
+
     /** Puts the stage up drawing what this window shows; once it is on screen this window hides. */
-    private fun raiseStage(then: () -> Unit) {
+    private fun raiseStage(area: Rect = safe, touchable: Boolean = false, then: () -> Unit) {
         dropStage()
-        val next = PreviewStage(windows, composeView(staged = true), safe, stageOrigin)
+        val next = PreviewStage(windows, composeView(staged = true), area, touchable, stageOrigin)
         stage = next
         val shown = next.show {
             if (stage === next && !handingBack) {
@@ -437,10 +437,11 @@ internal class PhoneBackgroundPreview(
         settling?.cancel()
         settling = null
         savePlacement()
-        raiseStage {
-            val keepRight = cardX + cardWidth / 2 > safe.centerX()
+        // Placed first, so the stage can cover just the morph; unseen while the card shows.
+        val keepRight = cardX + cardWidth / 2 > safe.centerX()
+        placeCapsule(if (keepRight) cardX + cardWidth - capsuleWidth else cardX, cardY)
+        raiseStage(morphArea(), touchable = true) {
             minimized = true
-            placeCapsule(if (keepRight) cardX + cardWidth - capsuleWidth else cardX, cardY)
             animateMorph(1f)
         }
     }
@@ -448,13 +449,13 @@ internal class PhoneBackgroundPreview(
     /** The card grows back out of the capsule, keeping the same corner. */
     private fun restore() {
         if (!minimized || stage != null) return
-        raiseStage {
-            val keepRight = capsuleX + capsuleWidth / 2 > safe.centerX()
+        val keepRight = capsuleX + capsuleWidth / 2 > safe.centerX()
+        val loX = minCardX() + margin
+        val x = if (keepRight) capsuleX + capsuleWidth - cardWidth else capsuleX
+        placeCard(x.coerceIn(loX, max(loX, maxCardX() - margin)), capsuleY.coerceAtMost(maxCardY() - margin))
+        savePlacement()
+        raiseStage(morphArea(), touchable = true) {
             minimized = false
-            val loX = minCardX() + margin
-            val x = if (keepRight) capsuleX + capsuleWidth - cardWidth else capsuleX
-            placeCard(x.coerceIn(loX, max(loX, maxCardX() - margin)), capsuleY.coerceAtMost(maxCardY() - margin))
-            savePlacement()
             animateMorph(0f)
         }
     }

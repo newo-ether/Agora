@@ -44,17 +44,21 @@ internal abstract class PreviewWindowOwner : LifecycleOwner, SavedStateRegistryO
 }
 
 /**
- * A window over the safe area that never moves and takes no touches. The window manager moves a
+ * A window over [area] that never moves. The window manager moves a
  * window's surface and shows the buffer drawn for its new frame at independent times, so a window
  * that changes its origin while visible draws one frame shifted by the change. While the floating
  * card is resized or morphs to or from the capsule, this window draws it instead and the floating
  * window stays hidden, changing its frame only while hidden. Both draw the same pixels at every
  * hand-over, so whichever of the two reaches the screen first, nothing moves.
+ *
+ * A [touchable] stage keeps the touches that land on it. One that passes them through is opaque,
+ * so the system drops them as untrusted, and OxygenOS then offers to close the app.
  */
 internal class PreviewStage(
     private val windows: WindowManager,
     private val view: ComposeView,
     area: Rect,
+    touchable: Boolean,
     /**
      * The window's screen position, which the content places by. Compose lays out during the
      * first measure, before the window has a frame, so a position read from the view then is 0.
@@ -62,7 +66,7 @@ internal class PreviewStage(
     private val origin: MutableState<IntOffset>,
 ) {
     private val params = previewWindowParams().apply {
-        flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        if (!touchable) flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         x = area.left
         y = area.top
         width = area.width()

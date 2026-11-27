@@ -38,8 +38,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.Alignment
@@ -102,6 +105,8 @@ internal fun previewWindowParams() = WindowManager.LayoutParams(
     if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
     if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode =
         WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+    // A new origin otherwise slides in over a few frames, behind the content laid out for it.
+    if (Build.VERSION.SDK_INT >= 34) setCanPlayMoveAnimation(false)
 }
 
 /** Pixel-exact size; dp round trips would leave the card a pixel off its window frame. */
@@ -279,7 +284,11 @@ internal fun PreviewMorphBody(bitmap: Bitmap?, label: String, progress: Float, c
     }
 }
 
-/** Opened by a tap on the bar above the card; anchored to that bar. */
+/**
+ * Opened by a tap on the bar above the card; anchored to that bar. Full screen and minimize hand
+ * the card to another window, so their items drop the popup at once and act two frames later;
+ * a fading popup would draw over that window.
+ */
 @Composable
 internal fun PreviewMenu(
     expanded: Boolean,
@@ -289,6 +298,13 @@ internal fun PreviewMenu(
     onClose: () -> Unit,
     onStop: () -> Unit,
 ) {
+    var cut by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) { if (expanded) cut = false }
+    if (cut) return
+    fun handOver(action: () -> Unit): () -> Unit = {
+        cut = true
+        afterFrames(2, action)
+    }
     AgoraDropdownMenu(expanded = expanded, onDismissRequest = onDismiss, offset = DpOffset(0.dp, 4.dp)) {
         @Composable
         fun item(icon: ImageVector, label: Int, color: Color? = null, action: () -> Unit) {
@@ -304,8 +320,8 @@ internal fun PreviewMenu(
                 },
             )
         }
-        item(Icons.Rounded.Fullscreen, R.string.phone_background_fullscreen, action = onFullscreen)
-        item(Icons.Rounded.Remove, R.string.phone_background_minimize, action = onMinimize)
+        item(Icons.Rounded.Fullscreen, R.string.phone_background_fullscreen, action = handOver(onFullscreen))
+        item(Icons.Rounded.Remove, R.string.phone_background_minimize, action = handOver(onMinimize))
         item(Icons.Rounded.Close, R.string.phone_background_close, action = onClose)
         item(Icons.Rounded.Stop, R.string.phone_stop, MaterialTheme.colorScheme.error, onStop)
     }
