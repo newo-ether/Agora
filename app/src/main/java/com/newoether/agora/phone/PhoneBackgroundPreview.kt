@@ -651,7 +651,7 @@ internal class PhoneBackgroundPreview(
                         TransformOrigin(cx / size.width.coerceAtLeast(1f), cy / size.height.coerceAtLeast(1f))
                 },
         ) {
-            val bitmap = retainedFrame(screen)
+            val bitmap = retainedFrame(screen, runtime.fullscreenCovers)
             val action by runtime.actionName.collectAsState()
             val label = action ?: stringResource(R.string.phone_thinking)
             Card(bitmap, lift, grips, view, staged)

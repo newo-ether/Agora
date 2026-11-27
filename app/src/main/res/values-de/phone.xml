@@ -84,6 +84,9 @@
     <string name="phone_background_size">Bildschirmgröße</string>
     <string name="phone_background_size_description">Gilt ab der nächsten Übernahme. Die Größe in dp (px × 160 ÷ dpi) bestimmt, wie viel Platz ist; ab etwa 600 dp an der kurzen Seite nutzen Apps Tablet-Layouts.</string>
     <string name="phone_background_native">Nativ</string>
+    <string name="phone_background_phone_hd">720 × 1600</string>
+    <string name="phone_background_phone_fhd">1080 × 2400</string>
+    <string name="phone_background_phone_qhd">1440 × 3200</string>
     <string name="phone_background_tablet">Tablet</string>
     <string name="phone_background_dpi">Dichte (dpi)</string>
     <string name="phone_background_custom">Benutzerdefiniert</string>

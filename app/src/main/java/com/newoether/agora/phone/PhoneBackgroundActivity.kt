@@ -52,6 +52,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -211,9 +212,13 @@ class PhoneBackgroundActivity : ComponentActivity() {
     }
 }
 
-internal enum class FullScreenMode(val label: Int) {
-    OPERATE(R.string.phone_background_operate),
-    PREVIEW(R.string.phone_background_preview),
+internal enum class FullScreenMode(val label: Int, val id: String) {
+    OPERATE(R.string.phone_background_operate, "operate"),
+    PREVIEW(R.string.phone_background_preview, "preview");
+
+    companion object {
+        fun fromId(id: String): FullScreenMode = entries.firstOrNull { it.id == id } ?: OPERATE
+    }
 }
 
 @Composable
@@ -240,9 +245,12 @@ private fun FullScreen(
     val presence = remember { Animatable(1f) }
     val motion = LocalAgoraMotionPolicy.current
     val reduce = motion.reduceMotion || motion.systemAnimationsDisabled
+    val controlFade = if (motion.systemAnimationsDisabled) 0 else PHONE_CONTROL_FADE_MS
     val progress = remember { Animatable(0f) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
-    var mode by remember { mutableStateOf(FullScreenMode.OPERATE) }
+    val config by runtime.settings.phoneUse.collectAsState()
+    val mode = FullScreenMode.fromId(config.backgroundFullscreenMode)
+    val scope = rememberCoroutineScope()
     var barVisible by remember { mutableStateOf(true) }
     var injected by remember { mutableStateOf<Offset?>(null) }
 
@@ -382,8 +390,8 @@ private fun FullScreen(
         val barsShown = shown && !stopping && (barVisible || mode == FullScreenMode.OPERATE)
         AnimatedVisibility(
             visible = barsShown,
-            enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EmphasizedEasing)) { -it / 2 },
-            exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 2 },
+            enter = fadeIn(tween(controlFade)) + slideInVertically(tween(controlFade, easing = EmphasizedEasing)) { -it / 2 },
+            exit = fadeOut(tween(controlFade)) + slideOutVertically(tween(controlFade)) { -it / 2 },
         ) {
             TopBar(
                 elapsed = elapsed,
@@ -395,14 +403,14 @@ private fun FullScreen(
         }
         AnimatedVisibility(
             visible = barsShown,
-            enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EmphasizedEasing)) { it / 2 },
-            exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { it / 2 },
+            enter = fadeIn(tween(controlFade)) + slideInVertically(tween(controlFade, easing = EmphasizedEasing)) { it / 2 },
+            exit = fadeOut(tween(controlFade)) + slideOutVertically(tween(controlFade)) { it / 2 },
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             BottomBar(
                 mode = mode,
                 onMode = { next ->
-                    mode = next
+                    scope.launch { runtime.settings.phoneUseStore.setBackgroundFullscreenMode(next.id) }
                     barVisible = true
                 },
             )

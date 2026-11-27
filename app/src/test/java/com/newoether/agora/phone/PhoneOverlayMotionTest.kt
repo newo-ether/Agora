@@ -59,7 +59,8 @@ class PhoneOverlayMotionTest {
     private var presentedEpoch by mutableStateOf(0L)
     private val touchBounds = mutableMapOf<String, Rect>()
 
-    private fun start(reduced: Boolean = false, disabled: Boolean = false, pendingQuestion: Boolean = false) {
+    private fun start(reduced: Boolean = false, disabled: Boolean = false, pendingQuestion: Boolean = false,
+        animateThinking: Boolean = true) {
         lease.claim(RunEffectIdentity("a", 1, "run", 0, "batch"), "A")
         epoch = lease.held.value!!.epoch
         presentedEpoch = epoch
@@ -71,7 +72,7 @@ class PhoneOverlayMotionTest {
                     Box(Modifier.size(360.dp, 500.dp).background(Color.White).testTag("host")) {
                         PhoneControls(runtime, presentedEpoch, {}, { key, rect ->
                             if (rect == null) touchBounds.remove(key) else touchBounds[key] = rect
-                        }, visible = visible)
+                        }, visible = visible, animateThinking = animateThinking)
                     }
                 }
             }
@@ -261,6 +262,17 @@ class PhoneOverlayMotionTest {
         assertEquals(0, redMinimum(tap))
         assertEquals(0, green(Offset(tap.left + 2f, tap.top - 5f)))
         assertEquals(0, green(stripPoint()))
+    }
+
+    @Test fun backgroundThinkingStaysStaticWithoutARunningInfiniteTransition() {
+        action.value = null
+        start(animateThinking = false)
+        frames(336)
+        val bounds = compose.onNodeWithText("Thinking").fetchSemanticsNode().boundsInRoot
+        val initial = redMinimum(bounds)
+        assertTrue("static text alpha: $initial", initial in 49..53)
+        frames(1100)
+        assertEquals(initial, redMinimum(bounds))
     }
 
     @Test fun reducedMotionKeepsOnlyThinkingTextAtStablePointEightAlpha() {

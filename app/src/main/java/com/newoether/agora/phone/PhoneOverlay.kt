@@ -33,6 +33,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.util.withAppLocale
 import kotlinx.coroutines.CoroutineScope
@@ -105,10 +106,12 @@ internal class PhoneOverlay(
             // screen has its own bar with the same status, so the strip fades out there.
             if (onDisplay) {
                 val fullscreen by runtime.fullscreen.collectAsState()
-                val shown by animateFloatAsState(if (fullscreen) 0f else 1f, tween(200), label = "stripFullscreen")
+                val motion = LocalAgoraMotionPolicy.current
+                val fade = if (motion.systemAnimationsDisabled) 0 else PHONE_CONTROL_FADE_MS
+                val shown by animateFloatAsState(if (fullscreen) 0f else 1f, tween(fade), label = "stripFullscreen")
                 Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (capturing.value) 0f else shown }) {
                     PhoneControls(runtime, epoch, {}, { _, _ -> }, visible = visible.value,
-                        questionsShown = false, interactive = false)
+                        questionsShown = false, interactive = false, animateThinking = false)
                 }
             }
         } }

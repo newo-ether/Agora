@@ -35,15 +35,23 @@ Sub-page, top to bottom:
    trailing slot with the shared 250 ms crossfade. Tapping an item requests the permission directly
    when the platform allows it, otherwise deep-links to the most specific system page. Refresh only
    on page entry, resume, mode change or permission-item click; no periodic settings probes.
-4. Screenshot history: `Max Screenshots` offers integer stops 1..16 (default 5), followed
+4. Background Screen appears only in Shizuku mode. While enabled, Screen Size uses the shared
+   dropdown and offers Native, 720 × 1600 at 320 dpi, 1080 × 2400 at 480 dpi, 1440 × 3200 at
+   640 dpi, Tablet (1280 × 2048 at 320 dpi), and Custom. The three phone presets are 20:9 and all
+   resolve to 360 × 800 dp; they differ only in pixel cost and sharpness. Native remains the
+   default and uses the main display's real portrait size and density. Custom retains the existing
+   short-side, long-side and density editor. Orientation remains a separate Portrait/Landscape
+   choice. Selection persists immediately and applies at the next claim; existing values and custom
+   fields remain valid.
+5. Screenshot history: `Max Screenshots` offers integer stops 1..16 (default 5), followed
    by `Unlimited` at the far right. Display and accessibility use the same selected value.
    Use the shared persisted slider feedback gate and commit on release, with no Save action.
    Keep `Unlimited` distinct from legacy numeric limits: old 0 maps to 1 and old 17..20
    map to 16. Only an explicit `Unlimited` selection removes the Phone image count limit.
    This device-local setting does not delete conversation images and is not a portable
    archive field.
-5. Automation access: one switch `Allow Task and Loop runs`, default off (section 5).
-6. App access control (section 6).
+6. Automation access: one switch `Allow Task and Loop runs`, default off (section 5).
+7. App access control (section 6).
 
 Required permissions:
 
@@ -455,5 +463,9 @@ with 24 dp vertical padding. The lazy list is composed only after loading comple
   projection at both finite bounds and more than 16 images with Unlimited; other images and
   stored history stay unchanged. Verify the frozen Run budget across continuations and
   automatic Compact accounting.
+- Background geometry: every persisted size is present in the dropdown, phone presets resolve to
+  their exact pixels/density and 360 × 800 dp layout, landscape swaps the sides, Native/Tablet/
+  Custom remain independent, and new selections survive DataStore reopen while invalid IDs fall
+  back to Native. All supported locales define the three numeric labels.
 - Full project build gate. Device UI behavior (overlay, animation, permissions deep links) is
   separate evidence requiring owner acceptance on the phone.

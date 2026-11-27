@@ -84,6 +84,9 @@
     <string name="phone_background_size">حجم الشاشة</string>
     <string name="phone_background_size_description">يُطبَّق عند طلب التحكم التالي. يحدد الحجم بوحدة dp (بكسل × 160 ÷ dpi) مقدار ما يتسع له العرض، وتنتقل التطبيقات إلى تخطيطات الأجهزة اللوحية عندما يبلغ الضلع القصير نحو 600 dp.</string>
     <string name="phone_background_native">الأصلي</string>
+    <string name="phone_background_phone_hd">720 × 1600</string>
+    <string name="phone_background_phone_fhd">1080 × 2400</string>
+    <string name="phone_background_phone_qhd">1440 × 3200</string>
     <string name="phone_background_tablet">جهاز لوحي</string>
     <string name="phone_background_dpi">الكثافة (dpi)</string>
     <string name="phone_background_custom">مخصص</string>

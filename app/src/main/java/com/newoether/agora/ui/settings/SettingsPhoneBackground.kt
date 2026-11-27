@@ -33,6 +33,9 @@ import com.newoether.agora.phone.PhoneUseSettings
 
 internal val PhoneBackgroundSizeChoices = listOf(
     "native" to R.string.phone_background_native,
+    "phone_hd" to R.string.phone_background_phone_hd,
+    "phone_fhd" to R.string.phone_background_phone_fhd,
+    "phone_qhd" to R.string.phone_background_phone_qhd,
     "tablet" to R.string.phone_background_tablet,
     "custom" to R.string.phone_background_custom,
 )

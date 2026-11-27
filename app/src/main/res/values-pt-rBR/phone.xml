@@ -84,6 +84,9 @@
     <string name="phone_background_size">Tamanho da tela</string>
     <string name="phone_background_size_description">Vale a partir do próximo pedido de controle. O tamanho em dp (px × 160 ÷ dpi) define quanto cabe; a partir de uns 600 dp no lado menor, os apps usam layouts de tablet.</string>
     <string name="phone_background_native">Nativo</string>
+    <string name="phone_background_phone_hd">720 × 1600</string>
+    <string name="phone_background_phone_fhd">1080 × 2400</string>
+    <string name="phone_background_phone_qhd">1440 × 3200</string>
     <string name="phone_background_tablet">Tablet</string>
     <string name="phone_background_dpi">Densidade (dpi)</string>
     <string name="phone_background_custom">Personalizado</string>

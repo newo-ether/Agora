@@ -41,6 +41,8 @@ data class PhoneUseSettings(
     val backgroundLandscape: Boolean = false,
     /** Ask the user before a conversation takes control of the phone. */
     val confirmClaim: Boolean = true,
+    /** Last selected interaction mode in the background screen's full-screen activity. */
+    val backgroundFullscreenMode: String = "operate",
 ) {
     val packages: Set<String> get() = if (accessMode == "blocklist") blocklist else allowlist
     val backgroundActive: Boolean get() = background && mode == "shizuku"
@@ -61,6 +63,7 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
     private val backgroundDpi = intPreferencesKey("phone_use_background_dpi")
     private val backgroundLandscape = booleanPreferencesKey("phone_use_background_landscape")
     private val confirmClaim = booleanPreferencesKey("phone_use_confirm_claim")
+    private val backgroundFullscreenMode = stringPreferencesKey("phone_use_background_fullscreen_mode")
     // A raw legacy count must never opt into Unlimited, even if it matches the domain sentinel.
     private val unlimitedScreenshots = booleanPreferencesKey("phone_use_screenshots_unlimited")
     val values = store.data.map { pref -> PhoneUseSettings(
@@ -78,6 +81,7 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
         backgroundCustomDpi = pref[backgroundDpi] ?: 0,
         backgroundLandscape = pref[backgroundLandscape] ?: false,
         confirmClaim = pref[confirmClaim] ?: true,
+        backgroundFullscreenMode = pref[backgroundFullscreenMode]?.takeIf { it in listOf("operate", "preview") } ?: "operate",
     ) }
     suspend fun setConfirmClaim(value: Boolean) { store.edit { it[confirmClaim] = value } }
     suspend fun setBackground(value: Boolean) { store.edit { it[background] = value } }
@@ -96,6 +100,10 @@ class PhoneUseSettingsStore(private val store: DataStore<Preferences>) {
         }
     }
     suspend fun setBackgroundLandscape(value: Boolean) { store.edit { it[backgroundLandscape] = value } }
+    suspend fun setBackgroundFullscreenMode(value: String) {
+        require(value in listOf("operate", "preview"))
+        store.edit { it[backgroundFullscreenMode] = value }
+    }
     suspend fun setEnabled(value: Boolean) { store.edit { it[enabled] = value } }
     suspend fun setMode(value: String) {
         require(value in listOf("accessibility", "shizuku", "root"))

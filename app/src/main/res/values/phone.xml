@@ -84,6 +84,9 @@
     <string name="phone_background_size">Screen Size</string>
     <string name="phone_background_size_description">Applies at the next claim. The size in dp (px × 160 ÷ dpi) sets how much fits; from about 600 dp on the short side, apps switch to tablet layouts.</string>
     <string name="phone_background_native">Native</string>
+    <string name="phone_background_phone_hd">720 × 1600</string>
+    <string name="phone_background_phone_fhd">1080 × 2400</string>
+    <string name="phone_background_phone_qhd">1440 × 3200</string>
     <string name="phone_background_tablet">Tablet</string>
     <string name="phone_background_dpi">Density (dpi)</string>
     <string name="phone_background_custom">Custom</string>

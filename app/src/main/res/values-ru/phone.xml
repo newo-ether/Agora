@@ -84,6 +84,9 @@
     <string name="phone_background_size">Размер экрана</string>
     <string name="phone_background_size_description">Применяется при следующем захвате управления. Размер в dp (px × 160 ÷ dpi) определяет, сколько помещается; примерно с 600 dp по короткой стороне приложения переходят на планшетный макет.</string>
     <string name="phone_background_native">Исходный</string>
+    <string name="phone_background_phone_hd">720 × 1600</string>
+    <string name="phone_background_phone_fhd">1080 × 2400</string>
+    <string name="phone_background_phone_qhd">1440 × 3200</string>
     <string name="phone_background_tablet">Планшет</string>
     <string name="phone_background_dpi">Плотность (dpi)</string>
     <string name="phone_background_custom">Свой</string>

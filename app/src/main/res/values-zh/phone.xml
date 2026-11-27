@@ -84,6 +84,9 @@
     <string name="phone_background_size">屏幕尺寸</string>
     <string name="phone_background_size_description">下次申请控制时生效。dp 尺寸（px × 160 ÷ dpi）决定能显示多少内容；短边约 600 dp 起，应用会换用平板布局。</string>
     <string name="phone_background_native">原生</string>
+    <string name="phone_background_phone_hd">720 × 1600</string>
+    <string name="phone_background_phone_fhd">1080 × 2400</string>
+    <string name="phone_background_phone_qhd">1440 × 3200</string>
     <string name="phone_background_tablet">平板</string>
     <string name="phone_background_dpi">密度（dpi）</string>
     <string name="phone_background_custom">自定义</string>

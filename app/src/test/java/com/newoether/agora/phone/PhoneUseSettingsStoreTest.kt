@@ -36,6 +36,8 @@ class PhoneUseSettingsStoreTest {
             store.setMaxScreenshots(11)
             store.setEnabled(true)
             store.setMode("shizuku")
+            store.setBackgroundFullscreenMode("preview")
+            store.setBackgroundSize("phone_fhd")
             store.setAutomation(true)
             store.setAccessMode("blocklist")
             store.setPackage("private", true, "blocklist", "agora")
@@ -45,17 +47,23 @@ class PhoneUseSettingsStoreTest {
             preferences = openStore()
             val reopened = PhoneUseSettingsStore(preferences)
             assertEquals(setOf("private"), reopened.values.first().packages)
+            assertEquals("preview", reopened.values.first().backgroundFullscreenMode)
             reopened.setAccessMode("allowlist")
             assertEquals(PhoneUseSettings(true, "shizuku", true, "allowlist",
-                setOf("private"), setOf("public"), maxScreenshots = 11), reopened.values.first())
+                setOf("private"), setOf("public"), maxScreenshots = 11,
+                backgroundSize = "phone_fhd", backgroundFullscreenMode = "preview"), reopened.values.first())
             reopened.setEnabled(false)
             assertEquals(setOf("public"), reopened.values.first().packages)
             preferences.edit {
                 it[stringPreferencesKey("phone_use_mode")] = "invalid"
                 it[stringPreferencesKey("phone_use_app_access")] = "invalid"
+                it[stringPreferencesKey("phone_use_background_fullscreen_mode")] = "invalid"
+                it[stringPreferencesKey("phone_use_background_size")] = "invalid"
             }
+            assertEquals("native", reopened.values.first().backgroundSize)
             assertEquals("accessibility", reopened.values.first().mode)
             assertEquals("off", reopened.values.first().accessMode)
+            assertEquals("operate", reopened.values.first().backgroundFullscreenMode)
             assertEquals(11, reopened.values.first().maxScreenshots)
             reopened.setEnabled(true)
             assertEquals(11, reopened.values.first().maxScreenshots)

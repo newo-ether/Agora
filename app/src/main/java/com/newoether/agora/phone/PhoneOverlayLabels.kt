@@ -95,12 +95,13 @@ internal fun PhoneStatusCapsule(
     containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
     thinking: Boolean = false,
     active: Boolean = true,
+    animateThinking: Boolean = true,
 ) {
     var retainedAlpha by remember { mutableFloatStateOf(if (thinking) 0.8f else 1f) }
     val alpha = when {
         !active -> retainedAlpha
         !thinking -> 1f
-        !LocalAgoraMotionPolicy.current.allowContinuousMotion -> 0.8f
+        !animateThinking || !LocalAgoraMotionPolicy.current.allowContinuousMotion -> 0.8f
         else -> {
             val transition = rememberInfiniteTransition(label = "phoneThinking")
             val value by transition.animateFloat(

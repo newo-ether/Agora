@@ -76,6 +76,7 @@ import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.motion.IdentityLabelCrossfade
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.rememberIdentityClipWidth
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Screen area that excludes the system bars. Read from the application context every time: a
@@ -208,11 +209,13 @@ internal fun PreviewCardFace(bitmap: Bitmap?, modifier: Modifier, layer: Graphic
     }
 }
 
-/** The display releases its last frame before an exit animation ends; this keeps drawing it. */
+/** Keeps the last frame for exits; a covered preview stops collecting live frames altogether. */
 @Composable
-internal fun retainedFrame(screen: PhoneVirtualScreen): Bitmap? {
-    val frame by screen.frame.collectAsState()
+internal fun retainedFrame(screen: PhoneVirtualScreen, covered: StateFlow<Boolean>): Bitmap? {
+    val hidden by covered.collectAsState()
     val retained = remember { arrayOfNulls<Bitmap>(1) }
+    if (hidden) return retained[0]
+    val frame by screen.frame.collectAsState()
     if (frame != null) SideEffect { retained[0] = frame }
     return frame ?: retained[0]
 }

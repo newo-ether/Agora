@@ -60,6 +60,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+internal const val PHONE_CONTROL_FADE_MS = 240
+
 @Composable
 internal fun PhoneControls(
     runtime: PhoneUseRuntime,
@@ -73,6 +75,8 @@ internal fun PhoneControls(
     questionsShown: Boolean = true,
     /** False where nobody can touch the strip; it then only reports status. */
     interactive: Boolean = true,
+    /** A virtual display stops its idle animation so it does not redraw forever. */
+    animateThinking: Boolean = true,
 ) {
     val held by runtime.lease.held.collectAsState()
     val requests by runtime.askUser.requests.collectAsState()
@@ -99,7 +103,7 @@ internal fun PhoneControls(
     val reveal = remember(epoch) { Animatable(0f) }
     LaunchedEffect(active, motion.systemAnimationsDisabled) {
         if (motion.systemAnimationsDisabled) reveal.snapTo(if (active) 1f else 0f)
-        else reveal.animateTo(if (active) 1f else 0f, tween(240, easing = FastOutSlowInEasing))
+        else reveal.animateTo(if (active) 1f else 0f, tween(PHONE_CONTROL_FADE_MS, easing = FastOutSlowInEasing))
     }
     val progress = if (motion.systemAnimationsDisabled) if (active) 1f else 0f else reveal.value
     if (!active && progress == 0f) return
@@ -139,6 +143,7 @@ internal fun PhoneControls(
                 }.then(phoneTouchBounds("strip", bounds)),
             enabled = active,
             interactive = interactive,
+            animateThinking = animateThinking,
             thinking = questions.isEmpty() && displayedAction == null,
             onDrag = { delta -> if (active && runtime.lease.held.value?.epoch == epoch) {
                 if (!dragging) {
@@ -151,7 +156,7 @@ internal fun PhoneControls(
             } },
             onDragEnd = { if (dragging) follower.release(finger[0].coerceIn(0f, maxX), finger[1].coerceIn(0f, maxY)) { dragging = false } })
         val askTop = with(LocalDensity.current) { stripSize.height.toDp() } + 8.dp
-        val questionDuration = if (motion.systemAnimationsDisabled) 0 else 240
+        val questionDuration = if (motion.systemAnimationsDisabled) 0 else PHONE_CONTROL_FADE_MS
         AnimatedVisibility(questionsShown && questions.isNotEmpty(), modifier = Modifier.align(Alignment.TopCenter).padding(top = askTop)
             .graphicsLayer { alpha = progress },
             enter = fadeIn(tween(questionDuration)) + if (reduce) androidx.compose.animation.EnterTransition.None
@@ -178,6 +183,7 @@ internal fun PhoneControlStrip(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     interactive: Boolean = true,
+    animateThinking: Boolean = true,
     thinking: Boolean = false,
     onDrag: (Offset) -> Unit,
     onDragEnd: () -> Unit = {},
@@ -238,7 +244,8 @@ internal fun PhoneControlStrip(
             }
         }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             PhoneDurationCapsule(elapsed, containerColor = containerColor)
-            PhoneStatusCapsule(status, containerColor = containerColor, thinking = thinking, active = enabled)
+            PhoneStatusCapsule(status, containerColor = containerColor, thinking = thinking, active = enabled,
+                animateThinking = animateThinking)
         }
         val shape = RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 24.dp, bottomEnd = 24.dp)
         Surface(shape = shape, color = containerColor, contentColor = contentColor) {

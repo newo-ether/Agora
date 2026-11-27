@@ -84,6 +84,9 @@
     <string name="phone_background_size">Kích thước màn hình</string>
     <string name="phone_background_size_description">Áp dụng từ lần yêu cầu điều khiển tiếp theo. Kích thước dp (px × 160 ÷ dpi) quyết định hiển thị được bao nhiêu; từ khoảng 600 dp ở cạnh ngắn, ứng dụng chuyển sang bố cục máy tính bảng.</string>
     <string name="phone_background_native">Gốc</string>
+    <string name="phone_background_phone_hd">720 × 1600</string>
+    <string name="phone_background_phone_fhd">1080 × 2400</string>
+    <string name="phone_background_phone_qhd">1440 × 3200</string>
     <string name="phone_background_tablet">Máy tính bảng</string>
     <string name="phone_background_dpi">Mật độ (dpi)</string>
     <string name="phone_background_custom">Tùy chỉnh</string>

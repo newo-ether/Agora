@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.phone.PhoneApp
+import com.newoether.agora.phone.PhoneBackgroundGeometry
 import com.newoether.agora.phone.PhonePermissions
 import com.newoether.agora.phone.PhoneUseIcon
 import com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_UNLIMITED
@@ -373,6 +374,13 @@ class SettingsPhoneUsePresentationTest {
         assertEquals(before.left, after.left)
         assertEquals(before.right, after.right)
         assertEquals("accessibility", mode)
+    }
+
+    @Test fun backgroundSizeMenuExposesEveryPersistedChoiceWithExactPhoneResolutions() {
+        assertEquals(PhoneBackgroundGeometry.SIZES, PhoneBackgroundSizeChoices.map { it.first })
+        val phoneLabels = PhoneBackgroundSizeChoices.filter { it.first.startsWith("phone_") }
+            .map { text(it.second) }
+        assertEquals(listOf("720 × 1600", "1080 × 2400", "1440 × 3200"), phoneLabels)
     }
 
     @Test fun phoneUseDestinationFollowsMcpAndUsesThePhoneControlIcon() {

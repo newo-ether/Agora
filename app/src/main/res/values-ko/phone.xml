@@ -84,6 +84,9 @@
     <string name="phone_background_size">화면 크기</string>
     <string name="phone_background_size_description">다음 제어 요청 때 적용됩니다. dp 크기(px × 160 ÷ dpi)가 표시되는 내용의 양을 정하며, 짧은 변이 약 600 dp 이상이면 앱이 태블릿 레이아웃을 씁니다.</string>
     <string name="phone_background_native">기본</string>
+    <string name="phone_background_phone_hd">720 × 1600</string>
+    <string name="phone_background_phone_fhd">1080 × 2400</string>
+    <string name="phone_background_phone_qhd">1440 × 3200</string>
     <string name="phone_background_tablet">태블릿</string>
     <string name="phone_background_dpi">밀도(dpi)</string>
     <string name="phone_background_custom">사용자 지정</string>
