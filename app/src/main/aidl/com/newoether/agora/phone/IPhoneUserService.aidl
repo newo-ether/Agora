@@ -18,5 +18,7 @@ interface IPhoneUserService {
     boolean displaySetText(String text) = 6;
     /** Injects one single-finger MotionEvent action on the background display. */
     oneway void displayTouch(int action, float x, float y, long downTime) = 7;
+    /** Sets text on the phone's own focused field; false when no field takes it. */
+    boolean phoneSetText(String text) = 8;
     void destroy() = 16777114;
 }

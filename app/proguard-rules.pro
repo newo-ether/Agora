@@ -14,6 +14,7 @@
 # Phone entry points are loaded by Shizuku/app_process by name.
 -keep class com.newoether.agora.phone.PhoneUserService { public <init>(); public <init>(android.content.Context); *; }
 -keep class com.newoether.agora.phone.PhoneRootPaste { public static void main(java.lang.String[]); }
+-keep class com.newoether.agora.phone.PhoneRootSetText { public static void main(java.lang.String[]); }
 -keep class com.newoether.agora.phone.IPhoneUserService** { *; }
 # Room
 -keep class * extends androidx.room.RoomDatabase

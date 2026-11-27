@@ -94,11 +94,12 @@ internal class AndroidPhoneDevice(
         else command("input swipe $x $y $endX $endY $durationMs")
     }
     override suspend fun type(text: String) {
-        when (phoneInputPath(mode, text)) {
-            "set_text" -> accessibility().setText(text)
-            "clipboard" -> privileged.paste(mode, text)
-            else -> command("input text ${phoneShellQuote(text.replace(" ", "%s"))}")
-        }
+        val path = phoneInputPath(mode, text)
+        if (path == "set_text") return accessibility().setText(text)
+        // The field's own SET_TEXT leaves the clipboard alone; keys and paste are the fallbacks.
+        if (privileged.phoneSetText(mode, text)) return
+        if (path == "clipboard") privileged.paste(mode, text)
+        else command("input text ${phoneShellQuote(text.replace(" ", "%s"))}")
     }
     override suspend fun key(key: String) {
         val code = when (key) { "back" -> 4; "home" -> 3; "recents" -> 187; else -> throw PhoneFailure("invalid_key") }

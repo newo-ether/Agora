@@ -176,7 +176,7 @@ internal class PhoneToolProvider(
                         }
                     }
                     fence(authorized)
-                    val wantsScreenshot = name == "phone_screenshot" || (name in ACTIONS && args["screenshot"]?.jsonPrimitive?.booleanOrNull != false)
+                    val wantsScreenshot = name == "phone_screenshot" || (name in ACTIONS && args["screenshot"]?.jsonPrimitive?.booleanOrNull == true)
                     val result = if (wantsScreenshot) {
                         if (name in ACTIONS) delay(180)
                         checkApp(backend, authorized, withinOperation = name in ACTIONS)

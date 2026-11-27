@@ -79,6 +79,26 @@ internal class PhonePrivilegedConnection(
             throw PhoneFailure("permission_lost:shizuku_security_exception", error.message ?: "Permission denied")
         }
     }
+    /** ACTION_SET_TEXT on the phone's focused field; false when no field takes it, so callers fall back. */
+    suspend fun phoneSetText(mode: String, text: String): Boolean = withContext(Dispatchers.IO) {
+        if (mode == "root") {
+            val encoded = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)
+            val output = try {
+                command(mode, "CLASSPATH=${phoneShellQuote(context.applicationInfo.sourceDir)} app_process /system/bin " +
+                    "com.newoether.agora.phone.PhoneRootSetText ${phoneShellQuote(encoded)}")
+            } catch (error: PhoneFailure) {
+                if (error.code.startsWith("permission_lost")) throw error
+                return@withContext false
+            }
+            output.toString(Charsets.UTF_8).trim() == "ok"
+        } else try {
+            service().phoneSetText(text)
+        } catch (error: android.os.DeadObjectException) {
+            throw PhoneFailure("permission_lost:shizuku_binder_dead", error.message ?: "Binder died")
+        } catch (error: SecurityException) {
+            throw PhoneFailure("permission_lost:shizuku_security_exception", error.message ?: "Permission denied")
+        } catch (error: RuntimeException) { false }
+    }
     suspend fun paste(mode: String, text: String) = withContext(Dispatchers.IO) {
         if (mode == "root") {
             val encoded = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)

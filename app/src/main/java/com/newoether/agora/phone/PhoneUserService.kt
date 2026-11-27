@@ -20,6 +20,7 @@ class PhoneUserService(context: Context?) : IPhoneUserService.Stub() {
     override fun displayForeground(): String = displays.foreground()
     override fun displayNodes(): String = displays.nodes()
     override fun displaySetText(text: String): Boolean = displays.setText(text)
+    override fun phoneSetText(text: String): Boolean = displays.setPhoneText(text)
     override fun displayTouch(action: Int, x: Float, y: Float, downTime: Long) {
         // One-way: a failure has no caller to report to, and must not kill the service.
         runCatching { displays.touch(action, x, y, downTime) }
@@ -129,6 +130,25 @@ private fun privilegedPaste(text: String) {
             if (clear != null) clear.invoke(clipboard, *arguments(clear.parameterTypes))
             else set.invoke(clipboard, *arguments(set.parameterTypes, ClipData.newPlainText("", "")))
         }
+    }
+}
+
+/** Root's ACTION_SET_TEXT entry; prints "ok" when the phone's focused field took the text. */
+object PhoneRootSetText {
+    @JvmStatic fun main(arguments: Array<String>) {
+        // UiAutomation delivers its connection on the main looper, so the work runs beside it.
+        @Suppress("DEPRECATION") android.os.Looper.prepareMainLooper()
+        Thread {
+            val done = runCatching {
+                require(arguments.size == 1)
+                val text = String(android.util.Base64.decode(arguments[0], android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                PhoneVirtualDisplayHost(null).setPhoneText(text)
+            }.getOrDefault(false)
+            println(if (done) "ok" else "none")
+            System.out.flush()
+            kotlin.system.exitProcess(0)
+        }.apply { isDaemon = true; start() }
+        android.os.Looper.loop()
     }
 }
 

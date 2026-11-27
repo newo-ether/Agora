@@ -49,7 +49,9 @@ internal class PhoneDisplayTree(private val context: Context) {
     private fun windows(displayId: Int): List<AccessibilityWindowInfo> {
         val automation = connected()
         automation.clearCache()
-        return automation.windowsOnAllDisplays.get(displayId).orEmpty()
+        // The phone's own screen also works below API 30, where windowsOnAllDisplays is missing.
+        return if (displayId == android.view.Display.DEFAULT_DISPLAY) automation.windows
+        else automation.windowsOnAllDisplays.get(displayId).orEmpty()
     }
 
     private fun roots(displayId: Int): List<AccessibilityNodeInfo> = windows(displayId).mapNotNull { it.root }
@@ -66,7 +68,9 @@ internal class PhoneDisplayTree(private val context: Context) {
 
     /** Sets text on the focused field; false when no field on the display has input focus. */
     fun setText(displayId: Int, text: String): Boolean = synchronized(lock) {
-        val roots = roots(displayId)
+        // A keyboard's own search box must never take the text meant for the app.
+        val roots = windows(displayId).filter { it.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+            .mapNotNull { it.root }
         try {
             for (root in roots) {
                 val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: continue

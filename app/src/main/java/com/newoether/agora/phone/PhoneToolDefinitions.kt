@@ -21,7 +21,7 @@ internal fun phoneDefinitions(ctx: GenerationContext): List<ToolDefinition> {
         "x" to ToolProperty("number", "X in the latest screenshot."),
         "y" to ToolProperty("number", "Y in the latest screenshot."),
     )
-    val screenshot = mapOf("screenshot" to ToolProperty("boolean", "Include a post-action screenshot after settling. Default true; set false for consecutive actions without capturing each step."))
+    val screenshot = mapOf("screenshot" to ToolProperty("boolean", "Include a post-action screenshot after settling. Default false; set true when you need to see the result."))
     fun definition(name: String, text: String, properties: Map<String, ToolProperty> = emptyMap(), required: List<String> = emptyList()) =
         ToolDefinition(function = ToolFunction(name, text + " " +
             (if (name == "phone_claim") "" else "Requires phone_claim first. ") + common,
@@ -39,7 +39,7 @@ internal fun phoneDefinitions(ctx: GenerationContext): List<ToolDefinition> {
             "end_y" to ToolProperty("number", "End Y in screenshot coordinates."),
             "duration_ms" to ToolProperty("integer", "Duration, 100 to 10000 ms. Default 400."),
         ), listOf("x", "y", "end_x", "end_y")),
-        definition("phone_type", "Enter text into the focused field. Accessibility replaces text with ACTION_SET_TEXT. Privileged non-ASCII input pastes and restores the previous clipboard.",
+        definition("phone_type", "Enter text into the focused field. Replaces the field's text with ACTION_SET_TEXT. Privileged modes fall back to key input for ASCII, or a paste that restores the previous clipboard, when the field rejects it.",
             screenshot + ("text" to ToolProperty("string", "Text to enter.")), listOf("text")),
         definition("phone_key", "Press back, home, or recents.", screenshot + ("key" to ToolProperty("string", "back, home, or recents")), listOf("key")),
         definition("phone_app_launch", "Launch an allowed app by package name.", screenshot + ("package" to ToolProperty("string", "Installed package name.")), listOf("package")),

@@ -445,7 +445,7 @@ class PhoneToolProviderTest {
         assertFalse(claim().isError)
         config = config.copy(accessMode = "blocklist", blocklist = setOf("private"))
         beforeCapture = { foreground = { "private" } }
-        assertError("app_blocked", provider.executeOneShotResult("phone_key", """{"key":"back"}""", context))
+        assertError("app_blocked", provider.executeOneShotResult("phone_key", """{"key":"back","screenshot":true}""", context))
         assertEquals(listOf("back", "back", "home"), keys)
         assertEquals(1, operationStarts)
         assertEquals(1, operationEnds)
@@ -585,7 +585,7 @@ class PhoneToolProviderTest {
     @Test fun definitionsDescribeOptionalObservationAndConsecutiveActions() {
         val definition = provider.definitions(context).single { it.function.name == "phone_tap" }
         assertTrue(definition.function.description.contains("reading the screen between actions is optional"))
-        assertTrue(definition.function.parameters.properties.getValue("screenshot").description.contains("set false"))
+        assertTrue(definition.function.parameters.properties.getValue("screenshot").description.contains("Default false"))
     }
 
     @Test fun definitionsRespectFrozenReadinessAndAutomationLineage() {

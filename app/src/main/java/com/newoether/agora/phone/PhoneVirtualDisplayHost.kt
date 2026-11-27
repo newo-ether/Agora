@@ -70,6 +70,15 @@ internal class PhoneVirtualDisplayHost(private val context: Context?) {
     fun nodes(): String = tree.nodes(displayId())
     fun setText(text: String): Boolean = tree.setText(displayId(), text)
 
+    /**
+     * Sets text on the phone's own focused field; false when none takes it. Without a background
+     * display the UiAutomation slot is freed again at once, so uiautomator dump keeps working.
+     */
+    fun setPhoneText(text: String): Boolean = synchronized(lock) {
+        try { runCatching { tree.setText(android.view.Display.DEFAULT_DISPLAY, text) }.getOrDefault(false) }
+        finally { if (display == null) runCatching { tree.close() } }
+    }
+
     /** One finger on the background display; the live full-screen view forwards the user's touches. */
     fun touch(action: Int, x: Float, y: Float, downTime: Long) {
         val id = displayId()
