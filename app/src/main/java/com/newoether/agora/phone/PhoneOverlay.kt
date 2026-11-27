@@ -180,6 +180,8 @@ internal class PhoneOverlay(
                 .maximumObscuringOpacityForTouch)
         } else 1f
         effectAlpha = windowAlpha
+        // The strip waits for the background screen instead of flashing on the phone until it opens.
+        stripOnDisplay.value = !effectOnPhone
         val controls = composeView(localizedContext).also { control = it }
         controls.setContent { PhoneOverlayTheme(runtime.settings) {
             PhoneControls(runtime, epoch, ::focusable, ::bounds, visible = visible.value,

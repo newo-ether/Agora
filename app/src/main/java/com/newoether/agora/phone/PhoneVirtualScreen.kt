@@ -3,14 +3,18 @@ package com.newoether.agora.phone
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
+import android.hardware.HardwareBuffer
 import android.hardware.display.DisplayManager
+import android.media.Image
 import android.media.ImageReader
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.PowerManager
 import android.os.SystemClock
 import android.view.Display
+import androidx.annotation.RequiresApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,8 +26,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * App-side half of the background screen for one lease. The app owns the ImageReader and hands its
- * Surface to the privileged process, which owns the display. Frames are converted at most
- * [FRAME_INTERVAL_MS] apart; the virtual display only produces frames when its content changes.
+ * Surface to the privileged process, which owns the display. Frames are published at most
+ * [frameIntervalMs] apart; the virtual display only produces frames when its content changes.
+ * From API 29 a frame is the reader's own GPU buffer wrapped as a hardware bitmap, with no copy.
  */
 internal class PhoneVirtualScreen(
     context: Context,
@@ -39,6 +44,8 @@ internal class PhoneVirtualScreen(
     private val handler = Handler(thread.looper)
     private val lock = Mutex()
     private var reader: ImageReader? = null
+    /** Handler thread only. Images whose buffers recent frames wrap; closing one lets the display reuse it. */
+    private val wrapped = ArrayDeque<Image>()
     private var scheduled = false
     private var lastFrameAt = 0L
     @Volatile private var released = false
@@ -78,7 +85,10 @@ internal class PhoneVirtualScreen(
 
     private suspend fun openLocked(): Int {
         closeReader()
-        val next = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+        val next = if (Build.VERSION.SDK_INT >= 29) {
+            ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, WRAPPED_FRAMES + 3,
+                HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)
+        } else ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         next.setOnImageAvailableListener({ schedule() }, handler)
         reader = next
         _frame.value = null
@@ -122,6 +132,7 @@ internal class PhoneVirtualScreen(
         runCatching { if (wake.isHeld) wake.release() }
         privileged.closeDisplay()
         handler.post {
+            closeWrapped()
             reader?.close()
             reader = null
             _frame.value = null
@@ -133,7 +144,15 @@ internal class PhoneVirtualScreen(
         displayId = Display.INVALID_DISPLAY
         val previous = reader ?: return
         reader = null
-        handler.post { previous.close() }
+        handler.post {
+            closeWrapped()
+            previous.close()
+        }
+    }
+
+    /** A bitmap still on screen keeps its buffer alive; with the reader gone nothing overwrites it. */
+    private fun closeWrapped() {
+        while (wrapped.isNotEmpty()) wrapped.removeFirst().close()
     }
 
     /** Handler thread only. An unacquired image waits in the queue until the delayed conversion. */
@@ -147,8 +166,9 @@ internal class PhoneVirtualScreen(
     private fun convert() {
         scheduled = false
         val image = runCatching { reader?.acquireLatestImage() }.getOrNull() ?: return
+        lastFrameAt = SystemClock.uptimeMillis()
+        if (Build.VERSION.SDK_INT >= 29 && publishWrapped(image)) return
         try {
-            lastFrameAt = SystemClock.uptimeMillis()
             val plane = image.planes[0]
             val rowPixels = plane.rowStride / plane.pixelStride
             val padded = Bitmap.createBitmap(rowPixels, image.height, Bitmap.Config.ARGB_8888)
@@ -160,9 +180,27 @@ internal class PhoneVirtualScreen(
         } finally { image.close() }
     }
 
+    /**
+     * The image stays open while its bitmap may still be drawn: the newest and the one before it,
+     * which a view may draw until it picks up the newest. Older ones go back to the display.
+     */
+    @RequiresApi(29)
+    private fun publishWrapped(image: Image): Boolean {
+        val bitmap = runCatching {
+            image.hardwareBuffer?.use { buffer -> Bitmap.wrapHardwareBuffer(buffer, null) }
+        }.getOrNull() ?: return false
+        wrapped.addLast(image)
+        _frame.value = bitmap
+        _frames.value += 1
+        while (wrapped.size > WRAPPED_FRAMES) wrapped.removeFirst().close()
+        return true
+    }
+
     companion object {
-        const val FRAME_INTERVAL_MS = 66L
-        const val LIVE_FRAME_INTERVAL_MS = 33L
+        const val FRAME_INTERVAL_MS = 33L
+        /** Full screen takes every frame the display draws. */
+        const val LIVE_FRAME_INTERVAL_MS = 0L
+        private const val WRAPPED_FRAMES = 2
         // Re-armed on every use; the lease's idle limit ends a forgotten screen well before this.
         private const val WAKE_MS = 30 * 60 * 1000L
         private const val FIRST_FRAME_TIMEOUT_MS = 1500L

@@ -35,6 +35,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Fetch sherpa-onnx AAR
+        run: bash ./.github/fetch-sherpa-aar.sh
+
       - name: Run application, library and build-logic tests
         timeout-minutes: 35
         run: |
@@ -101,6 +104,9 @@ jobs:
           EOF
 
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch sherpa-onnx AAR
+        run: bash ./.github/fetch-sherpa-aar.sh
 
       - name: Build PRoot runtime
         run: |

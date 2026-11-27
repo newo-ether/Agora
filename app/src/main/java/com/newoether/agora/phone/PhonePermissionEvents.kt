@@ -30,6 +30,8 @@ internal fun PhoneControlLease.watchPermissions(
     scope: CoroutineScope,
     settings: StateFlow<PhoneUseSettings>,
     questions: StateFlow<List<AskUserController.Request>>,
+    /** True when the lease runs on its own display, which a screen-off does not stop. */
+    survivesScreenOff: () -> Boolean = { false },
     locked: () -> Boolean,
 ) = scope.launch(Dispatchers.Main.immediate, start = CoroutineStart.UNDISPATCHED) {
     fun release(reason: String, mode: String? = null) {
@@ -37,7 +39,8 @@ internal fun PhoneControlLease.watchPermissions(
     }
     val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == Intent.ACTION_SCREEN_OFF || locked()) release("screen_locked")
+            val off = intent?.action == Intent.ACTION_SCREEN_OFF && !survivesScreenOff()
+            if (off || locked()) release("screen_locked")
         }
     }
     val dead = Shizuku.OnBinderDeadListener { release("permission_lost:shizuku_binder_dead", "shizuku") }

@@ -76,7 +76,7 @@ internal class PhoneUseRuntime(
         settings = { settings.phoneUse.value },
         accepts = { registry.get(it.conversationId)?.acceptsToolEffect(it) == true },
         title = { conversations.getConversation(it)?.title.orEmpty() },
-        locked = permissions::locked,
+        locked = ::lockBlocks,
         checkEntry = { mode, claiming ->
             if (claiming && mode == "root" && !permissions.claimRoot()) "permission_lost:root_denied"
             else permissions.entryFailure(mode, claiming)
@@ -228,7 +228,21 @@ internal class PhoneUseRuntime(
             }
         }
         lease.watchIdle(scope, SystemClock::elapsedRealtime)
-        lease.watchPermissions(context, scope, settings.phoneUse, askUser.requests, permissions::locked)
+        lease.watchPermissions(context, scope, settings.phoneUse, askUser.requests, ::backgroundUnlocked, ::lockBlocks)
+    }
+
+    private fun lockBlocks(): Boolean = permissions.locked() && !backgroundUnlocked()
+
+    /**
+     * A background lease keeps running while the phone is locked: its display is created always
+     * unlocked, so the keyguard does not cover it. A claim before the display exists trusts the
+     * setting; once it exists, its flags decide, since a system may refuse the optional flag.
+     */
+    private fun backgroundUnlocked(): Boolean {
+        if (!settings.phoneUse.value.backgroundActive) return false
+        val screen = virtual ?: return lease.held.value == null
+        val display = screen.displayId.takeIf { it != Display.INVALID_DISPLAY }?.let(displays::getDisplay)
+        return display == null || display.flags and DISPLAY_FLAG_ALWAYS_UNLOCKED != 0
     }
 
     /** Main-only, shared by synchronous effects, delayed collectors and old resource cleanup. */
@@ -307,6 +321,9 @@ internal class PhoneUseRuntime(
         SystemClock.elapsedRealtime() - it.startedAt < it.durationMs + 1000
     } == true
 }
+
+/** Hidden Display.FLAG_ALWAYS_UNLOCKED. */
+private const val DISPLAY_FLAG_ALWAYS_UNLOCKED = 1 shl 9
 
 internal data class PhoneCursor(
     val kind: String, val x: Int, val y: Int, val endX: Int, val endY: Int,
