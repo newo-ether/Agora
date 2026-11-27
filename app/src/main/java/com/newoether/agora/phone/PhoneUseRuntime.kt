@@ -55,6 +55,8 @@ internal class PhoneUseRuntime(
     val fullscreen = MutableStateFlow(false)
     /** Screen bounds of the floating card, where the full-screen view grows from and returns to. */
     @Volatile var previewCard: android.graphics.Rect? = null
+    /** True after the user closed the floating card; the notification offers to bring it back. */
+    val previewClosed = MutableStateFlow(false)
     private val displays = context.getSystemService(DisplayManager::class.java)
     private val actionStatus = PhoneActionStatus(
         CoroutineScope(scope.coroutineContext + Dispatchers.Main.immediate), SystemClock::elapsedRealtime,
@@ -246,8 +248,9 @@ internal class PhoneUseRuntime(
         val previous = overlay
         overlay = null
         overlayEpoch = null
-        preview?.remove()
+        preview?.let { if (animate) it.dismiss() else it.remove() }
         preview = null
+        previewClosed.value = false
         virtual?.release()
         virtual = null
         fullscreen.value = false
@@ -275,6 +278,23 @@ internal class PhoneUseRuntime(
     fun stopByUser() {
         val held = lease.held.value ?: return
         lease.revokeEpochByUser(held.owner.conversationId, held.epoch)
+    }
+
+    /** Main only. Hides the floating card while the background screen keeps running. */
+    fun closePreview() {
+        val shown = preview ?: return
+        preview = null
+        previewClosed.value = true
+        shown.dismiss()
+    }
+
+    /** Main only. Brings the floating card back where it was left. */
+    fun reopenPreview() {
+        val screen = virtual ?: return
+        if (preview != null) return
+        previewClosed.value = false
+        preview = PhoneBackgroundPreview(context.withAppLocale(settings.appLanguage.value), screen, this)
+            .also { it.show() }
     }
 
     /** Main-safe; forwards one touch of the full-screen view to the background display. */

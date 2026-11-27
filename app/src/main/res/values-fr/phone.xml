@@ -34,6 +34,10 @@
     <string name="phone_background_operate">Piloter</string>
     <string name="phone_background_preview">Aperçu</string>
     <string name="phone_background_minimize">Réduire</string>
+    <string name="phone_background_fullscreen">Plein écran</string>
+    <string name="phone_background_exit_fullscreen">Quitter le plein écran</string>
+    <string name="phone_background_close">Fermer</string>
+    <string name="phone_background_show">Afficher l\'aperçu</string>
     <string name="phone_background_back">Retour</string>
     <string name="phone_thinking">Réflexion</string>
     <string name="phone_waiting">En attente de votre réponse</string>

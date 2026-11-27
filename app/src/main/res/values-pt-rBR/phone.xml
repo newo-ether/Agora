@@ -34,6 +34,10 @@
     <string name="phone_background_operate">Operar</string>
     <string name="phone_background_preview">Visualizar</string>
     <string name="phone_background_minimize">Minimizar</string>
+    <string name="phone_background_fullscreen">Tela inteira</string>
+    <string name="phone_background_exit_fullscreen">Sair da tela inteira</string>
+    <string name="phone_background_close">Fechar</string>
+    <string name="phone_background_show">Mostrar prévia</string>
     <string name="phone_background_back">Voltar</string>
     <string name="phone_thinking">Pensando</string>
     <string name="phone_waiting">Aguardando sua resposta</string>

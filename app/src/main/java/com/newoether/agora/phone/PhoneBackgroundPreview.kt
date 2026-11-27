@@ -5,13 +5,10 @@ import android.annotation.SuppressLint
 import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.PixelFormat
+import android.graphics.Bitmap
 import android.graphics.Rect
-import android.os.Build
-import android.view.Gravity
 import android.view.MotionEvent
 import android.view.ViewConfiguration
-import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.animation.PathInterpolator
 import androidx.compose.animation.core.Spring
@@ -22,33 +19,32 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.runtime.State
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.animation.doOnEnd
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -60,6 +56,8 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.newoether.agora.R
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -74,14 +72,15 @@ import kotlin.math.roundToInt
 
 /**
  * The floating window of the background screen. The card shows live frames, a bar above it drags
- * it, and three grips outside its bottom edge resize it with the display's aspect ratio locked. Grip
- * and bar lengths are fixed fractions of the card's sides, and the one in use thickens. Tapping the
- * card opens [PhoneBackgroundActivity]; the window hides itself while that view owns the screen.
+ * it and opens a menu on tap, and three grips outside its bottom edge resize it with the display's
+ * aspect ratio locked. Tapping the card opens [PhoneBackgroundActivity]; the window hides itself
+ * while that view owns the screen. Minimized, the card becomes a capsule with the current action.
  *
- * The card's screen rect is the model; the window is derived from it. While a grip resizes the card,
- * the window spans the whole safe area and only the card moves inside it. The card's offset inside
- * the window is chosen at layout time from the window size actually laid out, so the frame where the
- * window switches between the tight frame and the safe area cannot draw the card at the wrong place.
+ * The visible element's screen rect is the model; the window is derived from it. While a grip
+ * resizes the card or the card morphs to or from the capsule, the window spans the whole safe area
+ * and only the content moves inside it. Offsets inside the window are chosen at layout time from the
+ * window size actually laid out, so the frame where the window switches between a tight frame and
+ * the safe area cannot draw anything at the wrong place.
  */
 internal class PhoneBackgroundPreview(
     private val context: Context,
@@ -109,15 +108,35 @@ internal class PhoneBackgroundPreview(
     private var cardWidth by mutableIntStateOf(0)
     private var cardHeight by mutableIntStateOf(0)
 
-    /** Card origin inside the window as last laid out; touches are hit-tested against it. */
+    /** Capsule rect on screen; its size is measured from the label it shows. */
+    private var capsuleX by mutableIntStateOf(0)
+    private var capsuleY by mutableIntStateOf(0)
+    private var capsuleWidth by mutableIntStateOf(0)
+    private var capsuleHeight by mutableIntStateOf(0)
+
+    /** Origins inside the window as last laid out; touches are hit-tested against them. */
     private var shownX = 0
     private var shownY = 0
+    private var capsuleShownX = 0
+    private var capsuleShownY = 0
 
     /** True while a drag holds the card; the card grows a little under the finger. */
     private var lifted by mutableStateOf(false)
 
     /** The grip or bar being used; it thickens. */
     private var active by mutableStateOf(Gesture.NONE)
+
+    /** Entrance and exit, 0 gone to 1 shown. */
+    private var presence by mutableFloatStateOf(0f)
+    private var presenting: ValueAnimator? = null
+    private var leaving = false
+
+    /** Target state, and the morph between card (0) and capsule (1). */
+    private var minimized by mutableStateOf(false)
+    private var morph by mutableFloatStateOf(0f)
+    private var morphing: ValueAnimator? = null
+
+    private var menuOpen by mutableStateOf(false)
 
     /** True while a grip resizes the card and the window spans the safe area. */
     private var workspace = false
@@ -126,20 +145,23 @@ internal class PhoneBackgroundPreview(
     private val pushed = IntArray(6) { Int.MIN_VALUE }
 
     /** Screen area that excludes the system bars, so the card never hides under them. */
-    private var safe: Rect = safeArea()
+    private var safe: Rect = previewSafeArea(context, density)
     private var settling: ValueAnimator? = null
 
     /** A rotation changes the safe area; the card is refitted into the new one. */
     private val configuration = object : ComponentCallbacks {
         override fun onConfigurationChanged(newConfig: Configuration) {
-            safe = safeArea()
+            safe = previewSafeArea(context, density)
             settling?.cancel()
             settling = null
+            finishMorph()
             workspace = false
             lifted = false
+            menuOpen = false
             gesture = Gesture.NONE
             setSize(cardWidth)
             placeCard(cardX, cardY)
+            placeCapsule(capsuleX, capsuleY)
             savePlacement()
         }
 
@@ -147,34 +169,7 @@ internal class PhoneBackgroundPreview(
         override fun onLowMemory() = Unit
     }
 
-    /**
-     * Read from the application context every time: a configuration context made for the app
-     * language keeps the metrics of the orientation it was created in.
-     */
-    private fun safeArea(): Rect {
-        val app = context.applicationContext
-        return if (Build.VERSION.SDK_INT >= 30) {
-            val metrics = app.getSystemService(WindowManager::class.java).currentWindowMetrics
-            val bars = metrics.windowInsets.getInsets(WindowInsets.Type.systemBars())
-            Rect(0, bars.top, metrics.bounds.width(), metrics.bounds.height() - bars.bottom)
-        } else {
-            val metrics = app.resources.displayMetrics
-            Rect(0, (24 * density).roundToInt(), metrics.widthPixels,
-                metrics.heightPixels - (48 * density).roundToInt())
-        }
-    }
-
-    private val params = WindowManager.LayoutParams(
-        0, 0, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-        PixelFormat.TRANSLUCENT,
-    ).apply {
-        gravity = Gravity.TOP or Gravity.START
-        if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
-        if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode =
-            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-    }
+    private val params = previewWindowParams()
 
     private var gesture = Gesture.NONE
     private var downRawX = 0f
@@ -184,7 +179,7 @@ internal class PhoneBackgroundPreview(
     private var startWidth = 0
     private var startHeight = 0
     private var moved = false
-    private var fromCard = false
+    private var origin = Gesture.NONE
 
     init {
         savedState.performAttach()
@@ -204,7 +199,7 @@ internal class PhoneBackgroundPreview(
             setViewTreeSavedStateRegistryOwner(this@PhoneBackgroundPreview)
             setViewTreeViewModelStoreOwner(this@PhoneBackgroundPreview)
             // Inside apply, a bare Content() binds to ComposeView.Content, which calls this lambda again without end.
-            setContent { PhoneOverlayTheme(runtime.settings) { PreviewCard() } }
+            setContent { PhoneOverlayTheme(runtime.settings) { PreviewWindow() } }
         }
         root = view
         try { windows.addView(view, params) } catch (error: Exception) { view.disposeComposition(); throw error }
@@ -213,12 +208,27 @@ internal class PhoneBackgroundPreview(
         context.applicationContext.registerComponentCallbacks(configuration)
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         scope.launch { runtime.fullscreen.collect { hidden -> setHidden(hidden) } }
+        present(1f, ENTER_MS)
+    }
+
+    /** Scales and fades out, then removes the window. Hidden behind full screen, it goes at once. */
+    fun dismiss() {
+        if (!added || leaving) return
+        if (runtime.fullscreen.value) return remove()
+        leaving = true
+        menuOpen = false
+        gesture = Gesture.NONE
+        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        update()
+        present(0f, EXIT_MS) { remove() }
     }
 
     fun remove() {
         scope.cancel()
         settling?.cancel()
         settling = null
+        presenting?.let { presenting = null; it.cancel() }
+        morphing?.let { morphing = null; it.cancel() }
         if (added) context.applicationContext.unregisterComponentCallbacks(configuration)
         root?.let { view ->
             runCatching { windows.removeViewImmediate(view) }
@@ -230,10 +240,27 @@ internal class PhoneBackgroundPreview(
         viewModelStore.clear()
     }
 
+    private fun present(target: Float, duration: Long, then: (() -> Unit)? = null) {
+        presenting?.let { presenting = null; it.cancel() }
+        val animator = ValueAnimator.ofFloat(presence, target)
+        presenting = animator
+        animator.duration = duration
+        animator.interpolator = if (target > 0f) EMPHASIZED else EXIT
+        animator.addUpdateListener { presence = it.animatedValue as Float }
+        animator.doOnEnd {
+            if (presenting === animator) {
+                presenting = null
+                then?.invoke()
+            }
+        }
+        animator.start()
+    }
+
     /** The full-screen view is opaque over this window; it must not intercept touches there. */
     private fun setHidden(hidden: Boolean) {
+        if (hidden) menuOpen = false
         params.alpha = if (hidden) 0f else 1f
-        params.flags = if (hidden) params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        params.flags = if (hidden || leaving) params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             else params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
         update()
     }
@@ -261,37 +288,75 @@ internal class PhoneBackgroundPreview(
         layoutWindow()
     }
 
-    /** Derives the window from the card: a tight frame normally, the safe area while resizing. */
+    private fun placeCapsule(x: Int, y: Int) {
+        val left = safe.left + pad + margin
+        val top = safe.top + pad
+        capsuleX = x.coerceIn(left, max(left, safe.right - pad - margin - capsuleWidth))
+        capsuleY = y.coerceIn(top, max(top, safe.bottom - pad - capsuleHeight))
+        layoutWindow()
+    }
+
+    /** A new label resizes the capsule; the side nearer the screen edge stays put. */
+    private fun capsuleMeasured(size: IntSize) {
+        if (size.width == capsuleWidth && size.height == capsuleHeight) return
+        val right = capsuleX + capsuleWidth
+        val keepRight = capsuleWidth > 0 && capsuleX + capsuleWidth / 2 > safe.centerX()
+        capsuleWidth = size.width
+        capsuleHeight = size.height
+        if (minimized) placeCapsule(if (keepRight) right - capsuleWidth else capsuleX, capsuleY)
+    }
+
+    /**
+     * Derives the window from what is shown: the safe area while resizing or morphing, else a tight
+     * frame around the card or the capsule.
+     */
     private fun layoutWindow() {
-        if (workspace) {
-            params.x = safe.left
-            params.y = safe.top
-            params.width = safe.width()
-            params.height = safe.height()
-        } else {
-            params.x = cardX - pad
-            params.y = cardY - pad - handleZone
-            params.width = cardWidth + 2 * pad
-            params.height = cardHeight + 2 * pad + handleZone
+        when {
+            workspace || morphing != null -> {
+                params.x = safe.left
+                params.y = safe.top
+                params.width = safe.width()
+                params.height = safe.height()
+            }
+            minimized -> {
+                params.x = capsuleX - pad
+                params.y = capsuleY - pad
+                params.width = capsuleWidth + 2 * pad
+                params.height = capsuleHeight + 2 * pad
+            }
+            else -> {
+                params.x = cardX - pad
+                params.y = cardY - pad - handleZone
+                params.width = cardWidth + 2 * pad
+                params.height = cardHeight + 2 * pad + handleZone
+            }
         }
         update()
     }
 
     /**
-     * Card origin for a window of the given laid-out size. The window manager applies a new window
-     * frame asynchronously, so neither [workspace] nor the requested params say which frame is live.
-     * A tight frame always holds the card at the padding, which also covers a move, where the window
-     * follows the card. Any other frame stays put while the card changes, and the layout pass runs
-     * after the frame is applied, so the window's real screen position places the card exactly.
+     * Origin of a screen rect inside a window of the given laid-out size. The window manager applies
+     * a new frame asynchronously, so neither the state nor the requested params say which frame is
+     * live. A tight frame always holds its element at [tight], which also covers a move, where the
+     * window follows the element. Any other frame stays put while the element changes, and the
+     * layout pass runs after the frame is applied, so the window's real screen position is exact.
      */
-    private fun cardOffset(windowWidth: Int, windowHeight: Int): IntOffset {
-        if (windowWidth == cardWidth + 2 * pad && windowHeight == cardHeight + 2 * pad + handleZone) {
-            return IntOffset(pad, pad + handleZone)
-        }
+    private fun offsetIn(isTight: Boolean, tight: IntOffset, x: Int, y: Int): IntOffset {
+        if (isTight) return tight
         val at = IntArray(2)
-        root?.getLocationOnScreen(at) ?: return IntOffset(pad, pad + handleZone)
-        return IntOffset(cardX - at[0], cardY - at[1])
+        root?.getLocationOnScreen(at) ?: return tight
+        return IntOffset(x - at[0], y - at[1])
     }
+
+    private fun cardOffset(windowWidth: Int, windowHeight: Int) = offsetIn(
+        !minimized && windowWidth == cardWidth + 2 * pad && windowHeight == cardHeight + 2 * pad + handleZone,
+        IntOffset(pad, pad + handleZone), cardX, cardY,
+    )
+
+    private fun capsuleOffset(windowWidth: Int, windowHeight: Int) = offsetIn(
+        minimized && windowWidth == capsuleWidth + 2 * pad && windowHeight == capsuleHeight + 2 * pad,
+        IntOffset(pad, pad), capsuleX, capsuleY,
+    )
 
     /** Skips relayouts that change nothing; during a resize only the card state moves. */
     private fun update() {
@@ -329,7 +394,7 @@ internal class PhoneBackgroundPreview(
         val fromY = cardY
         settling = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 320
-            interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
+            interpolator = EMPHASIZED
             addUpdateListener { animation ->
                 val progress = animation.animatedValue as Float
                 placeCard(
@@ -344,12 +409,55 @@ internal class PhoneBackgroundPreview(
     }
 
     private fun openFullscreen() {
-        if (runtime.fullscreen.value) return
+        if (runtime.fullscreen.value || minimized) return
         val card = Rect(cardX, cardY, cardX + cardWidth, cardY + cardHeight)
         runtime.previewCard = card
         runtime.fullscreen.value = true
         runCatching { context.startActivity(PhoneBackgroundActivity.intent(context, card)) }
             .onFailure { runtime.fullscreen.value = false }
+    }
+
+    /** The capsule takes the place of the bar above the card, centered on it. */
+    private fun minimize() {
+        if (minimized) return
+        settling?.cancel()
+        settling = null
+        savePlacement()
+        val width = if (capsuleWidth > 0) capsuleWidth else cardWidth / 2
+        minimized = true
+        placeCapsule(cardX + (cardWidth - width) / 2, cardY - handleZone)
+        animateMorph(1f)
+    }
+
+    /** The card comes back under the capsule, so its bar sits where the capsule was. */
+    private fun restore() {
+        if (!minimized) return
+        minimized = false
+        placeCard(capsuleX + (capsuleWidth - cardWidth) / 2, capsuleY + handleZone)
+        savePlacement()
+        animateMorph(0f)
+    }
+
+    private fun animateMorph(target: Float) {
+        morphing?.let { morphing = null; it.cancel() }
+        val animator = ValueAnimator.ofFloat(morph, target)
+        morphing = animator
+        animator.duration = MORPH_MS
+        animator.interpolator = EMPHASIZED
+        animator.addUpdateListener { morph = it.animatedValue as Float }
+        animator.doOnEnd {
+            if (morphing === animator) {
+                morphing = null
+                layoutWindow()
+            }
+        }
+        layoutWindow()
+        animator.start()
+    }
+
+    private fun finishMorph() {
+        morphing?.let { morphing = null; it.cancel() }
+        morph = if (minimized) 1f else 0f
     }
 
     private fun begin(event: MotionEvent, kind: Gesture) {
@@ -358,16 +466,16 @@ internal class PhoneBackgroundPreview(
         settling = null
         downRawX = event.rawX
         downRawY = event.rawY
-        startX = cardX
-        startY = cardY
+        startX = if (kind == Gesture.CAPSULE) capsuleX else cardX
+        startY = if (kind == Gesture.CAPSULE) capsuleY else cardY
         startWidth = cardWidth
         startHeight = cardHeight
         moved = false
-        fromCard = kind == Gesture.CARD
-        gesture = if (kind == Gesture.CARD || kind == Gesture.HANDLE) Gesture.MOVE else kind
+        origin = kind
+        gesture = if (kind == Gesture.CARD || kind == Gesture.HANDLE || kind == Gesture.CAPSULE) Gesture.MOVE else kind
         lifted = gesture == Gesture.MOVE
         // The card itself only shows the bar as active once it is really being dragged.
-        active = if (kind == Gesture.CARD) Gesture.NONE else gesture
+        active = if (kind == Gesture.CARD || kind == Gesture.CAPSULE) Gesture.NONE else gesture
     }
 
     private fun track(event: MotionEvent) {
@@ -383,15 +491,18 @@ internal class PhoneBackgroundPreview(
             if (gesture != Gesture.MOVE) {
                 workspace = true
                 layoutWindow()
-            } else active = Gesture.MOVE
+            } else if (origin != Gesture.CAPSULE) active = Gesture.MOVE
             return
         }
-        if (gesture == Gesture.MOVE) placeCard((startX + dx).roundToInt(), (startY + dy).roundToInt())
-        else resizeBy(gesture, dx, dy)
+        when {
+            gesture != Gesture.MOVE -> resizeBy(gesture, dx, dy)
+            origin == Gesture.CAPSULE -> placeCapsule((startX + dx).roundToInt(), (startY + dy).roundToInt())
+            else -> placeCard((startX + dx).roundToInt(), (startY + dy).roundToInt())
+        }
     }
 
     private fun finish(tap: Boolean) {
-        val kind = gesture
+        val kind = origin
         gesture = Gesture.NONE
         lifted = false
         active = Gesture.NONE
@@ -399,9 +510,16 @@ internal class PhoneBackgroundPreview(
             workspace = false
             layoutWindow()
         }
-        if (moved) settle() else if (tap && kind == Gesture.MOVE && fromCard) openFullscreen()
+        if (moved) {
+            if (kind != Gesture.CAPSULE) settle()
+        } else if (tap) when (kind) {
+            Gesture.CARD -> openFullscreen()
+            Gesture.HANDLE -> menuOpen = true
+            Gesture.CAPSULE -> restore()
+            else -> Unit
+        }
         moved = false
-        fromCard = false
+        origin = Gesture.NONE
     }
 
     /** One listener for the whole window: the grips sit outside the card, in its transparent frame. */
@@ -418,9 +536,16 @@ internal class PhoneBackgroundPreview(
 
     /**
      * Grip zones reach from a little inside the card out through the frame around it; the band
-     * above the card is the bar; the rest of the card drags and taps.
+     * above the card is the bar; the rest of the card drags and taps. Nothing is grabbed mid-morph.
      */
     private fun hit(windowX: Float, windowY: Float): Gesture {
+        if (morphing != null || leaving) return Gesture.NONE
+        if (minimized) {
+            val x = windowX - capsuleShownX
+            val y = windowY - capsuleShownY
+            return if (x in 0f..capsuleWidth.toFloat() && y in 0f..capsuleHeight.toFloat()) Gesture.CAPSULE
+                else Gesture.NONE
+        }
         val x = windowX - shownX
         val y = windowY - shownY
         val corner = CORNER_HIT_DP * density
@@ -428,7 +553,7 @@ internal class PhoneBackgroundPreview(
         val height = cardHeight.toFloat()
         val reach = pad.toFloat()
         if (x < -reach || x > width + reach || y > height + reach) return Gesture.NONE
-        val centerHalf = max(BAR_RATIO * width / 2 + 14 * density, 30 * density)
+        val centerHalf = max(PreviewGrip.BAR_RATIO * width / 2 + 14 * density, 30 * density)
         return when {
             y < 0 -> if (y >= -handleZone - reach && x >= 0 && x <= width) Gesture.HANDLE else Gesture.NONE
             y > height - corner * 1.4f && x < corner -> Gesture.BOTTOM_START
@@ -480,57 +605,116 @@ internal class PhoneBackgroundPreview(
     )
 
     @Composable
-    private fun PreviewCard() {
-        val frame by screen.frame.collectAsState()
+    private fun PreviewWindow() {
+        val motion = LocalAgoraMotionPolicy.current
+        val still = motion.reduceMotion || motion.systemAnimationsDisabled
         val lift by animateFloatAsState(
             targetValue = if (lifted) 1f else 0f,
             animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
             label = "lift",
         )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .pointerInteropFilter { event -> touch(event) }
+                .graphicsLayer {
+                    // Grows from and shrinks into the center of whatever is shown.
+                    alpha = presence
+                    val scale = if (still) 1f else ENTER_SCALE + (1f - ENTER_SCALE) * presence
+                    scaleX = scale
+                    scaleY = scale
+                    val (cx, cy) = if (minimized) capsuleShownX + capsuleWidth / 2f to capsuleShownY + capsuleHeight / 2f
+                        else shownX + cardWidth / 2f to shownY + (cardHeight - handleZone) / 2f
+                    transformOrigin = TransformOrigin(
+                        cx / size.width.coerceAtLeast(1f), cy / size.height.coerceAtLeast(1f),
+                    )
+                },
+        ) {
+            Card(lift, still)
+            Capsule(lift, still)
+        }
+    }
+
+    @Composable
+    private fun Card(lift: Float, still: Boolean) {
+        val frame by screen.frame.collectAsState()
+        // The display releases its last frame before the exit animation ends; keep drawing it.
+        val retained = remember { arrayOfNulls<Bitmap>(1) }
+        if (frame != null) SideEffect { retained[0] = frame }
+        val bitmap = frame ?: retained[0]
         val bar by gripWeight(Gesture.MOVE)
         val start by gripWeight(Gesture.BOTTOM_START)
         val end by gripWeight(Gesture.BOTTOM_END)
         val center by gripWeight(Gesture.BOTTOM_CENTER)
-        val shape = RoundedCornerShape(CORNER_DP.dp)
-        Box(Modifier.fillMaxSize().pointerInteropFilter { event -> touch(event) }) {
+        val shape = RoundedCornerShape(PreviewGrip.CORNER_DP.dp)
+        Box(
+            Modifier
+                .cardPlacement()
+                .graphicsLayer {
+                    val grow = 1f + lift * LIFT_DP.dp.toPx() * 2f / cardWidth.coerceAtLeast(1)
+                    val shrink = if (still) 1f else 1f - (1f - MORPH_SCALE) * morph
+                    scaleX = grow * shrink
+                    scaleY = grow * shrink
+                    alpha = 1f - morph
+                    // The lift grows about the card's center; the morph shrinks toward its bar.
+                    val liftY = (handleZone + cardHeight / 2f) / (handleZone + cardHeight).coerceAtLeast(1)
+                    transformOrigin = TransformOrigin(0.5f, liftY * (1f - morph))
+                },
+        ) {
             Box(
                 Modifier
-                    .cardPlacement()
+                    .offset { IntOffset(0, handleZone) }
+                    .previewExactSize(cardWidth, cardHeight)
                     .graphicsLayer {
-                        val grow = 1f + lift * LIFT_DP.dp.toPx() * 2f / cardWidth.coerceAtLeast(1)
-                        scaleX = grow
-                        scaleY = grow
-                        transformOrigin = TransformOrigin(
-                            0.5f, (handleZone + cardHeight / 2f) / (handleZone + cardHeight).coerceAtLeast(1),
-                        )
-                    },
+                        shadowElevation = (SHADOW_DP + (LIFTED_SHADOW_DP - SHADOW_DP) * lift).dp.toPx()
+                        this.shape = shape
+                        clip = true
+                    }
+                    .background(Color.Black),
             ) {
-                Box(
-                    Modifier
-                        .offset { IntOffset(0, handleZone) }
-                        .exactSize(cardWidth, cardHeight)
-                        .graphicsLayer {
-                            shadowElevation = (SHADOW_DP + (LIFTED_SHADOW_DP - SHADOW_DP) * lift).dp.toPx()
-                            this.shape = shape
-                            clip = true
-                        }
-                        .background(Color.Black),
-                ) {
-                    Canvas(Modifier.fillMaxSize()) {
-                        frame?.let { bitmap ->
-                            drawImage(
-                                bitmap.asImageBitmap(),
-                                dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-                            )
-                        }
+                Canvas(Modifier.fillMaxSize()) {
+                    bitmap?.let { image ->
+                        drawImage(
+                            image.asImageBitmap(),
+                            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                        )
                     }
                 }
-                // Unclipped, so the grips draw in the transparent frame outside the card.
-                Canvas(Modifier.offset { IntOffset(0, handleZone) }.exactSize(cardWidth, cardHeight)) {
-                    drawGrips(bar, start, end, center)
-                }
+            }
+            // Unclipped, so the grips draw in the transparent frame outside the card.
+            Canvas(Modifier.offset { IntOffset(0, handleZone) }.previewExactSize(cardWidth, cardHeight)) {
+                drawPreviewGrips(bar, start, end, center)
+            }
+            // The menu's anchor is the bar band, so it drops from where it was tapped.
+            Box(Modifier.previewExactSize(cardWidth, handleZone)) {
+                PreviewMenu(
+                    expanded = menuOpen,
+                    onDismiss = { menuOpen = false },
+                    onFullscreen = ::openFullscreen,
+                    onMinimize = ::minimize,
+                    onClose = runtime::closePreview,
+                    onStop = runtime::stopByUser,
+                )
             }
         }
+    }
+
+    @Composable
+    private fun Capsule(lift: Float, still: Boolean) {
+        val action by runtime.actionName.collectAsState()
+        PreviewCapsule(
+            label = action ?: stringResource(R.string.phone_thinking),
+            modifier = Modifier
+                .capsulePlacement()
+                .onSizeChanged(::capsuleMeasured)
+                .graphicsLayer {
+                    val grow = 1f + lift * CAPSULE_LIFT
+                    val scale = if (still) 1f else MORPH_SCALE + (1f - MORPH_SCALE) * morph
+                    scaleX = grow * scale
+                    scaleY = grow * scale
+                    alpha = morph
+                },
+        )
     }
 
     /**
@@ -547,49 +731,17 @@ internal class PhoneBackgroundPreview(
         layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(offset.x, offset.y - handleZone) }
     }
 
-    /** Pixel-exact size; dp round trips would leave the card a pixel off its window frame. */
-    private fun Modifier.exactSize(width: Int, height: Int) = layout { measurable, _ ->
-        val placeable = measurable.measure(Constraints.fixed(width.coerceAtLeast(0), height.coerceAtLeast(0)))
-        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    /** Wraps the capsule's own size and places it like [cardPlacement]. */
+    private fun Modifier.capsulePlacement() = layout { measurable, constraints ->
+        val placeable = measurable.measure(Constraints())
+        val offset = capsuleOffset(constraints.maxWidth, constraints.maxHeight)
+        capsuleShownX = offset.x
+        capsuleShownY = offset.y
+        layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(offset.x, offset.y) }
     }
 
-    /**
-     * Draws in card coordinates, outside the card: the bar above it, two corner arcs concentric with
-     * its rounded corners, and a bar below it. Bars span [BAR_RATIO] of the width. Each weight in
-     * 0..1 thickens and brightens its grip; every stroke is drawn twice for a shadow that reads on
-     * any app.
-     */
-    private fun DrawScope.drawGrips(bar: Float, start: Float, end: Float, center: Float) {
-        val w = size.width
-        val h = size.height
-        val base = GRIP_STROKE_DP.dp.toPx()
-        val off = GRIP_GAP_DP.dp.toPx() + base / 2
-        val corner = CORNER_DP.dp.toPx()
-        val radius = corner + off
-        val half = BAR_RATIO * w / 2
-        fun stroke(weight: Float) = base + (GRIP_ACTIVE_DP.dp.toPx() - base) * weight
-        fun grip(path: Path, weight: Float) {
-            val width = stroke(weight)
-            translate(top = 1.2.dp.toPx()) {
-                drawPath(path, Color.Black.copy(alpha = 0.16f + 0.24f * weight),
-                    style = Stroke(width + 1.6.dp.toPx(), cap = StrokeCap.Round))
-            }
-            drawPath(path, Color.White.copy(alpha = GRIP_IDLE_ALPHA + (1f - GRIP_IDLE_ALPHA) * weight),
-                style = Stroke(width, cap = StrokeCap.Round))
-        }
-        fun line(y: Float) = Path().apply { moveTo(w / 2 - half, y); lineTo(w / 2 + half, y) }
-        grip(line(-off), bar)
-        grip(line(h + off), center)
-        grip(Path().apply {
-            arcTo(ComposeRect(Offset(corner, h - corner), radius), 180f, -90f, true)
-        }, start)
-        grip(Path().apply {
-            arcTo(ComposeRect(Offset(w - corner, h - corner), radius), 0f, 90f, true)
-        }, end)
-    }
-
-    /** CARD and HANDLE are hit results; both start a MOVE, and only CARD may end as a tap. */
-    private enum class Gesture { NONE, MOVE, CARD, HANDLE, BOTTOM_START, BOTTOM_END, BOTTOM_CENTER }
+    /** CARD, HANDLE and CAPSULE are hit results; each starts a MOVE and may end as a tap. */
+    private enum class Gesture { NONE, MOVE, CARD, HANDLE, CAPSULE, BOTTOM_START, BOTTOM_END, BOTTOM_CENTER }
 
     private companion object {
         const val CARD_WIDTH_DP = 132
@@ -598,24 +750,25 @@ internal class PhoneBackgroundPreview(
         /** Transparent frame around the card: room for the outer grips, the lift and its shadow. */
         const val PAD_DP = 20
         const val HANDLE_ZONE_DP = 22
-        /** Gap between the card edge and the near side of a grip stroke. */
-        const val GRIP_GAP_DP = 5
-        const val GRIP_STROKE_DP = 2.6f
-        const val GRIP_ACTIVE_DP = 4.8f
-        /** Grip opacity while it is not the one being dragged. */
-        const val GRIP_IDLE_ALPHA = 0.5f
-        /** Top and bottom bar length over the card width. */
-        const val BAR_RATIO = 0.22f
-        const val CORNER_DP = 14
         const val SHADOW_DP = 8
         const val LIFTED_SHADOW_DP = 14
         /** Each side of a held card grows by this much, whatever the card's size. */
         const val LIFT_DP = 4
+        const val CAPSULE_LIFT = 0.05f
         const val MARGIN_DP = 6
         const val TOP_DP = 88
         /** How far grip zones reach into the card; outside it they cover the whole frame. */
         const val CORNER_HIT_DP = 22f
         const val CENTER_HIT_DP = 22f
+        const val ENTER_MS = 280L
+        const val EXIT_MS = 200L
+        const val MORPH_MS = 340L
+        /** Scale the window enters from and leaves to. */
+        const val ENTER_SCALE = 0.85f
+        /** Scale the card shrinks to as it becomes the capsule, and the capsule grows from. */
+        const val MORPH_SCALE = 0.6f
+        val EMPHASIZED = PathInterpolator(0.2f, 0f, 0f, 1f)
+        val EXIT = PathInterpolator(0.3f, 0f, 0.8f, 0.15f)
 
         // Survives release and reclaim within the process, so the card returns where it was left.
         private var storedWidth = 0

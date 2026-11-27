@@ -12,11 +12,15 @@ import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
@@ -31,19 +35,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -62,11 +69,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -91,6 +101,8 @@ import kotlin.math.roundToInt
 class PhoneBackgroundActivity : ComponentActivity() {
     private var runtime: PhoneUseRuntime? = null
     private val closing = mutableStateOf(false)
+    /** The background screen ended; the view scales and fades out instead of returning to the card. */
+    private val vanishing = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,11 +124,13 @@ class PhoneBackgroundActivity : ComponentActivity() {
         setContent {
             PhoneOverlayTheme(control.settings) {
                 val requested by closing
+                val ended by vanishing
                 FullScreen(
                     runtime = control,
                     screen = screen,
                     card = card,
                     closing = requested,
+                    vanishing = ended,
                     onRequestClose = ::requestClose,
                     onFinished = ::finishNow,
                 )
@@ -125,7 +139,7 @@ class PhoneBackgroundActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this) { requestClose() }
         lifecycleScope.launch {
             // A revoked lease, a Stop or a permission loss all end the background screen.
-            control.background.collect { if (it == null) finishNow() }
+            control.background.collect { if (it == null) vanishing.value = true }
         }
     }
 
@@ -192,10 +206,22 @@ private fun FullScreen(
     screen: PhoneVirtualScreen,
     card: Rect?,
     closing: Boolean,
+    vanishing: Boolean,
     onRequestClose: () -> Unit,
     onFinished: () -> Unit,
 ) {
     val frame by screen.frame.collectAsState()
+    val held by runtime.lease.held.collectAsState()
+    val action by runtime.actionName.collectAsState()
+    var elapsed by remember { mutableLongStateOf(0) }
+    LaunchedEffect(held?.epoch) {
+        val claimedAt = held?.claimedAt ?: return@LaunchedEffect
+        while (true) {
+            elapsed = (android.os.SystemClock.elapsedRealtime() - claimedAt) / 1000
+            delay(1000)
+        }
+    }
+    val presence = remember { Animatable(1f) }
     val motion = LocalAgoraMotionPolicy.current
     val reduce = motion.reduceMotion || motion.systemAnimationsDisabled
     val progress = remember { Animatable(0f) }
@@ -207,6 +233,11 @@ private fun FullScreen(
 
     LaunchedEffect(Unit) {
         if (reduce) progress.snapTo(1f) else progress.animateTo(1f, tween(OPEN_MS, easing = EmphasizedEasing))
+    }
+    LaunchedEffect(vanishing) {
+        if (!vanishing) return@LaunchedEffect
+        if (reduce) presence.snapTo(0f) else presence.animateTo(0f, tween(VANISH_MS, easing = FastOutSlowInEasing))
+        onFinished()
     }
     LaunchedEffect(closing) {
         if (!closing) return@LaunchedEffect
@@ -226,7 +257,12 @@ private fun FullScreen(
     // Composition only needs to know which half of the reveal it is in; the frames read progress
     // in the draw phase alone.
     val shown by remember { derivedStateOf { progress.value > 0.5f } }
-    val image = remember(frame) { frame?.asImageBitmap() }
+    // The display drops its last frame when it ends; the exit keeps drawing that frame.
+    val fresh = remember(frame) { frame?.asImageBitmap() }
+    var retained by remember { mutableStateOf(fresh) }
+    if (fresh != null) SideEffect { retained = fresh }
+    val image = fresh ?: retained
+    val stopping = closing || vanishing
 
     /**
      * Viewport point to display pixels. A gesture starts only on the image; once started, a finger
@@ -250,17 +286,27 @@ private fun FullScreen(
         injected = null
     }
 
-    LaunchedEffect(closing, mode) {
-        if (closing || mode == FullScreenMode.PREVIEW) cancelInjected(android.os.SystemClock.uptimeMillis())
+    LaunchedEffect(stopping, mode) {
+        if (stopping || mode == FullScreenMode.PREVIEW) cancelInjected(android.os.SystemClock.uptimeMillis())
     }
 
-    Box(Modifier.fillMaxSize().onSizeChanged { viewport = it }) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .onSizeChanged { viewport = it }
+            .graphicsLayer {
+                alpha = presence.value
+                val scale = VANISH_SCALE + (1f - VANISH_SCALE) * presence.value
+                scaleX = scale
+                scaleY = scale
+            },
+    ) {
         Canvas(
             Modifier
                 .fillMaxSize()
                 .pointerInteropFilter { event ->
                     // Touches during the reveal would land where the image is heading, not where it is.
-                    if (closing || progress.value < 1f) {
+                    if (stopping || progress.value < 1f) {
                         cancelInjected(event.downTime)
                         return@pointerInteropFilter true
                     }
@@ -315,53 +361,46 @@ private fun FullScreen(
             }
         }
 
+        // Preview mode taps toggle the bars; operating mode keeps them so Stop stays one tap away.
+        val barsShown = shown && !stopping && (barVisible || mode == FullScreenMode.OPERATE)
         AnimatedVisibility(
-            // Preview mode taps toggle the bar; operating mode keeps it so Stop stays one tap away.
-            visible = shown && (barVisible || mode == FullScreenMode.OPERATE),
+            visible = barsShown,
             enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EmphasizedEasing)) { -it / 2 },
             exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 2 },
         ) {
             TopBar(
+                elapsed = elapsed,
+                status = action ?: stringResource(R.string.phone_thinking),
+                thinking = action == null,
+                onExit = onRequestClose,
+                onStop = runtime::stopByUser,
+            )
+        }
+        AnimatedVisibility(
+            visible = barsShown,
+            enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EmphasizedEasing)) { it / 2 },
+            exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { it / 2 },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            BottomBar(
                 mode = mode,
                 onMode = { next ->
                     mode = next
                     barVisible = true
                 },
-                onMinimize = onRequestClose,
-                onStop = runtime::stopByUser,
+                onBack = { scope.launch { runtime.backgroundBack() } },
             )
-        }
-        AnimatedVisibility(
-            visible = shown && barVisible && mode == FullScreenMode.OPERATE,
-            enter = fadeIn(tween(220)) + slideInVertically(tween(220, easing = EmphasizedEasing)) { it / 2 },
-            exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { it / 2 },
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            Box(Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 28.dp)) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                    tonalElevation = 6.dp,
-                    shadowElevation = 10.dp,
-                ) {
-                    IconButton(onClick = { scope.launch { runtime.backgroundBack() } }) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.phone_background_back),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-            }
         }
     }
 }
 
+/** The control strip's segments: duration, status, then exit and Stop. */
 @Composable
 private fun TopBar(
-    mode: FullScreenMode,
-    onMode: (FullScreenMode) -> Unit,
-    onMinimize: () -> Unit,
+    elapsed: Long,
+    status: String,
+    thinking: Boolean,
+    onExit: () -> Unit,
     onStop: () -> Unit,
 ) {
     Row(
@@ -371,63 +410,99 @@ private fun TopBar(
             .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.Center,
     ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            PhoneDurationCapsule(elapsed)
+            PhoneStatusCapsule(status, thinking = thinking)
+            BarButton(RoundedCornerShape(5.dp), onExit) {
+                Icon(Icons.Rounded.FullscreenExit, stringResource(R.string.phone_background_exit_fullscreen))
+            }
+            BarButton(
+                RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 24.dp, bottomEnd = 24.dp),
+                onStop, Modifier.phoneCapsuleCenter(roundedStart = false),
+            ) {
+                Icon(Icons.Rounded.Stop, stringResource(R.string.phone_stop))
+            }
+        }
+    }
+}
+
+/** Mode switch and, while operating, the display's Back key. */
+@Composable
+private fun BottomBar(mode: FullScreenMode, onMode: (FullScreenMode) -> Unit, onBack: () -> Unit) {
+    Row(
+        Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 28.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Surface(
             shape = RoundedCornerShape(50),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            tonalElevation = 6.dp,
-            shadowElevation = 10.dp,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         ) {
-            Row(
-                Modifier.padding(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                IconButton(onClick = onMinimize) {
-                    Icon(
-                        Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.phone_background_minimize),
-                        tint = MaterialTheme.colorScheme.onSurface,
+            Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                FullScreenMode.entries.forEach { option ->
+                    val selected = option == mode
+                    val fill by animateColorAsState(
+                        if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, tween(160),
+                        label = "modeFill",
                     )
-                }
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                        .padding(3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FullScreenMode.entries.forEach { option ->
-                        val selected = option == mode
-                        Text(
-                            stringResource(option.label),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(
-                                    if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                )
-                                .clickable { onMode(option) }
-                                .padding(horizontal = 18.dp, vertical = 9.dp),
-                        )
-                    }
-                }
-                IconButton(onClick = onStop) {
-                    Icon(
-                        Icons.Rounded.Stop,
-                        contentDescription = stringResource(R.string.phone_stop),
-                        tint = MaterialTheme.colorScheme.error,
+                    val ink by animateColorAsState(
+                        if (selected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onPrimaryContainer, tween(160),
+                        label = "modeInk",
+                    )
+                    Text(
+                        stringResource(option.label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = ink,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(fill)
+                            .clickable(role = Role.Tab) { onMode(option) }
+                            .padding(horizontal = 18.dp, vertical = 12.dp),
                     )
                 }
             }
         }
+        AnimatedVisibility(
+            visible = mode == FullScreenMode.OPERATE,
+            enter = fadeIn(tween(160)) + scaleIn(tween(160), initialScale = 0.8f),
+            exit = fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.8f),
+        ) {
+            BarButton(CircleShape, onBack) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.phone_background_back))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BarButton(
+    shape: Shape,
+    onClick: () -> Unit,
+    contentModifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(48.dp),
+        shape = shape,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Box(Modifier.fillMaxSize().then(contentModifier), contentAlignment = Alignment.Center) { content() }
     }
 }
 
 private const val CARD_CORNER_DP = 14
 private const val OPEN_MS = 360
 private const val CLOSE_MS = 300
+private const val VANISH_MS = 240
+/** Scale the view shrinks to as it fades out when the background screen ends. */
+private const val VANISH_SCALE = 0.9f
 
 /** Material 3 emphasized curve; the card launches quickly and settles slowly into place. */
 private val EmphasizedEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)

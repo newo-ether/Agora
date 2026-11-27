@@ -34,6 +34,10 @@
     <string name="phone_background_operate">조작</string>
     <string name="phone_background_preview">미리보기</string>
     <string name="phone_background_minimize">최소화</string>
+    <string name="phone_background_fullscreen">전체 화면</string>
+    <string name="phone_background_exit_fullscreen">전체 화면 종료</string>
+    <string name="phone_background_close">닫기</string>
+    <string name="phone_background_show">미리보기 표시</string>
     <string name="phone_background_back">뒤로</string>
     <string name="phone_thinking">생각 중</string>
     <string name="phone_waiting">답변 대기 중</string>

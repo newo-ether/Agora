@@ -52,14 +52,16 @@ class PhoneControlService : Service() {
                     conversation, intent.getLongExtra("epoch", -1),
                 )
             }
-            combine(control.lease.held, control.actionName) { _, _ -> }.collect {
+            if (intent?.action == SHOW_PREVIEW &&
+                control.lease.held.value?.epoch == intent.getLongExtra("epoch", -1)) control.reopenPreview()
+            combine(control.lease.held, control.actionName, control.previewClosed) { _, _, _ -> }.collect {
                 // Use the current value after suspension. An older null must not stop a new claim.
                 val held = control.lease.held.value
                 observed = held
                 if (held == null) {
                     if (stopSelfResult(startId)) stopForeground(STOP_FOREGROUND_REMOVE)
                 } else getSystemService(NotificationManager::class.java)
-                    .notify(1084, notification(held, control.actionName.value))
+                    .notify(1084, notification(held, control.actionName.value, control.previewClosed.value))
             }
         }
         return START_NOT_STICKY
@@ -78,7 +80,11 @@ class PhoneControlService : Service() {
      * built on it (OxygenOS / ColorOS 16 Live Alerts) show it as a status bar chip with the elapsed
      * time; older systems ignore the request and show an ordinary ongoing notification.
      */
-    private fun notification(held: PhoneControlLease.Held?, action: String? = null): android.app.Notification {
+    private fun notification(
+        held: PhoneControlLease.Held?,
+        action: String? = null,
+        previewClosed: Boolean = false,
+    ): android.app.Notification {
         val resources = appLanguageResources(runtime?.settings?.appLanguage?.value ?: "system")
         val status = action ?: resources.getString(R.string.phone_thinking)
         return NotificationCompat.Builder(this, CHANNEL)
@@ -95,6 +101,15 @@ class PhoneControlService : Service() {
                     setShowWhen(true)
                     setUsesChronometer(true)
                 }
+                if (held != null && previewClosed) addAction(0,
+                    resources.getString(R.string.phone_background_show), PendingIntent.getService(
+                        this@PhoneControlService, held.epoch.hashCode() + 1,
+                        Intent(this@PhoneControlService, PhoneControlService::class.java)
+                            .setAction(SHOW_PREVIEW)
+                            .setData(android.net.Uri.parse("agora-phone:show/${held.epoch}"))
+                            .putExtra("epoch", held.epoch),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    ))
                 if (held != null) addAction(0, resources.getString(R.string.phone_stop), PendingIntent.getService(
                     this@PhoneControlService, held.epoch.hashCode(),
                     Intent(this@PhoneControlService, PhoneControlService::class.java)
@@ -109,5 +124,6 @@ class PhoneControlService : Service() {
     companion object {
         private const val CHANNEL = "phone-control"
         private const val STOP = "com.newoether.agora.PHONE_STOP"
+        private const val SHOW_PREVIEW = "com.newoether.agora.PHONE_SHOW_PREVIEW"
     }
 }

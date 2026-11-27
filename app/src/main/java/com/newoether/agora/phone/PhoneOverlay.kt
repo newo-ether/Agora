@@ -15,6 +15,10 @@ import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.lifecycle.Lifecycle
@@ -93,10 +97,15 @@ internal class PhoneOverlay(
         effectView.setContent { PhoneOverlayTheme(runtime.settings) {
             PhoneEffect(runtime, this)
             // The strip reports status where the AI acts; Stop lives in the notification and the
-            // chat. It vanishes in the same frame a capture starts, so no screenshot shows it.
-            if (onDisplay) Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (capturing.value) 0f else 1f }) {
-                PhoneControls(runtime, epoch, {}, { _, _ -> }, visible = visible.value,
-                    questionsShown = false, interactive = false)
+            // chat. It vanishes in the same frame a capture starts, so no screenshot shows it. Full
+            // screen has its own bar with the same status, so the strip fades out there.
+            if (onDisplay) {
+                val fullscreen by runtime.fullscreen.collectAsState()
+                val shown by animateFloatAsState(if (fullscreen) 0f else 1f, tween(200), label = "stripFullscreen")
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (capturing.value) 0f else shown }) {
+                    PhoneControls(runtime, epoch, {}, { _, _ -> }, visible = visible.value,
+                        questionsShown = false, interactive = false)
+                }
             }
         } }
         val effectParams = WindowManager.LayoutParams(

@@ -34,6 +34,10 @@
     <string name="phone_background_operate">تحكم</string>
     <string name="phone_background_preview">معاينة</string>
     <string name="phone_background_minimize">تصغير</string>
+    <string name="phone_background_fullscreen">ملء الشاشة</string>
+    <string name="phone_background_exit_fullscreen">الخروج من ملء الشاشة</string>
+    <string name="phone_background_close">إغلاق</string>
+    <string name="phone_background_show">إظهار المعاينة</string>
     <string name="phone_background_back">رجوع</string>
     <string name="phone_thinking">يفكر</string>
     <string name="phone_waiting">بانتظار إجابتك</string>

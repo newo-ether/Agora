@@ -34,6 +34,10 @@
     <string name="phone_background_operate">操作</string>
     <string name="phone_background_preview">預覽</string>
     <string name="phone_background_minimize">最小化</string>
+    <string name="phone_background_fullscreen">全螢幕</string>
+    <string name="phone_background_exit_fullscreen">結束全螢幕</string>
+    <string name="phone_background_close">關閉</string>
+    <string name="phone_background_show">顯示小視窗</string>
     <string name="phone_background_back">返回</string>
     <string name="phone_thinking">思考中</string>
     <string name="phone_waiting">等待你的回答</string>
