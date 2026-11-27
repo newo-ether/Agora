@@ -279,11 +279,19 @@ internal class PhoneBackgroundPreview(
 
     /**
      * Card origin for a window of the given laid-out size. The window manager applies a new window
-     * size asynchronously, so the size Compose is handed, not [workspace], says which frame is live.
+     * frame asynchronously, so neither [workspace] nor the requested params say which frame is live.
+     * A tight frame always holds the card at the padding, which also covers a move, where the window
+     * follows the card. Any other frame stays put while the card changes, and the layout pass runs
+     * after the frame is applied, so the window's real screen position places the card exactly.
      */
-    private fun cardOffset(windowWidth: Int, windowHeight: Int): IntOffset =
-        if (windowWidth == safe.width() && windowHeight == safe.height()) IntOffset(cardX - safe.left, cardY - safe.top)
-        else IntOffset(pad, pad + handleZone)
+    private fun cardOffset(windowWidth: Int, windowHeight: Int): IntOffset {
+        if (windowWidth == cardWidth + 2 * pad && windowHeight == cardHeight + 2 * pad + handleZone) {
+            return IntOffset(pad, pad + handleZone)
+        }
+        val at = IntArray(2)
+        root?.getLocationOnScreen(at) ?: return IntOffset(pad, pad + handleZone)
+        return IntOffset(cardX - at[0], cardY - at[1])
+    }
 
     /** Skips relayouts that change nothing; during a resize only the card state moves. */
     private fun update() {
@@ -546,10 +554,10 @@ internal class PhoneBackgroundPreview(
     }
 
     /**
-     * Draws in card coordinates, outside the card: the bar above it, two corner brackets concentric
-     * with its rounded corners, and a bar below it. Bars span [BAR_RATIO] of the width, bracket arms
-     * [ARM_RATIO] of the side they run along. Each weight in 0..1 thickens its grip; every stroke is
-     * drawn twice for a shadow that reads on any app.
+     * Draws in card coordinates, outside the card: the bar above it, two corner arcs concentric with
+     * its rounded corners, and a bar below it. Bars span [BAR_RATIO] of the width. Each weight in
+     * 0..1 thickens and brightens its grip; every stroke is drawn twice for a shadow that reads on
+     * any app.
      */
     private fun DrawScope.drawGrips(bar: Float, start: Float, end: Float, center: Float) {
         val w = size.width
@@ -558,33 +566,25 @@ internal class PhoneBackgroundPreview(
         val off = GRIP_GAP_DP.dp.toPx() + base / 2
         val corner = CORNER_DP.dp.toPx()
         val radius = corner + off
-        val armX = ARM_RATIO * w
-        val armY = ARM_RATIO * h
         val half = BAR_RATIO * w / 2
         fun stroke(weight: Float) = base + (GRIP_ACTIVE_DP.dp.toPx() - base) * weight
         fun grip(path: Path, weight: Float) {
             val width = stroke(weight)
             translate(top = 1.2.dp.toPx()) {
-                drawPath(path, Color.Black.copy(alpha = 0.3f + 0.1f * weight),
+                drawPath(path, Color.Black.copy(alpha = 0.16f + 0.24f * weight),
                     style = Stroke(width + 1.6.dp.toPx(), cap = StrokeCap.Round))
             }
-            drawPath(path, Color.White.copy(alpha = 0.86f + 0.14f * weight),
+            drawPath(path, Color.White.copy(alpha = GRIP_IDLE_ALPHA + (1f - GRIP_IDLE_ALPHA) * weight),
                 style = Stroke(width, cap = StrokeCap.Round))
         }
         fun line(y: Float) = Path().apply { moveTo(w / 2 - half, y); lineTo(w / 2 + half, y) }
         grip(line(-off), bar)
         grip(line(h + off), center)
         grip(Path().apply {
-            moveTo(-off, h - corner - armY)
-            lineTo(-off, h - corner)
-            arcTo(ComposeRect(Offset(corner, h - corner), radius), 180f, -90f, false)
-            lineTo(corner + armX, h + off)
+            arcTo(ComposeRect(Offset(corner, h - corner), radius), 180f, -90f, true)
         }, start)
         grip(Path().apply {
-            moveTo(w + off, h - corner - armY)
-            lineTo(w + off, h - corner)
-            arcTo(ComposeRect(Offset(w - corner, h - corner), radius), 0f, 90f, false)
-            lineTo(w - corner - armX, h + off)
+            arcTo(ComposeRect(Offset(w - corner, h - corner), radius), 0f, 90f, true)
         }, end)
     }
 
@@ -602,8 +602,8 @@ internal class PhoneBackgroundPreview(
         const val GRIP_GAP_DP = 5
         const val GRIP_STROKE_DP = 2.6f
         const val GRIP_ACTIVE_DP = 4.8f
-        /** Bracket arm length over the side it runs along. */
-        const val ARM_RATIO = 0.08f
+        /** Grip opacity while it is not the one being dragged. */
+        const val GRIP_IDLE_ALPHA = 0.5f
         /** Top and bottom bar length over the card width. */
         const val BAR_RATIO = 0.22f
         const val CORNER_DP = 14

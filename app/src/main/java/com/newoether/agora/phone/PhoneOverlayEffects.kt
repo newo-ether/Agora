@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.center
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -90,9 +89,10 @@ internal fun PhoneEffect(runtime: PhoneUseRuntime, overlay: PhoneOverlay) {
         view.getLocationOnScreen(location)
         origin = Offset(location[0].toFloat(), location[1].toFloat())
     }.drawWithCache {
-        val paths = (1..GLOW_LAYERS).associateWith { index ->
-            phoneBorderPath(size, corners, index.dp.toPx() / 2, 28.dp.toPx())
-        }
+        val paths = phoneGlowBands(
+            size, corners, fallbackRadius = 28.dp.toPx(), minRadius = GLOW_MIN_CORNER_DP.dp.toPx(),
+            step = 6.dp.toPx(), depths = (1..GLOW_LAYERS).map { it.dp.toPx() },
+        )
         val glow = Brush.sweepGradient(listOf(primary, tertiary, secondary, primary), center = size.center)
         onDrawBehind {
             val progress = reveal.value
@@ -137,15 +137,18 @@ internal fun PhoneEffect(runtime: PhoneUseRuntime, overlay: PhoneOverlay) {
     })
 }
 private const val GLOW_LAYERS = 28
+/** Corner radius the glow keeps where the display reports a smaller one, e.g. a virtual display. */
+private const val GLOW_MIN_CORNER_DP = 20
 
 /**
  * A soft inner glow with no hard line, so a platform corner radius that is a little off does not
- * show. Band n reaches n dp in from the edge; overlapping bands make the glow fade inward.
+ * show. Band n reaches about n dp in from the edge, more or less along the outline; overlapping
+ * bands make the glow fade inward.
  */
-private fun DrawScope.phoneBorder(paths: Map<Int, Path>, brush: Brush, alpha: Float, glow: Float = 0f) {
+private fun DrawScope.phoneBorder(paths: List<Path>, brush: Brush, alpha: Float, glow: Float = 0f) {
     for (index in GLOW_LAYERS downTo 1) {
         val opacity = (alpha * (0.08f + glow * 0.08f) * (1f - index / (GLOW_LAYERS + 4f))).coerceIn(0f, 1f)
-        drawPath(checkNotNull(paths[index]), brush, alpha = opacity, style = Stroke(index.dp.toPx()))
+        drawPath(paths[index - 1], brush, alpha = opacity)
     }
 }
 
