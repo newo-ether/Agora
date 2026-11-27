@@ -115,6 +115,7 @@ try {
     await tool.click();
     const during = await description.evaluate(node => ({
       animations: node.getAnimations().length, overflow: getComputedStyle(node).overflow,
+      startHeight: node.getAnimations()[0]?.effect?.getKeyframes()[0]?.height,
       height: node.getBoundingClientRect().height, fullHeight: node.scrollHeight,
     }));
     assert.equal(during.overflow, "hidden", "the expanding text must stay clipped to its animated height");
@@ -123,6 +124,8 @@ try {
       assert.ok(during.height > collapsedHeight);
     } else {
       assert.ok(during.animations > 0);
+      assert.equal(during.startHeight, `${collapsedHeight}px`, "expansion starts at the visible two-line height");
+      assert.ok(during.height >= collapsedHeight - .5, "expansion cannot restart from zero");
       await page.waitForTimeout(450);
     }
     assert.equal(await tool.getAttribute("aria-expanded"), "true");
@@ -147,22 +150,29 @@ try {
     const compact = await page.evaluate(() => {
       const title = document.querySelector("dialog[data-editor='compact'] h2");
       const support = document.querySelector(".compact-model-section > p.supporting");
+      const model = document.querySelector(".editor-dropdown-field");
       const titleStyle = getComputedStyle(title), supportStyle = getComputedStyle(support);
       const probe = document.createElement("div");
       probe.style.color = "var(--md-on-surface-variant)";
       document.body.appendChild(probe);
       const expectedColor = getComputedStyle(probe).color;
+      probe.style.color = "color-mix(in srgb, var(--md-on-surface) 38%, transparent)";
+      const expectedModelColor = getComputedStyle(probe).color;
       probe.remove();
       return { title: [titleStyle.color, titleStyle.fontSize, titleStyle.lineHeight, titleStyle.fontWeight],
         support: [supportStyle.fontSize, supportStyle.lineHeight, supportStyle.letterSpacing,
           supportStyle.marginTop, supportStyle.marginLeft, supportStyle.marginRight],
-        expectedColor, wrappedField: !!document.querySelector(".compact-model-section > .outlined-field"),
-        modelDisabled: document.querySelector(".editor-dropdown-field").disabled };
+        expectedColor, expectedModelColor, modelColor: getComputedStyle(model).color,
+        modelIconFill: getComputedStyle(model.querySelector("svg")).fill,
+        wrappedField: !!document.querySelector(".compact-model-section > .outlined-field"),
+        modelDisabled: model.disabled };
     });
     assert.deepEqual(compact.title, [compact.expectedColor, "23px", "29px", "700"]);
     assert.deepEqual(compact.support, ["11px", "16px", "0.4px", "4px", "16px", "16px"]);
     assert.equal(compact.wrappedField, true);
     assert.equal(compact.modelDisabled, true);
+    assert.equal(compact.modelColor, compact.expectedModelColor);
+    assert.equal(compact.modelIconFill, compact.expectedModelColor);
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ width, reduced, initialStyle, during, compact, passed: true }));
     await page.close();

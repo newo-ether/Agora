@@ -1572,12 +1572,14 @@ then reapplies the still-unanswered toggle suffix so an earlier reply cannot rol
 A new catalog request, target selection, connection change or disconnect invalidates old replies and
 clears pending optimistic operations. Unknown and unavailable groups cannot emit toggle commands.
 Group expansion uses a clipped 400ms height/fade transition and chevron rotation; a tool description
-uses a clipped 400ms height interpolation between its two-line and full text. App Reduced Motion alone
-snaps spatial geometry and description height while retaining the allowed group fade. Browser and OS
-motion preferences do not participate.
+uses a clipped 400ms height interpolation starting at its visible two-line height and ending at the
+full text height. A hidden group records its real height when it becomes visible instead of seeding
+the description animation with zero. App Reduced Motion alone snaps spatial geometry and description
+height while retaining the allowed group fade. Browser and OS motion preferences do not participate.
 The Compact dialog carries `data-editor="compact"`. Its title uses onSurfaceVariant and Compose's
 23px/29px Bold headlineSmall metrics. Compact-model supporting text uses bodySmall at 11px/16px with
-0.4px tracking, a 4px top inset and 16px horizontal insets.
+0.4px tracking, a 4px top inset and 16px horizontal insets. When Preserve Context disables the model
+field, its value and dropdown icon use onSurface at 38% alpha.
 Effective tool controls use the same pure Compose projection of global preferences, provider
 availability and per-conversation overrides. Existing-conversation edits transform the canonical
 SettingsRepository value instead of replacing unrelated fields; New Chat overrides remain in the

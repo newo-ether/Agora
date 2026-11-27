@@ -40,7 +40,7 @@ function unavailableReason(reason) {
 }
 
 /** Compose animateContentSize(tween(400)): retain the current height across a two-line/full-text change. */
-function ToolDescription({ text, expanded, reduceMotion }) {
+function ToolDescription({ text, expanded, visible, reduceMotion }) {
   const node = useRef(null), height = useRef(null), animation = useRef(null);
   useLayoutEffect(() => {
     const element = node.current;
@@ -49,9 +49,14 @@ function ToolDescription({ text, expanded, reduceMotion }) {
     const from = previous ? getComputedStyle(element).height
       : height.current == null ? null : `${height.current}px`;
     previous?.cancel();
+    animation.current = null;
+    // A collapsed group reports zero height. Becoming visible only records the real current height.
+    if (!visible) {
+      height.current = null;
+      return;
+    }
     const target = element.getBoundingClientRect().height;
     height.current = target;
-    animation.current = null;
     if (from == null || reduceMotion || Math.abs(parseFloat(from) - target) <= .5) return;
     const next = element.animate([{ height: from }, { height: `${target}px` }], {
       duration: 400, easing: "cubic-bezier(0, 0, .2, 1)", fill: "both",
@@ -62,7 +67,7 @@ function ToolDescription({ text, expanded, reduceMotion }) {
       animation.current = null;
       next.cancel(); // The CSS auto height is identical once the animation reaches its endpoint.
     };
-  }, [text, expanded, reduceMotion]);
+  }, [text, expanded, visible, reduceMotion]);
   useLayoutEffect(() => () => animation.current?.cancel(), []);
   return html`<span class="session-tools-tool-description" ref=${node} data-expanded=${expanded}>${text}</span>`;
 }
@@ -94,7 +99,8 @@ function Group({ group, groupEnabled, expanded, isToolExpanded, reduceMotion, on
               <span class="session-tools-tool-name">${tool.name}</span>
               <span class="session-tools-tool-tokens">${t.sessionToolsTokens(tool.tokens)}</span>
             </span>
-            <${ToolDescription} text=${tool.description} expanded=${isToolExpanded(tool.name)} reduceMotion=${reduceMotion} />
+            <${ToolDescription} text=${tool.description} expanded=${isToolExpanded(tool.name)}
+              visible=${expanded} reduceMotion=${reduceMotion} />
           </button>
         </div>`)}
       </div>

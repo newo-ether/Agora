@@ -280,7 +280,8 @@
   transition: border-color 180ms var(--md-field-effects), box-shadow 180ms var(--md-field-effects);
   --md-component-transition: border-color 180ms var(--md-field-effects), box-shadow 180ms var(--md-field-effects);
 }
-.editor-dropdown-field:disabled { cursor: default; color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.conversation-editor .outlined-field .editor-dropdown-field:disabled { cursor: default; color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
+.conversation-editor .outlined-field .editor-dropdown-field:disabled .editor-dropdown-icon svg { fill: currentColor; }
 .editor-dropdown-field > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-dropdown-icon { flex: none; display: grid; place-items: center; width: 24px; height: 24px; transition: transform 150ms linear; }
 .editor-dropdown-icon.open { transform: rotate(180deg); }
