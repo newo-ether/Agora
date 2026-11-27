@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.snapTo
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -56,6 +57,20 @@ internal fun drawerWidthFor(screenWidth: Dp): Dp = minOf(screenWidth, DRAWER_MAX
 internal fun usesSideBySideDrawer(screenWidth: Dp): Boolean =
     screenWidth > DRAWER_MAX_WIDTH + CHAT_APP_WIDTH_THRESHOLD
 
+/**
+ * The drawer's horizontal offset while it rests on [open] in a [isRtl] layout.
+ *
+ * The drawer box is anchored with [Alignment.CenterStart], so the sign of the resting offset is
+ * decided by the layout direction: positive pushes it off the right edge in RTL, negative off the
+ * left edge in LTR. Anchors and the pre-measurement fallback must agree, otherwise a frame composed
+ * before the layout direction lands on the state parks the panel at the opposite edge.
+ */
+internal fun drawerRestingOffset(drawerWidthPx: Float, isRtl: Boolean, open: Boolean): Float = when {
+    open -> 0f
+    isRtl -> drawerWidthPx
+    else -> -drawerWidthPx
+}
+
 internal fun resolveDrawerSettleTarget(
     velocity: Float,
     revealedPosition: Float,
@@ -72,17 +87,18 @@ internal fun resolveDrawerSettleTarget(
 @Stable
 internal class ChatDrawerState internal constructor(
     private val anchoredState: AnchoredDraggableState<DrawerValue>,
+    initialIsRtl: Boolean,
 ) {
     private var drawerWidthPx by mutableFloatStateOf(0f)
     private var drawerEnabled by mutableStateOf(true)
-    private var isRtl by mutableStateOf(false)
+    private var isRtl by mutableStateOf(initialIsRtl)
 
     var sideBySide by mutableStateOf(false)
         private set
 
     val offsetPx: Float
         get() = anchoredState.offset.takeUnless(Float::isNaN)
-            ?: if (anchoredState.currentValue == DrawerValue.Open) 0f else if (isRtl) drawerWidthPx else -drawerWidthPx
+            ?: drawerRestingOffset(drawerWidthPx, isRtl, anchoredState.currentValue == DrawerValue.Open)
 
     val progress: Float
         get() = if (drawerWidthPx > 0f) {
@@ -112,13 +128,8 @@ internal class ChatDrawerState internal constructor(
         this.isRtl = isRtl
         anchoredState.updateAnchors(
             DraggableAnchors {
-                if (isRtl) {
-                    DrawerValue.Closed at drawerWidthPx
-                    DrawerValue.Open at 0f
-                } else {
-                    DrawerValue.Closed at -drawerWidthPx
-                    DrawerValue.Open at 0f
-                }
+                DrawerValue.Closed at drawerRestingOffset(drawerWidthPx, isRtl, open = false)
+                DrawerValue.Open at 0f
             },
             anchoredState.targetValue,
         )
@@ -197,8 +208,13 @@ internal class ChatDrawerState internal constructor(
 }
 
 @Composable
-internal fun rememberChatDrawerState(): ChatDrawerState = remember {
-    ChatDrawerState(AnchoredDraggableState(DrawerValue.Closed))
+internal fun rememberChatDrawerState(): ChatDrawerState {
+    // Seed the direction from the composition instead of defaulting to LTR: the state lives across
+    // the first frame, and a LTR default would place an RTL drawer at the left edge for that frame.
+    val initialIsRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    return remember {
+        ChatDrawerState(AnchoredDraggableState(DrawerValue.Closed), initialIsRtl)
+    }
 }
 
 @Composable
@@ -286,7 +302,10 @@ internal fun ChatDrawerHost(
                 .align(Alignment.CenterStart)
                 .fillMaxHeight()
                 .width(drawerWidth)
-                .offset { IntOffset(state.offsetPx.roundToInt(), 0) }
+                // absoluteOffset, not offset: Modifier.offset mirrors its x component in RTL, which
+                // would flip the RTL resting offset (+width) back over the content edge and leave a
+                // sliver of the panel at the opposite side of the screen.
+                .absoluteOffset { IntOffset(state.offsetPx.roundToInt(), 0) }
                 .zIndex(2f),
         ) {
             drawerContent(drawerWidth) { state.closeFromContent(motionPolicy) }

@@ -33,16 +33,19 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.SubagentSummary
+import com.newoether.agora.ui.chat.capsuleClipLeft
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
 import com.newoether.agora.ui.motion.rememberIdentityClipWidth
@@ -127,10 +130,12 @@ internal fun SubagentNavigationCapsule(
             allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions,
         )
         val clipWidthPx = with(density) { clipWidth.toPx() }
+        val isRtlLayout = LocalLayoutDirection.current == LayoutDirection.Rtl
         val clipShape = GenericShape { size, _ ->
             val visibleWidth = clipWidthPx.coerceIn(0f, size.width)
+            val left = capsuleClipLeft(size.width, clipWidthPx, isRtlLayout)
             addRoundRect(RoundRect(
-                left = 0f, top = 0f, right = visibleWidth, bottom = size.height,
+                left = left, top = 0f, right = left + visibleWidth, bottom = size.height,
                 cornerRadius = CornerRadius(size.height / 2f),
             ))
         }

@@ -47,12 +47,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.ui.theme.chatCompactWidth
 import androidx.compose.ui.zIndex
@@ -446,12 +448,14 @@ internal fun ChatTopBar(
                 val visibleTitleCapsuleWidthPx = with(density) {
                     visibleTitleCapsuleWidth.toPx()
                 }
+                val isRtlLayout = LocalLayoutDirection.current == LayoutDirection.Rtl
                 val titleCapsuleClipShape = GenericShape { size, _ ->
-                    val right = visibleTitleCapsuleWidthPx.coerceIn(0f, size.width)
+                    val left = capsuleClipLeft(size.width, visibleTitleCapsuleWidthPx, isRtlLayout)
+                    val right = left + visibleTitleCapsuleWidthPx.coerceIn(0f, size.width)
                     val cornerRadius = CornerRadius(size.height / 2f, size.height / 2f)
                     addRoundRect(
                         RoundRect(
-                            left = 0f,
+                            left = left,
                             top = 0f,
                             right = right,
                             bottom = size.height,
@@ -497,7 +501,12 @@ internal fun ChatTopBar(
                                         if (onNavigateBack != null) R.string.back else R.string.menu
                                     ),
                                     modifier = Modifier.size(26.dp).graphicsLayer {
-                                        translationX = if (onNavigateBack == null) chatTopBarLeadingNudge.toPx() else 0f
+                                        translationX = if (onNavigateBack == null) {
+                                            // The leading icon is mirrored with the capsule in RTL.
+                                            if (isRtlLayout) -chatTopBarLeadingNudge.toPx() else chatTopBarLeadingNudge.toPx()
+                                        } else {
+                                            0f
+                                        }
                                     },
                                 )
                             }
