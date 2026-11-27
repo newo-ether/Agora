@@ -127,7 +127,7 @@ internal fun SessionToolsDialog(
                     Text(
                         stringResource(
                             R.string.session_tools_header,
-                            on.sumOf { it.tools.size }, catalog.totalToolCount, on.sumOf { it.tokens },
+                            on.sumOf { it.tools.size }, catalog.totalToolCount, catalog.tokensOf(on),
                         ),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

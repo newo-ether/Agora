@@ -128,9 +128,23 @@ internal class PhoneToolProvider(
                                 checkApp(backend, authorized, withinOperation = name in ACTIONS)
                                 treePackage = backend.foreground()
                                 tree = Triple(authorized.epoch, dimensions, nodes)
+                                // Bounds use the latest screenshot's coordinates, the same space x/y input uses.
+                                val space = screen?.takeIf { it.first == authorized.epoch }?.second?.takeIf {
+                                    Triple(it.physicalWidth, it.physicalHeight, it.rotation) == dimensions
+                                }
+                                fun box(node: PhoneNode): List<Int> {
+                                    val b = node.bounds
+                                    if (space == null) return listOf(b.left, b.top, b.right, b.bottom)
+                                    val (left, top) = space.screenshot(b.left, b.top)
+                                    val (right, bottom) = space.screenshot(b.right, b.bottom)
+                                    return listOf(left, top, right, bottom)
+                                }
+                                put("coordinates", if (space == null) "display" else "screenshot")
+                                put("width", space?.screenshotWidth ?: dimensions.first)
+                                put("height", space?.screenshotHeight ?: dimensions.second)
                                 put("nodes", JsonArray(nodes.map { node -> buildJsonObject {
                                     put("index", node.index); put("text", node.text); put("role", node.role)
-                                    put("bounds", JsonArray(listOf(node.bounds.left, node.bounds.top, node.bounds.right, node.bounds.bottom).map(::JsonPrimitive)))
+                                    put("bounds", JsonArray(box(node).map(::JsonPrimitive)))
                                     put("enabled", node.enabled); put("selected", node.selected)
                                     put("editable", node.editable); put("password", node.password)
                                 } }))

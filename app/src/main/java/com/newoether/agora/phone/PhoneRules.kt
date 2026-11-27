@@ -35,6 +35,10 @@ internal data class PhoneScreenSpace(
         return (x * physicalWidth / screenshotWidth).roundToInt().coerceIn(0, physicalWidth - 1) to
             (y * physicalHeight / screenshotHeight).roundToInt().coerceIn(0, physicalHeight - 1)
     }
+    /** Display pixels to screenshot coordinates, the inverse of [physical]. */
+    fun screenshot(x: Int, y: Int): Pair<Int, Int> =
+        (x.toFloat() * screenshotWidth / physicalWidth).roundToInt().coerceIn(0, screenshotWidth) to
+            (y.toFloat() * screenshotHeight / physicalHeight).roundToInt().coerceIn(0, screenshotHeight)
 }
 
 internal fun phoneInputPath(mode: String, text: String): String = when {

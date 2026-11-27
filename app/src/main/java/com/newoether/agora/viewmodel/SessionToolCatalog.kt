@@ -43,6 +43,11 @@ internal data class SessionToolCatalog(
     val enabledGroups: Set<SessionToolGroup>,
     /** Ids exactly as the conversation stored them, including groups this session cannot show. */
     val storedDisabledIds: Set<String>,
+    /**
+     * Tool-use preamble the provider charges once per request that carries tools. Group and tool
+     * figures exclude it; a total adds it once, as the context indicator does.
+     */
+    val toolSetTokens: Int = 0,
 ) {
     val totalToolCount: Int get() = groups.sumOf { it.tools.size }
 
@@ -50,7 +55,12 @@ internal data class SessionToolCatalog(
         get() = groups.filter { it.group in enabledGroups }.sumOf { it.tools.size }
 
     val enabledToolTokens: Int
-        get() = groups.filter { it.group in enabledGroups }.sumOf { it.tokens }
+        get() = tokensOf(groups.filter { it.group in enabledGroups })
+
+    /** Request cost of [selected] together: their definitions plus one tool-use preamble. */
+    fun tokensOf(selected: List<SessionToolGroupTools>): Int =
+        selected.sumOf { it.tokens } +
+            if (selected.any { it.tools.isNotEmpty() }) toolSetTokens else 0
 
     /**
      * Ids to persist after the dialog's edit. Only a group this session can switch follows the
@@ -88,8 +98,12 @@ internal data class SessionToolCatalog(
                 modelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
             )
             val emptyCost = estimator.estimateFixed(systemPrompt = null, tools = emptyList())
+            // The preamble is charged once per request; counting it inside every group and every
+            // tool made the selector total exceed the context indicator by one preamble per group.
+            val toolSetTokens = estimator.toolSetOverheadTokens()
             fun cost(tools: List<ToolDefinition>): Int =
-                (estimator.estimateFixed(systemPrompt = null, tools = tools) - emptyCost)
+                if (tools.isEmpty()) 0
+                else (estimator.estimateFixed(systemPrompt = null, tools = tools) - emptyCost - toolSetTokens)
                     .coerceAtLeast(0)
             val groups = SessionToolGroup.entries.map { group ->
                 val definitions = if (lowContextMode && group !in LOW_CONTEXT_GROUPS) {
@@ -124,6 +138,7 @@ internal data class SessionToolCatalog(
                     if (group.linked) group.featureEnabled(context) else group !in disabled
                 },
                 storedDisabledIds = context.disabledToolGroups,
+                toolSetTokens = toolSetTokens,
             )
         }
     }

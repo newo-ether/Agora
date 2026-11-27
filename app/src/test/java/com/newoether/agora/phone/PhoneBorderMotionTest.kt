@@ -63,14 +63,21 @@ class PhoneBorderMotionTest {
         }
     }
 
+    /** Mean darkening of an edge patch; the glow is grained, so single pixels are noise. */
     private fun strength(y: Int): Int {
         val bounds = compose.onNodeWithTag("border").fetchSemanticsNode().boundsInRoot
         val view = compose.activity.window.decorView
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         return try {
             compose.runOnUiThread { view.draw(Canvas(bitmap)) }
-            val pixel = bitmap.getPixel(bounds.left.toInt() + 1, bounds.top.toInt() + y)
-            255 - android.graphics.Color.green(pixel)
+            var total = 0
+            var count = 0
+            for (dy in 0 until 16) for (dx in 0 until 4) {
+                val pixel = bitmap.getPixel(bounds.left.toInt() + dx, bounds.top.toInt() + y + dy)
+                total += 255 - android.graphics.Color.green(pixel)
+                count++
+            }
+            total / count
         } finally { bitmap.recycle() }
     }
 
@@ -99,14 +106,17 @@ class PhoneBorderMotionTest {
         val upper = strength(50)
         val lower = strength(400)
         assertTrue(upper in 1..254)
-        assertEquals(upper.toFloat(), lower.toFloat(), 2f)
         frames(192)
         val settled = strength(50)
+        val settledLower = strength(400)
         assertTrue(settled > upper)
+        // The gradient tints each edge differently, so compare how far each one has faded in.
+        assertEquals(upper.toFloat() / settled, lower.toFloat() / settledLower, 0.12f)
         compose.runOnIdle { overlay.visible.value = false }
         frames(80)
-        assertTrue(strength(50) in 1 until settled)
-        assertEquals(strength(50).toFloat(), strength(400).toFloat(), 2f)
+        val fadingUpper = strength(50)
+        assertTrue(fadingUpper in 1 until settled)
+        assertEquals(fadingUpper.toFloat() / settled, strength(400).toFloat() / settledLower, 0.12f)
         frames(192)
         assertEquals(0, strength(50))
     }

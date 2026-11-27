@@ -481,6 +481,34 @@ class GenerationToolExecutorTest {
     }
 
     @Test
+    fun `selector total charges the tool-use preamble once, like the context indicator`() {
+        fun tool(name: String) = ToolDefinition(
+            function = ToolFunction(
+                name = name,
+                description = "Tool $name with a short description",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val byGroup = mapOf(
+            SessionToolGroup.MEMORY to listOf(tool("memory_read"), tool("memory_list")),
+            SessionToolGroup.TODO to listOf(tool("todo_read")),
+            SessionToolGroup.ASK_USER to listOf(tool("ask_user")),
+        )
+        val modelId = "${com.newoether.agora.util.Constants.PROVIDER_ANTHROPIC}:claude-opus-5-5"
+        val catalog = SessionToolCatalog.build(
+            modelId = modelId,
+            context = GenerationContext(accessSavedMemories = true),
+            definitionsByGroup = byGroup,
+        )
+        val indicator = com.newoether.agora.api.util.ContextTokenEstimator.forModel(modelId)
+            .estimateFixedComposition(systemPrompt = null, tools = byGroup.values.flatten())
+            .toolTokens
+        assertTrue(catalog.toolSetTokens > 0)
+        // Per-part rounding may differ by a token per group.
+        assertTrue(kotlin.math.abs(catalog.tokensOf(catalog.groups) - indicator) <= byGroup.size)
+    }
+
+    @Test
     fun `linked groups follow the conversation switch, not the disabled ids`() {
         val definition = ToolDefinition(
             function = ToolFunction(

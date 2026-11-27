@@ -79,6 +79,13 @@ class CostModelContextEstimator(val costs: ContextCostModel) {
         )
     }
 
+    /**
+     * Margin-adjusted preamble a provider charges once per request that carries any tool. Callers
+     * pricing tool subsets separately must add it once, not once per subset.
+     */
+    fun toolSetOverheadTokens(): Int =
+        costs.safetyMargin.apply(costs.envelope.toolSetOverhead.toLong())
+
     /** Margin-adjusted cost of one standalone string. */
     fun estimateText(text: String): Int = costs.safetyMargin.apply(costs.text.count(text))
 

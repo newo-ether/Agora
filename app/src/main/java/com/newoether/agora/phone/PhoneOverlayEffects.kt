@@ -13,8 +13,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalView
@@ -52,6 +61,9 @@ internal fun PhoneOverlayTheme(settings: SettingsRepository, content: @Composabl
 @Composable
 internal fun PhoneEffect(runtime: PhoneUseRuntime, overlay: PhoneOverlay) {
     val primary = MaterialTheme.colorScheme.primary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val secondary = MaterialTheme.colorScheme.secondary
+    val noise = remember { phoneNoiseBrush() }
     val motion = LocalAgoraMotionPolicy.current
     val reduce = motion.reduceMotion
     val reveal = remember { Animatable(0f) }
@@ -78,28 +90,33 @@ internal fun PhoneEffect(runtime: PhoneUseRuntime, overlay: PhoneOverlay) {
         view.getLocationOnScreen(location)
         origin = Offset(location[0].toFloat(), location[1].toFloat())
     }.drawWithCache {
-        val paths = (1..18).associateWith { index ->
+        val paths = (1..GLOW_LAYERS).associateWith { index ->
             phoneBorderPath(size, corners, index.dp.toPx() / 2, 28.dp.toPx())
         }
+        val glow = Brush.sweepGradient(listOf(primary, tertiary, secondary, primary), center = size.center)
         onDrawBehind {
             val progress = reveal.value
             val band = 90.dp.toPx()
             val top = size.height - (size.height + band) * progress
-            if (reduce) phoneBorder(paths, primary, progress)
+            // The glow is grained in its own layer: the noise tile keeps a random share of each pixel.
+            drawIntoCanvas { it.saveLayer(Rect(Offset.Zero, size), Paint()) }
+            if (reduce) phoneBorder(paths, glow, progress)
             else {
                 val revealed = (top + band).coerceIn(0f, size.height)
-                if (revealed < size.height) clipRect(top = revealed) { phoneBorder(paths, primary, 1f) }
+                if (revealed < size.height) clipRect(top = revealed) { phoneBorder(paths, glow, 1f) }
                 for (slice in 0 until 24) {
                     val start = (top + band * slice / 24).coerceIn(0f, size.height)
                     val end = (top + band * (slice + 1) / 24).coerceIn(0f, size.height)
                     if (end > start) {
                         val strength = (slice + 0.5f) / 24
                         clipRect(top = start, bottom = end) {
-                            phoneBorder(paths, primary, strength, sin(PI * strength).toFloat())
+                            phoneBorder(paths, glow, strength, sin(PI * strength).toFloat())
                         }
                     }
                 }
             }
+            drawRect(noise, blendMode = BlendMode.DstIn)
+            drawIntoCanvas { it.restore() }
             val current = cursor
             if (current != null && !overlay.capturing.value) {
                 val elapsed = (now - current.startedAt).coerceAtLeast(0)
@@ -119,11 +136,33 @@ internal fun PhoneEffect(runtime: PhoneUseRuntime, overlay: PhoneOverlay) {
         }
     })
 }
-private fun DrawScope.phoneBorder(paths: Map<Int, Path>, color: Color, alpha: Float, glow: Float = 0f) {
-    for (index in 18 downTo 1) {
-        val width = index.dp.toPx()
-        val opacity = (alpha * (0.035f + glow * 0.065f) * (1f - index / 20f)).coerceIn(0f, 1f)
-        drawPath(checkNotNull(paths[index]), color.copy(alpha = opacity), style = Stroke(width))
+private const val GLOW_LAYERS = 28
+
+/**
+ * A soft inner glow with no hard line, so a platform corner radius that is a little off does not
+ * show. Band n reaches n dp in from the edge; overlapping bands make the glow fade inward.
+ */
+private fun DrawScope.phoneBorder(paths: Map<Int, Path>, brush: Brush, alpha: Float, glow: Float = 0f) {
+    for (index in GLOW_LAYERS downTo 1) {
+        val opacity = (alpha * (0.08f + glow * 0.08f) * (1f - index / (GLOW_LAYERS + 4f))).coerceIn(0f, 1f)
+        drawPath(checkNotNull(paths[index]), brush, alpha = opacity, style = Stroke(index.dp.toPx()))
     }
-    drawPath(checkNotNull(paths[2]), color.copy(alpha = (alpha * 0.8f).coerceIn(0f, 1f)), style = Stroke(2.dp.toPx()))
+}
+
+/** A tiled grain mask: 2 px cells with random coverage, fixed seed so it never flickers. */
+private fun phoneNoiseBrush(): ShaderBrush {
+    val cells = 192
+    val cell = 2
+    val random = java.util.Random(7)
+    val pixels = IntArray(cells * cell * cells * cell)
+    val side = cells * cell
+    for (y in 0 until cells) for (x in 0 until cells) {
+        val roll = random.nextFloat()
+        // Mostly partial coverage, with a few full grains and a few gaps for the stippled look.
+        val coverage = when { roll < 0.18f -> 0.15f; roll > 0.9f -> 1f; else -> 0.4f + 0.45f * random.nextFloat() }
+        val argb = (coverage * 255).toInt() shl 24 or 0xFFFFFF
+        for (dy in 0 until cell) for (dx in 0 until cell) pixels[(y * cell + dy) * side + x * cell + dx] = argb
+    }
+    val bitmap = android.graphics.Bitmap.createBitmap(pixels, side, side, android.graphics.Bitmap.Config.ARGB_8888)
+    return ShaderBrush(ImageShader(bitmap.asImageBitmap(), TileMode.Repeated, TileMode.Repeated))
 }
