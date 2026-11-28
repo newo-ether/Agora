@@ -378,7 +378,6 @@ private fun ProviderDetailSettingsList(
                                 onClick = onAddModel,
                             )
                         }
-                        add { SettingsXnixMldChatCard(viewModel) }
                         add { SettingsOnnxChatCard(viewModel) }
                     }
                 )

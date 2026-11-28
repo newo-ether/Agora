@@ -194,9 +194,9 @@ class AppContainer(
     // lifecycle. [providerRegistry] holds the live provider map the
     // generation pipeline reads and runs the long-lived credential/model sync jobs.
 
-    /** On-device chat provider (supporting both xnix-mld TPU and ONNX). Registered as PROVIDER_LOCAL. */
+    /** On-device chat provider (onnxruntime-genai). Registered as PROVIDER_LOCAL. */
     val onnxLlmProvider: com.newoether.agora.api.local.OnnxLlmProvider by lazy {
-        com.newoether.agora.api.local.OnnxLlmProvider(appContext, settingsRepository)
+        com.newoether.agora.api.local.OnnxLlmProvider(appContext)
     }
 
     val providerRegistry: ProviderRegistry by lazy {
