@@ -22,6 +22,14 @@
     <string name="subagents_max_concurrent">الوكلاء الفرعيون المتزامنون</string>
     <string name="subagents_max_concurrent_desc">الحد الأقصى للوكلاء الفرعيين الذين يعملون في الوقت نفسه لكل محادثة رئيسية. تنتظر المهام الإضافية؛ ويتيح خفض هذا الحد للوكلاء الجاري تشغيلهم إكمال عملهم.</string>
     <string name="subagents_limit_value">%1$d</string>
+    <plurals name="subagents_running_count">
+        <item quantity="zero">%d قيد التشغيل</item>
+        <item quantity="one">%d قيد التشغيل</item>
+        <item quantity="two">%d قيد التشغيل</item>
+        <item quantity="few">%d قيد التشغيل</item>
+        <item quantity="many">%d قيد التشغيل</item>
+        <item quantity="other">%d قيد التشغيل</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="zero">%d وكيل فرعي</item>
         <item quantity="one">%d وكيل فرعي</item>

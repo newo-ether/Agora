@@ -115,7 +115,7 @@ class RemoteSourceIsolationTest {
         val loading = async { hydration.loadToolImage(original, "answer", "revision") }
         runCurrent()
         state.value = state.value.copy(adapterSelections = mapOf("device" to cli.id))
-        image.complete(ToolImageAttachment("unused", "image/png", 1, 1, 1, "hash"))
+        image.complete(ToolImageAttachment("unused", "image/png", 1, 1, 1))
         runCurrent()
         assertTrue(loading.isCancelled)
     }

@@ -291,9 +291,9 @@ internal class RemoteViewModel(
         if (!state.value.capabilities.models) return
         val client = clientFor(state.value) ?: return
         if (!visible || state.value.devices.firstOrNull { it.id == id }?.status != RemoteDeviceStatus.CONNECTED) return
-        loadModels(id, client)
+        loadModels(id, client, notifyFailure = true)
     }
-    private fun loadModels(id: String, client: FiloClient) {
+    private fun loadModels(id: String, client: FiloClient, notifyFailure: Boolean = false) {
         if (!state.value.capabilities.models) return
         if (modelLoading?.isActive == true) return
         val modelGeneration = ++modelEpoch
@@ -306,7 +306,9 @@ internal class RemoteViewModel(
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
-                if (modelGeneration == modelEpoch && sameConnection(id, client) && state.value.deviceId == id) trace("models_failed", error)
+                if (modelGeneration == modelEpoch && sameConnection(id, client) && state.value.deviceId == id) {
+                    trace("models_failed", error, notify = notifyFailure)
+                }
             }
             finally {
                 if (modelGeneration == modelEpoch) mutableState.value = state.value.copy(modelsLoading = false)
@@ -353,13 +355,14 @@ internal class RemoteViewModel(
         polling = viewModelScope.launch {
             var consecutiveFailures = 0
             var notifiedFailure: RemoteFailure? = null
+            var liveSubscription = capabilities.live
             do {
                 if (state.value.devices.firstOrNull { it.id == id }?.status == RemoteDeviceStatus.ERROR) {
                     updateDevice(id) { it.copy(status = RemoteDeviceStatus.CONNECTING, failure = null) }
                 }
                 try {
                     if (session == null) {
-                        val page = client.sessions()
+                        val page = client.refreshSessionCatalog(state.value.sessions)
                         if (generation != epoch) return@launch
                         mutableState.value = state.value.copy(
                             sessions = page.sessions, sessionCursor = page.nextCursor,
@@ -367,10 +370,19 @@ internal class RemoteViewModel(
                             loading = false, failure = null,
                         )
                         startSessionStatusReads()
-                    } else if (!capabilities.live) {
-                        applyPage(client, session.id, generation, client.conversation(session.id), liveControl = false)
-                        break
                     } else {
+                        if (!liveSubscription) {
+                            val page = client.conversation(session.id)
+                            val grant = page.access?.capabilities?.intersect(state.value.selectedAdapter.capabilities)
+                            val controlsAvailable = grant?.let {
+                                it.live || it.idleSend || it.activeSend == "native-steer" || it.stop || it.settings.isNotEmpty()
+                            } == true
+                            // A fresh session grant can permit idle controls without a live subscription.
+                            applyPage(client, session.id, generation, page, controlReady = controlsAvailable)
+                            if (generation != epoch) return@launch
+                            liveSubscription = state.value.capabilities.live
+                            if (!liveSubscription) break
+                        }
                         client.events(session.id).collect { page ->
                             if (generation == epoch) {
                                 applyPage(client, session.id, generation, page)
@@ -392,7 +404,7 @@ internal class RemoteViewModel(
                         if (session != null && readFailure in setOf(RemoteFailure.NETWORK, RemoteFailure.SERVICE)) {
                             try {
                                 // Read the same original owner when subscription fails; never admit another host.
-                                applyPage(client, session.id, generation, client.conversation(session.id), liveControl = false)
+                                applyPage(client, session.id, generation, client.conversation(session.id), controlReady = false)
                                 if (generation != epoch) return@launch
                                 reachable = true
                             } catch (cancelled: CancellationException) { throw cancelled }
@@ -451,7 +463,7 @@ internal class RemoteViewModel(
 
     private suspend fun applyPage(
         client: FiloClient, sessionId: String, generation: Long, page: RemoteConversationPage,
-        liveControl: Boolean = true, confirmedSettings: Boolean = false,
+        controlReady: Boolean = true, confirmedSettings: Boolean = false,
     ) {
         if (generation != epoch) return
         page.access?.let { access ->
@@ -496,11 +508,18 @@ internal class RemoteViewModel(
                 effort = previousRuntime?.effort, serviceTier = previousRuntime?.serviceTier,
                 serviceTierKnown = previousRuntime?.serviceTierKnown == true,
             )
+            if (acceptsSettings && !confirmedSettings) settingsMutation.observeRuntime(state.value, nativeRuntime)
             mutableState.value = state.value.copy(
                 nodes = nodes, messageGroups = groups, hydrationEnabled = visible,
                 historyCursor = if (old.isEmpty()) incoming.last().nextCursor else state.value.historyCursor,
                 queued = page.queued, loading = false, failure = null,
-                runtime = nativeRuntime.takeIf { liveControl },
+                session = state.value.session?.let { current ->
+                    nativeRuntime?.title?.let { current.copy(title = it) } ?: current
+                },
+                sessions = state.value.sessions.map { current ->
+                    if (current.id == sessionId && nativeRuntime?.title != null) current.copy(title = nativeRuntime.title) else current
+                },
+                runtime = nativeRuntime.takeIf { controlReady },
                 lastKnownModel = nativeRuntime?.model ?: state.value.lastKnownModel,
             )
         }
@@ -566,6 +585,7 @@ internal class RemoteViewModel(
                         val page = client.sessions(cursor)
                         if (selected != selectionEpoch || !sameConnection(address, client) || !visible) return@launch
                         mutableState.value = state.value.copy(
+                            sessions = state.value.sessions.replaceCatalogPage(cursor, page),
                             sessionStatuses = state.value.mergeListedSessionStatuses(address, page),
                         )
                     }

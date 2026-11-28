@@ -2,7 +2,7 @@ package com.newoether.agora.ui.settings
 
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -33,7 +33,7 @@ fun SettingsTodoPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         supportingContent = { Text(stringResource(R.string.todo_enable_desc)) },
                         leadingContent = {
                             Icon(
-                                Icons.Default.Checklist,
+                                Icons.Rounded.Checklist,
                                 null,
                                 tint = MaterialTheme.colorScheme.primary,
                             )

@@ -1,20 +1,19 @@
 package com.newoether.agora.ui.settings
 
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VpnKey
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Tag
+import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,8 +52,6 @@ internal fun LocalChatModelEditor(
     var draft by remember(initial?.id) { mutableStateOf(start) }
     val imports = remember(initial?.id) { LocalChatModelImports() }
     var closed by remember { mutableStateOf(false) }
-    var modelName by remember { mutableStateOf("") }
-    var projectorName by remember { mutableStateOf("") }
     var pickingProjector by remember { mutableStateOf<Boolean?>(null) }
     var importingProjector by remember { mutableStateOf<Boolean?>(null) }
     var showGgufError by remember { mutableStateOf(false) }
@@ -78,8 +75,8 @@ internal fun LocalChatModelEditor(
     val guardedBack = rememberUnsavedChangesBack(
         hasUnsavedChanges = draft != start || busy,
         onBack = leave,
+        enabled = !closed,
     )
-    BackHandler(enabled = !closed) { guardedBack() }
 
     fun importFile(uri: Uri, projector: Boolean) {
         importingProjector = projector
@@ -92,12 +89,10 @@ internal fun LocalChatModelEditor(
                     } else if (projector) {
                         imports.discard(draft.projectorPath)
                         draft = draft.copy(projectorPath = file.path)
-                        projectorName = file.displayName
                         error = null
                     } else {
                         imports.discard(draft.modelPath)
                         draft = draft.copy(modelPath = file.path)
-                        modelName = file.displayName
                         error = null
                     }
                 }
@@ -167,7 +162,7 @@ internal fun LocalChatModelEditor(
         onBack = guardedBack,
         actions = {
             IconButton(onClick = ::save, enabled = !busy && !closed) {
-                Icon(Icons.Default.Save, stringResource(R.string.save))
+                Icon(Icons.Rounded.Save, stringResource(R.string.save))
             }
         },
         floatingActionButton = { if (showDocFab) DocumentationFab("provider.md") },
@@ -179,9 +174,10 @@ internal fun LocalChatModelEditor(
                     if (initial == null) {
                         add {
                             ModelImportItem(
-                                title = modelName.ifBlank { stringResource(R.string.local_chat_import_title) },
+                                title = stringResource(R.string.local_chat_import_title),
+                                filePath = draft.modelPath,
                                 description = stringResource(R.string.local_chat_import_desc),
-                                icon = Icons.Default.AutoAwesome,
+                                icon = LocalModelIcon,
                                 importing = importingProjector == false,
                                 enabled = !busy && !closed,
                                 onClick = { pick(false) },
@@ -189,7 +185,7 @@ internal fun LocalChatModelEditor(
                         }
                     }
                     add {
-                        SettingsIconContent(icon = Icons.Default.VpnKey) {
+                        SettingsIconContent(icon = Icons.Rounded.Tag) {
                             McpLabeledField(
                                 label = stringResource(R.string.model_id_label),
                                 value = draft.modelId,
@@ -200,7 +196,7 @@ internal fun LocalChatModelEditor(
                         }
                     }
                     add {
-                        SettingsIconContent(icon = Icons.Default.Label) {
+                        SettingsIconContent(icon = Icons.Rounded.Label) {
                             McpLabeledField(
                                 label = stringResource(R.string.model_alias_label),
                                 value = draft.alias,
@@ -210,34 +206,19 @@ internal fun LocalChatModelEditor(
                     }
                     add {
                         ModelImportItem(
-                            title = if (draft.projectorPath.isBlank()) {
-                                stringResource(R.string.local_projector_import_title)
-                            } else {
-                                projectorName.ifBlank { stringResource(R.string.local_projector_title) }
-                            },
+                            title = stringResource(R.string.local_projector_title),
+                            filePath = draft.projectorPath,
                             description = stringResource(R.string.local_projector_desc),
-                            icon = Icons.Default.Visibility,
+                            icon = Icons.Rounded.Visibility,
+                            emptyIcon = Icons.Rounded.VisibilityOff,
+                            importedEffect = stringResource(R.string.local_projector_enabled),
                             importing = importingProjector == true,
                             enabled = !busy && !closed,
                             onClick = { pick(true) },
-                            trailingContent = if (draft.projectorPath.isNotBlank()) {
-                                {
-                                    IconButton(
-                                        enabled = !busy && !closed,
-                                        onClick = {
-                                            imports.discard(draft.projectorPath)
-                                            update(draft.copy(projectorPath = ""))
-                                            projectorName = ""
-                                        },
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            stringResource(R.string.remove),
-                                            tint = MaterialTheme.colorScheme.error,
-                                        )
-                                    }
-                                }
-                            } else null,
+                            onRemove = {
+                                imports.discard(draft.projectorPath)
+                                update(draft.copy(projectorPath = ""))
+                            },
                         )
                     }
                 },
@@ -246,7 +227,7 @@ internal fun LocalChatModelEditor(
                 title = stringResource(R.string.advanced_title),
                 items = listOf(
                     {
-                        SettingsIconContent(icon = Icons.Default.Memory) {
+                        SettingsIconContent(icon = Icons.Rounded.Memory) {
                             McpLabeledField(
                                 label = stringResource(R.string.local_ctx_size),
                                 value = draft.nCtx,
@@ -257,7 +238,7 @@ internal fun LocalChatModelEditor(
                         }
                     },
                     {
-                        SettingsIconContent(icon = Icons.Default.Tune) {
+                        SettingsIconContent(icon = Icons.Rounded.Tune) {
                             McpLabeledField(
                                 label = stringResource(R.string.local_temperature),
                                 value = draft.temperature,
@@ -268,7 +249,7 @@ internal fun LocalChatModelEditor(
                         }
                     },
                     {
-                        SettingsIconContent(icon = Icons.Default.Tune) {
+                        SettingsIconContent(icon = Icons.Rounded.Tune) {
                             McpLabeledField(
                                 label = stringResource(R.string.local_top_p),
                                 value = draft.topP,
@@ -279,7 +260,7 @@ internal fun LocalChatModelEditor(
                         }
                     },
                     {
-                        SettingsIconContent(icon = Icons.Default.Tune) {
+                        SettingsIconContent(icon = Icons.Rounded.Tune) {
                             McpLabeledField(
                                 label = stringResource(R.string.local_max_tokens),
                                 value = draft.maxTokens,

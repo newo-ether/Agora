@@ -1,3 +1,6 @@
+[submodule "thirdparty/llama.cpp"]
+	path = thirdparty/llama.cpp
+	url = https://github.com/ggml-org/llama.cpp.git
 [submodule "thirdparty/proot"]
 	path = thirdparty/proot
 	url = https://github.com/termux/proot.git

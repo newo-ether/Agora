@@ -1,9 +1,10 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Transition
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -90,41 +91,53 @@ internal fun AssistantInlineActivity(
     val ownsCurrentActivity = activityVisible && mode != AssistantInlineActivityMode.NONE
     val visibleMode = if (ownsCurrentActivity) mode else retainedMode
     val visibleRetryText = if (ownsCurrentActivity) retryText else retainedRetryText
+    val terminalTransition = updateTransition(
+        targetState = terminalText != null,
+        label = "AssistantInlineTerminalTransition",
+    )
+    val terminalOpacity by terminalTransition.animateFloat(
+        transitionSpec = { tween(durationMillis = 180, easing = LinearEasing) },
+        label = "AssistantInlineTerminalOpacity",
+    ) { terminal -> if (terminal) 1f else 0f }
     if (visibilityTransition.targetState || retainExitLayout || terminalText != null) {
         Box(
             modifier = Modifier
                 .padding(top = if (precededByCard) 12.dp else 0.dp)
                 .heightIn(min = AssistantInlineActivityHeight),
         ) {
-            Crossfade(
-                targetState = terminalText,
-                animationSpec = tween(durationMillis = 180, easing = LinearEasing),
-                label = "AssistantInlineTerminalTransition",
-            ) { visibleTerminalText ->
-                if (visibleTerminalText == null) {
-                    Row(
-                        modifier = Modifier.graphicsLayer {
-                            compositingStrategy = CompositingStrategy.ModulateAlpha
-                            // Crossfade exclusively owns alpha after the terminal handoff begins.
-                            alpha = if (terminalText == null) activityOpacity else 1f
-                            clip = false
-                        },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+            if (!terminalTransition.currentState || !terminalTransition.targetState) {
+                // Terminal content alone measures the slot. Fade the paints directly so a
+                // translated or enlarged breathing dot never enters a tight alpha layer.
+                val drawOpacity = (1f - terminalOpacity) *
+                    if (terminalText == null) activityOpacity else 1f
+                Box(modifier = if (terminalText != null) Modifier.matchParentSize() else Modifier) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         if (visibleMode == AssistantInlineActivityMode.RETRY) {
-                            RetryActivityIndicator(label = visibleRetryText.orEmpty() + "...")
+                            RetryActivityIndicator(
+                                label = visibleRetryText.orEmpty() + "...",
+                                opacity = drawOpacity,
+                            )
                         } else {
-                            GenerationActivityDot()
+                            GenerationActivityDot(opacity = drawOpacity)
                         }
                     }
-                } else if (terminalIsError) {
-                    GenerationErrorBar(
-                        errorText = visibleTerminalText,
-                        showLocalContextHelp = terminalShowLocalContextHelp,
-                        topPadding = 0.dp,
-                    )
-                } else {
-                    GenerationTerminalText(visibleTerminalText)
+                }
+            }
+            if (terminalText != null) {
+                Box(modifier = Modifier.graphicsLayer {
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                    alpha = terminalOpacity
+                    clip = false
+                }) {
+                    if (terminalIsError) {
+                        GenerationErrorBar(
+                            errorText = terminalText,
+                            showLocalContextHelp = terminalShowLocalContextHelp,
+                            topPadding = 0.dp,
+                        )
+                    } else {
+                        GenerationTerminalText(terminalText)
+                    }
                 }
             }
         }

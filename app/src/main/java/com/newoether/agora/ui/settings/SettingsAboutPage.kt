@@ -7,9 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -90,24 +90,24 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         SettingsItem(
                             headlineContent = { Text("Application") },
                             supportingContent = { Text("Agora (XNet Fork)") },
-                            leadingContent = { Icon(Icons.Default.Apps, contentDescription = null) }
+                            leadingContent = { Icon(Icons.Rounded.Apps, contentDescription = null) }
                         )
                     },
                     {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.about_developer)) },
-                            supportingContent = { Text(stringResource(R.string.about_developer_name)) },
-                            leadingContent = { Icon(Icons.Default.Business, contentDescription = null) }
+                            supportingContent = { Text("XNet Inc. · Foxnet Labs · XNet NGO") },
+                            leadingContent = { Icon(Icons.Rounded.Business, contentDescription = null) }
                         )
                     },
                     {
                         SettingsItem(
                             headlineContent = { Text("Upstream") },
                             supportingContent = { Text("Forked from Newo Ether (newo-ether/Agora)") },
-                            leadingContent = { Icon(Icons.Default.Person, contentDescription = null) },
+                            leadingContent = { Icon(Icons.Rounded.Person, contentDescription = null) },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.OpenInNew,
+                                    Icons.AutoMirrored.Rounded.OpenInNew,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -119,7 +119,7 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.about_version)) },
                             supportingContent = { Text("v$versionName ($versionCode)") },
-                            leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                            leadingContent = { Icon(Icons.Rounded.Info, contentDescription = null) },
                             modifier = Modifier.clickable(onClick = ::onVersionTapped),
                         )
                     }
@@ -132,7 +132,7 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 SettingsItem(
                     headlineContent = { Text(stringResource(R.string.show_documentation_links)) },
                     supportingContent = { Text(stringResource(R.string.show_documentation_links_desc)) },
-                    leadingContent = { Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = MaterialTheme.colorScheme.primary) },
+                    leadingContent = { Icon(Icons.AutoMirrored.Rounded.MenuBook, null, tint = MaterialTheme.colorScheme.primary) },
                     trailingContent = {
                         Switch(checked = showDocFab, onCheckedChange = { viewModel.settings.setShowDocumentationFab(it) })
                     },
@@ -148,10 +148,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.about_github), modifier = Modifier.padding(vertical = 6.dp)) },
                             supportingContent = { Text("github.com/XNet-NGO/Agora") },
-                            leadingContent = { Icon(Icons.Default.Code, contentDescription = null) },
+                            leadingContent = { Icon(Icons.Rounded.Code, contentDescription = null) },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.OpenInNew,
+                                    Icons.AutoMirrored.Rounded.OpenInNew,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -163,10 +163,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.about_view_release), modifier = Modifier.padding(vertical = 6.dp)) },
                             supportingContent = { Text("github.com/XNet-NGO/Agora/releases") },
-                            leadingContent = { Icon(Icons.Default.Download, contentDescription = null) },
+                            leadingContent = { Icon(Icons.Rounded.Download, contentDescription = null) },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.OpenInNew,
+                                    Icons.AutoMirrored.Rounded.OpenInNew,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -177,10 +177,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.about_issue_tracker), modifier = Modifier.padding(vertical = 6.dp)) },
-                            leadingContent = { Icon(Icons.Default.BugReport, contentDescription = null) },
+                            leadingContent = { Icon(Icons.Rounded.BugReport, contentDescription = null) },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.OpenInNew,
+                                    Icons.AutoMirrored.Rounded.OpenInNew,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -191,10 +191,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.about_contribute), modifier = Modifier.padding(vertical = 6.dp)) },
-                            leadingContent = { Icon(Icons.Default.VolunteerActivism, contentDescription = null) },
+                            leadingContent = { Icon(Icons.Rounded.VolunteerActivism, contentDescription = null) },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.OpenInNew,
+                                    Icons.AutoMirrored.Rounded.OpenInNew,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -205,10 +205,10 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.about_privacy_policy), modifier = Modifier.padding(vertical = 6.dp)) },
-                            leadingContent = { Icon(Icons.Default.VerifiedUser, contentDescription = null) },
+                            leadingContent = { Icon(Icons.Rounded.VerifiedUser, contentDescription = null) },
                             trailingContent = {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.OpenInNew,
+                                    Icons.AutoMirrored.Rounded.OpenInNew,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -220,7 +220,7 @@ fun SettingsAboutPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.about_license)) },
                             supportingContent = { Text(stringResource(R.string.about_license_desc)) },
-                            leadingContent = { Icon(Icons.Default.Policy, contentDescription = null) },
+                            leadingContent = { Icon(Icons.Rounded.Policy, contentDescription = null) },
                             modifier = Modifier.clickable { showLicenseDialog = true }
                         )
                     }

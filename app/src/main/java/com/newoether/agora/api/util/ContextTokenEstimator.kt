@@ -20,8 +20,12 @@ object ContextTokenEstimator {
     private val default = CostModelContextEstimator(ContextCostModel.Default)
 
     /** Estimator bound to the cost model of a "Provider:model" id. */
-    fun forModel(prefixedModelId: String?): CostModelContextEstimator =
-        CostModelContextEstimator(ContextCostModels.forModel(prefixedModelId))
+    fun forModel(
+        prefixedModelId: String?,
+        exactLocalTokenCount: (String) -> Int? = { null },
+    ): CostModelContextEstimator = CostModelContextEstimator(
+        ContextCostModels.forModel(prefixedModelId, exactLocalTokenCount),
+    )
 
     fun estimate(
         messages: List<ChatMessage>,
@@ -64,6 +68,5 @@ object ContextTokenEstimator {
 
     internal fun estimateText(text: String): Int = default.estimateText(text)
 
-    internal fun estimateImageTokens(imageBytes: Long?): Long =
-        default.imageTokens(ImageDescriptor(byteSize = imageBytes))
+    internal fun estimateImageTokens(image: ImageDescriptor): Long = default.imageTokens(image)
 }

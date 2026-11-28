@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">Enabled · storage access is still required</string>
     <string name="sandbox_shared_storage_grant">Grant Storage Access</string>
     <string name="sandbox_shared_storage_warning">This lets sandbox commands read and modify photos, downloads, and other shared files. Mutating tool calls require confirmation.</string>
+    <string name="sandbox_distribution">Distribution</string>
+    <string name="sandbox_distribution_desc">Choose the Linux environment. Install it separately if needed.</string>
+    <string name="sandbox_distribution_busy">Stop running sandbox jobs and wait for current operations to finish before switching distributions.</string>
+    <string name="sandbox_distribution_switch_failed">Could not switch distributions. Try again.</string>
 </resources>

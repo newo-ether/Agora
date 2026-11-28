@@ -67,7 +67,7 @@
     <string name="settings_automation">Tự động hóa</string>
     <string name="settings_automation_desc">Tác vụ, vòng lặp và độ chính xác của lịch</string>
     <string name="automation_ai_tools">Truy cập tác vụ và vòng lặp</string>
-    <string name="automation_ai_tools_desc">Cho phép mô hình tạo và quản lý tác vụ hoặc bắt đầu và dừng vòng lặp cuộc trò chuyện. Mặc định tắt.</string>
+    <string name="automation_ai_tools_desc">Cho phép mô hình tạo và quản lý tác vụ hoặc bắt đầu và dừng vòng lặp cuộc trò chuyện.</string>
     <string name="automation_background_execution">Thực thi trong nền</string>
     <string name="automation_wake_lock">Khóa đánh thức</string>
     <string name="automation_wake_lock_desc">Giữ thiết bị thức trong mỗi lần chạy tác vụ hoặc vòng lặp. WorkManager đã xử lý công việc theo lịch thông thường; khóa bổ sung này có thể làm tăng mức dùng pin.</string>

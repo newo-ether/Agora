@@ -2,7 +2,8 @@ import { useLayoutEffect, useRef, useState } from "./vendor/preact-hooks.mjs";
 import { html } from "./html.js";
 import { sync } from "./sync.js";
 import { t } from "./i18n.js";
-import { icon, ICON_COLLAPSE_CONTENT, ICON_EXPAND_CONTENT, ICON_TERMINAL, ICON_HELP } from "./icons.js";
+import { icon, ICON_COLLAPSE_CONTENT, ICON_CONTENT_COPY, ICON_EXPAND_CONTENT, ICON_TERMINAL, ICON_HELP } from "./icons.js";
+import { ToolDiffHunks, ToolOutput, ToolPath } from "./detail-sheet.js";
 
 const keyOf = item => `${item.kind}:${item.id}`;
 const easing = "cubic-bezier(.4,0,.2,1)";
@@ -227,7 +228,7 @@ export function InteractionBar({ state, enter = true }) {
       </button>
       <div class="interaction-full" ref=${full} inert=${memory.folded || !visible} aria-hidden=${memory.folded ? "true" : null}>
         <header class="interaction-header">${icon(current.kind === "shell" ? ICON_TERMINAL : ICON_HELP)}
-          <strong>${current.kind === "shell" ? t.shellConfirm : t.interactionTitle}</strong>
+          <strong>${current.kind === "shell" ? t.interactionApproval : t.interactionTitle}</strong>
           ${current.kind === "shell" && html`<span class="interaction-server">${current.server}</span>`}
           <span class="interaction-position">${pages.length > 1 ? `${index + 1} / ${pages.length}` : ""}</span>
           <button type="button" class="icon-button interaction-minimize" aria-label=${t.collapse} title=${t.collapse} disabled=${busy}
@@ -235,7 +236,24 @@ export function InteractionBar({ state, enter = true }) {
         </header>
         <div class="interaction-pages"><div class="interaction-body" ref=${body}>
           ${current.kind === "shell" ? html`
-            <pre class=${state.display?.autoWrapCodeBlocks ? "wrapped" : ""}>${current.summary}</pre>
+            <div class="interaction-shell-content">
+            ${current.description ? html`<div class="interaction-description">${current.description}</div>` : null}
+            ${current.detail?.type === "edit" ? html`<div class="interaction-detail">
+                <${ToolPath} path=${current.detail.path} />
+                <${ToolDiffHunks} hunks=${current.detail.hunks} replaceAllLabel=${t.replaceAll} />
+              </div>`
+              : current.detail?.type === "write" ? html`<div class="interaction-detail">
+                <${ToolPath} path=${current.detail.path} />
+                <${ToolOutput} text=${current.detail.content} />
+              </div>`
+              : html`<div class="code-block"><div class="code-header"><span class="code-language">CODE</span>
+              <button type="button" class="code-copy" aria-label=${t.copy} title=${t.copy}
+                onClick=${event => {
+                  const code = event.currentTarget.closest(".code-block")?.querySelector("code")?.textContent ?? "";
+                  navigator.clipboard?.writeText(code).catch(() => {});
+                }}>${icon(ICON_CONTENT_COPY)}</button></div>
+              <pre class=${state.display?.autoWrapCodeBlocks ? "wrapped" : ""}><code>${current.summary}</code></pre></div>`}
+            </div>
             <label class="interaction-trust"><input type="checkbox" checked=${memory.trust.get(keyOf(current)) || false} disabled=${busy}
               onChange=${event => { memory.trust.set(keyOf(current), event.target.checked); change(); }} />${t.shellTrust}</label>
           ` : html`

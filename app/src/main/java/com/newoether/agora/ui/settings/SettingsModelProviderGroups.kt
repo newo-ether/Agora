@@ -16,16 +16,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Add
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -117,7 +116,7 @@ internal fun LazyListScope.modelProviderGroups(
                     leadingContent = {
                         when {
                             isLocalHeader -> Icon(
-                                Icons.Default.AutoAwesome,
+                                LocalModelIcon,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp),
@@ -129,7 +128,7 @@ internal fun LazyListScope.modelProviderGroups(
                                 modifier = Modifier.size(24.dp),
                             )
                             else -> Icon(
-                                Icons.Default.Cloud,
+                                Icons.Rounded.Api,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp),
@@ -139,9 +138,9 @@ internal fun LazyListScope.modelProviderGroups(
                     trailingContent = {
                         Icon(
                             if (isExpanded) {
-                                Icons.Default.KeyboardArrowUp
+                                Icons.Rounded.KeyboardArrowUp
                             } else {
-                                Icons.Default.KeyboardArrowDown
+                                Icons.Rounded.KeyboardArrowDown
                             },
                             contentDescription = null,
                         )
@@ -201,7 +200,7 @@ internal fun LazyListScope.modelProviderGroups(
                                                     onClick = { onDetailsClick(model) },
                                                 ) {
                                                     Icon(
-                                                        Icons.Default.Edit,
+                                                        Icons.Rounded.Edit,
                                                         contentDescription =
                                                             stringResource(
                                                                 R.string.models_custom_details
@@ -215,7 +214,7 @@ internal fun LazyListScope.modelProviderGroups(
                                                     onClick = { onAliasClick(model) },
                                                 ) {
                                                     Icon(
-                                                        Icons.Default.Edit,
+                                                        Icons.Rounded.Edit,
                                                         contentDescription =
                                                             stringResource(
                                                                 R.string.models_rename

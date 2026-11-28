@@ -214,10 +214,17 @@ class FiloClientTest {
     }
 
     @Test fun failuresDistinguishTransportAuthenticationAndProtocol() {
-        assertEquals(RemoteFailure.NETWORK, classifyRemoteFailure(IOException("unreachable")))
+        for (error in listOf(IOException("unreachable"), java.net.ConnectException("refused"),
+            java.net.SocketTimeoutException("timeout"), java.net.UnknownHostException("unreachable"))) {
+            assertEquals(RemoteFailure.NETWORK, classifyRemoteFailure(error))
+        }
         assertEquals(RemoteFailure.AUTHENTICATION, classifyRemoteFailure(FiloHttpException(401)))
         assertEquals(RemoteFailure.AUTHENTICATION, classifyRemoteFailure(FiloHttpException(403)))
         assertEquals(RemoteFailure.SERVICE, classifyRemoteFailure(FiloHttpException(502)))
+        // A wrong token on the encrypted channel is a token error, not a protocol error.
+        assertEquals(RemoteFailure.AUTHENTICATION, classifyRemoteFailure(com.newoether.agora.util.ConchAuthenticationException("token")))
+        assertEquals(RemoteFailure.SERVICE, classifyRemoteFailure(com.newoether.agora.util.ConchServiceException("gateway")))
+        assertEquals(RemoteFailure.PROTOCOL, classifyRemoteFailure(com.newoether.agora.util.ConchChannelException("frame")))
         assertEquals(RemoteFailure.PROTOCOL, classifyRemoteFailure(SerializationException("payload")))
         assertEquals(RemoteFailure.PROTOCOL, classifyRemoteFailure(IllegalArgumentException("incompatible")))
         assertEquals(RemoteFailure.STORAGE, classifyRemoteFailure(RemoteStorageException()))

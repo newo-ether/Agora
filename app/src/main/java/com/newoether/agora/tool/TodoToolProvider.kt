@@ -16,18 +16,18 @@ import kotlinx.serialization.json.jsonObject
 
 /** Uses the ordinary tool executor; Room fences mutations to the authorized live Run/pass. */
 class TodoToolProvider(private val conversations: ConversationRepository) : ToolProvider {
-    override fun handles(name: String) = name == "read_todo" || name == "update_todo"
+    override fun handles(name: String) = BuiltInToolNames.canonical(name) in setOf("todo_read", "todo_update")
 
     override fun definitions(ctx: GenerationContext): List<ToolDefinition> {
         if (!ctx.todoEnabled || ctx.conversationId.isNullOrBlank()) return emptyList()
         return listOf(
             ToolDefinition(function = ToolFunction(
-                name = "read_todo",
+                name = "todo_read",
                 description = "Read this conversation's current todo list. It is shared across branches and survives restarts.",
                 parameters = ToolParameters(properties = emptyMap()),
             )),
             ToolDefinition(function = ToolFunction(
-                name = "update_todo",
+                name = "todo_update",
                 description = "Replace this conversation's todo list with the complete updated list. Use pending, in_progress or completed for each status. An empty todos array clears the list. This does not create scheduled tasks.",
                 parameters = ToolParameters(
                     properties = mapOf("todos" to ToolProperty(
@@ -54,7 +54,7 @@ class TodoToolProvider(private val conversations: ConversationRepository) : Tool
         require(handles(name)) { "Unknown todo tool: $name" }
         require(ctx.todoEnabled) { "Todo tools are disabled" }
         val id = requireNotNull(ctx.conversationId?.takeIf(String::isNotBlank)) { "No conversation is open" }
-        val items = if (name == "read_todo") {
+        val items = if (BuiltInToolNames.canonical(name) == "todo_read") {
             conversations.readConversationTodo(id)
         } else {
             val identity = requireNotNull(ctx.toolEffectIdentity) { "Missing authorized tool identity" }

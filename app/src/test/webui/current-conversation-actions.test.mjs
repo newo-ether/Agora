@@ -7,7 +7,9 @@ import htm from "../../main/assets/webui/vendor/htm.mjs";
 
 const root = new URL("../../main/assets/webui/", import.meta.url);
 const source = name => fs.readFileSync(new URL(name, root), "utf8");
-const prepare = code => code.replace(/^import\b[\s\S]*?;\r?\n/gm, "").replace(/\bexport /g, "");
+const prepare = code => code.replace(/^import\b[\s\S]*?;\r?\n/gm, "")
+  .replace(/^export\s+\{[^}]*\}\s+from\s+["'][^"']+["'];\r?\n/gm, "")
+  .replace(/\bexport /g, "");
 const rawTitle = "  Child stored title\t";
 const chatState = (patch = {}) => ({
   connected: true, connectionId: "session", openId: "child", openStatus: "ready",
@@ -83,7 +85,8 @@ function harness(name, { state = chatState(), effects = false } = {}) {
       conversationSearch: query => commands.push({ type: "search", query }),
     },
   });
-  for (const file of ["icons.js", "i18n.js", "menu.js", "shell.js"]) {
+  for (const file of ["icons.js", "i18n.js", "menu.js", "shell-drawer.js", "shell-topbar.js",
+    "shell-dialogs.js", "shell.js"]) {
     vm.runInContext(prepare(source(file)), context, { filename: file });
   }
   const render = (nextProps = props) => {
@@ -346,6 +349,23 @@ test("drawer row actions still use their own ID and custom MoreMenu children rep
   assert.deepEqual(menuItems(popup.render({ ...menu, children: custom })).map(item => text(item)), ["Custom action"]);
 });
 
+test("drawer row keeps generation ahead of unread and clears progress after activity ends", () => {
+  const f = harness("ConversationRow");
+  const row = { id: "parent", title: "Parent", generating: true, unread: true };
+  const props = { conversation: row, selected: false, onSelect() {}, onMenu() {} };
+  for (const selected of [false, true]) {
+    f.render({ ...props, selected });
+    const progress = f.component("CircularProgress");
+    assert.equal(progress.props.size, 18);
+    assert.equal(progress.props.stroke, 2);
+    assert.equal(nodes(f.tree).filter(node => node.props.class === "unread-dot").length, 0);
+  }
+  f.render({ ...props, conversation: { ...row, generating: false } });
+  assert.equal(nodes(f.tree).filter(node => node.type?.name === "CircularProgress").length, 0);
+  assert.equal(nodes(f.tree).filter(node => node.props.class === "unread-dot").length, 1);
+  f.render({ ...props, selected: true, conversation: { ...row, generating: false } });
+  assert.equal(nodes(f.tree).filter(node => node.props.class === "conversation-indicator").length, 0);
+});
 test("Sign Out remains the final default action and uses the existing sign-out owner", async () => {
   const s = shell(), f = topBar(s), menu = openMenu(f), popup = harness("MoreMenu");
   let signedOut = 0;

@@ -18,7 +18,9 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runCurrent
 
 class UiMessageProjectionTest {
@@ -36,6 +38,7 @@ class UiMessageProjectionTest {
                 toolArgs = """{"command":"pwd"}""",
                 toolResult = "workspace",
                 toolDisplayName = "Run shell",
+                toolTarget = "Quantum",
                 toolResultText = "workspace",
                 toolStructuredResult = """{"path":"workspace"}""",
             ),
@@ -54,6 +57,7 @@ class UiMessageProjectionTest {
         assertEquals("""{"command":"pwd"}""", projected.toolCall?.arguments)
         assertEquals("formatted:workspace", projected.toolCall?.result)
         assertEquals("Run shell", projected.toolCall?.displayName)
+        assertEquals("Quantum", projected.toolCall?.target)
         assertEquals("workspace", projected.toolCall?.resultText)
         assertEquals("""{"path":"workspace"}""", projected.toolCall?.structuredResult)
     }
@@ -219,17 +223,17 @@ class UiMessageProjectionTest {
         io.mockk.every { repository.observeMessage("assistant") } returns rows
         val owner = ConversationMessagePayloadHydration(repository, io.mockk.mockk(relaxed = true),
             kotlinx.coroutines.test.StandardTestDispatcher(testScheduler))
-        val emitted = mutableListOf<String>()
         var transformed = 0
-        backgroundScope.launch {
-            owner.observeMessage("assistant") { transformed++; it }.collect { emitted += it?.text.orEmpty() }
+        val collection = async {
+            owner.observeMessage("assistant") { transformed++; it }.take(3).toList()
         }
         runCurrent()
-        val row = messageEntity("assistant", "answer", null)
+        val row = messageEntity("assistant", "answer", null).copy(images = emptyList())
         for (value in listOf(row, row.copy(), row.copy(text = "changed"), null, null)) {
             rows.emit(value)
             runCurrent()
         }
+        val emitted = collection.await().map { it?.text.orEmpty() }
         assertEquals(2, transformed)
         assertEquals(listOf("answer", "changed", ""), emitted)
     }

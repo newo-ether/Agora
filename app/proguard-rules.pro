@@ -1,3 +1,7 @@
+# Readable crash stacks: shrink and optimize, but keep every name and the line table.
+-dontobfuscate
+-keepattributes SourceFile,LineNumberTable
+
 # kotlinx.serialization
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
@@ -7,6 +11,11 @@
 -keepclassmembers class com.newoether.agora.** { *** Companion; }
 -keepclasseswithmembers class com.newoether.agora.** { kotlinx.serialization.KSerializer serializer(...); }
 
+# Phone entry points are loaded by Shizuku/app_process by name.
+-keep class com.newoether.agora.phone.PhoneUserService { public <init>(); public <init>(android.content.Context); *; }
+-keep class com.newoether.agora.phone.PhoneRootPaste { public static void main(java.lang.String[]); }
+-keep class com.newoether.agora.phone.PhoneRootSetText { public static void main(java.lang.String[]); }
+-keep class com.newoether.agora.phone.IPhoneUserService** { *; }
 # Room
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.paging.**
@@ -42,37 +51,11 @@
 -keep class com.newoether.agora.api.ChatTemplateGrammarTrigger { *; }
 -keep class com.newoether.agora.api.LlamaChatTemplateResult { *; }
 -keepclasseswithmembernames class com.newoether.agora.** { native <methods>; }
+# JNI (sherpa-onnx): native code reads config fields and builds result objects by name.
+-keep class com.k2fsa.sherpa.onnx.** { *; }
 # Reflection: flavor sandbox factories (AppContainer) and the screenshot fixture (MainActivity).
 -keep class com.newoether.agora.sandbox.FdroidSandboxManagerFactory { <init>(...); }
 -keep class com.newoether.agora.sandbox.PlaySandboxManagerFactory { <init>(...); }
 -keep class com.newoether.agora.screenshot.ScreenshotFixture { *; }# Ktor server: JVM-only debug detection (DevelopmentMode), absent on Android.
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
-
-# PDFBox-Android references an optional JPEG2000 decoder (gemalto jp2) only used to
-# extract JP2-encoded images from PDFs. We only extract text, so the dependency is
-# intentionally absent; silence the missing-class warning.
--dontwarn com.gemalto.jp2.**
-
-# ONNX Runtime (vendored onnxruntime-1.28.2.jar) + onnxruntime-genai.
-# The native JNI (libonnxruntime4j_jni.so / libonnxruntime-genai-jni.so) resolves these Java
-# classes, their fields, constructors and methods BY NAME via FindClass/GetMethodID/GetFieldID
-# during OrtSession.run and generation. R8 has no visibility into those native references, so
-# without keeping them it strips e.g. ai.onnxruntime.TensorInfo and the run() aborts with
-# "JNI DETECTED ERROR IN APPLICATION: java_class == null" (ClassNotFoundException: TensorInfo).
-# Keep the whole ORT + genai Java surface.
--keep class ai.onnxruntime.** { *; }
--keep class ai.onnxruntime.genai.** { *; }
--keep class com.microsoft.applications.events.** { *; }
--keepclassmembers class ai.onnxruntime.** { *; }
--keepclassmembers class ai.onnxruntime.genai.** { *; }
--dontwarn ai.onnxruntime.**
-
-# sherpa-onnx (on-device STT). Its JNI (libsherpa-onnx-jni.so) reads the Kotlin config classes'
-# FIELDS by exact name via GetFieldID (e.g. OnlineModelConfig.decodingMethod) and calls
-# constructors/methods by name. R8 can't see those native references, so without keeping the
-# whole com.k2fsa.sherpa.onnx surface it renames/strips those fields and OnlineRecognizer
-# construction aborts with "Failed to get field ID for decodingMethod". Keep names and members.
--keep class com.k2fsa.sherpa.onnx.** { *; }
--keepclassmembers class com.k2fsa.sherpa.onnx.** { *; }
--dontwarn com.k2fsa.sherpa.onnx.**

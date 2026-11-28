@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -76,7 +76,7 @@ internal fun MarkdownImageThumbnail(link: String, image: MarkdownImage, onClick:
     val background = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
     Box(
         modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth().aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp)).background(background),
+            .clip(RoundedCornerShape(16.dp)).background(background),
         contentAlignment = Alignment.Center,
     ) {
         if (request != null) Image(
@@ -106,7 +106,7 @@ internal fun MarkdownImageThumbnail(link: String, image: MarkdownImage, onClick:
                     Modifier.fillMaxSize().background(background), contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Default.BrokenImage, stringResource(R.string.attachment_copy_failed_image),
+                        Icons.Rounded.BrokenImage, stringResource(R.string.attachment_copy_failed_image),
                         modifier = Modifier.size(36.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                     )
@@ -120,8 +120,17 @@ internal fun MarkdownImageThumbnail(link: String, image: MarkdownImage, onClick:
 @Composable
 internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
     val link = markdownImageLink(model.content, model.node, LocalReferenceLinkHandler.current)
+    markdownVideoLink(link ?: "").let { video ->
+        if (video != null) {
+            MarkdownVideoCard(
+                link = video,
+                modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth().aspectRatio(16f / 9f),
+            )
+            return
+        }
+    }
     if (link != null && (LocalImageTransformer.current as? LatexImageTransformer)
-            ?.renderInlineImage(link) == true) return
+            ?.renderInlineImage(link, LocalMarkdownImageOccurrences.current[model.node]) == true) return
     // Any formula on its own line, display or inline promoted out of its paragraph, is one
     // selectable unit that copies its source.
     val latexSource = link?.let(::latexSourceForLink)
@@ -134,7 +143,15 @@ internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
 
 @Composable
 internal fun ChatMarkdownInlineImage(model: MarkdownComponentModel) {
-    if ((LocalImageTransformer.current as? LatexImageTransformer)?.renderInlineImage(model.content) != true) {
+    // Inline image components receive the resolved destination as their content.
+    markdownVideoLink(model.content).let { video ->
+        if (video != null) {
+            MarkdownVideoCard(link = video, modifier = Modifier.size(width = 160.dp, height = 90.dp))
+            return
+        }
+    }
+    if ((LocalImageTransformer.current as? LatexImageTransformer)
+            ?.renderInlineImage(model.content, LocalMarkdownImageOccurrences.current[model.node]) != true) {
         MarkdownInlineImage(model.content, model.node)
     }
 }
@@ -148,7 +165,14 @@ internal fun markdownImageLink(content: String, node: ASTNode, references: Refer
         }
         return null
     }
-    node.descendant(MarkdownElementTypes.LINK_DESTINATION)?.let { return it.getUnescapedTextInNode(content) }
+    node.descendant(MarkdownElementTypes.LINK_DESTINATION)?.let {
+        return it.getUnescapedTextInNode(content)
+    }
+    // Angle-wrapped inline destinations are parsed as a direct AUTOLINK child.
+    node.findChildOfType(MarkdownElementTypes.INLINE_LINK)?.children
+        ?.firstOrNull { it.type == MarkdownElementTypes.AUTOLINK }?.let {
+            return it.getUnescapedTextInNode(content).removeSurrounding("<", ">")
+        }
     val reference = node.descendant(MarkdownElementTypes.FULL_REFERENCE_LINK)
         ?: node.descendant(MarkdownElementTypes.SHORT_REFERENCE_LINK) ?: return null
     val label = reference.findChildOfType(MarkdownElementTypes.LINK_LABEL)?.getUnescapedTextInNode(content)

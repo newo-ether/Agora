@@ -78,6 +78,8 @@ internal fun classifyRemoteFailure(error: Exception): RemoteFailure = when (erro
     is RemoteContentLimitException -> RemoteFailure.CONTENT_TOO_LARGE
     is RemoteStorageException -> RemoteFailure.STORAGE
     is RemoteAttachmentException -> RemoteFailure.STORAGE
+    is com.newoether.agora.util.ConchAuthenticationException -> RemoteFailure.AUTHENTICATION
+    is com.newoether.agora.util.ConchServiceException -> RemoteFailure.SERVICE
     is com.newoether.agora.util.ConchChannelException -> RemoteFailure.PROTOCOL
     is FiloConfigurationException, is FiloInputException -> RemoteFailure.CONFIGURATION
     is FiloStreamException -> RemoteFailure.SERVICE
@@ -146,7 +148,7 @@ internal class FiloClient(
         val extension = (extensionValue as? JsonPrimitive)?.intOrNull
         require(extensionValue == null || extension != null) { "Invalid adapter extension" }
         if (extension != null) {
-            require(extension == 1 && info.adapters != null && info.adapters.size <= 3)
+            require(extension == 1 && info.adapters != null && info.adapters.size <= 4)
             require(info.adapters.map { it.id }.distinct().size == info.adapters.size)
             info.adapters.forEach { adapter ->
                 RemoteAccessPath(adapter.id)
@@ -155,6 +157,7 @@ internal class FiloClient(
                     "codex-desktop" -> "codex" to "desktop"
                     "codex-cli" -> "codex" to "cli"
                     "claude-code" -> "claude" to "cli"
+                    "claude-desktop" -> "claude" to "desktop"
                     else -> throw IllegalArgumentException("Unknown native source")
                 }
                 require(adapter.family == expected.first && adapter.origin == expected.second)
@@ -216,10 +219,21 @@ internal class FiloClient(
     private fun decodePage(text: String): RemoteConversationPage =
         json.decodeFromString<RemoteConversationPage>(text).also { page ->
             validateAccess(page.access)
+            page.runtime?.settingsChange?.let { change ->
+                require(change.id.isNotBlank() && change.id.length <= 256 &&
+                    change.state in setOf("pending", "confirmed", "failed") &&
+                    (change.requested.model != null || change.requested.effort != null) &&
+                    !change.requested.updateServiceTier && change.actualModel.length <= 256 &&
+                    change.actualEffort.length <= 256 && change.turnId.length <= 1024 &&
+                    (change.state != "confirmed" || change.turnId.isNotBlank())) { "Invalid native settings evidence" }
+            }
             require(page.messages.all { it.role == "user" || it.role == "assistant" })
             require(page.messages.map { it.id }.toSet().size == page.messages.size)
             require(page.inputReceipts.size <= 128 && page.inputReceipts.all {
-                it.clientId.isNotBlank() && it.turnId.isNotBlank() && it.messageId.isNotBlank()
+                it.clientId.isNotBlank() && it.clientId.length <= 256 && it.turnId.length <= 1024 && it.messageId.length <= 1024 &&
+                    (it.kind == "" && it.state == "" && it.turnId.isNotBlank() && it.messageId.isNotBlank() ||
+                    it.kind == "submitted_observed" && it.state in setOf("submitted", "unconfirmed", "rejected", "observed") &&
+                    (it.state != "observed" || it.turnId.isNotBlank() || it.messageId.isNotBlank()))
             }) { "Invalid native input receipt" }
             require(page.inputReceipts.map { it.clientId }.distinct().size == page.inputReceipts.size)
             page.messages.forEach { message -> message.activity?.let { activity ->
@@ -345,14 +359,19 @@ internal class FiloClient(
         validateCapabilities(access.capabilities)
     }
 
-    suspend fun send(id: String, text: String, clientId: String, attachments: List<String> = emptyList()): String {
+    suspend fun sendReceipt(id: String, text: String, clientId: String, attachments: List<String> = emptyList()): RemoteSendReceipt {
         val body = json.encodeToString(SendInput(text, clientId, attachments))
         if ((text.isBlank() && attachments.isEmpty()) || attachments.size > REMOTE_ATTACHMENT_COUNT ||
             attachments.any { !validRemoteUploadId(it, accessPath != null) } || body.toByteArray(Charsets.UTF_8).size > 65536) throw FiloInputException()
-        return json.decodeFromString<SendResult>(
+        return json.decodeFromString<RemoteSendReceipt>(
             request("v1/sessions/${sessionId(id)}/messages", body = body),
-        ).also { require(it.clientId == clientId && it.turnId.isNotBlank()) }.turnId
+        ).also { require(it.clientId == clientId && it.turnId.length <= 1024 && it.messageId.length <= 1024 &&
+            (it.kind == "" && it.state == "" && it.turnId.isNotBlank() ||
+                it.kind == "submitted_observed" && it.state in setOf("submitted", "observed", "unconfirmed") &&
+                (it.state != "observed" || it.turnId.isNotBlank() || it.messageId.isNotBlank()))) }
     }
+    suspend fun send(id: String, text: String, clientId: String, attachments: List<String> = emptyList()): String =
+        sendReceipt(id, text, clientId, attachments).turnId
 
     private fun route(path: String): String = if (path == "v1/info") path else accessPath?.route(path) ?: path
 

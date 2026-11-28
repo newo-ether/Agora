@@ -18,9 +18,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.MutatePriority
@@ -29,28 +29,28 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.input.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.CloseFullscreen
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.OpenInFull
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.CloseFullscreen
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
+import androidx.compose.material.icons.rounded.OpenInFull
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MoreVert
 
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -176,6 +176,20 @@ internal class ChatMarkdownRenderContext(
 )
 
 internal const val MarkdownLinkPressAnimationMillis = 180
+
+/** Resolves a completed tap in the initial pass; movement past touch slop is a scroll, not a tap. */
+private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.awaitTapUp(
+    down: androidx.compose.ui.input.pointer.PointerInputChange,
+    touchSlop: Float,
+): androidx.compose.ui.input.pointer.PointerInputChange? {
+    while (true) {
+        val event = awaitPointerEvent(PointerEventPass.Initial)
+        val change = event.changes.firstOrNull { it.id == down.id } ?: return null
+        if (!change.pressed) return change
+        if ((change.position - down.position).getDistance() > touchSlop) return null
+    }
+}
+
 internal const val MarkdownLinkPressedAlpha = 0.72f
 
 @Composable
@@ -207,23 +221,29 @@ internal fun AnimatedMarkdownText(
             }
         } ?: content
     }
+    val linkOpener = rememberMarkdownLinkOpener()
     MarkdownText(
         content = rendered,
         node = node,
-        modifier = modifier.pointerInput(content) {
+        modifier = modifier.pointerInput(content, linkOpener) {
             try {
                 awaitEachGesture {
                     val down = awaitFirstDown(false, PointerEventPass.Initial)
                     val offset = layoutResult?.getOffsetForPosition(down.position)
-                    val link = offset?.takeIf { content.isNotEmpty() }?.let {
-                        val start = it.coerceIn(0, content.lastIndex)
-                        content.getLinkAnnotations(start, start + 1).firstOrNull()
-                    }
-                    if (link != null) {
-                        activeLink = link
+                    val destination = offset?.let { markdownLinkAt(content, it) }
+                    if (destination != null) {
+                        activeLink = if (content.isEmpty()) null else {
+                            val start = offset.coerceIn(0, content.lastIndex)
+                            content.getLinkAnnotations(start, start + 1).firstOrNull()
+                        }
                         isPressed = true
-                        waitForUpOrCancellation(PointerEventPass.Initial)
+                        // Take the tap before the platform text link handler so one tap opens once.
+                        val up = awaitTapUp(down, viewConfiguration.touchSlop)
                         isPressed = false
+                        if (up != null) {
+                            up.consume()
+                            linkOpener.activate(destination)
+                        }
                     }
                 }
             } finally {
@@ -273,20 +293,23 @@ internal fun LazyMarkdownTextContent(
     contentPadding: PaddingValues = PaddingValues(),
     includeFirstSpacer: Boolean = true,
     onReady: () -> Unit = {},
+    imageDocument: String = LocalMarkdownImageDocument.current,
 ) {
     val markdownText = remember(text, renderContext.parseInlineDollarMath) {
         text.toRenderableMarkdownText(renderContext.parseInlineDollarMath)
     }
-    MarkdownPreparedTextContent(
-        text = markdownText,
-        renderContext = renderContext,
-        immediate = false,
-        includeFirstSpacer = includeFirstSpacer,
-        onReady = onReady,
-        modifier = modifier,
-        lazyListState = listState,
-        lazyContentPadding = contentPadding,
-    )
+    androidx.compose.runtime.CompositionLocalProvider(LocalMarkdownImageDocument provides imageDocument) {
+        MarkdownPreparedTextContent(
+            text = markdownText,
+            renderContext = renderContext,
+            immediate = false,
+            includeFirstSpacer = includeFirstSpacer,
+            onReady = onReady,
+            modifier = modifier,
+            lazyListState = listState,
+            lazyContentPadding = contentPadding,
+        )
+    }
 }
 
 @Composable
@@ -313,6 +336,18 @@ private fun MarkdownPreparedTextContent(
         referenceLinkHandler = referenceLinkHandler,
         immediate = immediate
     ).state.collectAsState().value
+    val documentState = remember(state) {
+        if (state is State.Success) {
+            State.Success(
+                node = state.node,
+                content = state.content,
+                linksLookedUp = true,
+                referenceLinkHandler = MarkdownDocumentReferenceHandler(
+                    markdownReferenceDefinitions(state.node, state.content),
+                ),
+            )
+        } else state
+    }
     val currentOnReady by rememberUpdatedState(onReady)
 
     LaunchedEffect(state) {
@@ -321,8 +356,22 @@ private fun MarkdownPreparedTextContent(
         if (state is State.Success || state is State.Error) currentOnReady()
     }
 
+    val document = LocalMarkdownImageDocument.current
+    val ordinalOffset = LocalMarkdownImageOrdinalOffset.current
+    val occurrences = remember(documentState, document, ordinalOffset) {
+        (documentState as? State.Success)?.let {
+            markdownImageOccurrences(it.content, it.node, it.referenceLinkHandler, document, ordinalOffset)
+        }.orEmpty()
+    }
+    LaunchedEffect(occurrences, renderContext.imageTransformer) {
+        (documentState as? State.Success)?.let { parsed ->
+            (renderContext.imageTransformer as? com.newoether.agora.ui.components.LatexImageTransformer)
+                ?.loadParsedImages(parsed.content, occurrences, parsed.referenceLinkHandler)
+        }
+    }
+    androidx.compose.runtime.CompositionLocalProvider(LocalMarkdownImageOccurrences provides occurrences) {
     com.mikepenz.markdown.compose.Markdown(
-        state = state,
+        state = documentState,
         modifier = modifier,
         colors = renderContext.colors,
         typography = renderContext.typography,
@@ -352,6 +401,7 @@ private fun MarkdownPreparedTextContent(
             }
         }
     )
+    }
 }
 
 @Composable
@@ -361,8 +411,9 @@ private fun MarkdownSuccessWithSpacing(
     modifier: Modifier = Modifier,
     includeFirstSpacer: Boolean = true
 ) {
+    val visibleNodes = remember(state.node) { markdownVisibleBlocks(state.node) }
     Column(modifier) {
-        state.node.children.forEachIndexed { index, node ->
+        visibleNodes.forEachIndexed { index, node ->
             MarkdownElement(
                 node = node,
                 components = components,
@@ -382,13 +433,14 @@ private fun LazyMarkdownSuccessWithSpacing(
     contentPadding: PaddingValues = PaddingValues(),
     includeFirstSpacer: Boolean = true,
 ) {
+    val visibleNodes = remember(state.node) { markdownVisibleBlocks(state.node) }
     LazyColumn(
         modifier = modifier,
         state = listState,
         contentPadding = contentPadding,
     ) {
         itemsIndexed(
-            items = state.node.children,
+            items = visibleNodes,
             key = { index, node ->
                 "${node.startOffset}:${node.endOffset}:${node.type}:$index"
             },
@@ -413,7 +465,118 @@ internal fun String.toRenderableMarkdownText(parseInlineDollarMath: Boolean = fa
             else span.content
         }
     }
-    return markdown.escapeForMarkdown().openTableBlocks()
+    return markdown.escapeForMarkdown().openTableBlocks().embedHtmlVideoTags().embedStandaloneVideoPaths()
+}
+
+/**
+ * A line that is only a video destination becomes the same Markdown image node as an embedded
+ * image, so a path written directly renders as the inline video card instead of a text link.
+ * Fenced/indented code, inline code and existing links or images keep their text.
+ */
+internal fun String.embedStandaloneVideoPaths(): String {
+    if (indexOf('/') < 0) return this
+    var fence: String? = null
+    var changed = false
+    val lines = split('\n').map { line ->
+        val trimmed = line.trim()
+        val marker = when {
+            trimmed.startsWith("```") -> "```"
+            trimmed.startsWith("~~~") -> "~~~"
+            else -> null
+        }
+        if (marker != null) {
+            if (fence == null) fence = marker else if (fence == marker) fence = null
+            return@map line
+        }
+        if (fence != null) return@map line
+        val destination = standaloneVideoDestination(line) ?: return@map line
+        changed = true
+        embeddedVideoNode(destination)
+    }
+    return if (changed) lines.joinToString("\n") else this
+}
+
+private fun standaloneVideoDestination(line: String): String? {
+    if (line.startsWith("    ") || line.startsWith('\t')) return null
+    val trimmed = line.trim()
+    if (trimmed.isEmpty()) return null
+    // One whole line that is a Markdown link to a video renders as the same card.
+    STANDALONE_MARKDOWN_LINK.matchEntire(trimmed)?.let { match ->
+        val destination = match.groupValues[1].removeSurrounding("<", ">")
+        return markdownVideoLink(destination)
+    }
+    if (trimmed.any(Char::isWhitespace)) return null
+    if (trimmed.first() in "<[!`" || '`' in trimmed || "](" in trimmed) return null
+    return markdownVideoLink(trimmed)
+}
+
+/**
+ * The renderer parses the plain `](path)` destination; an angle-bracketed destination is not
+ * recognised and the node disappears. Spaces and parentheses are percent-encoded instead.
+ */
+private fun embeddedVideoNode(destination: String): String {
+    val encoded = destination
+        .replace(" ", "%20")
+        .replace("(", "%28")
+        .replace(")", "%29")
+    return "![]($encoded)"
+}
+
+private val STANDALONE_MARKDOWN_LINK = Regex("""^\[[^\]]*]\(<?([^()\s<>]+)>?\)$""")
+
+private val HTML_VIDEO_ELEMENT = Regex(
+    """(?is)<video\b[^>]*/>|<video\b[^>]*>.*?</video\s*>""",
+)
+
+private val HTML_SRC_ATTRIBUTE = Regex("""(?is)\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""")
+
+/**
+ * A raw `<video src="...">` element becomes the same Markdown image node as an embedded image,
+ * so a model that writes HTML markup still gets the inline video card. Fenced code keeps its text.
+ */
+internal fun String.embedHtmlVideoTags(): String {
+    if (!contains("<video", ignoreCase = true)) return this
+    val fenced = fencedCodeRanges()
+    return HTML_VIDEO_ELEMENT.replace(this) { match ->
+        val start = match.range.first
+        val insideFence = fenced.any { start >= it.first && start <= it.last }
+        if (insideFence) match.value else htmlVideoMarkdown(match.value) ?: match.value
+    }
+}
+
+private fun htmlVideoMarkdown(element: String): String? {
+    val source = HTML_SRC_ATTRIBUTE.find(element) ?: return null
+    val destination = source.groupValues.drop(1).firstOrNull(String::isNotEmpty)?.trim().orEmpty()
+    if (destination.isEmpty() || markdownVideoLink(destination) == null) return null
+    return embeddedVideoNode(destination)
+}
+
+/** Character ranges covered by fenced code blocks, so rewrites never touch verbatim code. */
+private fun String.fencedCodeRanges(): List<IntRange> {
+    val ranges = mutableListOf<IntRange>()
+    var fence: String? = null
+    var fenceStart = 0
+    var offset = 0
+    for (line in split('\n')) {
+        val trimmed = line.trim()
+        val marker = when {
+            trimmed.startsWith("```") -> "```"
+            trimmed.startsWith("~~~") -> "~~~"
+            else -> null
+        }
+        if (marker != null) {
+            if (fence == null) {
+                fence = marker
+                fenceStart = offset
+            } else if (fence == marker) {
+                fence = null
+                ranges += fenceStart..(offset + line.length)
+            }
+        }
+        offset += line.length + 1
+    }
+    if (fence != null) ranges += fenceStart..length
+    return ranges
 }
 
 internal fun String.escapeForMarkdown(): String = escapeDollarForMarkdown()

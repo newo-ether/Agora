@@ -1,7 +1,8 @@
 package com.newoether.agora.viewmodel
 
-import com.newoether.agora.api.GenerationError
+import com.newoether.agora.api.LlamaGenerationEvent
 import com.newoether.agora.api.LOCAL_CONTEXT_CAPACITY_ERROR_CODE
+import com.newoether.agora.api.local.localGenerationFailure
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.CitationAnchor
@@ -44,6 +45,36 @@ class GenerationStreamingSegmentsTest {
     }
 
     @Test
+    fun `live thought segments carry the instant their duration was sampled`() {
+        val live = checkNotNull(
+            buildLiveSegments(
+                flushed = emptyList(),
+                answer = "",
+                thought = "plan",
+                thoughtDurationMs = 4_000L,
+                thoughtDurationSampledAtElapsedRealtimeMs = 90_000L,
+            ),
+        )
+        assertEquals(4_000L, live.single().durationMs)
+        assertEquals(90_000L, live.single().durationSampledAtElapsedRealtimeMs)
+
+        val merged = mutableListOf(
+            MessageSegment(type = "thought", content = "a", durationMs = 1_000L),
+        )
+        appendMergedSegment(
+            merged,
+            MessageSegment(
+                type = "thought",
+                content = "b",
+                durationMs = 2_000L,
+                durationSampledAtElapsedRealtimeMs = 90_000L,
+            ),
+        )
+        assertEquals(3_000L, merged.single().durationMs)
+        assertEquals(90_000L, merged.single().durationSampledAtElapsedRealtimeMs)
+    }
+
+    @Test
     fun `live answer delta metadata is an immutable publication snapshot`() {
         val deltas = mutableListOf(StreamingTextDelta(sequence = 0L, codePointCount = 3))
         val published = checkNotNull(buildLiveSegments(emptyList(), "abc", "", answerDeltas = deltas))
@@ -71,6 +102,29 @@ class GenerationStreamingSegmentsTest {
 
         assertEquals(15L, timing.currentDurationMs)
         assertEquals(40L, timing.totalDurationMs)
+    }
+
+    @Test
+    fun `a running thought always publishes a live duration`() {
+        var now = 1_000L
+        val timing = GenerationThoughtTiming { now }
+        timing.ensureStarted()
+        // The very first snapshot of a thought already carries a duration, so the live card
+        // counts up instead of falling back to a static "Thinking..." title.
+        assertEquals(1L, timing.liveDurationMs())
+        now = 4_500L
+        assertEquals(3_500L, timing.liveDurationMs())
+        // A clock that steps backwards clamps to the accumulated duration instead of hiding the
+        // timer, which is what a wall clock sampled before a time sync used to do.
+        now = 500L
+        assertEquals(1L, timing.liveDurationMs())
+
+        now = 2_000L
+        timing.finishCurrent()
+        assertEquals(1_000L, timing.currentDurationMs)
+        assertEquals(1_000L, timing.totalDurationMs)
+        // Idle with no accumulated duration is still unknown, not zero.
+        assertNull(GenerationThoughtTiming { now }.liveDurationMs())
     }
 
     @Test
@@ -306,9 +360,13 @@ class GenerationStreamingSegmentsTest {
 
     @Test
     fun `native context callback persists help eligibility through final UI projection`() {
-        val failure = GenerationError.LocalModel(
-            message = "This conversation needs 24636 prompt tokens",
-            code = LOCAL_CONTEXT_CAPACITY_ERROR_CODE,
+        val failure = localGenerationFailure(
+            event = LlamaGenerationEvent.Failed(
+                message = "LOCAL_CONTEXT_EXCEEDED:24636:8192",
+                inputTokenCount = 24_636,
+                outputTokenCount = 0,
+            ),
+            displayMessage = "This conversation needs 24636 prompt tokens",
         )
         val snapshot = GenerationFinalSnapshot(
             messageId = "model",

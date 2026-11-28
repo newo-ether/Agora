@@ -1,0 +1,5 @@
+* Phone Use runs the phone on a Shizuku background display with a floating card, full screen and free size, dpi and preset choices
+* Speech input transcribes in the composer, and downloadable sherpa-onnx models bring offline recognition with punctuated SenseVoice output
+* ChatGPT and DeepSeek accounts sign in beside the existing providers, with plan and balance cards
+* The WebUI gains the Tools sheet, Compose-matched typography and colors, and a compact model pinned under preserve mode
+* Chat file links open in place and survive scrolling; HTML preview no longer crashes when swiped away

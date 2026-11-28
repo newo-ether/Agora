@@ -17,7 +17,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.PaddingValues
+import com.newoether.agora.ui.components.smoothSheetBottomPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -474,10 +475,10 @@ internal fun CitationSourcesBottomSheet(
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 12.dp, top = 8.dp, end = 12.dp, bottom = smoothSheetBottomPadding(extra = 8.dp),
+            ),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             itemsIndexed(

@@ -131,11 +131,11 @@ internal fun ChatBottomBarOverlayHost(
                     onLevelChange = onThinkingLevelChange,
                     onBudgetEnabledChange = onThinkingBudgetEnabledChange,
                     onBudgetTokensChange = onThinkingBudgetTokensChange,
-                    // Exactly the options the selected model accepts: its effort levels, whether
-                    // thinking can be turned off, and whether it takes a token budget.
+                    // Keep the Budget entry discoverable while the shared model capability owns
+                    // which controls can change the effective request.
                     availableEfforts = thinkingCapability.supportedEfforts,
                     allowDisable = thinkingCapability.canDisableThinking,
-                    showBudgetControls = thinkingCapability.supportsThinkingBudget,
+                    budgetControlsEnabled = thinkingCapability.supportsThinkingBudget,
                     animateSections = true,
                 )
                 Spacer(modifier = Modifier.height(24.dp))

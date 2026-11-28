@@ -29,6 +29,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
@@ -173,11 +174,14 @@ class SubagentCompletionQueueDeliveryTest {
         )
     }
 
-    @Test fun idleCompletionAndRepeatedDeliveryNeverRequestDrainOfExistingInput() = runBlocking {
+    @Test fun idleCompletionRequestsDrainOnlyForNewResultsOutsideTheQueueMutex() = runBlocking {
         seed()
         var drains = 0
         registry.attachUiCallbacks(this) { owner ->
-            owner.onQueueDrainRequested = { drains++ }
+            owner.onQueueDrainRequested = { state ->
+                assertFalse(state.queueMutationMutex.isLocked)
+                drains++
+            }
         }
         val state = registry.getOrCreate("parent")
         val typed = queued("typed")
@@ -186,15 +190,49 @@ class SubagentCompletionQueueDeliveryTest {
         val original = state.queuedSends.value
         assertEquals(typed, original.first())
         assertEquals(2, original.size)
+        assertEquals(1, drains)
         repeat(2) { delivery.deliver("parent") }
+        assertEquals(1, drains)
+        val lease = checkNotNull(state.claimQueuedSends())
+        delivery.deliver("parent")
+        assertEquals(1, drains)
+        assertTrue(state.settleGuidanceClaim(lease.id, durable = false))
         result("second", "R2")
         delivery.deliver("parent")
         assertEquals(original, state.queuedSends.value.take(2))
         assertEquals(3, state.queuedSends.value.size)
-        assertEquals(0, drains)
+        assertEquals(2, drains)
         assertNull(repository.getConversation("child")?.subagentDeliveredResultId)
         assertTrue(repository.getRunsForConversationSnapshot("parent").isEmpty())
         coVerify(exactly = 0) { launcher.launch(any(), any()) }
+    }
+
+    @Test fun idleCompletionAutomaticallyDrainsTheWholeFifoAndCommitsItsReceiptOnce() = runBlocking {
+        seed()
+        var drains = 0
+        registry.attachUiCallbacks(this) { owner ->
+            owner.onQueueDrainRequested = { state ->
+                drains++
+                state.scope.launch { executor.drainAfterSettlement(state) }
+            }
+        }
+        val state = registry.getOrCreate("parent")
+        state.enqueueSend(queued("typed"))
+        delivery.deliver("parent")
+        val request = withTimeout(10_000) { launched.await() }
+        val users = repository.getMessagesForRuns(listOf(request.runId))
+            .filter { it.participant == Participant.USER }
+        assertEquals(listOf("typed", "child (child) [completed]\nAnswer R1"), users.map { it.text })
+        assertNull(MessageSource.decode(users.first().sourceJson))
+        assertEquals(mapOf("child" to "R1"), MessageSource.decode(users.last().sourceJson)?.subagentResults)
+        assertEquals("R1", repository.getConversation("child")?.subagentDeliveredResultId)
+        assertTrue(repository.pendingSubagentResults("parent").isEmpty())
+        assertTrue(state.queuedSends.value.isEmpty())
+        repeat(2) { delivery.deliver("parent") }
+        assertEquals(1, drains)
+        assertEquals(1, repository.getRunsForConversationSnapshot("parent").size)
+        assertEquals("keep", repository.getConversation("other")?.draftText)
+        coVerify(exactly = 1) { launcher.launch(any(), state) }
     }
 
     @Test fun busyCompletionWaitsForOrdinaryCoroutineSettlementToRequestDrain() = runBlocking {

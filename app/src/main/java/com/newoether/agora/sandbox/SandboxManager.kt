@@ -10,13 +10,21 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Manages an on-device Linux sandbox (proot + Alpine).
+ * Manages an on-device Linux sandbox (PRoot with Alpine, Debian or Ubuntu).
  * Available only in the fdroid flavor; play flavor gets a no-op stub.
  *
  * File operations (read/write/glob/grep/edit) operate directly on the
  * rootfs filesystem without proot — only shell commands go through proot.
  */
+enum class RootfsInstallPhase { DOWNLOADING, VERIFYING, EXTRACTING, VALIDATING }
+
 interface SandboxManager {
+
+    /** Device-local active userland; existing installations default to Alpine. */
+    val distribution: StateFlow<SandboxDistribution>
+
+    /** Select without installing. Refuses active work and preserves every installed rootfs. */
+    suspend fun selectDistribution(distribution: SandboxDistribution): Boolean
 
     /** Real-time terminal output stream for install/uninstall operations. */
     val terminalOutput: StateFlow<String>
@@ -41,9 +49,15 @@ interface SandboxManager {
      *  (or when the total size is unknown — show an indeterminate bar then). */
     val downloadProgress: StateFlow<Float?>
 
+    /** Current rootfs install stage, or null when no install is running. */
+    val rootfsPhase: StateFlow<RootfsInstallPhase?>
+
     /** Fire-and-forget base-rootfs install (download + extract). Runs on the manager's
      *  own scope so it survives navigation; observe [isInstallingRootfs] / [downloadProgress]. */
     fun installRootfs()
+
+    /** Rewrite the installed guest's package sources for [mirror] after a source change. */
+    suspend fun applyMirror(mirror: SandboxMirror): Boolean = false
 
     /** Last typed package name — persisted across navigation. */
     var pendingPkgName: String
@@ -66,7 +80,7 @@ interface SandboxManager {
     /** Whether the sandbox rootfs is installed and ready. */
     suspend fun isAvailable(): Boolean
 
-    /** Extract proot + rootfs from assets. Returns true on success. */
+    /** Download, verify and install the selected rootfs without replacing existing data. */
     suspend fun install(): Boolean
 
     /** Execute a shell command inside the sandbox via proot. */
@@ -75,6 +89,24 @@ interface SandboxManager {
         workdir: String = "",
         timeoutMs: Int = 30000
     ): SandboxResult
+
+    /** Admit a retained shell job; its runtime limit is independent of any client's wait budget. */
+    suspend fun startJob(command: String, workdir: String, timeoutMs: Int, description: String): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
+    suspend fun listJobs(offset: Int, limit: Int): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
+    suspend fun getJob(jobId: String): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
+    /** Stop the process tree and wait for its output and retained state to settle. */
+    suspend fun stopJob(jobId: String): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
+
+    /** Record result delivery without deleting the retained job or its output. */
+    suspend fun acknowledgeJob(jobId: String): String =
+        throw UnsupportedOperationException("Durable shell jobs are unavailable in this flavor")
 
     /** Read a bounded file slice and return transport-neutral metadata. */
     suspend fun fileRead(path: String, offset: Long = 0, limit: Long = 0): ShellFileReadResult
@@ -111,26 +143,35 @@ interface SandboxManager {
         expectedSha256: String = "",
     ): ShellFileEditResult
 
-    /** Install a package via Alpine apk. */
+    /** Install using the selected distribution's package manager. */
     suspend fun apkInstall(packageName: String, onProgress: (String) -> Unit = {}): Boolean
 
     /** Upgrade all installed packages to latest repo versions. Returns upgrade count. */
     suspend fun apkUpgrade(onProgress: (String) -> Unit = {}): Int
 
-    /** List installed Alpine packages. */
+    /** List packages installed in the selected distribution. */
     suspend fun apkList(): List<PackageInfo>
 
     /** Remove a package from the sandbox. */
     suspend fun apkDelete(packageName: String): Boolean
 
-    /** Get rootfs disk usage in MB. */
+    /** Approximate private rootfs + home regular-file usage in MiB, excluding shared storage. */
     suspend fun getDiskUsageMB(): Long
 
-    /** Delete rootfs and proot binary, returning to uninstalled state. */
+    /** Delete the selected rootfs after settling jobs; keep home, other systems and job history. */
     suspend fun reset(): Boolean
 
-    /** Physical directory mounted as /home inside the sandbox, or null if not available. */
+    /** Physical directory mounted as /home/agora, or null if not available. */
     fun getSandboxHomeDir(): File?
+
+    /**
+     * Physical file for a sandbox path, resolved with the same mount and traversal rules as the
+     * file tools. Null when the flavor has no sandbox; throws when the path is outside every mount.
+     */
+    fun resolveHostFile(path: String): File? = null
+
+    /** Resolve a retained document against its original distribution, independent of current selection. */
+    fun resolveHostFile(path: String, distribution: SandboxDistribution): File? = null
 
     // ── Nested types ───────────────────────────────────────
 

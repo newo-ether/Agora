@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="embedding_import_title">Importer un modèle d\'embeddings (.gguf)</string>
+    <string name="embedding_import_title">Modèle d\'embeddings (.gguf)</string>
     <string name="embedding_import_desc">Importer un modèle GGUF d\'embeddings pour la recherche sémantique locale</string>
-    <string name="local_chat_import_title">Importer un modèle de chat (.gguf)</string>
+    <string name="local_chat_import_title">Modèle de chat (.gguf)</string>
     <string name="local_chat_import_desc">Importer un modèle GGUF de chat pour exécuter des conversations sur cet appareil</string>
-    <string name="local_projector_import_title">Importer un projecteur visuel (.mmproj)</string>
+    <string name="model_import_not_imported">Non importé · %1$s</string>
+    <string name="model_import_file_missing">Fichier introuvable</string>
+    <string name="local_projector_enabled">Entrée d\'images activée</string>
 </resources>

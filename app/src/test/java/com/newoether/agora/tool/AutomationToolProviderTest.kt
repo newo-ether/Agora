@@ -36,33 +36,33 @@ class AutomationToolProviderTest {
 
         val definitions = provider.definitions(enabledContext)
         assertEquals(
-            setOf("create_task", "list_tasks", "delete_task", "start_loop", "stop_loop"),
+            setOf("task_create", "task_list", "task_delete", "loop_start", "loop_stop"),
             definitions.map { it.function.name }.toSet(),
         )
         assertEquals(
             listOf("name", "prompt", "cron"),
-            definitions.single { it.function.name == "create_task" }.function.parameters.required,
+            definitions.single { it.function.name == "task_create" }.function.parameters.required,
         )
         assertEquals(
             listOf("interval_seconds"),
-            definitions.single { it.function.name == "start_loop" }.function.parameters.required,
+            definitions.single { it.function.name == "loop_start" }.function.parameters.required,
         )
     }
 
     @Test
     fun handles_onlyAutomationTools() {
-        assertTrue(provider.handles("create_task"))
-        assertTrue(provider.handles("list_tasks"))
-        assertTrue(provider.handles("delete_task"))
-        assertTrue(provider.handles("start_loop"))
-        assertTrue(provider.handles("stop_loop"))
+        assertTrue(provider.handles("task_create"))
+        assertTrue(provider.handles("task_list"))
+        assertTrue(provider.handles("task_delete"))
+        assertTrue(provider.handles("loop_start"))
+        assertTrue(provider.handles("loop_stop"))
         assertFalse(provider.handles("web_search"))
     }
 
     @Test
     fun execute_rechecksFeatureGate() = runTest {
         val result = provider.execute(
-            "create_task",
+            "task_create",
             """{"name":"Morning","prompt":"Summarize","cron":"0 9 * * *"}""",
             enabledContext.copy(automationToolsEnabled = false),
         )
@@ -75,7 +75,7 @@ class AutomationToolProviderTest {
     fun execute_rechecksLiveFeatureGateAfterGenerationStarted() = runTest {
         val liveDisabled = AutomationToolProvider(taskManager, loopManager) { false }
 
-        val result = liveDisabled.execute("list_tasks", "{}", enabledContext)
+        val result = liveDisabled.execute("task_list", "{}", enabledContext)
 
         assertTrue(result.startsWith("Error:"))
         coVerify(exactly = 0) { taskManager.listTasksSnapshot() }
@@ -83,7 +83,7 @@ class AutomationToolProviderTest {
 
     @Test
     fun execute_malformedJsonReturnsError() = runTest {
-        val result = provider.execute("list_tasks", "{", enabledContext)
+        val result = provider.execute("task_list", "{", enabledContext)
         assertTrue(result.startsWith("Error:"))
     }
 
@@ -92,7 +92,7 @@ class AutomationToolProviderTest {
         coEvery { taskManager.listTasksSnapshot() } throws CancellationException("cancelled")
 
         try {
-            provider.execute("list_tasks", "{}", enabledContext)
+            provider.execute("task_list", "{}", enabledContext)
             fail("Expected CancellationException")
         } catch (_: CancellationException) {
             // Expected: cancellation must unwind the generation rather than become tool output.
@@ -105,7 +105,7 @@ class AutomationToolProviderTest {
         coEvery { taskManager.createTask(any(), any(), any(), any()) } returns task
 
         val invalid = provider.execute(
-            "create_task",
+            "task_create",
             """{"name":"Morning","prompt":"Summarize","cron":"not cron"}""",
             enabledContext,
         )
@@ -113,12 +113,12 @@ class AutomationToolProviderTest {
         coVerify(exactly = 0) { taskManager.createTask(any(), any(), any(), any()) }
 
         val result = provider.execute(
-            "create_task",
+            "task_create",
             """{"name":"Morning","prompt":"Summarize","cron":"0 9 * * *"}""",
             enabledContext,
         )
         val json = result.json()
-        assertEquals("create_task", json["type"]?.jsonPrimitive?.content)
+        assertEquals("task_create", json["type"]?.jsonPrimitive?.content)
         assertEquals("task-1", json["task"]?.jsonObject?.get("id")?.jsonPrimitive?.content)
         coVerify(exactly = 1) {
             taskManager.createTask("Morning", "Summarize", "0 9 * * *", null)
@@ -131,7 +131,7 @@ class AutomationToolProviderTest {
             task(id = "task-1", name = "Quote \"test\"", prompt = "Line 1\nLine 2"),
         )
 
-        val json = provider.execute("list_tasks", "{}", enabledContext).json()
+        val json = provider.execute("task_list", "{}", enabledContext).json()
         val tasks = json["tasks"]!!.jsonArray
         assertEquals(1, tasks.size)
         assertEquals("Quote \"test\"", tasks[0].jsonObject["name"]?.jsonPrimitive?.content)
@@ -150,16 +150,16 @@ class AutomationToolProviderTest {
             TaskManager.DeleteResult.Ambiguous(listOf(first, second))
 
         val deleted = provider.execute(
-            "delete_task", """{"id_or_name":"task-1"}""", enabledContext,
+            "task_delete", """{"id_or_name":"task-1"}""", enabledContext,
         ).json()
         assertEquals("true", deleted["deleted"]?.jsonPrimitive?.content)
 
         assertTrue(
-            provider.execute("delete_task", """{"id_or_name":"missing"}""", enabledContext)
+            provider.execute("task_delete", """{"id_or_name":"missing"}""", enabledContext)
                 .startsWith("Error:"),
         )
         val ambiguous = provider.execute(
-            "delete_task", """{"id_or_name":"Daily"}""", enabledContext,
+            "task_delete", """{"id_or_name":"Daily"}""", enabledContext,
         )
         assertTrue(ambiguous.startsWith("Error:"))
         assertTrue(ambiguous.contains("task-1"))
@@ -180,7 +180,7 @@ class AutomationToolProviderTest {
         } returns LoopManager.StartResult.Started(loop)
 
         val json = provider.execute(
-            "start_loop", """{"interval_seconds":60,"prompt":"  "}""", enabledContext,
+            "loop_start", """{"interval_seconds":60,"prompt":"  "}""", enabledContext,
         ).json()
         assertEquals("started", json["status"]?.jsonPrimitive?.content)
         assertEquals("10", json["loop"]?.jsonObject?.get("max_cycles")?.jsonPrimitive?.content)
@@ -192,10 +192,10 @@ class AutomationToolProviderTest {
     @Test
     fun startLoop_rejectsUnsafeRangesWithoutCallingManager() = runTest {
         val shortInterval = provider.execute(
-            "start_loop", """{"interval_seconds":5}""", enabledContext,
+            "loop_start", """{"interval_seconds":5}""", enabledContext,
         )
         val tooManyCycles = provider.execute(
-            "start_loop", """{"interval_seconds":60,"max_cycles":101}""", enabledContext,
+            "loop_start", """{"interval_seconds":60,"max_cycles":101}""", enabledContext,
         )
 
         assertTrue(shortInterval.startsWith("Error:"))
@@ -216,12 +216,12 @@ class AutomationToolProviderTest {
         } returns LoopManager.StartResult.Conflict(existing)
 
         val conflict = provider.execute(
-            "start_loop", """{"interval_seconds":60}""", enabledContext,
+            "loop_start", """{"interval_seconds":60}""", enabledContext,
         )
         assertTrue(conflict.startsWith("Error:"))
 
         val missingContext = provider.execute(
-            "start_loop",
+            "loop_start",
             """{"interval_seconds":60}""",
             enabledContext.copy(conversationId = null),
         )
@@ -233,7 +233,7 @@ class AutomationToolProviderTest {
         coEvery { loopManager.stopLoop("conversation-1") } returns
             LoopManager.StopResult.AlreadyStopped
 
-        val json = provider.execute("stop_loop", "{}", enabledContext).json()
+        val json = provider.execute("loop_stop", "{}", enabledContext).json()
         assertEquals("already_stopped", json["status"]?.jsonPrimitive?.content)
         assertEquals("conversation-1", json["conversation_id"]?.jsonPrimitive?.content)
     }
@@ -242,14 +242,14 @@ class AutomationToolProviderTest {
     fun stopLoop_notFoundReturnsError() = runTest {
         coEvery { loopManager.stopLoop("conversation-1") } returns LoopManager.StopResult.NotFound
 
-        val result = provider.execute("stop_loop", "{}", enabledContext)
+        val result = provider.execute("loop_stop", "{}", enabledContext)
         assertTrue(result.startsWith("Error:"))
     }
 
     @Test
     fun createTask_offersOptionalSystemPromptParameter() {
         val createTask = provider.definitions(enabledContext)
-            .single { it.function.name == "create_task" }
+            .single { it.function.name == "task_create" }
 
         assertTrue(createTask.function.parameters.properties.containsKey("system_prompt"))
         assertFalse(createTask.function.parameters.required.contains("system_prompt"))
@@ -266,7 +266,7 @@ class AutomationToolProviderTest {
             task(id = "task-1", name = "Morning").copy(systemPromptId = "prompt-1")
 
         val json = withPrompts.execute(
-            "create_task",
+            "task_create",
             """{"name":"Morning","prompt":"Summarize","cron":"0 9 * * *","system_prompt":"research"}""",
             enabledContext,
         ).json()
@@ -279,7 +279,7 @@ class AutomationToolProviderTest {
         }
 
         val missing = withPrompts.execute(
-            "create_task",
+            "task_create",
             """{"name":"Morning","prompt":"Summarize","cron":"0 9 * * *","system_prompt":"Unknown"}""",
             enabledContext,
         )

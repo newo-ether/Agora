@@ -1,9 +1,11 @@
 package com.newoether.agora.data
 
+import java.io.BufferedInputStream
 import java.io.Closeable
 import java.io.File
 import java.io.IOException
 import java.util.zip.CRC32
+import java.util.zip.CheckedInputStream
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -12,27 +14,37 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 import org.apache.commons.compress.archivers.zip.ZipFile
 
+/** A reused baseline entry no longer matches the checksum recorded when it was written. */
+internal class BaselineDamagedException(entry: String) :
+    IOException("Incremental baseline entry is damaged: $entry")
+
 internal class NativeBackupV5Baseline private constructor(
     private val zip: ZipFile,
     val index: NativeConversationIndex,
+    private val rawChecksums: Map<String, Long>,
 ) : Closeable {
     private val byId = index.conversations.associateBy { it.id }
 
     private val intactEntries = mutableMapOf<String, Boolean>()
     /**
-     * True when [id]'s baseline item was written at [dataChangedAt] and it and every media entry it
-     * references still decompress to their recorded size and CRC. A raw copy never re-checks the
-     * data, so this keeps a damaged baseline entry from being carried into every later backup.
+     * True when [id]'s baseline item was written at [dataChangedAt] and its bytes can be trusted.
+     * An entry with a recorded raw checksum is verified by [copyRaw] while it is copied, so nothing
+     * is decompressed here. An entry without one must still decompress to its recorded size and
+     * CRC, which keeps a damaged entry from being carried into every later backup.
      */
     fun canReuse(id: String, dataChangedAt: Long): Boolean {
         val item = byId[id]?.takeIf { it.dataChangedAt == dataChangedAt } ?: return false
-        return isIntact(item.entry) && item.mediaEntries.all(::isIntact)
+        return isTrusted(item.entry) && item.mediaEntries.all(::isTrusted)
     }
+
+    private fun isTrusted(name: String): Boolean =
+        if (name in rawChecksums) zip.getEntry(name) != null else isIntact(name)
+
     private fun isIntact(name: String): Boolean = intactEntries.getOrPut(name) {
         val entry = zip.getEntry(name) ?: return@getOrPut false
         runCatching {
             val crc = CRC32()
-            val buffer = ByteArray(64 * 1024)
+            val buffer = ByteArray(COPY_BUFFER_BYTES)
             var total = 0L
             zip.getInputStream(entry).use { input ->
                 while (true) {
@@ -46,11 +58,22 @@ internal class NativeBackupV5Baseline private constructor(
         }.getOrDefault(false)
     }
 
-    fun copyRaw(name: String, output: ZipArchiveOutputStream) {
+    /**
+     * Copies [name]'s stored bytes unchanged and records their CRC in [checksums]. When the
+     * baseline recorded a checksum for the entry, a mismatch throws [BaselineDamagedException]
+     * after the copy; the caller then rebuilds the whole backup without a baseline.
+     */
+    fun copyRaw(name: String, output: ZipArchiveOutputStream, checksums: MutableMap<String, Long>) {
         val entry = zip.getEntry(name) ?: throw IOException("Missing baseline entry: $name")
+        val crc = CRC32()
         zip.getRawInputStream(entry).use { raw ->
-            output.addRawArchiveEntry(ZipArchiveEntry(entry), raw)
+            CheckedInputStream(BufferedInputStream(raw, COPY_BUFFER_BYTES), crc).use { checked ->
+                output.addRawArchiveEntry(ZipArchiveEntry(entry), checked)
+            }
         }
+        val expected = rawChecksums[name]
+        if (expected != null && expected != crc.value) throw BaselineDamagedException(name)
+        checksums[name] = crc.value
     }
 
     fun indexEntry(id: String): NativeConversationIndexEntry? = byId[id]
@@ -59,6 +82,7 @@ internal class NativeBackupV5Baseline private constructor(
 
     companion object {
         private const val MAX_METADATA_BYTES = 16L * 1024L * 1024L
+        private const val COPY_BUFFER_BYTES = 256 * 1024
         // Manifests carry fields such as app_version and exported_at that are not read here.
         private val baselineJson = Json { ignoreUnknownKeys = true }
 
@@ -83,7 +107,17 @@ internal class NativeBackupV5Baseline private constructor(
                         require(zip.getEntry(item.entry) != null)
                         item.mediaEntries.forEach { require(zip.getEntry(it) != null) }
                     }
-                    NativeBackupV5Baseline(zip, index)
+                    // Unreadable checksums only cost speed: every entry is then inflate-checked.
+                    val rawChecksums = zip.getEntry(NativeBackupFormat.RAW_CHECKSUMS_ENTRY)
+                        ?.let {
+                            runCatching {
+                                zip.readJson<NativeBackupRawChecksums>(
+                                    NativeBackupFormat.RAW_CHECKSUMS_ENTRY,
+                                ).entries
+                            }.getOrNull()
+                        }
+                        .orEmpty()
+                    NativeBackupV5Baseline(zip, index, rawChecksums)
                 } catch (error: Throwable) {
                     zip.close()
                     throw error

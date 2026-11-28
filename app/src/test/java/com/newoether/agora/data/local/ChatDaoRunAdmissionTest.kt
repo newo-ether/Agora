@@ -78,7 +78,7 @@ class ChatDaoRunAdmissionTest {
 
     @Test
     fun selectionOnlyQueriesNeverWriteConversationRecency() {
-        val dao = sourceFile("app/src/main/java/com/newoether/agora/data/local/ChatContextCompactDao.kt")
+        val dao = sourceFile("data/database/src/main/kotlin/com/newoether/agora/data/local/ChatContextCompactDao.kt")
             .replace("\r\n", "\n")
         listOf(
             "suspend fun updateMessageBranchSelections(",

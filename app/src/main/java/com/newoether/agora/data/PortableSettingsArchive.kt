@@ -99,6 +99,11 @@ internal object PortableSettingsArchive {
         put("webSearchProvider", JsonPrimitive(sm.webSearchProvider.first()))
         put("webSearchNumResults", JsonPrimitive(sm.webSearchNumResults.first()))
         put("webSearchBaseUrl", JsonPrimitive(sm.webSearchBaseUrl.first()))
+        val imageQuality = sm.imageQuality.settings.first()
+        put("imageQualityMode", JsonPrimitive(imageQuality.mode))
+        put("imageQualityMaxLongEdge", JsonPrimitive(imageQuality.customMaxLongEdge))
+        put("imageQualityJpegQuality", JsonPrimitive(imageQuality.customJpegQuality))
+        SpeechRecognitionPortableSettings.export(sm.speechRecognition).forEach { (key, value) -> put(key, value) }
         put("imageGenEnabled", JsonPrimitive(sm.imageGenEnabled.first()))
         putNullableString("imageGenModel", sm.imageGenModel.first())
         put("imageGenSize", JsonPrimitive(sm.imageGenSize.first()))
@@ -124,6 +129,7 @@ internal object PortableSettingsArchive {
         put("askUserTimeoutMinutes", JsonPrimitive(sm.askUserTimeoutMinutes.first()))
         put("todoEnabled", JsonPrimitive(sm.todoEnabled.first()))
         put("subagentToolsEnabled", JsonPrimitive(sm.subagentToolsEnabled.first()))
+        put("subagentDeleteEnabled", JsonPrimitive(sm.subagentDeleteEnabled.first()))
         val subagentMaxTotal = sm.subagentMaxTotal.first()
         put("subagentMaxTotal", JsonPrimitive(subagentMaxTotal))
         put(
@@ -138,6 +144,8 @@ internal object PortableSettingsArchive {
         put("exactExecutionEnabled", JsonPrimitive(sm.exactExecutionEnabled.first()))
         put("automationWakeLockEnabled", JsonPrimitive(sm.automationWakeLockEnabled.first()))
         putEncoded("customProviders", sm.customProviders.first())
+        putEncoded("providerList", sm.providerListStore.providerList.first())
+        putEncoded("hiddenProviderModels", sm.providerListStore.hiddenProviderModels.first())
         putEncoded("mcpServers", sm.mcpServers.first().map(McpServerConfig::withoutSecrets))
 
         put("proxyEnabled", JsonPrimitive(sm.proxyEnabled.first()))
@@ -204,6 +212,7 @@ internal object PortableSettingsArchive {
         val previousShellDevices = sm.shellDevices.first()
         val previousMcpServers = sm.mcpServers.first()
         val previousEmbeddingModels = sm.embeddingModels.first()
+        val previousSpeech = sm.speechRecognition.snapshot()
         val previousFontPath = sm.customFontPath.first()
         val previousFontName = sm.customFontName.first()
         val previousCustomProviders = sm.customProviders.first()
@@ -218,6 +227,16 @@ internal object PortableSettingsArchive {
             record["anthropicCacheEnabled"]?.let { value ->
                 require(value is JsonPrimitive && !value.isString && value.booleanOrNull != null) {
                     "Invalid Anthropic cache switch"
+                }
+            }
+        }
+        obj["imageQualityMode"]?.let { value ->
+            require(value is JsonPrimitive && value.isString) { "Invalid image quality mode" }
+        }
+        listOf("imageQualityMaxLongEdge", "imageQualityJpegQuality").forEach { key ->
+            obj[key]?.let { value ->
+                require(value is JsonPrimitive && !value.isString && value.intOrNull != null) {
+                    "Invalid image quality integer"
                 }
             }
         }
@@ -352,11 +371,7 @@ internal object PortableSettingsArchive {
                     localFilePath = "",
                 )
             }
-            // Local backends (GGUF LOCAL and on-device LOCAL_ONNX) are never serialized into the
-            // portable archive (no secrets, device-specific), so preserve the existing ones.
-            val existingLocal = previousEmbeddingModels.filter {
-                it.type == EmbeddingModelType.LOCAL_ONNX
-            }
+            val existingLocal = previousEmbeddingModels.filter { it.type == EmbeddingModelType.LOCAL }
             val finalRemote = if (replace) {
                 restoredRemote
             } else {
@@ -381,7 +396,7 @@ internal object PortableSettingsArchive {
                 ?: previousActive.takeIf { previous ->
                     finalModels.any {
                         it.id == previous &&
-                            (it.type == EmbeddingModelType.LOCAL_ONNX || (!replace && !hasActiveReference))
+                            (it.type == EmbeddingModelType.LOCAL || (!replace && !hasActiveReference))
                     }
                 }
                 .orEmpty()
@@ -393,6 +408,12 @@ internal object PortableSettingsArchive {
         obj.string("webSearchProvider")?.let { sm.saveWebSearchProvider(it) }
         obj.int("webSearchNumResults")?.let { sm.saveWebSearchNumResults(it) }
         obj.string("webSearchBaseUrl")?.let { sm.saveWebSearchBaseUrl(it) }
+        sm.imageQuality.update(
+            mode = obj.string("imageQualityMode"),
+            customMaxLongEdge = obj.int("imageQualityMaxLongEdge"),
+            customJpegQuality = obj.int("imageQualityJpegQuality"),
+        )
+        SpeechRecognitionPortableSettings.restore(obj, sm.speechRecognition, previousSpeech, replace)
         obj.boolean("imageGenEnabled")?.let { sm.saveImageGenEnabled(it) }
         if (obj.containsKey("imageGenModel")) {
             sm.saveImageGenModel(obj.nullableString("imageGenModel")?.let(::remapModel))
@@ -427,6 +448,7 @@ internal object PortableSettingsArchive {
         obj.int("askUserTimeoutMinutes")?.let { sm.saveAskUserTimeoutMinutes(it) }
         obj.boolean("todoEnabled")?.let { sm.saveTodoEnabled(it) }
         obj.boolean("subagentToolsEnabled")?.let { sm.saveSubagentToolsEnabled(it) }
+        obj.boolean("subagentDeleteEnabled")?.let { sm.saveSubagentDeleteEnabled(it) }
         val subagentMaxTotal = obj.int("subagentMaxTotal")
         val subagentMaxConcurrent = obj.int("subagentMaxConcurrent")
         if (subagentMaxTotal != null || subagentMaxConcurrent != null) {
@@ -483,6 +505,15 @@ internal object PortableSettingsArchive {
             }
             sm.saveCustomProviders(value)
         }
+        // After custom Providers, URLs and enabled models, so derivation and parking see them.
+        sm.providerListStore.restoreImported(
+            importedList = obj.decode<List<String>>("providerList")
+                ?.map { importedProviderIdentities.providerNameRemap[it] ?: it },
+            importedHidden = obj.decode<Map<String, Set<String>>>("hiddenProviderModels")
+                .orEmpty()
+                .mapValues { (_, models) -> models.mapTo(linkedSetOf(), ::remapModel) },
+            replace = replace,
+        )
 
         val mcpElement = obj["mcpServers"]
         if (mcpElement != null || replace) {

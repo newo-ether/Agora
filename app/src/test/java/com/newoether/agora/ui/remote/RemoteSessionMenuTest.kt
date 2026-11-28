@@ -8,6 +8,9 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.newoether.agora.R
 import com.newoether.agora.data.repository.SettingsRepository
+import com.newoether.agora.remote.RemoteAdapter
+import com.newoether.agora.remote.RemoteCapabilities
+import com.newoether.agora.remote.RemoteSessionAccess
 import com.newoether.agora.remote.RemoteDevice
 import com.newoether.agora.remote.RemoteSession
 import com.newoether.agora.remote.RemoteState
@@ -43,9 +46,50 @@ class RemoteSessionMenuTest {
         every { vm.state } returns state
         compose.setContent {
             MaterialTheme {
-                RemoteScreen(vm, settings, active, {}, {}, { _, _ -> })
+                RemoteScreen(vm, settings, active, {}, { _, _ -> })
             }
         }
+    }
+
+    private fun selectCli(capabilities: RemoteCapabilities) {
+        val source = RemoteAdapter("codex-cli", "codex", "cli", "connected",
+            nativeScopeId = "scope", capabilities = capabilities)
+        state.value = state.value.copy(
+            devices = state.value.devices.map { it.copy(multiAdapter = true, adapters = listOf(source)) },
+            adapterSelections = mapOf("device" to source.id),
+            sessions = listOf(session.copy(access = RemoteSessionAccess("scope", "canonical", "binding", capabilities))),
+        )
+    }
+
+    @Test fun cliWithoutManagementGrantHasNoDetailsEntryAndStillOpensHistory() {
+        selectCli(RemoteCapabilities(history = true))
+        showScreen()
+        compose.onNodeWithContentDescription(text(R.string.more)).assertDoesNotExist()
+        compose.onNodeWithText(session.title).assertIsEnabled().performClick()
+        verify(exactly = 1) { vm.selectSession(state.value.sessions.single()) }
+        verify(exactly = 0) { vm.renameSession(any(), any()) }
+        verify(exactly = 0) { vm.archiveSession(any()) }
+    }
+
+    @Test fun verifiedManagementOnlyShowsGrantedActionsAndClosesWhenRevoked() {
+        selectCli(RemoteCapabilities(history = true, rename = true))
+        showScreen()
+        compose.onNodeWithContentDescription(text(R.string.more)).performClick()
+        compose.onNodeWithText(text(R.string.rename)).assertIsEnabled()
+        compose.onNodeWithText(text(R.string.remote_archive)).assertDoesNotExist()
+        compose.runOnIdle {
+            state.value = state.value.copy(sessions = listOf(state.value.sessions.single().copy(
+                access = state.value.sessions.single().access?.copy(capabilities = RemoteCapabilities(history = true)),
+            )))
+        }
+        compose.onNodeWithContentDescription(text(R.string.more)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.rename)).assertDoesNotExist()
+        compose.runOnIdle { selectCli(RemoteCapabilities(history = true, archive = true)) }
+        compose.onNodeWithContentDescription(text(R.string.more)).performClick()
+        compose.onNodeWithText(text(R.string.rename)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.remote_archive)).assertIsEnabled()
+        verify(exactly = 0) { vm.renameSession(any(), any()) }
+        verify(exactly = 0) { vm.archiveSession(any()) }
     }
 
     @Test fun pendingMutationKeepsMenuAndReadNavigationAvailableWithoutAdmittingAnotherMutation() {

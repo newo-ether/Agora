@@ -102,6 +102,16 @@ class RagToolProviderIsolationTest {
     }
 
     @Test
+    fun keywordSearchPropagatesCancellationInsteadOfReturningSearchError() = runTest {
+        coEvery { conversations.searchMessages("cancel", any()) } throws
+            kotlinx.coroutines.CancellationException("cancelled search")
+        try {
+            provider.execute("search_conversations", """{"query":"cancel"}""", context)
+            org.junit.Assert.fail("Cancellation must escape tool execution")
+        } catch (_: kotlinx.coroutines.CancellationException) { }
+    }
+
+    @Test
     fun keywordSearch_dropsStaleHiddenMatchBeforeWindowExpansion() = runTest {
         val hiddenMatch = MessageEntity(
             id = "message-hidden",

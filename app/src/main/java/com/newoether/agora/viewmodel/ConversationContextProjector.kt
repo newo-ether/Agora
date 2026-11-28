@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.concurrent.atomic.AtomicLong
 
 internal data class ConversationContextProjection(
@@ -38,12 +39,15 @@ internal class ConversationContextProjector(
     private val generationErrorFormatter: (String) -> String,
     private val newChatSystemPromptId: () -> String? = { null },
     private val newChatConversationSettings: () -> ConversationSettings? = { null },
+    appContext: android.content.Context? = null,
     private val contextLoader: DurableSelectedContextLoader =
-        DurableSelectedContextLoader(conversations, generationErrorFormatter),
+        DurableSelectedContextLoader(conversations, generationErrorFormatter, appContext = appContext),
 ) {
     private val requestIds = AtomicLong(0L)
     private val _projection = MutableStateFlow(ConversationContextProjection())
     val projection: StateFlow<ConversationContextProjection> = _projection.asStateFlow()
+    private val _invalidationRevision = MutableStateFlow(0L)
+    val invalidationRevision: StateFlow<Long> = _invalidationRevision.asStateFlow()
     private var latestRequest: Job? = null
     private val projectionTurn = Mutex()
 
@@ -76,6 +80,8 @@ internal class ConversationContextProjector(
             usage = previousUsage,
             loading = true,
         )
+        // Room may already have emitted an equal graph. Give the UI a separate request key.
+        _invalidationRevision.update { it + 1L }
     }
 
     suspend fun project(
@@ -131,13 +137,13 @@ internal class ConversationContextProjector(
             val contextMessages = snapshot?.let {
                 projectGenerationInputMessages(
                     messages = durableProviderMessages,
-                    // Transcription-enabled models receive descriptions instead of raw images at
-                    // dispatch; the bottom-bar estimate must match.
-                    includeImages = !it.context.imageTranscriptionEnabled,
+                    // Stored descriptions remove only their own images before this projection.
+                    includeImages = true,
                     userPrepend = it.config.userPrepend,
                     userPostpend = it.config.userPostpend,
                     assistantPrepend = it.config.assistantPrepend,
                     assistantPostpend = it.config.assistantPostpend,
+                    phoneMaxScreenshots = it.config.phoneMaxScreenshots,
                 )
             } ?: durableProviderMessages
             val fixedTokenCost = snapshot?.let {
@@ -152,7 +158,11 @@ internal class ConversationContextProjector(
             // The indicator must price context exactly like dispatch does, so it uses the selected
             // model's cost model too.
             val costs = snapshot
-                ?.let { ContextCostModels.forModel(it.config.modelId) }
+                ?.let {
+                    ContextCostModels.forModel(
+                        it.config.modelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
+                    )
+                }
                 ?: ContextCostModel.Default
             ConversationContextProjection(
                 conversationId = conversationId,

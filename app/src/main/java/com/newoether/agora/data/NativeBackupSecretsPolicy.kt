@@ -31,6 +31,7 @@ internal object NativeBackupSecretsPolicy {
             proxyPassword = sm.proxyPassword.first(),
             shellDevices = shellSecrets,
             embeddingApiKeys = embeddingSecrets,
+            speechRecognitionApiKeys = SpeechRecognitionPortableSettings.captureSecrets(sm.speechRecognition),
             mcpHeaders = mcpSecrets,
         )
     }
@@ -146,6 +147,15 @@ internal object NativeBackupSecretsPolicy {
                 }
             },
         )
+
+        val orphanSpeechSecrets = SpeechRecognitionPortableSettings.restoreSecrets(
+            data.speechRecognitionApiKeys,
+            sm.speechRecognition,
+            replace,
+        )
+        if (orphanSpeechSecrets > 0) {
+            warnings += "ignored $orphanSpeechSecrets speech recognition credential record(s) without a matching config"
+        }
 
         val mcpServers = sm.mcpServers.first()
         val mcpIds = mcpServers.mapTo(mutableSetOf()) { it.id }

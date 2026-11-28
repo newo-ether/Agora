@@ -4,8 +4,15 @@ import android.app.Application
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.newoether.agora.model.AttachmentImportState
+import com.newoether.agora.model.AttachmentItem
+import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.AttachmentStorage
+import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.ImageArtifact
+import com.newoether.agora.model.Participant
 import com.newoether.agora.model.SelectedAttachment
+import com.newoether.agora.model.hasMeasuredFactsFor
+import com.newoether.agora.model.previewImagePath
 import com.newoether.agora.util.AttachmentFiles
 import com.newoether.agora.util.AttachmentSourceReader
 import com.newoether.agora.util.Constants
@@ -61,6 +68,9 @@ internal class AttachmentImportProcessor(
         }
     },
     private val maxAttachmentBytes: Long = AttachmentFiles.MAX_ATTACHMENT_BYTES,
+    private val measureArtifact: suspend (source: String) -> ImageArtifact = { source ->
+        ImageProcessor(app).measureArtifact(source)
+    },
 ) {
     sealed interface StageResult {
         data class Success(
@@ -86,6 +96,52 @@ internal class AttachmentImportProcessor(
         data class Failure(val cause: Throwable? = null) : ProcessResult
     }
 
+    /** Measures completed selected-draft bytes without entering staging or pixel processing. */
+    suspend fun hydrateDraftAttachment(attachment: SelectedAttachment): SelectedAttachment =
+        withContext(Dispatchers.IO) {
+            if (attachment.unavailable ||
+                attachment.importState != AttachmentImportState.READY ||
+                attachment.type !in setOf("image", "pdf", "video")
+            ) return@withContext attachment
+            val source = attachment.localPath?.takeIf(String::isNotBlank) ?: return@withContext attachment
+            val paths = when (attachment.type) {
+                "image" -> listOfNotNull(attachment.previewImagePath)
+                "pdf" -> attachment.preRenderedPaths.orEmpty()
+                else -> attachment.processedFrames.orEmpty()
+            }
+            if (paths.isEmpty()) return@withContext attachment
+            val hydration = ImageArtifactHydration(app)
+            val primary = if (attachment.storage.isLocalSandbox) source else try {
+                hydration.canonicalPath(source).takeIf { File(it).isFile && File(it).canRead() }
+            } catch (_: Exception) {
+                null
+            } ?: return@withContext attachment.copy(unavailable = true)
+            val hydrated = hydration.hydrate(ChatMessage(
+                text = "", participant = Participant.USER, images = paths,
+                attachmentMeta = AttachmentMeta(listOf(AttachmentItem(
+                    type = attachment.type, imageIndex = 0, pageCount = paths.size,
+                    imageArtifacts = attachment.imageArtifacts,
+                ))),
+            ))
+            val item = checkNotNull(hydrated.attachmentMeta).items.single()
+            val first = item.imageArtifacts.firstOrNull()
+            attachment.copy(
+                localPath = if (attachment.type == "image" && !attachment.storage.isLocalSandbox) {
+                    hydrated.images.single()
+                } else primary,
+                processedFrames = if (attachment.type == "video") hydrated.images else attachment.processedFrames,
+                preRenderedPaths = if (attachment.type == "pdf") hydrated.images else attachment.preRenderedPaths,
+                imageArtifacts = item.imageArtifacts,
+                mimeType = if (attachment.type == "image") first?.mimeType else attachment.mimeType,
+                fileSize = if (attachment.type == "image" && !attachment.storage.isLocalSandbox) {
+                    first?.sizeBytes
+                } else attachment.fileSize,
+                pixelWidth = first?.width,
+                pixelHeight = first?.height,
+                unavailable = item.unavailable,
+            )
+        }
+
     suspend fun stage(attachment: SelectedAttachment, outputOwner: Any? = null): StageResult = withContext(Dispatchers.IO) {
         val source = attachment.localPath ?: attachment.uri
         val directory = File(File(app.filesDir, "attachments/staged"), attachment.localId)
@@ -102,7 +158,7 @@ internal class AttachmentImportProcessor(
             AttachmentFiles.retainLivePath(it, partial.absolutePath)
         }
         try {
-            val input = openSource(source)
+            val input = attachment.sourceText?.byteInputStream(Charsets.UTF_8) ?: openSource(source)
                 ?: return@withContext StageResult.Failure(
                     IllegalStateException("Unable to open attachment source"),
                 )
@@ -151,11 +207,13 @@ internal class AttachmentImportProcessor(
                             fileSize = copy.bytesCopied,
                             processedFrames = null,
                             preRenderedPaths = null,
+                            imageArtifacts = emptyList(),
                             localPath = target.absolutePath,
                             pageCount = pageCount,
                             videoDurationMs = videoDurationMs,
                             importState = AttachmentImportState.PROCESSING,
                             preparedText = null,
+                            sourceText = null,
                             unavailable = false,
                         ),
                         createdPaths = listOf(target.absolutePath)
@@ -214,6 +272,7 @@ internal class AttachmentImportProcessor(
                 ProcessResult.Ready(
                     attachment = attachment.copy(
                         preRenderedPaths = pages,
+                        imageArtifacts = measureCreatedArtifacts(pages),
                         importState = AttachmentImportState.PROCESSING,
                     ),
                     createdPaths = pages,
@@ -268,16 +327,23 @@ internal class AttachmentImportProcessor(
     ): ProcessResult {
         val normalizedPath = normalizeImage(stagedPath, outputOwner)
             ?: return ProcessResult.Failure(IllegalStateException("Image normalization failed"))
-        val pixels = measurePixels(normalizedPath)
+        val artifact = try {
+            measureCompleteArtifact(normalizedPath)
+        } catch (failure: Exception) {
+            if (normalizedPath != stagedPath) File(normalizedPath).delete()
+            throw failure
+        }
         return ProcessResult.Ready(
             attachment = attachment.copy(
-                localPath = normalizedPath,
-                fileSize = File(normalizedPath).length(),
-                pixelWidth = pixels?.width,
-                pixelHeight = pixels?.height,
+                localPath = artifact.path,
+                mimeType = artifact.mimeType,
+                fileSize = artifact.sizeBytes,
+                pixelWidth = artifact.width,
+                pixelHeight = artifact.height,
+                imageArtifacts = listOf(artifact),
                 importState = AttachmentImportState.READY,
             ),
-            createdPaths = listOf(normalizedPath),
+            createdPaths = listOf(artifact.path),
             obsoletePaths = listOf(stagedPath).filterNot { it == normalizedPath },
         )
     }
@@ -299,14 +365,13 @@ internal class AttachmentImportProcessor(
         if (frames.isEmpty()) {
             return ProcessResult.Failure(IllegalStateException("Video frame extraction failed"))
         }
-        // Every frame of one extraction is bounded by the same edge limit and shares the source's
-        // aspect ratio, so the first frame's size represents the whole slice.
-        val pixels = measurePixels(frames.first())
+        val artifacts = measureCreatedArtifacts(frames)
         return ProcessResult.Ready(
             attachment = attachment.copy(
                 processedFrames = frames,
-                pixelWidth = pixels?.width,
-                pixelHeight = pixels?.height,
+                pixelWidth = artifacts.first().width,
+                pixelHeight = artifacts.first().height,
+                imageArtifacts = artifacts,
                 importState = AttachmentImportState.READY,
             ),
             createdPaths = frames,
@@ -318,22 +383,60 @@ internal class AttachmentImportProcessor(
         stagedPath: String,
         outputOwner: Any?,
     ): ProcessResult {
-        val pages = renderPdf(stagedPath, attachment.selectedPages, outputOwner)
-        if (pages.isEmpty()) {
-            return ProcessResult.Failure(IllegalStateException("PDF rendering failed"))
+        val previewPaths = attachment.preRenderedPaths.orEmpty()
+        val selection = attachment.selectedPages?.sorted()
+        val usesPreview = previewPaths.isNotEmpty() && selection != null
+        val pages: List<String>
+        val artifacts: List<ImageArtifact>
+        if (previewPaths.isNotEmpty() && selection != null) {
+            if (selection.isEmpty() || selection.any { it !in previewPaths.indices }) {
+                return ProcessResult.Failure(IllegalStateException("Selected PDF preview index is invalid"))
+            }
+            pages = selection.map(previewPaths::get)
+            artifacts = pages.map { path ->
+                val recorded = attachment.imageArtifacts.firstOrNull { it.path == path }
+                try {
+                    // Read the selected preview as-is; historical measurements never reject readable pixels.
+                    measureCompleteArtifact(path).copy(policyVersion = recorded?.policyVersion ?: 0)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    recorded?.copy(unavailable = true) ?: ImageArtifact(
+                        path = path, mimeType = "application/octet-stream", sizeBytes = 0,
+                        unavailable = true,
+                    )
+                }
+            }
+        } else {
+            pages = renderPdf(stagedPath, attachment.selectedPages, outputOwner)
+            if (pages.isEmpty()) {
+                return ProcessResult.Failure(IllegalStateException("PDF rendering failed"))
+            }
+            artifacts = measureCreatedArtifacts(pages)
         }
-        // Rendered pages share the renderer's target resolution, so the first page represents them.
-        val pixels = measurePixels(pages.first())
         return ProcessResult.Ready(
             attachment = attachment.copy(
                 selectedPages = pages.indices.toSet(),
                 preRenderedPaths = pages,
-                pixelWidth = pixels?.width,
-                pixelHeight = pixels?.height,
+                pixelWidth = artifacts.first().width,
+                pixelHeight = artifacts.first().height,
+                imageArtifacts = artifacts,
                 importState = AttachmentImportState.READY,
             ),
-            createdPaths = pages,
+            createdPaths = if (usesPreview) emptyList() else pages,
         )
+    }
+
+    private suspend fun measureCompleteArtifact(path: String): ImageArtifact =
+        measureArtifact(path).also { artifact ->
+            check(artifact.hasMeasuredFactsFor(path)) { "Image artifact metadata is incomplete" }
+        }
+
+    private suspend fun measureCreatedArtifacts(paths: List<String>): List<ImageArtifact> = try {
+        paths.map { measureCompleteArtifact(it) }
+    } catch (failure: Exception) {
+        paths.forEach { File(it).delete() }
+        throw failure
     }
 
     private fun processFile(
@@ -350,7 +453,7 @@ internal class AttachmentImportProcessor(
         )
     }
 
-    private fun processSandbox(
+    private suspend fun processSandbox(
         attachment: SelectedAttachment,
         stagedFile: File,
         sandboxHomeDir: File?,
@@ -358,32 +461,79 @@ internal class AttachmentImportProcessor(
     ): ProcessResult {
         val home = sandboxHomeDir
             ?: return ProcessResult.Failure(IllegalStateException("Local Sandbox is unavailable"))
+        // Resolve display data through the ordinary owners, keeping the sandbox original byte-exact.
+        val resolved = when (attachment.type) {
+            "image" -> snapshotSandboxImage(attachment, stagedFile, outputOwner)
+            "pdf" -> processPdf(attachment, stagedFile.absolutePath, outputOwner)
+            // Sandbox videos stay original files: the Provider request carries only the sandbox
+            // path, so slicing frames for the request would be wasted work.
+            "video" -> ProcessResult.Ready(attachment.copy(importState = AttachmentImportState.READY))
+            "file" -> if (com.newoether.agora.util.FileValidator.routeForMimeType(attachment.mimeType) ==
+                com.newoether.agora.util.FileValidator.AttachmentRoute.TEXT
+            ) processFile(attachment, stagedFile.absolutePath)
+            else ProcessResult.Ready(attachment.copy(importState = AttachmentImportState.READY))
+            else -> return ProcessResult.Failure(IllegalArgumentException("Unsupported attachment type"))
+        }
+        if (resolved !is ProcessResult.Ready) return resolved
         val fileName = AttachmentFiles.sanitizeFileName(attachment.fileName)
         val relativePath = "attachments/${attachment.localId}/$fileName"
         val target = File(home, relativePath)
         outputOwner?.let { AttachmentFiles.retainLivePath(it, target.absolutePath) }
-        return when (
-            val copy = AttachmentFiles.copyBounded(
-                input = stagedFile.inputStream(),
-                target = target,
-                expectedSize = attachment.fileSize,
-                maxBytes = maxAttachmentBytes,
-            )
-        ) {
-            is AttachmentFiles.CopyResult.Success -> ProcessResult.Ready(
-                attachment = attachment.copy(
-                    fileName = fileName,
-                    fileSize = copy.bytesCopied,
-                    localPath = target.absolutePath,
-                    sandboxPath = "/home/agora/$relativePath",
+        var published = false
+        try {
+            return when (val copy = AttachmentFiles.copyBounded(
+                input = stagedFile.inputStream(), target = target,
+                expectedSize = attachment.fileSize, maxBytes = maxAttachmentBytes,
+            )) {
+                is AttachmentFiles.CopyResult.Success -> {
+                    published = true
+                    ProcessResult.Ready(
+                        attachment = resolved.attachment.copy(
+                            fileName = fileName, fileSize = copy.bytesCopied,
+                            localPath = target.absolutePath, sandboxPath = "/home/agora/$relativePath",
+                        ),
+                        createdPaths = resolved.createdPaths + target.absolutePath,
+                        obsoletePaths = listOf(stagedFile.absolutePath),
+                    )
+                }
+                AttachmentFiles.CopyResult.TooLarge ->
+                    ProcessResult.Failure(IllegalStateException("Attachment exceeds size limit"))
+                is AttachmentFiles.CopyResult.Failure -> ProcessResult.Failure(copy.cause)
+            }
+        } finally {
+            if (!published) resolved.createdPaths.forEach { File(it).delete() }
+        }
+    }
+
+    private suspend fun snapshotSandboxImage(
+        attachment: SelectedAttachment,
+        source: File,
+        outputOwner: Any?,
+    ): ProcessResult {
+        val preview = File(app.filesDir, "img_${UUID.randomUUID()}.img")
+        outputOwner?.let { AttachmentFiles.retainLivePath(it, preview.absolutePath) }
+        var completed = false
+        try {
+            when (val copy = AttachmentFiles.copyBounded(
+                source.inputStream(), preview, attachment.fileSize, maxAttachmentBytes,
+            )) {
+                AttachmentFiles.CopyResult.TooLarge ->
+                    return ProcessResult.Failure(IllegalStateException("Attachment exceeds size limit"))
+                is AttachmentFiles.CopyResult.Failure -> return ProcessResult.Failure(copy.cause)
+                is AttachmentFiles.CopyResult.Success -> Unit
+            }
+            val artifact = measureCompleteArtifact(preview.absolutePath)
+            completed = true
+            return ProcessResult.Ready(
+                attachment.copy(
+                    mimeType = artifact.mimeType, imageArtifacts = listOf(artifact),
+                    pixelWidth = artifact.width, pixelHeight = artifact.height,
                     importState = AttachmentImportState.READY,
                 ),
-                createdPaths = listOf(target.absolutePath),
-                obsoletePaths = listOf(stagedFile.absolutePath),
+                createdPaths = listOf(preview.absolutePath),
             )
-            AttachmentFiles.CopyResult.TooLarge ->
-                ProcessResult.Failure(IllegalStateException("Attachment exceeds size limit"))
-            is AttachmentFiles.CopyResult.Failure -> ProcessResult.Failure(copy.cause)
+        } finally {
+            if (!completed) preview.delete()
         }
     }
 
@@ -398,6 +548,7 @@ internal class AttachmentImportProcessor(
             fileSize = fileSize,
             processedFrames = null,
             preRenderedPaths = null,
+            imageArtifacts = emptyList(),
             localPath = target.absolutePath,
             importState = AttachmentImportState.FAILED,
             preparedText = null,

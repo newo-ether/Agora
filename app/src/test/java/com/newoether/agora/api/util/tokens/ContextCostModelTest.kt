@@ -9,7 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Each cost-model component priced on its own, plus proof that the estimator uses the model. */
+/** App integration cases; standalone cost components are tested in provider/cloud. */
 class ContextCostModelTest {
 
     private fun tool(): ToolDefinition = ToolDefinition(
@@ -24,83 +24,6 @@ class ContextCostModelTest {
     )
 
     @Test
-    fun heuristicCounterChargesAsciiRunsByFourAndEveryOtherCodePointByOne() {
-        val counter = HeuristicTextTokenCounter
-        assertEquals(0L, counter.count(""))
-        assertEquals(0L, counter.count("   \n\t"))
-        assertEquals(1L, counter.count("abcd"))
-        assertEquals(2L, counter.count("abcde"))
-        // "hello" and "world" are two runs of five, so two tokens each.
-        assertEquals(4L, counter.count("hello world"))
-        // Punctuation flushes the run and costs one token of its own.
-        assertEquals(3L, counter.count("a-b"))
-        // Non-ASCII code points cost one each, never four to a token.
-        assertEquals(2L, counter.count("你好"))
-        // A surrogate pair is one code point, so one token, not two.
-        assertEquals(1L, counter.count("\uD83D\uDE00"))
-    }
-
-    @Test
-    fun byteProportionalImageCostClampsAndFallsBackWhenNothingIsKnown() {
-        val cost = ByteProportionalImageCost
-        assertEquals(300L, cost.tokens(ImageDescriptor(byteSize = 768L * 300L)))
-        assertEquals(
-            ByteProportionalImageCost.MIN_TOKENS,
-            cost.tokens(ImageDescriptor(byteSize = 1L)),
-        )
-        assertEquals(
-            ByteProportionalImageCost.MAX_TOKENS,
-            cost.tokens(ImageDescriptor(byteSize = 768L * 4_000L)),
-        )
-        assertEquals(ByteProportionalImageCost.UNKNOWN_TOKENS, cost.tokens(ImageDescriptor()))
-        assertEquals(
-            ByteProportionalImageCost.UNKNOWN_TOKENS,
-            cost.tokens(ImageDescriptor(byteSize = 0L)),
-        )
-        assertEquals(
-            ByteProportionalImageCost.UNKNOWN_TOKENS,
-            cost.tokens(ImageDescriptor(byteSize = -4_096L)),
-        )
-    }
-
-    @Test
-    fun byteProportionalImageCostIgnoresPixelDimensions() {
-        // The byte rule is the fallback for endpoints without published pixel formulas, so a known
-        // pixel size must not change its answer.
-        assertEquals(
-            ByteProportionalImageCost.tokens(ImageDescriptor(byteSize = 768L * 300L)),
-            ByteProportionalImageCost.tokens(
-                ImageDescriptor(byteSize = 768L * 300L, pixelWidth = 4_000, pixelHeight = 3_000),
-            ),
-        )
-    }
-
-    @Test
-    fun safetyMarginRoundsUpAndClampsToIntRange() {
-        val margin = SafetyMargin.Default
-        assertEquals(0, margin.apply(0L))
-        assertEquals(2, margin.apply(1L))
-        assertEquals(11, margin.apply(10L))
-        assertEquals(110, margin.apply(100L))
-        assertEquals(Int.MAX_VALUE, margin.apply(Int.MAX_VALUE.toLong()))
-    }
-
-    @Test(expected = IllegalArgumentException::class)
-    fun safetyMarginRejectsZeroDenominator() {
-        SafetyMargin(numerator = 11L, denominator = 0L)
-    }
-
-    @Test(expected = IllegalArgumentException::class)
-    fun safetyMarginRejectsShrinkingTheEstimate() {
-        SafetyMargin(numerator = 9L, denominator = 10L)
-    }
-
-    @Test(expected = IllegalArgumentException::class)
-    fun envelopeCostRejectsNegativeFraming() {
-        EnvelopeCost(perMessage = -1, perToolDefinition = 16, perToolCall = 16)
-    }
-
-    @Test
     fun defaultModelReproducesTheSharedEstimatorExactly() {
         val estimator = CostModelContextEstimator(ContextCostModel.Default)
         val tools = listOf(tool())
@@ -113,8 +36,8 @@ class ContextCostModelTest {
             estimator.estimateText("hello world"),
         )
         assertEquals(
-            ContextTokenEstimator.estimateImageTokens(768L * 300L),
-            estimator.imageTokens(ImageDescriptor(byteSize = 768L * 300L)),
+            ContextTokenEstimator.estimateImageTokens(ImageDescriptor(pixelWidth = 640, pixelHeight = 480)),
+            estimator.imageTokens(ImageDescriptor(pixelWidth = 640, pixelHeight = 480)),
         )
     }
 

@@ -28,10 +28,11 @@ internal fun automaticMessageApiText(source: MessageSource, text: String): Strin
         source.askUser.forEach { item ->
             append("<item>\n")
             append("<question>").append(xmlEscape(item.question)).append("</question>\n")
-            if (item.answer == null) {
+            val answer = item.answer
+            if (answer == null) {
                 append("<unanswered/>\n")
             } else {
-                append("<answer>").append(xmlEscape(item.answer)).append("</answer>\n")
+                append("<answer>").append(xmlEscape(answer)).append("</answer>\n")
             }
             append("</item>\n")
         }

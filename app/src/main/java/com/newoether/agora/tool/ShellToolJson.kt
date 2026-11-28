@@ -1,5 +1,6 @@
 package com.newoether.agora.tool
 import com.newoether.agora.util.Constants
+import com.newoether.agora.util.DebugLog
 import com.newoether.agora.util.SHELL_FILE_EDIT_MAX_OPERATIONS
 import com.newoether.agora.util.ShellFileEdit
 import com.newoether.agora.util.ShellFileEditResult
@@ -26,6 +27,30 @@ internal fun jsonError(type: String, message: String, server: String? = null, co
         if (server != null) put("server", server)
         if (command != null) put("command", command)
     }.toString()
+}
+/**
+ * Backend file-walk failures arrive as raw runtime text (for example
+ * "walk: context deadline exceeded"). The tool result carries one readable sentence instead; the
+ * original goes to the debug log. Known patterns get a specific cause and remedy.
+ */
+internal fun readableFileToolFailure(tool: String, raw: String?): String {
+    val detail = raw?.trim().orEmpty()
+    if (detail.isNotEmpty()) {
+        // Plain JVM unit tests have no android.util.Log; logging must never mask the result.
+        runCatching { DebugLog.e("ShellToolProvider", "$tool failed: $detail") }
+    }
+    val lower = detail.lowercase()
+    return when {
+        "deadline exceeded" in lower || "timed out" in lower || "timeout" in lower ->
+            "$tool failed: the server took too long to scan the files. " +
+                "Narrow the path or glob, then retry."
+        "permission denied" in lower ->
+            "$tool failed: the server was not allowed to read part of that tree. " +
+                "Pick a path it can read."
+        else ->
+            "$tool failed: an internal error interrupted the request. " +
+                "Retry once; if it keeps failing, narrow the request."
+    }
 }
 /** String value of [key]; missing, non-primitive and JSON null all read as "" (not "null"). */
 internal fun arg(args: Map<String, JsonElement>, key: String): String {

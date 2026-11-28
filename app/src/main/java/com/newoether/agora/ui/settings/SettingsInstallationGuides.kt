@@ -5,18 +5,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
@@ -36,7 +34,7 @@ internal fun SettingsInstallationHelp(conch: Boolean, enabled: Boolean, onClick:
         SettingsItem(
             headlineContent = { Text(stringResource(if (conch) R.string.conch_guide_title else R.string.filo_guide_title)) },
             supportingContent = { Text(stringResource(if (conch) R.string.conch_guide_description else R.string.filo_guide_description)) },
-            leadingContent = { Icon(Icons.Default.HelpOutline, null, tint = MaterialTheme.colorScheme.primary) },
+            leadingContent = { Icon(Icons.Rounded.HelpOutline, null, tint = MaterialTheme.colorScheme.primary) },
             modifier = Modifier.testTag(if (conch) "shell-conch-guide-entry" else "remote-filo-guide-entry")
                 .clickable(enabled = enabled, onClick = onClick),
         )
@@ -81,7 +79,7 @@ private fun InstallationGuide(conch: Boolean, platform: Int, onPlatform: (Int) -
                         supportingContent = {
                             Text(stringResource(if (conch) R.string.conch_guide_description else R.string.filo_guide_description))
                         },
-                        leadingContent = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
+                        leadingContent = { Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary) },
                     )
                 },
             )
@@ -91,7 +89,7 @@ private fun InstallationGuide(conch: Boolean, platform: Int, onPlatform: (Int) -
                 items = buildList {
                     if (conch) add {
                         SettingsIconContent(
-                            icon = Icons.Default.Devices,
+                            icon = Icons.Rounded.Devices,
                             modifier = Modifier.testTag("conch-guide-platform"),
                         ) {
                             Text(
@@ -106,7 +104,6 @@ private fun InstallationGuide(conch: Boolean, platform: Int, onPlatform: (Int) -
                                 selectedIndex = platform,
                                 onSelect = { if (ownsGuide()) onPlatform(it) },
                                 enabled = active,
-                                wrapLabels = true,
                             )
                         }
                     }
@@ -125,15 +122,12 @@ private fun InstallationGuide(conch: Boolean, platform: Int, onPlatform: (Int) -
                     }
                     add {
                         InstallationStep(2, stringResource(R.string.install_guide_run_command)) {
-                            InstallCommand(command, active, "$prefix-command")
+                            InstallCommand(command, if (conch && platform != 0) "bash" else "powershell", active, ::ownsGuide, "$prefix-command")
                         }
                     }
                     add {
                         InstallationStep(3, stringResource(R.string.install_guide_connect)) {
                             Text(stringResource(if (conch) R.string.conch_guide_finish else R.string.filo_guide_finish))
-                            TextButton(onClick = back, enabled = active, modifier = Modifier.testTag("$prefix-return")) {
-                                Text(stringResource(R.string.back))
-                            }
                         }
                     }
                 },
@@ -165,26 +159,19 @@ private fun InstallationStep(number: Int, title: String, content: @Composable Co
     )
 }
 
-@Suppress("DEPRECATION")
+/** Same block and header copy target as chat Markdown code; stale entries cannot copy. */
 @Composable
-private fun InstallCommand(command: String, active: Boolean, tag: String) {
-    val clipboard = LocalClipboardManager.current
-    val latestActive by rememberUpdatedState(active)
+private fun InstallCommand(command: String, language: String, active: Boolean, owns: () -> Boolean, tag: String) {
     SelectionContainer {
         ChatMarkdownCodeBlock(
             code = command,
             autoWrap = true,
-            showHeader = false,
+            language = language,
+            copyEnabled = active,
+            canCopy = owns,
+            copyModifier = Modifier.testTag("$tag-copy"),
             modifier = Modifier.testTag(tag).semantics(mergeDescendants = true) {},
         )
-    }
-    TextButton(
-        onClick = { if (latestActive) clipboard.setText(AnnotatedString(command)) },
-        enabled = active, modifier = Modifier.testTag("$tag-copy"),
-    ) {
-        Icon(Icons.Default.ContentCopy, null)
-        Spacer(Modifier.width(8.dp))
-        Text(stringResource(R.string.install_guide_copy_command))
     }
 }
 
@@ -195,8 +182,8 @@ private fun InstallSourceLink(url: String, active: Boolean, tag: String) {
     SettingsItem(
         headlineContent = { Text(stringResource(R.string.about_github)) },
         supportingContent = { Text(url.removePrefix("https://")) },
-        leadingContent = { Icon(Icons.Default.Code, null, tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = { Icon(Icons.Default.OpenInNew, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = { Icon(Icons.Rounded.Code, null, tint = MaterialTheme.colorScheme.primary) },
+        trailingContent = { Icon(Icons.Rounded.OpenInNew, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.testTag(tag).clickable(enabled = active, role = Role.Button) {
             if (latestActive) runCatching { uriHandler.openUri(url) }
         },

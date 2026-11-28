@@ -3,9 +3,9 @@ package com.newoether.agora.ui.settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Science
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
@@ -45,7 +45,7 @@ fun SettingsDeveloperPage(
     if (showDisableDialog) {
         AlertDialog(
             onDismissRequest = { showDisableDialog = false },
-            icon = { Icon(Icons.Default.BugReport, contentDescription = null) },
+            icon = { Icon(Icons.Rounded.BugReport, contentDescription = null) },
             title = { Text(stringResource(R.string.developer_options_disable_title)) },
             text = { Text(stringResource(R.string.developer_options_disable_message)) },
             confirmButton = {
@@ -108,7 +108,7 @@ fun SettingsDeveloperPage(
                                         )
                                     },
                                     leadingContent = {
-                                        Icon(Icons.Default.BugReport, contentDescription = null)
+                                        Icon(Icons.Rounded.BugReport, contentDescription = null)
                                     },
                                     trailingContent = {
                                         Switch(
@@ -138,7 +138,7 @@ fun SettingsDeveloperPage(
                                         )
                                     },
                                     leadingContent = {
-                                        Icon(Icons.Default.Visibility, contentDescription = null)
+                                        Icon(Icons.Rounded.Visibility, contentDescription = null)
                                     },
                                 )
                             },
@@ -162,7 +162,7 @@ fun SettingsDeveloperPage(
                                         )
                                     },
                                     leadingContent = {
-                                        Icon(Icons.Default.Science, contentDescription = null)
+                                        Icon(Icons.Rounded.Science, contentDescription = null)
                                     },
                                     trailingContent = {
                                         Switch(

@@ -14,7 +14,7 @@ import com.newoether.agora.ui.chat.bottombar.AttachmentAddMenu
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun RemoteAttachmentPicker(owner: String, enabled: Boolean, vm: RemoteViewModel) {
+internal fun RemoteAttachmentPicker(owner: String, enabled: Boolean, itemsEnabled: Boolean, vm: RemoteViewModel) {
     var photoOwner by rememberSaveable { mutableStateOf<String?>(null) }
     var fileOwner by rememberSaveable { mutableStateOf<String?>(null) }
     val photos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(16)) { uris ->
@@ -23,7 +23,7 @@ internal fun RemoteAttachmentPicker(owner: String, enabled: Boolean, vm: RemoteV
     val files = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         fileOwner?.let { vm.addAttachments(it, uris) }; fileOwner = null
     }
-    AttachmentAddMenu(enabled = enabled, showCamera = false, showVideos = false,
+    AttachmentAddMenu(enabled = enabled, showCamera = false, showVideos = false, itemsEnabled = itemsEnabled,
         onCamera = {}, onVideos = {},
         onPhotos = { photoOwner = owner; photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
         onFiles = { fileOwner = owner; files.launch(arrayOf("*/*")) })

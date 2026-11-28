@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="embedding_import_title">导入嵌入模型 (.gguf)</string>
+    <string name="embedding_import_title">嵌入模型 (.gguf)</string>
     <string name="embedding_import_desc">导入 GGUF 嵌入模型，用于本地语义搜索</string>
-    <string name="local_chat_import_title">导入聊天模型 (.gguf)</string>
+    <string name="local_chat_import_title">聊天模型 (.gguf)</string>
     <string name="local_chat_import_desc">导入 GGUF 聊天模型，在设备上运行对话</string>
-    <string name="local_projector_import_title">导入视觉投影器 (.mmproj)</string>
+    <string name="model_import_not_imported">未导入 · %1$s</string>
+    <string name="model_import_file_missing">文件缺失</string>
+    <string name="local_projector_enabled">已启用图像输入</string>
 </resources>

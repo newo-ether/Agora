@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import com.newoether.agora.ui.components.smoothSheetBottomPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -19,10 +19,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -153,7 +153,7 @@ internal fun ConversationTodoBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(Icons.Default.Checklist, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Checklist, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                     Text(
                         title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -191,8 +191,8 @@ internal fun ConversationTodoBar(
         ) {
             LazyColumn(
                 state = list,
-                modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-                contentPadding = PaddingValues(bottom = 32.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = smoothSheetBottomPadding()),
             ) {
                 itemsIndexed(items) { _, item ->
                     val status = when (item.status) {
@@ -207,9 +207,9 @@ internal fun ConversationTodoBar(
                     ) {
                         Icon(
                             when (item.status) {
-                                "completed" -> Icons.Default.CheckCircle
-                                "in_progress" -> Icons.Default.Schedule
-                                else -> Icons.Default.RadioButtonUnchecked
+                                "completed" -> Icons.Rounded.CheckCircle
+                                "in_progress" -> Icons.Rounded.Schedule
+                                else -> Icons.Rounded.RadioButtonUnchecked
                             }, stringResource(status), Modifier.size(20.dp).alignBy { it.measuredHeight / 2 },
                             tint = if (item.status == "in_progress") MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant,

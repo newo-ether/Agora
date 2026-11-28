@@ -22,6 +22,9 @@
     <string name="subagents_max_concurrent">同時執行數量</string>
     <string name="subagents_max_concurrent_desc">每個父對話同時執行的子代理數量上限。超出的工作會等待；調低上限後，正在執行的子代理仍可完成。</string>
     <string name="subagents_limit_value">%1$d</string>
+    <plurals name="subagents_running_count">
+        <item quantity="other">%d 個執行中</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="other">%d 個子代理</item>
     </plurals>

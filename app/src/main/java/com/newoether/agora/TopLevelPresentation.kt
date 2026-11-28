@@ -31,7 +31,9 @@ internal class TopLevelPresentationState(
     }
 
     fun present(presentation: TopLevelPresentation) {
-        require(presentation != TopLevelPresentation.CHAT)
+        // Chat is the base surface, not an overlay. Dismissed overlays retain ownership
+        // until their exit callbacks release them, even when navigation requests Chat.
+        if (presentation == TopLevelPresentation.CHAT) return
         presentations.remove(presentation)
         presentations.add(presentation)
         owner = presentation

@@ -2,13 +2,26 @@ package com.newoether.agora.data.repository
 
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.local.RunEntity
-import com.newoether.agora.data.local.decodeSelectionMap
-import com.newoether.agora.data.local.encodeSelectionMap
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunEndReason
 import com.newoether.agora.model.RunStatus
 import java.util.UUID
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+internal fun decodeSelectionMap(raw: String?): MutableMap<String?, String> =
+    raw?.let {
+        runCatching {
+            Json.decodeFromString<Map<String, String>>(it)
+                .mapKeysTo(mutableMapOf()) { entry ->
+                    if (entry.key == "null") null else entry.key
+                }
+        }.getOrDefault(mutableMapOf())
+    } ?: mutableMapOf()
+
+internal fun encodeSelectionMap(selections: Map<String?, String>): String =
+    Json.encodeToString(selections.mapKeys { it.key ?: "null" })
 
 /**
  * Outcome of a voice-exchange persist attempt. [Skipped] means a live Run owns the conversation

@@ -7,9 +7,9 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Password
-import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Password
+import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -110,7 +110,7 @@ internal fun SettingsSshAuthenticationEditor(
     SettingsGroup(title = stringResource(R.string.shell_authentication), items = buildList {
         add {
             SettingsIconContent(
-                Icons.Default.Key,
+                Icons.Rounded.Key,
                 modifier = Modifier.testTag("shell-ssh-authentication"),
             ) {
                 McpLabeledField(
@@ -146,16 +146,19 @@ internal fun SettingsSshAuthenticationEditor(
                             ))
                         }
                     },
-                    allowLabelOverflow = true,
                 )
             }
         }
         if (device.sshAuthMode == SSH_AUTH_PRIVATE_KEY) {
             add {
                 ModelImportItem(
-                    title = device.sshPrivateKeyName.ifBlank { stringResource(R.string.shell_ssh_import_private_key) },
+                    title = stringResource(R.string.shell_ssh_import_private_key),
+                    importedFile = if (device.sshPrivateKey.isBlank()) null else ModelImportFileInfo(
+                        device.sshPrivateKeyName.ifBlank { stringResource(R.string.shell_ssh_auth_private_key) },
+                        device.sshPrivateKey.toByteArray(Charsets.UTF_8).size.toLong(),
+                    ),
                     description = stringResource(R.string.shell_ssh_private_key_desc),
-                    icon = Icons.Default.UploadFile,
+                    icon = Icons.Rounded.UploadFile,
                     importing = importing,
                     enabled = canEdit(),
                     onClick = {
@@ -171,7 +174,7 @@ internal fun SettingsSshAuthenticationEditor(
             }
             if (encrypted) {
                 add {
-                    SettingsIconContent(Icons.Default.Password) {
+                    SettingsIconContent(Icons.Rounded.Password) {
                         McpLabeledField(
                             label = stringResource(R.string.shell_ssh_private_key_passphrase),
                             value = device.sshKeyPassphrase,
@@ -183,7 +186,7 @@ internal fun SettingsSshAuthenticationEditor(
             }
         } else {
             add {
-                SettingsIconContent(Icons.Default.Password) {
+                SettingsIconContent(Icons.Rounded.Password) {
                     McpLabeledField(
                         label = stringResource(R.string.shell_device_password),
                         value = device.sshPassword,
@@ -195,7 +198,7 @@ internal fun SettingsSshAuthenticationEditor(
         }
         (importError ?: saveError)?.let { error ->
             add {
-                SettingsIconContent(Icons.Default.Key) {
+                SettingsIconContent(Icons.Rounded.Key) {
                     Text(stringResource(error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
             }

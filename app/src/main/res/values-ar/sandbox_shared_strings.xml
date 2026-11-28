@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">مفعّلة · ما زال إذن الوصول إلى التخزين مطلوبًا</string>
     <string name="sandbox_shared_storage_grant">منح إذن الوصول إلى التخزين</string>
     <string name="sandbox_shared_storage_warning">يسمح هذا لأوامر الصندوق بقراءة الصور والتنزيلات والملفات المشتركة الأخرى وتعديلها. تتطلب استدعاءات الأدوات التي تغيّر البيانات تأكيدًا.</string>
+    <string name="sandbox_distribution">التوزيعة</string>
+    <string name="sandbox_distribution_desc">اختر بيئة Linux وثبّتها بشكل منفصل عند الحاجة.</string>
+    <string name="sandbox_distribution_busy">أوقف مهام الصندوق الرملي الجارية وانتظر اكتمال العمليات الحالية قبل تبديل التوزيعة.</string>
+    <string name="sandbox_distribution_switch_failed">تعذّر تبديل التوزيعة. حاول مرة أخرى.</string>
 </resources>

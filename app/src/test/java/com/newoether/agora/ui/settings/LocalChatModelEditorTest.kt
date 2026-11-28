@@ -23,10 +23,10 @@ class LocalChatModelEditorTest {
     @Test
     fun `new defaults fit context without changing serialized legacy defaults`() {
         val draft = LocalChatModelDraft.from(null)
-        assertEquals("16384", draft.nCtx)
-        assertEquals("1024", draft.maxTokens)
-        assertEquals("0.7", draft.temperature)
-        assertEquals("0.9", draft.topP)
+        assertEquals("8192", draft.nCtx)
+        assertEquals("4096", draft.maxTokens)
+        assertEquals("1.0", draft.temperature)
+        assertEquals("0.95", draft.topP)
         assertNull(valid.validate { false })
         val legacy = LocalChatModelConfig(modelId = "legacy", alias = "Legacy")
         assertEquals(2048, legacy.nCtx)

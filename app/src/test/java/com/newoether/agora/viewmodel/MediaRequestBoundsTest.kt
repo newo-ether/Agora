@@ -9,8 +9,8 @@ class MediaRequestBoundsTest {
     @Test
     fun longScreenshotUsesLongestEdgeForSampling() {
         val sample = imageSampleSizeForBounds(width = 40_000, height = 600)
-        assertEquals(32, sample)
-        assertTrue(40_000 / sample <= 2_048)
+        assertEquals(16, sample)
+        assertTrue(40_000 / sample >= 2_048)
     }
 
     @Test

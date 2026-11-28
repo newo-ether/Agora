@@ -5,13 +5,12 @@ import com.newoether.agora.api.ToolFunction
 import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.api.ToolProperty
 import com.newoether.agora.api.util.ToolSchemaJson
-import com.newoether.agora.api.util.validateToolDefinitions
+import com.newoether.agora.api.providerToolValidationError
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** MCP tool schemas reach providers intact, including nesting the typed model cannot express. */
@@ -72,10 +71,10 @@ class McpToolSchemaWireTest {
 
     @Test
     fun mapAndNestedObjectSchemasPassLocalValidation() {
-        val violations = validateToolDefinitions(
+        val violation = providerToolValidationError(
             listOf(definition("mcp_drop", dropSchema), definition("mcp_fill_form", fillFormSchema)),
         )
-        assertTrue(violations.toString(), violations.isEmpty())
+        assertEquals(null, violation)
     }
 
     @Test
@@ -90,8 +89,8 @@ class McpToolSchemaWireTest {
             ),
         )
         assertEquals(
-            listOf("tool built_in object opts has no property schema"),
-            validateToolDefinitions(listOf(typed)),
+            "tool built_in object opts has no property schema",
+            providerToolValidationError(listOf(typed)),
         )
         val parameters = json.parseToJsonElement(json.encodeToString(ToolDefinition.serializer(), typed))
             .jsonObject["function"]!!.jsonObject["parameters"]!!.jsonObject

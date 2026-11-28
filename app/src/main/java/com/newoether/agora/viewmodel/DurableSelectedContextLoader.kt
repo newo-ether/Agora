@@ -1,5 +1,6 @@
 package com.newoether.agora.viewmodel
 
+import android.content.Context
 import com.newoether.agora.api.util.projectGenerationStatusesForApi
 import com.newoether.agora.data.local.MessageContextTopology
 import com.newoether.agora.data.local.MessageEntity
@@ -8,6 +9,8 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.util.Constants
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 internal data class DurableSelectedContextRequest(
@@ -40,34 +43,34 @@ internal fun selectedVisibleContextMessageIds(
 internal class DurableSelectedContextLoader(
     private val conversations: ConversationRepository,
     private val generationErrorFormatter: (String) -> String,
+    private val appContext: Context?,
 ) {
-    suspend fun load(request: DurableSelectedContextRequest): DurableSelectedContext =
-        conversations.withProviderContextSnapshot {
-            val snapshot = conversations.getProviderContextTopologySnapshot(request.conversationId)
-                ?: return@withProviderContextSnapshot DurableSelectedContext(
-                    messages = emptyList(),
-                    entities = emptyList(),
-                )
+    constructor(
+        conversations: ConversationRepository,
+        generationErrorFormatter: (String) -> String,
+    ) : this(conversations, generationErrorFormatter, null)
+
+    suspend fun load(request: DurableSelectedContextRequest): DurableSelectedContext {
+        val rows = conversations.withReadSnapshot { reader ->
+            val snapshot = reader.getProviderContextTopologySnapshot(request.conversationId)
+                ?: return@withReadSnapshot emptyList<InterruptedToolRounds.Row>()
             val plannedRows = ProviderContextTopologyPlanner.plan(
                 snapshot = snapshot,
                 anchorMessageId = request.anchorMessageId,
                 followSelectedBranch = request.followSelectedBranch,
             )
             if (plannedRows.isEmpty()) {
-                return@withProviderContextSnapshot DurableSelectedContext(
-                    messages = emptyList(),
-                    entities = emptyList(),
-                )
+                return@withReadSnapshot emptyList<InterruptedToolRounds.Row>()
             }
 
             val ids = plannedRows.map { it.row.id }
-            val fetched = conversations.getContextMessagesByIds(ids).associateBy(MessageEntity::id)
+            val fetched = ids.chunked(500).flatMap { reader.getMessagesByIds(it) }.associateBy(MessageEntity::id)
             if (fetched.size != ids.size) {
                 throw DurableContextLoadException(
                     "Provider context changed while loading message rows",
                 )
             }
-            val entities = plannedRows.map { planned ->
+            plannedRows.map { planned ->
                 val topology = planned.row
                 val entity = fetched[topology.id]
                     ?: throw DurableContextLoadException("A Provider context message disappeared")
@@ -78,17 +81,25 @@ internal class DurableSelectedContextLoader(
                     ),
                     stripAggregateToolSegments = planned.stripAggregateToolSegments,
                 )
-            }.let(InterruptedToolRounds::materialize)
-            DurableSelectedContext(
-                messages = projectProviderMessages(
-                    entities = entities,
-                    includeStoredTranscriptions = request.includeStoredTranscriptions,
-                ).let { messages ->
-                    projectGenerationStatusesForApi(messages, generationErrorFormatter)
-                },
-                entities = entities,
-            )
+            }
         }
+        // Media reads happen only after the selected snapshot transaction has released its lock.
+        val entities = InterruptedToolRounds.materialize(rows)
+        val projected = projectProviderMessages(
+            entities = entities,
+            includeStoredTranscriptions = request.includeStoredTranscriptions,
+        )
+        val messages = appContext?.let { context ->
+            withContext(Dispatchers.IO) {
+                val hydration = ImageArtifactHydration(context)
+                projected.map(hydration::hydrate)
+            }
+        } ?: projected
+        return DurableSelectedContext(
+            messages = projectGenerationStatusesForApi(messages, generationErrorFormatter),
+            entities = entities,
+        )
+    }
 
     private fun validateEntity(
         conversationId: String,

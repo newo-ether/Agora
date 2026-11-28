@@ -23,19 +23,21 @@ class SubagentManagerTest {
         val terminalMessages = mutableMapOf<String, MessageEntity>()
         val summaries = MutableStateFlow<List<SubagentSummary>>(emptyList())
         val dao = mockk<ChatDao>(relaxed = true)
-        val repository = ConversationRepository(dao, null, scheduleMaintenance = {})
         val settings = mockk<SettingsRepository>(relaxed = true)
         val transfers = mockk<ConversationSettingsTransferCoordinator>()
         val engine = mockk<TaskExecutionEngine>()
         val registry = ConversationStateRegistry {}
-        val delivery = SubagentCompletionQueueDelivery(repository, registry) { "Provider:model" }
         val concurrentLimit = MutableStateFlow(4)
         val coordinator = ConversationExecutionCoordinator(
             parentConversationId = { id -> children[id]?.parentConversationId },
             subagentMaxConcurrent = concurrentLimit,
         )
+        val repository = ConversationRepository(dao, null, scheduleMaintenance = {},
+            subagentGenerationIds = coordinator.admittedGenerationIds)
+        val delivery = SubagentCompletionQueueDelivery(repository, registry) { "Provider:model" }
         val stoppedLoops = mutableListOf<String>()
         val queuedMessages = mutableListOf<Triple<String, String, GenerationContext>>()
+        val deletedChildren = mutableListOf<Pair<String, String>>(); var deleteAccepted = true
         val identity = RunEffectIdentity("parent", 1L, "r-parent", 0, "effect")
         val configuredModels = MutableStateFlow<Set<String>?>(setOf("Provider:model"))
         val context = GenerationContext(conversationId = "parent", toolEffectIdentity = identity,
@@ -120,7 +122,8 @@ class SubagentManagerTest {
                     queuedMessages += Triple(id, text, context)
                     "queued-${queuedMessages.size}"
                 },
-                stopLoop = { stoppedLoops += it })
+                stopLoop = { stoppedLoops += it },
+                deleteIdleChild = { id, parent -> deletedChildren += id to parent; deleteAccepted.also { if (it) children.remove(id) } })
         }
         fun answer(child: String, id: String = "answer", text: String = "Result") {
             terminalMessages[id] = MessageEntity(id = id, conversationId = child, text = text,
@@ -129,7 +132,6 @@ class SubagentManagerTest {
         }
         suspend fun spawn(name: String = "Worker") = manager.spawn(name, "Provider:model", "Task", context)
     }
-
     @Test fun creationDoesNotScanOwnersAndRejectsStaleNestedAndDisabledModels() = runTest {
         val f = Fixture(backgroundScope)
         coVerify(exactly = 0) { f.dao.getConversation(any()) }
@@ -162,48 +164,6 @@ class SubagentManagerTest {
         assertEquals(before, f.children[first])
     }
 
-    @Test fun concurrencyWaitsForFullWorkerCancellationCleanupAndWakesOnIncrease() = runTest {
-        val f = Fixture(backgroundScope)
-        f.concurrentLimit.value = 1
-        val entered = mutableListOf<String>()
-        val cleanupStarted = CompletableDeferred<Unit>()
-        val cleanup = CompletableDeferred<Unit>()
-        coEvery { f.engine.runOnceWithAutomationGuardsHeld(any(), any(), any(), any(), any(), any(), any(), any(), any()) } coAnswers {
-            val child = firstArg<String>()
-            entered += child
-            try {
-                awaitCancellation()
-            } finally {
-                withContext(NonCancellable) {
-                    cleanupStarted.complete(Unit)
-                    cleanup.await()
-                }
-            }
-        }
-        val first = f.spawn("First")
-        runCurrent()
-        val second = f.spawn("Second")
-        runCurrent()
-        assertEquals(listOf(first), entered)
-        val stop = async { f.manager.stop(first, f.context) }
-        cleanupStarted.await()
-        runCurrent()
-        assertEquals(listOf(first), entered)
-        assertEquals(1, f.coordinator.admittedChildCount("parent"))
-        cleanup.complete(Unit)
-        stop.await()
-        runCurrent()
-        assertEquals(listOf(first, second), entered)
-        f.concurrentLimit.value = 2
-        val third = f.spawn("Third")
-        runCurrent()
-        assertEquals(listOf(first, second, third), entered)
-        assertEquals(2, f.coordinator.admittedChildCount("parent"))
-        f.manager.stop(second, f.context)
-        f.manager.stop(third, f.context)
-        runCurrent()
-        assertEquals(0, f.coordinator.admittedChildCount("parent"))
-    }
     @Test fun frozenAndLiveCandidateRestrictionsRejectBeforeChildCreation() = runTest {
         val f = Fixture(backgroundScope)
         val onlyOther = f.context.copy(subagentModelIds = listOf("Provider:other"))

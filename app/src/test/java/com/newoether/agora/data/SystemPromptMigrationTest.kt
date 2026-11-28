@@ -4,6 +4,8 @@ import java.util.Locale
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SystemPromptMigrationTest {
@@ -52,6 +54,107 @@ class SystemPromptMigrationTest {
             migrated.resolvedSystemItems.map { it.type to it.value })
         assertEquals(customized.resolvedSystemItems, coldStart(customized).resolvedSystemItems)
         assertEquals(migrated, coldStart(migrated))
+    }
+
+    @Test
+    fun everyHistoricalDefaultUpgradesButAnyCustomizedWrapperOrTextRemains() {
+        val versions = listOf(
+            DefaultSystemPrompt.previousVersionForMigration(Locale.ENGLISH),
+            DefaultSystemPrompt.versionBeforeMathRuleForMigration(Locale.ENGLISH),
+            DefaultSystemPrompt.versionBeforeToolRenameForMigration(Locale.ENGLISH),
+            DefaultSystemPrompt.versionBeforeToolGuidesForMigration(Locale.ENGLISH),
+            DefaultSystemPrompt.versionWithToolGuidesForMigration(Locale.ENGLISH),
+            DefaultSystemPrompt.versionBeforeHtmlPreviewForMigration(Locale.ENGLISH),
+            DefaultSystemPrompt.versionBeforeMediaGuidanceForMigration(Locale.ENGLISH),
+        )
+        val current = DefaultSystemPrompt.create(Locale.ENGLISH)
+        versions.forEachIndexed { index, original ->
+            val version = original.copy(id = "historic-$index")
+            val migrated = coldStart(version)
+            assertEquals(version.id, migrated.id)
+            assertEquals(version.title, migrated.title)
+            assertEquals(current.resolvedSystemItems.map { it.type to it.value },
+                migrated.resolvedSystemItems.map { it.type to it.value })
+            assertEquals(version.resolvedUserItems.map { it.type to it.value },
+                migrated.resolvedUserItems.map { it.type to it.value })
+            assertEquals(version.resolvedAssistantItems.map { it.type to it.value },
+                migrated.resolvedAssistantItems.map { it.type to it.value })
+            assertEquals(migrated, coldStart(migrated))
+            listOf(
+                version.copy(systemItems = version.resolvedSystemItems + text(" ")),
+                version.copy(userItems = listOf(text("Custom prefix")) + version.resolvedUserItems),
+                version.copy(assistantItems = version.resolvedAssistantItems + text("Custom suffix")),
+                version.copy(title = "My Default"),
+            ).forEach { customized ->
+                val restored = coldStart(customized)
+                assertEquals(customized.resolvedSystemItems.map { it.type to it.value },
+                    restored.resolvedSystemItems.map { it.type to it.value })
+                assertEquals(customized.resolvedUserItems.map { it.type to it.value },
+                    restored.resolvedUserItems.map { it.type to it.value })
+                assertEquals(customized.resolvedAssistantItems.map { it.type to it.value },
+                    restored.resolvedAssistantItems.map { it.type to it.value })
+                assertEquals(restored, coldStart(restored))
+            }
+        }
+    }
+
+    @Test
+    fun editingHtmlGuidanceInsideTheMergedDefaultSurvivesRepeatedSerializedStartup() {
+        val current = coldStart(DefaultSystemPrompt.versionWithSeparateHtmlPreviewForMigration(Locale.ENGLISH))
+        assertTrue(HtmlPreviewGuidance.isPresent(current.systemItems))
+        current.systemItems.zipWithNext().forEach { (left, right) ->
+            assertFalse(left.type == PromptItemType.CUSTOM && right.type == PromptItemType.CUSTOM)
+        }
+        val removed = current.copy(systemItems = current.systemItems.map { item ->
+            if (HtmlPreviewGuidance.isPresent(listOf(item))) {
+                item.copy(value = item.value.replace(HtmlPreviewGuidance.text, ""))
+            } else item
+        })
+        val edited = current.copy(systemItems = current.systemItems.map { item ->
+            if (HtmlPreviewGuidance.isPresent(listOf(item))) {
+                item.copy(value = item.value + "\nMy own visualization rules.")
+            } else item
+        })
+        listOf(removed, edited).forEach { customized ->
+            assertEquals(customized, coldStart(customized))
+            assertEquals(customized, coldStart(coldStart(customized)))
+        }
+        assertFalse(HtmlPreviewGuidance.isPresent(coldStart(removed).systemItems))
+    }
+
+    @Test
+    fun legacyJsonDefaultsToUnmigratedAndSerializedProvenanceIsNotPromptText() {
+        val legacy = DefaultSystemPrompt.versionBeforeHtmlPreviewForMigration(Locale.ENGLISH)
+        val json = Json.encodeToString(listOf(legacy))
+        assertFalse(json.contains("builtInMigrationVersion"))
+        val decoded = Json.decodeFromString<List<SystemPromptEntry>>(json).single()
+        assertEquals(0, decoded.builtInMigrationVersion)
+        val migrated = coldStart(decoded)
+        assertEquals(DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION, migrated.builtInMigrationVersion)
+        assertEquals(migrated, coldStart(migrated))
+        assertFalse(PredefinedVariables.compile(migrated.systemItems, emptyMap()).contains("builtInMigrationVersion"))
+    }
+
+    @Test
+    fun currentOrFutureProvenancePreservesEvenExactHistoricalText() {
+        val legacy = DefaultSystemPrompt.versionBeforeHtmlPreviewForMigration(Locale.ENGLISH)
+        listOf(DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION,
+            DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION + 1).forEach { version ->
+            val accepted = legacy.copy(builtInMigrationVersion = version)
+            assertFalse(DefaultSystemPrompt.isUnmodifiedPreviousVersion(accepted))
+            assertEquals(accepted, coldStart(accepted))
+            assertEquals(accepted, coldStart(coldStart(accepted)))
+        }
+    }
+
+    @Test
+    fun startupPreservesEmptySystemAndEmptyPromptCatalog() {
+        val empty = DefaultSystemPrompt.create(Locale.ENGLISH).copy(systemItems = emptyList())
+        assertEquals(empty, coldStart(empty))
+        assertEquals(empty, coldStart(coldStart(empty)))
+        assertEquals(emptyList<SystemPromptEntry>(), migrateSystemPromptsOnStartup(
+            Json.decodeFromString<List<SystemPromptEntry>>("[]"), Locale.ENGLISH,
+        ))
     }
 
     private fun coldStart(entry: SystemPromptEntry): SystemPromptEntry {

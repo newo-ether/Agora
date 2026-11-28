@@ -24,7 +24,7 @@ class TodoToolProviderTest {
     fun definitionsRequireAnOpenedOwnerAndAreDisabledForCompact() {
         assertTrue(provider.definitions(GenerationContext()).isEmpty())
         assertTrue(provider.definitions(context.copy(todoEnabled = false)).isEmpty())
-        assertEquals(listOf("read_todo", "update_todo"), provider.definitions(context).map { it.function.name })
+        assertEquals(listOf("todo_read", "todo_update"), provider.definitions(context).map { it.function.name })
     }
 
     @Test
@@ -33,12 +33,12 @@ class TodoToolProviderTest {
         coEvery { dao.getConversationTodo("c") } returns raw
         coEvery { dao.updateConversationTodo("c", raw, "r", 2, any()) } returns 1
         coEvery { dao.updateConversationTodo("c", null, "r", 2, any()) } returns 1
-        val read = provider.executeOneShotResult("read_todo", "{}", context)
+        val read = provider.executeOneShotResult("todo_read", "{}", context)
         assertEquals(raw, read.text)
         assertEquals(raw, read.structuredContent)
-        val replaced = provider.executeOneShotResult("update_todo", """{"todos":$raw}""", context)
+        val replaced = provider.executeOneShotResult("todo_update", """{"todos":$raw}""", context)
         assertEquals(raw, replaced.text)
-        assertEquals("[]", provider.execute("update_todo", """{"todos":[]}""", context))
+        assertEquals("[]", provider.execute("todo_update", """{"todos":[]}""", context))
         coVerify(exactly = 1) { dao.getConversationTodo("c") }
         coVerify(exactly = 1) { dao.updateConversationTodo("c", raw, "r", 2, any()) }
         coVerify(exactly = 1) { dao.updateConversationTodo("c", null, "r", 2, any()) }
@@ -52,14 +52,14 @@ class TodoToolProviderTest {
             """{"todos":[{"content":"Task","status":"invalid"}]}""",
         )
         for (arguments in invalid) {
-            assertTrue(runCatching { provider.execute("update_todo", arguments, context) }.isFailure)
+            assertTrue(runCatching { provider.execute("todo_update", arguments, context) }.isFailure)
         }
         for (ctx in listOf(
             context.copy(toolEffectIdentity = null),
             context.copy(conversationId = "other"),
             context.copy(todoEnabled = false),
         )) {
-            assertTrue(runCatching { provider.execute("update_todo", """{"todos":[]}""", ctx) }.isFailure)
+            assertTrue(runCatching { provider.execute("todo_update", """{"todos":[]}""", ctx) }.isFailure)
         }
         coVerify(exactly = 0) { dao.updateConversationTodo(any(), any(), any(), any(), any()) }
     }
@@ -67,7 +67,7 @@ class TodoToolProviderTest {
     @Test
     fun durableRejectionNeverReturnsSuccessfulUpdatedList() = runTest {
         coEvery { dao.updateConversationTodo(any(), any(), any(), any(), any()) } returns 0
-        val failure = runCatching { provider.execute("update_todo", """{"todos":[]}""", context) }.exceptionOrNull()
+        val failure = runCatching { provider.execute("todo_update", """{"todos":[]}""", context) }.exceptionOrNull()
         assertTrue(failure is IllegalStateException)
         assertTrue(failure!!.message!!.contains("no longer active"))
     }

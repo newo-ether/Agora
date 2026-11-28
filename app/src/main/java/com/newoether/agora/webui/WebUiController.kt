@@ -1,5 +1,6 @@
 package com.newoether.agora.webui
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.newoether.agora.R
 import com.newoether.agora.util.DebugLog
@@ -80,6 +81,8 @@ internal class WebUiController(
     previewAttachment: suspend (String, String, Long, String, String, Int, suspend (java.io.File, String) -> Unit) -> Boolean,
     private val hasher: WebUiPasswordHasher = WebUiPasswordHasher(),
     toolImages: WebUiToolImages? = null,
+    markdownVideos: WebUiMarkdownVideos? = null,
+    htmlPreviewImage: suspend (String) -> com.newoether.agora.model.ToolImageAttachment? = { null },
 ) {
     private val auth = WebUiAuth(store = store, hasher = hasher)
     @Volatile private var theme: WebUiTheme? = null
@@ -99,6 +102,8 @@ internal class WebUiController(
         secureCookies = { call -> call.request.local.localPort == tlsBackendPort },
         httpsRedirectPort = { publicPort.takeIf { servingHttps && it > 0 } },
         toolImages = toolImages,
+        markdownVideos = markdownVideos,
+        htmlPreviewImage = htmlPreviewImage,
     )
     private val serverLock = Mutex()
     private var engine: EmbeddedServer<*, *>? = null
@@ -237,6 +242,8 @@ internal class WebUiController(
         this.theme = theme
     }
 
+    // These font resources are binary files; WebUI needs their bytes rather than a Typeface.
+    @SuppressLint("ResourceType")
     private fun readAppFont(): ByteArray? = runCatching {
         when (val font = theme?.font) {
             WebUiFont.AppDefault ->

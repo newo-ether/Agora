@@ -3,7 +3,11 @@ package com.newoether.agora.viewmodel
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.AttachmentItem
+import com.newoether.agora.api.util.artifactsForImages
+import com.newoether.agora.api.util.projectedImageOccurrences
+import com.newoether.agora.api.util.withProjectedImages
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageSource
 import com.newoether.agora.model.TokenUsage
@@ -60,7 +64,9 @@ internal fun projectProviderMessages(
                 signature = segment.signature,
                 toolCallId = segment.toolCallId,
                 resultImages = segment.toolImages,
+                transcription = segment.toolTranscription,
                 displayName = segment.toolDisplayName,
+                target = segment.toolTarget,
                 resultText = segment.toolResultText,
                 structuredResult = segment.toolStructuredResult,
                 responseOutputItems = segment.responseOutputItems,
@@ -72,8 +78,8 @@ internal fun projectProviderMessages(
         }
         val attachmentText = attachmentMeta?.items?.mapNotNull { item ->
             when {
-                item.storage.isLocalSandbox && !item.sandboxPath.isNullOrBlank() ->
-                    sandboxAttachmentInstruction(item)
+                item.storage.isLocalSandbox -> item.sandboxPath?.takeIf(String::isNotBlank)
+                    ?.let { sandboxAttachmentInstruction(item) }
                 item.textContent != null -> {
                     val label = item.fileName ?: "file"
                     "\n\n--- File: $label ---\n${item.textContent}"
@@ -85,13 +91,12 @@ internal fun projectProviderMessages(
                 else -> null
             }
         }?.joinToString("").orEmpty()
-        val hasTranscription = includeStoredTranscriptions &&
-            attachmentMeta?.items?.any { !it.transcription.isNullOrBlank() } == true
+        val media = withoutStoredTranscriptionImages(entity.images, attachmentMeta, includeStoredTranscriptions)
         ChatMessage(
             id = entity.id,
             parentId = entity.parentId,
             text = recovered.text + attachmentText,
-            images = if (hasTranscription) emptyList() else entity.images,
+            images = media.images,
             thoughts = recovered.thoughts,
             thoughtTitle = entity.thoughtTitle,
             tokenCount = entity.tokenCount,
@@ -112,13 +117,140 @@ internal fun projectProviderMessages(
             modelName = entity.modelName,
             segments = segments,
             toolCall = toolCall,
-            attachmentMeta = attachmentMeta,
+            attachmentMeta = media.metadata,
             runId = entity.runId,
             runSequence = entity.runSequence,
             consumedAtPass = entity.consumedAtPass,
             source = MessageSource.decode(entity.sourceJson),
-        )
+        ).let(::projectSandboxGeneratedImages).let { message ->
+            val projected = if (includeStoredTranscriptions) {
+                withoutStoredToolTranscriptionImages(message)
+            } else message
+            projected.copy(imageArtifacts = projected.artifactsForImages())
+        }
     }
+}
+
+/** Legacy descriptions prove image coverage only for a mapped single-image result. */
+private fun withoutStoredToolTranscriptionImages(message: ChatMessage): ChatMessage {
+    if (!message.id.startsWith(Constants.RESULT_MSG_PREFIX) || message.images.isEmpty()) return message
+    val toolSegments = message.segments.orEmpty().filter { it.type == "tool" }
+    val orderedImages = toolSegments.flatMap { it.toolImages }
+    val removed = mutableSetOf<Int>()
+    if (orderedImages.map { it.path } == message.images) {
+        var offset = 0
+        toolSegments.forEach { segment ->
+            if (segment.toolImages.size == 1 && !segment.toolTranscription.isNullOrBlank()) {
+                removed += offset
+            }
+            offset += segment.toolImages.size
+        }
+    } else if (message.images.size == 1 && orderedImages.isEmpty() && toolSegments.size == 1 &&
+        !toolSegments.single().toolTranscription.isNullOrBlank()
+    ) {
+        removed += 0
+    } else if (message.images.size == 1 && toolSegments.isEmpty() &&
+        !message.toolCall?.transcription.isNullOrBlank()
+    ) {
+        removed += 0
+    }
+    if (removed.isEmpty()) return message
+    return message.withProjectedImages(message.projectedImageOccurrences().filterIndexed { index, _ ->
+        index !in removed
+    })
+}
+
+private data class ProviderMediaProjection(
+    val images: List<String>,
+    val metadata: AttachmentMeta?,
+)
+
+/** Per-item image slots claimed by the durable attachment metadata, in original image order. */
+private fun imageRangesByItem(images: List<String>, metadata: AttachmentMeta): List<List<Int>> {
+    val claimed = mutableSetOf<Int>()
+    return metadata.items.map { item ->
+        if (item.type !in setOf("image", "pdf", "video")) {
+            emptyList()
+        } else {
+            val start = item.imageIndex?.takeIf { it in images.indices }
+            if (start != null) {
+                val count = if (item.type == "image") 1 else {
+                    item.pageCount ?: item.imageArtifacts.size.takeIf { it > 0 } ?: 1
+                }
+                List(count.coerceIn(0, images.size - start)) { start + it }.also { claimed.addAll(it) }
+            } else if (item.imageIndex == null) {
+                item.imageArtifacts.mapNotNull { artifact ->
+                    images.indices.firstOrNull {
+                        artifact.path.isNotBlank() && it !in claimed && images[it] == artifact.path
+                    }?.also { claimed += it }
+                }
+            } else {
+                emptyList()
+            }
+        }
+    }
+}
+
+/**
+ * Image slots the provider path drops because their attachment is dispatched as a sandbox file.
+ *
+ * Transcription must agree with the same removal: those slots never reach the Provider, so they
+ * are neither targets nor reasons to fail the projection identity check.
+ */
+internal fun sandboxHiddenImageIndices(images: List<String>, metadata: AttachmentMeta): Set<Int> {
+    val ranges = imageRangesByItem(images, metadata)
+    return metadata.items.indices
+        .filter { metadata.items[it].storage.isLocalSandbox }
+        .flatMap { ranges[it] }
+        .toSet()
+}
+
+/** Filters described occurrences and remaps their metadata before legacy artifact hydration. */
+private fun withoutStoredTranscriptionImages(
+    images: List<String>,
+    metadata: AttachmentMeta?,
+    includeStoredTranscriptions: Boolean,
+): ProviderMediaProjection {
+    if (metadata == null) return ProviderMediaProjection(images, null)
+    val ranges = imageRangesByItem(images, metadata)
+    val describedItems = metadata.items.indices.filter { index ->
+        val item = metadata.items[index]
+        item.storage.isLocalSandbox || (includeStoredTranscriptions &&
+            !item.transcription.isNullOrBlank() && item.textContent == null &&
+            item.type in setOf("image", "pdf", "video"))
+    }.toSet()
+    if (describedItems.isEmpty()) return ProviderMediaProjection(images, metadata)
+    val removed = describedItems.flatMap { ranges[it] }.toSet()
+    val retained = images.indices.filterNot(removed::contains)
+    val oldToNew = retained.withIndex().associate { it.value to it.index }
+    val remapped = metadata.copy(items = metadata.items.mapIndexed { index, item ->
+        if (item.storage.isLocalSandbox) {
+            item.copy(originalUri = null, textContent = null, transcription = null,
+                imageIndex = null, pageCount = 0, imageArtifacts = emptyList())
+        } else if (item.type !in setOf("image", "pdf", "video")) {
+            item
+        } else {
+            val remaining = if (index in describedItems) emptyList() else {
+                ranges[index].filter(oldToNew::containsKey)
+            }
+            val artifacts = remaining.map { oldIndex ->
+                val offset = ranges[index].indexOf(oldIndex)
+                val path = images[oldIndex]
+                item.imageArtifacts.getOrNull(offset)?.takeIf { it.path == path }
+                    ?: item.imageArtifacts.firstOrNull { path.isNotBlank() && it.path == path }
+                    ?: ImageArtifact(
+                        path = path, mimeType = "application/octet-stream", sizeBytes = 0L,
+                        unavailable = path.isBlank(),
+                    )
+            }
+            item.copy(
+                imageIndex = remaining.firstOrNull()?.let(oldToNew::get),
+                pageCount = if (item.type == "image" && item.pageCount == null) null else remaining.size,
+                imageArtifacts = artifacts,
+            )
+        }
+    })
+    return ProviderMediaProjection(retained.map(images::get), remapped)
 }
 
 internal fun sandboxAttachmentInstruction(item: AttachmentItem): String {

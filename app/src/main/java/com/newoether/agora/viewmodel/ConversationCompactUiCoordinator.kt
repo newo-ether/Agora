@@ -3,7 +3,9 @@ package com.newoether.agora.viewmodel
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.isContextCompact
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -26,6 +28,7 @@ internal class ConversationCompactUiCoordinator(
     private val compactManual: suspend (CompactRequest) -> CompactResult,
     private val failureMessage: (CompactResult.Failed) -> String,
     private val onFailure: suspend (String) -> Unit,
+    private val workDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     val isCompacting: StateFlow<Boolean> = currentConversationId
         .flatMapLatest { conversationId ->
@@ -86,7 +89,9 @@ internal class ConversationCompactUiCoordinator(
     }
 
     private fun start(request: CompactRequest) {
-        scope.launch {
+        // Admission (snapshot capture, topology reads, API-path build) must not run on the UI
+        // thread: the confirming dialog dismisses first and the payload follows off main.
+        scope.launch(workDispatcher) {
             val result = try {
                 compactManual(request)
             } catch (cancelled: CancellationException) {

@@ -64,13 +64,21 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.ui.chat.message.ChatMarkdownCodeBlock
+import com.newoether.agora.ui.chat.message.FileEditHunks
+import com.newoether.agora.ui.chat.message.TerminalOutput
+import com.newoether.agora.ui.chat.message.ToolMutedContent
+import com.newoether.agora.ui.chat.message.ToolPathHeader
+import com.newoether.agora.ui.chat.message.shellEditHunks
+import com.newoether.agora.ui.chat.message.toolDetailPath
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.viewmodel.AskUserController
+import com.newoether.agora.viewmodel.ShellActionDetail
 import com.newoether.agora.viewmodel.ShellConfirmationController
 import kotlinx.coroutines.flow.first
 
 private val ContentMaxWidth = 840.dp
 internal val ScrollableContentMaxHeight = 200.dp
+private const val WritePreviewMaxChars = 8_000
 private const val AppearDurationMs = 180
 private const val PageDurationMs = 350
 
@@ -80,6 +88,8 @@ private sealed interface DeckPage {
 
     data class Shell(val pending: ShellConfirmationController.PendingShellCommand) : DeckPage {
         override val key: String get() = "shell:${pending.id}"
+        val kind: InteractionKind
+            get() = if (pending.phone) InteractionKind.PhoneApproval else InteractionKind.Approval
     }
 
     data class Question(val request: AskUserController.Request) : DeckPage {
@@ -222,7 +232,7 @@ internal fun UserInteractionBar(
 }
 
 @Composable
-private fun InteractionDeck(
+internal fun InteractionDeck(
     interactions: List<UserInteraction>,
     autoWrapCodeBlocks: Boolean,
     onSubmitQuestions: (List<Pair<Long, AskUserController.Answer>>) -> Unit,
@@ -237,6 +247,8 @@ private fun InteractionDeck(
     inSharedRow: Boolean,
     onExpansionChanged: (Float) -> Unit,
     active: Boolean,
+    questionTextFieldModifier: @Composable (AskUserController.Request) -> Modifier = { Modifier },
+    prepareQuestionTextInput: suspend () -> Unit = {},
 ) {
     val shell = interactions.firstNotNullOfOrNull { (it as? UserInteraction.ShellCommand)?.pending }
     val questions = interactions.filterIsInstance<UserInteraction.Question>().flatMap { it.requests }
@@ -260,8 +272,8 @@ private fun InteractionDeck(
     }
     val index = keys.indexOf(current.key)
     val position = if (pages.size > 1) "${index + 1} / ${pages.size}" else null
-    val back: (() -> Unit)? = if (index > 0) ({ onPageChange(keys[index - 1]) }) else null
-    val next: (() -> Unit)? = if (index < pages.lastIndex) ({ onPageChange(keys[index + 1]) }) else null
+    val back: (() -> Unit)? = if (index > 0) ({ if (active) onPageChange(keys[index - 1]) }) else null
+    val next: (() -> Unit)? = if (index < pages.lastIndex) ({ if (active) onPageChange(keys[index + 1]) }) else null
     val motion = LocalAgoraMotionPolicy.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
@@ -274,7 +286,10 @@ private fun InteractionDeck(
         Box(modifier = Modifier.widthIn(max = ContentMaxWidth)
             .then(if (inSharedRow) Modifier else Modifier.padding(horizontal = 12.dp))) {
             MorphingInteractionCard(
-                kind = if (current is DeckPage.Shell) InteractionKind.Approval else InteractionKind.Question,
+                kind = when (current) {
+                    is DeckPage.Shell -> current.kind
+                    is DeckPage.Question -> InteractionKind.Question
+                },
                 minimized = minimized,
                 onMinimizedChange = { if (active) onMinimizedChange(it) },
                 inSharedRow = inSharedRow,
@@ -285,9 +300,9 @@ private fun InteractionDeck(
                 when (current) {
                     is DeckPage.Shell -> CardHeader(
                         icon = { tint ->
-                            Icon(InteractionKind.Approval.icon, null, modifier = Modifier.size(18.dp), tint = tint)
+                            Icon(current.kind.icon, null, modifier = Modifier.size(18.dp), tint = tint)
                         },
-                        title = stringResource(InteractionKind.Approval.titleRes),
+                        title = stringResource(current.kind.titleRes),
                         detail = current.pending.server,
                         position = position,
                     )
@@ -330,6 +345,9 @@ private fun InteractionDeck(
                             is DeckPage.Question -> QuestionBody(
                                 request = page.request,
                                 draft = draftOf(page.request),
+                                textFieldModifier = { questionTextFieldModifier(page.request) },
+                                prepareTextInput = prepareQuestionTextInput,
+                                enabled = active && !minimized && page.key == current.key,
                             )
                         }
                     }
@@ -353,6 +371,7 @@ private fun InteractionDeck(
                         onNext = next,
                         onSubmit = { if (active) onSubmitQuestions(it) },
                         onSkip = { if (active) onSkipQuestion(it) },
+                        enabled = active && !minimized,
                     )
                 }
             }
@@ -379,7 +398,28 @@ private fun ShellBody(
             .heightIn(max = ScrollableContentMaxHeight)
             .verticalScroll(rememberScrollState()),
     ) {
-        ChatMarkdownCodeBlock(code = pending.summary, autoWrap = autoWrapCodeBlocks)
+        Column {
+            if (pending.description.isNotBlank()) {
+                Text(
+                    text = pending.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            when (val detail = pending.detail) {
+                is ShellActionDetail.Write -> ShellWriteDetail(detail)
+                is ShellActionDetail.Edit -> ShellEditDetail(detail)
+                null -> if (pending.phone) Text(
+                    text = pending.summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                ) else ChatMarkdownCodeBlock(
+                    code = pending.summary,
+                    autoWrap = autoWrapCodeBlocks,
+                )
+            }
+        }
     }
     Spacer(Modifier.height(10.dp))
     Row(
@@ -394,10 +434,35 @@ private fun ShellBody(
         Checkbox(checked = alwaysAllow, onCheckedChange = null)
         Spacer(Modifier.width(12.dp))
         Text(
-            text = stringResource(R.string.shell_confirm_always),
+            text = stringResource(if (pending.phone) R.string.phone_claim_always else R.string.shell_confirm_always),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+/** The whole text a write will place in the file, capped so the card stays responsive. */
+@Composable
+private fun ShellWriteDetail(detail: ShellActionDetail.Write) {
+    Column {
+        ToolPathHeader(toolDetailPath(detail.path))
+        Spacer(Modifier.height(8.dp))
+        val preview = detail.content.take(WritePreviewMaxChars)
+        TerminalOutput(preview)
+        if (preview.length < detail.content.length) {
+            Spacer(Modifier.height(6.dp))
+            ToolMutedContent(stringResource(R.string.shell_confirm_detail_truncated))
+        }
+    }
+}
+
+/** The replacements the edit will make, drawn with the same diff rows as the tool result. */
+@Composable
+private fun ShellEditDetail(detail: ShellActionDetail.Edit) {
+    Column {
+        ToolPathHeader(toolDetailPath(detail.path))
+        Spacer(Modifier.height(8.dp))
+        FileEditHunks(shellEditHunks(detail.edits), stringResource(R.string.tool_edit_replace_all))
     }
 }
 

@@ -7,11 +7,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.text.input.TextFieldState
@@ -64,7 +64,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.web_search_enable)) },
                             supportingContent = { Text(stringResource(R.string.web_search_enable_desc)) },
-                            leadingContent = { Icon(Icons.Default.Language, null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingContent = { Icon(Icons.Rounded.Language, null, tint = MaterialTheme.colorScheme.primary) },
                             trailingContent = {
                                 Switch(checked = webSearchEnabled, onCheckedChange = { viewModel.settings.setWebSearchEnabled(it) })
                             },
@@ -83,12 +83,13 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             "kagi" -> stringResource(R.string.web_search_kagi)
                                             "serper" -> stringResource(R.string.web_search_serper)
                                             "tavily" -> stringResource(R.string.web_search_tavily)
+                                            "exa" -> stringResource(R.string.web_search_exa)
                                             "duckduckgo" -> stringResource(R.string.web_search_duckduckgo)
                                             else -> stringResource(R.string.web_search_brave)
                                         }
                                     )
                                 },
-                                leadingContent = { Icon(Icons.Default.Cloud, null, tint = MaterialTheme.colorScheme.primary) },
+                                leadingContent = { Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.primary) },
                                 modifier = Modifier.clickable { showProviderDialog = true }
                             )
                         }
@@ -102,7 +103,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.Top
                                     ) {
-                                        Icon(Icons.Default.Key, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
+                                        Icon(Icons.Rounded.Key, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
                                         Spacer(modifier = Modifier.width(16.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
@@ -111,6 +112,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                         "kagi" -> R.string.web_search_kagi_key
                                                         "serper" -> R.string.web_search_serper_key
                                                         "tavily" -> R.string.web_search_tavily_key
+                                                        "exa" -> R.string.web_search_exa_key
                                                         else -> R.string.web_search_brave_key
                                                     }
                                                 ),
@@ -128,6 +130,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                                                     "kagi" -> R.string.web_search_kagi_key_hint
                                                                     "serper" -> R.string.web_search_serper_key_hint
                                                                     "tavily" -> R.string.web_search_tavily_key_hint
+                                                                    "exa" -> R.string.web_search_exa_key_hint
                                                                     else -> R.string.web_search_brave_key_hint
                                                                 }
                                                             )
@@ -207,7 +210,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.Top
                                 ) {
-                                    Icon(Icons.Default.Tune, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
+                                    Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
@@ -276,6 +279,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         "kagi" to R.string.web_search_kagi,
                         "serper" to R.string.web_search_serper,
                         "tavily" to R.string.web_search_tavily,
+                        "exa" to R.string.web_search_exa,
                         "searxng" to R.string.web_search_searxng
                     )
                     providers.forEach { (key, labelRes) ->
@@ -289,6 +293,7 @@ fun SettingsWebSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                             "kagi" -> R.string.web_search_kagi_desc
                                             "serper" -> R.string.web_search_serper_desc
                                             "tavily" -> R.string.web_search_tavily_desc
+                                            "exa" -> R.string.web_search_exa_desc
                                             "searxng" -> R.string.web_search_searxng_desc
                                             "duckduckgo" -> R.string.web_search_duckduckgo_desc
                                             else -> R.string.web_search_brave_desc

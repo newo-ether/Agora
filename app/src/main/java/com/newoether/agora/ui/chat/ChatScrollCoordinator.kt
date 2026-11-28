@@ -309,15 +309,20 @@ internal class ChatScrollCoordinator internal constructor(
                     return@LaunchedEffect
                 }
 
-                snapshotFlow {
-                    val conversation = latestCurrentConversation
-                    val projection = latestContextProjection
-                    conversation?.id == targetConversationId &&
-                        projection.conversationId == targetConversationId &&
-                        projection.selectedBranchesJson == conversation.selectedBranchesJson &&
-                        projection.completed &&
-                        !projection.loading
-                }.first { settled -> settled }
+                val contextReady = withTimeoutOrNull(SCROLL_SETTLE_TIMEOUT_MS) {
+                    snapshotFlow {
+                        val conversation = latestCurrentConversation
+                        val projection = latestContextProjection
+                        conversation?.id == targetConversationId &&
+                            projection.conversationId == targetConversationId &&
+                            projection.selectedBranchesJson == conversation.selectedBranchesJson &&
+                            projection.completed &&
+                            !projection.loading
+                    }.first { settled -> settled }
+                } == true
+                if (!contextReady) {
+                    DebugLog.d("AgoraUI", "Context projection wait timed out for switch ${request.id}")
+                }
 
                 if (
                     settleCoveredTransition(

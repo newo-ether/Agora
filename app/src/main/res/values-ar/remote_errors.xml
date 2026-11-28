@@ -5,7 +5,7 @@
     <string name="remote_rejected">لم يقبل Codex الرسالة. راجع تفاصيل الخطأ قبل المحاولة مجددًا.</string>
     <string name="remote_storage_failed">تعذر على Agora الوصول إلى بيانات Remote المحلية. تحقق من المساحة المتاحة.</string>
     <string name="remote_network_failed">تعذر الاتصال بـ Filo. تحقق من الكمبيوتر المستهدف وعنوان الخدمة والشبكة.</string>
-    <string name="remote_auth_failed">رفض Filo رمز الوصول. استخدم الرمز الموجود على الكمبيوتر المستهدف.</string>
+    <string name="remote_auth_failed">تعذر على Filo مصادقة هذا الطلب. لا يعني ذلك بالضرورة أن رمز الوصول غير صحيح. إذا استمرت المشكلة، تحقق من الرمز والوقت على الكمبيوتر المستهدف.</string>
     <string name="remote_configuration_failed">أدخل عنوان URL صالحًا للخدمة ورمز وصول من 64 حرفًا.</string>
     <string name="remote_protocol_failed">تعذر على Agora التحقق من استجابة Filo أو قراءتها. تأكد من تحديث التطبيقين.</string>
     <string name="remote_service_failed">تعذر على Codex إكمال الطلب.</string>

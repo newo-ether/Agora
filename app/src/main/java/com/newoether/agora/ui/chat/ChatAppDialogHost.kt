@@ -38,6 +38,8 @@ internal class ChatAppDialogState internal constructor(
         private set
     var advancedVisible by mutableStateOf(false)
         private set
+    var toolsVisible by mutableStateOf(false)
+        private set
     val manualCompactVisible: Boolean
         get() = manualCompactVisibleState.value
 
@@ -105,6 +107,14 @@ internal class ChatAppDialogState internal constructor(
         advancedVisible = false
     }
 
+    fun showTools() {
+        toolsVisible = true
+    }
+
+    fun dismissTools() {
+        toolsVisible = false
+    }
+
     fun showManualCompact() {
         manualCompactVisibleState.value = true
     }
@@ -135,6 +145,7 @@ internal fun ChatAppDialogHost(
     modelProviderNames: Map<String, Boolean>,
     customProviders: List<CustomProviderConfig>,
     isCompacting: Boolean,
+    preserveContext: Boolean = false,
 ) {
     val promptEditorScope = rememberCoroutineScope()
     val currentConversationId by viewModel.currentConversationId.collectAsState()
@@ -190,9 +201,13 @@ internal fun ChatAppDialogHost(
         ChatAdvancedSettingsDialog(viewModel = viewModel, onDismiss = state::dismissAdvanced)
     }
 
+    if (state.toolsVisible) {
+        ChatSessionToolsDialog(viewModel = viewModel, onDismiss = state::dismissTools)
+    }
+
     if (state.manualCompactVisible) {
         ChatManualCompactDialog(
-            initialModel = compactModel ?: selectedModel,
+            initialModel = if (preserveContext) selectedModel else compactModel ?: selectedModel,
             initialPrompt = compactPrompt,
             initialRetainCount = compactRetainCount,
             enabledModels = enabledModels,
@@ -200,6 +215,7 @@ internal fun ChatAppDialogHost(
             modelProviderNames = modelProviderNames,
             customProviders = customProviders,
             isCompacting = isCompacting,
+            preserveContext = preserveContext,
             onCompact = { model, prompt, retainCount ->
                 state.dismissManualCompact()
                 viewModel.compactUi.startManual(model, prompt, retainCount)

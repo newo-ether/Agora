@@ -3,6 +3,7 @@ package com.newoether.agora.viewmodel
 import com.newoether.agora.data.local.ChatEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.AttachmentImportState
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.util.DebugLog
 import io.mockk.Runs
@@ -13,6 +14,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -291,6 +293,91 @@ class ComposerDraftControllerTest {
         } finally {
             unmockkObject(DebugLog)
         }
+    }
+
+    @Test
+    fun `selected legacy draft hydration keeps omitted and explicit READY imports ready`() = runTest {
+        val path = "/private/restored.png"
+        val legacy = SelectedAttachment(
+            localId = "restored", uri = path, localPath = path, type = "image",
+            imageArtifacts = listOf(ImageArtifact(path, "image/png", 0L, null, null)),
+        )
+        val measured = legacy.copy(
+            mimeType = "image/png", fileSize = 321L, pixelWidth = 17, pixelHeight = 29,
+            imageArtifacts = listOf(ImageArtifact(path, "image/png", 321L, 17, 29)),
+        )
+        for (encodeDefaults in listOf(false, true)) {
+            val repository = mockk<ConversationRepository>()
+            val raw = Json { this.encodeDefaults = encodeDefaults }.encodeToString(listOf(legacy))
+            coEvery { repository.getConversation(CONVERSATION_ID) } returns chat(text = "legacy").copy(
+                draftAttachments = raw,
+            )
+            coEvery { repository.updateDraft(any(), any(), any()) } returns Unit
+            val visited = mutableListOf<SelectedAttachment>()
+            val controller = ComposerDraftController(repository, hydrateAttachment = {
+                visited += it
+                measured
+            })
+            assertTrue(visited.isEmpty())
+
+            val loaded = controller.load(CONVERSATION_ID)
+
+            assertEquals(listOf(legacy), visited)
+            assertEquals(LoadedComposerDraft("legacy", listOf(measured), 1L), loaded)
+            assertTrue(loaded.attachments.single().hasCanonicalReadyArtifact())
+            coVerify(exactly = 1) {
+                repository.updateDraft(CONVERSATION_ID, "legacy", Json.encodeToString(listOf(measured)))
+            }
+        }
+    }
+
+    @Test
+    fun `unavailable restored draft is kept visible without reentering processing`() = runTest {
+        val repository = mockk<ConversationRepository>()
+        val missing = SelectedAttachment(
+            localId = "missing", uri = "", localPath = "", type = "image", unavailable = true,
+        )
+        coEvery { repository.getConversation(CONVERSATION_ID) } returns chat(attachments = listOf(missing))
+
+        val loaded = ComposerDraftController(repository).load(CONVERSATION_ID)
+
+        assertEquals(listOf(missing), loaded.attachments)
+        assertEquals(0L, loaded.revision)
+        assertFalse(loaded.attachments.single().hasCanonicalReadyArtifact())
+        coVerify(exactly = 0) { repository.updateDraft(any(), any(), any()) }
+    }
+
+    @Test
+    fun `selected draft hydration cancellation propagates before any metadata write`() = runTest {
+        val repository = mockk<ConversationRepository>()
+        val pending = attachment("cancelled")
+        coEvery { repository.getConversation(CONVERSATION_ID) } returns chat(attachments = listOf(pending))
+        val cancellation = CancellationException("selection changed")
+        val controller = ComposerDraftController(repository, hydrateAttachment = { throw cancellation })
+
+        val failure = runCatching { controller.load(CONVERSATION_ID) }.exceptionOrNull()
+
+        assertTrue("Expected cancellation, got $failure", failure is CancellationException)
+        assertTrue(generateSequence(failure) { it.cause }.any { it === cancellation })
+        coVerify(exactly = 0) { repository.updateDraft(any(), any(), any()) }
+    }
+
+    @Test
+    fun `selected draft metadata write cancellation does not report a completed load`() = runTest {
+        val repository = mockk<ConversationRepository>()
+        val pending = attachment("cancelled")
+        coEvery { repository.getConversation(CONVERSATION_ID) } returns chat(attachments = listOf(pending))
+        val cancellation = CancellationException("selection changed")
+        coEvery { repository.updateDraft(any(), any(), any()) } throws cancellation
+        val controller = ComposerDraftController(repository, hydrateAttachment = {
+            it.copy(unavailable = true)
+        })
+
+        val failure = runCatching { controller.load(CONVERSATION_ID) }.exceptionOrNull()
+
+        assertTrue("Expected cancellation, got $failure", failure is CancellationException)
+        assertTrue(generateSequence(failure) { it.cause }.any { it === cancellation })
+        coVerify(exactly = 1) { repository.updateDraft(any(), any(), any()) }
     }
 
     private fun chat(

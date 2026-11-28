@@ -130,4 +130,24 @@
         <item quantity="other">Đã tìm thấy %1$d kết quả</item>
     </plurals>
     <string name="tool_json_empty_container">Không có nội dung</string>
+    <string name="tool_search_mcp_tools">Tìm công cụ MCP</string>
+    <string name="tool_searching_mcp_tools">Đang tìm công cụ MCP…</string>
+    <string name="tool_searching_mcp_tools_for">Đang tìm công cụ MCP cho %1$s…</string>
+    <string name="tool_searched_mcp_tools">Đã tìm kiếm công cụ MCP</string>
+    <string name="tool_no_mcp_tools">Không tìm thấy công cụ MCP phù hợp</string>
+    <plurals name="tool_found_mcp_tools">
+        <item quantity="other">Đã tìm thấy %1$d công cụ MCP</item>
+    </plurals>
+    <string name="tool_list_mcp_servers">Liệt kê máy chủ MCP</string>
+    <string name="tool_listing_mcp_servers">Đang liệt kê máy chủ MCP…</string>
+    <string name="tool_listed_mcp_servers_default">Đã liệt kê máy chủ MCP</string>
+    <string name="tool_no_mcp_servers_returned">Không có máy chủ MCP nào được trả về</string>
+    <string name="tool_list_mcp_servers_failed">Không thể liệt kê máy chủ MCP</string>
+    <plurals name="tool_listed_mcp_servers">
+        <item quantity="other">Đã liệt kê %1$d máy chủ MCP</item>
+    </plurals>
+    <string name="tool_edit_operation_update">Cập nhật</string>
+    <string name="tool_edit_operation_add">Thêm</string>
+    <string name="tool_edit_operation_delete">Xóa</string>
+    <string name="tool_edit_operation_move">Di chuyển</string>
 </resources>

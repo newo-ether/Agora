@@ -39,6 +39,18 @@ internal fun mcpServerIdsForPageEntryRefresh(
     .map(McpServerConfig::id)
     .distinct()
 
+internal fun isMcpToolAvailable(
+    tool: McpToolDescriptor,
+    currentConfig: McpServerConfig?,
+    runtimeConfig: McpServerConfig?,
+    status: McpConnectionStatus,
+): Boolean = currentConfig != null &&
+    currentConfig.id == tool.serverId &&
+    currentConfig.enabled && currentConfig.url.isNotBlank() &&
+    currentConfig == runtimeConfig &&
+    status == McpConnectionStatus.CONNECTED &&
+    tool.enabled && tool.remote.name !in currentConfig.disabledTools
+
 internal enum class McpRuntimeRefreshReason {
     RECONCILE,
     EXPLICIT,
@@ -118,6 +130,8 @@ class McpRegistry(
     private val imageStore = ToolImageStore(context)
     private val lock = Any()
     private val runtimes = mutableMapOf<String, Runtime>()
+    // Snapshot provenance also covers constructor failures, which have no installed runtime.
+    private val snapshotConfigs = mutableMapOf<String, McpServerConfig>()
     private val pendingBuilds = mutableMapOf<String, McpRuntimeBuildTicket>()
     private val connectionPermits = Semaphore(permits = MAX_CONCURRENT_CONNECTIONS)
     private var nextBuildGeneration = 0L
@@ -130,19 +144,89 @@ class McpRegistry(
         }
     }
 
-    fun enabledTools(): List<McpToolDescriptor> =
-        snapshots.value.values
-            .asSequence()
-            .filter { it.status == McpConnectionStatus.CONNECTED }
-            .flatMap { it.tools.asSequence() }
-            .filter(McpToolDescriptor::enabled)
+    fun enabledTools(): List<McpToolDescriptor> = synchronized(lock) {
+        enabledToolsLocked(settings.mcpServers.value.associateBy(McpServerConfig::id))
+    }
+
+    private fun enabledToolsLocked(configs: Map<String, McpServerConfig>): List<McpToolDescriptor> =
+        snapshots.value.values.asSequence()
+            .flatMap { snapshot ->
+                snapshot.tools.asSequence().filter { tool ->
+                    isMcpToolAvailable(
+                        tool, configs[tool.serverId], runtimes[tool.serverId]?.config, snapshot.status,
+                    )
+                }
+            }
             .sortedBy(McpToolDescriptor::publicName)
             .toList()
 
+    /**
+     * Enabled server IDs and display names from configuration only, sorted by ID. No runtime
+     * status, counts or catalog data, so it changes only when the user edits MCP settings.
+     */
+    fun enabledServerNames(): List<Pair<String, String>> =
+        settings.mcpServers.value.filter(McpServerConfig::enabled).sortedBy(McpServerConfig::id)
+            .map { it.id to it.name.ifBlank { "MCP server" } }
+
+    fun listServers(limit: Int = 20, offset: Int = 0): String {
+        val servers = synchronized(lock) {
+            val configs = settings.mcpServers.value.associateBy(McpServerConfig::id)
+            val counts = enabledToolsLocked(configs).groupingBy(McpToolDescriptor::serverId).eachCount()
+            configs.values.filter(McpServerConfig::enabled).sortedBy(McpServerConfig::id).map { config ->
+                buildJsonObject {
+                    put("server_id", config.id)
+                    put("server_name", config.name.ifBlank { "MCP server" })
+                    put("status", currentStatusLocked(config).name.lowercase(java.util.Locale.ROOT))
+                    put("available_tool_count", counts[config.id] ?: 0)
+                }
+            }
+        }
+        return listMcpServers(servers, limit, offset)
+    }
+
+    fun searchTools(
+        query: String,
+        serverId: String? = null,
+        limit: Int = 5,
+        offset: Int = 0,
+    ): ToolExecutionResult {
+        val tools = synchronized(lock) {
+            val configs = settings.mcpServers.value.associateBy(McpServerConfig::id)
+            if (serverId != null) {
+                val config = configs[serverId]?.takeIf(McpServerConfig::enabled)
+                    ?: return scopeError("invalid_server")
+                val status = currentStatusLocked(config)
+                if (status != McpConnectionStatus.CONNECTED || runtimes[serverId]?.config != config) {
+                    return scopeError("server_unavailable", status)
+                }
+            }
+            enabledToolsLocked(configs)
+        }
+        return ToolExecutionResult(searchMcpTools(tools, query, serverId, limit, offset))
+    }
+
+    private fun currentStatusLocked(config: McpServerConfig): McpConnectionStatus =
+        if (snapshotConfigs[config.id] == config) {
+            snapshots.value[config.id]?.status ?: McpConnectionStatus.IDLE
+        } else {
+            McpConnectionStatus.IDLE
+        }
+
+    private fun scopeError(code: String, status: McpConnectionStatus? = null) = ToolExecutionResult(
+        text = buildJsonObject {
+            put("error", code)
+            put("message", if (code == "invalid_server") {
+                "The server ID is unknown or disabled. Use mcp_list_servers for enabled server IDs."
+            } else {
+                "The selected server is currently unavailable. No global search was performed."
+            })
+            status?.let { put("status", it.name.lowercase(java.util.Locale.ROOT)) }
+        }.toString(),
+        isError = true,
+    )
+
     fun descriptor(publicName: String): McpToolDescriptor? =
-        snapshots.value.values.asSequence()
-            .flatMap { it.tools.asSequence() }
-            .firstOrNull { it.enabled && it.publicName == publicName }
+        enabledTools().firstOrNull { it.publicName == publicName }
 
     fun refresh(serverId: String) {
         scope.launch(workDispatcher) {
@@ -168,19 +252,29 @@ class McpRegistry(
     }
 
     suspend fun execute(publicName: String, arguments: String): ToolExecutionResult {
-        val descriptor = descriptor(publicName)
-            ?: return ToolExecutionResult("Unknown or disabled MCP tool: $publicName", isError = true)
-        val runtime = synchronized(lock) { runtimes[descriptor.serverId] }
-            ?: return ToolExecutionResult(
-                "MCP server '${descriptor.serverName}' is not enabled",
-                isError = true,
-            )
         val args = runCatching { json.parseToJsonElement(arguments).asObjectOrNull() }
             .getOrNull()
             ?: return ToolExecutionResult(
                 "MCP tool '$publicName' requires a complete JSON object",
                 isError = true,
             )
+        // Resolve permission and runtime together immediately before dispatch. Settings may have
+        // changed before their asynchronous reconcile job has retired the old runtime.
+        val target = synchronized(lock) {
+            val configs = settings.mcpServers.value.associateBy(McpServerConfig::id)
+            snapshots.value.values.asSequence().flatMap { snapshot ->
+                snapshot.tools.asSequence().map { snapshot to it }
+            }.firstNotNullOfOrNull { (snapshot, tool) ->
+                val runtime = runtimes[tool.serverId]
+                if (tool.publicName == publicName && runtime != null &&
+                    isMcpToolAvailable(tool, configs[tool.serverId], runtime.config, snapshot.status)
+                ) tool to runtime else null
+            }
+        } ?: return ToolExecutionResult(
+            "Unknown, disabled or disconnected MCP tool: $publicName",
+            isError = true,
+        )
+        val (descriptor, runtime) = target
 
         return try {
             val payload = runtime.client.callTool(descriptor.remote.name, args)
@@ -236,8 +330,9 @@ class McpRegistry(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            markError(runtime, e)
-            scheduleRetry(runtime)
+            // A failed invocation does not invalidate the catalog or block independent calls.
+            // The protocol client owns session recovery; never replay an uncertain tool request.
+            DebugLog.e("McpRegistry", "MCP tool ${descriptor.remote.name} failed", e)
             ToolExecutionResult(
                 text = "MCP tool '${descriptor.remote.name}' failed: ${userMessage(e)}",
                 isError = true,
@@ -259,8 +354,10 @@ class McpRegistry(
                 }
             }.also {
                 _snapshots.update { current ->
+                    snapshotConfigs.keys.retainAll(desiredIds)
                     current.filterKeys(desiredIds::contains).toMutableMap().apply {
                         configs.filter { !it.enabled || it.url.isBlank() }.forEach { config ->
+                            snapshotConfigs[config.id] = config
                             this[config.id] = McpServerSnapshot(
                                 serverId = config.id,
                                 status = McpConnectionStatus.IDLE,
@@ -301,21 +398,21 @@ class McpRegistry(
                 config = config,
             )
             pendingBuilds[config.id] = ticket
-            RuntimeBuild(
-                ticket = ticket,
-                previousRuntime = runtimes.remove(config.id),
+            val previousRuntime = runtimes.remove(config.id)
+            // Publish the transition with runtime removal. Readers must not observe a connected
+            // snapshot while its runtime is being closed outside the lock.
+            putSnapshotLocked(
+                McpServerSnapshot(
+                    serverId = config.id,
+                    status = McpConnectionStatus.CONNECTING,
+                    tools = snapshots.value[config.id]?.tools.orEmpty(),
+                ),
+                config,
             )
+            RuntimeBuild(ticket, previousRuntime)
         }
 
         build.previousRuntime?.close()
-        putBuildSnapshotIfCurrent(
-            ticket = build.ticket,
-            snapshot = McpServerSnapshot(
-                serverId = config.id,
-                status = McpConnectionStatus.CONNECTING,
-                tools = snapshots.value[config.id]?.tools.orEmpty(),
-            ),
-        )
 
         val runtime = try {
             Runtime(
@@ -411,20 +508,6 @@ class McpRegistry(
         }
     }
 
-    private fun scheduleRetry(runtime: Runtime) {
-        scope.launch(workDispatcher) {
-            val retryJob = synchronized(lock) {
-                if (runtimes[runtime.config.id] !== runtime || runtime.connectionJob?.isActive == true) {
-                    return@launch
-                }
-                launchConnectionLoop(runtime, start = CoroutineStart.LAZY).also {
-                    runtime.connectionJob = it
-                }
-            }
-            retryJob.start()
-        }
-    }
-
     private fun updateConnected(runtime: Runtime, keepTools: Boolean) {
         synchronized(lock) {
             if (runtimes[runtime.config.id] !== runtime) return
@@ -436,6 +519,7 @@ class McpRegistry(
                     tools = if (keepTools) previous?.tools.orEmpty() else emptyList(),
                     lastSyncedAt = previous?.lastSyncedAt ?: System.currentTimeMillis(),
                 ),
+                runtime.config,
             )
         }
     }
@@ -452,6 +536,7 @@ class McpRegistry(
                     error = userMessage(error),
                     lastSyncedAt = previous?.lastSyncedAt,
                 ),
+                runtime.config,
             )
             true
         }
@@ -478,25 +563,8 @@ class McpRegistry(
                     status = McpConnectionStatus.ERROR,
                     error = userMessage(error),
                 ),
+                ticket.config,
             )
-        }
-    }
-
-    private fun putBuildSnapshotIfCurrent(
-        ticket: McpRuntimeBuildTicket,
-        snapshot: McpServerSnapshot,
-    ): Boolean = synchronized(lock) {
-        if (
-            !isCurrentMcpRuntimeBuild(
-                ticket = ticket,
-                pendingTicket = pendingBuilds[ticket.config.id],
-                currentConfig = currentConfig(ticket.config.id),
-            )
-        ) {
-            false
-        } else {
-            putSnapshotLocked(snapshot)
-            true
         }
     }
 
@@ -507,7 +575,7 @@ class McpRegistry(
         if (runtimes[runtime.config.id] !== runtime) {
             false
         } else {
-            putSnapshotLocked(snapshot)
+            putSnapshotLocked(snapshot, runtime.config)
             true
         }
     }
@@ -518,7 +586,8 @@ class McpRegistry(
     private fun currentConfig(serverId: String): McpServerConfig? =
         settings.mcpServers.value.firstOrNull { it.id == serverId }
 
-    private fun putSnapshotLocked(snapshot: McpServerSnapshot) {
+    private fun putSnapshotLocked(snapshot: McpServerSnapshot, config: McpServerConfig) {
+        snapshotConfigs[snapshot.serverId] = config
         _snapshots.update { it + (snapshot.serverId to snapshot) }
     }
 

@@ -13,10 +13,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -122,7 +122,7 @@ internal fun CompactSegmentBlock(
     collapseForImageBoundary: Boolean = false,
     modifier: Modifier = Modifier,
     topPaddingExtra: Dp = 0.dp,
-    bottomPaddingExtra: Dp = 6.dp,
+    bottomPaddingExtra: Dp = 4.dp,
     onSegmentClick: (Int) -> Unit,
     onHeaderClick: (() -> Unit)? = null,
     opensDetailSheet: Boolean = false,
@@ -344,7 +344,7 @@ internal fun CompactSegmentBlock(
                 .offset(x = (-AUXILIARY_CARD_START_EXTENSION_DP).dp)
                 .width(cardWidth)
                 .padding(
-                    top = 8.dp + topPaddingExtra,
+                    top = 6.dp + topPaddingExtra,
                     bottom = mergedBottomPadding + bottomPaddingExtra,
                 )
                 .then(cardAppearanceModifier)
@@ -388,13 +388,13 @@ internal fun CompactSegmentBlock(
                             strokeWidth = 2.dp,
                         )
                         CompactSegmentIcon.TOOL -> Icon(
-                            Icons.Default.Build,
+                            Icons.Rounded.Build,
                             null,
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                         )
                         CompactSegmentIcon.IMAGE -> Icon(
-                            Icons.Filled.Image,
+                            Icons.Rounded.Image,
                             null,
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
@@ -542,7 +542,7 @@ internal fun CompactSegmentBlock(
             }
                 }
                 Icon(
-                    Icons.Default.KeyboardArrowDown,
+                    Icons.Rounded.KeyboardArrowDown,
                     null,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -580,12 +580,12 @@ private fun segmentGroupTopPadding(
     topPaddingExtra: Dp,
 ): Dp = when (position) {
     SegmentGroupPosition.MIDDLE, SegmentGroupPosition.LAST -> SEGMENT_GROUP_GAP_DP.dp
-    else -> 8.dp + topPaddingExtra
+    else -> 6.dp + topPaddingExtra
 }
 
 private fun segmentGroupBottomPadding(position: SegmentGroupPosition): Dp =
     if (position == SegmentGroupPosition.SINGLE || position == SegmentGroupPosition.LAST) {
-        6.dp
+        4.dp
     } else {
         0.dp
     }
@@ -665,7 +665,7 @@ internal fun TimelineInfoSegmentCard(
                 Icon(toolHeaderIcon(ToolPresentationResolver.kindForToolName(seg.toolName)), null,
                     modifier = Modifier.size(16.dp), tint = iconTint)
             } else if (isTranscription) {
-                Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp), tint = iconTint)
+                Icon(Icons.Rounded.Image, null, modifier = Modifier.size(16.dp), tint = iconTint)
             } else {
                 Icon(androidx.compose.ui.res.painterResource(id = com.newoether.agora.R.drawable.neurology_24), null, modifier = Modifier.size(16.dp), tint = iconTint)
             }
@@ -711,7 +711,7 @@ internal fun TimelineInfoSegmentCard(
                 }
             }
             Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),

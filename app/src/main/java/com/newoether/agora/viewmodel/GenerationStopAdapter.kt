@@ -91,7 +91,7 @@ internal class GenerationStopAdapter(
                 (message.participant == Participant.MODEL || message.isContextCompact()) &&
                 message.status.isInFlight()
             ) {
-                message.copy(status = MessageStatus.STOPPED)
+                message.copy(status = MessageStatus.STOPPED, retryText = null)
             } else {
                 null
             }

@@ -209,8 +209,9 @@ class TaskManagerTest {
             title = "Task",
             taskId = stored.id,
         )
+        val reader = mockk<com.newoether.agora.data.local.ChatDao>()
         coEvery {
-            conversations.getProviderContextTopologySnapshot("execution")
+            reader.getProviderContextTopologySnapshot("execution")
         } returns ProviderContextTopologySnapshot(
             selectedBranchesJson = null,
             messages = listOf(
@@ -228,11 +229,11 @@ class TaskManagerTest {
                 ),
             ),
         )
-        coEvery { conversations.getMessage(assistant.id) } returns assistant
+        coEvery { reader.getMessage(assistant.id) } returns assistant
         coEvery {
-            conversations.withProviderContextSnapshot<Any?>(any())
+            conversations.withReadSnapshot<Any?>(any())
         } coAnswers {
-            firstArg<suspend () -> Any?>().invoke()
+            firstArg<suspend (com.newoether.agora.data.local.ChatDao) -> Any?>().invoke(reader)
         }
         val manager = TaskManager(repository, conversations, engine, backgroundScope)
 

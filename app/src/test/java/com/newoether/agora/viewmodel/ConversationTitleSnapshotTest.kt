@@ -40,22 +40,31 @@ import org.junit.Test
 
 class ConversationTitleSnapshotTest {
     @Test
-    fun missingEitherRoleUsesTheAvailableText() = runTest {
-        for (role in listOf(Participant.USER, Participant.MODEL)) {
-            val fixture = Fixture(listOf(message("only", text = "Existing text", role = role)))
-            assertEquals(
-                ConversationTitleGenerator.Result.Success("Generated"),
-                fixture.generator.generateAndPersist("conversation"),
-            )
-            val label = if (role == Participant.USER) "User" else "Assistant"
-            assertTrue(fixture.prompts.single().contains("$label: Existing text"))
-            val missingLabel = if (role == Participant.USER) "Assistant:" else "User:"
-            assertFalse(fixture.prompts.single().contains(missingLabel))
-        }
+    fun firstUserMessageIsEnoughBeforeAnyAssistantReplyExists() = runTest {
+        val fixture = Fixture(listOf(message("user", text = "Existing text", role = Participant.USER)))
+
+        assertEquals(
+            ConversationTitleGenerator.Result.Success("Generated"),
+            fixture.generator.generateAndPersist("conversation"),
+        )
+        assertTrue(fixture.prompts.single().contains("\n\nExisting text\n\n"))
+        coVerify(exactly = 1) { fixture.dao.getMessage("user") }
     }
 
     @Test
-    fun matchingLivePartialIsFrozenBeforeSettingsAndNotificationWaits() = runTest {
+    fun assistantOnlyConversationMakesNoProviderCall() = runTest {
+        val fixture = Fixture(listOf(message("answer", text = "Assistant text")))
+
+        assertEquals(
+            ConversationTitleGenerator.Result.Failure("Conversation has no usable text"),
+            fixture.generator.generateAndPersist("conversation"),
+        )
+        assertTrue(fixture.prompts.isEmpty())
+        coVerify(exactly = 0) { fixture.dao.getMessage(any()) }
+    }
+
+    @Test
+    fun firstUserInputIsFrozenBeforeSettingsAndNotificationWaits() = runTest {
         val user = message("user", text = "Tap input", role = Participant.USER)
         val model = message("answer", parent = user.id, text = "Older checkpoint")
         val fixture = Fixture(listOf(user, model))
@@ -77,7 +86,9 @@ class ConversationTitleSnapshotTest {
 
         assertEquals(ConversationTitleGenerator.Result.Success("Generated"), pending.await())
         val prompt = fixture.prompts.single()
-        assertTrue(prompt.contains("User: Tap input\nAssistant: Partial at tap"))
+        assertTrue(prompt.contains("\n\nTap input\n\n"))
+        assertFalse(prompt.contains("Partial"))
+        assertFalse(prompt.contains("checkpoint"))
         assertFalse(prompt.contains("Later"))
         assertFalse(prompt.contains("Final"))
         coVerify(exactly = 0) { fixture.dao.getMessage("answer") }
@@ -85,7 +96,8 @@ class ConversationTitleSnapshotTest {
 
     @Test
     fun wrongConversationOrRunOrMessageIdentityCannotSupplyTheOverlay() = runTest {
-        val model = message("answer", text = "Stored answer")
+        val user = message("user", text = "First input", role = Participant.USER)
+        val model = message("answer", parent = user.id, text = "Stored answer")
         val valid = live(model, "Unrelated secret")
         val candidates = listOf(
             valid.copy(conversationId = "other"),
@@ -97,37 +109,49 @@ class ConversationTitleSnapshotTest {
             valid.copy(streamingMessage = valid.streamingMessage!!.copy(participant = Participant.USER)),
         )
         for (snapshot in candidates) {
-            val fixture = Fixture(listOf(model))
+            val fixture = Fixture(listOf(user, model))
             assertTrue(fixture.generator.generateAndPersist("conversation", snapshot) is
                 ConversationTitleGenerator.Result.Success)
-            assertTrue(fixture.prompts.single().contains("Assistant: Stored answer"))
+            assertTrue(fixture.prompts.single().contains("First input"))
+            assertFalse(fixture.prompts.single().contains("Stored answer"))
+            coVerify(exactly = 0) { fixture.dao.getMessage("answer") }
             assertFalse(fixture.prompts.single().contains("Unrelated secret"))
         }
     }
 
     @Test
     fun selectedBranchExcludesOtherPayloadsAndOffBranchLiveText() = runTest {
-        val user = message("user", text = "Question", role = Participant.USER)
-        val selected = message("selected", parent = user.id, text = "Selected answer")
-        val other = message("other", parent = user.id, text = "Unselected answer", time = 3L)
-        val fixture = Fixture(listOf(user, selected, other))
+        val otherUser = message("other-user", text = "Unselected input", role = Participant.USER)
+        val user = message("user", text = "Selected input", role = Participant.USER, time = 3L)
+        val selected = message("selected", parent = user.id, text = "Selected answer", time = 4L)
+        val laterUser = message(
+            "later-user", text = "Later input", role = Participant.USER, parent = selected.id, time = 5L,
+        )
+        val other = message("other", parent = otherUser.id, text = "Unselected answer", time = 2L)
+        val fixture = Fixture(listOf(otherUser, other, user, selected, laterUser))
         fixture.header = fixture.header!!.copy(
             selectedBranchesJson = Json.encodeToString(mapOf("null" to user.id, user.id to selected.id)),
         )
         fixture.generator.generateAndPersist("conversation", live(other, "Off branch partial"))
 
-        assertTrue(fixture.prompts.single().contains("Assistant: Selected answer"))
-        assertFalse(fixture.prompts.single().contains("Off branch"))
-        coVerify(exactly = 0) { fixture.dao.getMessage("other") }
+        val prompt = fixture.prompts.single()
+        assertTrue(prompt.contains("Selected input"))
+        assertFalse(prompt.contains("Selected answer"))
+        assertFalse(prompt.contains("Unselected"))
+        assertFalse(prompt.contains("Later input"))
+        assertFalse(prompt.contains("Off branch"))
+        coVerify(exactly = 1) { fixture.dao.getMessage(any()) }
+        coVerify(exactly = 1) { fixture.dao.getMessage("user") }
         coVerify(exactly = 1) { fixture.dao.getMessageContextTopology("conversation") }
         coVerify(exactly = 0) { fixture.dao.getMessageContextTopology(neq("conversation")) }
     }
 
     @Test
-    fun blankAndThinkingOnlyConversationMakesNoProviderCall() = runTest {
+    fun blankFirstUserDoesNotFallThroughToLaterUserOrAssistantText() = runTest {
         val fixture = Fixture(listOf(
             message("user", text = "  ", role = Participant.USER),
-            message("answer", parent = "user", text = "").copy(thoughts = "Private reasoning"),
+            message("answer", parent = "user", text = "Assistant text").copy(thoughts = "Private reasoning"),
+            message("later-user", parent = "answer", text = "Later input", role = Participant.USER, time = 3L),
         ))
         val result = fixture.generator.generateAndPersist("conversation")
 
@@ -154,7 +178,7 @@ class ConversationTitleSnapshotTest {
 
     @Test
     fun concurrentManualAndHeadlessTriggersShareOneProviderAndReleaseAdmission() = runTest {
-        val fixture = Fixture(listOf(message("answer", text = "Subject")))
+        val fixture = Fixture(listOf(message("user", text = "Subject", role = Participant.USER)))
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         fixture.events = flow {
@@ -187,7 +211,7 @@ class ConversationTitleSnapshotTest {
 
     @Test
     fun cancellingAJoinedCallerDoesNotCancelTheAdmittedRequest() = runTest {
-        val fixture = Fixture(listOf(message("answer", text = "Subject")))
+        val fixture = Fixture(listOf(message("user", text = "Subject", role = Participant.USER)))
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         fixture.events = flow {
@@ -209,7 +233,7 @@ class ConversationTitleSnapshotTest {
     @Test
     fun renameAndDeletionDuringProviderCallCannotBeOverwritten() = runTest {
         for (delete in listOf(false, true)) {
-            val fixture = Fixture(listOf(message("answer", text = "Subject")))
+            val fixture = Fixture(listOf(message("user", text = "Subject", role = Participant.USER)))
             fixture.events = flow {
                 fixture.header = if (delete) null else fixture.header!!.copy(title = "Manual rename")
                 emit(StreamEvent.TextChunk("Stale generated title"))
@@ -227,7 +251,7 @@ class ConversationTitleSnapshotTest {
 
     @Test
     fun cancellationDiscardsPartialOutputAndAllowsTheNextRequest() = runTest {
-        val fixture = Fixture(listOf(message("answer", text = "Subject")))
+        val fixture = Fixture(listOf(message("user", text = "Subject", role = Participant.USER)))
         val entered = CompletableDeferred<Unit>()
         val never = CompletableDeferred<Unit>()
         fixture.events = flow {
@@ -263,7 +287,7 @@ class ConversationTitleSnapshotTest {
                 flowOf(StreamEvent.TextChunk(" \n\t ")),
             )
             for (events in failures) {
-                val fixture = Fixture(listOf(message("answer", text = "Subject")))
+                val fixture = Fixture(listOf(message("user", text = "Subject", role = Participant.USER)))
                 fixture.events = events
                 assertTrue(fixture.generator.generateAndPersist("conversation") is
                     ConversationTitleGenerator.Result.Failure)

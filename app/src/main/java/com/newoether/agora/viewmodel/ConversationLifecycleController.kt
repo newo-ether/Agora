@@ -27,6 +27,7 @@ internal class ConversationLifecycleController(
     private val removeRuntime: (String) -> Unit,
     private val stopGeneration: suspend (conversationId: String, origin: ChatClient) -> Unit,
     private val deletedElsewhereText: () -> String,
+    private val deletedByParentText: () -> String = deletedElsewhereText,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) {
@@ -51,7 +52,15 @@ internal class ConversationLifecycleController(
         onResult: (Boolean) -> Unit = {},
     ): Boolean {
         val request = Any()
-        if (clients.isSubmissionFrozen(conversationId) || pendingDeletes.putIfAbsent(conversationId, request) != null) return false
+        if (clients.isSubmissionFrozen(conversationId) || pendingDeletes.putIfAbsent(conversationId, request) != null) {
+            runCatching {
+                DebugLog.w(
+                    "ConversationLifecycle",
+                    "Delete rejected for $conversationId: frozen=${clients.isSubmissionFrozen(conversationId)}, pending=${pendingDeletes.containsKey(conversationId)}",
+                )
+            }
+            return false
+        }
         val confirmedMessageIds = expectedMessageIds?.toSet()
         val job = scope.launch(ioDispatcher) {
             var deleted = false
@@ -68,20 +77,50 @@ internal class ConversationLifecycleController(
                         scrollToTarget = false,
                     )
                 }
-                if (clients.isSubmissionFrozen(conversationId)) return@launch
-                if (!matchesConfirmation(conversationId, confirmedMessageIds)) return@launch
+                if (clients.isSubmissionFrozen(conversationId)) {
+                    runCatching {
+                        DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: submission frozen")
+                    }
+                    return@launch
+                }
+                if (!matchesConfirmation(conversationId, confirmedMessageIds)) {
+                    runCatching {
+                        DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: confirmation mismatch")
+                    }
+                    return@launch
+                }
                 // Running execution owns the coordinator until its coroutine finishes. Await the
                 // canonical Stop barriers outside that lock, including for nonviewed owners.
                 stopLoop(conversationId)
                 stopGeneration(conversationId, origin)
-                tryWithConversationLock(conversationId) {
-                    if (clients.isSubmissionFrozen(conversationId)) return@tryWithConversationLock
-                    if (!matchesConfirmation(conversationId, confirmedMessageIds)) return@tryWithConversationLock
-                    if (conversations.getLiveRun(conversationId) != null) return@tryWithConversationLock
+                val lockAcquired = tryWithConversationLock(conversationId) {
+                    if (clients.isSubmissionFrozen(conversationId)) {
+                        runCatching {
+                            DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: submission frozen in lock")
+                        }
+                        return@tryWithConversationLock
+                    }
+                    if (!matchesConfirmation(conversationId, confirmedMessageIds)) {
+                        runCatching {
+                            DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: confirmation mismatch in lock")
+                        }
+                        return@tryWithConversationLock
+                    }
+                    if (conversations.getLiveRun(conversationId) != null) {
+                        runCatching {
+                            DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: live run present")
+                        }
+                        return@tryWithConversationLock
+                    }
                     parentConversationId = conversations.getConversation(conversationId)?.parentConversationId
                     viewersAtCommit = clients.showing(conversationId)
                     conversations.deleteConversation(conversationId)
                     deleted = true
+                }
+                if (!lockAcquired) {
+                    runCatching {
+                        DebugLog.w("ConversationLifecycle", "Delete aborted for $conversationId: conversation lock busy")
+                    }
                 }
                 if (deleted) {
                     removeRuntime(conversationId)
@@ -117,6 +156,48 @@ internal class ConversationLifecycleController(
         }
         job.invokeOnCompletion { pendingDeletes.remove(conversationId, request) }
         return true
+    }
+
+    /**
+     * Deletes an idle Subagent on its parent's agent_delete request. No client issued it, so every
+     * client still showing the child is told why and settles to the surviving parent. Unlike
+     * [delete] this never stops work: a live Run, frozen submission, concurrent delete or changed
+     * ownership rejects the request and leaves the child intact.
+     */
+    suspend fun deleteIdleSubagent(conversationId: String, parentConversationId: String): Boolean {
+        val request = Any()
+        if (clients.isSubmissionFrozen(conversationId) || pendingDeletes.putIfAbsent(conversationId, request) != null) {
+            return false
+        }
+        try {
+            var deleted = false
+            var viewersAtCommit = emptyList<ChatClient>()
+            withContext(ioDispatcher) {
+                tryWithConversationLock(conversationId) {
+                    if (clients.isSubmissionFrozen(conversationId)) return@tryWithConversationLock
+                    if (conversations.getLiveRun(conversationId) != null) return@tryWithConversationLock
+                    val child = conversations.getConversation(conversationId)
+                    if (child?.parentConversationId != parentConversationId) return@tryWithConversationLock
+                    viewersAtCommit = clients.showing(conversationId)
+                    conversations.deleteConversation(conversationId)
+                    deleted = true
+                }
+            }
+            if (deleted) {
+                removeRuntime(conversationId)
+                if (viewersAtCommit.isNotEmpty()) {
+                    withContext(NonCancellable + mainDispatcher) {
+                        viewersAtCommit.forEach { viewer ->
+                            viewer.showSnackbar(deletedByParentText())
+                            viewer.settleDeletedConversation(conversationId, parentConversationId)
+                        }
+                    }
+                }
+            }
+            return deleted
+        } finally {
+            pendingDeletes.remove(conversationId, request)
+        }
     }
 
     private suspend fun matchesConfirmation(conversationId: String, expectedMessageIds: Set<String>?): Boolean =

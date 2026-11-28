@@ -93,6 +93,44 @@ class RemoteStatusPresentationTest {
         assertEquals(R.string.remote_empty_retry_hint, unavailable.remoteEmptyConversationHint())
     }
 
+    @Test fun creatableDisconnectedSourceKeepsDraftWelcomeWithoutClaimingOnline() {
+        val desktop = com.newoether.agora.remote.RemoteAdapter("codex-desktop", "codex", "desktop", "disconnected",
+            capabilities = com.newoether.agora.remote.RemoteCapabilities(create = true, history = true))
+        val draft = state().copy(draftSessionId = session.id,
+            devices = listOf(state().devices.last().copy(multiAdapter = true, adapters = listOf(desktop))))
+        assertEquals(McpConnectionStatus.IDLE, draft.remoteConnectionStatus())
+        assertEquals(R.string.remote_new_chat_hint, draft.remoteEmptyConversationHint())
+        assertFalse(draft.canRetryEmptyConnection())
+        assertEquals(R.string.remote_source_unavailable, draft.copy(draftSessionId = null).remoteEmptyConversationHint())
+    }
+
+    @Test fun disconnectedCliCannotAcquireDraftWelcomeFromAnOlderCreateAdvertisement() {
+        for ((id, family) in listOf("codex-cli" to "codex", "claude-code" to "claude")) {
+            val cli = com.newoether.agora.remote.RemoteAdapter(id, family, "cli", "disconnected",
+                capabilities = com.newoether.agora.remote.RemoteCapabilities(create = true, history = true))
+            val draft = state().copy(draftSessionId = session.id,
+                devices = listOf(state().devices.last().copy(multiAdapter = true, adapters = listOf(cli))))
+            assertFalse(draft.canCreate)
+            assertEquals(McpConnectionStatus.IDLE, draft.remoteConnectionStatus())
+            assertEquals(R.string.remote_source_unavailable, draft.remoteEmptyConversationHint())
+            assertTrue(draft.canRetryEmptyConnection())
+        }
+    }
+
+    @Test fun unavailableSourceRetainsHeadlineAndRetryAcrossGatewayCheck() {
+        val cli = com.newoether.agora.remote.RemoteAdapter("codex-cli", "codex", "cli", "unavailable")
+        val draft = state().copy(draftSessionId = session.id,
+            devices = listOf(state().devices.last().copy(multiAdapter = true, adapters = listOf(cli))))
+        for (gateway in listOf(RemoteDeviceStatus.CONNECTED, RemoteDeviceStatus.CONNECTING, RemoteDeviceStatus.ERROR)) {
+            val snapshot = draft.copy(loading = gateway == RemoteDeviceStatus.CONNECTING,
+                devices = draft.devices.map { it.copy(status = gateway) })
+            assertEquals(R.string.remote_source_unavailable, snapshot.remoteEmptyConversationHint())
+            assertTrue(snapshot.canRetryEmptyConnection())
+        }
+        assertEquals(R.string.remote_empty_retry_hint,
+            draft.copy(failure = RemoteFailure.PROTOCOL).remoteEmptyConversationHint())
+    }
+
     @Test fun loadedHistoryAlwaysWinsOverEmptyGuidanceDuringFailureAndRecovery() {
         val message = ChatMessage(id = "answer", text = "Retained answer", participant = Participant.MODEL)
         val groups = listOf(RemoteMessageGroup(message, emptyList()))

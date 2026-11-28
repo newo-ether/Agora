@@ -58,6 +58,12 @@ internal object InterruptedToolRounds {
         val result = ArrayList<MessageEntity>(rows.size)
         for (row in rows) {
             val entity = row.entity
+            if (entity.id.startsWith(Constants.COMPACT_MSG_PREFIX)) {
+                // Preserve-Context Compact answers refused tool calls without persisting them, so
+                // those segments are UI-only and must never become protocol rows later.
+                result += entity.withAggregate(strip = true)
+                continue
+            }
             val unpaired = unpairedCalls(entity, persistedCalls)
             if (unpaired.isEmpty()) {
                 result += entity.withAggregate(row.stripAggregateToolSegments)

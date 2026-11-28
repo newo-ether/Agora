@@ -7,7 +7,9 @@ import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.citationRecords
 import com.newoether.agora.model.toMessageSegment
+import com.newoether.agora.util.Constants
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -117,6 +119,23 @@ class CustomProviderIdentityPolicyTest {
             "Fast (Renamed)",
             modelDisplayName(model, mapOf(model to "Fast"), listOf(providers.single().copy(name = "Renamed")), true),
         )
+    }
+
+    @Test
+    fun providerNameDefaultsToCustomProvidersOnly() {
+        val customId = "custom-provider-00000000-0000-4000-8000-000000000002"
+        val customModel = "$customId:gemini-3.1-pro"
+        val builtInModel = "${Constants.PROVIDER_OPENAI}:gpt-5"
+
+        assertTrue(providerNameShownByDefault(customModel))
+        assertFalse(providerNameShownByDefault(builtInModel))
+        assertFalse(providerNameShownByDefault("${Constants.PROVIDER_GOOGLE}:gemini-3-pro"))
+        assertFalse(providerNameShownByDefault("${Constants.PROVIDER_LOCAL}:qwen3-8b"))
+
+        assertTrue(modelProviderNameShown(customModel, emptyMap()))
+        assertFalse(modelProviderNameShown(customModel, mapOf(customModel to false)))
+        assertTrue(modelProviderNameShown(builtInModel, mapOf(builtInModel to true)))
+        assertFalse(modelProviderNameShown(null, emptyMap()))
     }
 
     @Test

@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,7 +54,7 @@ internal fun ExportDataDialog(
                 if (exportApiKeys) {
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Warning, null, modifier = Modifier.size(16.dp),
+                        Icon(Icons.Rounded.Warning, null, modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(6.dp))
                         Text(
@@ -170,7 +170,7 @@ internal fun ImportPreviewDialog(
                                 keysStrategy, { keysStrategy = it })
                             Spacer(Modifier.height(8.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Warning, null, modifier = Modifier.size(16.dp),
+                                Icon(Icons.Rounded.Warning, null, modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.error)
                                 Spacer(Modifier.width(6.dp))
                                 Text(

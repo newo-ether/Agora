@@ -18,39 +18,43 @@ class SubagentToolProvider(private val manager: SubagentManager) : ToolProvider 
         val recommendation = ctx.subagentRecommendedModel?.takeIf { it in models }?.let {
             " Recommended model ID: ${Json.encodeToString(it)} (hint only; model_id is still required and may select any available ID)."
         }.orEmpty()
-        return listOf(
-            definition("spawn_agent", "Start an isolated subagent asynchronously. It receives only task, never this conversation's history. Available model IDs: ${Json.encodeToString(models)}$recommendation", mapOf(
+        return listOfNotNull(
+            definition("agent_spawn", "Start an isolated subagent asynchronously. It receives only task, never this conversation's history. Available model IDs: ${Json.encodeToString(models)}$recommendation", mapOf(
                 "name" to ToolProperty("string", "Short subagent name."),
                 "model_id" to ToolProperty("string", "One exact available model ID; required even when a recommendation is present."),
                 "task" to ToolProperty("string", "Complete task and all necessary context."),
             ), listOf("name", "model_id", "task")),
-            definition("send_agent_message", "Queue a follow-up for an idle or busy subagent belonging to this conversation. Returns a queued item receipt; does not interrupt its active Provider or tool pass.", mapOf(
+            definition("agent_send_message", "Queue a follow-up for an idle or busy subagent belonging to this conversation. Returns a queued item receipt; does not interrupt its active Provider or tool pass.", mapOf(
                 "agent_id" to ToolProperty("string", "Subagent conversation ID."),
                 "message" to ToolProperty("string", "Complete follow-up instruction."),
             ), listOf("agent_id", "message")),
-            definition("wait_agents", "Wait for selected subagents and return their undelivered terminal results. Returned results are not automatically notified again. Failed results include their persisted error detail separately from generated text when available.", mapOf(
+            definition("agent_wait", "Wait for selected subagents and return their undelivered terminal results. Returned results are not automatically notified again. Failed results include their persisted error detail separately from generated text when available.", mapOf(
                 "agent_ids" to ToolProperty("array", "Subagent IDs; omit to wait for all.", items = ToolProperty("string", "Subagent ID")),
                 "timeout_ms" to ToolProperty("integer", "Wait budget, 1 to 300000 milliseconds; default 300000."),
             )),
-            definition("list_agents", "List this conversation's subagents and their current status, including available errorText/errorCode for failed agents.", emptyMap()),
-            definition("stop_agent", "Cancel a subagent's live generation and await durable Stop settlement.", mapOf(
+            definition("agent_list", "List this conversation's subagents and their current status, including available errorText/errorCode for failed agents.", emptyMap()),
+            definition("agent_stop", "Cancel a subagent's live generation and await durable Stop settlement.", mapOf(
                 "agent_id" to ToolProperty("string", "Subagent conversation ID."),
             ), listOf("agent_id")),
+            if (ctx.subagentDeleteEnabled) definition("agent_delete", "Permanently delete an idle subagent belonging to this conversation, freeing its slot in the subagent count limit. Rejected while it is running, has queued messages, or has an undelivered result (call agent_wait first).", mapOf(
+                "agent_id" to ToolProperty("string", "Subagent conversation ID."),
+            ), listOf("agent_id")) else null,
         )
     }
 
-    override fun handles(name: String) = name in NAMES
+    override fun handles(name: String) = BuiltInToolNames.canonical(name) in NAMES
 
     override suspend fun execute(name: String, arguments: String, ctx: GenerationContext): String =
         executeOneShotResult(name, arguments, ctx).text
 
     override suspend fun executeOneShotResult(name: String, arguments: String, ctx: GenerationContext): ToolExecutionResult = try {
-        check(ctx.subagentToolsEnabled && name in NAMES) { "Subagent tools are unavailable" }
+        check(ctx.subagentToolsEnabled && BuiltInToolNames.canonical(name) in NAMES) { "Subagent tools are unavailable" }
+        check(BuiltInToolNames.canonical(name) != "agent_delete" || ctx.subagentDeleteEnabled) { "Deleting subagents is disabled in Settings" }
         val args = Json.parseToJsonElement(arguments.ifBlank { "{}" }).jsonObject
         fun string(key: String) = (args[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
             ?.takeIf(String::isNotBlank) ?: error("$key is required")
-        val result = when (name) {
-            "spawn_agent" -> {
+        val result = when (BuiltInToolNames.canonical(name)) {
+            "agent_spawn" -> {
                 val modelId = string("model_id")
                 require(modelId in ctx.subagentModelIds.orEmpty()) {
                     "model_id must be an available model ID from this request"
@@ -60,7 +64,7 @@ class SubagentToolProvider(private val manager: SubagentManager) : ToolProvider 
                     put("status", "started")
                 }.toString()
             }
-            "send_agent_message" -> {
+            "agent_send_message" -> {
                 val id = string("agent_id")
                 val queuedId = manager.send(id, string("message"), ctx)
                 buildJsonObject {
@@ -69,7 +73,7 @@ class SubagentToolProvider(private val manager: SubagentManager) : ToolProvider 
                     put("queued_item_id", queuedId)
                 }.toString()
             }
-            "wait_agents" -> {
+            "agent_wait" -> {
                 val ids = (args["agent_ids"] as? JsonArray)?.map { it.jsonPrimitive.content }.orEmpty()
                 val timeout = (args["timeout_ms"] as? JsonPrimitive)?.longOrNull ?: 300_000L
                 val results = manager.wait(ids, timeout, ctx)
@@ -88,10 +92,14 @@ class SubagentToolProvider(private val manager: SubagentManager) : ToolProvider 
                     }
                 }.toString()
             }
-            "list_agents" -> Json.encodeToString(manager.list(ctx))
-            "stop_agent" -> {
+            "agent_list" -> Json.encodeToString(manager.list(ctx))
+            "agent_stop" -> {
                 manager.stop(string("agent_id"), ctx)
                 "Subagent stopped"
+            }
+            "agent_delete" -> {
+                manager.delete(string("agent_id"), ctx)
+                "Subagent deleted"
             }
             else -> error("Unknown subagent tool")
         }
@@ -108,6 +116,6 @@ class SubagentToolProvider(private val manager: SubagentManager) : ToolProvider 
         parameters = ToolParameters(properties = properties, required = required)))
 
     private companion object {
-        val NAMES = setOf("spawn_agent", "send_agent_message", "wait_agents", "list_agents", "stop_agent")
+        val NAMES = setOf("agent_spawn", "agent_send_message", "agent_wait", "agent_list", "agent_stop", "agent_delete")
     }
 }

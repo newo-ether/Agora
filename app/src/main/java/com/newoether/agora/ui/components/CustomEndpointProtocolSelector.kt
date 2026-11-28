@@ -24,6 +24,5 @@ fun CustomEndpointProtocolSelector(
         selectedIndex = protocols.indexOf(selected).coerceAtLeast(0),
         onSelect = { index -> protocols.getOrNull(index)?.let(onSelected) },
         modifier = modifier,
-        allowLabelOverflow = true,
     )
 }

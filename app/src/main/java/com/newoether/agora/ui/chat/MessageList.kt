@@ -741,7 +741,11 @@ internal fun MessageList(
             state = state,
             userScrollEnabled = userScrollEnabled, overscrollEffect = overscrollEffect
         ) {
-            items(turns, key = { turn -> stableVisualKey(turn.key) }) { turn ->
+            items(
+                turns,
+                key = { turn -> stableVisualKey(turn.key) },
+                contentType = { turn -> turn.lazyContentType() },
+            ) { turn ->
                 val holdsTailMinimum = turn.key == tailHolderKey
                 Box(modifier = Modifier) {
                     Column(

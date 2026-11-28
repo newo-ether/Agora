@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -77,6 +77,10 @@ internal fun ToolDetailContent(
                 if (presentation.arguments != null) Spacer(Modifier.height(8.dp))
                 ToolCodeArgument(code)
             }
+            presentation.searchProvider?.let { provider ->
+                Spacer(Modifier.height(8.dp))
+                ToolSectionLabel(stringResource(R.string.tool_search_provider, provider))
+            }
             Spacer(Modifier.height(18.dp))
         }
     }
@@ -84,7 +88,7 @@ internal fun ToolDetailContent(
         Column(modifier = contentAlignmentModifier.fillMaxWidth()) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MetaPill(text = "MCP", emphasized = true)
-                presentation.mcpDevice?.let { MetaPill(it) }
+                presentation.device?.let { MetaPill(it) }
             }
             Spacer(Modifier.height(18.dp))
         }
@@ -110,15 +114,37 @@ internal fun ToolDetailContent(
     val body = presentation.body
     if (body is ToolDetailBody.Search) {
         WebSearchResult(body)
+        presentation.supplemental.forEach { value ->
+            Spacer(Modifier.height(12.dp))
+            JsonOrPlainView(value)
+        }
         return
     }
     if (presentation.kind == ToolKind.WEB_SEARCH && body is ToolDetailBody.Muted) {
         Column(modifier = Modifier.padding(horizontal = 8.dp)) {
             ToolMutedContent(body.text)
+            presentation.supplemental.forEach { value ->
+                Spacer(Modifier.height(12.dp))
+                JsonOrPlainView(value)
+            }
         }
         return
     }
     Column(modifier = contentAlignmentModifier.fillMaxWidth()) {
+        val device = presentation.device
+        if (
+            device != null &&
+            body !is ToolDetailBody.Shell &&
+            presentation.kind != ToolKind.MCP &&
+            presentation.kind.runsOnShellServer()
+        ) {
+            // File and job cards are formatted from the payload; the server is the only piece of
+            // context that the formatted body cannot show on its own.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MetaPill(device)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
         when (body) {
             is ToolDetailBody.Active -> ToolActiveContent(body.text, body.output)
             is ToolDetailBody.Failed -> {
@@ -141,6 +167,10 @@ internal fun ToolDetailContent(
             is ToolDetailBody.Edit -> FileEditResult(body)
             is ToolDetailBody.Search -> Unit
         }
+        presentation.supplemental.forEach { value ->
+            Spacer(Modifier.height(12.dp))
+            JsonOrPlainView(value)
+        }
     }
 }
 
@@ -149,6 +179,19 @@ internal fun toolDetailHorizontalPadding(segment: MessageSegment): Dp =
         ToolKind.WEB_SEARCH -> 16.dp
         else -> 24.dp
     }
+
+internal fun projectToolImageOccurrences(
+    images: List<ToolImageAttachment>,
+): StoredMediaOccurrenceProjection {
+    val paths = mutableListOf<String>()
+    val indices = images.map { image ->
+        if (image.unavailable || image.path.isBlank()) null else {
+            paths += image.path
+            paths.lastIndex
+        }
+    }
+    return StoredMediaOccurrenceProjection(paths, indices)
+}
 
 @Composable
 private fun ToolImageResults(
@@ -159,11 +202,12 @@ private fun ToolImageResults(
     requestKey: String?,
 ) {
     val displayImages = remember(images) {
-        images.filter { it.path.isNotBlank() }
+        images.filter { it.path.isNotBlank() || it.unavailable }
     }
-    val paths = remember(displayImages) {
-        displayImages.map(ToolImageAttachment::path)
+    val mediaProjection = remember(displayImages) {
+        projectToolImageOccurrences(displayImages)
     }
+    val paths = mediaProjection.urls
     val loader = LocalToolImageLoader.current
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (requestKey != null && toolCallId != null && displayImages.isEmpty()) {
@@ -174,11 +218,15 @@ private fun ToolImageResults(
             }
         }
         displayImages.forEachIndexed { index, image ->
-            key(image.path, image.sha256) {
+            key(index, image.path) {
                 ToolImagePreview(
                     image = image,
                     squareCrop = squareCrop,
-                    onClick = { onMediaClick(paths, index) },
+                    onClick = {
+                        mediaProjection.indexByDisplayItem[index]?.let { mediaIndex ->
+                            onMediaClick(paths, mediaIndex)
+                        }
+                    },
                 )
             }
         }
@@ -202,17 +250,19 @@ private fun ToolImagePreview(
             (width.toFloat() / height.toFloat()).coerceIn(0.55f, 2.2f)
         }
     }
-    var loadState by remember(image) {
-        mutableStateOf(MediaLoadPresentation.LOADING)
-    }
-    var presentedState by remember(image) {
-        mutableStateOf(MediaLoadPresentation.LOADING)
-    }
-    LaunchedEffect(loadState) {
-        presentedState = loadState
+    val initialState = if (image?.unavailable == true) {
+        MediaLoadPresentation.FAILED
+    } else MediaLoadPresentation.LOADING
+    var loadState by remember(image) { mutableStateOf(initialState) }
+    var presentedState by remember(image) { mutableStateOf(initialState) }
+    val targetState = if (attachment?.unavailable == true) {
+        MediaLoadPresentation.FAILED
+    } else loadState
+    LaunchedEffect(targetState) {
+        presentedState = targetState
     }
     LaunchedEffect(image) {
-        if (loadImage != null) {
+        if (image?.unavailable != true && loadImage != null) {
             try { attachment = loadImage() }
             catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) { loadState = MediaLoadPresentation.FAILED }
@@ -235,13 +285,14 @@ private fun ToolImagePreview(
                     MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f),
                 )
                 .clickable(
-                    enabled = presentedState == MediaLoadPresentation.LOADED,
-                    onClick = { attachment?.let(onClick) },
+                    enabled = attachment?.unavailable == false &&
+                        presentedState == MediaLoadPresentation.LOADED,
+                    onClick = { attachment?.takeUnless { it.unavailable }?.let(onClick) },
                 ),
             contentAlignment = Alignment.Center,
         ) {
             val displayedImage = attachment
-            if (displayedImage != null) coil.compose.AsyncImage(
+            if (displayedImage != null && !displayedImage.unavailable) coil.compose.AsyncImage(
                 model = displayedImage.path,
                 contentDescription = stringResource(R.string.tool_view_image),
                 contentScale = if (squareCrop) ContentScale.Crop else ContentScale.Fit,
@@ -282,9 +333,10 @@ private fun ToolImagePreview(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = Icons.Default.BrokenImage,
+                            imageVector = Icons.Rounded.BrokenImage,
                             contentDescription = stringResource(R.string.attachment_copy_failed_image),
-                            tint = MaterialTheme.colorScheme.error,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                .copy(alpha = 0.55f),
                             modifier = Modifier.size(32.dp),
                         )
                     }
@@ -352,6 +404,10 @@ private fun ShellResult(body: ToolDetailBody.Shell) {
     body.output?.let {
         Spacer(Modifier.height(8.dp))
         TerminalOutput(it)
+    }
+    body.metadata?.let {
+        Spacer(Modifier.height(8.dp))
+        JsonOrPlainView(it)
     }
 }
 

@@ -429,7 +429,7 @@ class ProviderPassRetryAccumulatorTest {
     private class AccumulatorHarness {
         val output = GenerationOutputAccumulator(
             object : GenerationToolPresentationSource {
-                override fun presentationMetadata(name: String) = null
+                override fun presentationMetadata(name: String, arguments: String?) = null
             },
             "provider",
         )

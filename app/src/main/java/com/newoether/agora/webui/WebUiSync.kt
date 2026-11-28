@@ -4,8 +4,12 @@ import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.forDisplay
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
+import com.newoether.agora.data.repository.observeDrawerGeneratingConversationIds
+import com.newoether.agora.ui.chat.observeDrawerInteractions
+import com.newoether.agora.ui.chat.drawerInteraction
 import com.newoether.agora.data.repository.recoverOpenedConversationFamily
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.model.ChatConversation
@@ -19,7 +23,6 @@ import com.newoether.agora.model.ThinkingResolution
 import com.newoether.agora.data.thinkingCapabilityForSelectedModel
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.util.Constants
-import com.newoether.agora.ui.components.parseLatexSpans
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.viewmodel.ConversationMessagePayloadHydration
 import com.newoether.agora.viewmodel.ConversationStateRegistry
@@ -131,9 +134,15 @@ internal class WebUiSync(
                 listLimit.flatMapLatest { limit ->
                     conversations.observeDrawerConversations(limit + 1).map { limit to it }
                 },
-                registry.activeConversationIds,
-            ) { (limit, items), active ->
-                WebSyncEvent.Conversations(items.take(limit).map { it.toWeb(it.id in active) }, items.size > limit, limit)
+                conversations.observeDrawerGeneratingConversationIds(
+                    foregroundIds = registry.activeConversationIds,
+                    automationIds = executionCoordinator.activeAutomationConversationIds,
+                ),
+                conversations.observeDrawerInteractions(askUser.requests, shellConfirmation.pendingShellCommand),
+            ) { (limit, items), active, interactions ->
+                WebSyncEvent.Conversations(items.take(limit).map {
+                    it.toWeb(it.id in active).copy(interaction = interactions.drawerInteraction(it.id)?.name?.lowercase())
+                }, items.size > limit, limit)
             }
             val displayContext = display.distinctUntilChanged()
                 .shareIn(this, SharingStarted.Eagerly, replay = 1)
@@ -205,12 +214,8 @@ internal class WebUiSync(
                                         put("blocking", question.blocking)
                                     }
                                 }
-                                is com.newoether.agora.ui.chat.interaction.UserInteraction.ShellCommand -> listOf(buildJsonObject {
-                                    put("kind", "shell")
-                                    put("id", request.pending.id.toString())
-                                    put("server", request.pending.server)
-                                    put("summary", request.pending.summary)
-                                })
+                                is com.newoether.agora.ui.chat.interaction.UserInteraction.ShellCommand ->
+                                    listOf(webShellInteraction(request.pending))
                             } })
                     }.distinctUntilChanged().collect { outbound.send(it) }
                 }
@@ -270,7 +275,7 @@ internal class WebUiSync(
                                                     put("intervalMs", attachment.sliceIntervalMs)
                                                     put("staged", attachment.localPath != null)
                                                     if (attachment.type == "file" && attachment.importState == com.newoether.agora.model.AttachmentImportState.READY &&
-                                                        attachment.storage == com.newoether.agora.model.AttachmentStorage.APP_PRIVATE && !attachment.unavailable) {
+                                                        !attachment.unavailable) {
                                                         put("text", attachment.preparedText)
                                                     }
                                                     attachment.selectedPages?.let { pages ->
@@ -331,13 +336,14 @@ internal class WebUiSync(
                                                 put("contextLabels", JsonArray(com.newoether.agora.model.ContextBudget.PRESETS.map { value -> JsonPrimitive(com.newoether.agora.model.ContextBudget.compactLabel(value)) }))
                                                 put("contextOverrideLabel", it.generationParameters.contextWindow?.let { value -> com.newoether.agora.model.ContextBudget.compactLabel(com.newoether.agora.model.ContextBudget.normalize(value)) })
                                                 put("contextDefaultLabel", com.newoether.agora.model.ContextBudget.compactLabel(com.newoether.agora.model.ContextBudget.normalize(it.generationDefaults.contextWindow)))
-                                                put("maxTokensPresets", JsonArray(com.newoether.agora.ui.chat.advancedMaxTokensPresets.map(::JsonPrimitive)))
+                                                put("maxTokensPresets", JsonArray(com.newoether.agora.presentation.advancedMaxTokensPresets.map(::JsonPrimitive)))
                                             },
                                             it.compactDefaults?.let { request -> buildJsonObject {
                                                 put("modelId", request.model)
                                                 put("prompt", request.prompt)
                                                 put("retainCount", request.retainLogicalMessages)
                                                 put("compacting", it.compacting)
+                                                put("preserveContext", request.preserveSystemPrompt)
                                             } },
                                             buildJsonObject {
                                                 put("selectedId", it.systemPromptId)
@@ -347,6 +353,7 @@ internal class WebUiSync(
                                                     put("title", prompt.title)
                                                 } }))
                                             },
+                                            sandboxAttachments = it.sandboxAttachments,
                                         )
                                     }.distinctUntilChanged().collect { outbound.send(it) }
                             }
@@ -472,6 +479,8 @@ internal class WebUiSync(
                             launch { session.rowCommand(command, visiblePath.value) { outbound.send(it) } }
                         }
                         "edit", "regenerate", "recompact" -> launch { session.rowCommand(command, visiblePath.value) }
+                        "session_tools", "session_tool_toggle" ->
+                            dispatchWebUiSessionToolsCommand(command, connectionId, session, connectionJob, outbound)
                         "attachment_remove", "attachment_retry", "attachment_pdf", "attachment_video" ->
                             session.attachmentCommand(command)
                         "setting" -> session.settingCommand(command)
@@ -701,9 +710,9 @@ internal class WebUiSync(
     ): WebMessage = withContext(projectionDispatcher) {
         val providers = customProviders.value
         val shown = message.forDisplay(providers)
-        // MessageInfoDialog: modelDisplayName(modelName, aliases, providers, providerNames[modelName] != false).
+        // MessageInfoDialog: modelDisplayName(modelName, aliases, providers, modelProviderNameShown(...)).
         val modelDisplay = message.modelName?.let {
-            com.newoether.agora.data.modelDisplayName(it, display.modelAliases, providers, display.modelProviderNames[it] != false)
+            com.newoether.agora.data.modelDisplayName(it, display.modelAliases, providers, modelProviderNameShown(it, display.modelProviderNames))
         }
         shown.toWeb(webPresentation(shown, isStreaming, display), modelDisplay)
     }
@@ -739,51 +748,4 @@ internal class WebUiSync(
                 }.getOrNull()
             }.orEmpty()
     }
-}
-
-/** A math span in [WebText.markdown] is `MATH_OPEN + index + MATH_CLOSE`. */
-internal const val MATH_OPEN = '\uE000'
-internal const val MATH_CLOSE = '\uE001'
-
-/**
- * Markdown with math already split out by the app's [parseLatexSpans], so the browser detects
- * formulas exactly as the app does. Private-use placeholder characters already in the text are
- * replaced so they cannot be mistaken for a placeholder.
- */
-internal fun String.toWebText(parseInlineDollarMath: Boolean): WebText {
-    val spans = parseLatexSpans(this, parseInlineDollarMath)
-    val math = mutableListOf<WebMath>()
-    val sourceMap = mutableListOf<List<Int>>()
-    var sourceCursor = 0
-    var lastDelta = 0
-    val markdown = buildString {
-        fun mapped(character: Char, original: Int) {
-            val delta = original - length
-            if (delta != lastDelta) {
-                sourceMap += listOf(length, original)
-                lastDelta = delta
-            }
-            append(character)
-        }
-        spans.forEach { span ->
-            if (span.isLatex) {
-                val start = this@toWebText.indexOf(span.source, sourceCursor)
-                check(start >= sourceCursor)
-                val slot = "$MATH_OPEN${math.size}$MATH_CLOSE"
-                slot.forEach { mapped(it, start) }
-                sourceCursor = start + span.source.length
-                math += WebMath(span.content, span.display)
-            } else {
-                span.content.forEachIndexed { index, character ->
-                    // Plain-span dollar escaping can insert a protective slash, but no source glyph.
-                    val inserted = character == '\\' && span.content.getOrNull(index + 1) == '$' &&
-                        this@toWebText.getOrNull(sourceCursor) == '$'
-                    mapped(if (character == MATH_OPEN || character == MATH_CLOSE) '\uFFFD' else character, sourceCursor)
-                    if (!inserted) sourceCursor += 1
-                }
-            }
-        }
-        if (sourceCursor - length != lastDelta) sourceMap += listOf(length, sourceCursor)
-    }
-    return WebText(markdown, math, sourceMap)
 }

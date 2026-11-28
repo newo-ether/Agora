@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="embedding_import_title">استيراد نموذج تضمين (.gguf)</string>
+    <string name="embedding_import_title">نموذج تضمين (.gguf)</string>
     <string name="embedding_import_desc">استيراد نموذج تضمين بصيغة GGUF للبحث الدلالي المحلي</string>
-    <string name="local_chat_import_title">استيراد نموذج محادثة (.gguf)</string>
+    <string name="local_chat_import_title">نموذج محادثة (.gguf)</string>
     <string name="local_chat_import_desc">استيراد نموذج محادثة بصيغة GGUF لتشغيل المحادثات على هذا الجهاز</string>
-    <string name="local_projector_import_title">استيراد عارض الرؤية (.mmproj)</string>
+    <string name="model_import_not_imported">لم يتم الاستيراد · %1$s</string>
+    <string name="model_import_file_missing">الملف مفقود</string>
+    <string name="local_projector_enabled">إدخال الصور مفعّل</string>
 </resources>

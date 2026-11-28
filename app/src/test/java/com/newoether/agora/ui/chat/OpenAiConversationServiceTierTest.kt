@@ -1,5 +1,7 @@
 package com.newoether.agora.ui.chat
 
+import com.newoether.agora.presentation.resolveOpenAiConversationServiceTier
+
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.CustomEndpointProtocol
 import com.newoether.agora.data.CustomProviderConfig

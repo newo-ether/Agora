@@ -41,8 +41,8 @@ internal fun submitFeedback(endpoint: String, json: String): SubmissionResponse 
     val request = Request.Builder().url(endpoint)
         .post(json.toRequestBody("application/json".toMediaType())).build()
     return try {
-        HttpClient.client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return SubmissionResponse(false)
+        HttpClient.client.executeWithNetworkRetry(request, replaySafe = false) { response ->
+            if (!response.isSuccessful) return@executeWithNetworkRetry SubmissionResponse(false)
             // Optional response content cannot invalidate an accepted submission.
             val message = try {
                 val source = response.body.source()

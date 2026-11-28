@@ -1,5 +1,7 @@
 package com.newoether.agora.api
 
+import com.newoether.agora.util.executeWithNetworkRetry
+
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -199,8 +201,7 @@ class DuckDuckGoScraper(
             .build()
 
         return try {
-            val response = client.newCall(request).execute()
-            response.use { resp ->
+            client.executeWithNetworkRetry(request) { resp ->
                 if (resp.isSuccessful) {
                     val body = resp.body?.string()
                     if (body != null) PageResult.Success(body)
@@ -209,6 +210,8 @@ class DuckDuckGoScraper(
                     PageResult.Error("DuckDuckGo returned HTTP ${resp.code}.")
                 }
             }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (e: IOException) {
             PageResult.Error("Network error: ${e.message}")
         } catch (e: Exception) {

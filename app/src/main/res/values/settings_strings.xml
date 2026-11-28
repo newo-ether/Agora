@@ -97,7 +97,7 @@
     <string name="prompts_template_blank">Blank</string>
     <string name="prompts_template_blank_desc">Start with an empty editable system prompt.</string>
     <string name="prompts_template_default">Default</string>
-    <string name="prompts_template_default_desc">Use Agora\'s default prompt with runtime context, memory, web search, shell, and device-file guidance.</string>
+    <string name="prompts_template_default_desc">Use Agora\'s default response rules, tool guidance, skill catalog, and active memory.</string>
     <string name="prompts_duplicate">Duplicate</string>
     <string name="prompts_duplicate_title">%1$s Copy</string>
     <string name="prompts_empty_preview">Empty prompt</string>
@@ -177,6 +177,11 @@
     <string name="default_thinking">Default Thinking</string>
     <string name="gen_thinking_enabled">Thinking</string>
     <string name="gen_thinking_enabled_desc">Enable model thinking/reasoning capability</string>
+    <string name="replay_reasoning_in_history">Replay Reasoning in History</string>
+    <string name="replay_reasoning_in_history_desc">Send reasoning_content on every assistant message; models that require the field accept an empty value</string>
+    <string name="attachments_group_title">Attachments</string>
+    <string name="attachment_sandbox_link">Sandbox file links</string>
+    <string name="attachment_sandbox_link_desc">Attach files as Local Sandbox links when available, otherwise embed their content; off: always embed</string>
     <string name="gen_thinking_level">Thinking Level</string>
     <string name="gen_thinking_level_desc">Controls thinking depth; higher = more thorough reasoning</string>
     <string name="gen_thinking_level_minimal">Minimal</string>
@@ -209,12 +214,10 @@
     <string name="tool_call_display_mode">Thinking &amp; Tool Blocks</string>
     <string name="tool_call_display_mode_timeline">Timeline</string>
     <string name="tool_call_display_mode_grouped_timeline">Grouped</string>
-    <string name="tool_call_display_mode_compact">Compact</string>
     <string name="tool_call_display_mode_timeline_desc">Show answer, thinking, and tool blocks in chronological order</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">Keep timeline order but merge consecutive thinking, tool, and image blocks</string>
     <string name="auto_expand_active_group">Auto-Expand Active Group</string>
     <string name="auto_expand_active_group_desc">Automatically expand the current thinking and tool group, then collapse it when the model moves on.</string>
-    <string name="tool_call_display_mode_compact_desc">Group thinking and tool blocks above the answer</string>
 
     <!-- Settings - Web Search Page -->
     <string name="web_search_title">Web Search</string>
@@ -225,12 +228,14 @@
     <string name="web_search_kagi">Kagi</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">Privacy-focused search API. Free tier available.</string>
     <string name="web_search_kagi_desc">Premium search API with personalized results. Pay per use.</string>
     <string name="web_search_serper_desc">Fast Google Search API. 2,500 free queries/month.</string>
     <string name="web_search_tavily_desc">AI-optimized search API. Built for LLM agents.</string>
+    <string name="web_search_exa_desc">Neural search with page highlights. Works without a key through Exa\'s public MCP endpoint.</string>
     <string name="web_search_searxng_desc">Self-hosted metasearch engine. Best used with your own instance.</string>
     <string name="web_search_duckduckgo_desc">Free, no API key. Web scraping lite.duckduckgo.com. May be unstable and trigger anti-bot protection.</string>
     <string name="web_search_select_provider">Select Search Provider</string>
@@ -241,7 +246,9 @@
     <string name="web_search_serper_key">Serper API Key</string>
     <string name="web_search_serper_key_hint">API key from serper.dev</string>
     <string name="web_search_tavily_key">Tavily API Key</string>
+    <string name="web_search_exa_key">Exa API Key (optional)</string>
     <string name="web_search_tavily_key_hint">API key from tavily.com</string>
+    <string name="web_search_exa_key_hint">Optional. Leave blank to use Exa\'s keyless public endpoint.</string>
     <string name="web_search_num_results">Max Results</string>
     <string name="web_search_num_results_desc">Number of results to fetch: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Public instances are often rate-limited. Self-hosting is recommended for reliable use.</string>
@@ -279,7 +286,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Local Sandbox</string>
     <string name="sandbox_enable">Enable Local Sandbox</string>
-    <string name="sandbox_enable_desc">Run commands in isolated Alpine Linux on-device</string>
+    <string name="sandbox_enable_desc">Run commands in an isolated Linux environment on-device</string>
     <string name="shell_device_host">SSH Host</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Port</string>
@@ -305,18 +312,13 @@
     <string name="sandbox_install_packages">Install Packages</string>
     <string name="sandbox_package_name">Package name</string>
     <string name="sandbox_quick_install">Quick Install</string>
-    <string name="sandbox_command_prompt">Command Prompt</string>
-    <string name="sandbox_command_label">Command</string>
-    <string name="sandbox_command_run">Run</string>
-    <string name="sandbox_search_packages">Search packages</string>
-    <string name="sandbox_search_repo_fmt">Search repository for \"%1$s\"</string>
     <string name="sandbox_installed">Installed Packages</string>
-    <string name="sandbox_no_packages">No packages installed. Alpine base only.</string>
+    <string name="sandbox_no_packages">No installed packages to show.</string>
     <string name="sandbox_danger_zone">Danger Zone</string>
     <string name="sandbox_reset">Reset Environment</string>
     <string name="sandbox_reset_title">Reset Environment?</string>
-    <string name="sandbox_reset_desc">Remove Alpine rootfs and all packages</string>
-    <string name="sandbox_reset_confirm">This will delete the Alpine Linux rootfs and all installed packages. This action cannot be undone.</string>
+    <string name="sandbox_reset_desc">Delete the selected Linux system and its installed packages</string>
+    <string name="sandbox_reset_confirm">This will delete the selected Linux system and its installed packages. Shared home files and other distributions will remain. This action cannot be undone.</string>
     <string name="sandbox_not_supported">Local Sandbox Not Supported</string>
     <string name="sandbox_snackbar_installed">Installed %s</string>
     <string name="sandbox_snackbar_install_failed">Failed to install %s</string>
@@ -330,14 +332,24 @@
     <string name="sandbox_snackbar_error">Error: %s</string>
     <string name="sandbox_not_supported_desc">This feature is not available in the current build</string>
     <string name="sandbox_not_installed">Not installed</string>
-    <string name="sandbox_extracting_rootfs">Extracting Alpine rootfs...</string>
-    <string name="sandbox_downloading_rootfs">Downloading Alpine rootfs… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Extracting Linux system...</string>
+    <string name="sandbox_downloading_rootfs">Downloading Linux system… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Downloading Linux system…</string>
+    <string name="sandbox_verifying_rootfs">Verifying download…</string>
+    <string name="sandbox_validating_rootfs">Validating Linux system…</string>
+    <string name="sandbox_preparing_rootfs">Preparing…</string>
+    <string name="sandbox_mirror">Software source</string>
+    <string name="sandbox_mirror_desc">Download the Linux system and packages from this source</string>
+    <string name="sandbox_mirror_official">Official</string>
+    <string name="sandbox_mirror_tuna">China mirror (TUNA)</string>
+    <string name="sandbox_mirror_applied">Package sources updated</string>
+    <string name="sandbox_mirror_failed">Could not update package sources</string>
     <string name="sandbox_install_failed">Install failed</string>
     <string name="sandbox_installed_label">Installed</string>
     <string name="sandbox_failed_label">Failed</string>
     <string name="sandbox_dashboard_summary">%d packages installed · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">Remove %s?</string>
     <string name="sandbox_remove_pkg_desc">Remove %s from the sandbox? Packages that are no longer needed will also be removed.</string>
     <string name="sandbox_remove_content_desc">Remove package</string>
@@ -490,6 +502,17 @@
     <string name="provider_cache_desc">Request prompt caching; relay caching is independent</string>
     <string name="provider_cache_duration">Cache Duration</string>
     <string name="provider_cache_duration_desc">How long cached prompts remain reusable</string>
+    <string name="provider_save_failed">Failed to save Provider settings</string>
+    <string name="provider_custom_entry_desc">OpenAI, Anthropic or Google compatible endpoint</string>
+    <string name="provider_remove_title">Remove %1$s?</string>
+    <string name="provider_remove_text">Its settings are kept. Add it again to restore them.</string>
+    <string name="provider_remove">Remove</string>
+    <string name="provider_search_hint">Search Providers</string>
+    <string name="provider_custom_entry">Custom Provider</string>
+    <string name="provider_add_no_match">No matching Providers</string>
+    <string name="provider_added">Added</string>
+    <string name="provider_list_empty">No Providers yet</string>
+    <string name="provider_reorder">Reorder</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Network</string>
     <string name="settings_proxy">Proxy</string>
@@ -558,33 +581,10 @@
     <string name="filo_guide_selected_user">Select the Windows account that runs the native client. Codex Desktop access requires it to be installed and initialized for that account.</string>
     <string name="filo_guide_address_mapping">Enter the target’s reachable tailnet IPv4 service URL. localhost works only on the target computer.</string>
     <string name="filo_guide_token_mapping">Copy the installer’s access token into Access token. Keep the token private.</string>
-    <string name="filo_guide_scope">Sources and controls depend on the installed clients and advertised capabilities. Claude Code requires its opted-in Mod. Chat and Cowork are not supported.</string>
+    <string name="filo_guide_scope">The installer detects Codex Desktop, Codex CLI, Claude Code, and Claude Desktop. Choose the sources to integrate; required components, including the Claude Mod, are installed automatically. Installed sources remain visible while offline. Claude Desktop supports Code only; Chat and Cowork are not supported.</string>
     <string name="install_guide_help">Help</string>
     <string name="install_guide_open_terminal">Open the Terminal</string>
     <string name="install_guide_run_command">Copy and Run the Command</string>
-    <string name="conch_guide_finish">Return to Add Device. Enter the installer’s service address and API key, choose a name, then save.</string>
-    <string name="filo_guide_finish">Choose the Windows account used by your native client when prompted. Return to Add Device, enter the reachable service URL and access token, then save. localhost only works on the computer.</string>
-
-    <!-- Assistant (Layer 1) -->
-    <string name="settings_assistant">Assistant</string>
-    <string name="settings_assistant_desc">Make Agora your device assistant</string>
-    <string name="assistant_intro">Set Agora as your default digital assistant. When enabled, the assist gesture or power-button handoff brings Agora forward and lets it read the current screen to help. All access is granted by you; Agora never injects input into other apps.</string>
-    <string name="assistant_role_group">Default assistant</string>
-    <string name="assistant_role_title">Set Agora as assistant</string>
-    <string name="assistant_role_request">Tap to make Agora your device assistant</string>
-    <string name="assistant_role_held">Agora is your default assistant</string>
-    <string name="assistant_role_unavailable">The assistant role is not available on this device</string>
-    <string name="assistant_overlay_group">Floating button</string>
-    <string name="assistant_overlay_title">Show floating assistant button</string>
-    <string name="assistant_overlay_desc">A draggable box to chat with Agora from any app. Long-press it (or tap ✕) to dismiss.</string>
-    <string name="assistant_overlay_needs_permission">Needs permission to draw over other apps</string>
-    <string name="assistant_overlay_prompt_hint">Type or tap the mic to ask Agora. Responses appear here.</string>
-    <string name="assistant_overlay_thinking">Thinking…</string>
-    <string name="assistant_overlay_dismiss">Dismiss</string>
-    <string name="assistant_voice_group">Voice input (offline)</string>
-    <string name="assistant_voice_title">On-device speech-to-text</string>
-    <string name="assistant_voice_desc">Download the offline speech model (~52 MB) to dictate by voice. Runs fully on-device; no audio leaves the phone.</string>
-    <string name="assistant_voice_installed">Speech model installed. Tap to remove.</string>
-    <string name="assistant_voice_needs_mic">Tap to grant microphone access and download the model</string>
-    <string name="assistant_voice_downloading">Downloading speech model…</string>
+    <string name="conch_guide_finish">Add the device with the service address and API key shown by the installer.</string>
+    <string name="filo_guide_finish">Choose the Windows account and sources when prompted. Then add the device with the service URL and access token shown by the installer.</string>
 </resources>

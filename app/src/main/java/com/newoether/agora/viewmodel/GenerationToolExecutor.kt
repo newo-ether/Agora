@@ -12,12 +12,12 @@ import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.model.ToolCallData
 import com.newoether.agora.model.ToolExecutionStates
 import com.newoether.agora.sandbox.SandboxManagerFactory
-import com.newoether.agora.data.repository.getLatestImagePath
-import com.newoether.agora.tool.DeviceToolProvider
+import com.newoether.agora.tool.BuiltInToolNames
 import com.newoether.agora.tool.ImageGenToolProvider
 import com.newoether.agora.tool.MemoryToolProvider
 import com.newoether.agora.tool.SkillToolProvider
 import com.newoether.agora.tool.RagToolProvider
+import com.newoether.agora.tool.SessionToolGroup
 import com.newoether.agora.tool.ShellToolProvider
 import com.newoether.agora.tool.ToolExecutionEvent
 import com.newoether.agora.tool.ToolExecutionResult
@@ -37,6 +37,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 
 internal data class AuthorizedToolCall(
@@ -46,6 +47,8 @@ internal data class AuthorizedToolCall(
     val arguments: String,
     val context: GenerationContext,
     val authorizedToolNames: Set<String>,
+    /** When set, the call is never executed and this text is returned as its error result. */
+    val rejectionText: String? = null,
     /** Per-generation single-image transcription flow; null disables it. */
     val toolImageTranscriber: (suspend (com.newoether.agora.model.ToolImageAttachment, suspend (String) -> Unit) -> String?)? = null,
 )
@@ -57,7 +60,7 @@ internal data class AuthorizedToolResult(
 )
 
 internal interface GenerationToolPresentationSource {
-    fun presentationMetadata(name: String): ToolPresentationMetadata?
+    fun presentationMetadata(name: String, arguments: String? = null): ToolPresentationMetadata?
 }
 
 /**
@@ -80,7 +83,7 @@ internal class GenerationToolExecutor private constructor(
             "file_multi_edit",
             "file_glob",
             "file_grep",
-            "view_image",
+            "file_view_image",
         )
 
         fun createDefault(
@@ -90,12 +93,16 @@ internal class GenerationToolExecutor private constructor(
             skillManager: SkillManager,
             sandboxFactory: SandboxManagerFactory?,
             additionalProviders: List<ToolProvider>,
-            confirmShellCommand: suspend (server: String, summary: String, conversationId: String?) -> Boolean,
+            confirmShellCommand: suspend (
+                server: String,
+                summary: String,
+                conversationId: String?,
+                detail: ShellActionDetail?,
+                description: String,
+            ) -> Boolean,
             generatingConversationIds: () -> Set<String> = { emptySet() },
         ): GenerationToolExecutor {
-            val imageGenProvider = ImageGenToolProvider(app) { conversationId ->
-                conversations.getLatestImagePath(conversationId)
-            }
+            val imageGenProvider = ImageGenToolProvider(app, sandboxFactory)
             val shellProvider = ShellToolProvider(
                 sandboxFactory = sandboxFactory,
                 imageStore = ToolImageStore(app),
@@ -109,7 +116,6 @@ internal class GenerationToolExecutor private constructor(
                     SkillToolProvider(skillManager),
                     WebSearchToolProvider(),
                     RagToolProvider(conversations, generatingConversationIds),
-                    DeviceToolProvider(app),
                     imageGenProvider,
                     shellProvider,
                 ) + additionalProviders,
@@ -122,34 +128,93 @@ internal class GenerationToolExecutor private constructor(
     }
 
     override fun definitions(context: GenerationContext): List<ToolDefinition> =
-        providers.flatMap { it.definitions(context) }
+        enabledProviders(context).flatMap { it.definitions(context) }
+
+    override fun minimalDefinitions(context: GenerationContext): List<ToolDefinition> =
+        enabledProviders(context).flatMap { provider ->
+            when (provider) {
+                is ShellToolProvider -> provider.minimalDefinitions(context)
+                is WebSearchToolProvider -> provider.definitions(context)
+                else -> emptyList()
+            }
+        }
+
+    /**
+     * Providers this session still exposes. A provider that maps to no group is never hidden, so a
+     * provider added by an extension keeps behaving exactly as it did before grouping existed.
+     */
+    private fun enabledProviders(context: GenerationContext): List<ToolProvider> {
+        val disabled = SessionToolGroup.fromIds(context.disabledToolGroups)
+        if (disabled.isEmpty()) return providers
+        return providers.filter { provider ->
+            SessionToolGroup.of(provider)?.let { it !in disabled } ?: true
+        }
+    }
+
+    private fun isGroupEnabled(group: SessionToolGroup, context: GenerationContext): Boolean =
+        group !in SessionToolGroup.fromIds(context.disabledToolGroups)
+
+    /**
+     * Definitions per user-facing group, ignoring the session's disabled set. Selector only.
+     * Low Context Mode sends only the compact Shell and Web definitions, so the selector prices
+     * exactly those instead of the full catalog the request never carries.
+     */
+    fun sessionToolGroups(
+        context: GenerationContext,
+        lowContextMode: Boolean = false,
+    ): Map<SessionToolGroup, List<ToolDefinition>> =
+        providers.mapNotNull { provider ->
+            val group = SessionToolGroup.of(provider) ?: return@mapNotNull null
+            val definitions = if (!lowContextMode) {
+                provider.definitions(context)
+            } else {
+                when (provider) {
+                    is ShellToolProvider -> provider.minimalDefinitions(context)
+                    is WebSearchToolProvider -> provider.definitions(context)
+                    else -> emptyList()
+                }
+            }
+            group to definitions
+        }.toMap()
 
     fun imageDefinitions(context: GenerationContext): List<ToolDefinition> =
-        imageGenProvider?.definitions(context).orEmpty()
+        imageGenProvider
+            ?.takeIf { isGroupEnabled(SessionToolGroup.IMAGE, context) }
+            ?.definitions(context)
+            .orEmpty()
 
     fun memoryDefinitions(context: GenerationContext): List<ToolDefinition> =
-        providers.filterIsInstance<MemoryToolProvider>().flatMap { it.definitions(context) }
+        providers.filterIsInstance<MemoryToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.MEMORY, context) }
+            .flatMap { it.definitions(context) }
 
     fun webSearchDefinitions(context: GenerationContext): List<ToolDefinition> =
-        providers.filterIsInstance<WebSearchToolProvider>().flatMap { it.definitions(context) }
+        providers.filterIsInstance<WebSearchToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.WEB, context) }
+            .flatMap { it.definitions(context) }
 
     fun ragDefinitions(context: GenerationContext): List<ToolDefinition> =
-        providers.filterIsInstance<RagToolProvider>().flatMap { it.definitions(context) }
+        providers.filterIsInstance<RagToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.PAST_CONVERSATIONS, context) }
+            .flatMap { it.definitions(context) }
 
     fun shellDefinitions(context: GenerationContext): List<ToolDefinition> =
         providers.filterIsInstance<ShellToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.TERMINAL, context) }
             .flatMap { it.definitions(context) }
             .filter { it.function.name !in FILE_TOOL_NAMES }
 
     fun fileDefinitions(context: GenerationContext): List<ToolDefinition> =
         providers.filterIsInstance<ShellToolProvider>()
+            .filter { isGroupEnabled(SessionToolGroup.TERMINAL, context) }
             .flatMap { it.definitions(context) }
             .filter { it.function.name in FILE_TOOL_NAMES }
 
-    override fun presentationMetadata(name: String): ToolPresentationMetadata? {
+    override fun presentationMetadata(name: String, arguments: String?): ToolPresentationMetadata? {
         if (name.isBlank()) return null
+        val canonicalName = BuiltInToolNames.canonical(name)
         for (provider in providers) {
-            provider.presentationMetadata(name)?.let { return it }
+            provider.presentationMetadata(canonicalName, arguments)?.let { return it }
         }
         return null
     }
@@ -176,13 +241,18 @@ internal class GenerationToolExecutor private constructor(
         call: AuthorizedToolCall,
         onEvent: suspend (ToolExecutionEvent) -> Unit,
     ): AuthorizedToolResult {
+        val toolName = BuiltInToolNames.canonical(call.name)
+        val authorizedNames = call.authorizedToolNames.mapTo(mutableSetOf(), BuiltInToolNames::canonical)
+        call.rejectionText?.let { text ->
+            return call.result(ToolExecutionResult(text = text, isError = true))
+        }
         if (call.name == MALFORMED_TOOL_CALL_NAME) {
             // Stand-in for a damaged call: never executed, answered with what was wrong.
             return call.result(
                 ToolExecutionResult(text = malformedToolCallResultText(call.arguments), isError = true),
             )
         }
-        if (call.name !in call.authorizedToolNames) {
+        if (toolName !in authorizedNames) {
             return call.result(
                 ToolExecutionResult(
                     text = "Error executing tool '${call.name}': tool was not authorized for this provider pass",
@@ -204,14 +274,25 @@ internal class GenerationToolExecutor private constructor(
         }
 
         val executionTimeoutMs = toolExecutionTimeoutMs(
-            toolName = call.name,
+            toolName = toolName,
             defaultTimeoutMs = call.context.toolTimeoutMs,
         )
         val result = try {
-            val provider = providers.firstOrNull { it.handles(call.name) }
+            val provider = providers.firstOrNull { it.handles(toolName) }
                 ?: return call.result(
                     ToolExecutionResult(text = "Unknown tool: ${call.name}", isError = true),
                 )
+            SessionToolGroup.of(provider)
+                ?.takeUnless { isGroupEnabled(it, call.context) }
+                ?.let { group ->
+                    return call.result(
+                        ToolExecutionResult(
+                            text = "Error executing tool '${call.name}': " +
+                                "the ${group.id} tool group is disabled for this session",
+                            isError = true,
+                        ),
+                    )
+                }
             // A blocking provider must not pin the stream consumer forever. The detached attempt
             // lets the deadline stop awaiting immediately; cancellation still reaches cooperative
             // provider work and the tool round receives a recoverable error.
@@ -219,7 +300,7 @@ internal class GenerationToolExecutor private constructor(
             val attempt = CoroutineScope(currentCoroutineContext() + attemptJob).async {
                 var completedResult: ToolExecutionResult? = null
                 val context = call.context.copy(toolEffectIdentity = call.batchIdentity)
-                provider.executeEvents(call.name, completeArguments, context).collect { event ->
+                provider.executeEvents(toolName, completeArguments, context).collect { event ->
                     if (event is ToolExecutionEvent.Completed) {
                         completedResult = event.result
                     }
@@ -262,8 +343,8 @@ internal class GenerationToolExecutor private constructor(
 internal fun toolExecutionTimeoutMs(
     toolName: String,
     defaultTimeoutMs: Long,
-): Long = when (toolName) {
-    "generate_image" -> Constants.IMAGE_GENERATION_TIMEOUT_MS
+): Long = when (BuiltInToolNames.canonical(toolName)) {
+    "image_generate" -> Constants.IMAGE_GENERATION_TIMEOUT_MS
     // Ask User owns one configured deadline for its whole question set.
     "ask_user" -> Long.MAX_VALUE
     else -> defaultTimeoutMs
@@ -280,18 +361,19 @@ internal fun appendBoundedToolOutput(
     else combined.takeLast(maxChars)
 }
 
-internal fun finalToolState(result: ToolExecutionResult, toolName: String): String {
+internal fun finalToolState(result: ToolExecutionResult, originalToolName: String): String {
+    val toolName = BuiltInToolNames.canonical(originalToolName)
     val protocol = result.structuredContent ?: result.text.takeUnless {
-        toolName == "read_memory_file" || toolName == "read_active_memory" ||
-            toolName == "read_skill_file" || toolName.startsWith("mcp_")
+        toolName == "memory_read" || toolName == "active_memory_read" ||
+            toolName == "skill_read" || toolName.startsWith("mcp_")
     }
     val resultObject = runCatching {
         Json.parseToJsonElement(protocol.orEmpty()).jsonObject
     }.getOrNull()
-    val jobTool = toolName in setOf("execute_shell_command", "get_shell_job", "wait_for_job", "stop_shell_job")
+    val jobTool = toolName in setOf("shell_exec", "shell_job_get", "shell_job_wait", "shell_job_stop")
     val payload = if (jobTool) resultObject?.get("result") as? JsonObject ?: resultObject else resultObject
-    val errorCode = (payload?.get("error") as? JsonPrimitive)?.content
-        ?: (resultObject?.get("error") as? JsonPrimitive)?.content
+    val errorCode = (payload?.get("error") as? JsonPrimitive)?.contentOrNull
+        ?: (resultObject?.get("error") as? JsonPrimitive)?.contentOrNull
     if (errorCode == "no_results") return ToolExecutionStates.EMPTY
     val failedFlag = (payload?.get("failed") as? JsonPrimitive)?.content == "true" ||
         (resultObject?.get("failed") as? JsonPrimitive)?.content == "true"

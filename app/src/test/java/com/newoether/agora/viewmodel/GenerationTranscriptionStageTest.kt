@@ -118,6 +118,19 @@ class GenerationTranscriptionStageTest {
         assertNull(GenerationTranscriptionStage(manager).newExecution().incompleteSnapshot())
     }
 
+    @Test
+    fun `enabled transcription with image targets and no model reports a configuration failure`() = runTest {
+        val manager = mockk<TranscriptionManager>()
+        coEvery { manager.collectTargets("conversation", "user") } returns listOf(
+            TranscriptionManager.TranscriptionTarget("user", "image", 0),
+        )
+        val outcome = GenerationTranscriptionStage(manager).newExecution().execute(
+            request(enabledContext().copy(transcriptionModelId = "")),
+        ) { _, _ -> fail("No transcription request is configured") }
+        assertFalse(outcome.performed)
+        assertTrue(outcome.error!!.contains("no transcription model"))
+    }
+
     private fun request(context: GenerationContext) = GenerationTranscriptionStageRequest(
         conversationId = "conversation",
         runId = "run",

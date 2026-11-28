@@ -67,7 +67,7 @@
     <string name="settings_automation">الأتمتة</string>
     <string name="settings_automation_desc">المهام والحلقات ودقة الجدولة</string>
     <string name="automation_ai_tools">الوصول إلى المهام والحلقات</string>
-    <string name="automation_ai_tools_desc">السماح للنموذج بإنشاء المهام وإدارتها أو بدء حلقات المحادثة وإيقافها. معطّل افتراضيًا.</string>
+    <string name="automation_ai_tools_desc">السماح للنموذج بإنشاء المهام وإدارتها أو بدء حلقات المحادثة وإيقافها.</string>
     <string name="automation_background_execution">التنفيذ في الخلفية</string>
     <string name="automation_wake_lock">قفل التنشيط</string>
     <string name="automation_wake_lock_desc">إبقاء كل تنفيذ لمهمة أو حلقة نشطًا. يدير WorkManager العمل المجدول العادي بالفعل؛ وقد يؤدي قفل التنشيط الإضافي هذا إلى زيادة استهلاك البطارية.</string>

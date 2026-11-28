@@ -3,18 +3,20 @@ package com.newoether.agora.viewmodel
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.SelectedAttachment
+import com.newoether.agora.model.previewImagePath
 
 internal fun SelectedAttachment.hasCanonicalReadyArtifact(): Boolean =
     importState == AttachmentImportState.READY &&
-        !unavailable &&
+        (!storage.isLocalSandbox || !sandboxPath.isNullOrBlank()) &&
         when (type) {
-            "image" -> !localPath.isNullOrBlank()
+            "image" -> !previewImagePath.isNullOrBlank()
             "video" -> !localPath.isNullOrBlank() &&
-                processedFrames.orEmpty().any(String::isNotBlank)
+                (storage.isLocalSandbox || hasPreparedImageSlots(processedFrames.orEmpty()))
             "pdf" -> !localPath.isNullOrBlank() &&
-                preRenderedPaths.orEmpty().any(String::isNotBlank)
-            "file" -> if (storage.isLocalSandbox) {
+                hasPreparedImageSlots(preRenderedPaths.orEmpty())
+            "file" -> if (unavailable) false else if (storage.isLocalSandbox) {
                 !sandboxPath.isNullOrBlank()
             } else {
                 !localPath.isNullOrBlank() && preparedText != null
@@ -22,130 +24,65 @@ internal fun SelectedAttachment.hasCanonicalReadyArtifact(): Boolean =
             else -> false
         }
 
-/**
- * Serializes the immutable results produced by [AttachmentImportProcessor].
- *
- * This boundary performs no file IO or media transformation. Attachments without a complete
- * canonical READY artifact are omitted, so Send cannot fall back to picker URIs or repeat work.
- */
+private fun SelectedAttachment.hasPreparedImageSlots(paths: List<String>): Boolean =
+    paths.isNotEmpty() && (paths.any(String::isNotBlank) || imageArtifacts.size == paths.size)
+
+private fun SelectedAttachment.artifactsFor(paths: List<String>): List<ImageArtifact> =
+    if (imageArtifacts.isEmpty() && paths.all(String::isNotBlank) && !unavailable) emptyList()
+    else paths.mapIndexed { index, path ->
+        val recorded = imageArtifacts.getOrNull(index)?.takeIf { it.path == path }
+            ?: imageArtifacts.firstOrNull { it.path == path }
+        when {
+            type == "image" && unavailable -> recorded?.copy(unavailable = true)
+                ?: ImageArtifact(path, mimeType ?: "application/octet-stream", 0L,
+                    width = pixelWidth, height = pixelHeight, unavailable = true)
+            recorded != null -> recorded
+            else -> ImageArtifact(path, "application/octet-stream", 0L, unavailable = path.isBlank())
+        }
+    }
+
+/** Serializes completed import results for durable presentation, without IO or transformation. */
 internal class MessagePayloadBuilder {
     data class MessagePayload(
         val allImages: List<String>,
         val attachmentMeta: AttachmentMeta?,
     )
 
-    fun buildComposerPayload(
-        attachments: List<SelectedAttachment>,
-    ): MessagePayload {
+    fun buildComposerPayload(attachments: List<SelectedAttachment>): MessagePayload {
         val allImages = mutableListOf<String>()
         val metaItems = mutableListOf<AttachmentItem>()
-
         attachments.forEach attachment@ { attachment ->
             if (!attachment.hasCanonicalReadyArtifact()) return@attachment
-
-            when (attachment.type) {
-                "image" -> {
-                    val path = attachment.localPath
-                        ?.takeIf(String::isNotBlank)
-                        ?: return@attachment
-                    val imageIndex = allImages.size
-                    allImages += path
-                    metaItems += AttachmentItem(
-                        originalUri = path.asFileUri(),
-                        type = "image",
-                        fileName = attachment.fileName,
-                        mimeType = attachment.mimeType,
-                        imageIndex = imageIndex,
-                        pixelWidth = attachment.pixelWidth,
-                        pixelHeight = attachment.pixelHeight,
-                        fileSize = attachment.fileSize,
-                    )
-                }
-
-                "video" -> {
-                    val sourcePath = attachment.localPath
-                        ?.takeIf(String::isNotBlank)
-                        ?: return@attachment
-                    val frames = attachment.processedFrames
-                        .orEmpty()
-                        .filter(String::isNotBlank)
-                    if (frames.isEmpty()) return@attachment
-                    val imageIndex = allImages.size
-                    allImages += frames
-                    metaItems += AttachmentItem(
-                        originalUri = sourcePath.asFileUri(),
-                        type = "video",
-                        fileName = attachment.fileName,
-                        mimeType = attachment.mimeType,
-                        imageIndex = imageIndex,
-                        pageCount = frames.size,
-                        pixelWidth = attachment.pixelWidth,
-                        pixelHeight = attachment.pixelHeight,
-                        fileSize = attachment.fileSize,
-                    )
-                }
-
-                "pdf" -> {
-                    val sourcePath = attachment.localPath
-                        ?.takeIf(String::isNotBlank)
-                        ?: return@attachment
-                    val pages = attachment.preRenderedPaths
-                        .orEmpty()
-                        .filter(String::isNotBlank)
-                    if (pages.isEmpty()) return@attachment
-                    val imageIndex = allImages.size
-                    allImages += pages
-                    metaItems += AttachmentItem(
-                        originalUri = sourcePath.asFileUri(),
-                        type = "pdf",
-                        fileName = attachment.fileName,
-                        mimeType = attachment.mimeType ?: "application/pdf",
-                        imageIndex = imageIndex,
-                        pageCount = pages.size,
-                        pixelWidth = attachment.pixelWidth,
-                        pixelHeight = attachment.pixelHeight,
-                        fileSize = attachment.fileSize,
-                    )
-                }
-
-                "file" -> {
-                    if (attachment.storage.isLocalSandbox) {
-                        val sandboxPath = attachment.sandboxPath
-                            ?.takeIf(String::isNotBlank)
-                            ?: return@attachment
-                        metaItems += AttachmentItem(
-                            type = "file",
-                            fileName = attachment.fileName,
-                            mimeType = attachment.mimeType,
-                            storage = attachment.storage.transferForSend(),
-                            sandboxPath = sandboxPath,
-                            fileSize = attachment.fileSize,
-                        )
-                    } else {
-                        val sourcePath = attachment.localPath
-                            ?.takeIf(String::isNotBlank)
-                            ?: return@attachment
-                        val text = attachment.preparedText ?: return@attachment
-                        metaItems += AttachmentItem(
-                            originalUri = sourcePath.asFileUri(),
-                            type = "file",
-                            fileName = attachment.fileName,
-                            mimeType = attachment.mimeType,
-                            textContent = text,
-                            fileSize = attachment.fileSize,
-                        )
-                    }
-                }
+            val sourcePath = attachment.localPath?.takeIf(String::isNotBlank) ?: return@attachment
+            val paths = when (attachment.type) {
+                "image" -> listOfNotNull(attachment.previewImagePath)
+                "video" -> attachment.processedFrames.orEmpty()
+                "pdf" -> attachment.preRenderedPaths.orEmpty()
+                "file" -> emptyList()
+                else -> return@attachment
             }
+            val imageIndex = allImages.size.takeIf { paths.isNotEmpty() }
+            allImages += paths
+            metaItems += AttachmentItem(
+                originalUri = if (attachment.type == "file" && attachment.storage.isLocalSandbox) null
+                    else "file://$sourcePath",
+                type = attachment.type,
+                fileName = attachment.fileName,
+                mimeType = attachment.mimeType ?: "application/pdf".takeIf { attachment.type == "pdf" },
+                imageIndex = imageIndex,
+                pageCount = paths.size.takeIf {
+                    (attachment.type == "pdf" || attachment.type == "video") && paths.isNotEmpty()
+                },
+                pixelWidth = attachment.pixelWidth,
+                pixelHeight = attachment.pixelHeight,
+                fileSize = attachment.fileSize,
+                textContent = attachment.preparedText.takeIf { attachment.type == "file" },
+                storage = attachment.storage.transferForSend(),
+                sandboxPath = attachment.sandboxPath,
+                imageArtifacts = attachment.artifactsFor(paths),
+                unavailable = attachment.unavailable,
+            )
         }
-
-        return MessagePayload(
-            allImages = allImages,
-            attachmentMeta = metaItems
-                .takeIf(List<*>::isNotEmpty)
-                ?.let(::AttachmentMeta),
-        )
+        return MessagePayload(allImages, metaItems.takeIf(List<*>::isNotEmpty)?.let(::AttachmentMeta))
     }
-
-    private fun String.asFileUri(): String = "file://$this"
 }

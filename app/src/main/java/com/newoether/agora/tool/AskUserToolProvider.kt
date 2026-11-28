@@ -43,7 +43,7 @@ class AskUserToolProvider(private val askUser: AskUserController) : ToolProvider
             ToolDefinition(
                 function = ToolFunction(
                     name = TOOL_NAME,
-                    description = "Ask the user a question. Use it when the decision is the " +
+                    description = "Only call this when a decision genuinely needs the user. Ask the user a question. Use it when the decision is the " +
                         "user's to make and guessing would waste work. Supply options when the " +
                         "answer is a choice, or leave them out to ask an open question; the user " +
                         "can always type their own answer instead. Ask one question with " +
@@ -143,6 +143,7 @@ class AskUserToolProvider(private val askUser: AskUserController) : ToolProvider
                 allowMultiple = question.allowMultiple,
                 blocking = blocking,
                 setId = setId,
+                runId = ctx.toolEffectIdentity?.runId,
             )
         }
         if (!blocking) return queuedResult(requests.size)

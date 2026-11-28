@@ -8,6 +8,7 @@
     <string name="remote_connection_hint">Instala Filo en el dispositivo de destino e introduce su dirección IP o URL.</string>
     <string name="remote_sessions">Sesiones</string>
     <string name="remote_empty">No se encontraron sesiones existentes</string>
+    <string name="remote_empty_hint">Las sesiones de esta fuente aparecerán aquí.</string>
     <string name="remote_sync_hint">Mantén esta sesión abierta en Codex. Las respuestas se sincronizan al guardarse.</string>
     <string name="remote_refresh">Actualizar</string>
     <string name="remote_load_more">Cargar Más</string>
@@ -38,8 +39,13 @@
     <string name="remote_source_codex_desktop">Codex Desktop</string>
     <string name="remote_source_codex_cli">Codex CLI</string>
     <string name="remote_source_claude_code">Claude Code</string>
+    <string name="remote_source_claude_desktop">Claude Desktop</string>
     <string name="remote_source_read_only">Esta conversación es de solo lectura a través de esta fuente.</string>
     <string name="remote_history_bounded">Esta fuente solo ofrece una instantánea del historial reciente.</string>
     <string name="remote_source_unavailable">Esta fuente no está disponible. Comprueba su cliente nativo en el equipo de destino.</string>
+    <string name="remote_source_no_session">No hay ninguna sesión activa de %1$s</string>
     <string name="remote_history_observed">Solo muestra el texto capturado después del registro de Claude Mod. No incluye el historial anterior, la actividad de las herramientas, los archivos multimedia ni el razonamiento.</string>
+    <string name="remote_settings_pending_request">Ajustes pendientes de la próxima solicitud nativa</string>
+    <string name="remote_settings_confirmed_request">Ajustes confirmados en una solicitud nativa</string>
+    <string name="remote_settings_failed_request">Los ajustes difieren · modelo real: %1$s · razonamiento: %2$s</string>
 </resources>

@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +21,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.newoether.agora.R
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.newoether.agora.ui.settings.CollapsingSettingsScaffold
+import com.newoether.agora.ui.settings.GuardedAnimatedContent
+import com.newoether.agora.ui.settings.SettingsSecondaryPane
 import com.newoether.agora.ui.settings.DocumentationFab
 import com.newoether.agora.ui.settings.PillTabSwitcher
 import com.newoether.agora.ui.settings.SettingsGroup
@@ -32,9 +36,24 @@ import com.newoether.agora.data.DataImporter
 import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.ui.components.optionClickable
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
+    var showStorage by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = showStorage) { showStorage = false }
+    GuardedAnimatedContent(targetState = showStorage, forward = showStorage) { storage ->
+        if (storage) {
+            SettingsSecondaryPane {
+                SettingsStoragePage(viewModel = viewModel, onBack = { showStorage = false })
+            }
+        } else {
+            DataControlRootPage(viewModel = viewModel, onBack = onBack, onOpenStorage = { showStorage = true })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DataControlRootPage(viewModel: ChatViewModel, onBack: () -> Unit, onOpenStorage: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -179,7 +198,7 @@ fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             headlineContent = { Text(stringResource(R.string.data_import_title)) },
                             supportingContent = { Text(stringResource(R.string.data_import_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/zip", "*/*")) }
                         )
@@ -189,9 +208,19 @@ fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             headlineContent = { Text(stringResource(R.string.data_export_title)) },
                             supportingContent = { Text(stringResource(R.string.data_export_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Upload, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Upload, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { showExportDialog = true }
+                        )
+                    },
+                    {
+                        SettingsItem(
+                            headlineContent = { Text(stringResource(R.string.storage_title)) },
+                            supportingContent = { Text(stringResource(R.string.storage_subtitle)) },
+                            leadingContent = {
+                                Icon(Icons.Rounded.Storage, null, tint = MaterialTheme.colorScheme.primary)
+                            },
+                            modifier = Modifier.clickable(onClick = onOpenStorage)
                         )
                     }
                 ))
@@ -203,7 +232,7 @@ fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             headlineContent = { Text(stringResource(R.string.gpt_import_title)) },
                             supportingContent = { Text(stringResource(R.string.gpt_import_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { gptChatLauncher.launch(arrayOf("application/zip", "*/*")) }
                         )
@@ -213,7 +242,7 @@ fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             headlineContent = { Text(stringResource(R.string.claude_import_title)) },
                             supportingContent = { Text(stringResource(R.string.claude_import_subtitle)) },
                             leadingContent = {
-                                Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             modifier = Modifier.clickable { claudeChatLauncher.launch(arrayOf("application/zip", "*/*")) }
                         )
@@ -264,7 +293,14 @@ fun SettingsDataControlPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         }
 
         if (isNativeProgressVisible) {
-            NativeDataProgressDialog(title = stringResource(nativeProgressTitle))
+            NativeDataProgressDialog(
+                title = stringResource(nativeProgressTitle),
+                progress = when {
+                    importPreviewLoading -> null
+                    isExporting -> exportProgress
+                    else -> importProgress
+                },
+            )
         }
 
         if (isThirdPartyImporting) {

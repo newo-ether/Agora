@@ -1,15 +1,19 @@
 package com.newoether.agora.viewmodel
 
+import com.newoether.agora.api.OpenAiMessage
 import com.newoether.agora.api.ToolDefinition
 import com.newoether.agora.api.ToolFunction
 import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.api.ToolProperty
-import com.newoether.agora.api.util.Base64FileRegistry
-import com.newoether.agora.api.util.convertToOpenAiMessages
+import com.newoether.agora.api.captureProviderRequest
+import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.api.util.prepareMessages
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.model.AttachmentItem
+import com.newoether.agora.model.AttachmentMeta
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.util.Constants
@@ -18,6 +22,9 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -60,15 +67,21 @@ class GenerationApiPathBuilderTest {
     }
 
     @Test
-    fun `low context mode omits system prompt tools and their fixed token cost`() = runTest {
+    fun `low context mode keeps only the minimal tool families and prices them`() = runTest {
         val repository = mockk<ConversationRepository>(relaxed = true)
-        var definitionReads = 0
+        var fullDefinitionReads = 0
+        val minimal = toolDefinition()
         val builder = GenerationApiPathBuilder(
             conversations = repository,
             generationErrorFormatter = { it },
-            toolDefinitions = {
-                definitionReads++
-                error("Low Context Mode must not read tool definitions")
+            toolDefinitions = object : GenerationToolDefinitionSource {
+                override fun definitions(context: GenerationContext): List<ToolDefinition> {
+                    fullDefinitionReads++
+                    error("Low Context Mode must not read the full tool set")
+                }
+
+                override fun minimalDefinitions(context: GenerationContext): List<ToolDefinition> =
+                    listOf(minimal)
             },
         )
         val user = message("user", null, 0, Participant.USER)
@@ -87,12 +100,12 @@ class GenerationApiPathBuilderTest {
             ),
         )
 
-        assertEquals(0, definitionReads)
+        assertEquals(0, fullDefinitionReads)
         assertEquals(null, path.providerConfig.systemPrompt)
-        assertTrue(path.providerConfig.tools.orEmpty().isEmpty())
+        assertEquals(listOf(minimal), path.providerConfig.tools)
         assertEquals(
             config.maxContextWindow -
-                ContextTokenEstimator.estimateFixed(null, emptyList()),
+                ContextTokenEstimator.estimateFixed(null, listOf(minimal)),
             path.providerConfig.maxContextWindow,
         )
     }
@@ -123,6 +136,33 @@ class GenerationApiPathBuilderTest {
         assertFalse(build(deepSeek, withTools = false))
         assertFalse(build(deepSeek.copy(responsesApiEnabled = true)))
         assertFalse(build(deepSeek.copy(thinkingEnabled = false)))
+    }
+
+    @Test
+    fun `replay reasoning setting forces reasoning accounting without deepseek policy`() = runTest {
+        val repository = mockk<ConversationRepository>(relaxed = true)
+        val user = message("user", null, 0, Participant.USER)
+        val config = generationConfig("Custom").copy(
+            modelId = "plain-model",
+            thinkingEnabled = false,
+            replayReasoningInHistory = true,
+        )
+        val path = GenerationApiPathBuilder(
+            conversations = repository,
+            generationErrorFormatter = { it },
+            toolDefinitions = { emptyList() },
+        ).build(
+            GenerationApiPathRequest(
+                parentId = user.id,
+                conversationId = "conversation",
+                config = config,
+                context = GenerationContext(),
+                loadedMessages = listOf(user),
+            ),
+        )
+
+        assertTrue(path.providerConfig.includeAssistantReasoning)
+        assertTrue(path.providerConfig.replayReasoningInHistory)
     }
 
     @Test
@@ -238,10 +278,13 @@ class GenerationApiPathBuilderTest {
             userPrepend = path.providerConfig.userPrepend,
             userPostpend = path.providerConfig.userPostpend,
         )
-        val wire = convertToOpenAiMessages(
-            prepareMessages(projected, path.providerConfig.maxContextWindow),
-            base64Files = Base64FileRegistry(),
+        val request = captureProviderRequest(
+            provider = CustomOpenAiProvider("provider", "https://example.test/v1"),
+            messages = prepareMessages(projected, path.providerConfig.maxContextWindow),
+            // These wire assertions cover conversation turns without a system message.
+            config = path.providerConfig.copy(systemPrompt = null),
         )
+        val wire = Json.decodeFromJsonElement<List<OpenAiMessage>>(request.getValue("messages"))
         val wireText = wire.flatMap { it.content.orEmpty() }.mapNotNull { it.text }.joinToString("\n")
 
         assertEquals(listOf("user", "assistant", "user"), wire.map { it.role })
@@ -293,10 +336,13 @@ class GenerationApiPathBuilderTest {
         assertEquals(MessageStatus.SUCCESS, failed.status)
         assertEquals(1, Regex(Regex.escape(displayedError)).findAll(failed.text).count())
         assertFalse(failed.text.contains(rawError))
-        val wire = convertToOpenAiMessages(
-            prepareMessages(path.messages, path.providerConfig.maxContextWindow),
-            base64Files = Base64FileRegistry(),
+        val request = captureProviderRequest(
+            provider = CustomOpenAiProvider("provider", "https://example.test/v1"),
+            messages = prepareMessages(path.messages, path.providerConfig.maxContextWindow),
+            // These wire assertions cover conversation turns without a system message.
+            config = path.providerConfig.copy(systemPrompt = null),
         )
+        val wire = Json.decodeFromJsonElement<List<OpenAiMessage>>(request.getValue("messages"))
         assertEquals(listOf("user", "assistant", "user"), wire.map { it.role })
         val wireText = wire.flatMap { it.content.orEmpty() }.mapNotNull { it.text }.joinToString("\n")
         assertEquals(1, Regex(Regex.escape(displayedError)).findAll(wireText).count())
@@ -405,6 +451,37 @@ class GenerationApiPathBuilderTest {
 
         assertEquals("conversation", enabled.providerConfig.promptCacheKey)
         assertEquals(null, disabled.providerConfig.promptCacheKey)
+    }
+
+    @Test
+    fun `transcription enabled requests preserve all undescribed image occurrences`() = runTest {
+        val builder = GenerationApiPathBuilder(
+            conversations = mockk<ConversationRepository>(relaxed = true),
+            generationErrorFormatter = { it },
+            toolDefinitions = { emptyList() },
+        )
+        val pending = ImageArtifact("pending.jpg", "image/jpeg", 100L, 1_000, 1_000)
+        val user = message("user", null, 0, Participant.USER).copy(
+            images = listOf("described.jpg", pending.path),
+            attachmentMeta = Json.encodeToString(AttachmentMeta(listOf(
+                AttachmentItem(type = "image", imageIndex = 0, transcription = "stored description"),
+                AttachmentItem(type = "image", imageIndex = 1, imageArtifacts = listOf(pending)),
+            ))),
+        )
+        val path = builder.build(GenerationApiPathRequest(
+            parentId = user.id, conversationId = "conversation",
+            config = generationConfig().copy(modelId = "OpenAI:claude-sonnet-4-5"),
+            context = GenerationContext(imageTranscriptionEnabled = true),
+            loadedMessages = listOf(user),
+        ))
+        assertTrue(path.providerConfig.includeImages)
+        assertEquals(listOf(pending.path), path.messages.single().images)
+        assertEquals(0, path.messages.single().attachmentMeta!!.items[1].imageIndex)
+        val projected = projectGenerationInputMessages(
+            path.messages, path.providerConfig.includeImages, null, null,
+        )
+        assertEquals(listOf(pending.path), projected.single().images)
+        assertTrue(projected.single().text.contains("stored description"))
     }
 
     private fun generationConfig(providerName: String = "provider") = GenerationConfig(

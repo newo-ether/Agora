@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.modelDisplayName
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
@@ -47,6 +48,7 @@ internal fun ChatManualCompactDialog(
     isCompacting: Boolean,
     onCompact: (model: String, prompt: String, retainCount: Int) -> Unit,
     onDismiss: () -> Unit,
+    preserveContext: Boolean = false,
 ) {
     var model by remember(initialModel) { mutableStateOf(initialModel) }
     var prompt by remember(initialPrompt) { mutableStateOf(initialPrompt) }
@@ -80,15 +82,18 @@ internal fun ChatManualCompactDialog(
             ) {
                 ExposedDropdownMenuBox(
                     expanded = modelMenu,
-                    onExpandedChange = { if (!busy) modelMenu = it },
+                    onExpandedChange = { if (!busy && !preserveContext) modelMenu = it },
                 ) {
                     OutlinedTextField(
-                        value = modelDisplayName(model, modelAliases, customProviders, modelProviderNames[model] != false),
+                        value = modelDisplayName(model, modelAliases, customProviders, modelProviderNameShown(model, modelProviderNames)),
                         onValueChange = {},
                         readOnly = true,
-                        enabled = !busy,
+                        enabled = !busy && !preserveContext,
                         singleLine = true,
                         label = { Text(stringResource(R.string.context_compact_model)) },
+                        supportingText = if (preserveContext) {
+                            { Text(stringResource(R.string.context_compact_model_preserved)) }
+                        } else null,
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenu)
                         },
@@ -97,7 +102,7 @@ internal fun ChatManualCompactDialog(
                             .fillMaxWidth()
                             .menuAnchor(
                                 type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
-                                enabled = !busy,
+                                enabled = !busy && !preserveContext,
                             ),
                     )
                     AgoraExposedDropdownMenu(
@@ -107,7 +112,7 @@ internal fun ChatManualCompactDialog(
                         enabledModels.sorted().forEach { candidate ->
                             AgoraDropdownMenuItem(
                                 text = {
-                                    Text(modelDisplayName(candidate, modelAliases, customProviders, modelProviderNames[candidate] != false))
+                                    Text(modelDisplayName(candidate, modelAliases, customProviders, modelProviderNameShown(candidate, modelProviderNames)))
                                 },
                                 onClick = {
                                     model = candidate

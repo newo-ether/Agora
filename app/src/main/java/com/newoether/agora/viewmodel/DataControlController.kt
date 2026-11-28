@@ -8,7 +8,11 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.service.AutoBackupWorker
 import com.newoether.agora.util.DebugLog
+import com.newoether.agora.data.StorageReport
+import com.newoether.agora.data.local.UsageLedgerRow
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +42,78 @@ class DataControlController internal constructor(
     private val backupSchedule: AutoBackupSchedulePort,
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val storageReportSource: (suspend () -> StorageReport)? = null,
+    /** Last persisted Storage report, shown dimmed while the first scan of a process runs. */
+    private val storageCachedSource: (suspend () -> StorageReport?)? = null,
+    private val usageRowsSource: (suspend () -> List<UsageLedgerRow>)? = null,
 ) {
+    private val _usageRows = MutableStateFlow<List<UsageLedgerRow>?>(null)
+    /** Raw usage ledger rows; the page aggregates them for the local time zone. */
+    val usageRows: StateFlow<List<UsageLedgerRow>?> = _usageRows.asStateFlow()
+
+    private val _usageRefreshing = MutableStateFlow(false)
+    val usageRefreshing: StateFlow<Boolean> = _usageRefreshing.asStateFlow()
+    private var usageJob: Job? = null
+    @Volatile
+    private var usageReloadRequested = false
+
+    /**
+     * Reloads the usage ledger in the background. A request made while a reload runs is folded
+     * into one more pass, so a ledger write that lands mid-query is never missed.
+     */
+    fun refreshUsage() {
+        val source = usageRowsSource ?: return
+        usageReloadRequested = true
+        if (usageJob?.isActive == true) return
+        usageJob = scope.launch(ioDispatcher) {
+            _usageRefreshing.value = true
+            try {
+                while (usageReloadRequested) {
+                    usageReloadRequested = false
+                    _usageRows.value = source()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                DebugLog.e("DataControl", "Usage query failed", error)
+            } finally {
+                _usageRefreshing.value = false
+            }
+        }
+    }
+
+    private val _storageReport = MutableStateFlow<StorageReport?>(null)
+    /** Last Storage page report; kept for the process so re-entry shows it at once. */
+    val storageReport: StateFlow<StorageReport?> = _storageReport.asStateFlow()
+
+    private val _storageRefreshing = MutableStateFlow(false)
+    val storageRefreshing: StateFlow<Boolean> = _storageRefreshing.asStateFlow()
+    private var storageJob: Job? = null
+
+    /** Recomputes the Storage report in the background; a running refresh is reused. */
+    fun refreshStorage() {
+        val source = storageReportSource ?: return
+        if (storageJob?.isActive == true) return
+        storageJob = scope.launch(ioDispatcher) {
+            _storageRefreshing.value = true
+            try {
+                if (_storageReport.value == null) {
+                    // The cache reader already treats an unreadable file as no cache.
+                    storageCachedSource?.invoke()?.let { cached ->
+                        if (_storageReport.value == null) _storageReport.value = cached
+                    }
+                }
+                _storageReport.value = source()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                DebugLog.e("DataControl", "Storage report failed", error)
+            } finally {
+                _storageRefreshing.value = false
+            }
+        }
+    }
+
     private val _conversationCount = MutableStateFlow(0)
     val conversationCount: StateFlow<Int> = _conversationCount.asStateFlow()
 

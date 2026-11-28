@@ -17,8 +17,9 @@ import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 
 
 import com.newoether.agora.data.repository.ConversationRepository
-import com.newoether.agora.data.repository.persistVoiceExchange
 import com.newoether.agora.data.repository.observeConversationTodo
+import com.newoether.agora.data.repository.observeDrawerGeneratingConversationIds
+import com.newoether.agora.ui.chat.observeDrawerInteractions
 import com.newoether.agora.data.repository.observeSubagents
 import com.newoether.agora.data.repository.observeParentConversationId
 import com.newoether.agora.data.repository.ConversationSettingsTransferCoordinator
@@ -69,7 +70,7 @@ class ChatViewModel(
     internal val askUser: AskUserController,
     private val mcpRegistry: com.newoether.agora.mcp.McpRegistry,
     // Process-scoped chat runtime shared by every client (see [ChatRuntime]).
-    private val chatRuntime: ChatRuntime,
+    internal val chatRuntime: ChatRuntime,
 ) : AndroidViewModel(application) {
 
     val settings: SettingsRepository = settingsRepository
@@ -79,7 +80,7 @@ class ChatViewModel(
      * branch-selection and stuck-message logic live in [ConversationRepository]; managers
      * receive the repository (not raw DAO) for a uniform boundary.
      */
-    private val convRepo: ConversationRepository = conversationRepository
+    internal val convRepo: ConversationRepository = conversationRepository
     private val conversationWorkspaces = ConversationWorkspaceStore(
         conversations = conversationRepository,
         settings = settingsRepository,
@@ -88,14 +89,24 @@ class ChatViewModel(
     )
     internal val messagePayloadHydration =
         ConversationMessagePayloadHydration(convRepo, appContext)
+    /** Display-only `shell://` Markdown images for native chat, read from the live device settings. */
+    internal val shellMarkdownMedia = com.newoether.agora.ui.chat.message.ShellMarkdownMedia(
+        context = appContext,
+        devices = { settingsRepository.shellDevices.value },
+        sandboxEnabled = { settingsRepository.sandboxEnabled.value },
+        sandbox = { sandboxFactory?.takeIf { it.isAvailable() }?.create() },
+        scope = viewModelScope,
+    )
+    private val attachmentProcessor = AttachmentImportProcessor(application)
     private val composerDrafts = ComposerDraftController(
         persistence = conversationWorkspaces,
         conversations = conversationRepository,
+        hydrateAttachment = attachmentProcessor::hydrateDraftAttachment,
     )
     internal val conversationComposer = ConversationComposerController(
         scope = viewModelScope,
         drafts = composerDrafts,
-        processor = AttachmentImportProcessor(application),
+        processor = attachmentProcessor,
         sandboxHomeDir = {
             sandboxFactory?.takeIf { it.isAvailable() }?.let {
                 File(application.filesDir, "sandbox-home")
@@ -110,12 +121,23 @@ class ChatViewModel(
         backupManager = autoBackupManager,
         backupSchedule = AndroidAutoBackupSchedulePort(application),
         scope = viewModelScope,
+        storageReportSource = {
+            com.newoether.agora.data.StorageUsageCalculator(application, database).compute()
+        },
+        storageCachedSource = {
+            com.newoether.agora.data.StorageUsageCalculator(application, database).cachedReport()
+        },
+        usageRowsSource = { database.usageLedgerDao().all() },
     )
     /** Process-scoped embedding subsystem owned by [ChatRuntime]. */
     val ragManager: RagManager = chatRuntime.ragManager
-
-    /** User-imported document corpus (RAG over your own files). */
-    val userDocumentManager = chatRuntime.userDocumentManager
+    /** Speech-recognition settings and the composer's single microphone session. */
+    val speechInput = SpeechInputController(
+        context = appContext,
+        store = settingsManager.speechRecognition,
+        scope = viewModelScope,
+        emitSnackbar = { emitSnackbar(it) },
+    )
 
     /**
      * Data export/import orchestration (native backup + Claude + GPT formats).
@@ -196,59 +218,7 @@ class ChatViewModel(
     // Per-conversation generation lifecycle (IO scope, job, slot, race-free stop/persist tokens)
     // lives in [ConversationGenerationState], one per conversation via [generationRegistry].
 
-    private val generationManager: GenerationManager get() = chatRuntime.generationManager
-
-    /**
-     * Build a [com.newoether.agora.voice.live.LiveToolBridge] for a Live Voice session, exposing
-     * the agent tool set (including MCP) with the user's current tool toggles. Keys are resolved
-     * so tools like web search / shell can run inside the voice turn.
-     */
-    fun buildLiveToolBridge(): com.newoether.agora.voice.live.LiveToolBridge {
-        val ctx = GenerationContext(
-            conversationId = "live-voice",
-            shellEnabled = settings.shellEnabled.value,
-            shellDevices = settings.shellDevices.value,
-            sandboxEnabled = settings.sandboxEnabled.value,
-            sandboxSharedStorageEnabled = settings.sandboxSharedStorageEnabled.value,
-            webSearchEnabled = settings.webSearchEnabled.value,
-            webSearchApiKeys = settings.webSearchApiKeys.value,
-            webSearchProvider = settings.webSearchProvider.value,
-            webSearchNumResults = settings.webSearchNumResults.value,
-            webSearchBaseUrl = settings.webSearchBaseUrl.value,
-            accessSavedMemories = settings.accessSavedMemories.value,
-            accessActiveMemory = settings.accessActiveMemory.value,
-            accessPastConversations = settings.accessPastConversations.value,
-            todoEnabled = settings.todoEnabled.value,
-            askUserEnabled = false,
-        )
-        return generationManager.buildLiveToolBridge(ctx)
-    }
-
-    /**
-     * Wire the Live Voice session's transcript persistence into the CURRENT chat conversation
-     * (AIOPE messageSink parity). Each completed spoken exchange is written as a terminal Run of
-     * PLAIN-TEXT user/assistant messages via [ConversationRepository.persistVoiceExchange], which
-     * no-ops if a live Run already owns the conversation. Plain text keeps the persisted turns valid
-     * for the Gemini request builder. Call before starting a session.
-     */
-    fun installVoiceMessageSink() {
-        com.newoether.agora.voice.live.LiveVoiceSession.controller.messageSink = { userText, assistantText ->
-            val model = currentActiveModel.value.ifBlank { null }
-            viewModelScope.launch {
-                runCatching {
-                    // Persist into the open conversation; if none is open (voice started from a fresh
-                    // chat), create one and open it first so the turns have a home (AIOPE parity).
-                    var conversationId = currentConversationId.value
-                    if (conversationId == null) {
-                        val title = userText.take(40).ifBlank { "Voice conversation" }
-                        conversationId = convRepo.createConversation(title, modelId = model)
-                        selectionController.selectConversation(conversationId)
-                    }
-                    convRepo.persistVoiceExchange(conversationId, userText, assistantText, model)
-                }
-            }
-        }
-    }
+    internal val generationManager: GenerationManager get() = chatRuntime.generationManager
     private val semanticSearchService by lazy {
         SemanticSearchService(
             settings = settings,
@@ -262,6 +232,10 @@ class ChatViewModel(
         sandboxFactory?.create()
     }
     val isSandboxFlavor: Boolean = sandboxFactory?.isAvailable() == true
+
+    /** Local Sandbox attachments need the toggle on and a rootfs that is actually installed. */
+    val sandboxAttachmentReady: Boolean
+        get() = settings.sandboxEnabled.value && sandboxManager?.isAvailableSync() == true
     val mcpServerSnapshots: StateFlow<Map<String, com.newoether.agora.mcp.McpServerSnapshot>>
         get() = mcpRegistry.snapshots
 
@@ -275,6 +249,7 @@ class ChatViewModel(
         // releases every reference the runtime holds to this ViewModel graph.
         chatRuntime.clients.detach(phoneClient)
         dataControl.destroy()
+        speechInput.cancelAll()
     }
 
     /** Nullable on purpose: the provider settings page recomposes one frame after a custom
@@ -282,7 +257,7 @@ class ChatViewModel(
     fun getProviderInstanceOrNull(name: String): LlmProvider? = providerRegistry.getInstanceOrNull(name)
 
     internal val scrollRequests = ScrollRequestCoordinator()
-    private val selectionController: ConversationSelectionController by lazy {
+    internal val selectionController: ConversationSelectionController by lazy {
         ConversationSelectionController(
             scope = viewModelScope,
             conversations = convRepo,
@@ -504,7 +479,14 @@ class ChatViewModel(
     fun showUpdateDialog(info: UpdateInfo) { _updateDialogData.value = info }
 
     /** PDF / text-file preview state shared by the existing UI consumers. */
-    val mediaPreview = MediaPreviewState()
+    val mediaPreview = MediaPreviewState { limit ->
+        emitSnackbar(
+            appContext.getString(
+                R.string.text_preview_truncated,
+                java.text.NumberFormat.getIntegerInstance().format(limit),
+            ),
+        )
+    }
 
     val messages: StateFlow<List<ChatMessage>> = conversationUi.messages
     val isLoading: StateFlow<Boolean> = conversationUi.isLoading
@@ -513,15 +495,15 @@ class ChatViewModel(
     val generationSnapshot: StateFlow<ConversationGenerationSnapshot> =
         conversationUi.generationSnapshot
 
-    /** Every conversation currently mutating its message tree through foreground generation or
-     * headless Task/Loop execution. Drawer rows use this per-id set instead of the open
-     * conversation's open UI loading mirror. */
-    val generatingConversationIds: StateFlow<Set<String>> = combine(
-        generationRegistry.activeConversationIds,
-        conversationExecutionCoordinator.activeAutomationConversationIds,
-    ) { foreground, automation ->
-        foreground + automation
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+    /** Drawer activity includes each active conversation and the parent of any active Subagent. */
+    val generatingConversationIds: StateFlow<Set<String>> = convRepo.observeDrawerGeneratingConversationIds(
+        foregroundIds = generationRegistry.activeConversationIds,
+        automationIds = conversationExecutionCoordinator.activeAutomationConversationIds,
+    ).stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    internal val drawerInteractions = convRepo.observeDrawerInteractions(
+        askUser.requests, shellConfirmation.pendingShellCommand,
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val isSwitching: StateFlow<Boolean> get() = selectionController.isSwitching
 
@@ -562,6 +544,7 @@ class ChatViewModel(
     private val contextProjector by lazy {
         ConversationContextProjector(
             conversations = convRepo,
+            appContext = appContext,
             requestBuilder = chatRuntime.requestBuilder,
             generationManager = { generationManager },
             generationErrorFormatter = { raw ->
@@ -574,6 +557,8 @@ class ChatViewModel(
 
     internal val conversationContextProjection: StateFlow<ConversationContextProjection>
         get() = contextProjector.projection
+    internal val conversationContextInvalidationRevision: StateFlow<Long>
+        get() = contextProjector.invalidationRevision
 
     internal fun requestConversationContext(
         conversationId: String?,
@@ -587,6 +572,20 @@ class ChatViewModel(
         selectedModelId,
         tokenBudget,
     )
+
+    /**
+     * Captures the tool list this conversation currently sends. Reads the same admission inputs
+     * as the context indicator, so a group's token figure matches what the request pays.
+     */
+    internal suspend fun captureSessionToolCatalog(): SessionToolCatalog? {
+        val isNewChat = isNewChatMode.value
+        return generationController.captureSessionToolCatalog(
+            conversationId = currentConversationId.value,
+            modelId = currentActiveModel.value,
+            systemPromptIdOverride = if (isNewChat) pendingSystemPromptId.value else null,
+            conversationSettingsOverride = if (isNewChat) pendingConversationSettings.value else null,
+        )
+    }
 
     private val generationController: MessageGenerationController
         get() = chatRuntime.messageGeneration

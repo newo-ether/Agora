@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_file_transfer">Передать файл</string>
+    <string name="tool_transferring_file">Передача %1$s…</string>
+    <string name="tool_transferring_file_default">Передача файла…</string>
+    <string name="tool_transferred_file">Передано %1$s (%2$d байт)</string>
+    <string name="tool_transfer_unchanged">Без изменений: %1$s</string>
+    <string name="tool_transfer_failed">Не удалось передать файл</string>
+    <string name="tool_transfer_unconfirmed">Не удалось подтвердить завершение передачи файла</string>
+</resources>

@@ -10,9 +10,6 @@ import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.RequestTokenUsageAccumulator
 import com.newoether.agora.model.StreamingTextDelta
 import com.newoether.agora.model.TokenUsage
-import com.newoether.agora.model.ToolExecutionStates
-import com.newoether.agora.tool.ToolImageStore
-import kotlinx.serialization.json.put
 
 /** One generation's output buffers and event transitions; execution and persistence stay outside. */
 internal class GenerationOutputAccumulator(
@@ -33,16 +30,6 @@ internal class GenerationOutputAccumulator(
     var retryText: String? = null
     val toolOverlay = GenerationToolOverlay(toolExecutor, providerName)
     val generatedImages = mutableListOf<String>()
-
-    /** Inline model-generated images (direct-chat image models). Counts toward run success. */
-    var totalImageCount = 0
-        private set
-
-    private var cachedImageStore: ToolImageStore? = null
-
-    /** Lazily created per-generation store for direct-chat generated images. */
-    private fun lazyImageStore(context: Context): ToolImageStore =
-        cachedImageStore ?: ToolImageStore(context.applicationContext).also { cachedImageStore = it }
     var currentAnswerBuf = StringBuilder()
     var currentAnswerDeltas = mutableListOf<StreamingTextDelta>()
     var nextAnswerDeltaSequence = 0L
@@ -146,9 +133,20 @@ internal class GenerationOutputAccumulator(
         publishStreamUpdate: suspend (Boolean) -> Unit,
         publishRetrySnapshot: suspend () -> Unit,
     ) {
+        val resumesOutput = when (event) {
+            is StreamEvent.TextChunk -> event.text.isNotEmpty()
+            is StreamEvent.ThoughtChunk -> event.thought.isNotEmpty()
+            is StreamEvent.ToolCallUpdate, is StreamEvent.ToolCallRequest,
+            is StreamEvent.ToolCallsRequest, is StreamEvent.HostedToolCallUpdate -> true
+            else -> false
+        }
+        if (resumesOutput) {
+            generationErrorMessage = null
+            generationErrorCode = null
+            retryText = null
+        }
         when (event) {
             is StreamEvent.TextChunk -> if (event.text.isNotEmpty()) tokenUsageAccumulator.observeGenerationContent()
-            is StreamEvent.ImageChunk -> if (event.bytes.isNotEmpty()) tokenUsageAccumulator.observeGenerationContent()
             is StreamEvent.ThoughtChunk -> if (event.thought.isNotEmpty()) tokenUsageAccumulator.observeGenerationContent()
             is StreamEvent.ToolCallUpdate -> if (event.arguments.isNotEmpty()) tokenUsageAccumulator.observeGenerationContent()
             is StreamEvent.HostedToolCallUpdate -> tokenUsageAccumulator.pauseGeneration()
@@ -163,7 +161,6 @@ internal class GenerationOutputAccumulator(
             is StreamEvent.TextChunk -> {
                 val answerText = if (currentStatus == MessageStatus.THINKING) event.text.trimStart() else event.text
                 if (currentStatus == MessageStatus.THINKING && answerText.isBlank()) {
-                    retryText = null
                     return
                 }
                 if (currentStatus == MessageStatus.THINKING) {
@@ -183,32 +180,6 @@ internal class GenerationOutputAccumulator(
                     currentStatus = MessageStatus.SENDING
                 }
                 retryText = null
-            }
-            is StreamEvent.ImageChunk -> {
-                flushAnswerSegment()
-                flushThoughtSegment()
-                retryText = null
-                val attachment = lazyImageStore(context).persistGeneratedBytes(
-                    bytes = event.bytes,
-                    filePrefix = "generated_image",
-                )
-                totalImageCount++
-                // The image renders through the generate_image tool segment; do NOT also add
-                // it to generatedImages — model-row images would render it a second time.
-                toolOverlay.append(
-                    MessageSegment(
-                        type = "tool",
-                        toolName = "generate_image",
-                        toolState = ToolExecutionStates.SUCCEEDED,
-                        toolImages = listOf(attachment),
-                        toolResult = kotlinx.serialization.json.buildJsonObject {
-                            put("type", "image_generation")
-                            put("status", "ok")
-                        }.toString(),
-                    ),
-                )
-                currentStatus = MessageStatus.TOOL_CALLING
-                publishStreamUpdate(true)
             }
             is StreamEvent.CitationUpdate -> {
                 toolOverlay.upsertCitation(
@@ -260,10 +231,20 @@ internal class GenerationOutputAccumulator(
                 }
             }
             is StreamEvent.Retrying -> {
+                val previousError = generationErrorMessage
+                val previousCode = generationErrorCode
                 if (event.resetCurrentAttempt) {
                     checkNotNull(restoreProviderAttempt) {
                         "Provider attempt reset arrived without a request baseline"
                     }.invoke()
+                }
+                val retryError = event.error
+                if (retryError != null) {
+                    generationErrorMessage = localizedGenerationError(context, retryError)
+                    generationErrorCode = (retryError as? GenerationError.LocalModel)?.code
+                } else {
+                    generationErrorMessage = previousError
+                    generationErrorCode = previousCode
                 }
                 retryText = context.getString(R.string.generation_retry_attempt, event.attempt, event.maxAttempts)
                 publishRetrySnapshot()

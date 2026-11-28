@@ -104,8 +104,10 @@ class SettingsInstallationGuidesTest {
     }
 
     private fun copyAndAssert(prefix: String, expected: String) {
-        compose.onNodeWithTag("$prefix-command").assertTextEquals(expected)
-        compose.onNodeWithTag("$prefix-command-copy").performScrollTo().performClick()
+        compose.onNodeWithTag("$prefix-command").assertTextContains(expected)
+        compose.onNodeWithTag("$prefix-command-copy")
+            .assert(hasAnyAncestor(hasTestTag("$prefix-command")))
+            .performScrollTo().performClick()
         compose.runOnIdle { assertEquals(expected, clipboard.getText()?.text) }
     }
 
@@ -146,7 +148,8 @@ class SettingsInstallationGuidesTest {
         assertEquals(16f, (titleTop - cardTop).value, 0.5f)
         platformTab(0).assertIsSelected()
         compose.onAllNodes(hasContentDescription(strings.getValue(R.string.copy)) and hasClickAction())
-            .assertCountEquals(0)
+            .assertCountEquals(1)
+        compose.onNodeWithTag("conch-guide-return").assertDoesNotExist()
         compose.onNodeWithTag("conch-guide-source")
             .assert(hasAnyAncestor(hasTestTag("conch-guide-project")))
             .assertTextContains("github.com/newo-ether/conch")
@@ -191,12 +194,7 @@ class SettingsInstallationGuidesTest {
         compose.onNodeWithText("2").assertExists()
         compose.onNodeWithText("3").assertExists()
         copyAndAssert("filo-guide", FILO_WINDOWS_INSTALL)
-        val backToEditor = capturedClick("filo-guide-return")
-        compose.runOnIdle {
-            backToEditor()
-            backToEditor()
-            assertEquals(1, backs)
-        }
+        compose.onNodeWithTag("filo-guide-return").assertDoesNotExist()
         compose.runOnIdle { entry++ }
         compose.waitForIdle()
         val back = requireNotNull(compose.onNodeWithContentDescription(strings.getValue(R.string.back))
@@ -204,14 +202,13 @@ class SettingsInstallationGuidesTest {
         compose.runOnIdle {
             back()
             back()
-            assertEquals(2, backs)
+            assertEquals(1, backs)
         }
     }
 
     @Test
     fun retainedConchEntryCannotReviveItsOldAddBackCopyOrSourceCallbacks() {
         show()
-        val add = capturedClick("conch-guide-return")
         val copy = capturedClick("conch-guide-command-copy")
         val source = capturedClick("conch-guide-source")
         val selectLinux = requireNotNull(platformTab(1).fetchSemanticsNode().config[SemanticsActions.OnClick].action)
@@ -221,11 +218,9 @@ class SettingsInstallationGuidesTest {
         compose.waitForIdle()
         compose.runOnIdle { active = true }
         compose.waitForIdle()
-        compose.onNodeWithTag("conch-guide-return").assertIsNotEnabled()
         compose.onNodeWithTag("conch-guide-command-copy").assertIsNotEnabled()
         for (index in 0..2) platformTab(index).assertIsNotEnabled()
         compose.runOnIdle {
-            add()
             back()
             copy()
             source()
@@ -236,7 +231,7 @@ class SettingsInstallationGuidesTest {
             assertTrue(openedUrls.isEmpty())
         }
         platformTab(0).assertIsSelected()
-        compose.onNodeWithTag("conch-guide-command").assertTextEquals(CONCH_USER_WINDOWS_INSTALL)
+        compose.onNodeWithTag("conch-guide-command").assertTextContains(CONCH_USER_WINDOWS_INSTALL)
     }
 
     @Test
@@ -272,14 +267,13 @@ class SettingsInstallationGuidesTest {
     }
 
     @Test
-    fun narrowLargeFontGuideKeepsCopyAndAddReachableByScrolling() {
+    fun narrowLargeFontGuideKeepsCopyReachableByScrolling() {
         show(largeFont = true)
         for (index in 0..2) assertPlatformLabelFits(index)
         copyAndAssert("conch-guide", "Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/newo-ether/conch/main/scripts/install.ps1 | iex")
-        compose.onNodeWithTag("conch-guide-return").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle {
             assertEquals(0, adds)
-            assertEquals(1, backs)
+            assertEquals(0, backs)
             assertTrue(openedUrls.isEmpty())
         }
     }

@@ -26,6 +26,7 @@ internal class SubagentCompletionQueueDelivery(
             ?: fallbackModelId()?.takeIf(String::isNotBlank) ?: return
         val state = registry.getOrCreate(parentId)
         bind(state)
+        var enqueued = false
         state.queueMutationMutex.withLock {
             // Re-read under the queue boundary: a wait result or dismissal may have committed
             // since the event was emitted. Duplicate events include already-claimed batches.
@@ -59,9 +60,11 @@ internal class SubagentCompletionQueueDelivery(
                         ),
                     ),
                 )
+                enqueued = true
             }
         }
-        // Completion delivery only offers input. Ordinary settlement or explicit send-now owns drain.
+        // Idle parents have no remaining settlement signal to wake the ordinary queue drain.
+        if (enqueued && !state.generating.value) state.onQueueDrainRequested?.invoke(state)
     }
 
     suspend fun dismiss(parentId: String, send: QueuedSend) {

@@ -264,17 +264,14 @@ class PortableSettingsArchiveTest {
         assertTrue(export.contains("putEncoded(\"modelProviderNames\", sm.modelProviderNames.first())"))
         assertTrue(storage.contains("clearPortableSettings(prefs)"))
         assertTrue(storage.contains("prefs[MODEL_PROVIDER_NAMES_JSON] = \"{}\""))
-        assertTrue(storage.contains("produceMigrations = { listOf(modelProviderNamesMigration) }"))
+        assertTrue(storage.contains("produceMigrations = { listOf(modelProviderNamesMigration, toolCallDisplayModeMigration) }"))
     }
 
     @Test
     fun amoledIsDefaultOffPortableAndAvailableInEveryTheme() {
         val root = locateDirectory("app/src/main/java", "src/main/java")
         fun source(path: String) = File(root, "com/newoether/agora/$path").readText()
-        val manager = source("data/SettingsManager.kt") +
-            // Appearance save* accessors were extracted here to keep SettingsManager <=800 lines.
-            source("data/SettingsManagerAppearance.kt") +
-            source("data/PortableSettingsReset.kt")
+        val manager = source("data/SettingsManager.kt") + source("data/PortableSettingsReset.kt")
         val archive = source("data/PortableSettingsArchive.kt")
         val repository = source("data/repository/SettingsRepository.kt")
         val page = source("ui/settings/SettingsAppearancePage.kt")
@@ -379,6 +376,7 @@ class PortableSettingsArchiveTest {
 
         assertFalse(startup.contains("handleUncachedMessages"))
         assertFalse(startup.contains("getIndexableMessageCount"))
+        assertFalse(startup.contains("getEmbeddingCacheCounts"))
         assertFalse(startup.contains("getEmbeddingCountByModel"))
 
         val modelSwitchPolicy = rag
@@ -390,10 +388,20 @@ class PortableSettingsArchiveTest {
 
         val admissionPolicy = rag
             .substringAfter("private suspend fun admitActiveModel(")
-            .substringBefore("/**")
+            .substringBefore("private suspend fun schedulePendingMetadata(")
         assertTrue(admissionPolicy.contains("settings.getAutoCacheEnabled()"))
         assertTrue(admissionPolicy.contains("scheduleCacheWork(modelId)"))
-        assertTrue(admissionPolicy.contains("settings.getShowUncachedNotification()"))
+        assertTrue(admissionPolicy.contains("emitUncachedReminder(modelId, it)"))
+        val reminderPolicy = rag
+            .substringAfter("private suspend fun emitUncachedReminder(")
+            .substringBefore("// -- Embedding-model CRUD")
+        assertTrue(reminderPolicy.contains("settings.getShowUncachedNotification()"))
+        assertTrue(reminderPolicy.contains("!settings.getAutoCacheEnabled()"))
+        assertTrue(reminderPolicy.contains("STATE_CURRENT"))
+        assertTrue(reminderPolicy.contains("if (shouldNotify)"))
+        assertTrue(reminderPolicy.contains("emitSnackbar("))
+        assertFalse((admissionPolicy + reminderPolicy).contains("getEmbeddingCacheCounts"))
+        assertFalse((admissionPolicy + reminderPolicy).contains("requestCacheCountRefresh"))
 
         val resourceRoot = locateDirectory("app/src/main/res", "src/main/res")
         listOf(

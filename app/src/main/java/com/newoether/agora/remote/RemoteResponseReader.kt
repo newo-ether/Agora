@@ -4,7 +4,7 @@ import okio.BufferedSource
 import java.io.EOFException
 import java.io.IOException
 
-internal const val MAX_REMOTE_RESPONSE_BYTES = 1024L * 1024L
+internal const val MAX_REMOTE_RESPONSE_BYTES = 4L * 1024L * 1024L
 
 /** Bound bytes before UTF-8 decoding or JSON allocation, including chunked/unterminated input. */
 internal fun BufferedSource.readRemoteResponse(): String {

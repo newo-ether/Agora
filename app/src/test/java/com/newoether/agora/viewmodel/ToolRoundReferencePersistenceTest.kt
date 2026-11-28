@@ -82,15 +82,20 @@ class ToolRoundReferencePersistenceTest {
     }
 
     @Test
-    fun `reference resolution rejects missing duplicate and foreign durable bodies`() {
+    fun `reference resolution keeps the persisted segment when the durable body is unusable`() {
+        // Refused Compact rounds never persist, so their references dangle forever; hydration
+        // must degrade to the persisted segment instead of failing (cold-start crash 2026-11-23).
         val id = "${Constants.TOOL_MSG_PREFIX}round"
-        val reference = MessageSegment("tool", toolCallId = "call-0", toolRoundId = id)
+        val reference = MessageSegment("tool", toolCallId = "call-0", toolRoundId = id,
+            toolName = "file_read", toolArgs = "{}")
         val entity = row("root", listOf(reference))
         val valid = row(id, listOf(tool(0)))
         for (rounds in listOf(emptyList(), listOf(valid.copy(runId = "other")),
             listOf(valid.copy(conversationId = "other")),
+            listOf(valid.copy(status = MessageStatus.ERROR)),
             listOf(valid.copy(toolCallJson = Json.encodeToString(listOf(tool(0), tool(0))))))) {
-            assertTrue(runCatching { entity.toUiChatMessage(rounds) { it } }.isFailure)
+            val projected = entity.toUiChatMessage(rounds) { it }
+            assertEquals(listOf(reference), projected.segments)
         }
     }
 
@@ -102,7 +107,10 @@ class ToolRoundReferencePersistenceTest {
         val remapped = remapToolRoundReferences(raw, mapOf(id to "${id}-fork"))!!
         assertEquals(listOf(ref.copy(toolRoundId = "${id}-fork")),
             Json.decodeFromString<List<MessageSegment>>(remapped))
-        assertTrue(runCatching { remapToolRoundReferences(raw, emptyMap()) }.isFailure)
+        // A round without a forked counterpart loses its reference but keeps its inline data.
+        val dropped = remapToolRoundReferences(raw, emptyMap())!!
+        assertEquals(listOf(ref.copy(toolRoundId = null)),
+            Json.decodeFromString<List<MessageSegment>>(dropped))
         val exported = com.newoether.agora.data.NativeBackupMediaPolicy.rewriteToolImagePathsForExport(
             raw, { null },
         )

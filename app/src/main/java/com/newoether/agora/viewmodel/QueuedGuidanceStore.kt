@@ -28,6 +28,8 @@ internal data class QueuedSend(
     val createdAt: Long = System.currentTimeMillis(),
     /** Null for a message the user typed; set for automatic input such as ask_user answers. */
     val source: MessageSource? = null,
+    /** Retained until the ordinary generation owns admission, or this pending input is discarded. */
+    val releaseGenerationAdmission: (() -> Unit)? = null,
 )
 
 internal data class GuidanceBatchLease(
@@ -126,7 +128,10 @@ internal class GuidanceLeaseStore(
         synchronized(lock) {
             val batch = claimedGuidance.remove(leaseId) ?: return false
             when {
-                durable -> batch.forEach(AttachmentFiles::releaseLivePaths)
+                durable -> batch.forEach {
+                    it.releaseGenerationAdmission?.invoke()
+                    AttachmentFiles.releaseLivePaths(it)
+                }
                 disposed -> orphaned = batch
                 else -> _queuedSends.value = batch + _queuedSends.value
             }
@@ -136,6 +141,7 @@ internal class GuidanceLeaseStore(
     }
 
     fun discard(send: QueuedSend) {
+        send.releaseGenerationAdmission?.invoke()
         AttachmentFiles.releaseLivePaths(send)
         if (send.attachments.isNotEmpty()) reclaimAttachments(send.attachments)
     }

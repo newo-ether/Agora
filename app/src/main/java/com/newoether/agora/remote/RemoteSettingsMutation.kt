@@ -33,6 +33,7 @@ internal class RemoteSettingsMutation(
         var confirmed: RemoteRuntime? = null,
     )
     private val owners = mutableMapOf<String, Owner>()
+    private val pendingConfirmations = mutableMapOf<String, Pair<Owner, String>>()
     private var settingsVersion = 0L
     fun snapshotVersion(): Long = settingsVersion
     fun acceptsSnapshot(version: Long, ownerId: String): Boolean =
@@ -41,6 +42,22 @@ internal class RemoteSettingsMutation(
         connectionForDevice(it.device) === it.connection
     }?.confirmed
 
+    /** Settles delayed Claude request evidence through the existing failure notice owner. */
+    fun observeRuntime(snapshot: RemoteState, runtime: RemoteRuntime?) {
+        val key = snapshot.settingsKey ?: return
+        val (owner, changeId) = pendingConfirmations[key] ?: return
+        if (connectionForDevice(owner.device) !== owner.connection || !sameSource(owner.snapshot, owner.client)) {
+            pendingConfirmations.remove(key)
+            return
+        }
+        val change = runtime?.settingsChange ?: return
+        if (change.id != changeId || change.state == "pending") return
+        pendingConfirmations.remove(key)
+        if (change.state == "failed" && isSelected(owner)) {
+            report(FiloHttpException(409, "settings_unavailable"))
+        }
+    }
+
     fun hasConflict(snapshot: RemoteState): Boolean = owners.values.any {
         it.canonical == snapshot.owner && it.id != snapshot.settingsKey && (it.active != null || it.pending != null)
     }
@@ -48,15 +65,15 @@ internal class RemoteSettingsMutation(
     fun setThinkingEnabled(enabled: Boolean) {
         val snapshot = mutableState.value
         if (enabled == (snapshot.selectedEffort != null && snapshot.selectedEffort != "none")) return
-        val model = snapshot.settingsModel ?: return
-        val effort = if (enabled) model.defaultReasoningEffort?.takeUnless { it == "none" }
-            ?: model.reasoningEfforts?.firstOrNull { it != "none" } else "none"
+        val effort = if (enabled) snapshot.settingsModel?.defaultReasoningEffort?.takeIf {
+            it != "none" && it in snapshot.effortChoices
+        } ?: snapshot.effortChoices.firstOrNull { it != "none" } else "none"
         effort?.let(::setThinkingLevel)
     }
 
     fun setThinkingLevel(effort: String) {
         val snapshot = mutableState.value
-        if ("effort" !in snapshot.capabilities.settings || effort == snapshot.selectedEffort || effort !in snapshot.settingsModel?.reasoningEfforts.orEmpty()) return
+        if ("effort" !in snapshot.capabilities.settings || effort == snapshot.selectedEffort || effort !in snapshot.effortChoices) return
         change(RemoteSettings(effort = effort))
     }
 
@@ -164,12 +181,26 @@ internal class RemoteSettingsMutation(
         if (!sameSource(owner.snapshot, owner.client)) return
         settingsVersion++
         try {
+            pendingConfirmations.remove(owner.id)
             owner.client.updateSettings(owner.session, patch.settings)
             if (!sameSource(owner.snapshot, owner.client)) return
             val page = owner.client.conversation(owner.session)
             if (!sameSource(owner.snapshot, owner.client)) return
             owner.confirmed = page.runtime
             if (isCurrent(owner, patch.selection)) acceptPage(owner.client, owner.session, generation, page)
+            val change = page.runtime?.settingsChange
+            if (owner.snapshot.selectedAdapter.family == "claude" && change != null) {
+                check((patch.settings.model == null || change.requested.model == patch.settings.model) &&
+                    (patch.settings.effort == null || change.requested.effort == patch.settings.effort)) {
+                    "Native settings evidence belongs to another change"
+                }
+                check(change.state != "failed") { "Native settings differ: model=${change.actualModel}, effort=${change.actualEffort}" }
+                if (change.state == "pending") {
+                    pendingConfirmations[owner.id] = owner to change.id
+                    return
+                }
+            }
+            pendingConfirmations.remove(owner.id)
             check(confirms(page.runtime, patch.settings)) { "Native settings were not confirmed" }
         } finally {
             settingsVersion++

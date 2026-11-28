@@ -23,8 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -45,41 +45,115 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.FastOutSlowInEasing
+import com.newoether.agora.ui.motion.IdentityLabelCrossfade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import com.newoether.agora.ui.motion.rememberIdentityClipWidth
 import com.newoether.agora.R
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.chatCompactWidth
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
+import kotlin.math.roundToInt
 
 internal const val CHAT_DROPDOWN_MENU_ICON_SIZE_DP = 24
 
-private val MODEL_SELECTOR_HEIGHT = 38.dp
-private val MODEL_SELECTOR_PADDING = 8.dp
+// Stays concentric with the controls capsule: radius = capsule radius - 5 dp (38 dp regular, 34 dp compact).
+private val MODEL_SELECTOR_HEIGHT get() = COMPOSER_CONTROL_HEIGHT - 10.dp
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) tighten the label padding and size so the capsule narrows.
+private val MODEL_SELECTOR_PADDING get() = if (chatCompactWidth) 5.dp else 8.dp
 private val COMPOSER_SEND_BUTTON_GAP = 14.dp
 
 /**
- * The same controls capsule is used by ordinary and externally owned conversations. It may grow
- * up to the send button minus a fixed gap; only the model selector inside it is flexible.
+ * The same controls capsule is used by ordinary and externally owned conversations. It hugs its
+ * contents up to the send button minus a fixed gap; only the model selector inside it is flexible.
+ *
+ * With [voice], a capture stretches the capsule rightward until it sits under the microphone and the
+ * stop button lands inside its rounded end. The microphone itself never moves, so only the capsule
+ * and its contents animate.
  */
 @Composable
-internal fun RowScope.ComposerControlGroup(content: @Composable RowScope.() -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.weight(1f, fill = false).height(COMPOSER_CONTROL_HEIGHT)
-            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(8.dp), RoundedCornerShape(100))
-            // The 32 dp end buttons stay concentric with the capsule (radius 16 + 8 = 24); the Row
-            // centers the 38 dp model selector vertically (radius 19 + 5 = 24).
-            .padding(horizontal = COMPOSER_CONTROL_HEIGHT / 2 - 16.dp),
-        content = content,
+internal fun RowScope.ComposerControlGroup(
+    voice: ComposerVoice? = null,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val progress = LocalComposerCapsuleProgress.current
+    val shape = RoundedCornerShape(100)
+    Box(Modifier.weight(1f).height(COMPOSER_CONTROL_HEIGHT)) {
+        Layout(
+            modifier = Modifier.align(Alignment.CenterStart)
+                .height(COMPOSER_CONTROL_HEIGHT)
+                .background(MaterialTheme.colorScheme.surfaceColorAtElevation(8.dp), shape)
+                .clip(shape),
+            content = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxHeight()
+                        .graphicsLayer { alpha = 1f - progress }
+                        // The overlay only covers its own buttons; block the faded controls underneath.
+                        // Initial runs before the children, so the taps never reach the hidden buttons.
+                        .pointerInput(progress) {
+                            if (progress <= 0.001f) return@pointerInput
+                            awaitPointerEventScope {
+                                while (true) {
+                                    awaitPointerEvent(PointerEventPass.Initial)
+                                        .changes.forEach { it.consume() }
+                                }
+                            }
+                        }
+                        // The 32 dp end buttons stay concentric with the capsule (radius 16 + 8 = 24); the Row
+                        // centers the 38 dp model selector vertically (radius 19 + 5 = 24).
+                        .padding(horizontal = COMPOSER_CONTROL_HEIGHT / 2 - 16.dp),
+                    content = content,
+                )
+                if (voice != null) ComposerRecordingOverlay(voice)
+            },
+        ) { measurables, constraints ->
+            // The microphone is pinned to the send button, so the capsule stops short of the
+            // group's edge by the difference between the two gaps. Stretching then never moves
+            // the microphone, and the capsule end keeps the same gap to send in every phase.
+            val inset = (COMPOSER_CAPSULE_SEND_GAP - COMPOSER_MIC_SEND_GAP).roundToPx()
+            val maxWidth = (constraints.maxWidth - inset).coerceAtLeast(0)
+            val idle = measurables.first().measure(constraints.copy(minWidth = 0, minHeight = 0))
+            val overlay = measurables.getOrNull(1)?.measure(
+                Constraints.fixed(maxWidth, constraints.maxHeight),
+            )
+            val width = (idle.width + (maxWidth - idle.width) * progress)
+                .roundToInt()
+                .coerceIn(idle.width, maxOf(idle.width, maxWidth))
+            layout(width, constraints.maxHeight) {
+                idle.placeRelative(0, 0)
+                overlay?.placeRelative(0, 0)
+            }
+        }
+        if (voice != null) {
+            val micAlpha by animateFloatAsState(
+                targetValue = if (voice.active) 0f else 1f,
+                animationSpec = tween(durationMillis = COMPOSER_MIC_FADE_MS),
+                label = "composerMicAlpha",
+            )
+            // Dropped once faded out: an invisible button would still swallow taps that belong to
+            // the stop square the capsule now carries.
+            if (micAlpha > 0.01f) {
+                Box(Modifier.align(Alignment.CenterEnd).graphicsLayer { alpha = micAlpha }) {
+                    ComposerVoiceButton(voice)
+                }
+            }
+        }
+    }
+    Spacer(
+        modifier = Modifier.width(
+            if (voice != null) COMPOSER_MIC_SEND_GAP else COMPOSER_SEND_BUTTON_GAP,
+        ),
     )
-    Spacer(modifier = Modifier.width(COMPOSER_SEND_BUTTON_GAP))
 }
 
 /** The only flexible child of [ComposerControlGroup]; the space left in the group caps its width. */
@@ -137,11 +211,7 @@ internal fun RowScope.ComposerModelSelector(
                         .menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = enabled),
                     contentPadding = PaddingValues(MODEL_SELECTOR_PADDING),
                 ) {
-                    Crossfade(
-                        targetState = displayText,
-                        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                        label = "composerModelSelector",
-                    ) { label ->
+                    IdentityLabelCrossfade(targetState = displayText) { label ->
                         // Each label keeps its own width while it fades, so an outgoing longer name is
                         // cut only by the moving clip; it ellipsizes only past the space left.
                         Text(
@@ -170,11 +240,12 @@ internal fun RowScope.ComposerModelSelector(
 }
 
 @Composable
-internal fun ComposerModelMenuItem(displayText: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ComposerModelMenuItem(displayText: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     AgoraDropdownMenuItem(
+        enabled = enabled,
         text = { Text(displayText) },
         leadingIcon = {
-            if (selected) Icon(Icons.Default.Check, null, Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+            if (selected) Icon(Icons.Rounded.Check, null, Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
             else Spacer(Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
         },
         onClick = onClick,

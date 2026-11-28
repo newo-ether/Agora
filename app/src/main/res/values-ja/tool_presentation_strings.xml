@@ -130,4 +130,24 @@
         <item quantity="other">%1$d 件の結果が見つかった</item>
     </plurals>
     <string name="tool_json_empty_container">コンテンツなし</string>
+    <string name="tool_search_mcp_tools">MCP ツールを検索</string>
+    <string name="tool_searching_mcp_tools">MCP ツールを検索中…</string>
+    <string name="tool_searching_mcp_tools_for">%1$s に関連する MCP ツールを検索中…</string>
+    <string name="tool_searched_mcp_tools">MCP ツールを検索しました</string>
+    <string name="tool_no_mcp_tools">一致する MCP ツールは見つかりませんでした</string>
+    <plurals name="tool_found_mcp_tools">
+        <item quantity="other">%1$d 件の MCP ツールが見つかりました</item>
+    </plurals>
+    <string name="tool_list_mcp_servers">MCP サーバーを一覧表示</string>
+    <string name="tool_listing_mcp_servers">MCP サーバーを一覧表示中…</string>
+    <string name="tool_listed_mcp_servers_default">MCP サーバーを一覧表示しました</string>
+    <string name="tool_no_mcp_servers_returned">MCP サーバーは返されませんでした</string>
+    <string name="tool_list_mcp_servers_failed">MCP サーバーの一覧表示に失敗しました</string>
+    <plurals name="tool_listed_mcp_servers">
+        <item quantity="other">%1$d 件の MCP サーバーを一覧表示しました</item>
+    </plurals>
+    <string name="tool_edit_operation_update">更新</string>
+    <string name="tool_edit_operation_add">追加</string>
+    <string name="tool_edit_operation_delete">削除</string>
+    <string name="tool_edit_operation_move">移動</string>
 </resources>

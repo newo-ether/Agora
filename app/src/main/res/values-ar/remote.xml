@@ -8,6 +8,7 @@
     <string name="remote_connection_hint">ثبّت Filo على الجهاز المستهدف، ثم أدخل عنوان IP أو URL الخاص به.</string>
     <string name="remote_sessions">الجلسات</string>
     <string name="remote_empty">لم يتم العثور على جلسات موجودة</string>
+    <string name="remote_empty_hint">ستظهر جلسات هذا المصدر هنا.</string>
     <string name="remote_sync_hint">أبقِ هذه الجلسة مفتوحة في Codex. تتم مزامنة الردود بعد حفظها.</string>
     <string name="remote_refresh">تحديث</string>
     <string name="remote_load_more">تحميل المزيد</string>
@@ -38,8 +39,13 @@
     <string name="remote_source_codex_desktop">Codex Desktop</string>
     <string name="remote_source_codex_cli">Codex CLI</string>
     <string name="remote_source_claude_code">Claude Code</string>
+    <string name="remote_source_claude_desktop">Claude Desktop</string>
     <string name="remote_source_read_only">هذه المحادثة متاحة للقراءة فقط عبر هذا المصدر.</string>
     <string name="remote_history_bounded">لا يوفر هذا المصدر سوى لقطة حديثة من سجل المحادثة.</string>
     <string name="remote_source_unavailable">هذا المصدر غير متاح. تحقق من عميله الأصلي على الكمبيوتر المستهدف.</string>
+    <string name="remote_source_no_session">لا توجد جلسة %1$s نشطة</string>
     <string name="remote_history_observed">يعرض فقط النص الذي جُمع بعد تسجيل Claude Mod. لا يشمل السجل السابق أو نشاط الأدوات أو الوسائط أو التفكير.</string>
+    <string name="remote_settings_pending_request">الإعدادات بانتظار الطلب الأصلي التالي</string>
+    <string name="remote_settings_confirmed_request">تم تأكيد الإعدادات في طلب أصلي</string>
+    <string name="remote_settings_failed_request">الإعدادات مختلفة · النموذج الفعلي: %1$s · التفكير: %2$s</string>
 </resources>

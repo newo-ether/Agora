@@ -22,6 +22,10 @@
     <string name="subagents_max_concurrent">Subagentes simultáneos</string>
     <string name="subagents_max_concurrent_desc">Máximo de subagentes en ejecución simultánea por conversación principal. Las tareas adicionales esperan; reducir este límite permite que los subagentes en ejecución terminen.</string>
     <string name="subagents_limit_value">%1$d</string>
+    <plurals name="subagents_running_count">
+        <item quantity="one">%d en ejecución</item>
+        <item quantity="other">%d en ejecución</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="one">%d subagente</item>
         <item quantity="other">%d subagentes</item>

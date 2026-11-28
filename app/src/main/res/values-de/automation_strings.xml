@@ -67,7 +67,7 @@
     <string name="settings_automation">Automatisierung</string>
     <string name="settings_automation_desc">Aufgaben, Schleifen und Zeitplangenauigkeit</string>
     <string name="automation_ai_tools">Auf Aufgaben und Schleifen zugreifen</string>
-    <string name="automation_ai_tools_desc">Dem Modell erlauben, Aufgaben zu erstellen und zu verwalten oder Unterhaltungsschleifen zu starten und zu stoppen. Standardmäßig deaktiviert.</string>
+    <string name="automation_ai_tools_desc">Dem Modell erlauben, Aufgaben zu erstellen und zu verwalten oder Unterhaltungsschleifen zu starten und zu stoppen.</string>
     <string name="automation_background_execution">Hintergrundausführung</string>
     <string name="automation_wake_lock">Aktivierungssperre</string>
     <string name="automation_wake_lock_desc">Jede Aufgaben- oder Schleifenausführung aktiv halten. WorkManager hält normale geplante Arbeit bereits wach; diese zusätzliche Aktivierungssperre kann den Akkuverbrauch erhöhen.</string>

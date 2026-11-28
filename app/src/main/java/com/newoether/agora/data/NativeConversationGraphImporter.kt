@@ -2,6 +2,7 @@ package com.newoether.agora.data
 
 import com.newoether.agora.data.NativeExportChatEntity as ExportChatEntity
 
+import kotlinx.coroutines.ensureActive
 import android.util.JsonReader
 import com.newoether.agora.automation.LoopPolicy
 import com.newoether.agora.data.DataImporter.ImportStrategy
@@ -57,6 +58,11 @@ internal class NativeConversationGraphImporter(
 ) {
     private companion object {
         const val IMPORT_MESSAGE_BATCH_SIZE = 64
+
+        // Fractions of importConversationGraph reported through onProgress.
+        const val PROGRESS_PLANNED = 0.1f
+        const val PROGRESS_PREPARED = 0.45f
+        const val PROGRESS_WRITTEN = 0.95f
     }
 
     data class ConversationGraphCounts(
@@ -271,24 +277,16 @@ internal class NativeConversationGraphImporter(
             MessageStatus.SUCCESS
         }
         val oldToNewImageIndex = mutableMapOf<Int, Int>()
+        val legacyImagePaths = restoredMedia.legacyImagesByMessage[id].orEmpty().toSortedMap()
         val restoredImages = if (archiveVersion >= 4) {
-            buildList {
-                images.forEachIndexed { oldIndex, entry ->
-                    restoredMedia.archiveFiles[entry]?.uri?.let { uri ->
-                        oldToNewImageIndex[oldIndex] = size
-                        add(uri)
-                    }
-                }
+            images.mapIndexed { index, entry ->
+                oldToNewImageIndex[index] = index
+                restoredMedia.archiveFiles[entry]?.absolutePath.orEmpty()
             }
         } else {
-            buildList {
-                restoredMedia.legacyImagesByMessage[id]
-                    .orEmpty()
-                    .toSortedMap()
-                    .forEach { (oldIndex, uri) ->
-                        oldToNewImageIndex[oldIndex] = size
-                        add(uri)
-                    }
+            legacyImagePaths.entries.mapIndexed { index, (oldIndex, path) ->
+                oldToNewImageIndex[oldIndex] = index
+                path
             }
         }
         return MessageEntity(
@@ -336,6 +334,11 @@ internal class NativeConversationGraphImporter(
                 restoredUriForArchiveEntry = { entry ->
                     restoredMedia.archiveFiles[entry]?.uri
                 },
+                restoredPathForArchiveEntry = { entry ->
+                    restoredMedia.archiveFiles[entry]?.absolutePath
+                },
+                originalImageSources = images,
+                legacyImagePaths = legacyImagePaths,
             ),
             runId = assignment.runId,
             runSequence = assignment.runSequence,
@@ -344,9 +347,9 @@ internal class NativeConversationGraphImporter(
         )
     }
 
-    private suspend fun importMessagesFromGraph(
+    private suspend fun prepareMessagesFromGraph(
         stream: InputStream,
-        strategy: ImportStrategy,
+        write: (MessageEntity) -> Unit,
         availableConversationIds: Set<String>,
         restoredMedia: RestoredMedia,
         assignments: Map<String, PlannedMessageAssignment>,
@@ -355,23 +358,6 @@ internal class NativeConversationGraphImporter(
         messageParentOverrides: Map<String, String>,
         archiveVersion: Int,
     ) {
-        val batch = mutableListOf<MessageEntity>()
-
-        suspend fun flushBatch() {
-            if (batch.isEmpty()) return
-            val existingIds = if (strategy == ImportStrategy.MERGE) {
-                chatDao.findExistingMessageIds(batch.map { it.id }).toSet()
-            } else {
-                emptySet()
-            }
-            batch.forEach { message ->
-                if (message.id !in existingIds || message.images.isNotEmpty()) {
-                    chatDao.upsertMessage(message)
-                }
-            }
-            batch.clear()
-        }
-
         JsonReader(InputStreamReader(stream, Charsets.UTF_8)).use { reader ->
             reader.beginObject()
             while (reader.hasNext()) {
@@ -397,17 +383,14 @@ internal class NativeConversationGraphImporter(
                         messageParentOverrides[exported.id]?.let { repairedParentId ->
                             message = message.copy(parentId = repairedParentId)
                         }
-                        batch.add(message)
-                        if (batch.size >= IMPORT_MESSAGE_BATCH_SIZE) {
-                            flushBatch()
-                        }
+                        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                        write(message)
                     }
                 }
                 reader.endArray()
             }
             reader.endObject()
         }
-        flushBatch()
     }
 
     private fun planNativeRunGraph(
@@ -613,10 +596,12 @@ internal class NativeConversationGraphImporter(
         restoredMedia: RestoredMedia,
         archiveVersion: Int,
         semanticSnapshot: SemanticModelSnapshot,
+        onProgress: (Float) -> Unit = {},
     ): String {
         val plannedRunGraph = graphSource.open().use { stream ->
             planNativeRunGraph(stream, headers)
         }
+        onProgress(PROGRESS_PLANNED)
         val importedConversationIds = headers.conversations.mapTo(mutableSetOf()) { it.id }
         val importedSettings = headers.conversationSettings.filterKeys(importedConversationIds::contains)
         val settingsTransfer = ConversationSettingsImportTransferEntity(
@@ -628,64 +613,78 @@ internal class NativeConversationGraphImporter(
                 ConversationSettingsImportTransferEntity.MODE_MERGE
             },
         )
-        val at = System.currentTimeMillis()
-        database.withSemanticGraphMutation(
-            snapshot = semanticSnapshot,
-            clearMessageIds = plannedRunGraph.assignments.keys,
-            clearAllEmbeddings = strategy == ImportStrategy.REPLACE,
-            updatedAt = at,
-        ) {
-            if (strategy == ImportStrategy.REPLACE) {
-                chatDao.deleteAllLoops()
-                chatDao.deleteAllConversations()
-                chatDao.deleteAllTasks()
-            }
-            headers.tasks.forEach { chatDao.upsertTask(it) }
-            headers.conversations.forEach { conversation ->
-                val derivedRunSelections = plannedRunGraph.legacyRunSelections[conversation.id]
-                val derivedMessageSelections =
-                    plannedRunGraph.messageSelectionOverrides[conversation.id]
-                chatDao.upsertConversation(
-                    conversation.copy(
-                        selectedBranchesJson = derivedMessageSelections
-                            ?.let(::encodeStoredSelections)
-                            ?: conversation.selectedBranchesJson,
-                        selectedRunBranchesJson = derivedRunSelections
-                            ?.let(::encodeStoredSelections)
-                            ?: conversation.selectedRunBranchesJson,
+        val conversations = headers.conversations.map { conversation ->
+            conversation.copy(
+                selectedBranchesJson = plannedRunGraph.messageSelectionOverrides[conversation.id]
+                    ?.let(::encodeStoredSelections) ?: conversation.selectedBranchesJson,
+                selectedRunBranchesJson = plannedRunGraph.legacyRunSelections[conversation.id]
+                    ?.let(::encodeStoredSelections) ?: conversation.selectedRunBranchesJson,
+            )
+        }
+        var preparedCount = 0
+        graphSource.withPreparedMessages(
+            prepare = { write ->
+                graphSource.open().use { stream ->
+                    prepareMessagesFromGraph(
+                        stream,
+                        { message -> preparedCount++; write(message) },
+                        headers.availableConversationIds, restoredMedia,
+                        plannedRunGraph.assignments, plannedRunGraph.recoveredRunIds,
+                        plannedRunGraph.deletedMessageIds, plannedRunGraph.messageParentOverrides,
+                        archiveVersion,
                     )
-                )
-            }
-            for (run in plannedRunGraph.runs) {
-                if (chatDao.getRun(run.id) == null) chatDao.insertRun(run)
-            }
-            graphSource.open().use { stream ->
-                importMessagesFromGraph(
-                    stream = stream,
-                    strategy = strategy,
-                    availableConversationIds = headers.availableConversationIds,
-                    restoredMedia = restoredMedia,
-                    assignments = plannedRunGraph.assignments,
-                    recoveredRunIds = plannedRunGraph.recoveredRunIds,
-                    deletedMessageIds = plannedRunGraph.deletedMessageIds,
-                    messageParentOverrides = plannedRunGraph.messageParentOverrides,
-                    archiveVersion = archiveVersion,
-                )
-            }
-            headers.loops.forEach { chatDao.upsertLoop(it) }
-            importedSettings.keys.forEach { conversationId ->
-                chatDao.deleteConversationSettingsTransfer(conversationId)
-            }
-            chatDao.upsertConversationSettingsImportTransfer(settingsTransfer)
-            MaintenanceDebtEntity.RECONCILE_KINDS.forEach { kind ->
-                database.maintenanceDebtDao().enqueue(
-                    kind,
-                    MaintenanceDebtEntity.RECONCILE_IDENTITY,
-                    at,
-                )
+                }
+            },
+        ) { prepared ->
+            onProgress(PROGRESS_PREPARED)
+            var writtenCount = 0
+            val at = System.currentTimeMillis()
+            database.withSemanticGraphMutation(
+                snapshot = semanticSnapshot,
+                clearMessageIds = plannedRunGraph.assignments.keys,
+                clearAllEmbeddings = strategy == ImportStrategy.REPLACE,
+                updatedAt = at,
+            ) {
+                if (strategy == ImportStrategy.REPLACE) {
+                    chatDao.deleteAllLoops()
+                    chatDao.deleteAllConversations()
+                    chatDao.deleteAllTasks()
+                }
+                headers.tasks.forEach { chatDao.upsertTask(it) }
+                conversations.forEach { chatDao.upsertConversation(it) }
+                for (run in plannedRunGraph.runs) {
+                    if (chatDao.getRun(run.id) == null) chatDao.insertRun(run)
+                }
+                for (batch in prepared.chunked(IMPORT_MESSAGE_BATCH_SIZE)) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    val existingIds = if (strategy == ImportStrategy.MERGE) {
+                        chatDao.findExistingMessageIds(batch.map { it.id }).toSet()
+                    } else emptySet()
+                    batch.forEach { message ->
+                        if (message.id !in existingIds || message.images.isNotEmpty()) chatDao.upsertMessage(message)
+                    }
+                    writtenCount += batch.size
+                    onProgress(
+                        PROGRESS_PREPARED + (PROGRESS_WRITTEN - PROGRESS_PREPARED) *
+                            (writtenCount.toFloat() / preparedCount.coerceAtLeast(1)).coerceAtMost(1f),
+                    )
+                }
+                headers.loops.forEach { chatDao.upsertLoop(it) }
+                importedSettings.keys.forEach { conversationId ->
+                    chatDao.deleteConversationSettingsTransfer(conversationId)
+                }
+                chatDao.upsertConversationSettingsImportTransfer(settingsTransfer)
+                MaintenanceDebtEntity.RECONCILE_KINDS.forEach { kind ->
+                    database.maintenanceDebtDao().enqueue(
+                        kind,
+                        MaintenanceDebtEntity.RECONCILE_IDENTITY,
+                        at,
+                    )
+                }
             }
         }
         scheduleMaintenance()
+        onProgress(1f)
         return settingsTransfer.transferId
     }
 

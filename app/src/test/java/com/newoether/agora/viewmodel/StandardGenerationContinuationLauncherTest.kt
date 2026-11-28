@@ -7,12 +7,16 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
+import com.newoether.agora.model.RunEffectIdentity
+import com.newoether.agora.model.RunEndReason
+import com.newoether.agora.model.RunStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
@@ -469,6 +473,21 @@ class StandardGenerationContinuationLauncherTest {
     }
 
     @Test
+    fun explicitContinuationRetainsHandoffBeforeJobWorkAndCleansItAfterSuccess() = runBlocking {
+        assertTrue(queueDrainPermissionAfterTerminal(MessageStatus.SUCCESS, continuesAfterSuccess = true))
+    }
+
+    @Test
+    fun explicitContinuationRetainsHandoffBeforeJobWorkAndCleansItAfterFailure() = runBlocking {
+        assertFalse(queueDrainPermissionAfterTerminal(MessageStatus.ERROR, continuesAfterSuccess = true))
+    }
+
+    @Test
+    fun explicitContinuationRetainsHandoffBeforeJobWorkAndCleansItAfterCancellation() = runBlocking {
+        assertFalse(queueDrainPermissionAfterTerminal(MessageStatus.STOPPED, continuesAfterSuccess = true))
+    }
+
+    @Test
     fun queuedGuidanceAtomicallyWinsBeforeNoInputLoopContinuation() = runBlocking {
         val state = ConversationGenerationState("conversation", reclaimQueuedAttachments = {})
         val revision = state.guidanceClaimRevision()
@@ -538,10 +557,25 @@ class StandardGenerationContinuationLauncherTest {
         Unit
     }
 
-    private suspend fun queueDrainPermissionAfterTerminal(status: MessageStatus): Boolean {
+    private suspend fun queueDrainPermissionAfterTerminal(
+        status: MessageStatus,
+        continuesAfterSuccess: Boolean = false,
+    ): Boolean {
         val conversations = mockk<ConversationRepository>()
         val boundLauncher = mockk<BoundRunGenerationLauncher>()
-        val state = ConversationGenerationState("conversation", reclaimQueuedAttachments = {})
+        val finishedHandoffs = mutableListOf<Long>()
+        val beforeJobWork = CompletableDeferred<List<Long>>()
+        val boundStarted = CompletableDeferred<BoundRunGenerationRequest>()
+        val state = ConversationGenerationState(
+            "conversation", reclaimQueuedAttachments = {},
+            onRunHandoffFinished = { _, token -> finishedHandoffs += token },
+        )
+        val coordinator = ConversationExecutionCoordinator(parentConversationId = {
+            // The first external call from the installed Job must already see retention.
+            state.finishRunHandoff(state.captureUiToken(), queuedDrainOnly = true)
+            beforeJobWork.complete(finishedHandoffs.toList())
+            null
+        })
         val parent = MessageEntity(
             id = "parent",
             conversationId = "conversation",
@@ -582,11 +616,34 @@ class StandardGenerationContinuationLauncherTest {
                 runSelections = mapOf(parent.runId to "compact-run"),
             )
         }
-        coEvery { boundLauncher.launch(any(), state) } returns Unit
+        coEvery { boundLauncher.launch(any(), state) } coAnswers {
+            val request = firstArg<BoundRunGenerationRequest>()
+            boundStarted.complete(request)
+            try {
+                if (status == MessageStatus.STOPPED) awaitCancellation()
+            } finally {
+                val identity = RunEffectIdentity("conversation", request.uiToken, request.runId, 0, "finalize")
+                val runStatus = when (status) {
+                    MessageStatus.SUCCESS -> RunStatus.COMPLETED
+                    MessageStatus.ERROR -> RunStatus.FAILED
+                    MessageStatus.STOPPED -> RunStatus.STOPPED
+                    else -> error("Expected terminal fixture status")
+                }
+                val reason = when (status) {
+                    MessageStatus.SUCCESS -> if (continuesAfterSuccess) {
+                        RunEndReason.CONTINUATION_PENDING
+                    } else RunEndReason.MODEL_COMPLETED
+                    MessageStatus.STOPPED -> RunEndReason.USER_STOPPED
+                    else -> RunEndReason.PROVIDER_ERROR
+                }
+                checkNotNull(state.commands.requestRunFinalization(identity, runStatus, reason, false))
+                check(state.finishRunFinalization(identity, true).accepted)
+            }
+        }
         val ids = ArrayDeque(listOf("compact-run", "compact-message"))
         val launcher = StandardGenerationContinuationLauncher(
             conversations = conversations,
-            executionCoordinator = ConversationExecutionCoordinator(),
+            executionCoordinator = coordinator,
             terminalSettlement = mockk(),
             boundRunGenerationLauncher = { boundLauncher },
             toUiMessage = ::toUiMessage,
@@ -607,14 +664,42 @@ class StandardGenerationContinuationLauncherTest {
                     ),
                     touchConversationOnAdmission = false,
                     queueDrainRequiresSuccess = true,
+                    continuesAfterSuccess = continuesAfterSuccess,
                 ),
                 state,
             ),
         )
-        launch.job.join()
-        val permission = state.consumeQueueDrainPermission()
-        state.dispose()
-        return permission
+        try {
+            assertEquals(
+                if (continuesAfterSuccess) emptyList<Long>() else listOf(launch.uiToken),
+                withTimeout(5_000L) { beforeJobWork.await() },
+            )
+            val boundRequest = withTimeout(5_000L) { boundStarted.await() }
+            assertEquals(continuesAfterSuccess, boundRequest.continuesAfterSuccess)
+            if (status == MessageStatus.STOPPED) launch.job.cancel()
+            withTimeout(5_000L) {
+                launch.job.join()
+                state.awaitGenerationSettled(launch.uiToken)
+            }
+            assertTrue(launch.started.await())
+            assertFalse(state.generating.value)
+            assertEquals(status == MessageStatus.STOPPED, launch.job.isCancelled)
+            if (continuesAfterSuccess) {
+                state.finishRunHandoff(launch.uiToken, queuedDrainOnly = true)
+                assertTrue(finishedHandoffs.isEmpty())
+                val otherToken = launch.uiToken + 1
+                state.finishRunHandoff(otherToken)
+                state.finishRunHandoff(launch.uiToken, queuedDrainOnly = true)
+                assertEquals(listOf(otherToken), finishedHandoffs)
+                state.finishRunHandoff(launch.uiToken)
+                assertEquals(listOf(otherToken, launch.uiToken), finishedHandoffs)
+                state.finishRunHandoff(launch.uiToken, queuedDrainOnly = true)
+                assertEquals(listOf(otherToken, launch.uiToken, launch.uiToken), finishedHandoffs)
+            }
+            return state.consumeQueueDrainPermission()
+        } finally {
+            state.dispose()
+        }
     }
 
     private companion object {

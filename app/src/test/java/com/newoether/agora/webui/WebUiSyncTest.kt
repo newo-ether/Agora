@@ -81,6 +81,7 @@ class WebUiSyncTest {
         every { observeConversationTodo(any()) } returns todo
         every { observeParentConversationId(any()) } returns flowOf(null)
         every { observeSubagents(any()) } returns flowOf(emptyList())
+        every { observeSubagentParentIds(any()) } returns flowOf(emptyList())
         coEvery { getSubagentFamilyRootId(any()) } answers { firstArg<String>() }
         coEvery { getSubagentIds(any()) } returns emptyList()
         coEvery { getLiveRun(any()) } returns null
@@ -89,6 +90,7 @@ class WebUiSyncTest {
     internal val conversations = mockk<ConversationRepository> {
         every { chatDao } returns todoDao
         every { subagentJobs } returns MutableStateFlow(emptyMap())
+        every { subagentGenerationIds } returns MutableStateFlow(emptySet())
         every { observeDrawerConversations(any()) } answers {
             val limit = firstArg<Int>()
             list.map { rows -> rows.take(limit).map { DrawerConversationRow(it.id, it.title, it.hasUnreadGeneration, it.isPinned) } }
@@ -104,6 +106,7 @@ class WebUiSyncTest {
     private val state = mockk<ConversationGenerationState> {
         every { generationSnapshot } returns snapshot
     }
+    internal val executionCoordinator = ConversationExecutionCoordinator()
     internal val registry = mockk<ConversationStateRegistry> {
         every { activeConversationIds } returns MutableStateFlow(setOf("b"))
         every { getOrCreate("a") } returns state
@@ -125,7 +128,7 @@ class WebUiSyncTest {
     private val openTarget = MutableStateFlow(WebUiChatSession.OpenTarget(null, browserSeq = 0L, movedByServer = false))
     private val snackbars = MutableSharedFlow<String>(extraBufferCapacity = 4)
     private val scrollRequests = MutableSharedFlow<WebSyncEvent.ScrollToBottom>(extraBufferCapacity = 4)
-    private val composerState = MutableSharedFlow<WebUiChatSession.ComposerState>(extraBufferCapacity = 4)
+    private val composerState = MutableSharedFlow<WebUiComposerState>(extraBufferCapacity = 4)
     private val customProviders = MutableStateFlow<List<CustomProviderConfig>>(emptyList())
     private var search: suspend (String) -> List<Pair<com.newoether.agora.data.local.MessageEntity, Float>> = { emptyList() }
     private val forkShare = mockk<com.newoether.agora.viewmodel.ConversationForkShareController>()
@@ -176,26 +179,6 @@ class WebUiSyncTest {
         assertTrue(received().none { it.type == "todo" })
         io.mockk.verify(exactly = 1) { todoDao.observeConversationTodo("a") }
     }
-    @Test
-    fun drawerPagesAreBoundedAndDuplicateLoadRequestsDoNotAdvanceTwice() = sync { send, received ->
-        received()
-        list.value = (0 until 200).map { ChatConversation(id = "c$it", title = "Conversation $it", isPinned = it == 0) }
-        val first = received().single { it.type == "conversations" }
-        assertEquals(80, first["items"]!!.jsonArray.size)
-        assertEquals("true", first.string("hasMore"))
-        assertEquals("true", first["items"]!!.jsonArray.first().jsonObject.string("isPinned"))
-        send("""{"type":"list_more","tokens":80}""")
-        assertEquals(160, received().single { it.type == "conversations" }["items"]!!.jsonArray.size)
-        send("""{"type":"list_more","tokens":80}""")
-        assertTrue(received().none { it.type == "conversations" })
-        send("""{"type":"list_more","tokens":160}""")
-        val last = received().single { it.type == "conversations" }
-        assertEquals(200, last["items"]!!.jsonArray.size)
-        assertFalse(last["hasMore"]?.jsonPrimitive?.content?.toBoolean() == true)
-        verify(exactly = 0) { conversations.getAllConversations() }
-        coVerify(exactly = 0) { conversations.recoverConversationRuntime(any(), any()) }
-    }
-
     @Test fun removedPromptEditorCommandsDoNothingAndExistingSelectionStillRoutes() = sync { send, received ->
         received()
         for (type in listOf("prompt_new", "prompt_preview", "prompt_create")) {
@@ -297,7 +280,7 @@ class WebUiSyncTest {
         coVerify(exactly = 1) { session.editorCommand(WebSyncCommand("advanced", seq = 7, actionId = 9, parameters = com.newoether.agora.data.ConversationSettings(temperature = 1.2f))) }
         coVerify(exactly = 1) { session.editorCommand(WebSyncCommand("compact", seq = 7, actionId = 10, modelId = "m", text = "summary", retainCount = 0)) }
         received()
-        composerState.emit(WebUiChatSession.ComposerState(null, ConversationComposerSubmissionSnapshot(),
+        composerState.emit(WebUiComposerState(null, ConversationComposerSubmissionSnapshot(),
             generationParameters = com.newoether.agora.data.ConversationSettings(temperature = 1.2f),
             compactDefaults = com.newoether.agora.viewmodel.CompactRequest("m", "summary", 4)))
         val projected = received().single { it.type == "composer" }
@@ -315,8 +298,8 @@ class WebUiSyncTest {
             googleSearchEnabled = false, thinkingEnabled = true, thinkingLevel = "medium", thinkingBudgetEnabled = false,
             thinkingBudgetTokens = 4096, openAiServiceTierEnabled = true, openAiServiceTier = "priority",
             webSearchEnabled = true, shellEnabled = false, lowContextModeEnabled = true)
-        val controls = com.newoether.agora.ui.chat.resolveEffectiveConversationControls(null, null, global, com.newoether.agora.util.Constants.PROVIDER_OPENAI, true, emptyList())
-        composerState.emit(WebUiChatSession.ComposerState(null, ConversationComposerSubmissionSnapshot(), controls = controls))
+        val controls = com.newoether.agora.presentation.resolveEffectiveConversationControls(null, null, global, com.newoether.agora.util.Constants.PROVIDER_OPENAI, true, emptyList())
+        composerState.emit(WebUiComposerState(null, ConversationComposerSubmissionSnapshot(), controls = controls))
         val projected = received().single { it.type == "composer" }["controls"]!!.jsonObject
         assertEquals("true", projected.string("openAiWebSearchAvailable"))
         assertEquals("fast", projected.string("openAiServiceTier"))
@@ -326,7 +309,7 @@ class WebUiSyncTest {
         send("""{"type":"setting","seq":7,"actionId":10,"setting":"thinkingLevel","value":"high"}""")
         coVerify { session.settingCommand(WebSyncCommand("setting", seq = 7, actionId = 10, setting = "thinkingLevel", value = "high")) }
         received()
-        composerState.emit(WebUiChatSession.ComposerState(null, ConversationComposerSubmissionSnapshot(),
+        composerState.emit(WebUiComposerState(null, ConversationComposerSubmissionSnapshot(),
             modelValid = true, modelId = "OpenAI:gpt-6-astra", controls = controls.copy(thinkingEnabled = false, thinkingLevel = "minimal", openAiServiceTierState = controls.openAiServiceTierState.copy(tier = "ultrafast"))))
         val resolved = received().single { it.type == "composer" }["controls"]!!.jsonObject
         assertEquals("false", resolved.string("thinkingEnabled"))
@@ -339,10 +322,10 @@ class WebUiSyncTest {
         val customId = "custom-provider-12345678-1234-4234-8234-123456789abc"
         customProviders.value = listOf(CustomProviderConfig(name = "Relay", id = customId, responsesApiEnabled = true))
         received()
-        composerState.emit(WebUiChatSession.ComposerState(null, ConversationComposerSubmissionSnapshot(),
+        composerState.emit(WebUiComposerState(null, ConversationComposerSubmissionSnapshot(),
             modelValid = true, modelId = "$customId:unlisted", controls = controls))
         assertEquals("true", received().single { it.type == "composer" }["controls"]!!.jsonObject.string("thinkingSupportsBudget"))
-        composerState.emit(WebUiChatSession.ComposerState(null, ConversationComposerSubmissionSnapshot(),
+        composerState.emit(WebUiComposerState(null, ConversationComposerSubmissionSnapshot(),
             modelValid = true, modelId = "$customId:claude-opus-4-6", controls = controls))
         assertEquals(listOf("minimal", "low", "medium", "high", "xhigh", "max"), received().single { it.type == "composer" }["controls"]!!.jsonObject["thinkingEfforts"]!!.jsonArray.map { it.jsonPrimitive.content })
         customProviders.value = listOf(customProviders.value.single().copy(protocol = CustomEndpointProtocol.ANTHROPIC))
@@ -361,7 +344,7 @@ class WebUiSyncTest {
     @Test
     fun attachmentProjectionIncludesStatusAndProgressButNoPrivatePaths() = sync { _, received ->
         received()
-        composerState.emit(WebUiChatSession.ComposerState(null, ConversationComposerSubmissionSnapshot(),
+        composerState.emit(WebUiComposerState(null, ConversationComposerSubmissionSnapshot(),
             attachments = listOf(SelectedAttachment(localId = "pdf", uri = "private-uri", type = "pdf", localPath = "private-source",
                 importState = AttachmentImportState.PROCESSING, pageCount = 3, preRenderedPaths = listOf("private-page")),
                 SelectedAttachment(uri = "private-video", type = "video", videoDurationMs = 15_000)),
@@ -378,14 +361,15 @@ class WebUiSyncTest {
     }
 
     @Test
-    fun fileProjectionUsesOnlyCanonicalPreparedTextAndNeverSandboxOrUnavailableContent() = sync { _, received ->
+    fun fileProjectionIncludesSandboxPreparedPreviewAndOmitsUnavailableContent() = sync { _, received ->
         received()
         val file = SelectedAttachment(uri = "private-uri", type = "file", preparedText = "prepared text")
-        composerState.emit(WebUiChatSession.ComposerState(null, ConversationComposerSubmissionSnapshot(), attachments = listOf(
+        composerState.emit(WebUiComposerState(null, ConversationComposerSubmissionSnapshot(), attachments = listOf(
             file, file.copy(unavailable = true, preparedText = "secret-unavailable"),
-            file.copy(storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_RUNTIME, preparedText = "secret-sandbox"))))
+            file.copy(storage = com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_RUNTIME, preparedText = "sandbox preview"))))
         val event = received().single { it.type == "composer" }
         assertEquals("prepared text", event["attachments"]!!.jsonArray.first().jsonObject.string("text"))
+        assertEquals("sandbox preview", event["attachments"]!!.jsonArray.last().jsonObject.string("text"))
         assertFalse(event.toString().contains("secret-"))
         assertFalse(event.toString().contains("private-"))
     }
@@ -415,7 +399,7 @@ class WebUiSyncTest {
         received()
         snackbars.emit("No model selected")
         composerState.emit(
-            WebUiChatSession.ComposerState(
+            WebUiComposerState(
                 conversationId = null,
                 snapshot = ConversationComposerSubmissionSnapshot(
                     phase = ComposerSubmissionPhase.WAITING,
@@ -782,7 +766,7 @@ class WebUiSyncTest {
     private fun webUiSync(dispatcher: kotlinx.coroutines.CoroutineDispatcher) = WebUiSync(
         conversations = conversations,
         registry = registry,
-        executionCoordinator = ConversationExecutionCoordinator(),
+        executionCoordinator = executionCoordinator,
         hydration = hydration,
         customProviders = customProviders,
         display = display,

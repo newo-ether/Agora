@@ -21,9 +21,6 @@ import com.newoether.agora.ui.components.latexSourceForLink
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.ASTNode
 
-/** An inline formula wider than this share of its paragraph moves onto its own line. */
-internal const val WIDE_INLINE_LATEX_FRACTION = 0.8f
-
 /** One inline image slot in a paragraph's annotated text, in text order. */
 internal data class InlineImageSlot(
     val link: String,
@@ -51,10 +48,14 @@ internal fun inlineImageSlots(content: AnnotatedString, node: ASTNode): List<Inl
 }
 
 /**
- * Which slots leave the line. A formula leaves it when wider than [WIDE_INLINE_LATEX_FRACTION]
- * of [maxWidthPx] or taller than the renderer's own block threshold, so the rule is the same
- * whether or not the paragraph splits. Every other image leaves it too once the paragraph splits,
- * because text segments can no longer map their images back to AST nodes.
+ * Which slots leave the line. A formula leaves it only when it cannot fit the paragraph's full
+ * width or is taller than the renderer's block threshold. A formula that merely looks wide is an
+ * ordinary inline element and wraps like a long word, so it is never pulled out of its sentence.
+ * Every other image leaves the line too once the paragraph splits, because text segments can no
+ * longer map their images back to AST nodes.
+ *
+ * A promoted formula keeps the paragraph's inline text style: it moves onto its own line so it can
+ * be selected and scrolled as one unit, not because it becomes display math.
  */
 internal fun blockImageSlots(
     slots: List<InlineImageSlot>,
@@ -62,23 +63,21 @@ internal fun blockImageSlots(
     lineHeightPx: Float,
     formulaSize: (String) -> androidx.compose.ui.geometry.Size?,
 ): List<InlineImageSlot> {
-    val wideFormulas = slots.filter { slot ->
-        slot.latexSource != null && (formulaSize(slot.link)?.width ?: 0f) > maxWidthPx * WIDE_INLINE_LATEX_FRACTION
-    }
-    if (wideFormulas.isEmpty()) return emptyList()
-    return slots.filter { slot ->
-        if (slot.latexSource == null) return@filter true
-        val size = formulaSize(slot.link) ?: return@filter false
-        size.width > maxWidthPx * WIDE_INLINE_LATEX_FRACTION ||
+    fun leavesLine(slot: InlineImageSlot): Boolean {
+        if (slot.latexSource == null) return false
+        val size = formulaSize(slot.link) ?: return false
+        return size.width > maxWidthPx ||
             (lineHeightPx > 0f && size.height > lineHeightPx * MarkdownAnnotatorConfig.BLOCK_FALLBACK_LINE_MULTIPLIER)
     }
+    if (slots.none(::leavesLine)) return emptyList()
+    return slots.filter { slot -> slot.latexSource == null || leavesLine(slot) }
 }
 
 /**
- * Paragraph text that moves inline formulas wider than 80% of the paragraph onto their own
- * selectable, scrollable line ([DisplayLatexBlock]). The renderer only promotes by height, so a
- * paragraph with a wide formula is split here into text segments and block slots; a paragraph
- * without one renders exactly as before. When split, search positions are not reported for it.
+ * Paragraph text that moves a formula onto its own selectable, scrollable line ([DisplayLatexBlock])
+ * only when that formula cannot fit the paragraph or is taller than a block. Everything else is
+ * ordinary inline content: it uses TeX text style and wraps with the sentence. When split, search
+ * positions are not reported for that paragraph.
  */
 @Composable
 internal fun LatexAwareMarkdownText(
@@ -122,6 +121,7 @@ internal fun LatexAwareMarkdownText(
                     AnimatedMarkdownText(content.subSequence(cursor, block.start), node, Modifier, style, sourceContent)
                 }
                 if (block.latexSource != null) {
+                    // Keep the original inline link so the promoted line is typeset in text style.
                     DisplayLatexBlock(block.link, block.latexSource, style)
                 } else if (block.node != null) {
                     components.image(MarkdownComponentModel(sourceContent, block.node, typography))

@@ -30,6 +30,266 @@ internal fun searxngSearchUrl(configuredBaseUrl: String, query: String): String 
     return "$baseUrl/search?q=$encodedQuery&format=json"
 }
 
+/** Exa answers without a key over MCP; the billed REST API takes an `x-api-key` header. */
+internal const val EXA_MCP_URL = "https://mcp.exa.ai/mcp"
+internal const val EXA_REST_URL = "https://api.exa.ai/search"
+
+internal sealed interface ExaSearchOutcome {
+    data class Hits(val results: JsonArray) : ExaSearchOutcome
+    data object EmptyResults : ExaSearchOutcome
+    data class Failure(val error: String = "search_error", val message: String? = null) : ExaSearchOutcome
+}
+
+/**
+ * Keyless path. `web_search_exa` requires an `objective` beside the query, and the tool forwards
+ * both to the same neural search, so the query doubles as the ranking brief.
+ */
+internal fun exaMcpRequestBody(query: String, numResults: Int): String =
+    Json.encodeToString(
+        buildJsonObject {
+            put("jsonrpc", "2.0")
+            put("id", 1)
+            put("method", "tools/call")
+            put("params", buildJsonObject {
+                put("name", "web_search_exa")
+                put("arguments", buildJsonObject {
+                    put("query", query)
+                    put("objective", query)
+                    put("numResults", numResults.coerceIn(1, 10))
+                })
+            })
+        }
+    )
+
+internal fun exaSearchRequestBody(query: String, numResults: Int): String =
+    Json.encodeToString(
+        buildJsonObject {
+            put("query", query)
+            put("type", "auto")
+            put("numResults", numResults.coerceIn(1, 10))
+            put("contents", buildJsonObject { put("highlights", true) })
+        }
+    )
+
+/**
+ * Exa exposes two shapes of the same search: the billed REST API behind `x-api-key`, and the
+ * keyless MCP endpoint behind a JSON-RPC `tools/call`. Endpoint, body, and auth header all differ,
+ * so the choice is made once here instead of at the call site.
+ */
+internal data class ExaRequest(
+    val url: String,
+    val body: String,
+    val headers: Map<String, String>,
+)
+
+internal fun exaSearchRequest(query: String, numResults: Int, apiKey: String): ExaRequest =
+    if (apiKey.isNotBlank()) {
+        ExaRequest(
+            url = EXA_REST_URL,
+            body = exaSearchRequestBody(query, numResults),
+            headers = mapOf("x-api-key" to apiKey),
+        )
+    } else {
+        ExaRequest(
+            url = EXA_MCP_URL,
+            body = exaMcpRequestBody(query, numResults),
+            headers = mapOf("Accept" to "application/json, text/event-stream"),
+        )
+    }
+
+/**
+ * Maps an Exa response onto hits. The keyless endpoint answers over SSE with a JSON-RPC envelope:
+ * its text block is one `Title:/URL:/Published:/Author:/Highlights:` record per result, separated
+ * by `---`, optionally led by `Note:` lines that describe how the results were produced. The keyed
+ * REST API returns the same fields as JSON.
+ */
+internal fun normalizeExaSearchResponse(body: String, numResults: Int): ExaSearchOutcome {
+    // Exa streams the envelope as one `data:` event; a plain JSON body is the REST path.
+    val payloads = sseDataPayloads(body) ?: listOf(body)
+    if (payloads.isEmpty()) return ExaSearchOutcome.Failure("search_error")
+    var failure: ExaSearchOutcome.Failure? = null
+    for (payload in payloads) {
+        when (val outcome = normalizeExaPayload(payload, numResults)) {
+            is ExaSearchOutcome.Hits, ExaSearchOutcome.EmptyResults -> return outcome
+            is ExaSearchOutcome.Failure -> failure = outcome
+        }
+    }
+    return failure ?: ExaSearchOutcome.EmptyResults
+}
+
+/** Renders an Exa outcome as the `web_search` tool payload the model sees. */
+internal fun exaOutcomeToToolJson(outcome: ExaSearchOutcome, query: String): String =
+    when (outcome) {
+        is ExaSearchOutcome.Hits -> buildJsonObject {
+            put("type", "web_search")
+            put("query", query)
+            put("results", outcome.results)
+        }.toString()
+        ExaSearchOutcome.EmptyResults -> buildJsonObject {
+            put("type", "web_search")
+            put("query", query)
+            put("error", "no_results")
+        }.toString()
+        is ExaSearchOutcome.Failure -> buildJsonObject {
+            put("type", "web_search")
+            put("query", query)
+            put("error", outcome.error)
+            outcome.message?.let { put("message", it) }
+        }.toString()
+    }
+
+/**
+ * The `data:` payloads of an SSE response, or null when the body is not an event stream. Consecutive
+ * `data:` lines belong to one event; a blank line ends it.
+ */
+private fun sseDataPayloads(body: String): List<String>? {
+    val trimmed = body.trimStart()
+    if (!trimmed.startsWith("event:") && !trimmed.startsWith("data:")) return null
+    val payloads = mutableListOf<String>()
+    val current = StringBuilder()
+    fun flush() {
+        if (current.isNotEmpty()) {
+            payloads += current.toString()
+            current.clear()
+        }
+    }
+    for (line in body.lineSequence()) {
+        val stripped = line.trimEnd('\r')
+        when {
+            stripped.startsWith("data:") -> {
+                if (current.isNotEmpty()) current.append('\n')
+                current.append(stripped.removePrefix("data:").removePrefix(" "))
+            }
+            stripped.isBlank() -> flush()
+        }
+    }
+    flush()
+    return payloads
+}
+
+private fun normalizeExaPayload(payload: String, numResults: Int): ExaSearchOutcome {
+    val root = Json.parseToJsonElement(payload) as? JsonObject
+        ?: return ExaSearchOutcome.Failure("search_error")
+    if (!root.containsKey("jsonrpc")) {
+        return normalizeExaRestPayload(root, numResults)
+    }
+    (root["error"] as? JsonObject)?.let { error ->
+        return ExaSearchOutcome.Failure(
+            "search_error",
+            (error["message"] as? JsonPrimitive)?.content,
+        )
+    }
+    val result = root["result"] as? JsonObject
+        ?: return ExaSearchOutcome.Failure("search_error")
+    val text = (result["content"] as? JsonArray)
+        ?.firstOrNull { element -> (element as? JsonObject)?.get("text") is JsonPrimitive }
+        ?.let { element -> ((element as JsonObject)["text"] as JsonPrimitive).content }
+        .orEmpty()
+    val isError = (result["isError"] as? JsonPrimitive)?.content?.toBooleanStrictOrNull() == true
+    if (isError) return ExaSearchOutcome.Failure("search_error", text.ifBlank { null })
+    return normalizeExaMcpText(text, numResults)
+}
+
+private fun normalizeExaMcpText(text: String, numResults: Int): ExaSearchOutcome {
+    // Search notices lead the text block, one `Note:` line each, followed by a blank line.
+    val body = text.trimStart()
+        .lines()
+        .dropWhile { line -> line.isBlank() || line.startsWith("Note:") }
+        .joinToString("\n")
+        .trim()
+    if (body.isEmpty()) return ExaSearchOutcome.Failure("search_error")
+    if (body.startsWith("No search results found")) return ExaSearchOutcome.EmptyResults
+    val seenUrls = HashSet<String>()
+    val normalizedResults = buildJsonArray {
+        var added = 0
+        for (block in body.split("\n\n---\n\n")) {
+            if (added >= numResults.coerceIn(1, 10)) break
+            val result = parseExaTextBlock(block) ?: continue
+            val url = (result["url"] as? JsonPrimitive)?.content.orEmpty()
+            if (!seenUrls.add(url)) continue
+            add(result)
+            added++
+        }
+    }
+    return if (normalizedResults.isEmpty()) {
+        ExaSearchOutcome.EmptyResults
+    } else {
+        ExaSearchOutcome.Hits(normalizedResults)
+    }
+}
+
+/** Parses one `Title:/URL:/Published:/Author:/Highlights:` record into a hit. */
+private fun parseExaTextBlock(block: String): JsonObject? {
+    var title = ""
+    var url = ""
+    val description = StringBuilder()
+    var inBody = false
+    for (line in block.lines()) {
+        if (inBody) {
+            description.appendLine(line)
+            continue
+        }
+        when {
+            line.startsWith("Title: ") -> title = line.removePrefix("Title: ").trim()
+            line.startsWith("URL: ") -> url = line.removePrefix("URL: ").trim()
+            line.startsWith("Published: ") || line.startsWith("Author: ") -> Unit
+            line.trim() == "Highlights:" -> inBody = true
+            line.startsWith("Text: ") -> {
+                inBody = true
+                description.appendLine(line.removePrefix("Text: "))
+            }
+        }
+    }
+    if (url.isBlank()) return null
+    return buildJsonObject {
+        put("title", title)
+        put("url", url)
+        put("description", description.toString().trim())
+    }
+}
+
+private fun normalizeExaRestPayload(root: JsonObject, numResults: Int): ExaSearchOutcome {
+    val resultsArray = root["results"] as? JsonArray ?: run {
+        val message = (root["error"] as? JsonPrimitive)?.content
+            ?: ((root["error"] as? JsonObject)?.get("message") as? JsonPrimitive)?.content
+        return if (message.isNullOrBlank()) {
+            ExaSearchOutcome.EmptyResults
+        } else {
+            ExaSearchOutcome.Failure("search_error", message)
+        }
+    }
+    val seenUrls = HashSet<String>()
+    val normalizedResults = buildJsonArray {
+        var added = 0
+        for (element in resultsArray) {
+            if (added >= numResults.coerceIn(1, 10)) break
+            val result = element as? JsonObject ?: continue
+            val url = (result["url"] as? JsonPrimitive)?.content.orEmpty().trim()
+            if (url.isBlank() || !seenUrls.add(url)) continue
+            val highlights = (result["highlights"] as? JsonArray)
+                .orEmpty()
+                .mapNotNull { (it as? JsonPrimitive)?.content?.trim()?.takeIf(String::isNotEmpty) }
+            val description = highlights.joinToString("\n\n").ifEmpty {
+                sequenceOf(result["text"], result["summary"])
+                    .mapNotNull { (it as? JsonPrimitive)?.content?.trim()?.takeIf(String::isNotEmpty) }
+                    .firstOrNull()
+                    .orEmpty()
+            }
+            add(buildJsonObject {
+                put("title", (result["title"] as? JsonPrimitive)?.content.orEmpty())
+                put("url", url)
+                put("description", description)
+            })
+            added++
+        }
+    }
+    return if (normalizedResults.isEmpty()) {
+        ExaSearchOutcome.EmptyResults
+    } else {
+        ExaSearchOutcome.Hits(normalizedResults)
+    }
+}
+
 internal fun kagiSearchRequestBody(query: String, numResults: Int): String =
     Json.encodeToString(
         buildJsonObject {
@@ -85,14 +345,105 @@ internal fun normalizeKagiSearchResponse(
     }.toString()
 }
 
+internal fun normalizeTavilySearchResponse(
+    responseBody: String,
+    query: String,
+    numResults: Int,
+): String {
+    val json: Map<String, kotlinx.serialization.json.JsonElement> = Json.decodeFromString(responseBody)
+    val resultsArray = json["results"]?.jsonArray
+        ?: return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
+    if (resultsArray.isEmpty())
+        return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
+    val answer = (json["answer"] as? JsonPrimitive)?.content
+    val rawResults = buildJsonArray {
+        for (element in resultsArray.take(numResults)) {
+            val obj = element.jsonObject
+            add(buildJsonObject {
+                put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
+                put("url", (obj["url"] as? JsonPrimitive)?.content ?: "")
+                put("content", (obj["content"] as? JsonPrimitive)?.content ?: "")
+                val score = (obj["score"] as? JsonPrimitive)?.content?.toFloatOrNull()
+                if (score != null) put("score", score)
+            })
+        }
+    }
+    return buildJsonObject {
+        put("type", "web_search")
+        put("query", query)
+        if (!answer.isNullOrBlank()) put("answer", answer)
+        put("results", rawResults)
+    }.toString()
+}
+
+/**
+ * Serper (`organic`), Brave (`web.results`) and SearXNG (`results`) share one result shape.
+ * SearXNG has no result-count parameter and answers with every engine's results, so the
+ * requested count has to be enforced here rather than in the query string.
+ */
+internal fun normalizeStandardSearchResponse(
+    responseBody: String,
+    query: String,
+    numResults: Int,
+): String {
+    val json: Map<String, kotlinx.serialization.json.JsonElement> = Json.decodeFromString(responseBody)
+    val resultsArray = when {
+        json.containsKey("organic") -> json["organic"]?.jsonArray
+        json.containsKey("web") -> {
+            val web = json["web"]?.jsonObject
+            web?.get("results")?.jsonArray
+        }
+        json.containsKey("results") -> json["results"]?.jsonArray
+        else -> null
+    } ?: return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
+
+    if (resultsArray.isEmpty())
+        return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
+
+    val rawResults = buildJsonArray {
+        for (element in resultsArray.take(numResults)) {
+            val obj = element.jsonObject
+            add(buildJsonObject {
+                put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
+                put("url", (obj["link"] as? JsonPrimitive)?.content ?: (obj["url"] as? JsonPrimitive)?.content ?: "")
+                put("description", (obj["snippet"] as? JsonPrimitive)?.content ?: (obj["content"] as? JsonPrimitive)?.content ?: (obj["description"] as? JsonPrimitive)?.content ?: "")
+            })
+        }
+    }
+    return buildJsonObject {
+        put("type", "web_search")
+        put("query", query)
+        put("results", rawResults)
+    }.toString()
+}
+
+/**
+ * Attach the backend that answered, so the tool card can name it. The provider is written here
+ * once instead of in every branch, and an existing value (the no-key error path) wins.
+ */
+internal fun withSearchProvider(resultJson: String, provider: String): String {
+    if (provider.isBlank()) return resultJson
+    val element = runCatching { Json.parseToJsonElement(resultJson) as? JsonObject }.getOrNull()
+        ?: return resultJson
+    if (element["provider"] != null) return resultJson
+    return buildJsonObject {
+        element.forEach { (key, value) -> put(key, value) }
+        put("provider", provider)
+    }.toString()
+}
+
 internal fun webSearchProviderDisplayName(provider: String): String = when (provider) {
     "kagi" -> "Kagi"
     "serper" -> "Serper"
     "tavily" -> "Tavily"
+    "exa" -> "Exa"
     "searxng" -> "SearXNG"
     "duckduckgo" -> "DuckDuckGo"
     else -> "Brave Search"
 }
+
+/** The configured Max Results value is the per-call ceiling the model cannot exceed. */
+internal fun webSearchResultLimit(configured: Int): Int = configured.coerceIn(1, 10)
 
 class WebSearchToolProvider : ToolProvider {
     private val webClient = HttpClient.client.newBuilder()
@@ -102,6 +453,7 @@ class WebSearchToolProvider : ToolProvider {
 
     override fun definitions(ctx: GenerationContext): List<ToolDefinition> {
         if (!ctx.webSearchEnabled) return emptyList()
+        val resultLimit = webSearchResultLimit(ctx.webSearchNumResults)
         return listOf(
             ToolDefinition(function = ToolFunction(
                 name = "web_search",
@@ -109,7 +461,7 @@ class WebSearchToolProvider : ToolProvider {
                 parameters = ToolParameters(
                     properties = mapOf(
                         "query" to ToolProperty("string", "The search query to execute."),
-                        "num_results" to ToolProperty("integer", "Number of results to return (1-10, default 5).")
+                        "num_results" to ToolProperty("integer", "Number of results to return (1-$resultLimit, default $resultLimit).")
                     ),
                     required = listOf("query")
                 )
@@ -143,11 +495,19 @@ class WebSearchToolProvider : ToolProvider {
     override fun handles(name: String): Boolean = name in setOf("web_search", "web_fetch")
 
     private fun executeWebSearch(arguments: String, ctx: GenerationContext): String {
+        val result = executeWebSearchBody(arguments, ctx)
+        val provider = webSearchProviderDisplayName(normalizeWebSearchProvider(ctx.webSearchProvider))
+        return withSearchProvider(result, provider)
+    }
+
+    private fun executeWebSearchBody(arguments: String, ctx: GenerationContext): String {
         val argsStr = arguments.ifBlank { "{}" }
         val args = Json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(argsStr)
         val query = (args["query"] as? JsonPrimitive)?.content
             ?: return buildJsonObject { put("type", "web_search"); put("error", "no_query") }.toString()
-        val numResults = ((args["num_results"] as? JsonPrimitive)?.content?.toIntOrNull() ?: ctx.webSearchNumResults).coerceIn(1, 10)
+        val resultLimit = webSearchResultLimit(ctx.webSearchNumResults)
+        val numResults = ((args["num_results"] as? JsonPrimitive)?.content?.toIntOrNull() ?: resultLimit)
+            .coerceIn(1, resultLimit)
         val provider = normalizeWebSearchProvider(ctx.webSearchProvider)
 
         return try {
@@ -183,7 +543,8 @@ class WebSearchToolProvider : ToolProvider {
             }
 
             val apiKey = ctx.webSearchApiKeys[provider].orEmpty()
-            if (provider != "searxng" && apiKey.isBlank()) {
+            // Exa answers over its keyless public MCP endpoint too; searxng only needs a URL.
+            if (provider != "searxng" && provider != "exa" && apiKey.isBlank()) {
                 return buildJsonObject {
                     put("type", "web_search")
                     put("query", query)
@@ -191,6 +552,26 @@ class WebSearchToolProvider : ToolProvider {
                     put("provider", webSearchProviderDisplayName(provider))
                 }.toString()
             }
+
+            if (provider == "exa") {
+                val request = exaSearchRequest(query, numResults, apiKey)
+                val response = HttpClient.postTextResponse(
+                    request.url,
+                    request.body,
+                    request.headers,
+                    callTimeoutMillis = Constants.NETWORK_TOOL_TIMEOUT_MS,
+                )
+                if (!response.isSuccessful) {
+                    return buildJsonObject {
+                        put("type", "web_search")
+                        put("query", query)
+                        put("error", "search_error")
+                        put("message", response.body)
+                    }.toString()
+                }
+                return exaOutcomeToToolJson(normalizeExaSearchResponse(response.body, numResults), query)
+            }
+
             val body = when (provider) {
                 "kagi" -> HttpClient.post(
                     "https://kagi.com/api/v1/search",
@@ -242,62 +623,11 @@ class WebSearchToolProvider : ToolProvider {
                 return normalizeKagiSearchResponse(body, query, numResults)
             }
 
-            val json: Map<String, kotlinx.serialization.json.JsonElement> = Json.decodeFromString(body)
-
             if (provider == "tavily") {
-                val resultsArray = json["results"]?.jsonArray
-                    ?: return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
-                if (resultsArray.isEmpty())
-                    return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
-                val answer = (json["answer"] as? JsonPrimitive)?.content
-                val rawResults = buildJsonArray {
-                    for (element in resultsArray) {
-                        val obj = element.jsonObject
-                        add(buildJsonObject {
-                            put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
-                            put("url", (obj["url"] as? JsonPrimitive)?.content ?: "")
-                            put("content", (obj["content"] as? JsonPrimitive)?.content ?: "")
-                            val score = (obj["score"] as? JsonPrimitive)?.content?.toFloatOrNull()
-                            if (score != null) put("score", score)
-                        })
-                    }
-                }
-                return buildJsonObject {
-                    put("type", "web_search")
-                    put("query", query)
-                    if (!answer.isNullOrBlank()) put("answer", answer)
-                    put("results", rawResults)
-                }.toString()
+                return normalizeTavilySearchResponse(body, query, numResults)
             }
 
-            val resultsArray = when {
-                json.containsKey("organic") -> json["organic"]?.jsonArray
-                json.containsKey("web") -> {
-                    val web = json["web"]?.jsonObject
-                    web?.get("results")?.jsonArray
-                }
-                json.containsKey("results") -> json["results"]?.jsonArray
-                else -> null
-            } ?: return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
-
-            if (resultsArray.isEmpty())
-                return buildJsonObject { put("type", "web_search"); put("query", query); put("error", "no_results") }.toString()
-
-            val rawResults = buildJsonArray {
-                for (element in resultsArray) {
-                    val obj = element.jsonObject
-                    add(buildJsonObject {
-                        put("title", (obj["title"] as? JsonPrimitive)?.content ?: "")
-                        put("url", (obj["link"] as? JsonPrimitive)?.content ?: (obj["url"] as? JsonPrimitive)?.content ?: "")
-                        put("description", (obj["snippet"] as? JsonPrimitive)?.content ?: (obj["content"] as? JsonPrimitive)?.content ?: (obj["description"] as? JsonPrimitive)?.content ?: "")
-                    })
-                }
-            }
-            buildJsonObject {
-                put("type", "web_search")
-                put("query", query)
-                put("results", rawResults)
-            }.toString()
+            return normalizeStandardSearchResponse(body, query, numResults)
         } catch (e: Exception) {
             buildJsonObject {
                 put("type", "web_search")

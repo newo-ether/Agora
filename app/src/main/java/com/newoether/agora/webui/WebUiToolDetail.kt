@@ -32,14 +32,16 @@ internal fun Resources.webToolDetail(segment: MessageSegment): WebToolDetail {
         codeArgument = detail.codeArgument?.let { code ->
             WebToolCodeArgument(code.name, code.text, code.rows?.map(::webToolCodeRow))
         },
-        mcpDevice = detail.mcpDevice.takeIf { detail.kind == ToolKind.MCP },
+        device = detail.device,
         body = when (val body = detail.body) {
             is ToolDetailBody.Active -> WebToolBody.Active(body.text, body.output)
             is ToolDetailBody.Failed -> WebToolBody.Failed(body.text, body.output)
             is ToolDetailBody.Stopped -> WebToolBody.Stopped(body.text)
             is ToolDetailBody.Muted -> WebToolBody.Muted(body.text)
             is ToolDetailBody.JsonContent -> WebToolBody.Documents(body.values.map { webToolDocument(it) })
-            is ToolDetailBody.Shell -> WebToolBody.Shell(body.status, body.device, body.error, body.output)
+            is ToolDetailBody.Shell -> WebToolBody.Shell(
+                body.status, body.device, body.error, body.output, body.metadata?.let { webToolDocument(it) },
+            )
             is ToolDetailBody.Paths -> WebToolBody.Paths(body.values.map(::webToolPath))
             is ToolDetailBody.Grep -> WebToolBody.Grep(body.groups.map { group ->
                 WebToolMatchGroup(webToolPath(group.path), group.rows.map(::webToolCodeRow))
@@ -52,27 +54,32 @@ internal fun Resources.webToolDetail(segment: MessageSegment): WebToolDetail {
                 path = body.path?.let(::webToolPath),
                 editCount = body.editCount,
                 replaceAllLabel = body.replaceAllLabel,
-                hunks = body.hunks.map { hunk ->
-                    WebToolDiffHunk(hunk.index, hunk.replaceAll, hunk.lines.map {
-                        WebToolDiffLine(it.kind.name.lowercase(), it.text)
-                    })
-                },
+                hunks = body.hunks.map(::webToolDiffHunk),
                 status = body.status,
+                files = body.files.map { file -> WebToolEditFile(
+                    webToolPath(file.path), file.operationLabel, file.hunks.map(::webToolDiffHunk),
+                    file.moveTo?.let(::webToolPath),
+                ) },
             )
             is ToolDetailBody.Search -> WebToolBody.Search(body.results.map {
                 WebToolSearchResult(it.title, it.url, it.safeUrl, it.snippet)
             })
         },
         images = segment.toolImages.mapIndexedNotNull { index, image ->
-            if (image.path.isBlank()) null else WebToolImage(index, image.width, image.height, image.sha256)
+            if (image.path.isBlank() && !image.unavailable) null
+            else WebToolImage(index, image.width, image.height, image.unavailable)
         },
         squareCrop = segment.isImageGenerationSegment(),
         imageLabel = getString(R.string.tool_view_image),
         imageFailedLabel = getString(R.string.attachment_copy_failed_image),
+        supplemental = detail.supplemental.map { webToolDocument(it) },
     )
 }
 
 private fun webToolPath(path: ToolDetailPath) = WebToolPath(path.name, path.directory)
+
+private fun webToolDiffHunk(hunk: com.newoether.agora.ui.chat.message.ToolDetailDiffHunk) =
+    WebToolDiffHunk(hunk.index, hunk.replaceAll, hunk.lines.map { WebToolDiffLine(it.kind.name.lowercase(), it.text) })
 
 private fun webToolCodeRow(row: ToolDetailCodeRow): WebToolCodeRow = when (row) {
     ToolDetailCodeRow.Gap -> WebToolCodeRow(gap = true)
@@ -113,12 +120,13 @@ internal data class WebToolDetail(
     val resultLabel: String,
     val arguments: WebToolDocument?,
     val codeArgument: WebToolCodeArgument?,
-    val mcpDevice: String?,
+    val device: String? = null,
     val body: WebToolBody,
     val images: List<WebToolImage>,
     val squareCrop: Boolean,
     val imageLabel: String,
     val imageFailedLabel: String,
+    val supplemental: List<WebToolDocument> = emptyList(),
 )
 
 @Serializable
@@ -134,7 +142,13 @@ internal sealed interface WebToolBody {
     @Serializable @SerialName("documents")
     data class Documents(val values: List<WebToolDocument>) : WebToolBody
     @Serializable @SerialName("shell")
-    data class Shell(val status: String, val device: String, val error: String?, val output: String?) : WebToolBody
+    data class Shell(
+        val status: String,
+        val device: String,
+        val error: String?,
+        val output: String?,
+        val metadata: WebToolDocument? = null,
+    ) : WebToolBody
     @Serializable @SerialName("paths")
     data class Paths(val values: List<WebToolPath>) : WebToolBody
     @Serializable @SerialName("grep")
@@ -148,6 +162,7 @@ internal sealed interface WebToolBody {
     data class Edit(
         val path: WebToolPath?, val editCount: String?, val replaceAllLabel: String,
         val hunks: List<WebToolDiffHunk>, val status: String,
+        val files: List<WebToolEditFile> = emptyList(),
     ) : WebToolBody
     @Serializable @SerialName("search")
     data class Search(val results: List<WebToolSearchResult>) : WebToolBody
@@ -168,13 +183,19 @@ internal data class WebToolCodeRow(
     val gap: Boolean = false,
 )
 @Serializable
+internal data class WebToolEditFile(
+    val path: WebToolPath, val operationLabel: String, val hunks: List<WebToolDiffHunk>, val moveTo: WebToolPath?,
+)
+@Serializable
 internal data class WebToolDiffHunk(val index: Int?, val replaceAll: Boolean, val lines: List<WebToolDiffLine>)
 @Serializable
 internal data class WebToolDiffLine(val kind: String, val text: String)
 @Serializable
 internal data class WebToolSearchResult(val title: String, val url: String?, val safeUrl: String?, val snippet: String?)
 @Serializable
-internal data class WebToolImage(val index: Int, val width: Int?, val height: Int?, val version: String)
+internal data class WebToolImage(
+    val index: Int, val width: Int?, val height: Int?, val unavailable: Boolean = false,
+)
 @Serializable
 internal data class WebToolDocument(
     val text: String? = null,

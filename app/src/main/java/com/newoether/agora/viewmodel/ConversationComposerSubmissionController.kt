@@ -317,6 +317,7 @@ internal class ConversationComposerSubmissionController(
         request: FrozenRequest,
     ) {
         val acceptance = request.accepted ?: return
+        val attachments = composers.state(request.ownerId).value.attachments.associateBy { it.localId }
         val clearResult = withContext(NonCancellable) {
             composers.clearAccepted(
                 ownerId = request.ownerId,
@@ -324,7 +325,10 @@ internal class ConversationComposerSubmissionController(
                 submissionId = request.id,
                 acceptedRevision = request.frozenRevision,
                 acceptedText = request.text,
-                acceptedAttachmentIds = request.attachmentIds.toSet(),
+                acceptedAttachmentIds = request.attachmentIds.filterTo(hashSetOf()) { id ->
+                    val attachment = attachments[id]
+                    attachment?.storage?.isLocalSandbox != true || id in request.durableAttachmentIds
+                },
                 expectedWorkspace = request.expectedNewChatWorkspace,
             )
         }

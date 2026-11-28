@@ -150,6 +150,20 @@ class ConversationComposerSubmissionControllerTest {
     }
 
     @Test
+    fun failedSandboxFilesRemainInTheDraftAfterOtherInputIsAccepted() = runTest {
+        val failed = attachment("failed-sandbox", state = AttachmentImportState.FAILED,
+            storage = AttachmentStorage.LOCAL_SANDBOX_PENDING)
+        val fixture = Fixture(this, attachments = listOf(failed),
+            acceptance = SendAcceptance.Direct("message", "conversation"))
+        fixture.controller.submit("owner", "send this text", listOf(failed.localId))
+        runCurrent()
+        coVerify(exactly = 1) {
+            fixture.composers.clearAccepted("owner", false, 1L, any(), "send this text", emptySet(), any())
+        }
+        assertEquals(1L, fixture.controller.state("owner").value.acceptedVersion)
+    }
+
+    @Test
     fun readyAttachmentsAreFilteredInFrozenOrderAndSandboxOwnershipTransfers() = runTest {
         val readyA = attachment("a")
         val readyB = attachment("b", storage = AttachmentStorage.LOCAL_SANDBOX_PENDING)

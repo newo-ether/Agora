@@ -15,6 +15,7 @@ import java.util.UUID
 internal data class StandardCompactLaunch(
     val messageId: String,
     val job: Job,
+    val uiToken: Long,
 )
 
 /**
@@ -66,6 +67,7 @@ internal class ConversationCompactController(
         config: AutomaticCompactConfig,
         state: ConversationGenerationState,
         alreadyHoldsConversationLock: Boolean = false,
+        continuesAfterSuccess: Boolean = false,
     ): StandardCompactLaunch? {
         if (!operation.automaticNeeded(conversationId, contextLimit, config)) return null
         val snapshot = automaticSnapshot(conversationId, config)
@@ -77,6 +79,7 @@ internal class ConversationCompactController(
             awaitCompletion = false,
             touchConversationOnAdmission = false,
             alreadyHoldsConversationLock = alreadyHoldsConversationLock,
+            continuesAfterSuccess = continuesAfterSuccess,
         ).first
     }
 
@@ -91,14 +94,24 @@ internal class ConversationCompactController(
             return CompactResult.Failed(CompactFailureReason.INVALID_RETAIN_COUNT)
         }
         val snapshotRunId = "compact_preflight_${UUID.randomUUID()}"
+        // Preserve Context must not diverge from the ordinary turn, so the conversation's own
+        // model wins over whatever model the Compact dialog was showing.
+        val plan = if (request.preserveSystemPrompt) {
+            conversations.getConversation(conversationId)?.modelId
+                ?.takeIf(String::isNotBlank)
+                ?.let { request.copy(model = it) }
+                ?: request
+        } else {
+            request
+        }
         val snapshot = try {
             val builder = requestBuilder
                 ?: return CompactResult.Failed(CompactFailureReason.SETUP_UNAVAILABLE)
             builder.captureAdmissionSnapshot(
                 conversationId = conversationId,
                 runId = snapshotRunId,
-                modelId = request.model,
-            ).forCompact(request)
+                modelId = plan.model,
+            ).forCompact(plan)
         } catch (_: Exception) {
             return CompactResult.Failed(
                 CompactFailureReason.SETUP_FAILED,
@@ -106,7 +119,7 @@ internal class ConversationCompactController(
         }
         return launch(
             conversationId = conversationId,
-            request = request,
+            request = plan,
             snapshot = snapshot,
             state = state,
             awaitCompletion = true,
@@ -122,6 +135,7 @@ internal class ConversationCompactController(
         awaitCompletion: Boolean,
         touchConversationOnAdmission: Boolean,
         alreadyHoldsConversationLock: Boolean = false,
+        continuesAfterSuccess: Boolean = false,
     ): Pair<StandardCompactLaunch?, CompactResult> {
         val topology = conversations.getProviderContextTopologySnapshot(conversationId)
             ?: return null to CompactResult.NotNeeded
@@ -174,6 +188,7 @@ internal class ConversationCompactController(
                 touchConversationOnAdmission = touchConversationOnAdmission,
                 alreadyHoldsConversationLock = alreadyHoldsConversationLock,
                 queueDrainRequiresSuccess = true,
+                continuesAfterSuccess = continuesAfterSuccess,
                 transformFinalText = transform,
             ),
             state,
@@ -184,7 +199,7 @@ internal class ConversationCompactController(
             return null to CompactResult.Failed(CompactFailureReason.GENERATION_NOT_STARTED)
         }
         onCompactStarted(conversationId, messageId)
-        val compactLaunch = StandardCompactLaunch(messageId, launched.job)
+        val compactLaunch = StandardCompactLaunch(messageId, launched.job, launched.uiToken)
         if (!awaitCompletion) return compactLaunch to CompactResult.Created(messageId)
 
         try {
@@ -232,21 +247,24 @@ internal class ConversationCompactController(
 
     private fun GenerationAdmissionSnapshot.forCompact(
         request: CompactRequest,
-    ): GenerationAdmissionSnapshot = copy(
+    ): GenerationAdmissionSnapshot = if (request.preserveSystemPrompt) {
+        // Preserve Context: the Compact request is the ordinary turn's request, byte for byte —
+        // same model, system prompt, templates, history projection, tools, and sampling — with
+        // the Compact Prompt appended as one extra API-only USER message. Tools stay declared so
+        // the prefix keeps hitting the prompt cache, but every call is refused and kept in memory.
+        copy(
+            config = config.copy(
+                initialUserPrompt = request.prompt + "\n\n" + BuiltInPrompts.CONTEXT_COMPACT_USER,
+                rejectToolCalls = true,
+            ),
+            automaticCompact = automaticCompact.copy(enabled = false),
+            titleGenerationEnabled = false,
+        )
+    } else copy(
         config = config.copy(
-            // Preserved mode keeps the system prompt captured for the compact request (the
-            // conversation's ordinary one) and moves the Compact Prompt to the head of the
-            // user message; legacy mode replaces the system prompt with the Compact Prompt.
-            effectiveSystemPrompt = if (request.preserveSystemPrompt) {
-                config.effectiveSystemPrompt
-            } else {
-                request.prompt
-            },
-            initialUserPrompt = if (request.preserveSystemPrompt) {
-                request.prompt + "\n\n" + BuiltInPrompts.CONTEXT_COMPACT_USER
-            } else {
-                BuiltInPrompts.CONTEXT_COMPACT_USER
-            },
+            // The Compact Prompt replaces the system prompt and leads the summary request.
+            effectiveSystemPrompt = request.prompt,
+            initialUserPrompt = BuiltInPrompts.CONTEXT_COMPACT_USER,
             userPrepend = null,
             userPostpend = null,
             assistantPrepend = null,
@@ -256,9 +274,10 @@ internal class ConversationCompactController(
             codeExecutionEnabled = false,
             googleSearchEnabled = false,
             openAiWebSearchEnabled = false,
-            thinkingEnabled = false,
+            // Keep the admitted reasoning and sampling controls, including explicit thinking-off.
         ),
         context = context.copy(
+            phoneEnabled = false,
             todoEnabled = false,
             subagentToolsEnabled = false,
             accessSavedMemories = false,

@@ -401,6 +401,34 @@ class ConversationLifecycleControllerTest {
         coVerify(exactly = 0) { fixture.conversations.deleteConversation(any()) }
     }
 
+    @Test
+    fun idleSubagentDeletionNeverStopsAndNotifiesEveryViewer() = runTest {
+        val fixture = Fixture(this)
+        coEvery { fixture.conversations.getConversation("conversation") } returns
+            com.newoether.agora.data.local.ChatEntity("conversation", "Child", parentConversationId = "parent")
+        coEvery { fixture.conversations.deleteConversation("conversation") } returns Unit
+
+        assertTrue(fixture.controller.deleteIdleSubagent("conversation", "parent"))
+
+        assertTrue("stop" !in fixture.events && "stop-loop" !in fixture.events)
+        assertTrue("remove" in fixture.events)
+        assertTrue("settle:conversation" in fixture.events)
+        assertEquals(listOf("deleted by parent"), fixture.origin.snackbars)
+        coVerify(exactly = 1) { fixture.conversations.deleteConversation("conversation") }
+    }
+
+    @Test
+    fun idleSubagentDeletionRejectsLiveRunAndChangedOwner() = runTest {
+        val fixture = Fixture(this)
+        coEvery { fixture.conversations.getConversation("conversation") } returns
+            com.newoether.agora.data.local.ChatEntity("conversation", "Child", parentConversationId = "other")
+        assertFalse(fixture.controller.deleteIdleSubagent("conversation", "parent"))
+        coEvery { fixture.conversations.getLiveRun("conversation") } returns mockk()
+        assertFalse(fixture.controller.deleteIdleSubagent("conversation", "other"))
+        assertTrue("remove" !in fixture.events && "stop" !in fixture.events)
+        coVerify(exactly = 0) { fixture.conversations.deleteConversation(any()) }
+    }
+
     private class Fixture(
         testScope: kotlinx.coroutines.test.TestScope,
         currentConversationId: String? = "conversation",
@@ -454,6 +482,7 @@ class ConversationLifecycleControllerTest {
                 onStop()
             },
             deletedElsewhereText = { "deleted elsewhere" },
+            deletedByParentText = { "deleted by parent" },
             ioDispatcher = dispatcher,
             mainDispatcher = dispatcher,
         )

@@ -14,7 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,6 +38,7 @@ import com.newoether.agora.TopLevelPresentation
 import com.newoether.agora.api.DebugProvider
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.util.gradientBlur
+import com.newoether.agora.ui.chat.message.chatMediaGallery
 import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
 import com.newoether.agora.ui.chat.bottombar.LoopStatusBackdrop
@@ -75,7 +76,9 @@ fun ChatApp(
     onInitPdfSelection: ((Set<Int>) -> Unit)? = null,
     fullScreenViewerUrls: List<String>? = null,
     topLevelPresentation: TopLevelPresentation = TopLevelPresentation.CHAT,
-    onSnackbarOffsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {}
+    onSnackbarOffsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {},
+    processTextRequest: com.newoether.agora.ProcessTextRequest? = null,
+    onProcessTextConsumed: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -95,6 +98,7 @@ fun ChatApp(
     val isLoading by viewModel.isLoading.collectAsState()
     val isCompacting by viewModel.compactUi.isCompacting.collectAsState()
     val compactModel by viewModel.settings.contextCompactModel.collectAsState()
+    val compactPreserveContext by viewModel.settings.contextCompactPreserveSystemPrompt.collectAsState()
     val compactPrompt by viewModel.settings.contextCompactPrompt.collectAsState()
     val compactRetainCount by viewModel.settings.contextCompactRetainCount.collectAsState()
     val compactThresholdPercent by viewModel.settings.contextCompactThresholdPercent.collectAsState()
@@ -112,15 +116,18 @@ fun ChatApp(
     val generationSnapshot by viewModel.generationSnapshot.collectAsState()
     val selectedConversationGenerationSnapshot by viewModel.selectedConversationGenerationSnapshot.collectAsState()
     val selectedModel by viewModel.currentActiveModel.collectAsState()
+    val localToolIncapableModels by viewModel.settings.localToolIncapableModels.collectAsState()
+    // A local model whose template dropped tools gets its composer tool switches greyed (#218).
+    val selectedModelToolIncapable = remember(selectedModel, localToolIncapableModels) {
+        val parsed = com.newoether.agora.model.ModelId.parse(selectedModel)
+        parsed.providerName == com.newoether.agora.util.Constants.PROVIDER_LOCAL &&
+            parsed.modelName in localToolIncapableModels
+    }
     val enabledModels by viewModel.settings.enabledModels.collectAsState()
     val developerOptionsEnabled by viewModel.settings.developerOptionsEnabled.collectAsState()
     val debugModelEnabled by viewModel.settings.debugModelEnabled.collectAsState()
     val modelAliases by viewModel.settings.modelAliases.collectAsState()
     val modelProviderNames by viewModel.settings.modelProviderNames.collectAsState()
-    val chatBackgroundSpec by viewModel.settings.chatBackground.collectAsState()
-    val chatBgOpacity by viewModel.settings.chatBackgroundOpacity.collectAsState()
-    val chatBgVideoMuted by viewModel.settings.chatBackgroundVideoMuted.collectAsState()
-    val chatBgVideoLoop by viewModel.settings.chatBackgroundVideoLoop.collectAsState()
     val chatEnabledModels = validChatModels(
         enabledModels,
         developerOptionsEnabled,
@@ -139,6 +146,7 @@ fun ChatApp(
     val isTransitioningToNewChat by viewModel.isTransitioningToNewChat.collectAsState()
     val visualizeContextRollout by viewModel.settings.visualizeContextRollout.collectAsState()
     val customProviders by viewModel.settings.customProviders.collectAsState()
+    val providerList by viewModel.settings.providerList.collectAsState()
     val displayConversations = remember(conversations, customProviders) { conversations.orEmpty().map { it.forDisplay(customProviders) } }
     val displayMessagesState = remember(messagesState, customProviders) { derivedStateOf { messagesState.value.map { it.forDisplay(customProviders) } } }
     val webSearchApiKeys by viewModel.settings.webSearchApiKeys.collectAsState()
@@ -167,10 +175,12 @@ fun ChatApp(
             shellDevices,
             currentConversation?.systemPromptId,
             conversationControls.lowContextModeEnabled,
+            conversationControls.disabledToolGroups,
         ),
     )
     val contextProjection by viewModel.conversationContextProjection.collectAsState()
-    LaunchedEffect(currentConversationId, currentConversation?.selectedBranchesJson, selectedModel, conversationControls.contextWindow, allMessagesState.value, contextProjectionKey) {
+    val contextInvalidationRevision by viewModel.conversationContextInvalidationRevision.collectAsState()
+    LaunchedEffect(currentConversationId, currentConversation?.selectedBranchesJson, selectedModel, conversationControls.contextWindow, allMessagesState.value, contextProjectionKey, contextInvalidationRevision) {
         viewModel.requestConversationContext(currentConversationId, currentConversation?.selectedBranchesJson, selectedModel, conversationControls.contextWindow)
     }
     val contextProjectionReady = contextProjection.completed && !contextProjection.loading && !contextProjection.failed && contextProjection.conversationId == currentConversationId && contextProjection.selectedBranchesJson == currentConversation?.selectedBranchesJson
@@ -245,7 +255,8 @@ fun ChatApp(
     ScreenshotInitialScrollEffect(initialScrollToTop, currentConversationId, loadedMessagesConversationId, listState)
     val absoluteBottomScrollPhase = scrollCoordinator.absoluteBottomScrollPhase
     val isNearAbsoluteBottom = scrollCoordinator.isNearAbsoluteBottom
-    val isWithinAbsoluteBottomAttachThreshold = scrollCoordinator.isWithinAbsoluteBottomAttachThreshold
+    val isWithinAbsoluteBottomAttachThreshold =
+        scrollCoordinator.isWithinAbsoluteBottomAttachThreshold
     val imeBottomAnchorState = scrollCoordinator.imeBottomAnchorState
     val streamingTailController = scrollCoordinator.streamingTailController
     val messageLifecycleAppearanceRegistry = scrollCoordinator.messageLifecycleAppearanceRegistry
@@ -274,10 +285,10 @@ fun ChatApp(
     val shareSelectionBarSpace = if (shareSelectionActive) 68.dp else 0.dp
     val conversationSearchMatches = conversationInteraction.searchMatches
     val textFieldState = rememberSaveable(saver = androidx.compose.foundation.text.input.TextFieldState.Saver) { androidx.compose.foundation.text.input.TextFieldState() }
-    val sandboxEnabled by viewModel.settings.sandboxEnabled.collectAsState()
     val composer = com.newoether.agora.ui.chat.bottombar.rememberChatComposerState(
-        sandboxEnabled,
-        viewModel.isSandboxFlavor,
+        sandboxEnabled = { viewModel.sandboxAttachmentReady },
+        isSandboxFlavor = viewModel.isSandboxFlavor,
+        attachmentMode = { viewModel.settings.attachmentMode.value },
     )
     val inputFocusRequester = remember { FocusRequester() }
     var showLaunchContent by remember { mutableStateOf(false) }
@@ -308,6 +319,17 @@ fun ChatApp(
         controller = viewModel.conversationComposer,
         viewModel = viewModel,
         textFieldState = textFieldState,
+    )
+    ProcessTextComposerEffect(
+        ownerId = composerOwnerId,
+        draftLoaded = composerSnapshot.loaded,
+        switching = isSwitching,
+        request = processTextRequest,
+        textFieldState = textFieldState,
+        onConsumed = onProcessTextConsumed,
+        persistText = viewModel.conversationComposer::persistIngressText,
+        ingressRetryVersion = composerSnapshot.ingressRetryVersion,
+        newChatOnly = true,
     )
 
     val animatedScrollRequest by viewModel.scrollRequests.request.collectAsState()
@@ -381,7 +403,6 @@ fun ChatApp(
                 .clearFocusOnTap()
                 .onSizeChanged { scrollCoordinator.recordViewportHeight(it.height) }
         ) {
-            ChatBackgroundLayer(chatBackgroundSpec, chatBgOpacity, chatBgVideoMuted, chatBgVideoLoop)
             val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
             val (targetCa, targetQa) = if (!dark) {
                 0.00f to 0.00f
@@ -571,7 +592,12 @@ fun ChatApp(
                                     conversationInteraction.toggleShareMessage(messageId)
                                 },
                                 onMediaClick = { urls, index ->
-                                    onMediaClick(urls, index)
+                                    // Open the viewer on the whole chat, not just the tapped message,
+                                    // so a swipe reaches every other image in the conversation.
+                                    val gallery = chatMediaGallery(displayMessagesState.value)
+                                    val at = urls.getOrNull(index)?.let { gallery.indexOf(it) } ?: -1
+                                    if (at >= 0 && gallery.size > 1) onMediaClick(gallery, at)
+                                    else onMediaClick(urls, index)
                                 },
                                 onFileContentClick = onFileContentClick?.let { open ->
                                     { name, content ->
@@ -658,7 +684,7 @@ fun ChatApp(
             ) {
                 androidx.compose.foundation.layout.Column {
                     com.newoether.agora.ui.chat.bottombar.LiveVoiceTranscriptBar()
-                                ChatBottomBar(
+                    ChatBottomBar(
                         submissionController = viewModel.conversationComposerSubmission,
                         composerOwnerId = composerOwnerId,
                         composerController = viewModel.conversationComposer,
@@ -678,6 +704,7 @@ fun ChatApp(
                         modelAliases = chatModelAliases,
                         modelProviderNames = modelProviderNames,
                         customProviders = customProviders,
+                        providerOrder = providerList,
                         codeExecutionEnabled = conversationControls.codeExecutionEnabled,
                         googleSearchEnabled = conversationControls.googleSearchEnabled,
                         thinkingEnabled = conversationControls.thinkingEnabled, thinkingLevel = conversationControls.thinkingLevel,
@@ -702,12 +729,8 @@ fun ChatApp(
                         onShellToggle = { enabled -> haptics.toggle(enabled); viewModel.updateConversationSetting(conversationControls.settingsOwnerId) { it.copy(shellEnabled = enabled) } },
                         showLowContextMode = conversationControls.showLowContextMode,
                         lowContextModeEnabled = conversationControls.lowContextModeEnabled,
-                        onLowContextModeToggle = { enabled ->
-                            haptics.toggle(enabled)
-                            viewModel.updateConversationSetting(conversationControls.settingsOwnerId) {
-                                it.copy(lowContextModeEnabled = enabled)
-                            }
-                        },
+                        selectedModelToolIncapable = selectedModelToolIncapable,
+                        onLowContextModeToggle = { enabled -> haptics.toggle(enabled); viewModel.updateConversationSetting(conversationControls.settingsOwnerId) { it.copy(lowContextModeEnabled = enabled) } },
                         // The model row owns its selection tick. Repeating it here produced the
                         // previous double buzz for one physical tap.
                         onModelSelect = { viewModel.setActiveModel(it) },
@@ -742,10 +765,9 @@ fun ChatApp(
                         contextSystemPromptTokens = contextUsage.systemPromptTokens,
                         contextToolTokens = contextUsage.toolTokens,
                         canCompact = currentConversationId != null && !isLoading && !isSwitching && !isStopping,
-                        onCompactClick = {
-                            dialogState.showManualCompact()
-                        },
+                        onCompactClick = dialogState::showManualCompact,
                         onAdvancedClick = dialogState::showAdvanced,
+                        onToolsClick = dialogState::showTools,
                         queuedSends = queuedSends,
                         onRemoveQueuedSend = viewModel::removeQueuedSend, onSendQueuedNow = viewModel::sendQueuedNow,
                         isStopping = isStopping,
@@ -768,6 +790,7 @@ fun ChatApp(
         modelAliases = chatModelAliases, customProviders = customProviders,
         modelProviderNames = modelProviderNames,
         isCompacting = isCompacting,
+        preserveContext = compactPreserveContext,
     )
 
     ChatForkConfirmationHost(pendingForkRequest, viewModel) { pendingForkRequest = null }

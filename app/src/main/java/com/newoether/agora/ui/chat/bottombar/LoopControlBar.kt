@@ -25,8 +25,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.StopCircle
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -215,7 +215,7 @@ internal fun LoopControlBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start,
             ) {
-                Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.Repeat, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = listOfNotNull(status, cycle).joinToString(" · "),
@@ -226,7 +226,7 @@ internal fun LoopControlBar(
                 )
                 IconButton(onClick = onStop, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        Icons.Default.StopCircle,
+                        Icons.Rounded.StopCircle,
                         contentDescription = stringResource(R.string.loop_stop),
                         modifier = Modifier.size(20.dp),
                     )

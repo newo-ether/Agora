@@ -9,13 +9,10 @@ import com.newoether.agora.remote.RemoteAdapter
 internal fun remoteSourceName(source: RemoteAdapter): String = stringResource(when (source.id) {
     "codex-cli" -> R.string.remote_source_codex_cli
     "claude-code" -> R.string.remote_source_claude_code
+    "claude-desktop" -> R.string.remote_source_claude_desktop
     "codex-desktop", RemoteAdapter.LEGACY_DESKTOP -> R.string.remote_source_codex_desktop
     else -> R.string.remote_source_unavailable
 })
 
-internal fun remoteHistoryBoundaryLabel(state: com.newoether.agora.remote.RemoteState): Int =
-    if (state.selectedAdapter.id == "claude-code") R.string.remote_history_observed
-    else R.string.remote_history_bounded
-
 internal fun remoteSourceIcon(source: RemoteAdapter): Int =
-    if (source.family == "claude") R.drawable.provider_anthropic else R.drawable.provider_openai
+    if (source.family == "claude") R.drawable.provider_claude else R.drawable.provider_openai

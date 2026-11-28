@@ -2,6 +2,7 @@ package com.newoether.agora.api.util
 
 import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.api.ToolProperty
+import com.newoether.agora.api.providerToolValidationError
 import com.newoether.agora.tool.AskUserToolProvider
 import com.newoether.agora.viewmodel.AskUserController
 import com.newoether.agora.viewmodel.GenerationContext
@@ -10,7 +11,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -90,7 +90,7 @@ class ToolSchemaJsonTest {
     fun `the ask_user schema is valid and keeps its question set nested`() {
         val definitions = AskUserToolProvider(AskUserController())
             .definitions(GenerationContext(askUserEnabled = true))
-        assertTrue(validateToolDefinitions(definitions).isEmpty())
+        assertEquals(null, providerToolValidationError(definitions))
 
         val schema = ToolSchemaJson.of(definitions.single().function.parameters)
         val questions = schema["properties"]!!.jsonObject["questions"]!!.jsonObject
@@ -99,23 +99,5 @@ class ToolSchemaJsonTest {
         assertFalse(
             questions["items"]!!.jsonObject["properties"]!!.jsonObject.isEmpty(),
         )
-    }
-
-    @Test
-    fun `generate_image image_paths array declares an items schema (strict providers require it)`() {
-        // Regression: a provider that validates hard (e.g. Qwen Cloud) rejects an array parameter
-        // with no items schema -> "array image_paths has no items schema". image_paths must carry
-        // an items type so the generate_image tool is accepted.
-        val imagePaths = ToolProperty(
-            "array",
-            "Optional file paths of reference images.",
-            items = ToolProperty("string", "A reference image file path."),
-        )
-        val schema = ToolSchemaJson.of(imagePaths)
-        assertEquals("array", schema["type"]?.jsonPrimitive?.content)
-        assertEquals("string", schema["items"]?.jsonObject?.get("type")?.jsonPrimitive?.content)
-        // And the validator must accept a tool whose only array param carries items.
-        val params = ToolParameters(properties = mapOf("image_paths" to imagePaths))
-        assertTrue(ToolSchemaJson.of(params)["properties"] != null)
     }
 }

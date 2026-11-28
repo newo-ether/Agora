@@ -473,6 +473,7 @@ internal fun ConversationToolsRow(
                     SharedToolSlot(entryKey, index < agentKeys.lastIndex, gap,
                         { widths[entryKey] = it }, visible = present, preserveContentWidth = true,
                         contentVisible = minOf(agentProgress.value, progress.value) > 0f,
+                        followContentWidth = true,
                         freezeWidth = replacingOwner && !snapLayout, snapWidth = snapLayout || enteringRow && !replacingOwner,
                         onReadyChanged = { ready = it; agentReady[entryKey] = it },
                         onOccupiedWidth = { width ->

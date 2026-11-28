@@ -66,17 +66,16 @@ internal class ProviderModelSyncController(
 
         try {
             providers.ensureCustomProvidersRegistered()
+            val listed = settings.providerList.value.toSet()
             providers.all.forEach { (name, _) ->
                 if (name == Constants.PROVIDER_LOCAL) return@forEach
+                // A removed built-in keeps its cached catalog for re-adding; never fetch or clear it.
+                if (providers.isBuiltIn(name) && name !in listed) return@forEach
 
                 try {
                     if (!providers.isConfigured(name, settings.resolveActiveKey(name) ?: "")) {
-                        // Not currently key-configured. Do NOT wipe a provider's previously-fetched
-                        // models here: a forced resync (e.g. fetch-schema bump) runs this loop for
-                        // ALL providers, and clearing would drop models for providers configured by
-                        // base URL or without an active key selected right now. A genuine
-                        // configured->unconfigured transition is handled by collectCredentialChanges.
                         skippedProviderCount++
+                        settings.saveAvailableModels(name, emptyList())
                         return@forEach
                     }
 

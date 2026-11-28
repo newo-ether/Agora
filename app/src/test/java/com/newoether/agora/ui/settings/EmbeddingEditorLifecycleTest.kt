@@ -22,7 +22,6 @@ import com.newoether.agora.viewmodel.RemoteEmbeddingConnectionTester
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -72,11 +71,6 @@ class EmbeddingEditorLifecycleTest {
         every { viewModel.ragManager } returns ragManager
         every { ragManager.resolveEmbeddingKeyForProviderExact(any()) } returns null
         every { viewModel.remoteEmbeddingConnectionTester } returns tester
-        every { viewModel.settings.availableModels } returns MutableStateFlow(emptyMap())
-        every { viewModel.settings.customProviders } returns MutableStateFlow(emptyList())
-        every { viewModel.settings.providerBaseUrls } returns MutableStateFlow(emptyMap())
-        every { viewModel.settings.lastModelsFetchFingerprint } returns MutableStateFlow("fp")
-        every { viewModel.computeProviderFingerprint() } returns "fp"
         var exits = 0
         val initial = EmbeddingModelConfig(name = "", type = EmbeddingModelType.REMOTE)
         compose.setContent {
@@ -151,11 +145,6 @@ class EmbeddingEditorLifecycleTest {
         every { viewModel.ragManager } returns ragManager
         every { ragManager.resolveEmbeddingKeyForProviderExact(any()) } returns null
         every { viewModel.remoteEmbeddingConnectionTester } returns tester
-        every { viewModel.settings.availableModels } returns MutableStateFlow(emptyMap())
-        every { viewModel.settings.customProviders } returns MutableStateFlow(emptyList())
-        every { viewModel.settings.providerBaseUrls } returns MutableStateFlow(emptyMap())
-        every { viewModel.settings.lastModelsFetchFingerprint } returns MutableStateFlow("fp")
-        every { viewModel.computeProviderFingerprint() } returns "fp"
         var exits = 0
         val initial = EmbeddingModelConfig(name = "", type = EmbeddingModelType.REMOTE)
         compose.setContent {

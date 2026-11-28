@@ -2,10 +2,22 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { readWebUiStyles } from "./webui-test-sources.mjs";
 import { Fragment, h } from "../../main/assets/webui/vendor/preact.mjs";
 import htm from "../../main/assets/webui/vendor/htm.mjs";
 
 const html = htm.bind(h);
+/** The declarations of one rule, read from the concatenated WebUI stylesheets. */
+function declarations(selector) {
+  const css = readWebUiStyles();
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = [...css.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, "g"))];
+  assert.equal(matches.length, 1, selector);
+  return new Map(matches[0][1].split(";").filter(part => part.trim()).map(part => {
+    const colon = part.indexOf(":");
+    return [part.slice(0, colon).trim(), part.slice(colon + 1).trim()];
+  }));
+}
 const source = fs.readFileSync(new URL("../../main/assets/webui/subagents.js", import.meta.url), "utf8");
 function harness(name, extra = {}) {
   const hooks = [], pending = [], opens = [];
@@ -14,6 +26,7 @@ function harness(name, extra = {}) {
     html, Fragment, sync: { open: id => opens.push(id) }, DetailSheet() {}, ToolItem() {}, Spinner() {}, icon: value => value,
     ICON_ACCOUNT_TREE: "tree", ICON_ERROR: "error", ICON_PAUSE_CIRCLE_OUTLINE: "pause-circle-outline",
     t: { sourceSubagent: "Subagent", subagentsCount: count => `${count} Subagents`,
+      subagentsRunningCount: count => `${count} Running`,
       subagentStatuses: { idle: "Idle", running: "Running", completed: "Completed", failed: "Failed", stopped: "Stopped" } },
     useRef(value) {
       const at = index++;
@@ -77,18 +90,49 @@ test("grouped mode hides zero, directly opens one, and keeps the capsule key acr
   const multiple = f.render({ state: groupedState() });
   assert.equal(group(multiple).key, group(single).key);
   assert.equal(group(multiple).props.toolKey, group(single).props.toolKey);
-  assert.equal(title(multiple), "2 Subagents");
+  assert.equal(title(multiple), "1 Running");
   button(group(multiple)).props.onClick();
   const opened = f.flush();
   assert.equal(choices(opened).length, 2);
   assert.deepEqual(f.opens, ["a"]);
   const three = f.render({ state: groupedState([...agents, { id: "c", title: "Gamma", status: "idle" }]) });
-  assert.equal(title(three), "3 Subagents");
+  assert.equal(title(three), "1 Running");
   assert.equal(group(three).key, group(single).key);
   assert.equal(choices(three).length, 3);
   f.dispose();
 });
 
+test("one grouped child keeps its name and direct navigation through every status", () => {
+  const f = harness("SubagentsBar");
+  let key;
+  for (const value of ["idle", "running", "completed", "failed", "stopped"]) {
+    const child = { id: "a", title: `Worker ${value}`, status: value };
+    const tree = f.render({ state: groupedState([child]) });
+    key ??= group(tree).key;
+    assert.equal(group(tree).key, key);
+    assert.equal(title(tree), child.title);
+    assert.equal(status(tree), value);
+    button(group(tree)).props.onClick();
+    assert.equal(sheet(f.flush()), false);
+  }
+  assert.deepEqual(f.opens, ["a", "a", "a", "a", "a"]);
+  f.dispose();
+});
+test("grouped counts follow running children and return to the total without replacing the family", () => {
+  const f = harness("SubagentsBar");
+  const children = [...agents, { id: "c", title: "Gamma", status: "stopped" }];
+  const initial = f.render({ state: groupedState(children) });
+  assert.equal(title(initial), "1 Running");
+  const two = f.render({ state: groupedState(children.map(agent => agent.id === "a" ? { ...agent, status: "running" } : agent)) });
+  assert.equal(title(two), "2 Running");
+  assert.equal(status(two), "running");
+  assert.equal(group(two).key, group(initial).key);
+  const terminal = f.render({ state: groupedState(children.map(agent => ({ ...agent, status: "completed" }))) });
+  assert.equal(title(terminal), "3 Subagents");
+  assert.equal(status(terminal), "idle");
+  assert.equal(group(terminal).key, group(initial).key);
+  f.dispose();
+});
 test("grouped status aggregates any running child and uses the tree state for all terminal children", () => {
   const f = harness("SubagentsBar");
   assert.equal(status(f.render({ state: groupedState() })), "running");
@@ -248,16 +292,7 @@ test("same-family capsules retain admitted node identity through a closed conver
 });
 
 test("selection colors fade for 250ms without spatial or Reduced Motion overrides", () => {
-  const css = fs.readFileSync(new URL("../../main/assets/webui/style.css", import.meta.url), "utf8");
-  const declarations = selector => {
-    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const matches = [...css.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, "g"))];
-    assert.equal(matches.length, 1, selector);
-    return new Map(matches[0][1].split(";").filter(part => part.trim()).map(part => {
-      const colon = part.indexOf(":");
-      return [part.slice(0, colon).trim(), part.slice(colon + 1).trim()];
-    }));
-  };
+  const css = readWebUiStyles();
   const normal = declarations(".subagent-capsule");
   const selected = declarations('.subagent-capsule[aria-current="page"]');
   assert.equal(normal.get("--md-component-transition"), "background-color 250ms linear, color 250ms linear");
@@ -272,6 +307,16 @@ test("selection colors fade for 250ms without spatial or Reduced Motion override
   assert.equal(normal.get("box-shadow"), "var(--shadow-4)");
   assert.equal(declarations(".subagent-text > small").get("transition"), "color 250ms linear");
   assert.doesNotMatch(css, /(?:reduce-motion|prefers-reduced-motion)[^{]*\{[^}]*\.subagent-capsule/);
+});
+
+test("capsule and grouped-row weights follow Compose's type scale", () => {
+  // ChatType: titleSmall and titleMedium are Medium; the TODO title alone is titleSmall + Bold.
+  assert.equal(declarations(".todo-capsule strong").get("font-weight"), "700");
+  assert.equal(declarations(".todo-capsule > span").get("font-weight"), "500");
+  assert.equal(declarations(".subagent-title").get("font-weight"), "500");
+  assert.equal(declarations(".subagent-text > small").get("font-weight"), "500");
+  assert.equal(declarations(".subagent-choice-text > strong").get("font-weight"), "500");
+  assert.equal(declarations(".subagent-choice-text > small").get("font-weight"), "500");
 });
 
 test("idle and completed use the branch icon while failure and stop stay distinct", () => {

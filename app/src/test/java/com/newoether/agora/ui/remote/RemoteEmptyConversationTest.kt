@@ -263,6 +263,37 @@ class RemoteEmptyConversationTest {
         compose.onNodeWithText(text(R.string.retry)).assertDoesNotExist()
     }
 
+    @Test fun cliExistingRetryRetainsUnavailableHeadlineUntilNativeSourceConnects() {
+        val cli = RemoteAdapter("codex-cli", "codex", "cli", "disconnected",
+            capabilities = RemoteCapabilities(create = true, history = true))
+        state = state.copy(draftSessionId = null, hydrationEnabled = true,
+            devices = state.devices.map { it.copy(multiAdapter = true, adapters = listOf(cli),
+                status = RemoteDeviceStatus.ERROR) })
+        show()
+        compose.onNodeWithTag("remote-welcome-headline").assertTextEquals(
+            RuntimeEnvironment.getApplication().getString(R.string.remote_source_no_session, "Codex CLI"))
+        val bounds = compose.onNodeWithText(text(R.string.retry)).getUnclippedBoundsInRoot()
+        compose.runOnIdle {
+            state = state.copy(loading = true,
+                devices = state.devices.map { it.copy(status = RemoteDeviceStatus.CONNECTING) })
+        }
+        repeat(4) {
+            compose.mainClock.advanceTimeBy(64)
+            compose.onNodeWithTag("remote-welcome-headline").assertTextEquals(
+                RuntimeEnvironment.getApplication().getString(R.string.remote_source_no_session, "Codex CLI"))
+            compose.onNodeWithText("Codex CLI").assertDoesNotExist()
+            compose.onNodeWithText(text(R.string.retry)).assertIsNotEnabled()
+            assertEquals(bounds, compose.onNodeWithText(text(R.string.retry)).getUnclippedBoundsInRoot())
+        }
+        compose.runOnIdle {
+            state = state.copy(loading = false,
+                devices = state.devices.map { it.copy(status = RemoteDeviceStatus.CONNECTED,
+                    adapters = listOf(cli.copy(state = "connected"))) })
+        }
+        compose.onNodeWithTag("remote-welcome-headline").assertTextEquals("Codex CLI")
+        compose.onNodeWithText(text(R.string.retry)).assertDoesNotExist()
+    }
+
     @Test fun failureIsNeutralAndRetryIsAnExplicitActionDisabledOnAnInactivePage() {
         state = state.copy(failure = RemoteFailure.SERVICE)
         show()
@@ -380,7 +411,8 @@ class RemoteEmptyConversationTest {
             assertEquals(140f, (bounds.bottom - bounds.top).value, 0.5f)
         }
         assertViewportBounds()
-        compose.onNodeWithTag("remote-welcome-mark").assertWidthIsEqualTo(0.dp).assertHeightIsEqualTo(0.dp)
+        // The mark keeps its fixed size; the scrollable block absorbs the overflow instead.
+        compose.onNodeWithTag("remote-welcome-mark").assertWidthIsEqualTo(80.dp).assertHeightIsEqualTo(80.dp)
         val headline = compose.onNodeWithTag("remote-welcome-headline")
             .assertTextEquals(text(R.string.remote_empty_retry_hint))
         val headlineLayouts = mutableListOf<TextLayoutResult>()

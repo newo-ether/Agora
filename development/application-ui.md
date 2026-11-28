@@ -101,6 +101,11 @@ The monochrome Google Search and OpenAI Search provider icons inherit the dropdo
 content color. They therefore remain legible across light and dark themes and retain inherited
 disabled-state alpha; neither row hard-codes a light or dark tint. Provider artwork, icon size,
 spacing, labels, badges, switches, availability, ordering, and interaction remain unchanged.
+WebUI mirrors the native text-slot color for the Code Execution, Google Search and OpenAI Search
+leading glyphs, including disabled and pending states. Their provider badges use primaryContainer
+with onPrimaryContainer in both light and dark themes. Code Execution and Google Search show Gemini;
+OpenAI Search shows OpenAI. These labels identify the Provider and do not indicate toggle state.
+The WebUI fix changes presentation only, without changing capability availability or setting writes.
 
 ## 5. Chat bottom-bar answer fade
 
@@ -179,7 +184,7 @@ settings persistence/import behavior remains unchanged.
 
 When the Thinking segment display setting is available, Appearance places it immediately below the
 Thought and Tool Blocks display setting and before Auto-Expand Active Group. Reordering must not
-change the existing Grouped/Compact availability rule, the exact Grouped + Card Auto-Expand rule, or
+change the existing Grouped availability rule, the exact Grouped + Card Auto-Expand rule, or
 any stored/effective display-mode behavior.
 
 ## 10. Settings destination rows without redundant arrows
@@ -200,10 +205,15 @@ Markdown body/list/table text, H1-H6, block code, and inline code preserve their
 use exactly 1.1 times their source line height. H1-H6 are explicitly Bold. Link text inherits the
 containing paragraph typography.
 
-The ordinary-text preview also uses the current effective App font while retaining its exact 13 sp
-font size and 20 sp line height. The already-bold filename overlay, close control, selection, scrolling,
-HTML handling, link behavior, Markdown components, content padding, and file-type routing remain
-unchanged.
+The ordinary-text preview is a code editor: a right-aligned grey line-number gutter sits beside the
+text, starting at line 1 for the first logical line. Text uses JetBrains Mono at 13 sp with a 20 sp
+line height and MiOutfit as its glyph fallback, so Chinese content keeps the App face instead of the
+platform default. Line wrapping follows the same Appearance setting as chat code blocks
+(`autoWrapCodeBlocks`): on, every logical line folds inside the text column with its number on the
+first row; off, the text scrolls horizontally under a gutter that stays put. Above 1200 lines the
+gutter is drawn inline in one text block, so a long log never builds a composable per line. The
+already-bold filename overlay, close control, selection, scrolling, HTML handling, link behavior,
+Markdown components, content padding, and file-type routing remain unchanged.
 
 Every full-screen preview subtype enters and exits through one of two shared top-level transition
 hosts: the media host covers loading, single video, PDF, mixed image/video paging, and single image;
@@ -216,7 +226,9 @@ The hosts keep their last payload through exit and release the top-level present
 the transition settles. A confirmed video page alone retains the viewer-internal 400 ms player fade
 before handing off to the shared top-level exit. Image, PDF, loading, and unresolved media pages hand
 off immediately without a pager-owned delay. The mixed-media pager has no duplicate close timer or
-second `onClose` owner. Media decoding, pager navigation, gestures, payload routing, shared exit
+second `onClose` owner. A player that reports a media error shows a localized failure line and a
+close action instead of holding the alpha-zero surface as a silent black rectangle, and bare storage
+paths are promoted to `file://` before ExoPlayer sees them. Media decoding, pager navigation, gestures, payload routing, shared exit
 transitions, and Reduced Motion remain unchanged.
 
 ## 12. PDF page rasterization
@@ -228,12 +240,13 @@ as model attachments and all-page full-screen preview generation. Every newly al
 PDF regions that do not paint an explicit background and prevents JPEG encoding from flattening
 transparent black pixels into a black page that hides correctly rendered black glyphs.
 
-Both consumers share one bitmap-initialization path. The change does not alter page dimensions,
-1536 px long-edge scaling, JPEG quality 80, filename/storage ownership, selected-page filtering and
-ordering, preview page limits, progress callbacks, cancellation cleanup, page-count behavior,
-PDF-authored colors or backgrounds, viewer motion, or attachment/LLM routing. A different PDF engine
-or dependency is not introduced without separate evidence of a rendering defect that remains after
-opaque-white initialization.
+Both consumers share one bitmap-initialization path. Raster dimensions and final encoding follow
+[image-processing.md](image-processing.md), which supersedes the former PDF-only 1536 px rule.
+Selected-page previews and model inputs use the same completed page artifact. Filename/storage
+ownership, selected-page filtering and ordering, preview page limits, progress callbacks,
+cancellation cleanup, page-count behavior, PDF-authored colors or backgrounds and viewer motion
+remain with their existing owners. A different PDF engine or dependency is not introduced without
+separate evidence of a rendering defect that remains after opaque-white initialization.
 
 ## 13. Full-screen media window layering
 
@@ -254,20 +267,35 @@ unchanged. The long-press Image Actions sheet remains a modal window created aft
 Dialog. Its system window dim is disabled so the sheet-owned animated scrim is the only black overlay;
 long press must not introduce a one-frame opaque dim flash before the scrim fade.
 
+The image/PDF viewport and video surface lay out against the complete media Dialog bounds. They do not
+subtract status-bar or navigation-bar heights; only the viewer's overlay controls retain their own system-bar
+insets. Double-tap computes one pivot from the 1x fitted geometry and keeps it fixed for the entire
+zoom in both directions, including Reduced Motion. With top/bottom letterboxing, the tap projects to
+the horizontal midline `(tap.x, viewportCenter.y)`; with left/right letterboxing, it projects to the
+vertical midline `(viewportCenter.x, tap.y)`. An exact aspect fit uses the viewport center. Each pinch
+frame applies centroid-relative scale and that frame's two-finger pan together,
+then constrains the two axes independently from the scaled content bounds. A pan component therefore remains
+effective while the other axis is clamped or while the same frame also zooms. `ZoomableImageGeometry.kt`
+owns the pure transform and per-axis bound calculations; pager navigation, fling and fling cancellation are
+unchanged.
+
 ## 14. Composer clipboard images
 
 The Chat composer TextField participates in Compose Foundation receive-content dispatch for
-`image/*`. A clipboard paste may contribute one or multiple URI-backed images. Handled image items
-immediately enter the existing `ChatComposerState.onPickImages` private-copy, progress, rejection,
-preview, removal, draft, and send lifecycle; transient clipboard URIs are never persisted as the
-attachment's durable path.
+images and text. With Local Sandbox enabled and available, pasted text of at least 8,000 UTF-16
+code units becomes a UTF-8 `pasted-text.txt` attachment. Typing and shorter pastes retain native
+cursor replacement, undo, IME and accessibility behavior. The complete pasted source belongs to
+the captured draft owner until its immutable private staging file commits. Failure leaves a
+retryable attachment; it never silently inserts the source into inline Provider text. A failed
+draft write retains the source in the live owner and prevents sending until it can be saved.
+Clipboard admission rejection leaves the original clipboard unchanged and reports failure.
 
-Only supported image URI items are consumed. Text and every unsupported clipboard item are returned
-to the TextField/platform so native text paste, cursor replacement, selection, undo, IME, and
-accessibility behavior remain intact. A mixed clipboard payload can therefore insert its text at the
-current selection and add its images as attachments. MIME resolution is defensive and copy failure
-uses localized existing/new attachment rejection presentation without crashing or leaving a phantom
-attachment.
+A clipboard paste may also contribute one or multiple URI-backed images, and sandbox mode accepts
+other URI-backed files. Handled items enter the shared attachment import, rejection, removal,
+draft and send lifecycle; transient clipboard URIs are never the final attachment path.
+Short text and unsupported items return to the TextField/platform. Mixed short text and image
+payloads can insert text at the selection while adding attachments. MIME resolution is defensive;
+copy failure uses the existing localized attachment rejection presentation.
 
 ## 16. Drawer conversation-list loading and search progress
 
@@ -294,7 +322,9 @@ These presentation changes preserve the existing query, result, cancellation and
 Opening an existing conversation binds covered layout settlement to that destination's scroll
 coordinator. Selection publication and switching readiness may arrive in either order; the previous
 destination must not begin waiting on its own hydration registry for the incoming page. Completion
-still requires the current destination's loaded conversation, context projection and stable layout.
+still requires the current destination's loaded conversation and stable layout. Context projection
+readiness has an eight-second wait bound; reaching it continues layout settlement while accounting
+runs on, with rollout disabled until a matching successful projection completes.
 Send consumes its scroll request only after the target turn has a measured message index. The final
 absolute-bottom sentinel is excluded from this range, so a new turn cannot match the old sentinel
 before the list has measured the insertion.
@@ -305,11 +335,27 @@ Conversation search exposes a separate in-flight state from the moment a nonblan
 
 The drawer's first-list state is not a second conversation authority or a new search architecture; Room remains the durable source and the existing search methods remain authoritative.
 
+The native and WebUI drawers' ordinary conversation rows show their existing generation indicator while that
+conversation generates or any linked Subagent is running. The parent remains active until both its
+own generation and all child activity end, including when only one of several children finishes.
+Pending interactions take priority over generation in that same 18 dp slot on Compose and WebUI:
+Ask User and approval both use the standalone QuestionMark icon, without the Help circle or the
+interaction-kind icon (owner request 2026-10-30). Accessibility labels still identify the request kind.
+Approval wins when both kinds are pending. Indicators include nonblocking questions after generation ends, clear when answered,
+expired or cancelled, and surface a child's request on its visible parent. Process controller flows
+remain authoritative; only pending owner/parent metadata is observed, never unopened message payloads.
+Unowned prompts follow the interaction bar's all-conversation visibility. Existing unread behavior
+resumes when no interaction or generation is pending.
+`ChatViewModel.generatingConversationIds` and `WebUiSync` consume the same repository presentation-only union of
+foreground generation, automation and registered delegation Jobs, including each active child's
+parent ID. Parent membership is observed in one narrow Room query restricted to those active IDs;
+idle startup performs no child/Run/message scan, and no per-row query or polling is introduced.
+
 Drawer long press offers a push-pin `Pin` action, replaced by `Unpin` for a pinned conversation, then
 `Generate Title`, `Rename` and `Delete` in that order. Active generation alone never disables
 these metadata/lifecycle actions. Switching/loading and actual Send-submission exclusion remain
-separate guards. Manual title generation freezes the selected branch's currently available USER
-and ASSISTANT content, including a matching live partial answer; either role may be absent. Empty
+separate guards. Manual title generation uses the selected branch's first USER message under the
+shared title-input contract in message-generation.md, including while a reply is streaming. Empty
 input makes no Provider call. Repeated requests and late results must not overwrite a newer rename,
 newer title decision or deleted conversation, nor interrupt ordinary generation. Delete retains the
 existing confirmation and waits for canonical generation/Loop/owned-child cleanup before durable deletion.
@@ -409,7 +455,10 @@ Provider-name visibility is a separate preference keyed by the complete model ID
 custom model editor place a Show Provider name switch below the alias field. Save commits both values in one DataStore edit,
 while Cancel, Back and outside dismissal commit neither. Clearing or changing an alias never changes
 that switch. Complete-name surfaces append the current Provider name only when the preference is on;
-alias-only labels in Provider-grouped model lists retain their existing presentation.
+alias-only labels in Provider-grouped model lists retain their existing presentation. Until the owner
+touches that switch, a model under a custom Provider shows its Provider name and a model under a
+built-in remote or Local Provider does not; the new-custom-model form follows whichever Provider is
+picked there until the owner overrides it.
 
 The shared Provider-name switch row uses a white primary label, 8 dp of outer top spacing, and a
 16 dp rounded-rectangle clip around its toggleable ripple. The top gap is outside the hit region.
@@ -516,6 +565,29 @@ the outline, focus and error presentation. Digit filtering, defaults, minimum co
 Confirm disablement, the numeric keyboard, mode selection, extraction calculations and callbacks
 remain unchanged. This presentation rule does not change attachment-import ownership.
 
+Android's selected-text menu exposes the localized **Ask Agora** action through an exported
+`ACTION_PROCESS_TEXT` entry accepting `text/plain`. The entry forwards the selected CharSequence
+as plain text to the existing Agora task. Cold launch and `onNewIntent` use the same pending-request
+inbox; identical selections are separate actions, and saved-state restoration retains pending
+requests without replaying an already consumed launch. After the current conversation owner's
+draft is restored and switching has settled, the action appends the exact selected text to the
+Composer with a paragraph separator when needed. Existing draft text and attachments remain owned
+by the same Composer. The action synchronously saves the current text through that owner's serialized,
+revision-checked draft persistence before consuming its pending request; write failure retains the
+request. A later text edit, replacement TextField or recreated composition retries it; releasing the
+owner's frozen submission also retries pending ingress without requiring an edit. A request ID saved
+after that write
+prevents replay within that saved-state lineage. A fresh controller loading an older disk draft must
+reapply an uncommitted pending selection rather than trusting an earlier display-only marker.
+There is no durable request receipt: if Android restores saved state captured before a successful
+write, its still-pending request can append again to the newer disk draft. This action therefore does
+not promise exactly-once delivery across arbitrary stale saved-state/process-death boundaries.
+The action presents native chat and only prefills editable, unsent text: it neither submits a message
+nor invokes a Provider, and it never returns replacement text to the source application. Requesting
+Chat while it is already visible is valid and does not add an overlay. If the action dismisses a
+covering surface or nested preview, that surface keeps presentation and haptic exclusion until its
+normal exit callback releases it; late exits cannot restore a dismissed surface or release a newer one.
+
 Every Composer attachment enters one durable, conversation-owned import lifecycle at selection
 time. The attachment tile appears immediately, Agora copies the source into app-private staging,
 and all required image normalization, video frame extraction, PDF rendering, ordinary-file text
@@ -530,8 +602,8 @@ legacy row is upgraded to `PROCESSING` and re-enters staging/import instead of b
 omitted by Send. The existing `unavailable` value remains reserved for backup/import restoration
 when the attachment resource cannot be restored and never represents import failure.
 
-An image's `READY` private path is its final normalized artifact. The immutable staged image remains
-separate until the `READY` draft write succeeds, then becomes reclaimable. A crash after output
+An ordinary image's `READY` private path is its final normalized artifact. The immutable staged image
+remains separate until the `READY` draft write succeeds, then becomes reclaimable. A crash after output
 creation but before that write therefore restarts from the original staged bytes rather than
 compressing the output again. `READY` video frames, selected PDF page images, bounded ordinary-file
 text, and Local Sandbox paths are likewise complete import results. Send performs no decoding,
@@ -539,9 +611,49 @@ scaling, compression, frame extraction, PDF rendering, file text read, or additi
 Provider file reads, Base64, JSON serialization, and upload remain request encoding after accepted
 input and are not attachment import work.
 
+When Local Sandbox is enabled and available at admission, every new attachment (including camera,
+picker, clipboard and browser image/PDF/video/text files) is a sandbox file. Import preserves the
+original bytes at `/home/agora/attachments/<id>/<name>`. Storage ownership does not bypass the ordinary
+attachment MIME classification, PDF page selection, bounded text resolution, or
+Composer/message/full-screen/WebUI preview. A Sandbox video is the one exception to derived display
+work: it stays the original file with no frame extraction, reaches `READY` without slice configuration,
+never opens the slice dialog, and writes no frame artifact, because Provider requests carry only its
+sandbox path. Its tile, the message tile and the Markdown video card each show one display-only
+poster frame decoded by `MediaMetadataRetriever` into an in-memory cache of 16 entries at most
+512 px wide; nothing reaches storage. Turning Sandbox off restores the ordinary slice dialog and frame
+artifacts. Resolve freezes display data before `READY`: images receive a separate app-private
+byte-exact raster copy without re-encoding; PDF pages keep their completed derived artifacts, and text
+keeps its bounded resolved string. Unsupported files have no preview duplicate. `localPath` and
+`sandboxPath` continue to describe the editable original; all preview surfaces read the saved
+snapshot, including PDF page browsing. Editing or deleting the Sandbox original does not replace or
+invalidate that snapshot. Send only serializes these completed
+results and never reads the original again. Provider requests carry only file metadata and the sandbox
+path, never resolved text or preview images; tools read the contents. Turning Sandbox off preserves
+legacy admission behavior and never changes existing draft/message storage identities. Sandbox
+failure stays visible and retryable with its original source; accepted sends clear only sandbox files
+actually accepted, leaving failed files in the exact draft owner. No failure silently falls back to
+inline Provider bytes or text.
+
+Deleting a message reclaims its unreferenced private preview snapshots while preserving accepted
+Sandbox originals. Abandoning an unsent attachment reclaims both its pending original and snapshots.
+Fork copies private snapshots and remaps their image/artifact references while preserving the original
+Sandbox descriptor. Conversation deletion owns the managed attachment directories through the durable
+conversation-directory claims; shared claims protect originals still owned by another conversation.
+Existing legacy previews are not reconstructed from a later version of an original.
+
+Before a sandbox picker or clipboard upload, WebUI retains each original browser `File` in the
+existing owner-bound recovery list, including long-text paste files. Only a successful upload
+acknowledgement removes that record. Failure keeps Retry, Download and Remove available without
+inline fallback. Picker results retain the owner captured when the picker opened; navigation,
+disconnect or a later Sandbox toggle cannot redirect them. Retry requires the original conversation;
+New Chat additionally requires its exact connection/workspace sequence. These browser recovery
+records survive navigation and disconnect in the current page, but not page reload or close.
+
 Each attachment tile has one canonical fixed-64-dp presentation Crossfade with a 200 ms duration.
 Its keyed states include a neutral initial frame, unavailable, import loading/failure, ready
-file/PDF/video placeholder, and Coil media loading/success/error. The thumbnail, placeholder, scrim,
+file/PDF/video placeholder, and Coil media loading/success/error. The video placeholder owns the
+display-only poster frame, so it crossfades from the camera glyph to real footage inside the same
+owner. The thumbnail, placeholder, scrim,
 error action, and indeterminate progress indicator all render inside that owner; none may hard-swap
 outside it. A newly inserted `PROCESSING` attachment starts at the neutral frame so the loading
 indicator visibly crossfades in. Loading-to-ready, loading-to-failed, failed-to-retry/loading, media
@@ -549,7 +661,9 @@ decode success/error, and every progress-indicator appearance/disappearance cros
 layout jump. Tapping the failure overlay retries the complete import from private staging. Failed
 attachments do not disable Send and are excluded from the accepted result. Attachment admission owns
 one selection haptic after the processing tile is inserted; decode/import completion, rejection, and
-failure do not emit a second haptic.
+failure do not emit a second haptic. An unavailable or failed image/video placeholder uses the
+muted `onSurfaceVariant` at 55% opacity for both icon and label, never the error color; an
+unreadable media file is ordinary state, not a destructive error.
 
 Composer image attachments and durable message media thumbnails initially suppress their progress
 indicator. It becomes visible only after 200 ms of continuous loading, through the existing 200 ms
@@ -777,7 +891,9 @@ lift ending at zero, the post-exit gone callback, and both option radii.
 ## 28. Composer model selector motion
 The Chat bottom-bar model selector follows the section 24 motion language through the same shared
 clip owner (`ui/motion/IdentityClipWidth.kt`, also used by the top-bar title). A change of the
-displayed label Crossfades the label over `200 ms` with `FastOutSlowInEasing`. The button is always
+displayed label Crossfades through `ui/motion/IdentityLabelCrossfade.kt` over `200 ms` with
+`FastOutSlowInEasing`; Phone Use status consumes that same label transition and shared clip owner.
+Phone duration updates text directly and uses only the shared clip for format carries. The button is always
 laid out at its independently measured final width: label width plus `8 dp` padding on each side,
 at least the Material button minimum width and at most the space left in the controls capsule. One start-anchored rounded clip
 (`50%` corners) cuts the whole button, including its ripple, at the visible edge, which moves over
@@ -871,9 +987,10 @@ The input's scrollbar track starts level with the expand icon's top (`COMPOSER_C
 below the composer top), so the thumb is never cut by the rounded corner.
 A display formula that fits the message width does not claim horizontal drags, so a swipe over it
 still opens the drawer; only an overflowing formula scrolls. The Remote model menu re-reads the
-device's model catalog each time it opens. Remote always retains the bottom-bar details button and
-both Thinking and Service Tier rows; unsupported, loading or unavailable settings disable their
-individual rows and open-sheet controls without removing the button or menu entries.
+device's model catalog each time it opens. Remote always retains the bottom-bar details button
+and Thinking row; unsupported, loading or unavailable Thinking settings disable the row and its
+open-sheet controls. Service Tier visibility and availability follow the selected source and
+session capabilities in remote-sessions.md; a source without Service Tier omits that menu row.
 ## 35. Automatic message source
 A user bubble the app sent on the user's behalf (a Task run prompt, a Loop cycle prompt, or the
 answers to non-blocking `ask_user` questions) shows a label above the bubble, end-aligned: a `14 dp`
@@ -1061,8 +1178,8 @@ Sign Out). The drawer is `ChatDrawerContent`: `min(width, 360 dp)`, `1 dp` tonal
 corners, `16 x 20 dp` padding, the Agora title (`25/32` bold) and trailing expandable search
 in the same first row as defined in section 16, the `42 dp` New Chat button and the list below. The
 search capsule uses the same `56 dp` height and full-row width. Browser conversation rows omit the indicator container
-and its 8px gap when neither generation nor unread is visible. A visible indicator keeps its 18px
-slot and 8px gap; generation takes priority and unread is hidden for the selected conversation.
+and its 8px gap when no interaction, generation or unread is visible. A visible indicator keeps its 18px
+slot and 8px gap; interaction takes priority as defined in section 16, then generation, and unread is hidden for the selected conversation.
 This is a WebUI-only exception; native Compose retains its empty indicator reservation.
 The browser's trailing details button keeps its
 32px circular hit region centered in the 44px row slot. It is inset exactly 4px from the 40px capsule's
@@ -1132,8 +1249,8 @@ tools) and the `48 dp` send button. English and Chinese labels are the app's own
 sign-in page centers its card with flex and caps it at `400 px`: a grid's auto track sized to the
 card's max-content and pushed it past a narrow screen once the app font loaded.
 The browser's message details mirror `SegmentDetailSheet` for Thought, Transcription, and Tool. In
-Grouped/Compact Bottom Sheet mode, the group header opens a segment list; ordinary Timeline
-cards and inline Grouped/Compact rows open the selected detail directly. Tool details consume the
+Grouped Bottom Sheet mode, the group header opens a segment list; ordinary Timeline
+cards and inline Grouped rows open the selected detail directly. Tool details consume the
 shared typed presentation, including lifecycle, shell/file/search results and prefix-aware JSON
 nodes; they never parse tool-result envelopes in the browser. Failed/stopped details retain the
 shared unboxed neutral terminal text. Under a generating turn the browser also owns the phone's single
@@ -1145,7 +1262,8 @@ is in flight and keeps the terminal text, and App Reduce Motion shows the full r
 breathing. Persisted tool images are requested only from authenticated
 `GET /api/tool-images/{conversationId}/{messageId}/{detailIndex}/{imageIndex}` with original
 attachment indices. Each request revalidates message ownership, real-path containment in the private
-tool-media store, raster MIME and recorded size; browser paths and inline image bytes are forbidden.
+tool-media store or its restored/fork attachment roots, and measures current decoded MIME, dimensions
+and byte length; browser paths and inline image bytes are forbidden.
 The preview keeps its Compose-sized viewport through loading, failure and decoding, follows square
 crop metadata, and opens a full-image viewer. The browser-local sheet uses 45%/94%
 viewport anchors and a flat scrim whose alpha follows the sheet's rise, without backdrop blur;
@@ -1365,6 +1483,14 @@ removes its lookup and reclaims abandoned session attachments through the existi
 cleanup. Queued or sent attachments keep their canonical ownership. Reconnect never replays uploads.
 Session-local draft retention uses the shared AttachmentFiles lifecycle in section23; it never
 persists a browser draft into the phone's Room draft merely to protect files.
+Browser long pastes use the same 8,000-code-unit sandbox threshold as native. Uploads captured in
+sandbox mode carry an explicit sandbox route; if sandbox access becomes unavailable before server
+admission, reject the upload instead of reclassifying it as an inline ordinary file. A UTF-8 file copy
+stays in browser memory until upload succeeds. Transport failure/disconnect retains explicit retry,
+download and remove actions, without restoring the text to the inline input. Retry is bound to the
+original conversation; a different New Chat workspace cannot inherit it. Pending upload blocks Send
+until admission settles. Recovery copies survive navigation/reconnect but not closing/reloading the
+browser page. Successful server admission enters the ordinary sandbox draft/import lifecycle.
 The browser attachment menu follows Photos, Videos and Files; the owner removed its Camera entry.
 This browser-only menu difference does not change the native Compose attachment menu. Its Add entry is always
 enabled and phase/pending changes do not close it. Inner picker items and uploads retain exact-session
@@ -1381,8 +1507,9 @@ Only image loading delays its indicator by 200ms, including continuous import-to
 other import indicators appear immediately. Source replacement, retry and disposal fence prior
 callbacks. Removal, retry and authenticated preview admission retain the existing exact identities.
 Preview requests identify the authenticated live connection, captured selection sequence, attachment
-ID and artifact index, never a browser-supplied private file path. Files outside app-private storage,
-Local Sandbox assets, stale selections, unavailable attachments and revoked sessions are refused.
+ID and artifact index, never a browser-supplied private file path. Sandbox attachment previews use
+that same exact-owner admission and the app-private sandbox attachment root. Files outside the
+permitted private roots, stale selections, unavailable attachments and revoked sessions are refused.
 The same preview stream supports one HTTP byte range for native video playback and seeking. Range
 responses preserve authentication, file pinning, recorded-size bounds and revocation cancellation;
 they do not buffer a complete file or introduce another download endpoint.
@@ -1425,7 +1552,35 @@ Browser Select Text opens the existing shared DetailSheet after its source menu 
 localized title and exact displayed user text, no Markdown parsing or attachments. Its selectable
 plain body is 14px/24.2px with 12px top, 24px sides and 32px bottom padding. The bubble is not
 selected automatically; sheet motion, input exclusion and close/focus remain with the shared owner.
-Composer presentation lives in composer.js; shell.js remains the chat frame and popup presenter.
+Composer owns the chat input and tools menu in composer.js; composer-settings.js owns the shared
+Thinking/Service Tier panel presentation, attachments.js owns attachment tiles/editors/viewers,
+conversation-editor.js owns the conversation editor, and session-tools.js owns the per-session tool
+catalog. shell.js remains the chat frame and popup presenter.
+The composer More menu places Tools immediately before Context Compact. Selecting Tools requests the
+current target's real session catalog in the background and shows no loading sheet; only its matching
+completed answer opens the DetailSheet. The sheet mirrors Compose SessionToolsDialog: available groups
+have disclosure rows and sibling switches, expandable tool descriptions, group icons, tool counts and
+token costs, while unavailable groups show their reason without a switch or disclosure. The header
+reports selected and total tool counts and the selected definitions' token total, including the shared
+tool-use preamble. Group toggles use the canonical session editor capture. Existing conversations
+transform their linked settings without replacing unrelated fields; New Chat updates its browser-session
+overrides and carries them into the frozen first-send workspace.
+Catalog requests and toggles are fenced by the exact conversation target, connection ID, composer seq
+and catalog revision. The server runs one connection's command loop serially and returns same-revision
+snapshots in command order. The browser applies each toggle optimistically, consumes one ordered reply,
+then reapplies the still-unanswered toggle suffix so an earlier reply cannot roll back a newer switch.
+A new catalog request, target selection, connection change or disconnect invalidates old replies and
+clears pending optimistic operations. Unknown and unavailable groups cannot emit toggle commands.
+Group expansion uses a clipped 400ms height/fade transition and chevron rotation; a tool description
+uses a clipped 400ms height interpolation starting at its visible two-line height and ending at the
+full text height. A hidden group records its real height when it becomes visible instead of seeding
+the description animation with zero. App Reduced Motion alone snaps spatial geometry and description
+height while retaining the allowed group fade. Browser and OS motion preferences do not participate.
+The Compact dialog carries `data-editor="compact"`. Its title uses onSurface and Compose's
+23px/29px Bold headlineSmall metrics. Compact-model supporting text uses bodySmall at 11px/16px with
+0.4px tracking, a 4px top inset and 16px horizontal insets. When Preserve Context disables the model
+field, the whole disabled shell matches OutlinedTextField: its floating label, value, dropdown icon and
+supporting text use onSurface at 38% alpha, and its outline drops to onSurface at 12%.
 Effective tool controls use the same pure Compose projection of global preferences, provider
 availability and per-conversation overrides. Existing-conversation edits transform the canonical
 SettingsRepository value instead of replacing unrelated fields; New Chat overrides remain in the
@@ -1445,6 +1600,11 @@ Settings entry/anchor motion uses DefaultSpatial (700, 0.9); exit uses FastEffec
 translating the full measured surface rather than clipping its height. Reduced Motion snaps travel.
 The body uses 16px insets and a 24px trailing spacer; panel text and rows follow the native
 ThinkingControlPanel/OpenAiServiceTierControlPanel, including 32px header-to-slider spacing.
+The chat Thinking editor always retains its Advanced entry and Budget switch. Unsupported model
+budgets remain visible but disabled, without changing saved choices or request capability policy.
+Both clients use the same nearest budget preset for the slider value label, keep the effective
+budget in the summary, commit only changed slider values on release, and keep the Thinking editor
+entry available while an unrelated command is pending. Pending commands still fence mutations.
 Context composition retains its header spacing and uses 16px from the bar to the legend, with
 6px between legend rows. Advanced parameter columns have no extra inter-row grid gap, use 6px
 vertical padding and the native labelMedium/labelSmall header geometry.
@@ -1531,6 +1691,10 @@ Message/detail bodies and real input/textarea content remain selectable; control
 nonselection must not disable their native selection, copy, focus or scrolling.
 The sign-in Brand and New Chat welcome use the native WebUI Settings `Icons.Default.Web` browser-window glyph.
 All image entries reuse the existing AttachmentViewer, including Tool images and PDF pages.
+On touch screens a quick, mostly horizontal single-finger flick changes the item (at least 48px
+sideways, under 800ms, and only while the picture is unzoomed, so a zoomed picture keeps its pan).
+The picture element survives an item change and the previous frame stays painted until the next
+source decodes, so switching never flashes an empty viewport or the loading spinner.
 The pinned Panzoom 4.6.0 runtime and its MIT license are bundled under webui/vendor, never fetched
 from a CDN. Panzoom owns pointer pan, focal wheel zoom and touch pinch inside a fixed clipped viewport.
 Double-click toggles 1x/3x around the pointer with Compose's non-bouncy medium-low spring
@@ -1569,6 +1733,14 @@ Authenticated same-origin reads resolve only that message's app-private media an
 browser path. Missing media shows a terminal unavailable thumbnail. The shared viewer opens the
 tapped occurrence. Streaming answer/code text uses draw-only time alpha (500 ms linear); the answer
 tail dot remains independent. Compact rows render their capsule regardless of legacy participant.
+Horizontally scrolling browser strips fade the edge that still hides content, matching the native
+attachment row and heatmap: a shared 24px mask covers the user attachment row, the composer
+attachment row, message KaTeX display blocks and any `.edge-fade-x` owner. `edge-fade.js` writes
+`--edge-fade-left`/`--edge-fade-right` from `scrollWidth`, `clientWidth` and `scrollLeft` (RTL
+included), and follows scroll, size changes and late loading through a `MutationObserver` and load
+listener. A strip whose content fits, or whose end is reached, keeps that edge at 0; both weights
+cross-fade in 200ms, and Reduced Motion keeps that fade like every other browser fade because it is
+draw-only and never changes layout or scroll extent.
 The shared browser DetailSheet uses SmoothBottomSheet's fraction spring (350, damping 0.9) for
 entry, anchor changes and retained exit. Scrim alpha is 0.32 times that same fraction. Its handle
 interrupts the spring; close returns focus only after the sheet reaches zero. Option labels use the
@@ -1602,6 +1774,11 @@ with and quotes the Material 3 1.4.0 token each came from, `progress.js` exports
 `material.css` owns the matching CSS. `index.html` loads `material.css` after `style.css` and before
 `theme.css`, so a theme override still wins. Duplicated spinner markup, hand-painted arcs and per-call-site
 slider math are gone, and a call site restates no Material number.
+Circular progress uses `primary` by default, including inline Tool/Markdown images, full-screen
+media and HTML preview loading. Image previews use the native shared 3 dp/px stroke: Tool/Markdown
+thumbnails keep a 28 dp/px ring, and full-screen media keeps the default 40 dp/px ring. Explicit
+foreground overrides are limited to the corresponding Compose control's content color, such as
+Composer buttons, selected drawer rows and Compact; a black media backdrop does not imply white.
 Circular progress has one owner for both states: a determinate ring paints a `SecondaryContainer` track
 under its arc and an indeterminate ring paints no track, matching `CircularProgressIndicatorTokens`. The
 indeterminate ring is one global `6000 ms` linear turn, a `90°` linear step over `300 ms` every
@@ -1644,7 +1821,7 @@ rows show selectable literal content and accessible pending/in-progress/complete
 Both surfaces use RadioButtonUnchecked for pending, Schedule for in-progress and the filled
 CheckCircle for completed at 20dp/px; a standalone checkmark does not represent completed Todo status.
 There are no checkbox toggles, edits or browser mutation commands: only the model's ordinary
-`update_todo` tool changes the list. Closing a sheet does not modify it.
+`todo_update` tool changes the list. Closing a sheet does not modify it.
 Typography follows the existing interaction and detail surfaces rather than inherited defaults:
 the native capsule title is `titleSmall` with explicit Bold, its count is `labelMedium`, and the
 sheet title uses `ChatType.detailTitle` (22sp/28sp Bold). The native sheet count remains
@@ -1680,10 +1857,11 @@ another timeline scroll owner. Shared shell focus, selection, motion and Reduced
 ## 39. Subagent Navigation
 Ordinary conversations may own one level of isolated child conversations. Native and WebUI place
 individual 48dp/px Subagent capsules after Todo in the shared horizontal tools row, with 8dp/px
-gaps and the established titleSmall typography. Subagents keep ascending durable creation-time order;
-new children append after existing children, and message/title/status updates never reorder them.
+gaps and the established titleSmall typography at its Medium weight. Subagents keep ascending durable
+creation-time order; new children append after existing children, and message/title/status updates
+never reorder them.
 Equal creation times use the stable child ID as a deterministic tie-breaker. Native, WebUI and
-list_agents consume the same parent-scoped ordering. Each capsule has a 4dp-equivalent shadow, a small
+agent_list consume the same parent-scoped ordering. Each capsule has a 4dp-equivalent shadow, a small
 localized Subagent label above its name, and ordinary runtime status. Idle, successfully completed
 and SUBAGENT message-source markers use the same AccountTree branch icon, not a completion check;
 running uses the existing progress indicator, failed uses ErrorOutline and stopped uses PauseCircleOutline
@@ -1709,21 +1887,33 @@ clear/disposal. Compact and automatic continuation must not transiently report c
 same admitted Subagent task is still working; status follows its canonical work lifecycle, not animation.
 Settings > Subagents offers Capsule display: Individual or Grouped (default), applied immediately
 on native and WebUI. This presentation preference does not change delegation admission or family data.
-Individual retains one capsule per child. Grouped hides at zero, keeps the existing direct child capsule
-at one, and uses one localized count capsule (`2 Subagents`, etc.) for two or more. Any working child
-shows the existing progress indicator; when none works, the aggregate uses AccountTree regardless of
-individual terminal states. A selected child activates the aggregate; the parent does not.
+Individual retains one capsule per child. Grouped hides at zero and keeps direct child navigation
+at one; two or more children share a count capsule and open the existing child sheet.
+On native and WebUI, one grouped child always displays its own name, regardless of status. Only when
+there are two or more children does the capsule display localized `X Running` while any child has the
+canonical `running` status, using only that running count; otherwise it displays localized `X Subagents`
+using the total child count. Native plurals cover every supported locale; browser labels follow its
+existing English/Simplified Chinese language selection.
+Running consumes the existing repository status projection: a durable Run with `activeSlot = 1`
+or a registered Subagent worker is `running`, including a worker waiting for generation admission
+or crossing Compact/ordinary handoffs. Queued messages alone do not count. The existing progress
+indicator follows that same status without changing its crossfade.
+When none works, the aggregate uses AccountTree regardless of individual terminal states.
+A selected child activates the aggregate; the parent does not.
 The grouped entry keeps one stable family key across single/count changes. Its title/count and status
 crossfade over250ms, including adding/removing a child, single-to-count transitions and interrupted
 updates, without replaying entrance or briefly losing the surface. Selection colors retain the same
-250ms transition. Natural width changes use the existing shared-row geometry owner; no second width,
-scroll or lifecycle authority is introduced. Reduced Motion retains opacity fades and snaps spatial
-changes. Individual title changes also crossfade in place with the existing status slot.
+250ms transition. Native capsule title/count changes reuse the title capsule's 400ms identity clip:
+content keeps stable constraints on a canvas capped at 240dp while the rounded visible edge and
+occupied width move together. Interrupted titles retarget from the current edge. The shared row
+follows that visible width directly, retaining its existing scroll, placement and lifecycle owners
+without adding a second width animation. Reduced Motion retains the 250ms opacity fades and snaps
+spatial changes. Individual title changes use the same clip and crossfade with the fixed status slot.
 At two or more, tapping the grouped capsule opens the shared SmoothBottomSheet with the existing
 Todo-style header and scrollable32dp bottom/navigation inset. Rows show each child's name and status
 in the same creation order; the current child has selected colors/semantics. Both surfaces use
 24dp/px rounded option backgrounds and ripple, a 24sp/px / 32sp/px Bold sheet title, and
-16sp/px / 24sp/px SemiBold child-name titles. The count/status retain their existing label metrics.
+16sp/px / 24sp/px Medium child-name titles and Medium status labels, never a heavier face.
 Selecting a row invokes
 ordinary conversation selection and dismisses the sheet; it never starts or restarts an agent. The
 sheet closes if the family/connection becomes invalid, mode changes, or fewer than two children
@@ -1842,7 +2032,10 @@ FastOutSlowIn curve. This reveal takes priority over geometry-anchor preservatio
 a minimized card or switching its current request page. Request removal, ordinary recomposition and
 other owners' requests do not retrigger it. User input cancels programmatic travel; Reduced Motion
 snaps to the start. Shell confirmation remains the first page followed by questions in request order;
-request-kind-prefixed identity, drafts and exact independent actions prevent one kind from resolving
+its native code block uses the shared `surfaceContainerLow` background for both header and body
+against the card's `surfaceContainerHigh`, preserving a distinct theme-adaptive code surface.
+Language-label fallback and header styling follow the shared streaming Markdown contract without a
+shell-only color override. Request-kind-prefixed identity, drafts and exact independent actions prevent one kind from resolving
 the other. Reduced Motion snaps spatial changes and retains permitted fades. Tests cover list/search exclusion without deleting children,
 narrow/wide horizontal overflow, interrupted motion, click/return, parent highlight/reselection,
 drawer drag/pinning, stale events, clear/disconnect and native measurement release. Phone UI
@@ -1860,8 +2053,8 @@ Thinking segment -> Auto-Expand Appearance row order with unchanged predicates, 
 0 dp gradient lead with unchanged 40 dp width and 20 dp expanded behavior, and scoped Settings-arrow
 absence with preserved category/Sandbox/Provider click destinations, Sandbox Switch, and custom
 protocol badge. PDF rasterization verification must cover one shared opaque-white bitmap initializer
-used by both render paths, initialization before every framework page render, and unchanged
-scaling/JPEG/page-selection/progress/cancellation behavior. Full-screen text-preview verification
+used by both render paths, initialization before every framework page render, shared image-artifact
+sizing/encoding, exact page-selection/progress/cancellation behavior and preview/request reuse. Full-screen text-preview verification
 must cover current App-font inheritance in
 both Markdown and ordinary-text paths, exact 1.1 Markdown line-height scaling, explicit Bold H1-H6,
 unchanged Markdown font sizes, and the unchanged 13 sp / 20 sp ordinary-text metrics. It must also

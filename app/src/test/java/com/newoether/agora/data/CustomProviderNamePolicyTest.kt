@@ -12,8 +12,10 @@ class CustomProviderNamePolicyTest {
         val builtInNames = listOf(
             Constants.PROVIDER_GOOGLE,
             Constants.PROVIDER_OPENAI,
+            Constants.PROVIDER_CHATGPT,
             Constants.PROVIDER_ANTHROPIC,
             Constants.PROVIDER_DEEPSEEK,
+            Constants.PROVIDER_DEEPSEEK_ACCOUNT,
             Constants.PROVIDER_QWEN,
             Constants.PROVIDER_GROQ,
             Constants.PROVIDER_OLLAMA,

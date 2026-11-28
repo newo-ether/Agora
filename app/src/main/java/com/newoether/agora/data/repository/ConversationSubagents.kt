@@ -10,14 +10,29 @@ import com.newoether.agora.model.SubagentSummary
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+
+/** Presentation only: activity remains owned by generation, automation and delegation Jobs. */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+fun ConversationRepository.observeDrawerGeneratingConversationIds(
+    foregroundIds: Flow<Set<String>>,
+    automationIds: Flow<Set<String>>,
+): Flow<Set<String>> = combine(foregroundIds, automationIds, subagentJobs, subagentGenerationIds) { foreground, automation, jobs, admitted ->
+    foreground + automation + jobs.keys + admitted
+}.distinctUntilChanged().flatMapLatest { activeIds ->
+    if (activeIds.isEmpty()) flowOf(emptySet())
+    else chatDao.observeSubagentParentIds(activeIds).map { parentIds -> activeIds + parentIds }
+}.distinctUntilChanged()
 
 suspend fun ConversationRepository.pendingSubagentResults(parentId: String) =
     chatDao.pendingSubagentResults(parentId)
 
 fun ConversationRepository.observeSubagents(parentId: String): Flow<List<SubagentSummary>> =
-    chatDao.observeSubagents(parentId).combine(subagentJobs) { children, jobs ->
+    combine(chatDao.observeSubagents(parentId), subagentJobs, subagentGenerationIds) { children, jobs, admitted ->
         children.map { child ->
-            if (child.id in jobs) child.copy(status = "running") else child
+            if (child.id in jobs || child.id in admitted) child.copy(status = "running") else child
         }
     }.distinctUntilChanged()
 fun ConversationRepository.observeParentConversationId(id: String): Flow<String?> =
@@ -141,7 +156,7 @@ internal suspend fun ConversationRepository.commitSubagentWaitReceipts(
         if (message.participant != com.newoether.agora.model.Participant.USER) return@forEach
         val call = runCatching {
             kotlinx.serialization.json.Json.decodeFromString<List<com.newoether.agora.model.MessageSegment>>(raw)
-        }.getOrNull()?.singleOrNull { it.type == "tool" && it.toolName == "wait_agents" } ?: return@forEach
+        }.getOrNull()?.singleOrNull { it.type == "tool" && com.newoether.agora.tool.BuiltInToolNames.canonical(it.toolName.orEmpty()) == "agent_wait" } ?: return@forEach
         val root = runCatching {
             kotlinx.serialization.json.Json.parseToJsonElement(checkNotNull(call.toolResult)) as? kotlinx.serialization.json.JsonObject
         }.getOrNull() ?: return@forEach

@@ -291,11 +291,12 @@ Changes touching citations must prove:
    thinking-sheet typography, grouped subset-sheet reuse, full-list summary-sheet preservation,
    complete ordered bottom-sheet contents, transparent rows with pill-clipped ripple, safe
    click/detail behavior, selection fallback, Copy output, and accessibility labels.
-7. Citation-title global search uses stable primary-key keyset pages and a bounded newest-first
-   top-K accumulator. The SQL drives from messages with its id seek before joining conversations;
-   query-plan tests prevent a per-page eligible-corpus scan and temporary ORDER BY sort. It preserves
-   limit/title-only semantics, handles equal timestamps without
-   gaps or duplicates, and never loads or decodes the whole citation corpus at once. A no-match
-   query may scan all bounded pages; a future title index requires a separately reviewed migration.
+7. Global citation-title search shares the literal history path in `semantic-search.md`: bounded
+   newest-first `(timestamp, id)` keyset pages select identities through the timestamp/id index before
+   applying eligibility or loading citation JSON. Enough matches stop the scan immediately; only
+   winners are hydrated. Query-plan tests prevent a per-page corpus sort or unindexed scan. Preserve
+   title-only semantics, equal-timestamp ordering, literal query behavior and cancellation without
+   loading or decoding the whole citation corpus at once. A miss may scan all short pages. The
+   additive timestamp/id index is not a citation-title index and does not backfill citation payloads.
 8. Complete scoped diff review, `git diff --check`, focused tests, the project full build, and
    deployment of the exact successful APK for owner UI testing.

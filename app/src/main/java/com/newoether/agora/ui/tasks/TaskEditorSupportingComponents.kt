@@ -17,12 +17,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
@@ -117,7 +117,7 @@ internal fun TaskMonthDayPickerDialog(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Medium,
                         )
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
                     }
                     AgoraDropdownMenu(
                         expanded = showMonthMenu,
@@ -131,7 +131,7 @@ internal fun TaskMonthDayPickerDialog(
                                 leadingIcon = {
                                     if (month == selectedMonth) {
                                         Icon(
-                                            Icons.Default.Check,
+                                            Icons.Rounded.Check,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
                                         )
@@ -526,7 +526,7 @@ internal fun ExecutionRow(
             },
             leadingContent = {
                 Icon(
-                    Icons.Default.History,
+                    Icons.Rounded.History,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -538,7 +538,7 @@ internal fun ExecutionRow(
                         onClick = { menuOpen = true },
                     ) {
                         Icon(
-                            Icons.Default.MoreVert,
+                            Icons.Rounded.MoreVert,
                             contentDescription = stringResource(R.string.options),
                         )
                     }
@@ -557,7 +557,7 @@ internal fun ExecutionRow(
                             },
                             leadingIcon = {
                                 Icon(
-                                    Icons.Default.Delete,
+                                    Icons.Rounded.Delete,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.error,
                                 )
@@ -658,7 +658,7 @@ internal fun TaskSystemPromptRow(
             )
         },
         leadingContent = {
-            Icon(Icons.Default.Psychology, null, tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Rounded.Psychology, null, tint = MaterialTheme.colorScheme.primary)
         },
     )
 }

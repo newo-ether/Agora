@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import com.newoether.agora.ui.components.smoothSheetBottomPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,8 +51,15 @@ internal fun ConversationGroupedSubagentCapsule(
 ) {
     val first = agents.firstOrNull() ?: return
     val single = agents.singleOrNull()
-    val title = single?.title ?: pluralStringResource(R.plurals.subagents_count, agents.size, agents.size)
-    val status = single?.status ?: if (agents.any { it.status == "running" }) "running" else "idle"
+    val runningCount = agents.count { it.status == "running" }
+    val title = if (single != null) {
+        single.title
+    } else if (runningCount > 0) {
+        pluralStringResource(R.plurals.subagents_running_count, runningCount, runningCount)
+    } else {
+        pluralStringResource(R.plurals.subagents_count, agents.size, agents.size)
+    }
+    val status = single?.status ?: if (runningCount > 0) "running" else "idle"
     SubagentNavigationCapsule(
         title = title, status = status, selected = agents.any { it.id == conversationId }, active = active,
         identity = "group:${first.parentConversationId}",
@@ -108,8 +115,8 @@ internal fun ConversationSubagentsSheet(
     ) {
         LazyColumn(
             state = list,
-            modifier = Modifier.fillMaxSize().navigationBarsPadding().testTag("subagents-sheet-list"),
-            contentPadding = PaddingValues(bottom = 32.dp),
+            modifier = Modifier.fillMaxSize().testTag("subagents-sheet-list"),
+            contentPadding = PaddingValues(bottom = smoothSheetBottomPadding()),
         ) {
             items(agents, key = { it.id }) { agent ->
                 val selected = agent.id == conversationId
@@ -135,7 +142,7 @@ internal fun ConversationSubagentsSheet(
                         SubagentStatus(agent.status, "subagents-sheet-status:${agent.id}")
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(agent.title, style = MaterialTheme.typography.titleMedium.copy(
-                                fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium,
                             ))
                             Text(
                                 subagentStatusLabel(agent.status), style = MaterialTheme.typography.labelMedium,

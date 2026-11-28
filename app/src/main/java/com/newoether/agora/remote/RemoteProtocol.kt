@@ -1,5 +1,6 @@
 package com.newoether.agora.remote
 
+import com.newoether.agora.data.inferModelAlias
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
@@ -21,7 +22,7 @@ internal data class RemoteSessionStatus(
 @Serializable
 internal data class RemoteMessage(
     val id: String, val turnId: String, val clientId: String?, val role: String,
-    val text: String, val timestamp: Long,
+    val text: String, val timestamp: Long?,
     val activity: RemoteActivity? = null,
     val groupId: String? = null,
     val nativeId: String? = null, val textOffset: Int = 0, val textContinues: Boolean = false,
@@ -58,7 +59,8 @@ internal data class RemoteConversationPage(
 )
 /** Input confirmed by the native owner, independent of bounded presentation pages. */
 @Serializable
-internal data class RemoteInputReceipt(val clientId: String, val turnId: String, val messageId: String)
+internal data class RemoteInputReceipt(val clientId: String, val turnId: String = "", val messageId: String = "",
+    val kind: String = "", val state: String = "")
 @Serializable
 internal data class RemoteRuntime(
     val status: String, val activeTurnId: String? = null, val model: String? = null,
@@ -66,15 +68,32 @@ internal data class RemoteRuntime(
     val completedTurnId: String? = null,
     val effort: String? = null, val serviceTier: String? = null,
     val serviceTierKnown: Boolean = false, val activeTurnHasUserMessage: Boolean = false,
+    val settingsChange: RemoteSettingsChange? = null,
+    val title: String? = null,
 ) { val isRunning: Boolean get() = status == "active" || status == "running" }
 @Serializable
 internal data class RemoteModel(
     val id: String, val name: String, val isDefault: Boolean = false,
     val reasoningEfforts: List<String>? = null, val defaultReasoningEffort: String? = null,
     val serviceTiers: List<RemoteServiceTier>? = null, val defaultServiceTier: String? = null,
-)
+) {
+    fun displayName(family: String): String = name.takeIf(String::isNotBlank)?.let {
+        if (family == "codex") it.replace('-', ' ') else it
+    } ?: inferModelAlias(id)
+}
 @Serializable
 internal data class RemoteServiceTier(val id: String, val name: String, val description: String = "")
+@Serializable
+internal data class RemoteSettingsChange(
+    val id: String, val state: String, val requested: RemoteSettings,
+    val actualModel: String = "", val actualEffort: String = "", val turnId: String = "",
+)
+@Serializable
+internal data class RemoteSendReceipt(
+    val turnId: String = "", val clientId: String, val kind: String = "", val state: String = "",
+    val messageId: String = "",
+)
+@Serializable
 internal data class RemoteSettings(
     val model: String? = null, val effort: String? = null,
     val serviceTier: String? = null, val updateServiceTier: Boolean = false,

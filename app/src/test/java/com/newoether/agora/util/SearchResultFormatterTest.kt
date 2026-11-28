@@ -152,6 +152,40 @@ class SearchResultFormatterTest {
     }
 
     @Test
+    fun format_conversationReadIgnoresLegacyDetails() {
+        val message = """{"participant":"MODEL","text":"answer","thinking":[{"text":"saved thought"}],"tool_calls":[{"name":"shell_exec","arguments":"args","result":"output","structured_result":"structured payload","image_transcription":"image text"}],"tool_calls_has_more":true,"tool_calls_next_offset":20,"details_error":"invalid_stored_segments"}"""
+        val formatted = SearchResultFormatter.format("""{"type":"conversation_read","messages":[$message]}""", context)
+        assertTrue(formatted.contains("answer"))
+        for (text in listOf(
+            "saved thought", "shell_exec", "args", "output",
+            "structured payload", "image text", "tool_offset", "invalid_stored_segments",
+            "More tool calls", "Could not read stored message details",
+        )) {
+            assertFalse(formatted, formatted.contains(text))
+        }
+    }
+
+    @Test
+    fun format_conversationSearchIgnoresLegacyDetailsAndKeepsPreviewLimits() {
+        val message = """{"participant":"MODEL","text":"answer","thinking":[{"text":"saved thought"}],"tool_calls":[{"name":"shell_exec","arguments":"args","result":"output","structured_result":"structured payload","image_transcription":"image text"}],"tool_calls_has_more":true,"tool_calls_next_offset":20,"details_error":"invalid_stored_segments"}"""
+        val previews = (2..4).joinToString(",") { """{"participant":"USER","text":"preview $it"}""" }
+        val windows = (1..6).joinToString(",") { """{"title":"Window $it","match_count":1,"messages":[$message,$previews]}""" }
+        val formatted = SearchResultFormatter.format("""{"type":"conversation_search","results":[$windows]}""", context)
+        assertTrue(formatted.contains("Found 6 matches"))
+        assertEquals(5, Regex("## Window").findAll(formatted).count())
+        for (text in listOf("answer", "preview 2", "preview 3")) {
+            assertTrue(formatted, formatted.contains(text))
+        }
+        for (text in listOf(
+            "Window 6", "preview 4", "saved thought", "shell_exec", "args", "output",
+            "structured payload", "image text", "tool_offset", "invalid_stored_segments",
+            "More tool calls", "Could not read stored message details",
+        )) {
+            assertFalse(formatted, formatted.contains(text))
+        }
+    }
+
+    @Test
     fun format_conversationRead_emptyPageOmitsRange() {
         val json = """{"type":"read_conversation","title":"T","total_messages":99,"offset":99,"has_more":false,"messages":[]}"""
         val result = SearchResultFormatter.format(json, context)

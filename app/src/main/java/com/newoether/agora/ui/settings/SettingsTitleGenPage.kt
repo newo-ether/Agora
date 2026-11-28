@@ -7,10 +7,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.modelAliasDisplayName
 import com.newoether.agora.data.modelDisplayName
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.ui.components.optionClickable
@@ -54,7 +55,7 @@ fun SettingsTitleGenPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             SettingsItem(
                                 headlineContent = { Text(stringResource(R.string.title_gen_auto)) },
                                 supportingContent = { Text(stringResource(R.string.title_gen_auto_desc)) },
-                                leadingContent = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary) },
+                                leadingContent = { Icon(Icons.Rounded.Edit, null, tint = MaterialTheme.colorScheme.primary) },
                                 trailingContent = {
                                     Switch(checked = titleGenEnabled, onCheckedChange = { viewModel.settings.setTitleGenerationEnabled(it) })
                                 },
@@ -67,11 +68,11 @@ fun SettingsTitleGenPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     headlineContent = { Text(stringResource(R.string.title_gen_model)) },
                                     supportingContent = {
                                         val displayName = if (titleGenModel == null) stringResource(R.string.title_gen_current_model) else {
-                                            modelDisplayName(titleGenModel!!, modelAliases, customProviders, modelProviderNames[titleGenModel] != false)
+                                            modelDisplayName(titleGenModel!!, modelAliases, customProviders, modelProviderNameShown(titleGenModel, modelProviderNames))
                                         }
                                         Text(displayName)
                                     },
-                                    leadingContent = { Icon(Icons.Default.Chat, null, tint = MaterialTheme.colorScheme.primary) },
+                                    leadingContent = { Icon(Icons.Rounded.Layers, null, tint = MaterialTheme.colorScheme.primary) },
                                     modifier = Modifier.clickable { showTitleModelDialog = true }
                                 )
                             }
@@ -86,7 +87,7 @@ fun SettingsTitleGenPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Notifications,
+                                        Icons.Rounded.Notifications,
                                         null,
                                         tint = MaterialTheme.colorScheme.primary,
                                     )

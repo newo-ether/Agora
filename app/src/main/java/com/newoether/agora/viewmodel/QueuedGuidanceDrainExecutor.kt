@@ -95,7 +95,12 @@ internal class QueuedGuidanceDrainExecutor(
     suspend fun drainAfterSettlement(state: ConversationGenerationState) {
         val claim = state.queueMutationMutex.withLock {
             if (!state.consumeQueueDrainPermission()) return@withLock null
-            state.claimQueuedSends()?.let { lease -> claimUnderLock(state, lease) }
+            val originOwnerToken = state.handoffOwnerToken()
+            try {
+                state.claimQueuedSends()?.let { lease -> claimUnderLock(state, lease) }
+            } finally {
+                state.finishRunHandoff(originOwnerToken, queuedDrainOnly = true)
+            }
         } ?: return
         launchClaim(state, claim)
     }
@@ -175,6 +180,10 @@ internal class QueuedGuidanceDrainExecutor(
                             conversationId = conversationId,
                             runId = runId,
                             modelId = selectedInput.modelId,
+                            automationCaller = activeBatch.any { send -> send.source?.kind in setOf(
+                                com.newoether.agora.model.MessageSource.Kind.TASK,
+                                com.newoether.agora.model.MessageSource.Kind.LOOP,
+                            ) || send.generationSnapshot?.context?.automationCaller == true },
                         )
                     val generationSnapshot = narrowQueuedGuidancePermissions(activeBatch, capturedSnapshot)
                     val topology =

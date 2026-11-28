@@ -2,6 +2,7 @@ package com.newoether.agora.viewmodel
 
 import com.newoether.agora.api.ProviderConfig
 import com.newoether.agora.data.BuiltInPrompts
+import com.newoether.agora.data.local.ChatEntity
 import com.newoether.agora.data.local.MessageContextTopology
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.local.ProviderContextTopologySnapshot
@@ -46,7 +47,7 @@ class ConversationCompactControllerTest {
         )
         coVerify(exactly = 0) {
             conversations.getProviderContextTopologySnapshot(any())
-            conversations.getContextMessagesByIds(any())
+            conversations.withReadSnapshot<Any?>(any())
         }
     }
 
@@ -102,13 +103,20 @@ class ConversationCompactControllerTest {
         assertEquals("compact", launchRequest.captured.requestKind)
         assertFalse(launchRequest.captured.touchConversationOnAdmission)
         assertNull(launchRequest.captured.conversationModelId)
+        assertPreservedGenerationControls(launchRequest.captured.snapshot.config)
         assertEquals("compact prompt", launchRequest.captured.snapshot.config.effectiveSystemPrompt)
         assertEquals(
             BuiltInPrompts.CONTEXT_COMPACT_USER,
             launchRequest.captured.snapshot.config.initialUserPrompt,
         )
         assertTrue(launchRequest.captured.queueDrainRequiresSuccess)
+        assertFalse(launchRequest.captured.continuesAfterSuccess)
+        assertEquals(1L, started!!.uiToken)
         assertFalse(launchRequest.captured.alreadyHoldsConversationLock)
+        val disabledControls = compactSnapshot().config.copy(
+            thinkingEnabled = false,
+            thinkingBudgetEnabled = false,
+        )
         controller(
             conversations,
             operation,
@@ -118,13 +126,18 @@ class ConversationCompactControllerTest {
         ).startAutomaticStandard(
             conversationId = "conversation",
             contextLimit = 4096,
-            config = automaticConfig(),
+            config = automaticConfig().copy(generationConfig = disabledControls),
             state = state,
             alreadyHoldsConversationLock = true,
+            continuesAfterSuccess = true,
         )
         // Headless Task callers forward their held automation lease to the ordinary launcher.
         assertTrue(launchRequest.captured.alreadyHoldsConversationLock)
-        assertFalse(launchRequest.captured.snapshot.config.thinkingEnabled)
+        assertTrue(launchRequest.captured.continuesAfterSuccess)
+        assertEquals(disabledControls, launchRequest.captured.snapshot.config.copy(
+            effectiveSystemPrompt = disabledControls.effectiveSystemPrompt,
+            initialUserPrompt = disabledControls.initialUserPrompt,
+        ))
         assertFalse(launchRequest.captured.snapshot.context.webSearchEnabled)
         assertFalse(launchRequest.captured.snapshot.context.shellEnabled)
         val finalText = launchRequest.captured.transformFinalText(
@@ -141,6 +154,9 @@ class ConversationCompactControllerTest {
     @Test
     fun preservedCompactKeepsCapturedSystemPromptAndPrefixesCompactPromptIntoUserMessage() = runBlocking {
         val conversations = mockk<ConversationRepository>()
+        // Preserve Context follows the conversation's model instead of a separate Compact model.
+        coEvery { conversations.getConversation("conversation") } returns
+            mockk<ChatEntity> { every { modelId } returns "provider:model" }
         val operation = FakeCompactOperation()
         val manager = mockk<GenerationManager>()
         val launcher = mockk<StandardGenerationContinuationLauncher>()
@@ -161,7 +177,7 @@ class ConversationCompactControllerTest {
                 runId = any(),
                 modelId = "provider:model",
             )
-        } returns testGenerationAdmissionSnapshot(
+        } returns compactSnapshot(
             conversationId = "conversation",
             runId = "compact-preflight-run",
         )
@@ -220,6 +236,7 @@ class ConversationCompactControllerTest {
 
         assertTrue(result is CompactResult.Created)
         assertNull(launchRequest.captured.conversationModelId)
+        assertPreservedGenerationControls(launchRequest.captured.snapshot.config)
         assertEquals(
             "system",
             launchRequest.captured.snapshot.config.effectiveSystemPrompt,
@@ -269,7 +286,7 @@ class ConversationCompactControllerTest {
                 runId = any(),
                 modelId = "provider:model",
             )
-        } returns testGenerationAdmissionSnapshot(
+        } returns compactSnapshot(
             conversationId = "conversation",
             runId = "compact-preflight-run",
         )
@@ -311,6 +328,7 @@ class ConversationCompactControllerTest {
         assertEquals("compact", launchRequest.captured.requestKind)
         assertTrue(launchRequest.captured.touchConversationOnAdmission)
         assertNull(launchRequest.captured.conversationModelId)
+        assertPreservedGenerationControls(launchRequest.captured.snapshot.config)
         assertEquals(suffix, before.single { it.id == suffix.id })
         coVerify(exactly = 0) {
             conversations.createRunWithMessages(any(), any(), any(), any(), any(), any())
@@ -496,7 +514,7 @@ class ConversationCompactControllerTest {
                 runId = any(),
                 modelId = "provider:model",
             )
-        } returns testGenerationAdmissionSnapshot(
+        } returns compactSnapshot(
             conversationId = "conversation",
             runId = "compact-preflight-run",
         )
@@ -582,8 +600,39 @@ class ConversationCompactControllerTest {
         continuationLauncher = { launcher },
     )
 
-    private fun automaticConfig(): AutomaticCompactConfig =
-        testGenerationAdmissionSnapshot().automaticCompact
+    private fun compactSnapshot(
+        conversationId: String = "conversation",
+        runId: String = "run",
+    ): GenerationAdmissionSnapshot {
+        val snapshot = testGenerationAdmissionSnapshot(conversationId = conversationId, runId = runId)
+        val controls = snapshot.config.copy(
+            thinkingEnabled = true,
+            thinkingLevel = "high",
+            thinkingBudgetEnabled = true,
+            thinkingBudgetTokens = 16384,
+            temperature = 0.7f,
+            maxTokens = 12345,
+            topP = 0.8f,
+            frequencyPenalty = 0.2f,
+            presencePenalty = 0.3f,
+            openAiServiceTier = "priority",
+            promptCacheKeyEnabled = true,
+            anthropicCacheTtl = "5m",
+        )
+        return snapshot.copy(config = controls,
+            automaticCompact = snapshot.automaticCompact.copy(generationConfig = controls))
+    }
+
+    private fun assertPreservedGenerationControls(actual: GenerationConfig) {
+        val expected = compactSnapshot().config
+        assertEquals(expected, actual.copy(
+            effectiveSystemPrompt = expected.effectiveSystemPrompt,
+            initialUserPrompt = expected.initialUserPrompt,
+            rejectToolCalls = expected.rejectToolCalls,
+        ))
+    }
+
+    private fun automaticConfig(): AutomaticCompactConfig = compactSnapshot().automaticCompact
 
     private fun sourceEntity(
         id: String = "source",

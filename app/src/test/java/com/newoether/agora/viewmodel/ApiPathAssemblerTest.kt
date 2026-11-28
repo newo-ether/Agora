@@ -1,17 +1,17 @@
 package com.newoether.agora.viewmodel
 
-import com.newoether.agora.api.OpenAiResponsesRequest
-import com.newoether.agora.api.gemini.geminiModelMessageParts
-import com.newoether.agora.api.openai.requireValidWireFormat
-import com.newoether.agora.api.openai.toResponsesInput
-import com.newoether.agora.api.util.Base64FileRegistry
-import com.newoether.agora.api.util.convertToOpenAiMessages
+import com.newoether.agora.api.ProviderConfig
+import com.newoether.agora.api.captureProviderRequest
+import com.newoether.agora.api.gemini.GeminiProvider
+import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.data.local.MessageEntity
+import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -309,13 +309,14 @@ class ApiPathAssemblerTest {
             val next = message("next", "m", Participant.USER, 2)
             val path = listOf(user, model, next)
             val assembled = ApiPathAssembler.assemble(path, path)
-            val input = convertToOpenAiMessages(
-                projectProviderMessages(assembled, includeStoredTranscriptions = false),
-                base64Files = Base64FileRegistry(),
-            ).toResponsesInput(providerName = "OpenAI", targetModel = "gpt-test")
-
-            OpenAiResponsesRequest(model = "gpt-test", input = input)
-                .requireValidWireFormat("OpenAI")
+            val request = captureProviderRequest(
+                provider = CustomOpenAiProvider("OpenAI", "https://example.test/v1"),
+                messages = projectProviderMessages(assembled, includeStoredTranscriptions = false),
+                config = ProviderConfig(
+                    apiKey = "test-key", modelId = "gpt-test", responsesApiEnabled = true,
+                ),
+            )
+            val input = request.getValue("input").jsonArray.map { it.jsonObject }
             val outputs = input.filter {
                 it["type"]?.jsonPrimitive?.content == "function_call_output"
             }
@@ -330,7 +331,17 @@ class ApiPathAssemblerTest {
             assertEquals(listOf(expected, expected), outputs.map {
                 it["output"]?.jsonPrimitive?.content
             })
-            assertEquals(rawItems, input.subList(1, 5))
+            // The public provider also applies the existing legacy tool-name wire mapping.
+            val wireItems = rawItems.map { item ->
+                if (item["name"]?.jsonPrimitive?.content == "wait_for_job") {
+                    kotlinx.serialization.json.JsonObject(
+                        item + ("name" to kotlinx.serialization.json.JsonPrimitive("shell_job_wait")),
+                    )
+                } else {
+                    item
+                }
+            }
+            assertEquals(wireItems, input.subList(1, 5))
             assertEquals(2, input.count { it["type"]?.jsonPrimitive?.content == "function_call" })
             val retained = Json.decodeFromString<List<MessageSegment>>(
                 requireNotNull(assembled.first { it.id == "m" }.toolCallJson),
@@ -390,14 +401,27 @@ class ApiPathAssemblerTest {
                     assembled, includeStoredTranscriptions = false,
                 ).last()
                 assertEquals(hosted, projected.segments)
-                val nativeParts = geminiModelMessageParts(projected)
+                val request = captureProviderRequest(
+                    provider = GeminiProvider(),
+                    messages = listOf(
+                        ChatMessage(id = "wire-start", text = "Run the code", participant = Participant.USER),
+                        projected,
+                        ChatMessage(id = "wire-end", text = "Continue", participant = Participant.USER),
+                    ),
+                    config = ProviderConfig(apiKey = "test-key", modelId = "gemini-test"),
+                )
+                val nativeParts = request.getValue("contents").jsonArray
+                    .single { it.jsonObject["role"]?.jsonPrimitive?.content == "model" }.jsonObject
+                    .getValue("parts").jsonArray.map { it.jsonObject }
                 assertEquals(
                     "print(1)",
-                    nativeParts.single { it.executableCode != null }.executableCode?.code,
+                    nativeParts.single { "executableCode" in it }
+                        .getValue("executableCode").jsonObject["code"]?.jsonPrimitive?.content,
                 )
                 assertEquals(
                     "1",
-                    nativeParts.single { it.codeExecutionResult != null }.codeExecutionResult?.output,
+                    nativeParts.single { "codeExecutionResult" in it }
+                        .getValue("codeExecutionResult").jsonObject["output"]?.jsonPrimitive?.content,
                 )
                 assertTrue(model.toolCallJson.orEmpty().contains("isProviderHostedTool").not())
             }

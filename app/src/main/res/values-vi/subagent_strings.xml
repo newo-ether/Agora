@@ -22,6 +22,9 @@
     <string name="subagents_max_concurrent">Tác nhân con đồng thời</string>
     <string name="subagents_max_concurrent_desc">Số tác nhân con tối đa chạy cùng lúc cho mỗi cuộc trò chuyện cha. Công việc vượt giới hạn sẽ chờ; giảm giới hạn này vẫn cho phép các tác nhân đang chạy hoàn thành.</string>
     <string name="subagents_limit_value">%1$d</string>
+    <plurals name="subagents_running_count">
+        <item quantity="other">%d đang chạy</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="other">%d tác nhân con</item>
     </plurals>

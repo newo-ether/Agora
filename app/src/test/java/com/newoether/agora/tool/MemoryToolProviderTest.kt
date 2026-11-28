@@ -31,23 +31,48 @@ class MemoryToolProviderTest {
     )
 
     @Test
-    fun definitionsExposeSevenMemoryToolsAndExplicitEditOperation() {
+    fun diskPathsAndMissingEntriesSuggestDiskToolsAndActiveReplaceStaysExplicit() = runTest {
+        for (tool in listOf("memory_read", "memory_edit", "read_memory_file", "edit_memory_file")) {
+            val result = provider.executeOneShotResult(tool, """{"name":"C:/notes.md","operation":"replace","content":"x"}""", enabled)
+            assertTrue(result.isError)
+            assertTrue(result.text.contains("file_read") && result.text.contains("server"))
+        }
+        val editWithExtraNames = provider.executeOneShotResult(
+            "memory_edit", """{"name":"C:/notes.md","names":["notes.md"],"operation":"replace","content":"x"}""", enabled,
+        )
+        assertTrue(editWithExtraNames.isError)
+        every { memoryManager.editFile("missing.md", any(), any(), any(), any(), any()) } throws
+            IllegalArgumentException("File not found: missing.md")
+        assertTrue(provider.executeOneShotResult(
+            "memory_edit", """{"name":"missing.md","operation":"replace","content":"x"}""", enabled,
+        ).text.contains("file_read"))
+        every { memoryManager.readFile("missing.md") } throws IllegalArgumentException("File not found: missing.md")
+        assertTrue(provider.executeOneShotResult("memory_read", """{"name":"missing.md"}""", enabled).text.contains("file_read"))
+        assertEquals("Updated", provider.execute(
+            "active_memory_update", """{"content":"all","mode":"replace"}""", enabled,
+        ))
+        verify { memoryManager.updateActiveMemory("all", "replace", null, null) }
+        assertEquals("file content", provider.execute("read_memory_file", """{"name":"notes.md"}""", enabled))
+    }
+
+    @Test
+    fun definitionsExposeSevenMemoryToolsAndExplicitOperations() {
         val definitions = provider.definitions(enabled)
         assertEquals(7, definitions.size)
         assertEquals(
             setOf(
-                "list_memory_files",
-                "read_memory_file",
-                "create_memory_file",
-                "edit_memory_file",
-                "delete_memory_file",
-                "read_active_memory",
-                "update_active_memory",
+                "memory_list",
+                "memory_read",
+                "memory_create",
+                "memory_edit",
+                "memory_delete",
+                "active_memory_read",
+                "active_memory_update",
             ),
             definitions.map { it.function.name }.toSet(),
         )
 
-        val edit = definitions.single { it.function.name == "edit_memory_file" }.function.parameters
+        val edit = definitions.single { it.function.name == "memory_edit" }.function.parameters
         assertEquals(listOf("name", "operation"), edit.required)
         assertEquals(
             setOf(
@@ -61,13 +86,17 @@ class MemoryToolProviderTest {
             ),
             edit.properties.keys,
         )
+        val active = definitions.single { it.function.name == "active_memory_update" }.function
+        assertEquals(listOf("content", "mode"), active.parameters.required)
+        assertFalse(active.description.contains("Default is replace"))
+        assertFalse(active.parameters.properties.getValue("mode").description.contains("Default is replace"))
     }
 
     @Test
     fun definitionsRespectMemoryAccessSettings() {
         val activeOnly = enabled.copy(accessSavedMemories = false)
         assertEquals(
-            listOf("read_active_memory", "update_active_memory"),
+            listOf("active_memory_read", "active_memory_update"),
             provider.definitions(activeOnly).map { it.function.name },
         )
         assertTrue(
@@ -79,14 +108,14 @@ class MemoryToolProviderTest {
 
     @Test
     fun listAndReadReturnSavedMemoryData() = runTest {
-        val listResult = provider.execute("list_memory_files", "{}", enabled)
-        assertTrue(listResult.contains("list_memory_files"))
+        val listResult = provider.execute("memory_list", "{}", enabled)
+        assertTrue(listResult.contains("memory_list"))
         assertTrue(listResult.contains("notes.md"))
         assertTrue(listResult.contains("My notes"))
         assertEquals(
             "file content",
             provider.execute(
-                "read_memory_file",
+                "memory_read",
                 """{"name":"notes.md"}""",
                 enabled,
             ),
@@ -98,7 +127,7 @@ class MemoryToolProviderTest {
         assertEquals(
             "Created",
             provider.execute(
-                "create_memory_file",
+                "memory_create",
                 """{"name":"new.md","content":"hello"}""",
                 enabled,
             ),
@@ -110,7 +139,7 @@ class MemoryToolProviderTest {
         assertEquals(
             "Edited",
             provider.execute(
-                "edit_memory_file",
+                "memory_edit",
                 """{"name":"notes.md","operation":"replace","content":"replacement","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ),
@@ -118,7 +147,7 @@ class MemoryToolProviderTest {
         assertEquals(
             "Edited",
             provider.execute(
-                "edit_memory_file",
+                "memory_edit",
                 """{"name":"notes.md","operation":"replace","content":"","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ),
@@ -148,7 +177,7 @@ class MemoryToolProviderTest {
         assertEquals(
             "Edited",
             provider.execute(
-                "edit_memory_file",
+                "memory_edit",
                 """{"name":"notes.md","operation":"patch","content":"","old_string":"old","new_string":"new","new_name":"","description":""}""",
                 enabled,
             ),
@@ -156,7 +185,7 @@ class MemoryToolProviderTest {
         assertEquals(
             "Edited",
             provider.execute(
-                "edit_memory_file",
+                "memory_edit",
                 """{"name":"notes.md","operation":"patch","content":"","old_string":"remove","new_string":"","new_name":"","description":""}""",
                 enabled,
             ),
@@ -186,7 +215,7 @@ class MemoryToolProviderTest {
         assertEquals(
             "Edited",
             provider.execute(
-                "edit_memory_file",
+                "memory_edit",
                 """{"name":"notes.md","operation":"rename","content":"","old_string":"","new_string":"","new_name":"renamed.md","description":""}""",
                 enabled,
             ),
@@ -208,7 +237,7 @@ class MemoryToolProviderTest {
         assertEquals(
             "Edited",
             provider.execute(
-                "edit_memory_file",
+                "memory_edit",
                 """{"name":"notes.md","operation":"describe","content":"","old_string":"","new_string":"","new_name":"","description":"Reference notes"}""",
                 enabled,
             ),
@@ -216,7 +245,7 @@ class MemoryToolProviderTest {
         assertEquals(
             "Edited",
             provider.execute(
-                "edit_memory_file",
+                "memory_edit",
                 """{"name":"notes.md","operation":"describe","content":"","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ),
@@ -250,7 +279,7 @@ class MemoryToolProviderTest {
             """{"name":"notes.md","operation":"move","content":"","old_string":"","new_string":"","new_name":"other.md","description":""}""",
         ).forEach { arguments ->
             assertTrue(
-                provider.execute("edit_memory_file", arguments, enabled)
+                provider.execute("memory_edit", arguments, enabled)
                     .contains("Error", ignoreCase = true),
             )
         }
@@ -260,11 +289,33 @@ class MemoryToolProviderTest {
     }
 
     @Test
+    fun activeMemoryUpdateRequiresAValidExplicitModeWithoutWritingOnFailure() = runTest {
+        listOf(
+            """{"content":"all"}""",
+            """{"content":"all","mode":""}""",
+            """{"content":"all","mode":"replace_all"}""",
+        ).forEach { arguments ->
+            val result = provider.executeOneShotResult("active_memory_update", arguments, enabled)
+            assertTrue(result.isError)
+            assertTrue(result.text.contains("mode", ignoreCase = true))
+        }
+        verify(exactly = 0) { memoryManager.updateActiveMemory(any(), any(), any(), any()) }
+
+        assertEquals(
+            "Updated",
+            provider.execute(
+                "active_memory_update", """{"content":"all","mode":"replace"}""", enabled,
+            ),
+        )
+        verify(exactly = 1) { memoryManager.updateActiveMemory("all", "replace", null, null) }
+    }
+
+    @Test
     fun updateActiveMemoryPatch() = runTest {
         assertEquals(
             "Updated",
             provider.execute(
-                "update_active_memory",
+                "active_memory_update",
                 """{"content":"placeholder","mode":"patch","old_string":"foo","new_string":"bar"}""",
                 enabled,
             ),
@@ -275,26 +326,26 @@ class MemoryToolProviderTest {
     @Test
     fun successfulErrorPrefixedReadAndValidationFailureHaveExplicitMetadata() = runTest {
         every { memoryManager.readFile("notes.md") } returns "Error: documented example"
-        val success = provider.executeEvents("read_memory_file", """{"name":"notes.md"}""", enabled)
+        val success = provider.executeEvents("memory_read", """{"name":"notes.md"}""", enabled)
             .toList().single() as ToolExecutionEvent.Completed
         assertFalse(success.result.isError)
         assertEquals("Error: documented example", success.result.text)
-        val failure = provider.executeEvents("read_memory_file", "{}", enabled)
+        val failure = provider.executeEvents("memory_read", "{}", enabled)
             .toList().single() as ToolExecutionEvent.Completed
         assertTrue(failure.result.isError)
-        assertTrue(failure.result.text.contains("No file name"))
+        assertTrue(failure.result.text.contains("No entry name"))
     }
 
     @Test
     fun readActiveMemoryReturnsStoredText() = runTest {
         every { memoryManager.getActiveMemory() } returns "# index\n- a.md"
-        assertEquals("# index\n- a.md", provider.execute("read_active_memory", "{}", enabled))
+        assertEquals("# index\n- a.md", provider.execute("active_memory_read", "{}", enabled))
     }
     @Test
     fun handlesOnlyMemoryTools() {
-        assertTrue(provider.handles("list_memory_files"))
-        assertTrue(provider.handles("read_active_memory"))
-        assertTrue(provider.handles("update_active_memory"))
+        assertTrue(provider.handles("memory_list"))
+        assertTrue(provider.handles("active_memory_read"))
+        assertTrue(provider.handles("active_memory_update"))
         assertFalse(provider.handles("web_search"))
         assertFalse(provider.handles("unknown_tool"))
     }

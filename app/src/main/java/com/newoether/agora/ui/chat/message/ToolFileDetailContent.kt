@@ -118,21 +118,52 @@ internal fun FileReadResult(body: ToolDetailBody.FileContent) {
 
 @Composable
 internal fun FileEditResult(body: ToolDetailBody.Edit) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        body.path?.let { ToolPathHeader(it, modifier = Modifier.weight(1f, fill = false)) }
-        body.editCount?.let { MetaPill(it) }
+    if (body.files.isEmpty()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            body.path?.let { ToolPathHeader(it, modifier = Modifier.weight(1f, fill = false)) }
+            body.editCount?.let { MetaPill(it) }
+        }
+        Spacer(Modifier.height(8.dp))
+        FileEditHunks(body.hunks, body.replaceAllLabel)
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            body.files.forEach { file ->
+                Column {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ToolPathHeader(file.path, modifier = Modifier.weight(1f))
+                        MetaPill(file.operationLabel)
+                    }
+                    file.moveTo?.let {
+                        Spacer(Modifier.height(6.dp))
+                        ToolPathHeader(it)
+                    }
+                    if (file.hunks.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        FileEditHunks(file.hunks, body.replaceAllLabel)
+                    }
+                }
+            }
+        }
     }
     Spacer(Modifier.height(8.dp))
+    ToolMutedContent(body.status)
+}
+
+@Composable
+internal fun FileEditHunks(hunks: List<ToolDetailDiffHunk>, replaceAllLabel: String) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        body.hunks.forEach { hunk ->
+        hunks.forEach { hunk ->
             Column {
                 if (hunk.index != null || hunk.replaceAll) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         hunk.index?.let { MetaPill("#$it") }
-                        if (hunk.replaceAll) MetaPill(body.replaceAllLabel, emphasized = true)
+                        if (hunk.replaceAll) MetaPill(replaceAllLabel, emphasized = true)
                     }
                     Spacer(Modifier.height(4.dp))
                 }
@@ -140,8 +171,6 @@ internal fun FileEditResult(body: ToolDetailBody.Edit) {
             }
         }
     }
-    Spacer(Modifier.height(8.dp))
-    ToolMutedContent(body.status)
 }
 
 @Composable

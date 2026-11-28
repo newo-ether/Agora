@@ -72,7 +72,7 @@ class RemoteUsageSheetTest {
                 assertEquals(restoredId, vm.state.value.deviceId)
                 assertEquals(true, vm.state.value.capabilities.usage)
             }
-            compose.setContent { MaterialTheme { RemoteScreen(vm, settings, true, {}, {}, { _, _ -> }) } }
+            compose.setContent { MaterialTheme { RemoteScreen(vm, settings, true, {}, { _, _ -> }) } }
             compose.onNodeWithContentDescription(text(R.string.remote_usage)).performClick()
             val expected = if (available) RuntimeEnvironment.getApplication()
                 .getString(R.string.remote_usage_remaining, 51) else text(R.string.remote_usage_unavailable)

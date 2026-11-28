@@ -220,4 +220,34 @@
         <item quantity="other">عدد نتائج البحث: %1$d</item>
     </plurals>
     <string name="tool_json_empty_container">لا يوجد محتوى</string>
+    <string name="tool_search_mcp_tools">البحث عن أدوات MCP</string>
+    <string name="tool_searching_mcp_tools">جارٍ البحث عن أدوات MCP…</string>
+    <string name="tool_searching_mcp_tools_for">جارٍ البحث عن أدوات MCP لـ %1$s…</string>
+    <string name="tool_searched_mcp_tools">تم البحث عن أدوات MCP</string>
+    <string name="tool_no_mcp_tools">لم يتم العثور على أدوات MCP مطابقة</string>
+    <plurals name="tool_found_mcp_tools">
+        <item quantity="zero">تم العثور على %1$d من أدوات MCP</item>
+        <item quantity="one">تم العثور على %1$d من أدوات MCP</item>
+        <item quantity="two">تم العثور على %1$d من أدوات MCP</item>
+        <item quantity="few">تم العثور على %1$d من أدوات MCP</item>
+        <item quantity="many">تم العثور على %1$d من أدوات MCP</item>
+        <item quantity="other">تم العثور على %1$d من أدوات MCP</item>
+    </plurals>
+    <string name="tool_list_mcp_servers">عرض قائمة خوادم MCP</string>
+    <string name="tool_listing_mcp_servers">جارٍ عرض قائمة خوادم MCP…</string>
+    <string name="tool_listed_mcp_servers_default">تم عرض قائمة خوادم MCP</string>
+    <string name="tool_no_mcp_servers_returned">لم يتم إرجاع أي خوادم MCP</string>
+    <string name="tool_list_mcp_servers_failed">تعذر عرض قائمة خوادم MCP</string>
+    <plurals name="tool_listed_mcp_servers">
+        <item quantity="zero">تم عرض %1$d من خوادم MCP</item>
+        <item quantity="one">تم عرض %1$d من خوادم MCP</item>
+        <item quantity="two">تم عرض %1$d من خوادم MCP</item>
+        <item quantity="few">تم عرض %1$d من خوادم MCP</item>
+        <item quantity="many">تم عرض %1$d من خوادم MCP</item>
+        <item quantity="other">تم عرض %1$d من خوادم MCP</item>
+    </plurals>
+    <string name="tool_edit_operation_update">تحديث</string>
+    <string name="tool_edit_operation_add">إضافة</string>
+    <string name="tool_edit_operation_delete">حذف</string>
+    <string name="tool_edit_operation_move">نقل</string>
 </resources>

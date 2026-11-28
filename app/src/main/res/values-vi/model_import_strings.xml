@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="embedding_import_title">Nhập mô hình nhúng (.gguf)</string>
+    <string name="embedding_import_title">Mô hình nhúng (.gguf)</string>
     <string name="embedding_import_desc">Nhập mô hình nhúng GGUF để tìm kiếm ngữ nghĩa cục bộ</string>
-    <string name="local_chat_import_title">Nhập mô hình trò chuyện (.gguf)</string>
+    <string name="local_chat_import_title">Mô hình trò chuyện (.gguf)</string>
     <string name="local_chat_import_desc">Nhập mô hình trò chuyện GGUF để chạy các cuộc hội thoại trên thiết bị này</string>
-    <string name="local_projector_import_title">Nhập bộ chiếu thị giác (.mmproj)</string>
+    <string name="model_import_not_imported">Chưa nhập · %1$s</string>
+    <string name="model_import_file_missing">Không tìm thấy tệp</string>
+    <string name="local_projector_enabled">Đã bật đầu vào hình ảnh</string>
 </resources>

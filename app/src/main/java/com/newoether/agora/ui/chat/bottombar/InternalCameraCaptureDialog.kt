@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Close
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -166,7 +166,7 @@ internal fun InternalCameraCaptureDialog(
                     .background(Color.Black.copy(alpha = 0.42f), CircleShape),
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = Icons.Rounded.Close,
                     contentDescription = null,
                     tint = Color.White,
                 )

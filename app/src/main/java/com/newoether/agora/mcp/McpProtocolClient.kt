@@ -1,6 +1,8 @@
 package com.newoether.agora.mcp
 
 import com.newoether.agora.data.McpTransportType
+import com.newoether.agora.util.NetworkRetryPolicy
+import com.newoether.agora.util.NetworkHttpException
 import com.newoether.agora.util.Constants
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -107,6 +109,8 @@ internal class McpProtocolClient(
     suspend fun callTool(name: String, arguments: JsonObject): McpCallPayload = mutex.withLock {
         retryAfterSessionExpiry {
             ensureInitializedLocked()
+        }
+        try {
             val result = requestLocked(
                 method = "tools/call",
                 params = buildJsonObject {
@@ -115,6 +119,12 @@ internal class McpProtocolClient(
                 },
             )
             parseCallPayload(result)
+        } catch (error: McpSessionExpiredException) {
+            // Recover for the next independent invocation without replaying this tool request.
+            initialized = false
+            initializedGeneration = null
+            transport.resetSession()
+            throw error
         }
     }
 
@@ -125,7 +135,7 @@ internal class McpProtocolClient(
     }
 
     private suspend fun ensureInitializedLocked() {
-        val generation = transport.ensureReady()
+        val generation = ensureReadyWithRetry()
         if (initialized && initializedGeneration == generation) return
         initialized = false
         initializedGeneration = null
@@ -143,7 +153,7 @@ internal class McpProtocolClient(
                 transport.resetSession()
             }
             try {
-                initializeLocked(transport.ensureReady())
+                initializeLocked(ensureReadyWithRetry())
                 return
             } catch (error: IOException) {
                 if (!isUnsupportedMcpProtocolVersion(error) || index == candidates.lastIndex) {
@@ -156,6 +166,19 @@ internal class McpProtocolClient(
             }
         }
         throw unsupported ?: IOException("MCP protocol negotiation failed")
+    }
+
+    private suspend fun ensureReadyWithRetry(): Long {
+        var retryAfter: String? = null
+        return NetworkRetryPolicy.retry(
+            canRetry = { failure ->
+                retryAfter = (failure as? NetworkHttpException)?.retryAfter
+                failure is McpSessionExpiredException ||
+                    (failure is NetworkHttpException && failure.statusCode in NetworkRetryPolicy.HTTP_CODES) ||
+                    NetworkRetryPolicy.isTransient(failure)
+            },
+            retryAfter = { retryAfter },
+        ) { transport.ensureReady() }
     }
 
     private suspend fun initializeLocked(generation: Long) {
@@ -214,15 +237,35 @@ internal class McpProtocolClient(
             put("method", method)
             put("params", params)
         }
-        val response = transport.send(
-            envelope = envelope,
-            expectResponse = true,
-            callTimeoutMillis = if (method == "tools/call") {
-                Constants.TOOL_EXECUTION_TIMEOUT_MS
-            } else {
-                Constants.NETWORK_TOOL_TIMEOUT_MS
+        val progress = com.newoether.agora.util.NetworkRequestProgress()
+        var retryAfter: String? = null
+        val response = NetworkRetryPolicy.retry(
+            canRetry = { failure ->
+                retryAfter = (failure as? NetworkHttpException)?.retryAfter
+                when {
+                    failure is McpSessionExpiredException -> false
+                    failure is NetworkHttpException -> failure.statusCode in NetworkRetryPolicy.HTTP_CODES
+                    // A tool call has side effects: replay it only when the server never answered
+                    // and the failure was not a timeout, so the tool cannot run twice.
+                    method == "tools/call" ->
+                        NetworkRetryPolicy.isReplayableUnanswered(failure, progress.statusCode)
+                    else -> NetworkRetryPolicy.isTransient(failure)
+                }
             },
-        ) ?: throw IOException("MCP $method returned an empty response")
+            retryAfter = { retryAfter },
+        ) {
+            progress.statusCode = null
+            transport.send(
+                envelope = envelope,
+                expectResponse = true,
+                progress = progress,
+                callTimeoutMillis = if (method == "tools/call") {
+                    Constants.TOOL_EXECUTION_TIMEOUT_MS
+                } else {
+                    Constants.NETWORK_TOOL_TIMEOUT_MS
+                },
+            )
+        } ?: throw IOException("MCP $method returned an empty response")
         val responseId = (response["id"] as? JsonPrimitive)?.contentOrNull
         if (responseId != id.toString()) {
             throw IOException("MCP $method returned mismatched response id")
@@ -238,15 +281,26 @@ internal class McpProtocolClient(
     }
 
     private suspend fun notificationLocked(method: String, params: JsonObject) {
-        transport.send(
-            envelope = buildJsonObject {
-                put("jsonrpc", "2.0")
-                put("method", method)
-                put("params", params)
+        var retryAfter: String? = null
+        NetworkRetryPolicy.retry(
+            canRetry = { failure ->
+                retryAfter = (failure as? NetworkHttpException)?.retryAfter
+                if (failure is NetworkHttpException) failure.statusCode in NetworkRetryPolicy.HTTP_CODES
+                else if (failure is McpSessionExpiredException) false
+                else NetworkRetryPolicy.isTransient(failure)
             },
-            expectResponse = false,
-            callTimeoutMillis = Constants.NETWORK_TOOL_TIMEOUT_MS,
-        )
+            retryAfter = { retryAfter },
+        ) {
+            transport.send(
+                envelope = buildJsonObject {
+                    put("jsonrpc", "2.0")
+                    put("method", method)
+                    put("params", params)
+                },
+                expectResponse = false,
+                callTimeoutMillis = Constants.NETWORK_TOOL_TIMEOUT_MS,
+            )
+        }
     }
 
     private fun parseCallPayload(result: JsonObject): McpCallPayload {

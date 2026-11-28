@@ -19,9 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -103,7 +103,7 @@ internal fun DrawerSearchBar(
                 IconButton(onClick = {
                     if (expanded) collapseSearch() else expanded = true
                 }, modifier = Modifier.size(56.dp)) {
-                    Icon(if (expanded) Icons.AutoMirrored.Filled.ArrowBack else Icons.Default.Search,
+                    Icon(if (expanded) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Search,
                         if (expanded) stringResource(R.string.back) else searchHint,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                 }
@@ -127,7 +127,7 @@ internal fun DrawerSearchBar(
                         androidx.compose.animation.AnimatedVisibility(visible = query.isNotEmpty() && !searching,
                             enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
                             IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.Close, stringResource(R.string.clear_search),
+                                Icon(Icons.Rounded.Close, stringResource(R.string.clear_search),
                                     modifier = Modifier.size(18.dp))
                             }
                         }

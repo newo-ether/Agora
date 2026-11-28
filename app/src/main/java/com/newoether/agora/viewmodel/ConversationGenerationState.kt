@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -62,6 +63,8 @@ class ConversationGenerationState(
     val conversationId: String,
     private val onRegistryActive: (String) -> Unit = {},
     private val onRegistryIdle: (String) -> Unit = {},
+    private val onRunStateChanged: (ConversationGenerationState, RunState, RunState?) -> Unit = { _, _, _ -> },
+    private val onRunHandoffFinished: (ConversationGenerationState, Long) -> Unit = { _, _ -> },
     reclaimQueuedAttachments: (List<com.newoether.agora.model.SelectedAttachment>) -> Unit,
 ) {
 
@@ -140,6 +143,16 @@ class ConversationGenerationState(
     }
 
     fun currentRunId(): String? = synchronized(genLock) { runState.identityOrNull()?.runId }
+    /** Exact mailbox-owned batch authority. A Run ID alone cannot authorize device effects. */
+    fun acceptsToolEffect(identity: RunEffectIdentity): Boolean = synchronized(genLock) {
+        val active = runState as? RunState.Active ?: return@synchronized false
+        scope.isActive && !active.coroutineSettled &&
+            (active.toolPhase as? com.newoether.agora.model.RunToolPhase.Executing)?.batchIdentity == identity
+    }
+    fun controlsRun(runId: String): Boolean = synchronized(genLock) {
+        val active = runState as? RunState.Active
+        scope.isActive && active?.identity?.runId == runId && !active.coroutineSettled
+    }
 
     /** Echo the exact Room acceptance effect back through the mailbox. */
     suspend fun finishInputPersistence(identity: RunEffectIdentity): RunBindingOutcome =
@@ -264,6 +277,7 @@ class ConversationGenerationState(
     fun launchGenerationJob(
         uiToken: Long,
         suppressAutomaticQueueDrain: Boolean = false,
+        retainHandoff: Boolean = false,
         block: suspend CoroutineScope.() -> Unit,
     ): Job? {
         val job = scope.launch(start = CoroutineStart.LAZY, block = block)
@@ -281,6 +295,7 @@ class ConversationGenerationState(
             } else {
                 resources.installGenerationJob(job).also { didInstall ->
                     installed.set(didInstall)
+                    if (didInstall && retainHandoff) resources.retainRunHandoff(uiToken)
                     if (didInstall && suppressAutomaticQueueDrain) {
                         resources.deferNextQueueDrain()
                     }
@@ -563,7 +578,10 @@ class ConversationGenerationState(
     /** Runtime disposal is not a user Stop and therefore does not create a durable Stop effect. */
     internal fun dispose(): List<QueuedSend> {
         val pendingGuidance = guidanceLeases.disposePending()
-        val job = synchronized(genLock) { resources.currentGenerationJob() }
+        val job = synchronized(genLock) {
+            onRunStateChanged(this, runState, null)
+            resources.currentGenerationJob()
+        }
         resources.cancelStreamsAnd(job)
         cancelScope()
         return pendingGuidance
@@ -716,13 +734,41 @@ class ConversationGenerationState(
         onIdle?.invoke(conversationId)
     }
 
+    /** Capture the exact released owner while the reducer still serializes slot replacement. */
+    internal fun handoffOwnerToken(): Long? = synchronized(genLock) {
+        lastReleasedOwnerToken.takeIf { runState is RunState.Idle }
+    }
+
+    internal fun retainRunHandoff(ownerToken: Long) = synchronized(genLock) {
+        resources.retainRunHandoff(ownerToken)
+    }
+
+    internal fun releaseRunHandoffRetention(ownerToken: Long?) = synchronized(genLock) {
+        if (ownerToken != null) resources.releaseRunHandoffRetention(ownerToken)
+    }
+
+    internal fun finishRunHandoff(ownerToken: Long?, queuedDrainOnly: Boolean = false) = synchronized(genLock) {
+        if (ownerToken != null && (!queuedDrainOnly || !resources.isRunHandoffRetained(ownerToken))) {
+            resources.releaseRunHandoffRetention(ownerToken)
+            onRunHandoffFinished(this, ownerToken)
+        }
+    }
+
+    private var lastReleasedOwnerToken: Long? = null
+
     /** Must be called while [genLock] is held. This is the only process-slot state write path. */
     private fun reduceLocked(command: ConversationCommand): com.newoether.agora.model.Transition {
         val oldState = runState
         val transition = ConversationRuntimeReducer.reduce(oldState, command)
         val traceEntry = runtimeTrace.record(oldState, command, transition)
         DeveloperDiagnostics.recordRuntimeTransition(traceEntry)
-        if (transition.accepted) runState = transition.newState
+        if (transition.accepted) {
+            if (transition.newState is RunState.Idle) {
+                lastReleasedOwnerToken = oldState.identityOrNull()?.ownerToken ?: lastReleasedOwnerToken
+            }
+            runState = transition.newState
+            onRunStateChanged(this, oldState, runState)
+        }
         return transition
     }
 

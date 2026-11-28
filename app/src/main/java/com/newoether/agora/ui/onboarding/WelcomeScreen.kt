@@ -33,7 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -80,6 +80,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.newoether.agora.R
+import com.newoether.agora.data.BUILT_IN_REMOTE_PROVIDERS
 import com.newoether.agora.data.CustomEndpointProtocol
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.LocalChatModelConfig
@@ -236,8 +237,10 @@ fun WelcomeScreen(
                                 modelId = modelId,
                                 alias = aliasName,
                                 localFilePath = path,
-                                nCtx = 16384,
-                                maxTokens = 1024,
+                                nCtx = 8192,
+                                temperature = 1.0f,
+                                topP = 0.95f,
+                                maxTokens = 4096,
                             )
                         )
                     }
@@ -301,7 +304,10 @@ fun WelcomeScreen(
         val p = selectedProvider ?: return@save
         when {
             p == Constants.PROVIDER_LOCAL -> { /* handled by GGUF import */ }
-            p == Constants.PROVIDER_OLLAMA -> if (apiKeyText.isNotBlank()) viewModel.settings.setProviderBaseUrl(Constants.PROVIDER_OLLAMA, apiKeyText)
+            p == Constants.PROVIDER_OLLAMA -> if (apiKeyText.isNotBlank()) {
+                viewModel.settings.setProviderBaseUrl(Constants.PROVIDER_OLLAMA, apiKeyText)
+                viewModel.settings.addBuiltInProvider(p)
+            }
             isCustomProvider -> {
                 if (baseUrlText.isNotBlank()) {
                     val existing = customProviders.firstOrNull { it.name == p }
@@ -316,7 +322,10 @@ fun WelcomeScreen(
                 }
                 if (apiKeyText.isNotBlank()) viewModel.settings.upsertApiKey(p, apiKeyText, p)
             }
-            else -> if (apiKeyText.isNotBlank()) viewModel.settings.upsertApiKey(p, apiKeyText, p)
+            else -> if (apiKeyText.isNotBlank()) {
+                viewModel.settings.upsertApiKey(p, apiKeyText, p)
+                if (p in BUILT_IN_REMOTE_PROVIDERS) viewModel.settings.addBuiltInProvider(p)
+            }
         }
     }
 
@@ -694,7 +703,7 @@ private fun AutoBackupPage(enabled: Boolean, onToggle: (Boolean) -> Unit, modifi
     Surface(modifier, RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 2.dp) {
         Column(Modifier.padding(32.dp).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
+                Icon(Icons.Rounded.Schedule, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(36.dp))
                 Spacer(Modifier.width(12.dp))
                 Text(stringResource(R.string.auto_backup_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             }

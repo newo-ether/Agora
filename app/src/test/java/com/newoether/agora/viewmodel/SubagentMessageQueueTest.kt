@@ -1,5 +1,6 @@
 package com.newoether.agora.viewmodel
 
+import com.newoether.agora.automation.ConversationExecutionCoordinator
 import com.newoether.agora.data.local.ChatDao
 import com.newoether.agora.data.local.ChatEntity
 import com.newoether.agora.data.repository.ConversationRepository
@@ -35,6 +36,7 @@ class SubagentMessageQueueTest {
             conversationId = "parent", toolEffectIdentity = identity, subagentToolsEnabled = true,
             shellEnabled = true, automationToolsEnabled = true,
         )
+        val coordinator = ConversationExecutionCoordinator({ id -> rows[id]?.parentConversationId })
         var parentActive = true
         val captures = mutableListOf<Triple<String, String, String>>()
         val snapshots = mutableListOf<GenerationAdmissionSnapshot>()
@@ -54,10 +56,93 @@ class SubagentMessageQueueTest {
             registry.attachUiCallbacks(this) { state ->
                 state.onQueueDrainRequested = { drains += it.conversationId }
             }
-            queue = SubagentMessageQueue(conversations, registry, { id, run, model ->
+            queue = SubagentMessageQueue(conversations, registry, coordinator, { id, run, model ->
                 captures += Triple(id, run, model)
                 prepare(id, run, model).also { snapshots += it }
             }, { "queue-${++nextId}" })
+        }
+    }
+
+    @Test fun childrenKeepFrozenPhoneAdmissionAndAutomationLineageFromTheirParent() = runTest {
+        val f = Fixture()
+        try {
+            val parent = f.parentContext.copy(phoneEnabled = true, phoneReady = true, phoneMode = "root",
+                phoneAllowAutomation = false, automationCaller = true)
+            f.queue.enqueue("child", "Follow up", parent)
+            val child = f.registry.get("child")!!.queuedSends.value.single().generationSnapshot!!.context
+            assertTrue(child.phoneEnabled)
+            assertTrue(child.phoneReady)
+            assertEquals("root", child.phoneMode)
+            assertTrue(child.automationCaller)
+            assertFalse(child.phoneAllowAutomation)
+            assertNull(child.toolEffectIdentity)
+            assertTrue(com.newoether.agora.phone.phoneDefinitions(child).isEmpty())
+        } finally { f.registry.cancelAll() }
+    }
+
+    @Test fun idleWakeupAtCapacityFailsBeforeSnapshotOrQueueAndBusyChildReusesAllowance() = runTest {
+        val f = Fixture()
+        val releases = (0 until 4).map { f.coordinator.reserveSubagentGeneration("parent", "busy-$it") }
+        try {
+            val failure = runCatching { f.queue.enqueue("child", "Rejected", f.parentContext) }.exceptionOrNull()
+            assertTrue(failure?.message.orEmpty().contains("4/4"))
+            assertTrue(f.captures.isEmpty())
+            assertNull(f.registry.get("child"))
+            assertTrue(f.drains.isEmpty())
+            releases.first().invoke()
+            val childOwner = f.coordinator.reserveSubagentGeneration("parent", "child")
+            f.queue.enqueue("child", "Accepted follow up", f.parentContext)
+            assertEquals(4, f.coordinator.admittedChildCount("parent"))
+            val state = requireNotNull(f.registry.get("child"))
+            childOwner()
+            assertEquals(4, f.coordinator.admittedChildCount("parent"))
+            state.dismissQueuedSend(state.queuedSends.value.single().id)
+            assertEquals(3, f.coordinator.admittedChildCount("parent"))
+        } finally {
+            f.registry.cancelAll()
+            releases.forEach { it() }
+        }
+    }
+
+    @Test fun wakeupReservationSurvivesClaimRollbackAndTransfersToOrdinaryGeneration() = runTest {
+        val f = Fixture()
+        try {
+            f.queue.enqueue("child", "Follow up", f.parentContext)
+            val state = requireNotNull(f.registry.get("child"))
+            assertEquals(setOf("child"), f.coordinator.admittedGenerationIds.value)
+            val first = requireNotNull(state.claimQueuedSends())
+            assertTrue(state.settleGuidanceClaim(first.id, durable = false))
+            assertEquals(1, f.coordinator.admittedChildCount("parent"))
+            val releaseRun = f.coordinator.acquireGenerationAdmission("child")
+            val next = requireNotNull(state.claimQueuedSends())
+            assertTrue(state.settleGuidanceClaim(next.id, durable = true))
+            assertEquals(1, f.coordinator.admittedChildCount("parent"))
+            releaseRun()
+            assertTrue(f.coordinator.admittedGenerationIds.value.isEmpty())
+            f.queue.enqueue("child", "Dispose me", f.parentContext)
+            f.registry.remove("child")
+            assertEquals(0, f.coordinator.admittedChildCount("parent"))
+        } finally {
+            f.registry.cancelAll()
+        }
+    }
+
+    @Test fun failedOrCancelledWakeupPreparationReleasesCapacity() = runTest {
+        val f = Fixture()
+        try {
+            f.prepare = { _, _, _ -> error("Preparation failed") }
+            assertTrue(runCatching { f.queue.enqueue("child", "Rejected", f.parentContext) }.isFailure)
+            assertEquals(0, f.coordinator.admittedChildCount("parent"))
+            val entered = CompletableDeferred<Unit>()
+            f.prepare = { _, _, _ -> entered.complete(Unit); awaitCancellation() }
+            val pending = async { f.queue.enqueue("child", "Cancelled", f.parentContext) }
+            entered.await()
+            pending.cancel()
+            pending.join()
+            assertEquals(0, f.coordinator.admittedChildCount("parent"))
+            assertTrue(f.registry.get("child")?.queuedSends?.value.orEmpty().isEmpty())
+        } finally {
+            f.registry.cancelAll()
         }
     }
 
@@ -336,7 +421,7 @@ class SubagentMessageQueueTest {
                 result
             }
             var nextId = 0
-            val queue = SubagentMessageQueue(repository, f.registry,
+            val queue = SubagentMessageQueue(repository, f.registry, f.coordinator,
                 { id, run, model -> testGenerationAdmissionSnapshot(id, run, model) }, { "failed-${++nextId}" })
             assertTrue(runCatching { queue.enqueue("child", "Rejected", f.parentContext) }.isFailure)
             assertEquals(listOf(existing), state.queuedSends.value.map(QueuedSend::id))

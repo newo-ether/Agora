@@ -100,4 +100,26 @@
         <item quantity="other">Encontrados %1$d resultados</item>
     </plurals>
     <string name="tool_json_empty_container">Sin contenido</string>
+    <string name="tool_search_mcp_tools">Buscar herramientas MCP</string>
+    <string name="tool_searching_mcp_tools">Buscando herramientas MCP…</string>
+    <string name="tool_searching_mcp_tools_for">Buscando herramientas MCP para %1$s…</string>
+    <string name="tool_searched_mcp_tools">Se buscaron herramientas MCP</string>
+    <string name="tool_no_mcp_tools">No se encontraron herramientas MCP coincidentes</string>
+    <plurals name="tool_found_mcp_tools">
+        <item quantity="one">Se encontró %1$d herramienta MCP</item>
+        <item quantity="other">Se encontraron %1$d herramientas MCP</item>
+    </plurals>
+    <string name="tool_list_mcp_servers">Listar servidores MCP</string>
+    <string name="tool_listing_mcp_servers">Listando servidores MCP…</string>
+    <string name="tool_listed_mcp_servers_default">Se listaron los servidores MCP</string>
+    <string name="tool_no_mcp_servers_returned">No se devolvieron servidores MCP</string>
+    <string name="tool_list_mcp_servers_failed">No se pudieron listar los servidores MCP</string>
+    <plurals name="tool_listed_mcp_servers">
+        <item quantity="one">Se listó %1$d servidor MCP</item>
+        <item quantity="other">Se listaron %1$d servidores MCP</item>
+    </plurals>
+    <string name="tool_edit_operation_update">Actualizar</string>
+    <string name="tool_edit_operation_add">Añadir</string>
+    <string name="tool_edit_operation_delete">Eliminar</string>
+    <string name="tool_edit_operation_move">Mover</string>
 </resources>

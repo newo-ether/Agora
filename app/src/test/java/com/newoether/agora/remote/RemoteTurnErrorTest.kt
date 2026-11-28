@@ -24,8 +24,9 @@ class RemoteTurnErrorTest {
             assertEquals(error.text, original.errorText)
             assertEquals(answer.text.takeIf { answer in records }, original.answerText)
             assertFalse(original.showLocalContextHelp)
-            assertEquals(records.count { it.activity?.type == "tool" }, failed.segments!!.count { it.type == "tool" })
-            assertEquals("error", failed.segments.last().type)
+            val segments = failed.segments!!
+            assertEquals(records.count { it.activity?.type == "tool" }, segments.count { it.type == "tool" })
+            assertEquals("error", segments.last().type)
             assertFalse(messages.any { it.status in setOf(MessageStatus.THINKING, MessageStatus.TOOL_CALLING, MessageStatus.SENDING) })
         }
     }
@@ -40,6 +41,20 @@ class RemoteTurnErrorTest {
         assertEquals(groups, prepended.takeLast(groups.size))
         val body = projectRemoteMessages(page.messages).last().copy(status = groups.last().stub.status)
         assertEquals(error.text, assistantErrorContent(body, body.segments.orEmpty(), "Fallback")!!.errorText)
+    }
+
+    @Test fun retiredToolDisplayUsesTheSharedGroupedPolicyForNativeRemoteMessages() {
+        val native = projectRemoteMessages(listOf(user, answer, tool, error)).last()
+        fun present(mode: String) = com.newoether.agora.ui.chat.message.assistantContentPresentation(
+            native, false, mode, com.newoether.agora.model.ThinkingSegmentDisplayModes.CARD, "Fallback")
+        val grouped = present(com.newoether.agora.model.ToolCallDisplayModes.GROUPED_TIMELINE)
+        assertEquals(grouped, present("compact"))
+        assertTrue(grouped.useTimelineSegments)
+        assertTrue(grouped.groupAdjacentTimelineTools)
+        assertEquals(error.text, grouped.errorContent!!.errorText)
+        assertEquals(listOf(answer.text), com.newoether.agora.ui.chat.message.timelineBlocks(
+            grouped.orderedSegments, false, grouped.groupOrderedInfoBlocks,
+        ).filterIsInstance<com.newoether.agora.ui.chat.message.TimelineBlock.Answer>().map { it.segment.content })
     }
 
     @Test fun unknownRuntimeDoesNotInventANativeErrorAndANewTurnCanGenerateAfterFailure() {

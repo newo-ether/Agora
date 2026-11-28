@@ -22,6 +22,9 @@
     <string name="subagents_max_concurrent">同時実行数</string>
     <string name="subagents_max_concurrent_desc">親会話ごとに同時実行できるサブエージェントの最大数です。超過分の処理は待機します。上限を下げても、実行中のサブエージェントは完了まで継続します。</string>
     <string name="subagents_limit_value">%1$d</string>
+    <plurals name="subagents_running_count">
+        <item quantity="other">%d 個が実行中</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="other">%d 個のサブエージェント</item>
     </plurals>

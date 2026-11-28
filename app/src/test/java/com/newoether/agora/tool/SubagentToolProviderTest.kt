@@ -22,16 +22,32 @@ class SubagentToolProviderTest {
     @Test fun definitionsExposeOnlyEnabledIdsAndNoToolsInChildrenOrCompact() {
         assertTrue(provider.definitions(context.copy(subagentToolsEnabled = false)).isEmpty())
         val definitions = provider.definitions(context)
-        assertEquals(listOf("spawn_agent", "send_agent_message", "wait_agents", "list_agents", "stop_agent"),
+        assertEquals(listOf("agent_spawn", "agent_send_message", "agent_wait", "agent_list", "agent_stop"),
             definitions.map { it.function.name })
         val description = definitions.first().function.description
         assertTrue(description.contains("Provider:one"))
         assertTrue(description.contains("Provider:two"))
         assertFalse(description.contains("price"))
-        val sendDescription = definitions.single { it.function.name == "send_agent_message" }.function.description
+        val sendDescription = definitions.single { it.function.name == "agent_send_message" }.function.description
         assertTrue(sendDescription.contains("idle or busy"))
         assertTrue(sendDescription.contains("queued item receipt"))
         assertTrue(sendDescription.contains("does not interrupt"))
+    }
+
+    @Test fun deleteToolAppearsAndRunsOnlyWhenItsSettingIsEnabled() = runTest {
+        assertFalse(provider.definitions(context).any { it.function.name == "agent_delete" })
+        assertTrue(provider.executeOneShotResult("agent_delete", """{"agent_id":"child"}""", context).isError)
+        coVerify(exactly = 0) { manager.delete(any(), any()) }
+        val enabled = context.copy(subagentDeleteEnabled = true)
+        assertEquals("agent_delete", provider.definitions(enabled).last().function.name)
+        assertTrue(provider.definitions(enabled.copy(subagentToolsEnabled = false)).isEmpty())
+        coEvery { manager.delete("child", enabled) } returns Unit
+        val result = provider.executeOneShotResult("agent_delete", """{"agent_id":"child"}""", enabled)
+        assertFalse(result.isError)
+        coVerify(exactly = 1) { manager.delete("child", enabled) }
+        coEvery { manager.delete("busy", enabled) } throws IllegalStateException("Subagent is running")
+        val rejected = provider.executeOneShotResult("agent_delete", """{"agent_id":"busy"}""", enabled)
+        assertTrue(rejected.isError && rejected.text.contains("Subagent is running"))
     }
 
     @Test fun configuredCandidatesAndOnlyValidRecommendationsAppearInDescriptions() {
@@ -60,7 +76,7 @@ class SubagentToolProviderTest {
             assertFalse(description.contains("Provider:one") || description.contains("Provider:two"))
             assertFalse(description.contains("Recommended model ID"))
             assertEquals(5, provider.definitions(unavailable).size)
-            assertTrue(provider.executeOneShotResult("spawn_agent",
+            assertTrue(provider.executeOneShotResult("agent_spawn",
                 """{"name":"Worker","model_id":"Provider:one","task":"Task"}""", unavailable).isError)
         }
         coVerify(exactly = 0) { manager.spawn(any(), any(), any(), any()) }
@@ -69,11 +85,11 @@ class SubagentToolProviderTest {
     @Test fun recommendationNeverFillsMissingModelOrOverridesAnExplicitChoice() = runTest {
         val recommended = context.copy(subagentModelIds = context.enabledModelIds,
             subagentRecommendedModel = "Provider:two")
-        assertTrue(provider.executeOneShotResult("spawn_agent",
+        assertTrue(provider.executeOneShotResult("agent_spawn",
             """{"name":"Worker","task":"Task"}""", recommended).isError)
         coVerify(exactly = 0) { manager.spawn(any(), any(), any(), any()) }
         coEvery { manager.spawn("Worker", "Provider:one", "Task", recommended) } returns "child"
-        assertFalse(provider.executeOneShotResult("spawn_agent",
+        assertFalse(provider.executeOneShotResult("agent_spawn",
             """{"name":"Worker","model_id":"Provider:one","task":"Task"}""", recommended).isError)
         coVerify(exactly = 1) { manager.spawn("Worker", "Provider:one", "Task", recommended) }
         coVerify(exactly = 0) { manager.spawn(any(), "Provider:two", any(), any()) }
@@ -81,12 +97,12 @@ class SubagentToolProviderTest {
 
     @Test fun spawnAndWaitReturnExactConversationAndCompletionReceipts() = runTest {
         coEvery { manager.spawn("Worker", "Provider:one", "Task", context) } returns "child"
-        val spawn = Json.parseToJsonElement(provider.execute("spawn_agent",
+        val spawn = Json.parseToJsonElement(provider.execute("agent_spawn",
             """{"name":"Worker","model_id":"Provider:one","task":"Task"}""", context)).jsonObject
         assertEquals("child", spawn["agent_id"]?.jsonPrimitive?.content)
         coEvery { manager.wait(listOf("child"), 50L, context) } returns
             listOf("child" to SubagentCompletion("completion", "completed", "Answer"))
-        val wait = Json.parseToJsonElement(provider.execute("wait_agents",
+        val wait = Json.parseToJsonElement(provider.execute("agent_wait",
             """{"agent_ids":["child"],"timeout_ms":50}""", context)).jsonObject
         assertEquals("completion", wait["subagent_receipts"]?.jsonObject?.get("child")?.jsonPrimitive?.content)
         assertEquals("Answer", wait["results"]?.jsonArray?.single()?.jsonObject?.get("text")?.jsonPrimitive?.content)
@@ -96,7 +112,7 @@ class SubagentToolProviderTest {
         coEvery { manager.wait(listOf("child"), 50L, context) } returns listOf("child" to
             SubagentCompletion("completion", "failed", "Partial answer", "model",
                 errorText = "Connection closed", errorCode = "connection_closed"))
-        val result = Json.parseToJsonElement(provider.execute("wait_agents",
+        val result = Json.parseToJsonElement(provider.execute("agent_wait",
             """{"agent_ids":["child"],"timeout_ms":50}""", context)).jsonObject
         val failure = result.getValue("results").jsonArray.single().jsonObject
         assertEquals("failed", failure.getValue("status").jsonPrimitive.content)
@@ -108,7 +124,7 @@ class SubagentToolProviderTest {
 
     @Test fun sendReturnsExactQueuedReceiptWithoutClaimingExecution() = runTest {
         coEvery { manager.send("child", "Follow up", context) } returns "queued-message"
-        val result = provider.executeOneShotResult("send_agent_message",
+        val result = provider.executeOneShotResult("agent_send_message",
             """{"agent_id":"child","message":"Follow up"}""", context)
         assertFalse(result.isError)
         val receipt = Json.parseToJsonElement(result.text).jsonObject
@@ -120,24 +136,24 @@ class SubagentToolProviderTest {
 
     @Test fun sendFailureReturnsAnErrorWithoutAQueuedReceipt() = runTest {
         coEvery { manager.send("child", "Follow up", context) } throws IllegalStateException("Stale parent pass")
-        val result = provider.executeOneShotResult("send_agent_message",
+        val result = provider.executeOneShotResult("agent_send_message",
             """{"agent_id":"child","message":"Follow up"}""", context)
         assertTrue(result.isError)
         assertTrue(result.text.contains("Stale parent pass"))
         assertFalse(result.text.contains("queued_item_id"))
-        assertTrue(provider.executeOneShotResult("send_agent_message", """{"agent_id":"child"}""", context).isError)
+        assertTrue(provider.executeOneShotResult("agent_send_message", """{"agent_id":"child"}""", context).isError)
         coVerify(exactly = 1) { manager.send(any(), any(), any()) }
     }
 
     @Test fun disabledAndInvalidToolsNeverReachManagerAndCancellationPropagates() = runTest {
-        assertTrue(provider.executeOneShotResult("spawn_agent", "{}", context).isError)
-        assertTrue(provider.executeOneShotResult("list_agents", "{}",
+        assertTrue(provider.executeOneShotResult("agent_spawn", "{}", context).isError)
+        assertTrue(provider.executeOneShotResult("agent_list", "{}",
             context.copy(subagentToolsEnabled = false)).isError)
         coVerify(exactly = 0) { manager.spawn(any(), any(), any(), any()) }
         coVerify(exactly = 0) { manager.list(any()) }
         coEvery { manager.stop("child", context) } throws CancellationException("Stop")
         assertTrue(runCatching {
-            provider.executeOneShotResult("stop_agent", """{"agent_id":"child"}""", context)
+            provider.executeOneShotResult("agent_stop", """{"agent_id":"child"}""", context)
         }.exceptionOrNull() is CancellationException)
     }
 }

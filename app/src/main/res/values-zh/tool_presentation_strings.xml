@@ -129,4 +129,24 @@
         <item quantity="other">找到 %1$d 条结果</item>
     </plurals>
     <string name="tool_json_empty_container">无内容</string>
+    <string name="tool_search_mcp_tools">搜索 MCP 工具</string>
+    <string name="tool_searching_mcp_tools">正在搜索 MCP 工具…</string>
+    <string name="tool_searching_mcp_tools_for">正在搜索与 %1$s 相关的 MCP 工具…</string>
+    <string name="tool_searched_mcp_tools">已搜索 MCP 工具</string>
+    <string name="tool_no_mcp_tools">未找到匹配的 MCP 工具</string>
+    <plurals name="tool_found_mcp_tools">
+        <item quantity="other">找到 %1$d 个 MCP 工具</item>
+    </plurals>
+    <string name="tool_list_mcp_servers">列出 MCP 服务器</string>
+    <string name="tool_listing_mcp_servers">正在列出 MCP 服务器…</string>
+    <string name="tool_listed_mcp_servers_default">已列出 MCP 服务器</string>
+    <string name="tool_no_mcp_servers_returned">未返回 MCP 服务器</string>
+    <string name="tool_list_mcp_servers_failed">列出 MCP 服务器失败</string>
+    <plurals name="tool_listed_mcp_servers">
+        <item quantity="other">已列出 %1$d 个 MCP 服务器</item>
+    </plurals>
+    <string name="tool_edit_operation_update">更新</string>
+    <string name="tool_edit_operation_add">新增</string>
+    <string name="tool_edit_operation_delete">删除</string>
+    <string name="tool_edit_operation_move">移动</string>
 </resources>

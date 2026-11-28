@@ -17,18 +17,18 @@ import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CallSplit
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +54,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.newoether.agora.ui.theme.chatCompactWidth
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.stringResource
 import com.newoether.agora.R
@@ -69,6 +70,14 @@ import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.viewmodel.ChatViewModel
 
 private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
+
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) use thinner capsules.
+private val chatTopBarCapsuleHeight get() = if (chatCompactWidth) 48.dp else 52.dp
+// Compact: 40 dp buttons with a 4 dp inset, so the 48 dp new-chat circle has equal padding on all sides.
+private val chatTopBarButtonInset get() = if (chatCompactWidth) 4.dp else 5.dp
+private val chatTopBarButtonSize get() = if (chatCompactWidth) 40.dp else 44.dp
+// Nudges the leading icon onto the capsule's vertical center line (regular: 5 + 22 - 1 = 26 = 52 / 2).
+private val chatTopBarLeadingNudge get() = chatTopBarCapsuleHeight / 2 - chatTopBarButtonInset - chatTopBarButtonSize / 2
 
 @Composable
 internal fun ChatTopBar(
@@ -289,7 +298,7 @@ internal fun ChatTopBar(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
-                .height(52.dp),
+                .height(chatTopBarCapsuleHeight),
         ) { targetSearchActive ->
             Row(
                 modifier = Modifier
@@ -310,7 +319,7 @@ internal fun ChatTopBar(
                                 modifier = Modifier.size(44.dp),
                             ) {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    Icons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = stringResource(R.string.back),
                                     modifier = Modifier.size(24.dp),
                                 )
@@ -360,7 +369,7 @@ internal fun ChatTopBar(
                                 modifier = Modifier.size(38.dp),
                             ) {
                                 Icon(
-                                    Icons.Default.KeyboardArrowUp,
+                                    Icons.Rounded.KeyboardArrowUp,
                                     contentDescription = null,
                                 )
                             }
@@ -371,7 +380,7 @@ internal fun ChatTopBar(
                                 modifier = Modifier.size(38.dp),
                             ) {
                                 Icon(
-                                    Icons.Default.KeyboardArrowDown,
+                                    Icons.Rounded.KeyboardArrowDown,
                                     contentDescription = null,
                                 )
                             }
@@ -423,8 +432,8 @@ internal fun ChatTopBar(
                     val leadingWidth = if (subtitleLeading != null && tokenSubtitle != null) 14.dp else 0.dp
                     minOf(maxOf(primaryWidth, subtitleWidth + leadingWidth), 180.dp)
                 }
-                val targetTitleCapsuleWidth = if (isNewChatMode) 52.dp else minOf(
-                    5.dp + 44.dp + 5.dp + targetTitleContentWidth + 20.dp,
+                val targetTitleCapsuleWidth = if (isNewChatMode) chatTopBarCapsuleHeight else minOf(
+                    chatTopBarButtonInset + chatTopBarButtonSize + 5.dp + targetTitleContentWidth + 20.dp,
                     TITLE_CAPSULE_MAX_WIDTH_DP.dp,
                 )
                 // Only the rounded clip moves; the title content keeps its final layout.
@@ -472,22 +481,22 @@ internal fun ChatTopBar(
                             modifier = Modifier.fillMaxHeight(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Spacer(modifier = Modifier.width(5.dp))
+                            Spacer(modifier = Modifier.width(chatTopBarButtonInset))
                             IconButton(
                                 onClick = onNavigateBack ?: onOpenDrawer,
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(chatTopBarButtonSize)
                             ) {
                                 Icon(
                                     imageVector = if (onNavigateBack != null) {
-                                        Icons.AutoMirrored.Filled.ArrowBack
+                                        Icons.AutoMirrored.Rounded.ArrowBack
                                     } else {
-                                        Icons.Default.Menu
+                                        Icons.Rounded.Menu
                                     },
                                     contentDescription = stringResource(
                                         if (onNavigateBack != null) R.string.back else R.string.menu
                                     ),
                                     modifier = Modifier.size(26.dp).graphicsLayer {
-                                        translationX = if (onNavigateBack == null) (-1).dp.toPx() else 0f
+                                        translationX = if (onNavigateBack == null) chatTopBarLeadingNudge.toPx() else 0f
                                     },
                                 )
                             }
@@ -547,16 +556,16 @@ internal fun ChatTopBar(
                 ChatTopBarCapsule(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(98.dp)
+                        .width(chatTopBarButtonSize * 2 + chatTopBarButtonInset * 2)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxHeight(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(chatTopBarButtonInset))
                         if (trailingActions != null) trailingActions() else {
-                        IconButton(onClick = onNewChat, enabled = newChatEnabled, modifier = Modifier.size(44.dp)) {
-                            Icon(Icons.Default.Add, contentDescription = newChatDescription ?: stringResource(R.string.new_chat), modifier = Modifier.size(30.dp))
+                        IconButton(onClick = onNewChat, enabled = newChatEnabled, modifier = Modifier.size(chatTopBarButtonSize)) {
+                            Icon(Icons.Rounded.Add, contentDescription = newChatDescription ?: stringResource(R.string.new_chat), modifier = Modifier.size(30.dp))
                         }
                         Box {
                             IconButton(
@@ -565,10 +574,10 @@ internal fun ChatTopBar(
                                     moreMenuRequest = Any()
                                     moreMenuOpen = true
                                 },
-                                modifier = Modifier.size(44.dp),
+                                modifier = Modifier.size(chatTopBarButtonSize),
                             ) {
                                 Icon(
-                                    Icons.Default.MoreVert,
+                                    Icons.Rounded.MoreVert,
                                     contentDescription = stringResource(R.string.options),
                                     modifier = Modifier.size(26.dp),
                                 )
@@ -585,7 +594,7 @@ internal fun ChatTopBar(
                                 if (moreMenuContent != null) moreMenuContent { moreMenuOpen = false } else {
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.conversation_search)) },
-                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                                     enabled = conversationActionsEnabled,
                                     onClick = {
                                         moreMenuOpen = false
@@ -595,7 +604,7 @@ internal fun ChatTopBar(
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.system_prompt)) },
                                     leadingIcon = {
-                                        Icon(Icons.Default.Psychology, contentDescription = null)
+                                        Icon(Icons.Rounded.Psychology, contentDescription = null)
                                     },
                                     enabled = systemPromptEnabled,
                                     onClick = {
@@ -606,7 +615,7 @@ internal fun ChatTopBar(
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.conversation_fork_menu)) },
                                     leadingIcon = {
-                                        Icon(Icons.Default.CallSplit, contentDescription = null)
+                                        Icon(Icons.Rounded.CallSplit, contentDescription = null)
                                     },
                                     enabled = conversationActionsEnabled,
                                     onClick = {
@@ -617,7 +626,7 @@ internal fun ChatTopBar(
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.conversation_share)) },
                                     leadingIcon = {
-                                        Icon(Icons.Default.Share, contentDescription = null)
+                                        Icon(Icons.Rounded.Share, contentDescription = null)
                                     },
                                     enabled = conversationActionsEnabled,
                                     onClick = {
@@ -627,7 +636,7 @@ internal fun ChatTopBar(
                                 )
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.rename)) },
-                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                    leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
                                     enabled = renameEnabled,
                                     onClick = {
                                         if (latestMenuOpen && menuRequest != null && menuRequest === moreMenuRequest &&
@@ -642,7 +651,7 @@ internal fun ChatTopBar(
                                 AgoraDropdownMenuItem(
                                     text = { Text(stringResource(R.string.delete), color = deleteColor) },
                                     leadingIcon = {
-                                        Icon(Icons.Default.Delete, contentDescription = null, tint = deleteColor)
+                                        Icon(Icons.Rounded.Delete, contentDescription = null, tint = deleteColor)
                                     },
                                     enabled = deleteEnabled,
                                     onClick = {
@@ -659,7 +668,7 @@ internal fun ChatTopBar(
                             }
                         }
                         }
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(chatTopBarButtonInset))
                     }
                 }
                 }

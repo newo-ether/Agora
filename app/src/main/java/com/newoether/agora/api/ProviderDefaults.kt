@@ -25,8 +25,6 @@ object ProviderDefaults {
 
     fun embeddingBaseUrl(provider: String): String = when (provider.lowercase()) {
         "openai" -> OPENAI_BASE_URL
-        // Google exposes an OpenAI-compatible endpoint; /embeddings lives under this base.
-        "google", "gemini" -> "https://generativelanguage.googleapis.com/v1beta/openai"
         "mistral" -> "https://api.mistral.ai/v1"
         "open router", "openrouter" -> "https://openrouter.ai/api/v1"
         "voyage ai", "voyage" -> "https://api.voyageai.com/v1"

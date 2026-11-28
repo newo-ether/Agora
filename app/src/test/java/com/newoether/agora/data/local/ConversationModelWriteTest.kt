@@ -1,7 +1,6 @@
 package com.newoether.agora.data.local
 
 import android.content.Context
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.updateConversationModel
@@ -17,9 +16,9 @@ import org.robolectric.RobolectricTestRunner
 class ConversationModelWriteTest {
     @Test
     fun compactNeverEntersCacheAndLegacyCacheIsReclaimed() = runTest {
-        val database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext<Context>(), ChatDatabase::class.java,
-        ).allowMainThreadQueries().build()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        val database = ChatDatabase.build(context)
         try {
             val dao = database.chatDao()
             val semantic = database.semanticIndexDao()
@@ -34,10 +33,11 @@ class ConversationModelWriteTest {
             dao.insertMessage(compact)
             val ledger = semantic.admitModel("embedding", 1L)
             assertEquals(null, semantic.getSearchableMessageText(compact.id))
-            assertEquals(listOf(ordinary.id), dao.getSearchableMessagesPage(null, 10).map { it.id })
-            assertEquals(listOf(ordinary.id), dao.getUnembeddedMessagesPage("embedding", null, 10).map { it.id })
-            assertEquals(listOf(ordinary.id), semantic.getReconcileMessagesPage(
-                "embedding", ledger.reconcileRevision, null, 10,
+            assertEquals(listOf(ordinary.id), dao.getSearchableMessagesByIds(listOf(ordinary.id, compact.id)).map { it.id })
+            assertEquals(1, dao.getIndexableMessageCount())
+            assertEquals(listOf(ordinary.id), semantic.getReconcileMessagesByIds(
+                "embedding", ledger.reconcileRevision,
+                semantic.getFirstReconcileMessageIdsPage(10), SEMANTIC_SOURCE_PREFIX_BYTES,
             ).map { it.id })
             fun embedding(message: MessageEntity) = EmbeddingEntity(
                 messageId = message.id, modelId = "embedding", embedding = ByteArray(4),
@@ -53,8 +53,8 @@ class ConversationModelWriteTest {
             assertEquals(1, dao.getEmbeddingCountByModel("embedding"))
             assertEquals(listOf(ordinary.id), dao.getEmbeddingSearchPage("embedding", 0L, 1, 10).map { it.messageId })
             val maintenance = database.maintenanceDebtDao()
-            val stale = maintenance.getOrphanEmbeddingIdsPage(0L, 10)
-            assertEquals(1, stale.size)
+            val stale = maintenance.getEmbeddingMaintenanceIdsPage(0L, 10)
+            assertEquals(2, stale.size)
             assertEquals(1, maintenance.deleteOrphanEmbeddingsByIds(stale))
             assertEquals(null, dao.getEmbedding(compact.id))
             assertTrue(dao.getEmbedding(ordinary.id) != null)
@@ -65,9 +65,9 @@ class ConversationModelWriteTest {
 
     @Test
     fun modelWriteKeepsEveryOtherFieldAndNeverRecreatesADeletedOwner() = runTest {
-        val database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext<Context>(), ChatDatabase::class.java,
-        ).allowMainThreadQueries().build()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.deleteDatabase(ChatDatabase.DB_NAME)
+        val database = ChatDatabase.build(context)
         try {
             val dao = database.chatDao()
             val repository = ConversationRepository(dao, database)

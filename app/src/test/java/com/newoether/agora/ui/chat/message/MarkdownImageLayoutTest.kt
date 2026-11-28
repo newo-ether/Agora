@@ -71,7 +71,7 @@ class MarkdownImageLayoutTest {
         }).build())
         compose.setContent { MaterialTheme {
             observedOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-            MarkdownImageThumbnail("direct", MarkdownImage(ToolImageAttachment(file.path, "image/png", file.length(), sha256 = "fixture")), {})
+            MarkdownImageThumbnail("direct", MarkdownImage(ToolImageAttachment(file.path, "image/png", file.length())), {})
         } }
         lifecycle = observedOwner?.lifecycle?.currentState?.name ?: "unobserved"
         try { awaitImageLoad { events.isNotEmpty() } }
@@ -100,7 +100,7 @@ class MarkdownImageLayoutTest {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             bitmap.recycle()
-            return MarkdownImage(ToolImageAttachment(file.path, "image/png", file.length(), width, height, "fixture"))
+            return MarkdownImage(ToolImageAttachment(file.path, "image/png", file.length(), width, height))
         }
         val content = "First frame:\n![first]($first)\n\nSecond frame:\n![second]($second)\n\nEnd."
         compose.setContent {

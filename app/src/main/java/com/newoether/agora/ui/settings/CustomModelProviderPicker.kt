@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.rounded.Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -44,7 +44,7 @@ internal fun CustomModelProviderPicker(
                         modifier = Modifier.size(20.dp),
                     )
                 } else {
-                    Icon(Icons.Default.Cloud, contentDescription = null)
+                    Icon(Icons.Rounded.Api, contentDescription = null)
                 }
             },
             trailingIcon = {
@@ -84,7 +84,7 @@ internal fun CustomModelProviderPicker(
                             )
                         } else {
                             Icon(
-                                Icons.Default.Cloud,
+                                Icons.Rounded.Api,
                                 contentDescription = null,
                             )
                         }

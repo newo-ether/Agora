@@ -1,7 +1,10 @@
 package com.newoether.agora.diagnostics
 
-import com.newoether.agora.api.HttpClient
+import android.util.Log
 import com.newoether.agora.api.StreamEvent
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -13,16 +16,27 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
 
 class DeveloperDiagnosticsTest {
+    @Before
+    fun stubAndroidLog() {
+        mockkStatic(Log::class)
+        every { Log.d(any(), any<String>()) } returns 0
+    }
+
     @After
     fun resetDiagnostics() = runBlocking {
-        DeveloperDiagnostics.disableAndClear()
-        Unit
+        try {
+            DeveloperDiagnostics.disableAndClear()
+            Unit
+        } finally {
+            unmockkStatic(Log::class)
+        }
     }
 
     @Test
@@ -128,7 +142,7 @@ class DeveloperDiagnosticsTest {
     fun `child request trace keeps correlation and marks tool continuation`() {
         runBlocking { DeveloperDiagnostics.startCapture() }
         val context = checkNotNull(requestContext())
-        val trace = HttpClient.RequestTrace(
+        val trace = DeveloperDiagnostics.newRequestTrace(
             requestId = "request-id",
             origin = "chat",
             diagnosticContext = context,
@@ -145,6 +159,33 @@ class DeveloperDiagnosticsTest {
         assertEquals("run-id", event.context.runId)
         assertEquals(3, event.context.pass)
         assertEquals("tool_continuation", event.context.requestKind)
+    }
+
+    @Test
+    fun `trace factory keeps live capture checks and redaction after pause and resume`() {
+        runBlocking { DeveloperDiagnostics.startCapture() }
+        val context = checkNotNull(requestContext())
+        val trace = DeveloperDiagnostics.newRequestTrace("request-id", "chat", context)
+        runBlocking { DeveloperDiagnostics.pauseCapture() }
+
+        trace.mark("paused", "code=200")
+        trace.recordParsedEvent(StreamEvent.TextChunk("must not be retained"))
+        assertTrue(runBlocking { DeveloperDiagnostics.flush() }.events.isEmpty())
+
+        runBlocking { DeveloperDiagnostics.startCapture() }
+        trace.mark("resumed", "code=200 authorization=secret")
+        trace.recordParsedEvent(StreamEvent.TextChunk("visible sk-abcdefghijklmnop"))
+
+        val events = runBlocking { DeveloperDiagnostics.flush() }.events
+        assertEquals(2, events.size)
+        val stage = events[0].payload as DiagnosticEventPayload.HttpStage
+        assertEquals("resumed", stage.stage)
+        assertEquals(mapOf("code" to "200"), stage.attributes)
+        val parsed = events[1].payload as DiagnosticEventPayload.ParsedStreamEvent
+        assertTrue(parsed.content?.value.orEmpty().contains("visible"))
+        assertFalse(parsed.content?.value.orEmpty().contains("sk-abcdefghijklmnop"))
+        assertTrue(parsed.content?.value.orEmpty().contains("[REDACTED_SECRET]"))
+        assertTrue(events.all { it.context == context })
     }
 
     private fun requestContext() = DeveloperDiagnostics.newRequestContext(

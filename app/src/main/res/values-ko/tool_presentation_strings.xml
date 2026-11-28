@@ -130,4 +130,24 @@
         <item quantity="other">결과 %1$d개를 찾음</item>
     </plurals>
     <string name="tool_json_empty_container">콘텐츠 없음</string>
+    <string name="tool_search_mcp_tools">MCP 도구 검색</string>
+    <string name="tool_searching_mcp_tools">MCP 도구 검색 중…</string>
+    <string name="tool_searching_mcp_tools_for">%1$s 관련 MCP 도구 검색 중…</string>
+    <string name="tool_searched_mcp_tools">MCP 도구 검색 완료</string>
+    <string name="tool_no_mcp_tools">일치하는 MCP 도구를 찾지 못했습니다</string>
+    <plurals name="tool_found_mcp_tools">
+        <item quantity="other">MCP 도구 %1$d개 찾음</item>
+    </plurals>
+    <string name="tool_list_mcp_servers">MCP 서버 목록 조회</string>
+    <string name="tool_listing_mcp_servers">MCP 서버 목록 조회 중…</string>
+    <string name="tool_listed_mcp_servers_default">MCP 서버 목록 조회 완료</string>
+    <string name="tool_no_mcp_servers_returned">반환된 MCP 서버가 없습니다</string>
+    <string name="tool_list_mcp_servers_failed">MCP 서버 목록 조회 실패</string>
+    <plurals name="tool_listed_mcp_servers">
+        <item quantity="other">MCP 서버 %1$d개 조회 완료</item>
+    </plurals>
+    <string name="tool_edit_operation_update">수정</string>
+    <string name="tool_edit_operation_add">추가</string>
+    <string name="tool_edit_operation_delete">삭제</string>
+    <string name="tool_edit_operation_move">이동</string>
 </resources>

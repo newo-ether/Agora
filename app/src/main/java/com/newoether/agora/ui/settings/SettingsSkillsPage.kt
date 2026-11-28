@@ -14,11 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -183,7 +183,7 @@ fun SettingsSkillsPage(
                             },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.Extension,
+                                    Icons.Rounded.Extension,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
@@ -238,7 +238,7 @@ fun SettingsSkillsPage(
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Extension,
+                                        Icons.Rounded.Extension,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
                                             alpha = 0.4f,
@@ -267,7 +267,7 @@ fun SettingsSkillsPage(
                                     },
                                     leadingContent = {
                                         Icon(
-                                            Icons.Default.Extension,
+                                            Icons.Rounded.Extension,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary.copy(
                                                 alpha = 0.6f,
@@ -281,7 +281,7 @@ fun SettingsSkillsPage(
                                                 enabled = !skillOperationInFlight,
                                             ) {
                                                 Icon(
-                                                    Icons.Default.MoreVert,
+                                                    Icons.Rounded.MoreVert,
                                                     stringResource(R.string.menu),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
@@ -302,7 +302,7 @@ fun SettingsSkillsPage(
                                                         )
                                                     },
                                                     leadingIcon = {
-                                                        Icon(Icons.Default.Edit, null)
+                                                        Icon(Icons.Rounded.Edit, null)
                                                     },
                                                     enabled = !skillOperationInFlight,
                                                     onClick = {
@@ -350,7 +350,7 @@ fun SettingsSkillsPage(
                                                     },
                                                     leadingIcon = {
                                                         Icon(
-                                                            Icons.Default.Delete,
+                                                            Icons.Rounded.Delete,
                                                             contentDescription = null,
                                                             tint =
                                                                 MaterialTheme.colorScheme.error,
@@ -421,7 +421,7 @@ fun SettingsSkillsPage(
                 },
                 leadingContent = {
                     Icon(
-                        Icons.Default.Description,
+                        Icons.Rounded.Description,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                     )
@@ -453,7 +453,7 @@ fun SettingsSkillsPage(
                 },
                 leadingContent = {
                     Icon(
-                        Icons.Default.Edit,
+                        Icons.Rounded.Edit,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                     )

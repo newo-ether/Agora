@@ -6,17 +6,19 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.PauseCircleOutline
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.PauseCircleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -25,21 +27,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.SubagentSummary
+import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
+import com.newoether.agora.ui.motion.rememberIdentityClipWidth
+import kotlin.math.roundToInt
 
 internal fun subagentStatusIcon(status: String): ImageVector = when (status) {
-    "failed" -> Icons.Default.ErrorOutline
-    "stopped" -> Icons.Default.PauseCircleOutline
-    else -> Icons.Default.AccountTree
+    "failed" -> Icons.Rounded.ErrorOutline
+    "stopped" -> Icons.Rounded.PauseCircleOutline
+    else -> Icons.Rounded.AccountTree
 }
 
 @Composable
@@ -92,35 +104,75 @@ internal fun SubagentNavigationCapsule(
         animationSpec = tween(250, easing = LinearEasing),
         label = "subagent-label:$identity",
     )
-    Surface(
-        onClick = { if (active) onClick() }, enabled = active,
-        shape = RoundedCornerShape(24.dp), shadowElevation = 4.dp,
-        color = containerColor,
-        contentColor = contentColor,
-        modifier = modifier.semantics { this.selected = selected },
-    ) {
-        Row(
-            Modifier.height(48.dp).widthIn(max = 240.dp).padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+    BoxWithConstraints {
+        val density = LocalDensity.current
+        val canvasWidth = minOf(maxWidth, 240.dp)
+        val textMaxWidth = (canvasWidth - 58.dp).coerceAtLeast(0.dp)
+        val label = stringResource(R.string.message_source_subagent)
+        val textMeasurer = rememberTextMeasurer()
+        val targetWidth = with(density) {
+            val titleWidth = textMeasurer.measure(
+                AnnotatedString(title), MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false,
+            ).size.width.toDp()
+            val labelWidth = textMeasurer.measure(
+                AnnotatedString(label), MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false,
+            ).size.width.toDp()
+            minOf(maxOf(titleWidth, labelWidth) + 58.dp, canvasWidth)
+        }
+        val clipWidth = rememberIdentityClipWidth(
+            identity = title, targetWidth = targetWidth,
+            allowSpatialTransitions = LocalAgoraMotionPolicy.current.allowSpatialTransitions,
+        )
+        val clipWidthPx = with(density) { clipWidth.toPx() }
+        val clipShape = GenericShape { size, _ ->
+            val visibleWidth = clipWidthPx.coerceIn(0f, size.width)
+            addRoundRect(RoundRect(
+                left = 0f, top = 0f, right = visibleWidth, bottom = size.height,
+                cornerRadius = CornerRadius(size.height / 2f),
+            ))
+        }
+        Surface(
+            onClick = { if (active) onClick() }, enabled = active,
+            shape = RoundedCornerShape(24.dp), shadowElevation = 0.dp,
+            color = containerColor,
+            contentColor = contentColor,
+            modifier = modifier.graphicsLayer {
+                shape = clipShape
+                clip = true
+                shadowElevation = 4.dp.toPx()
+            }.semantics { this.selected = selected },
         ) {
-            SubagentStatus(status, "subagent-status:$identity")
-            Column(Modifier.weight(1f, fill = false)) {
-                Text(
-                    stringResource(R.string.message_source_subagent),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = labelColor,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-                Crossfade(
-                    targetState = title,
-                    animationSpec = tween(250, easing = LinearEasing),
-                    label = "subagent-title:$identity",
-                ) { text ->
+            Row(
+                Modifier.layout { measurable, constraints ->
+                    // The Surface owns the visible hit area; its content keeps stable constraints.
+                    val canvasWidthPx = canvasWidth.roundToPx()
+                    val placeable = measurable.measure(constraints.copy(minWidth = canvasWidthPx, maxWidth = canvasWidthPx))
+                    layout(clipWidthPx.roundToInt().coerceIn(0, canvasWidthPx), placeable.height) {
+                        placeable.placeRelative(0, 0)
+                    }
+                }.height(48.dp).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SubagentStatus(status, "subagent-status:$identity")
+                Column(Modifier.weight(1f, fill = false)) {
                     Text(
-                        text, style = MaterialTheme.typography.titleSmall,
+                        label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = labelColor,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
+                    Crossfade(
+                        targetState = title,
+                        animationSpec = tween(250, easing = LinearEasing),
+                        label = "subagent-title:$identity",
+                    ) { text ->
+                        Text(
+                            text, style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.width(textMaxWidth),
+                        )
+                    }
                 }
             }
         }

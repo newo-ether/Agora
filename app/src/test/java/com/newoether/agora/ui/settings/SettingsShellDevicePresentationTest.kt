@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.data.ShellDeviceConfig
 import com.newoether.agora.data.repository.SettingsRepository
+import com.newoether.agora.sandbox.SandboxMirror
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -71,6 +72,7 @@ class SettingsShellDevicePresentationTest {
         every { settings.shellDevices } returns MutableStateFlow(devices)
         every { settings.sandboxEnabled } returns MutableStateFlow(false)
         every { settings.sandboxSharedStorageEnabled } returns MutableStateFlow(false)
+        every { settings.sandboxMirror } returns MutableStateFlow(SandboxMirror.DEFAULT)
         every { settings.showDocumentationFab } returns MutableStateFlow(false)
         every { settings.removeShellDevice(any()) } returns Job().apply { complete() }
         compose.setContent {

@@ -458,6 +458,30 @@ class SettingsModelPreferenceStoreTest {
     }
 
     @Test
+    fun renamingAProviderMovesItsCatalogAndRemapsNameKeyedModelReferences() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        val store = SettingsModelPreferenceStore(dataStore, testJson)
+        val providerId = "custom-provider-00000000-0000-4000-8000-000000000002"
+        dataStore.edit { preferences ->
+            preferences[AVAILABLE_MODELS_JSON] =
+                testJson.encodeToString(mapOf("Relay" to listOf("a", "b")))
+            preferences[ENABLED_MODELS] = setOf("Relay:a", "$providerId:c", "OpenAI:gpt-5")
+            preferences[SELECTED_MODEL] = "Relay:b"
+            preferences[MODEL_ALIASES_JSON] = testJson.encodeToString(mapOf("Relay:a" to "Work"))
+        }
+
+        store.renameProviderModelReferences("Relay", "Relay 2")
+
+        val catalog = store.availableModels.first()
+        assertEquals(listOf("a", "b"), catalog["Relay 2"])
+        assertFalse(catalog.containsKey("Relay"))
+        // A custom Provider's stable-ID references keep working; only name-keyed ones move.
+        assertEquals(setOf("Relay 2:a", "$providerId:c", "OpenAI:gpt-5"), store.enabledModels.first())
+        assertEquals("Relay 2:b", store.selectedModel.first())
+        assertEquals(mapOf("Relay 2:a" to "Work"), store.modelAliases.first())
+    }
+
+    @Test
     fun freshInstallCustomAliasSurvivesStartupSynchronizationRenameAndRestartNormalization() =
         runTest {
             val dataStore = InMemoryPreferencesDataStore()

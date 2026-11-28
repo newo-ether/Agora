@@ -22,6 +22,10 @@
     <string name="subagents_capsule_display_desc">Show subagents individually or together in one capsule</string>
     <string name="subagents_capsule_display_individual">Individual</string>
     <string name="subagents_capsule_display_grouped">Grouped</string>
+    <plurals name="subagents_running_count">
+        <item quantity="one">%d Running</item>
+        <item quantity="other">%d Running</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="one">%d Subagent</item>
         <item quantity="other">%d Subagents</item>

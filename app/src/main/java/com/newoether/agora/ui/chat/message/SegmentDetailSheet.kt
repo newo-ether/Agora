@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import com.newoether.agora.ui.components.smoothSheetBottomPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -141,6 +141,7 @@ internal fun MessageSegmentDetailHost(
         textColor = MaterialTheme.colorScheme.onSurface,
         parseInlineDollarMath = parseInlineDollarMath,
         autoWrapCodeBlocks = autoWrapCodeBlocks,
+        imageOwnerId = message.id,
     ).thoughtRenderContext
 
     SegmentDetailSheet(
@@ -373,9 +374,7 @@ internal fun SegmentDetailSheet(
                                 revealKey = "${message.id}:select-text",
                                 modifier = Modifier
                                     .fillMaxSize()
-
-                                    .noOpBringIntoView()
-                                    .navigationBarsPadding(),
+                                    .noOpBringIntoView(),
                             ) { revealModifier, onReady ->
                                 NoAutoScrollSelectionContainer(
                                     modifier = revealModifier.fillMaxSize(),
@@ -385,7 +384,7 @@ internal fun SegmentDetailSheet(
                                             .fillMaxSize()
                                             .verticalScroll(scrollState)
                                             .padding(horizontal = 24.dp)
-                                            .padding(top = 12.dp, bottom = 32.dp)
+                                            .padding(top = 12.dp, bottom = smoothSheetBottomPadding())
                                             .onSizeChanged { onReady() },
                                     ) {
                                         SearchHighlightedPlainText(
@@ -402,9 +401,7 @@ internal fun SegmentDetailSheet(
                                 revealKey = "${message.id}:$selectedLiveIndex",
                                 modifier = Modifier
                                     .fillMaxSize()
-
-                                    .noOpBringIntoView()
-                                    .navigationBarsPadding(),
+                                    .noOpBringIntoView(),
                             ) { revealModifier, onReady ->
                                 NoAutoScrollSelectionContainer(
                                     modifier = revealModifier.fillMaxSize(),
@@ -418,9 +415,10 @@ internal fun SegmentDetailSheet(
                                             start = 24.dp,
                                             top = 4.dp,
                                             end = 24.dp,
-                                            bottom = 32.dp,
+                                            bottom = smoothSheetBottomPadding(),
                                         ),
                                         onReady = onReady,
+                                        imageDocument = "segment:$selectedLiveIndex",
                                     )
                                 }
                             }
@@ -435,8 +433,7 @@ internal fun SegmentDetailSheet(
                                     .verticalScroll(scrollState)
                                     .noOpBringIntoView()
                                     .padding(top = if (seg.type == "tool") 6.dp else 4.dp)
-                                    .navigationBarsPadding()
-                                    .padding(bottom = 32.dp)
+                                    .padding(bottom = smoothSheetBottomPadding())
                             ) {
                                 if (selectedSegs.size > 1) {
                                     selectedSegs.forEachIndexed { index, detailSeg ->
@@ -501,6 +498,7 @@ internal fun SegmentDetailSheet(
                                                     content = detailSeg.content,
                                                     isStreaming = detailIsStreaming,
                                                     renderContext = markdownRenderContext,
+                                                    imageDocument = "segment:$detailIndex",
                                                 )
                                             }
                                         }
@@ -562,6 +560,8 @@ internal fun SegmentDetailSheet(
                                             content = seg.content,
                                             isStreaming = isStreaming,
                                             renderContext = markdownRenderContext,
+                                            imageDocument = if (directMarkdownContent != null) "answer"
+                                                else "segment:$selectedLiveIndex",
                                             emptyStreamingText = emptyStreamingText,
                                         )
                                     }
@@ -599,10 +599,7 @@ internal fun SegmentDetailSheet(
                                         segmentIndices = selectedEntries.map { it.first },
                                         isStreaming = isStreaming,
                                         scrollState = segmentListScrollState,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-
-                                            .navigationBarsPadding(),
+                                        modifier = Modifier.fillMaxSize(),
                                         onSegmentSelected = { liveIndex ->
                                             val targetIndex = selectedEntries.indexOfFirst {
                                                 it.first == liveIndex
@@ -677,7 +674,7 @@ private fun ThinkingSegmentListContent(
                 onClick = { onSegmentSelected(liveIndex) },
             )
         }
-        Spacer(modifier = Modifier.navigationBarsPadding().height(24.dp))
+        Spacer(modifier = Modifier.height(smoothSheetBottomPadding(extra = 24.dp)))
     }
 }
 
@@ -687,24 +684,29 @@ private fun StreamingDetailMarkdownReveal(
     content: String,
     isStreaming: Boolean,
     renderContext: ChatMarkdownRenderContext,
+    imageDocument: String,
     emptyStreamingText: String? = null,
 ) {
     DetailContentReveal(
         revealKey = revealKey,
         modifier = Modifier.fillMaxWidth(),
     ) { revealModifier, onReady ->
-        StreamingMarkdownMessage(
-            content = content,
-            isStreaming = isStreaming,
-            renderContext = renderContext,
-            modifier = revealModifier
-                .fillMaxWidth()
-                .onSizeChanged { size ->
-                    if (size.height > 0 || content.isEmpty()) onReady()
-                },
-            selectionEnabled = !isStreaming,
-            emptyStreamingText = emptyStreamingText,
-        )
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalMarkdownImageDocument provides imageDocument,
+        ) {
+            StreamingMarkdownMessage(
+                content = content,
+                isStreaming = isStreaming,
+                renderContext = renderContext,
+                modifier = revealModifier
+                    .fillMaxWidth()
+                    .onSizeChanged { size ->
+                        if (size.height > 0 || content.isEmpty()) onReady()
+                    },
+                selectionEnabled = !isStreaming,
+                emptyStreamingText = emptyStreamingText,
+            )
+        }
     }
 }
 

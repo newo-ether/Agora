@@ -7,10 +7,12 @@ internal data class LocalChatModelDraft(
     val alias: String = "",
     val modelPath: String = "",
     val projectorPath: String = "",
-    val nCtx: String = "16384",
-    val temperature: String = "0.7",
-    val topP: String = "0.9",
-    val maxTokens: String = "1024",
+    val nCtx: String = "8192",
+    // Gemma-family instruct models are post-trained for temp 1.0 / top_p 0.95; the sampler chain
+    // keeps min_p 0.05 as tail cutoff in place of the card's top_k 64.
+    val temperature: String = "1.0",
+    val topP: String = "0.95",
+    val maxTokens: String = "4096",
 ) {
     fun validate(isIdTaken: (String) -> Boolean): LocalChatModelDraftError? {
         val id = modelId.trim()

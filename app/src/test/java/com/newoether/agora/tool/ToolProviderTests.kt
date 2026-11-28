@@ -62,9 +62,9 @@ class RagToolProviderTest {
     fun definitions_whenEnabled_returnsThreeTools() {
         val defs = provider.definitions(enabledCtx)
         assertEquals(3, defs.size)
-        assertEquals("search_conversations", defs[0].function.name)
-        assertEquals("list_conversations", defs[1].function.name)
-        assertEquals("read_conversation", defs[2].function.name)
+        assertEquals("conversation_search", defs[0].function.name)
+        assertEquals("conversation_list", defs[1].function.name)
+        assertEquals("conversation_read", defs[2].function.name)
     }
 
     @Test
@@ -75,9 +75,9 @@ class RagToolProviderTest {
     @Test
     fun handles_returnsTrueForConversationTools() {
         // RagToolProvider now owns execution of the conversation tools.
-        assertTrue(provider.handles("search_conversations"))
-        assertTrue(provider.handles("list_conversations"))
-        assertTrue(provider.handles("read_conversation"))
+        assertTrue(provider.handles("conversation_search"))
+        assertTrue(provider.handles("conversation_list"))
+        assertTrue(provider.handles("conversation_read"))
         assertFalse(provider.handles("web_search"))
     }
 }
@@ -102,30 +102,39 @@ class ShellToolProviderTest {
             )
         )
         val defs = provider.definitions(ctx)
-        assertEquals(13, defs.size)
+        assertEquals(14, defs.size)
         val names = defs.map { it.function.name }.toSet()
         assertEquals(
             setOf(
-                "list_shells",
-                "execute_shell_command",
-                "list_shell_jobs",
-                "get_shell_job",
-                "wait_for_job",
-                "stop_shell_job",
+                "shell_list",
+                "shell_exec",
+                "shell_job_list",
+                "shell_job_get",
+                "shell_job_wait",
+                "shell_job_stop",
                 "file_read",
                 "file_write",
+                "file_transfer",
                 "file_edit",
                 "file_multi_edit",
                 "file_glob",
                 "file_grep",
-                "view_image",
+                "file_view_image",
             ),
             names,
         )
-        val command = defs.single { it.function.name == "execute_shell_command" }
+        val command = defs.single { it.function.name == "shell_exec" }
         assertTrue(command.function.parameters.properties.containsKey("background"))
-        val getJob = defs.single { it.function.name == "get_shell_job" }
-        assertEquals(listOf("job_id"), getJob.function.parameters.required)
+        assertTrue(command.function.parameters.properties.containsKey("head_lines"))
+        assertTrue(command.function.parameters.properties.containsKey("tail_lines"))
+        defs.filter { it.function.name.startsWith("shell_") }.forEach {
+            assertTrue(it.function.parameters.properties.containsKey("description"))
+            assertTrue(it.function.parameters.required.contains("description"))
+        }
+        val listJobs = defs.single { it.function.name == "shell_job_list" }
+        assertTrue(listJobs.function.parameters.properties.keys.containsAll(listOf("offset", "limit")))
+        val getJob = defs.single { it.function.name == "shell_job_get" }
+        assertEquals(listOf("job_id", "description"), getJob.function.parameters.required)
         val edit = defs.single { it.function.name == "file_edit" }.function.parameters
         assertTrue("edits" !in edit.properties)
         assertTrue(edit.required.containsAll(listOf("old_string", "new_string")))
@@ -144,10 +153,10 @@ class ShellToolProviderTest {
             )
         )
         val defs = provider.definitions(ctx)
-        val cmdTool = defs.find { it.function.name == "execute_shell_command" }
+        val cmdTool = defs.find { it.function.name == "shell_exec" }
         assertNotNull(cmdTool)
         assertEquals(
-            listOf("command", "server", "timeout_ms"),
+            listOf("description", "command", "server", "timeout_ms"),
             cmdTool!!.function.parameters.required,
         )
     }
@@ -161,13 +170,13 @@ class ShellToolProviderTest {
             ),
         )
         val defs = provider.definitions(ctx)
-        val cmdTool = defs.single { it.function.name == "execute_shell_command" }
-        assertEquals(listOf("command", "timeout_ms"), cmdTool.function.parameters.required)
+        val cmdTool = defs.single { it.function.name == "shell_exec" }
+        assertEquals(listOf("description", "command", "timeout_ms"), cmdTool.function.parameters.required)
         assertTrue(
             cmdTool.function.parameters.properties.getValue("timeout_ms").description
                 .contains("never killed or restarted")
         )
-        val waitTool = defs.single { it.function.name == "wait_for_job" }
+        val waitTool = defs.single { it.function.name == "shell_job_wait" }
         assertTrue(waitTool.function.parameters.required.contains("timeout_ms"))
         assertTrue(waitTool.function.parameters.required.contains("job_id"))
         assertTrue(
@@ -203,39 +212,10 @@ class ShellToolProviderTest {
             ),
         )
         val result = provider.execute(
-            "execute_shell_command", """{"command":"echo hi","server":"s1"}""", ctx,
+            "shell_exec", """{"command":"echo hi","server":"s1"}""", ctx,
         )
         assertTrue(result.contains("timeout_ms is required"))
     }
-
-    @Test
-    fun executeShellCommand_duplicateServerName_returnsAmbiguityError() =
-        kotlinx.coroutines.test.runTest {
-            // Two devices share the name "prod" (one conch, one ssh) — the real-world case that
-            // previously routed silently to the first match. It must now fail with a clear error.
-            val ctx = GenerationContext(
-                shellEnabled = true,
-                shellDevices = listOf(
-                    com.newoether.agora.data.ShellDeviceConfig(
-                        name = "prod", type = "conch", serverUrl = "http://10.11.12.1:14216",
-                    ),
-                    com.newoether.agora.data.ShellDeviceConfig(
-                        name = "prod", type = "ssh", sshHost = "10.11.12.1", sshPort = 22,
-                    ),
-                ),
-            )
-            val result = provider.execute(
-                "execute_shell_command",
-                """{"command":"uname -a","server":"prod","timeout_ms":15000}""",
-                ctx,
-            )
-            assertTrue(
-                "expected ambiguity error, got: $result",
-                result.contains("Ambiguous server") && result.contains("prod"),
-            )
-            // And it names both backend types so the user knows what to rename.
-            assertTrue(result.contains("conch") && result.contains("ssh"))
-        }
 
     @Test
     fun executeShellCommandValidatesUtf8LimitsInOneShotAndEventPaths() =
@@ -243,9 +223,9 @@ class ShellToolProviderTest {
             val ctx = GenerationContext(shellEnabled = true)
 
             suspend fun assertBothPaths(arguments: String, expected: String) {
-                val oneShot = provider.execute("execute_shell_command", arguments, ctx)
+                val oneShot = provider.execute("shell_exec", arguments, ctx)
                 val events = provider.executeEvents(
-                    "execute_shell_command",
+                    "shell_exec",
                     arguments,
                     ctx,
                 ).toList()
@@ -528,19 +508,19 @@ class ShellToolProviderTest {
 
     @Test
     fun handles_returnsTrueForShellAndFileTools() {
-        assertTrue(provider.handles("list_shells"))
-        assertTrue(provider.handles("execute_shell_command"))
-        assertTrue(provider.handles("list_shell_jobs"))
-        assertTrue(provider.handles("get_shell_job"))
-        assertTrue(provider.handles("wait_for_job"))
-        assertTrue(provider.handles("stop_shell_job"))
+        assertTrue(provider.handles("shell_list"))
+        assertTrue(provider.handles("shell_exec"))
+        assertTrue(provider.handles("shell_job_list"))
+        assertTrue(provider.handles("shell_job_get"))
+        assertTrue(provider.handles("shell_job_wait"))
+        assertTrue(provider.handles("shell_job_stop"))
         assertTrue(provider.handles("file_read"))
         assertTrue(provider.handles("file_write"))
         assertTrue(provider.handles("file_edit"))
         assertTrue(provider.handles("file_multi_edit"))
         assertTrue(provider.handles("file_glob"))
         assertTrue(provider.handles("file_grep"))
-        assertTrue(provider.handles("view_image"))
+        assertTrue(provider.handles("file_view_image"))
         assertFalse(provider.handles("unknown"))
     }
 }

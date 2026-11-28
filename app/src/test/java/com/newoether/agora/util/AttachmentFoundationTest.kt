@@ -1,9 +1,14 @@
 package com.newoether.agora.util
 
+import com.newoether.agora.data.local.MessageAttachmentReference
+import com.newoether.agora.data.repository.messageReclaimablePaths
+import com.newoether.agora.data.repository.reclaimablePaths
+import com.newoether.agora.data.repository.removedReclaimablePaths
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.AttachmentStorage
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.SelectedAttachment
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -47,6 +52,109 @@ class AttachmentFoundationTest {
     }
 
     @Test
+    fun artifactOnlyFilesParticipateInLiveOwnershipAndAbandonedCleanup() {
+        val artifactFile = temporaryFolder.newFile("artifact-only.png")
+        val ignored = temporaryFolder.newFile("unavailable.png")
+        val artifact = ImageArtifact(artifactFile.path, "image/png", 1, 20, 30)
+        val attachment = SelectedAttachment(
+            uri = "content://source", type = "image", imageArtifacts = listOf(
+                artifact, artifact.copy(path = ignored.path, unavailable = true), artifact.copy(path = "", unavailable = true),
+            ),
+        )
+        val owner = Any()
+        try {
+            val paths = AttachmentFiles.ownedPaths(listOf(attachment))
+            assertEquals(setOf(artifactFile.path), paths)
+            AttachmentFiles.setLivePaths(owner, paths + "")
+            AttachmentFiles.retainLivePath(owner, "")
+            AttachmentFiles.deleteBacking(attachment)
+            assertTrue(artifactFile.exists())
+            assertEquals(setOf(artifactFile.canonicalPath), AttachmentFiles.releaseLivePaths(owner))
+            AttachmentFiles.deleteBacking(attachment)
+            assertFalse(artifactFile.exists())
+            assertTrue(ignored.exists())
+        } finally {
+            AttachmentFiles.releaseLivePaths(owner)
+        }
+    }
+
+    @Test
+    fun artifactReclamationRespectsReplacementAndRuntimeStorage() {
+        val file = temporaryFolder.newFile("artifact-debt.png")
+        val artifact = ImageArtifact(file.path, "image/png", 1, 20, 30)
+        val attachment = SelectedAttachment(uri = "", type = "image", imageArtifacts = listOf(artifact))
+        assertEquals(setOf(file.canonicalPath), listOf(attachment).reclaimablePaths())
+        assertTrue(listOf(attachment).removedReclaimablePaths(listOf(attachment.copy(localId = "other"))).isEmpty())
+        assertEquals(setOf(file.canonicalPath), listOf(attachment).removedReclaimablePaths(emptyList()))
+        val runtime = attachment.copy(storage = AttachmentStorage.LOCAL_SANDBOX_RUNTIME)
+        assertEquals(setOf(file.canonicalPath), listOf(runtime).reclaimablePaths())
+        AttachmentFiles.deleteBacking(runtime)
+        assertFalse(file.exists())
+        val references = listOf(MessageAttachmentReference("message", listOf(""), Json.encodeToString(
+            AttachmentMeta(listOf(AttachmentItem(type = "image", imageArtifacts = listOf(artifact)))),
+        )))
+        assertEquals(setOf(file.canonicalPath), references.messageReclaimablePaths())
+    }
+
+    @Test
+    fun runtimeCleanupReclaimsOnlySnapshotsAndHonorsLiveOwnersWhilePendingAlsoReclaimsOriginal() {
+        val directory = File(temporaryFolder.root, "sandbox-home/attachments/id").apply { mkdirs() }
+        val original = File(directory, "source.png").apply { writeText("original") }
+        val snapshot = temporaryFolder.newFile("img_snapshot.png")
+        val page = temporaryFolder.newFile("pdf_page.png")
+        val frame = temporaryFolder.newFile("vid_frame.png")
+        val runtime = SelectedAttachment(uri = "", type = "image", localPath = original.path,
+            storage = AttachmentStorage.LOCAL_SANDBOX_RUNTIME,
+            imageArtifacts = listOf(ImageArtifact(snapshot.path, "image/png", 1, 20, 30)),
+            preRenderedPaths = listOf(page.path), processedFrames = listOf(frame.path))
+        val owner = Any()
+        try {
+            AttachmentFiles.retainLivePath(owner, snapshot.path)
+            AttachmentFiles.deleteBacking(runtime)
+            assertTrue(original.isFile)
+            assertTrue(snapshot.isFile)
+            assertFalse(page.exists())
+            assertFalse(frame.exists())
+            AttachmentFiles.releaseLivePaths(owner)
+            AttachmentFiles.deleteBacking(runtime)
+            assertFalse(snapshot.exists())
+            assertTrue(original.isFile)
+            val legacy = runtime.copy(imageArtifacts = listOf(ImageArtifact(original.path, "image/png", 8, 20, 30)),
+                preRenderedPaths = null, processedFrames = null)
+            assertTrue(listOf(legacy).reclaimablePaths().isEmpty())
+            val aliased = legacy.copy(imageArtifacts = listOf(legacy.imageArtifacts.single().copy(
+                path = "file://${directory.path}${File.separator}.${File.separator}${original.name}")))
+            assertTrue(listOf(aliased).reclaimablePaths().isEmpty())
+            val references = listOf(MessageAttachmentReference("message", listOf(original.path, snapshot.path),
+                Json.encodeToString(AttachmentMeta(listOf(AttachmentItem(type = "image", imageIndex = 0,
+                    originalUri = "file://${original.path}", storage = runtime.storage,
+                    imageArtifacts = runtime.imageArtifacts))))))
+            assertEquals(setOf(snapshot.canonicalPath), references.messageReclaimablePaths())
+            AttachmentFiles.deleteBacking(runtime.copy(storage = AttachmentStorage.LOCAL_SANDBOX_PENDING))
+            assertFalse(original.exists())
+            assertFalse(directory.exists())
+        } finally {
+            AttachmentFiles.releaseLivePaths(owner)
+        }
+    }
+
+    @Test
+    fun blankUnavailablePathsNeverRegisterTheWorkingDirectory() {
+        val owner = Any()
+        try {
+            AttachmentFiles.setLivePaths(owner, listOf("", " "))
+            AttachmentFiles.retainLivePath(owner, "")
+            AttachmentFiles.releaseLivePath(owner, "")
+            assertTrue(AttachmentFiles.releaseLivePaths(owner).isEmpty())
+            val blank = SelectedAttachment(uri = "", type = "image", localPath = "", processedFrames = listOf(""))
+            assertTrue(AttachmentFiles.ownedPaths(listOf(blank)).isEmpty())
+            assertTrue(listOf(blank).reclaimablePaths().isEmpty())
+        } finally {
+            AttachmentFiles.releaseLivePaths(owner)
+        }
+    }
+
+    @Test
     fun legacyMetadataDefaultsToAppPrivateStorage() {
         val decoded = Json.decodeFromString<AttachmentMeta>(
             """{"items":[{"type":"file","file_name":"notes.txt"}]}""",
@@ -86,7 +194,7 @@ class AttachmentFoundationTest {
         ).items.single()
 
         assertEquals(item, decoded)
-        assertFalse(decoded.storage.canPreview)
+        assertTrue(decoded.storage.canPreview)
         assertFalse(decoded.storage.reclaimWhenAbandoned)
         assertEquals(
             AttachmentStorage.LOCAL_SANDBOX_RUNTIME,

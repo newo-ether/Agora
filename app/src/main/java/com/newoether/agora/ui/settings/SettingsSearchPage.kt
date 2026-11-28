@@ -4,16 +4,18 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Cached
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ManageSearch
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
+import com.newoether.agora.ui.icons.LocalModelIcon
+import com.newoether.agora.ui.icons.ModelSearchIcon
+import androidx.compose.material.icons.rounded.Cached
+import androidx.compose.material.icons.rounded.Chat
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ManageSearch
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.EmbeddingModelType
+import com.newoether.agora.data.settledSearchMethod
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
@@ -34,6 +37,8 @@ import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.ui.motion.MotionAwareModalBottomSheet as ModalBottomSheet
 import com.newoether.agora.util.Constants
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.viewmodel.EmbeddingCacheRowPhase
+import com.newoether.agora.viewmodel.rowPhase
 import kotlinx.coroutines.launch
 
 private data class SearchMethodOption(val key: String, @androidx.annotation.StringRes val labelRes: Int)
@@ -50,7 +55,9 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val cacheRows by viewModel.ragManager.cacheRows.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val embeddingModelIds = remember(embeddingModels) { embeddingModels.map(EmbeddingModelConfig::id) }
-    LaunchedEffect(embeddingModelIds) { viewModel.ragManager.loadCacheCounts() }
+    LaunchedEffect(viewModel.ragManager, embeddingModelIds) {
+        viewModel.ragManager.observeCachePresentation()
+    }
 
     var editorRoute by remember { mutableStateOf<EmbeddingEditorRoute?>(null) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
@@ -145,7 +152,7 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
             listOf(
                 Triple(EmbeddingModelType.REMOTE, R.string.embedding_type_remote, R.string.embedding_type_remote_desc),
-                Triple(EmbeddingModelType.LOCAL_ONNX, R.string.embedding_type_local, R.string.embedding_type_local_desc),
+                Triple(EmbeddingModelType.LOCAL, R.string.embedding_type_local, R.string.embedding_type_local_desc),
             ).forEach { (type, titleRes, descRes) ->
                 SettingsItem(
                     headlineContent = { Text(stringResource(titleRes), fontWeight = FontWeight.Medium) },
@@ -154,7 +161,7 @@ fun SettingsSearchPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     },
                     leadingContent = {
                         Icon(
-                            if (type == EmbeddingModelType.REMOTE) Icons.Default.Cloud else Icons.Default.AutoAwesome,
+                            if (type == EmbeddingModelType.REMOTE) Icons.Rounded.Api else LocalModelIcon,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                         )
@@ -228,9 +235,10 @@ private fun SearchSettingsList(
     val searchContextWindow by viewModel.settings.searchContextWindow.collectAsState()
     val searchMatchLimit by viewModel.settings.searchMatchLimit.collectAsState()
     val ragThreshold by viewModel.settings.ragThreshold.collectAsState()
-    val cacheActionSize = rememberEmbeddingCacheActionSize()
     var showMenuForModel by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(embeddingModels.size) { showMenuForModel = null }
+    // Semantic retrieval cannot run without an embedding model; present keyword until one exists.
+    val ragAvailable = embeddingModels.isNotEmpty()
 
     val searchContextGate = remember {
         PersistedSliderFeedbackGate(initialPersisted = searchContextWindow, toDisplay = Int::toFloat)
@@ -267,7 +275,7 @@ private fun SearchSettingsList(
                     SettingsItem(
                         headlineContent = { Text(stringResource(R.string.memory_access_past)) },
                         supportingContent = { Text(stringResource(R.string.memory_access_past_desc)) },
-                        leadingContent = { Icon(Icons.Default.Chat, null, tint = MaterialTheme.colorScheme.primary) },
+                        leadingContent = { Icon(Icons.Rounded.Chat, null, tint = MaterialTheme.colorScheme.primary) },
                         trailingContent = {
                             Switch(
                                 checked = accessPastConversations,
@@ -288,7 +296,7 @@ private fun SearchSettingsList(
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.auto_cache)) },
                             supportingContent = { Text(stringResource(R.string.auto_cache_desc)) },
-                            leadingContent = { Icon(Icons.Default.Cached, null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingContent = { Icon(Icons.Rounded.Cached, null, tint = MaterialTheme.colorScheme.primary) },
                             trailingContent = {
                                 Switch(
                                     checked = autoCacheEnabled,
@@ -304,7 +312,7 @@ private fun SearchSettingsList(
                                 headlineContent = { Text(stringResource(R.string.show_uncached_notification)) },
                                 supportingContent = { Text(stringResource(R.string.show_uncached_notification_desc)) },
                                 leadingContent = {
-                                    Icon(Icons.Default.Notifications, null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.primary)
                                 },
                                 trailingContent = {
                                     Switch(
@@ -328,9 +336,9 @@ private fun SearchSettingsList(
                         SearchMethodItem(
                             titleRes = R.string.model_search_method,
                             descRes = R.string.model_search_method_desc,
-                            icon = Icons.Default.AutoAwesome,
-                            selected = modelSearchMethod,
-                            ragAvailable = embeddingModels.isNotEmpty(),
+                            icon = ModelSearchIcon,
+                            selected = settledSearchMethod(modelSearchMethod, ragAvailable),
+                            ragAvailable = ragAvailable,
                             onSelect = viewModel.settings::setModelSearchMethod,
                         )
                     },
@@ -338,9 +346,9 @@ private fun SearchSettingsList(
                         SearchMethodItem(
                             titleRes = R.string.manual_search_method,
                             descRes = R.string.manual_search_method_desc,
-                            icon = Icons.Default.ManageSearch,
-                            selected = manualSearchMethod,
-                            ragAvailable = embeddingModels.isNotEmpty(),
+                            icon = Icons.Rounded.ManageSearch,
+                            selected = settledSearchMethod(manualSearchMethod, ragAvailable),
+                            ragAvailable = ragAvailable,
                             onSelect = viewModel.settings::setManualSearchMethod,
                         )
                     },
@@ -361,7 +369,7 @@ private fun SearchSettingsList(
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Chat,
+                                        Icons.Rounded.Layers,
                                         null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                     )
@@ -373,6 +381,9 @@ private fun SearchSettingsList(
                     embeddingModels.forEach { model ->
                         add {
                             val cacheRow = cacheRows[model.id]
+                            val cachePhase = cacheRow.rowPhase()
+                            val cacheActionEnabled = cachePhase == EmbeddingCacheRowPhase.CACHE ||
+                                cachePhase == EmbeddingCacheRowPhase.RECACHE
                             SettingsItem(
                                 headlineContent = { Text(model.name) },
                                 supportingContent = { EmbeddingModelStatusText(model, cacheRow) },
@@ -384,16 +395,10 @@ private fun SearchSettingsList(
                                 },
                                 trailingContent = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        EmbeddingCacheAction(
-                                            modelId = model.id,
-                                            cacheRow = cacheRow,
-                                            size = cacheActionSize,
-                                            onCache = { viewModel.ragManager.cacheMessagesForModel(model.id) },
-                                            onRecache = { onRecacheModel(model.id) },
-                                        )
+                                        EmbeddingCacheProgress(cacheRow = cacheRow)
                                         Box {
                                             IconButton(onClick = { showMenuForModel = model.id }) {
-                                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.options))
+                                                Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.options))
                                             }
                                             AgoraDropdownMenu(
                                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -402,8 +407,31 @@ private fun SearchSettingsList(
                                                 onDismissRequest = { showMenuForModel = null }
                                             ) {
                                                 AgoraDropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            stringResource(
+                                                                if (cachePhase == EmbeddingCacheRowPhase.RECACHE) {
+                                                                    R.string.recache_action
+                                                                } else {
+                                                                    R.string.cache_action
+                                                                },
+                                                            ),
+                                                        )
+                                                    },
+                                                    leadingIcon = { Icon(Icons.Rounded.Cached, null) },
+                                                    enabled = cacheActionEnabled,
+                                                    onClick = {
+                                                        showMenuForModel = null
+                                                        if (cachePhase == EmbeddingCacheRowPhase.RECACHE) {
+                                                            onRecacheModel(model.id)
+                                                        } else {
+                                                            viewModel.ragManager.cacheMessagesForModel(model.id)
+                                                        }
+                                                    },
+                                                )
+                                                AgoraDropdownMenuItem(
                                                     text = { Text(stringResource(R.string.edit)) },
-                                                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                                                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                                                     onClick = {
                                                         showMenuForModel = null
                                                         onEditModel(model)
@@ -414,7 +442,7 @@ private fun SearchSettingsList(
                                                         Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                                                     },
                                                     leadingIcon = {
-                                                        Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                                                        Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error)
                                                     },
                                                     onClick = {
                                                         showMenuForModel = null
@@ -461,56 +489,13 @@ private fun SearchMethodItem(
     ragAvailable: Boolean,
     onSelect: (String) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    SettingsItem(
-        headlineContent = { Text(stringResource(titleRes)) },
-        supportingContent = { Text(stringResource(descRes)) },
-        leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = {
-            Box {
-                Text(
-                    searchMethods.find { it.key == selected }?.let { stringResource(it.labelRes) } ?: "",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.width(80.dp),
-                    textAlign = TextAlign.Center
-                )
-                AgoraDropdownMenu(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 16.dp,
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    searchMethods.forEach { method ->
-                        val disabled = method.key == Constants.SEARCH_METHOD_RAG && !ragAvailable
-                        val disabledColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        AgoraDropdownMenuItem(
-                            text = {
-                                Text(
-                                    stringResource(method.labelRes),
-                                    color = if (disabled) disabledColor else MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
-                            leadingIcon = {
-                                if (selected == method.key) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        null,
-                                        tint = if (disabled) disabledColor else MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            },
-                            onClick = {
-                                if (!disabled) {
-                                    onSelect(method.key)
-                                    expanded = false
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        },
-        modifier = Modifier.clickable { expanded = true }
+    SettingsChoiceItem(
+        titleRes = titleRes,
+        descRes = descRes,
+        icon = icon,
+        selected = selected,
+        choices = searchMethods.map { it.key to it.labelRes },
+        enabled = { it != Constants.SEARCH_METHOD_RAG || ragAvailable },
+        onSelect = onSelect,
     )
 }

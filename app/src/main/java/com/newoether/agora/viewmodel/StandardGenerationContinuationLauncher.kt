@@ -29,15 +29,25 @@ internal data class StandardGenerationContinuationRequest(
     /** Null keeps the conversation preference; the request and output still use the snapshot model. */
     val conversationModelId: String? = snapshot.selectedModelId,
     val queueDrainRequiresSuccess: Boolean = false,
+    val continuesAfterSuccess: Boolean = false,
     val transformFinalText: (String, MessageStatus) -> String = { text, _ -> text },
 )
 
 internal suspend fun launchStandardContinuationAfterGuidance(
     state: ConversationGenerationState,
     guidanceClaimRevision: Long,
+    handoffOwnerToken: Long? = null,
     launch: () -> StandardGenerationContinuationLaunch?,
 ): StandardGenerationContinuationLaunch? = state.queueMutationMutex.withLock {
-    if (state.hasPendingOrClaimedGuidanceSince(guidanceClaimRevision)) null else launch()
+    if (state.hasPendingOrClaimedGuidanceSince(guidanceClaimRevision)) {
+        if (state.queuedSends.value.isNotEmpty()) state.releaseRunHandoffRetention(handoffOwnerToken)
+        else state.finishRunHandoff(handoffOwnerToken)
+        null
+    } else try {
+        launch()
+    } finally {
+        state.finishRunHandoff(handoffOwnerToken)
+    }
 }
 
 internal data class StandardGenerationContinuationLaunch(
@@ -80,6 +90,7 @@ internal class StandardGenerationContinuationLauncher(
         val generationJob = state.launchGenerationJob(
             uiToken = uiToken,
             suppressAutomaticQueueDrain = request.queueDrainRequiresSuccess,
+            retainHandoff = request.continuesAfterSuccess,
         ) generation@{
             var runCreated = false
             var runBound = false
@@ -195,6 +206,7 @@ internal class StandardGenerationContinuationLauncher(
                             runId = runId,
                             pass = 0,
                             requestKind = request.requestKind,
+                            continuesAfterSuccess = request.continuesAfterSuccess,
                             transformFinalText = request.transformFinalText,
                         ),
                         state,

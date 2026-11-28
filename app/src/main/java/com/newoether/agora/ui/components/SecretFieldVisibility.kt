@@ -1,8 +1,8 @@
 package com.newoether.agora.ui.components
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +35,7 @@ internal fun secretVisualTransformation(visible: Boolean): VisualTransformation 
 internal fun SecretVisibilityToggle(visible: Boolean, onToggle: () -> Unit) {
     IconButton(onClick = onToggle) {
         Icon(
-            imageVector = if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+            imageVector = if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
             contentDescription = stringResource(if (visible) R.string.secret_hide else R.string.secret_show),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )

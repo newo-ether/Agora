@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -11,17 +10,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.Cached
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.rounded.Tag
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Cached
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,16 +28,16 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -49,8 +47,6 @@ import com.newoether.agora.R
 import com.newoether.agora.api.ProviderDefaults
 import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.EmbeddingModelType
-import com.newoether.agora.data.OnnxEmbeddingProvider
-import com.newoether.agora.data.OnnxModelBootstrap
 import com.newoether.agora.ui.components.AgoraDropdownMenu
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.rememberUnsavedChangesBack
@@ -59,9 +55,7 @@ import com.newoether.agora.util.Constants
 import com.newoether.agora.viewmodel.ChatViewModel
 import com.newoether.agora.viewmodel.EmbeddingCacheRowSnapshot
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /** A preset (provider name, base URL, known model ids) for the remote embedding editor. */
 internal data class EmbeddingProviderPreset(
@@ -74,48 +68,37 @@ internal data class EmbeddingProviderPreset(
     val custom: Boolean = false,
 )
 
-/** Known embedding model ids seeded per provider (unioned with dynamically-fetched ids). */
-private fun seedEmbeddingModels(name: String): List<String> = when (name) {
-    Constants.PROVIDER_OPENAI ->
-        listOf("text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002")
-    Constants.PROVIDER_GOOGLE -> listOf("text-embedding-004", "gemini-embedding-001")
-    Constants.PROVIDER_OPEN_ROUTER ->
-        listOf("openai/text-embedding-3-small", "openai/text-embedding-3-large")
-    "Mistral" -> listOf("mistral-embed")
-    "Voyage AI" -> listOf("voyage-3-large", "voyage-3-lite", "voyage-code-3")
-    "SiliconFlow" -> listOf("BAAI/bge-m3", "BAAI/bge-large-en-v1.5")
-    else -> emptyList()
-}
-
-/**
- * Remote embedding providers. The embedding client speaks the OpenAI-compatible POST /embeddings
- * protocol, so this lists only providers with a real OpenAI-style embeddings endpoint: OpenAI,
- * Google (its /v1beta/openai compatibility endpoint), Mistral, Voyage AI, SiliconFlow, OpenRouter,
- * Ollama, plus Custom. Providers without an OpenAI-compatible embeddings API (e.g. Anthropic) are
- * intentionally excluded — selecting them would just fail to connect. Known embedding ids are
- * seeded per provider and unioned with the provider's live fetched models in the editor.
- */
-internal fun embeddingProviderPresets(): List<EmbeddingProviderPreset> {
-    val names = listOf(
+internal fun embeddingProviderPresets(): List<EmbeddingProviderPreset> = listOf(
+    EmbeddingProviderPreset(
         Constants.PROVIDER_OPENAI,
-        Constants.PROVIDER_GOOGLE,
-        "Mistral",
+        ProviderDefaults.embeddingBaseUrl(Constants.PROVIDER_OPENAI),
+        listOf("text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"),
+    ),
+    EmbeddingProviderPreset("Mistral", ProviderDefaults.embeddingBaseUrl("Mistral"), listOf("mistral-embed")),
+    EmbeddingProviderPreset(
         "Voyage AI",
+        ProviderDefaults.embeddingBaseUrl("Voyage AI"),
+        listOf("voyage-3-large", "voyage-3-lite", "voyage-code-3"),
+    ),
+    EmbeddingProviderPreset(
         "SiliconFlow",
+        ProviderDefaults.embeddingBaseUrl("SiliconFlow"),
+        listOf("BAAI/bge-m3", "BAAI/bge-large-en-v1.5"),
+    ),
+    EmbeddingProviderPreset(
         Constants.PROVIDER_OPEN_ROUTER,
+        ProviderDefaults.embeddingBaseUrl(Constants.PROVIDER_OPEN_ROUTER),
+        listOf("openai/text-embedding-3-small", "openai/text-embedding-3-large"),
+    ),
+    EmbeddingProviderPreset(
         Constants.PROVIDER_OLLAMA,
-    )
-    val builtIns = names.map { name ->
-        EmbeddingProviderPreset(
-            name = name,
-            baseUrl = ProviderDefaults.embeddingBaseUrl(name),
-            models = seedEmbeddingModels(name),
-            editableUrl = name == Constants.PROVIDER_OLLAMA,
-            needsKey = name != Constants.PROVIDER_OLLAMA,
-        )
-    }
-    return builtIns + EmbeddingProviderPreset("Custom", "", emptyList(), editableUrl = true, custom = true)
-}
+        ProviderDefaults.embeddingBaseUrl(Constants.PROVIDER_OLLAMA),
+        emptyList(),
+        editableUrl = true,
+        needsKey = false,
+    ),
+    EmbeddingProviderPreset("Custom", "", emptyList(), editableUrl = true, custom = true),
+)
 
 /** Which model the editor page is showing; `null` route means the search page itself. */
 internal data class EmbeddingEditorRoute(
@@ -175,8 +158,10 @@ internal fun EmbeddingModelEditor(
     val lifecycle = remember(initial.id) { EmbeddingEditorLifecycle() }
     var isTesting by remember(initial.id) { mutableStateOf(false) }
     var isImporting by remember(initial.id) { mutableStateOf(false) }
+    var showGgufError by remember(initial.id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val resources by rememberUpdatedState(LocalResources.current)
 
     DisposableEffect(lifecycle) {
         onDispose { lifecycle.close() }
@@ -191,43 +176,16 @@ internal fun EmbeddingModelEditor(
         }
     }
     val usingSavedKey = savedKey != null && draft.useSavedKey
-    // Suggested model ids auto-populated from the provider's live fetched model list
-    // (availableModels + customProviders), unioned with the preset's known embedding ids.
-    // This is why embedding models now appear for selection instead of only the hardcoded set.
-    val availableModels by viewModel.settings.availableModels.collectAsState()
-    val customProviders by viewModel.settings.customProviders.collectAsState()
-    val providerBaseUrls by viewModel.settings.providerBaseUrls.collectAsState()
-    // Trigger a fingerprint-gated model fetch so dynamic embedding models load when this editor is
-    // opened directly (the Models page is otherwise the only entry that fetches).
-    val lastFingerprint by viewModel.settings.lastModelsFetchFingerprint.collectAsState()
-    LaunchedEffect(Unit) {
-        if (viewModel.computeProviderFingerprint() != lastFingerprint) viewModel.fetchAvailableModels()
-    }
-    // On-device ONNX embedding model install state (local option is ONNX, not GGUF).
-    var onnxInstalled by remember { mutableStateOf(OnnxModelBootstrap.isInstalled(context)) }
-    var onnxBusy by remember { mutableStateOf(false) }
-    var onnxProgress by remember { mutableStateOf<String?>(null) }
-    val suggestedModels = remember(preset.name, availableModels, customProviders) {
-        val fromProvider = buildProviderModels(availableModels, customProviders, providerBaseUrls)
-            .firstOrNull { it.name.equals(preset.name, ignoreCase = true) }
-            ?.models
-            .orEmpty()
-        // Fetched ids are stored provider-prefixed ("Google:text-embedding-004"); strip the prefix
-        // so the id sent to the embeddings API is the bare model name (a prefixed id fails the
-        // connection with "model/key/endpoint wrong"). Seeds are already bare.
-        val normalizedFromProvider = fromProvider.map { it.substringAfter(':', it) }
-        (preset.models + normalizedFromProvider).distinct()
-    }
     val effectiveKey = when {
         !preset.needsKey && isNew -> ""
         usingSavedKey -> savedKey!!.key
         else -> draft.apiKey.trim()
     }
-    val defaultName = if (isRemote) draft.modelName.trim() else "On-device (ONNX)"
+    val defaultName = if (isRemote) draft.modelName.trim() else draft.localFileName.removeSuffix(".gguf")
     val canSave = !isTesting && !isImporting && when {
         !isNew -> (draft.name.isNotBlank() || defaultName.isNotBlank())
         isRemote -> draft.modelName.isNotBlank() && draft.baseUrl.isNotBlank()
-        else -> onnxInstalled
+        else -> draft.localFilePath.isNotBlank()
     }
 
     val leave = {
@@ -235,7 +193,6 @@ internal fun EmbeddingModelEditor(
         onBack()
     }
     val guardedBack = rememberUnsavedChangesBack(hasUnsavedChanges = draft != start || isImporting, onBack = leave)
-    BackHandler { guardedBack() }
 
     fun save() {
         if (lifecycle.closed || !canSave) return
@@ -252,10 +209,12 @@ internal fun EmbeddingModelEditor(
             viewModel.ragManager.addEmbeddingModel(
                 EmbeddingModelConfig(
                     name = finalName,
-                    type = EmbeddingModelType.LOCAL_ONNX,
+                    type = EmbeddingModelType.LOCAL,
+                    localFilePath = draft.localFilePath,
                     batchSize = batch,
                 ),
             )
+            lifecycle.imports.transfer(draft.localFilePath)
             leave()
             return
         }
@@ -270,7 +229,7 @@ internal fun EmbeddingModelEditor(
             if (lifecycle.closed) return@testConnection
             isTesting = false
             if (result == null || !result.startsWith("OK")) {
-                viewModel.emitSnackbar(context.getString(R.string.embedding_test_failed, result ?: "Failed"))
+                viewModel.emitSnackbar(resources.getString(R.string.embedding_test_failed, result ?: "Failed"))
                 return@testConnection
             }
             if (isNew) {
@@ -291,6 +250,29 @@ internal fun EmbeddingModelEditor(
         }
     }
 
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null || lifecycle.closed || isImporting) return@rememberLauncherForActivityResult
+        isImporting = true
+        scope.launch {
+            try {
+                val imported = importEmbeddingGguf(context, uri, lifecycle.imports)
+                if (lifecycle.closed) return@launch
+                if (imported == null) {
+                    showGgufError = true
+                } else {
+                    lifecycle.imports.discard(draft.localFilePath)
+                    draft = draft.copy(localFilePath = imported.path, localFileName = imported.displayName)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (!lifecycle.closed) showGgufError = true
+            } finally {
+                if (!lifecycle.closed) isImporting = false
+            }
+        }
+    }
+
     CollapsingSettingsScaffold(
         title = stringResource(if (isNew) R.string.embedding_add_model else R.string.embedding_edit_model),
         onBack = guardedBack,
@@ -301,7 +283,7 @@ internal fun EmbeddingModelEditor(
                 CircularProgressIndicator(modifier = Modifier.padding(12.dp).size(24.dp), strokeWidth = 2.dp)
             } else {
                 IconButton(onClick = ::save, enabled = canSave) {
-                    Icon(Icons.Default.Save, stringResource(R.string.save))
+                    Icon(Icons.Rounded.Save, stringResource(R.string.save))
                 }
             }
         },
@@ -318,7 +300,7 @@ internal fun EmbeddingModelEditor(
                                     headlineContent = { Text(stringResource(R.string.embedding_provider_label)) },
                                     supportingContent = { Text(stringResource(R.string.embedding_type_remote_desc)) },
                                     leadingContent = {
-                                        Icon(Icons.Default.Cloud, null, tint = MaterialTheme.colorScheme.primary)
+                                        Icon(Icons.Rounded.Api, null, tint = MaterialTheme.colorScheme.primary)
                                     },
                                     trailingContent = {
                                         Box {
@@ -353,7 +335,7 @@ internal fun EmbeddingModelEditor(
                                                         leadingIcon = {
                                                             if (index == draft.providerIndex) {
                                                                 Icon(
-                                                                    Icons.Default.Check,
+                                                                    Icons.Rounded.Check,
                                                                     null,
                                                                     tint = MaterialTheme.colorScheme.primary,
                                                                 )
@@ -382,7 +364,7 @@ internal fun EmbeddingModelEditor(
                         }
                         if (!isNew || preset.editableUrl) {
                             add {
-                                SettingsIconContent(icon = Icons.Default.Link) {
+                                SettingsIconContent(icon = Icons.Rounded.Link) {
                                     if (isNew) {
                                         McpLabeledField(
                                             label = stringResource(R.string.embedding_base_url_label),
@@ -411,7 +393,7 @@ internal fun EmbeddingModelEditor(
                                             Text(stringResource(R.string.embedding_use_saved_key_desc))
                                         },
                                         leadingContent = {
-                                            Icon(Icons.Default.VpnKey, null, tint = MaterialTheme.colorScheme.primary)
+                                            Icon(Icons.Rounded.VpnKey, null, tint = MaterialTheme.colorScheme.primary)
                                         },
                                         trailingContent = {
                                             Switch(
@@ -427,7 +409,7 @@ internal fun EmbeddingModelEditor(
                             }
                             if (!usingSavedKey) {
                                 add {
-                                    SettingsIconContent(icon = Icons.Default.VpnKey) {
+                                    SettingsIconContent(icon = Icons.Rounded.VpnKey) {
                                         McpLabeledField(
                                             label = stringResource(R.string.embedding_api_key),
                                             value = draft.apiKey,
@@ -445,57 +427,21 @@ internal fun EmbeddingModelEditor(
                     title = stringResource(R.string.embedding_model_label),
                     items = buildList {
                         add {
-                            SettingsIconContent(icon = Icons.Default.AutoAwesome) {
+                            SettingsIconContent(icon = Icons.Rounded.Tag) {
                                 if (isNew) {
                                     McpLabeledField(
-                                        label = stringResource(R.string.embedding_model_label),
+                                        label = stringResource(R.string.model_id_label),
                                         value = draft.modelName,
                                         onValueChange = { draft = draft.copy(modelName = it) },
                                         placeholder = stringResource(R.string.embedding_model_id_hint),
                                     )
                                 } else {
                                     ReadOnlyField(
-                                        stringResource(R.string.embedding_model_label),
+                                        stringResource(R.string.model_id_label),
                                         initial.remoteModelName,
                                         stringResource(R.string.embedding_model_locked_desc),
                                     )
                                 }
-                            }
-                        }
-                        // Auto-populated suggestions from the provider's live model list; tap to fill.
-                        if (isNew && suggestedModels.isNotEmpty()) {
-                            add {
-                                var modelMenuExpanded by remember { mutableStateOf(false) }
-                                SettingsItem(
-                                    headlineContent = { Text(stringResource(R.string.embedding_model_suggestions)) },
-                                    supportingContent = {
-                                        Text(
-                                            draft.modelName.ifBlank { stringResource(R.string.embedding_model_id_hint) },
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    },
-                                    leadingContent = { Icon(Icons.Default.Checklist, null, tint = MaterialTheme.colorScheme.primary) },
-                                    trailingContent = {
-                                        Box {
-                                            Icon(Icons.Default.ArrowDropDown, null)
-                                            AgoraDropdownMenu(
-                                                expanded = modelMenuExpanded,
-                                                onDismissRequest = { modelMenuExpanded = false },
-                                            ) {
-                                                suggestedModels.forEach { m ->
-                                                    AgoraDropdownMenuItem(
-                                                        text = { Text(m) },
-                                                        onClick = {
-                                                            draft = draft.copy(modelName = m)
-                                                            modelMenuExpanded = false
-                                                        },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.clickable { modelMenuExpanded = true },
-                                )
                             }
                         }
                     },
@@ -504,57 +450,13 @@ internal fun EmbeddingModelEditor(
                 SettingsGroup(
                     title = stringResource(R.string.embedding_model_file),
                     items = listOf {
-                        SettingsItem(
-                            headlineContent = { Text(stringResource(R.string.onnx_embed_title)) },
-                            supportingContent = {
-                                Text(
-                                    when {
-                                        onnxBusy -> stringResource(
-                                            R.string.onnx_embed_downloading,
-                                            onnxProgress ?: "",
-                                        )
-                                        onnxInstalled -> stringResource(R.string.onnx_embed_added)
-                                        else -> stringResource(R.string.onnx_embed_desc)
-                                    },
-                                )
-                            },
-                            leadingContent = {
-                                Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary)
-                            },
-                            trailingContent = {
-                                when {
-                                    onnxBusy -> CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp,
-                                    )
-                                    onnxInstalled -> Icon(
-                                        Icons.Default.Check,
-                                        null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                    else -> Text(
-                                        stringResource(R.string.onnx_embed_download),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            },
-                            modifier = Modifier.clickable(enabled = !onnxBusy && !onnxInstalled) {
-                                onnxBusy = true
-                                scope.launch {
-                                    val ok = withContext(Dispatchers.IO) {
-                                        OnnxModelBootstrap.setup(context) { msg -> onnxProgress = msg }
-                                    }
-                                    onnxBusy = false
-                                    onnxProgress = null
-                                    if (ok) {
-                                        onnxInstalled = true
-                                        OnnxEmbeddingProvider.reset()
-                                    } else {
-                                        viewModel.emitSnackbar(context.getString(R.string.onnx_embed_failed))
-                                    }
-                                }
-                            },
+                        ModelImportItem(
+                            title = stringResource(R.string.embedding_import_title),
+                            filePath = draft.localFilePath,
+                            description = stringResource(R.string.embedding_import_desc),
+                            icon = LocalModelIcon,
+                            importing = isImporting,
+                            onClick = { filePicker.launch(arrayOf("*/*")) },
                         )
                     },
                 )
@@ -563,7 +465,7 @@ internal fun EmbeddingModelEditor(
                 title = stringResource(R.string.embedding_general),
                 items = listOf(
                     {
-                        SettingsIconContent(icon = Icons.Default.Label) {
+                        SettingsIconContent(icon = Icons.Rounded.Label) {
                             McpLabeledField(
                                 label = stringResource(R.string.model_name_label),
                                 value = draft.name,
@@ -573,7 +475,7 @@ internal fun EmbeddingModelEditor(
                         }
                     },
                     {
-                        SettingsIconContent(icon = Icons.Default.Tune) {
+                        SettingsIconContent(icon = Icons.Rounded.Tune) {
                             McpLabeledField(
                                 label = stringResource(R.string.embedding_batch_size),
                                 value = draft.batchSize,
@@ -593,7 +495,7 @@ internal fun EmbeddingModelEditor(
                             headlineContent = { Text(stringResource(R.string.embedding_cache_status)) },
                             supportingContent = { Text(embeddingCacheLabel(cacheRow) ?: "-") },
                             leadingContent = {
-                                Icon(Icons.Default.Cached, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Cached, null, tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingContent = {
                                 EmbeddingCacheAction(
@@ -610,6 +512,16 @@ internal fun EmbeddingModelEditor(
             }
         }
         if (showDocFab) Spacer(modifier = Modifier.height(80.dp))
+    }
+
+    if (showGgufError) {
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            onDismissRequest = { showGgufError = false },
+            title = { Text(stringResource(R.string.import_invalid_gguf_title), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.import_invalid_gguf_desc)) },
+            confirmButton = { TextButton(onClick = { showGgufError = false }) { Text(stringResource(R.string.ok)) } },
+        )
     }
 }
 

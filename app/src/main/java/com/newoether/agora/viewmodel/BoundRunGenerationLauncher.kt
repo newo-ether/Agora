@@ -1,6 +1,5 @@
 package com.newoether.agora.viewmodel
 
-import com.newoether.agora.api.HttpClient
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.diagnostics.DeveloperDiagnostics
@@ -22,6 +21,7 @@ internal data class BoundRunGenerationRequest(
     val runId: String,
     val pass: Int,
     val requestKind: String,
+    val continuesAfterSuccess: Boolean = false,
     val transformFinalText: (String, MessageStatus) -> String = { text, _ -> text },
 ) {
     init {
@@ -63,7 +63,7 @@ internal class BoundRunGenerationLauncher(
         request: BoundRunGenerationRequest,
         state: ConversationGenerationState,
     ) {
-        val requestTrace = HttpClient.RequestTrace(
+        val requestTrace = DeveloperDiagnostics.newRequestTrace(
             requestId = request.modelMessageId,
             origin = request.requestKind,
             diagnosticContext = DeveloperDiagnostics.newRequestContext(
@@ -112,6 +112,7 @@ internal class BoundRunGenerationLauncher(
                         { visible(request.conversationId) }
                     },
                     transformFinalText = request.transformFinalText,
+                    hasPendingContinuation = request.continuesAfterSuccess,
                     onToolRoundPersisted = {
                         if (
                             automaticCompactNeeded(

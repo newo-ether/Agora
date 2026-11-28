@@ -4,12 +4,18 @@ import { html, runSpring } from "./html.js";
 import { Spinner } from "./material/progress.js";
 import { attachScrollbar } from "./material/scrollbar.js";
 import { Markdown, fadeStreamingText } from "./markdown.js";
-import { AttachmentViewer } from "./composer.js";
-import { icon, ICON_ACCOUNT_TREE, ICON_BUILD, ICON_CHECKLIST, ICON_CHEVRON_RIGHT, ICON_IMAGE, ICON_NEUROLOGY } from "./icons.js";
+import { AttachmentViewer } from "./attachments.js";
+import { icon, ICON_ACCOUNT_TREE, ICON_BROKEN_IMAGE, ICON_BUILD, ICON_CHECKLIST, ICON_CHEVRON_RIGHT, ICON_IMAGE, ICON_MOBILE_HAND, ICON_NEUROLOGY } from "./icons.js";
 const SHEET_BACK_PATH = "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z";
 // Material Icons.Default.Close, centred on (12, 12). The previous path was offset to the left,
 // so the X sat off-centre inside its round button.
 const SHEET_CLOSE_PATH = "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
+// Shell-backed cards render a formatted body that cannot show which device ran the call.
+// Keep this list in sync with ToolKind.runsOnShellServer() on the Compose side.
+const SHELL_CARD_KINDS = new Set([
+  "SHELL_LIST", "SHELL_EXECUTE", "SHELL_JOB_LIST", "SHELL_JOB_GET", "SHELL_JOB_WAIT", "SHELL_JOB_STOP",
+  "FILE_READ", "FILE_WRITE", "FILE_EDIT", "FILE_GLOB", "FILE_GREP", "FILE_TRANSFER",
+]);
 export function canOpenSheetItem(item) {
   return item?.type === "thought" || item?.type === "transcription" ||
     (item?.type === "tool" && item.toolDetail != null);
@@ -57,16 +63,16 @@ function ToolJsonNode({ node, depth = 0 }) {
   </div>`;
 }
 
-function ToolPill({ text, emphasized = false }) {
+export function ToolPill({ text, emphasized = false }) {
   return text == null ? null : html`<span class=${`tool-pill ${emphasized ? "emphasized" : ""}`} title=${text}>${text}</span>`;
 }
 
-function ToolOutput({ text }) {
+export function ToolOutput({ text }) {
   return html`<div class="tool-output tool-code">${text}</div>`;
 }
 
 /** File name in primary color, directory as small grey text that keeps its tail visible. */
-function ToolPath({ path }) {
+export function ToolPath({ path }) {
   if (!path) return null;
   return html`<div class="tool-path" title=${path.directory || null}>
     <div class="tool-path-name tool-code">${path.name}</div>
@@ -109,25 +115,38 @@ function ToolCodeArgument({ code }) {
 }
 
 function ToolDiff({ body }) {
-  const sign = { removed: "-", added: "+", context: " " };
-  return html`<div class="tool-meta-row tool-file-meta">
-      <${ToolPath} path=${body.path} /><${ToolPill} text=${body.editCount} />
-    </div>
-    <div class="tool-diff-hunks">
-      ${body.hunks.map((hunk, index) => html`<div key=${index}>
-        ${(hunk.index != null || hunk.replaceAll) && html`<div class="tool-meta-row tool-diff-meta">
-          ${hunk.index != null && html`<${ToolPill} text=${`#${hunk.index}`} />`}
-          ${hunk.replaceAll && html`<${ToolPill} text=${body.replaceAllLabel} emphasized />`}
-        </div>`}
-        <div class="tool-output tool-diff">
-          ${hunk.lines.map((line, i) => html`<div class=${`tool-diff-line ${line.kind}`} key=${i}>
-            <span class="tool-diff-sign" aria-hidden="true">${sign[line.kind] ?? " "}</span>
-            <span class="tool-code">${line.text}</span>
-          </div>`)}
+  return html`${body.files?.length ? html`<div class="tool-grep">
+      ${body.files.map((file, index) => html`<div key=${index}>
+        <div class="tool-meta-row tool-file-meta">
+          <${ToolPath} path=${file.path} /><${ToolPill} text=${file.operationLabel} />
         </div>
+        ${file.moveTo && html`<div class="tool-file-meta"><${ToolPath} path=${file.moveTo} /></div>`}
+        <${ToolDiffHunks} hunks=${file.hunks} replaceAllLabel=${body.replaceAllLabel} />
       </div>`)}
-    </div>
+    </div>` : html`
+      <div class="tool-meta-row tool-file-meta">
+        <${ToolPath} path=${body.path} /><${ToolPill} text=${body.editCount} />
+      </div>
+      <${ToolDiffHunks} hunks=${body.hunks} replaceAllLabel=${body.replaceAllLabel} />`}
     <div class="tool-muted tool-gap">${body.status}</div>`;
+}
+
+export function ToolDiffHunks({ hunks, replaceAllLabel }) {
+  const sign = { removed: "-", added: "+", context: " " };
+  return html`<div class="tool-diff-hunks">
+    ${hunks.map((hunk, index) => html`<div key=${index}>
+      ${(hunk.index != null || hunk.replaceAll) && html`<div class="tool-meta-row tool-diff-meta">
+        ${hunk.index != null && html`<${ToolPill} text=${`#${hunk.index}`} />`}
+        ${hunk.replaceAll && html`<${ToolPill} text=${replaceAllLabel} emphasized />`}
+      </div>`}
+      <div class="tool-output tool-diff">
+        ${hunk.lines.map((line, i) => html`<div class=${`tool-diff-line ${line.kind}`} key=${i}>
+          <span class="tool-diff-sign" aria-hidden="true">${sign[line.kind] ?? " "}</span>
+          <span class="tool-code">${line.text}</span>
+        </div>`)}
+      </div>
+    </div>`)}
+  </div>`;
 }
 
 function ToolBody({ body }) {
@@ -144,7 +163,8 @@ function ToolBody({ body }) {
         <${ToolPill} text=${body.status} emphasized /><${ToolPill} text=${body.device} />
       </div>
       ${body.error && html`<div class="tool-terminal tool-gap">${body.error}</div>`}
-      ${body.output != null && html`<div class="tool-gap"><${ToolOutput} text=${body.output} /></div>`}`;
+      ${body.output != null && html`<div class="tool-gap"><${ToolOutput} text=${body.output} /></div>`}
+      ${body.metadata && html`<div class="tool-gap"><${ToolDocument} document=${body.metadata} /></div>`}`;
     case "paths": return html`<div class="tool-paths">
       ${body.values.map((path, index) => html`<${ToolPath} key=${index} path=${path} />`)}
     </div>`;
@@ -178,23 +198,26 @@ function ToolBody({ body }) {
 }
 
 function toolImageUrl(conversationId, messageId, detailIndex, image) {
-  return `/api/tool-images/${encodeURIComponent(conversationId)}/${encodeURIComponent(messageId)}/${detailIndex}/${image.index}?v=${encodeURIComponent(image.version)}`;
+  return `/api/tool-images/${encodeURIComponent(conversationId)}/${encodeURIComponent(messageId)}/${detailIndex}/${image.index}`;
 }
 
-function ToolImage({ src, image, detail, full = false, onClick }) {
-  const [state, setState] = useState("loading");
+function ToolImage({ src, image, detail, full = false, onClick, onState }) {
+  const [loadState, setState] = useState("loading");
+  const state = image.unavailable ? "failed" : loadState;
+  const settle = next => { setState(next); onState?.(next); };
   const aspect = image.width > 0 && image.height > 0 ? Math.max(0.55, Math.min(2.2, image.width / image.height)) : 1;
   const Tag = full ? "div" : "button";
   return html`<${Tag} class=${`tool-image ${detail.squareCrop && !full ? "square" : ""} ${full ? "full" : ""}`}
-    type=${full ? null : "button"} disabled=${full ? null : state !== "loaded"} onClick=${onClick}
+    type=${full ? null : "button"} disabled=${full ? null : state !== "loaded"}
+    onClick=${state === "loaded" ? onClick : null}
     aria-label=${full ? null : detail.imageLabel} data-state=${state} style=${{ aspectRatio: String(aspect) }}>
-    <img src=${src} alt=${detail.imageLabel} loading=${full ? "eager" : "lazy"} decoding="async"
-      onLoad=${() => setState("loaded")} onError=${() => setState("failed")} />
+    ${!image.unavailable && html`<img src=${src} alt=${detail.imageLabel} loading=${full ? "eager" : "lazy"} decoding="async"
+      onLoad=${() => settle("loaded")} onError=${() => settle("failed")} />`}
     <span class="tool-image-overlay loading" aria-hidden=${state !== "loading"}>
-      <${Spinner} size=${28} stroke=${2} label=${detail.imageLabel} color="inherit" />
+      <${Spinner} size=${28} stroke=${3} label=${detail.imageLabel} />
     </span>
     <span class="tool-image-overlay failed" aria-hidden=${state !== "failed"}>
-      <span class="tool-image-failed" role="img" aria-label=${detail.imageFailedLabel}>${icon(ICON_IMAGE)}</span>
+      <span class="tool-image-failed" role="img" aria-label=${detail.imageFailedLabel}>${icon(ICON_BROKEN_IMAGE)}</span>
     </span>
   </${Tag}>`;
 }
@@ -209,9 +232,14 @@ function ToolMediaPreview({ detail, urls, initialIndex, onClose }) {
 function ToolDetail({ item, conversationId, messageId }) {
   const detail = item.toolDetail;
   const [preview, setPreview] = useState(null);
+  const [loads, setLoads] = useState({});
   const urls = detail.images.map((image) => toolImageUrl(conversationId, messageId, item.detailIndex, image));
-  const previewVersion = urls.join("\n");
-  useEffect(() => { setPreview(null); }, [previewVersion]);
+  const previewIdentity = detail.images.map((image, index) => `${urls[index]}:${!!image.unavailable}`).join("\n");
+  useEffect(() => { setPreview(null); }, [previewIdentity]);
+  const mediaIndices = detail.images.map((image, index) => !image.unavailable && loads[urls[index]] === "loaded" ? index : null)
+    .filter(index => index != null);
+  const mediaUrls = mediaIndices.map(index => urls[index]);
+  const previewIndex = mediaIndices.indexOf(preview);
   return html`<div class=${`tool-detail ${detail.kind === "WEB_SEARCH" ? "search" : ""}`}>
     ${(detail.arguments || detail.codeArgument) && html`<div class="tool-arguments">
       <div class="tool-section-label">${detail.argumentsLabel}</div>
@@ -219,15 +247,21 @@ function ToolDetail({ item, conversationId, messageId }) {
       ${detail.codeArgument && html`<${ToolCodeArgument} code=${detail.codeArgument} />`}
     </div>`}
     ${detail.kind === "MCP" && html`<div class="tool-mcp-meta tool-meta-row">
-      <${ToolPill} text="MCP" emphasized /><${ToolPill} text=${detail.mcpDevice} />
+      <${ToolPill} text="MCP" emphasized /><${ToolPill} text=${detail.device} />
     </div>`}
     <div class="tool-section-label result">${detail.resultLabel}</div>
+    ${detail.device && detail.kind !== "MCP" && detail.body.type !== "shell" && SHELL_CARD_KINDS.has(detail.kind) &&
+      html`<div class="tool-meta-row"><${ToolPill} text=${detail.device} /></div>`}
     ${detail.images.length > 0 && html`<div class="tool-images">
-      ${detail.images.map((image, index) => html`<${ToolImage} key=${urls[index]} src=${urls[index]}
-        image=${image} detail=${detail} onClick=${() => setPreview(index)} />`)}
+      ${detail.images.map((image, index) => html`<${ToolImage} key=${`${urls[index]}:${!!image.unavailable}`} src=${urls[index]}
+        image=${image} detail=${detail} onState=${state => setLoads(current => ({ ...current, [urls[index]]: state }))}
+        onClick=${() => { if (!image.unavailable && loads[urls[index]] === "loaded") setPreview(index); }} />`)}
     </div>`}
     <${ToolBody} body=${detail.body} />
-    ${preview != null && html`<${ToolMediaPreview} detail=${detail} urls=${urls} initialIndex=${preview} onClose=${() => setPreview(null)} />`}
+    ${(detail.supplemental || []).map((document, index) => html`<div class="tool-arguments" key=${index}>
+      <${ToolDocument} document=${document} />
+    </div>`)}
+    ${previewIndex >= 0 && html`<${ToolMediaPreview} detail=${detail} urls=${mediaUrls} initialIndex=${previewIndex} onClose=${() => setPreview(null)} />`}
   </div>`;
 }
 
@@ -235,7 +269,8 @@ export function CardIcon({ kind, toolKind }) {
   if (kind === "LOADING") return html`<${Spinner} size=${16} stroke=${2} color="inherit" />`;
   const path = kind === "TOOL"
     ? toolKind?.startsWith("TODO_") ? ICON_CHECKLIST
-      : toolKind?.startsWith("SUBAGENT_") ? ICON_ACCOUNT_TREE : ICON_BUILD
+      : toolKind?.startsWith("SUBAGENT_") ? ICON_ACCOUNT_TREE
+      : toolKind === "PHONE" ? ICON_MOBILE_HAND : ICON_BUILD
     : kind === "IMAGE" ? ICON_IMAGE : ICON_NEUROLOGY;
   return icon(path, kind === "THINKING" ? "0 0 960 960" : "0 0 24 24");
 }
@@ -518,6 +553,7 @@ export function DetailSheet({ group, items, page, detailIndex, selectedItem, con
                 ${selectedItem.type === "transcription" && !selectedItem.content?.markdown
                   ? html`<p class="detail-sheet-empty">Image transcription is empty.</p>`
                   : html`<${Markdown} text=${selectedItem.content} variant="thought" wrap=${wrap}
+                      conversationId=${conversationId} messageId=${messageId} imageDocument=${`segment:${detailIndex}`}
                       streaming=${selectedItem.streaming} reduceMotion=${reduceMotion} />`}
               </div>`}
           </div>`}

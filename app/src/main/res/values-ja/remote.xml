@@ -8,6 +8,7 @@
     <string name="remote_connection_hint">接続先のデバイスに Filo をインストールしてから、IP アドレスまたは URL を入力してください。</string>
     <string name="remote_sessions">セッション</string>
     <string name="remote_empty">既存のセッションが見つかりません</string>
+    <string name="remote_empty_hint">このソースのセッションがここに表示されます。</string>
     <string name="remote_sync_hint">Codex でこのセッションを開いたままにしてください。返信は保存後に同期されます。</string>
     <string name="remote_refresh">更新</string>
     <string name="remote_load_more">さらに読み込む</string>
@@ -38,8 +39,13 @@
     <string name="remote_source_codex_desktop">Codex Desktop</string>
     <string name="remote_source_codex_cli">Codex CLI</string>
     <string name="remote_source_claude_code">Claude Code</string>
+    <string name="remote_source_claude_desktop">Claude Desktop</string>
     <string name="remote_source_read_only">この接続元では、この会話は閲覧のみ可能です。</string>
     <string name="remote_history_bounded">この接続元では、最近の履歴のスナップショットのみ利用できます。</string>
     <string name="remote_source_unavailable">この接続元は利用できません。接続先のパソコンでネイティブクライアントを確認してください。</string>
+    <string name="remote_source_no_session">アクティブな %1$s セッションはありません</string>
     <string name="remote_history_observed">Claude Mod の登録後に取得したテキストのみ表示します。それ以前の履歴、ツールの実行内容、メディア、思考内容は含まれません。</string>
+    <string name="remote_settings_pending_request">次のネイティブリクエストで設定を確認します</string>
+    <string name="remote_settings_confirmed_request">ネイティブリクエストで設定を確認済み</string>
+    <string name="remote_settings_failed_request">設定が不一致 · 実際のモデル：%1$s · 思考深度：%2$s</string>
 </resources>

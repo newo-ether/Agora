@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex 未接受这条消息，请查看错误详情后再尝试。</string>
     <string name="remote_storage_failed">Agora 无法访问本地远程数据，请检查剩余存储空间。</string>
     <string name="remote_network_failed">无法连接 Filo，请检查目标电脑、服务地址和网络。</string>
-    <string name="remote_auth_failed">Filo 拒绝了访问令牌，请使用目标电脑上的令牌。</string>
+    <string name="remote_auth_failed">Filo 未能完成本次请求的认证，这不一定表示访问令牌有误。若持续发生，请核对目标电脑上的令牌和系统时间。</string>
     <string name="remote_configuration_failed">请输入有效的服务 URL 和 64 位访问令牌。</string>
     <string name="remote_protocol_failed">Agora 无法验证或读取 Filo 的响应，请检查两端应用是否已更新。</string>
     <string name="remote_service_failed">Codex 未能完成请求。</string>

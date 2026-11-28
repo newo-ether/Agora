@@ -22,6 +22,9 @@
     <string name="subagents_max_concurrent">동시 실행 수</string>
     <string name="subagents_max_concurrent_desc">상위 대화마다 동시에 실행할 수 있는 하위 에이전트의 최대 수입니다. 초과 작업은 대기하며, 제한을 낮춰도 실행 중인 하위 에이전트는 완료할 수 있습니다.</string>
     <string name="subagents_limit_value">%1$d</string>
+    <plurals name="subagents_running_count">
+        <item quantity="other">%d개 실행 중</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="other">하위 에이전트 %d개</item>
     </plurals>

@@ -2,6 +2,7 @@ package com.newoether.agora.viewmodel
 
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.util.Constants
+import com.newoether.agora.util.ShellFileEdit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +15,22 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Coordinates user confirmation of shell commands issued by remote MCP / shell servers.
+ * Structured payload behind a confirmation prompt, so the card can show the file change itself
+ * instead of a one-line summary. Null for ordinary commands and transfers.
+ */
+sealed interface ShellActionDetail {
+    val path: String
+
+    /** Whole-file write: [content] is the text that will replace the file. */
+    data class Write(override val path: String, val content: String) : ShellActionDetail
+
+    /** One or more replacements; the UI renders them as a diff. */
+    data class Edit(override val path: String, val edits: List<ShellFileEdit>) : ShellActionDetail
+}
+
+/**
+ * Coordinates user confirmation of shell commands issued by remote MCP / shell servers and the
+ * local sandbox.
  *
  * Owns the pending-confirmation [StateFlow], the per-session trust set, and the
  * suspend/await handshake between the generation pipeline (which asks) and the UI
@@ -36,6 +52,12 @@ class ShellConfirmationController internal constructor(
         val deferred: CompletableDeferred<Boolean>,
         /** Conversation whose tool call is waiting; a notification tap opens it. */
         val conversationId: String? = null,
+        /** File contents or edit hunks for write/edit prompts; null for other actions. */
+        val detail: ShellActionDetail? = null,
+        /** Model-written one-line intent for this action; shown above the command text. */
+        val description: String = "",
+        /** A phone_claim request: [server] names Phone Use and [summary] is plain text. */
+        val phone: Boolean = false,
     )
     val notificationSessionId: String = java.util.UUID.randomUUID().toString()
 
@@ -58,16 +80,36 @@ class ShellConfirmationController internal constructor(
     private val promptMutex = Mutex()
 
     /** Suspends until the user resolves the prompt; returns whether the command may run. */
-    suspend fun confirm(server: String, summary: String, conversationId: String? = null): Boolean {
+    suspend fun confirm(
+        server: String,
+        summary: String,
+        conversationId: String? = null,
+        detail: ShellActionDetail? = null,
+        description: String = "",
+    ): Boolean {
         if (!confirmEnabled.value) return true
-        if (sessionAllowedServers.contains(server)) return true
+        return prompt(PendingShellCommand(0, server, summary, CompletableDeferred(), conversationId, detail, description))
+    }
+
+    /**
+     * Asks before a phone_claim. Gated by Phone Use's own setting rather than the shell one, and
+     * trusted separately, so "always allow" on a shell server never admits phone control.
+     */
+    suspend fun confirmPhone(label: String, summary: String, conversationId: String?): Boolean =
+        prompt(PendingShellCommand(0, label, summary, CompletableDeferred(), conversationId, phone = true))
+
+    private fun PendingShellCommand.trustKey() = if (phone) PHONE_TRUST_KEY else server
+
+    private suspend fun prompt(request: PendingShellCommand): Boolean {
+        val key = request.trustKey()
+        if (sessionAllowedServers.contains(key)) return true
         return promptMutex.withLock {
-            // Re-check after the wait — the user may have trusted this server while an
+            // Re-check after the wait: the user may have trusted this target while an
             // earlier conversation's prompt was up.
-            if (sessionAllowedServers.contains(server)) return@withLock true
-            val deferred = CompletableDeferred<Boolean>()
+            if (sessionAllowedServers.contains(key)) return@withLock true
+            val deferred = request.deferred
             val promptId = nextPromptId.getAndIncrement()
-            _pendingShellCommand.value = PendingShellCommand(promptId, server, summary, deferred, conversationId)
+            _pendingShellCommand.value = request.copy(id = promptId)
             try {
                 // Backgrounding the app does not answer the request. There is no visible dialog
                 // there, so the app layer re-surfaces the wait as a notification with the same
@@ -95,9 +137,14 @@ class ShellConfirmationController internal constructor(
         val pending = _pendingShellCommand.value ?: return
         if (pending.id != promptId) return
         if (!_pendingShellCommand.compareAndSet(pending, null)) return
-        if (allow && alwaysAllowServer) sessionAllowedServers.add(pending.server)
+        if (allow && alwaysAllowServer) sessionAllowedServers.add(pending.trustKey())
         pending.deferred.complete(allow)
     }
 
     fun setEnabled(enabled: Boolean) = persistEnabled(enabled)
+
+    private companion object {
+        /** Not a valid server name, so it can never collide with one. */
+        const val PHONE_TRUST_KEY = "\u0000phone"
+    }
 }

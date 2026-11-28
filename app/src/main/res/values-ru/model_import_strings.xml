@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="embedding_import_title">Импортировать модель эмбеддингов (.gguf)</string>
+    <string name="embedding_import_title">Модель эмбеддингов (.gguf)</string>
     <string name="embedding_import_desc">Импортировать модель эмбеддингов GGUF для локального семантического поиска</string>
-    <string name="local_chat_import_title">Импортировать модель чата (.gguf)</string>
+    <string name="local_chat_import_title">Модель чата (.gguf)</string>
     <string name="local_chat_import_desc">Импортировать модель чата GGUF для ведения диалогов на этом устройстве</string>
-    <string name="local_projector_import_title">Импортировать визуальный проектор (.mmproj)</string>
+    <string name="model_import_not_imported">Не импортировано · %1$s</string>
+    <string name="model_import_file_missing">Файл отсутствует</string>
+    <string name="local_projector_enabled">Ввод изображений включён</string>
 </resources>

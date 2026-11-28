@@ -28,7 +28,13 @@ internal class SettingsSystemPromptStore(
         dataStore.edit { prefs ->
             // Transform durable state, not a consumer's asynchronously published snapshot.
             val current = read(prefs)
-            val next = transform(current)
+            val next = transform(current).map { entry ->
+                // An explicit edit accepts this revision even when its text matches an old default.
+                if (current.find { it.id == entry.id } != entry &&
+                    entry.builtInMigrationVersion < DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION
+                ) entry.copy(builtInMigrationVersion = DefaultSystemPrompt.BUILT_IN_MIGRATION_VERSION)
+                else entry
+            }
             prefs[SYSTEM_PROMPTS_JSON] = json.encodeToString(next)
             val active = prefs[ACTIVE_SYSTEM_PROMPT_ID]
             val replacement = when {

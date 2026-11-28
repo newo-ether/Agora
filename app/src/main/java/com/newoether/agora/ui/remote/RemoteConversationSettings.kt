@@ -10,7 +10,7 @@ import com.newoether.agora.ui.common.ThinkingControlPanel
 /** Native unknown values use the original panels without inventing a selected slider tick. */
 @Composable
 internal fun RemoteThinkingControl(state: RemoteState, enabled: Boolean, onLevelChange: (String) -> Unit) {
-    val choices = state.settingsModel?.reasoningEfforts.orEmpty()
+    val choices = state.effortChoices
     ThinkingControlPanel(
         enabled = state.selectedEffort != "none", level = state.selectedEffort.orEmpty(),
         budgetEnabled = false, budgetTokens = 4096,

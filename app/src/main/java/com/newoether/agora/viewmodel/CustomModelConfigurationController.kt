@@ -3,6 +3,7 @@ import com.newoether.agora.data.repository.replaceConfiguredModelReferences
 
 import com.newoether.agora.data.CustomEndpointProtocol
 import com.newoether.agora.data.repository.ConversationRepository
+import com.newoether.agora.data.ProviderEditorDraft
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ModelId
 import kotlinx.coroutines.CoroutineDispatcher
@@ -37,6 +38,14 @@ internal class CustomModelConfigurationController(
         providers.updateCustomProtocol(name, protocol)
 
     fun deleteProvider(name: String) = providers.deleteCustom(name)
+
+    /** Explicit Save of a remote Provider detail page, built-in or custom. */
+    suspend fun commitProviderEditor(originalName: String, draft: ProviderEditorDraft) =
+        mutationMutex.withLock { providers.commitEditor(originalName, draft) }
+
+    /** Explicit Save of the add route, which is the same full editor with no Provider yet. */
+    suspend fun createProviderFromEditor(draft: ProviderEditorDraft) =
+        mutationMutex.withLock { providers.createEditor(draft) }
 
     fun updateModel(
         oldModelId: String,

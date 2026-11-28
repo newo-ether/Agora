@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import com.newoether.agora.MainActivity
 import com.newoether.agora.AgoraApplication
 import com.newoether.agora.R
+import com.newoether.agora.viewmodel.buildLiveToolBridge
 import com.newoether.agora.stt.SherpaSttBootstrap
 import com.newoether.agora.stt.VoiceInputManager
 import kotlinx.coroutines.CoroutineScope

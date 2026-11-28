@@ -8,10 +8,10 @@ import com.newoether.agora.data.repository.updateConversationModel
 import com.newoether.agora.data.modelDisplayName
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.thinkingCapabilityForSelectedModel
-import com.newoether.agora.ui.chat.EffectiveConversationControls
-import com.newoether.agora.ui.chat.resolveEffectiveConversationControls
-import com.newoether.agora.ui.chat.withGenerationParameters
-import com.newoether.agora.ui.chat.validGenerationParameters
+import com.newoether.agora.presentation.EffectiveConversationControls
+import com.newoether.agora.presentation.resolveEffectiveConversationControls
+import com.newoether.agora.presentation.withGenerationParameters
+import com.newoether.agora.presentation.validGenerationParameters
 import com.newoether.agora.viewmodel.CompactRequest
 import com.newoether.agora.viewmodel.CompactResult
 import com.newoether.agora.viewmodel.CompactFailureReason
@@ -118,32 +118,6 @@ internal class WebUiChatSession(
         val movedByServer: Boolean,
     )
 
-    /** The composer owner the browser shows and that owner's submission phase. */
-    data class ComposerState(
-        val conversationId: String?,
-        val snapshot: ConversationComposerSubmissionSnapshot,
-        val seq: Long = 0L,
-        val text: String = "",
-        val editRevision: Long = 0L,
-        val actionId: Long = 0L,
-        val modelValid: Boolean = false,
-        val generating: Boolean = false,
-        val stopping: Boolean = false,
-        val modelId: String = "",
-        val models: Map<String, String> = emptyMap(),
-        val queue: List<QueuedSend> = emptyList(),
-        val attachments: List<SelectedAttachment> = emptyList(),
-        val pdfProgress: Map<String, Pair<Int, Int>> = emptyMap(),
-        val controls: EffectiveConversationControls? = null,
-        val generationParameters: ConversationSettings = ConversationSettings(),
-        val generationDefaults: ConversationSettings = ConversationSettings(),
-        val compactDefaults: CompactRequest? = null,
-        val compacting: Boolean = false,
-        val systemPromptId: String? = null,
-        val systemPrompts: List<com.newoether.agora.data.SystemPromptEntry> = emptyList(),
-        val activeSystemPromptId: String? = null,
-    )
-
     private val target = MutableStateFlow(OpenTarget(null, browserSeq = 0L, movedByServer = false))
     val openTarget: StateFlow<OpenTarget> = target.asStateFlow()
     // Updated together with [target] so a send right after an open captures the new target.
@@ -168,6 +142,7 @@ internal class WebUiChatSession(
     private val drafts = ComposerDraftController(
         persistence = draftPersistence,
         conversations = conversations,
+        hydrateAttachment = attachmentProcessor::hydrateDraftAttachment,
     )
     private val composers = ConversationComposerController(
         scope = scope,
@@ -208,7 +183,7 @@ internal class WebUiChatSession(
         settings.thinkingEnabled, settings.thinkingLevel, settings.thinkingBudgetEnabled, settings.thinkingBudgetTokens,
         settings.openAiServiceTierEnabled, settings.openAiServiceTier, settings.openAiResponsesApiEnabled,
         settings.webSearchEnabled, settings.shellEnabled, settings.localLowContextModeEnabled, settings.maxContextWindow,
-        settings.customProviders,
+        settings.customProviders, settings.sandboxEnabled,
         settings.defaultTemperature, settings.defaultMaxTokens, settings.defaultTopP,
         settings.defaultFrequencyPenalty, settings.defaultPresencePenalty,
         settings.contextCompactModel, settings.contextCompactPrompt, settings.contextCompactRetainCount,
@@ -276,9 +251,19 @@ internal class WebUiChatSession(
     private val actionId = MutableStateFlow(0L)
     private var retainedOwner: String? = null
     private var closed = false
+    internal val sessionTools = WebUiSessionToolsController(
+        generation, ownerMutex, target, activeModel,
+        isClosed = { closed },
+        newChatSystemPromptId = { newChatSystemPromptId.value },
+        newChatSettings = { newChatSettings.value },
+        updateSettings = { id, update ->
+            if (id == null) newChatSettings.value = update(newChatSettings.value ?: ConversationSettings())
+            else settings.updateConversationSettings(id, update)
+        },
+    )
     private val uploadedSources = mutableListOf<SelectedAttachment>()
     private val ownerState = MutableStateFlow<Pair<String, StateFlow<ConversationComposerSubmissionSnapshot>>?>(null)
-    val composerState: Flow<ComposerState> = combine(ownerState, target) { owner, selected ->
+    val composerState: Flow<WebUiComposerState> = combine(ownerState, target) { owner, selected ->
         owner?.takeIf { it.first == (selected.conversationId ?: NEW_CHAT_WORKSPACE_ID) }?.let { it to selected }
     }.filterNotNull().flatMapLatest { (owned, _) ->
         val (owner, state) = owned
@@ -299,7 +284,7 @@ internal class WebUiChatSession(
                     if (retainedOwner != owner || owner != (selected.conversationId ?: NEW_CHAT_WORKSPACE_ID)) {
                         null
                     } else {
-                        ComposerState(
+                        WebUiComposerState(
                             selected.conversationId, state.value, selected.browserSeq, draft.value.text,
                             editRevision.value, actionId.value,
                             activeModel.value?.let { it.first == selected.conversationId && it.second.isNotBlank() } == true,
@@ -314,11 +299,21 @@ internal class WebUiChatSession(
                                 temperature = settings.defaultTemperature.value, maxTokens = settings.defaultMaxTokens.value,
                                 topP = settings.defaultTopP.value, frequencyPenalty = settings.defaultFrequencyPenalty.value,
                                 presencePenalty = settings.defaultPresencePenalty.value),
-                            CompactRequest(settings.contextCompactModel.value ?: activeModel.value?.second.orEmpty(),
-                                settings.contextCompactPrompt.value, settings.contextCompactRetainCount.value),
+                            // Preserve Context pins the compact model to the conversation model,
+                            // matching ChatManualCompactDialog.
+                            CompactRequest(
+                                if (settings.contextCompactPreserveSystemPrompt.value) {
+                                    activeModel.value?.takeIf { it.first == selected.conversationId }?.second.orEmpty()
+                                } else {
+                                    settings.contextCompactModel.value
+                                        ?: activeModel.value?.takeIf { it.first == selected.conversationId }?.second.orEmpty()
+                                },
+                                settings.contextCompactPrompt.value, settings.contextCompactRetainCount.value,
+                                preserveSystemPrompt = settings.contextCompactPreserveSystemPrompt.value),
                             compacting,
                             selectedSystemPrompt.value?.takeIf { it.first == selected.conversationId }?.second,
                             settings.systemPrompts.value, settings.activeSystemPromptId.value,
+                            sandboxAttachments = allowLocalSandbox(),
                         )
                     }
                 }
@@ -495,8 +490,8 @@ internal class WebUiChatSession(
                 "codeExecutionEnabled", "googleSearchEnabled" -> selectedProvider(openId.value).equals("google", ignoreCase = true) && model.isNotBlank() && !current.lowContextModeEnabled
                 "openAiWebSearchEnabled" -> current.openAiWebSearchAvailable && model.isNotBlank() && !current.lowContextModeEnabled
                 "openAiServiceTierEnabled" -> current.openAiServiceTierState.available && model.isNotBlank() && !current.lowContextModeEnabled
-                "webSearchEnabled" -> current.webSearchAvailable && !current.lowContextModeEnabled
-                "shellEnabled" -> current.shellAvailable && !current.lowContextModeEnabled
+                "webSearchEnabled" -> current.webSearchAvailable
+                "shellEnabled" -> current.shellAvailable
                 else -> false
             }
             if (!allowed || (command.setting?.endsWith("Enabled") == true && enabled == null)) return@withLock
@@ -546,6 +541,7 @@ internal class WebUiChatSession(
                     val frames = command.frameCount
                     val interval = command.intervalMs
                     if (attachment.type == "video" && attachment.importState == com.newoether.agora.model.AttachmentImportState.PROCESSING &&
+                        attachment.storage != com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING &&
                         attachment.frameCount == null && frames != null && frames >= 2 && interval != null && interval in 0..Long.MAX_VALUE / 1000) {
                         composers.configureVideo(owner, id, frames, interval)
                     }
@@ -568,31 +564,31 @@ internal class WebUiChatSession(
                     if (closed || seq != target.value.browserSeq || index < 0) return@withLock null
                     val owner = retainedOwner ?: return@withLock null
                     val attachment = composers.state(owner).value.attachments.firstOrNull { it.localId == id }
-                        ?.takeIf { !it.unavailable && it.storage == com.newoether.agora.model.AttachmentStorage.APP_PRIVATE }
+                        ?.takeIf { it.storage.canPreview }
                         ?: return@withLock null
-                    val artifact = when (kind) {
-                        "page" -> attachment.takeIf { it.type == "pdf" }?.preRenderedPaths?.getOrNull(index)?.let { it to "image/jpeg" }
-                        "frame" -> attachment.takeIf { it.type == "video" }?.processedFrames?.getOrNull(index)?.let { it to "image/jpeg" }
-                        "source" -> if (index != 0) null else attachment.localPath?.let { path ->
-                            when (attachment.type) {
-                                "image" -> if (attachment.importState == com.newoether.agora.model.AttachmentImportState.READY) path to "image/jpeg" else null
-                                "video" -> attachment.mimeType?.takeIf { VIDEO_MIME.matches(it) }?.let { path to it }
-                                else -> null
-                            }
-                        }
-                        else -> null
+                    val artifact = attachmentPreviewArtifact(attachment, kind, index)
+                    artifact?.let { selected ->
+                        AttachmentFiles.retainLivePath(previewOwner, selected.first)
+                        selected to attachment.imageArtifacts.getOrNull(index)
                     }
-                    artifact?.also { AttachmentFiles.retainLivePath(previewOwner, it.first) }
                 } ?: return@async false
                 withContext(Dispatchers.IO) {
                     val file = try {
                         val root = uploadDirectory.toPath().toRealPath()
-                        val path = File(selected.first).toPath().toRealPath()
+                        val path = File(selected.first.first).toPath().toRealPath()
                         path.takeIf { it.startsWith(root) && it != root && it.toFile().isFile }?.toFile()
                     } catch (_: java.io.IOException) {
                         null
                     } ?: return@withContext false
-                    consume(file, selected.second)
+                    val mime = if (kind == "source" && selected.first.second.startsWith("video/")) {
+                        selected.first.second
+                    } else {
+                        val measured = try { inspectWebUiImageArtifact(file, selected.second) }
+                            catch (_: java.io.IOException) { null }
+                        measured?.mimeType ?: return@withContext false
+                    }
+                    currentCoroutineContext().ensureActive()
+                    consume(file, mime)
                     true
                 }
             } finally {
@@ -795,6 +791,5 @@ internal class WebUiChatSession(
 
     private companion object {
         const val SNACKBAR_BUFFER = 8
-        val VIDEO_MIME = Regex("video/[A-Za-z0-9.+-]+")
     }
 }

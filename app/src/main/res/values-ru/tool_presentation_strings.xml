@@ -184,4 +184,30 @@
         <item quantity="other">Найдено %1$d результатов</item>
     </plurals>
     <string name="tool_json_empty_container">Нет содержимого</string>
+    <string name="tool_search_mcp_tools">Поиск инструментов MCP</string>
+    <string name="tool_searching_mcp_tools">Поиск инструментов MCP…</string>
+    <string name="tool_searching_mcp_tools_for">Поиск инструментов MCP по запросу %1$s…</string>
+    <string name="tool_searched_mcp_tools">Поиск инструментов MCP выполнен</string>
+    <string name="tool_no_mcp_tools">Подходящие инструменты MCP не найдены</string>
+    <plurals name="tool_found_mcp_tools">
+        <item quantity="one">Найден %1$d инструмент MCP</item>
+        <item quantity="few">Найдено %1$d инструмента MCP</item>
+        <item quantity="many">Найдено %1$d инструментов MCP</item>
+        <item quantity="other">Найдено %1$d инструмента MCP</item>
+    </plurals>
+    <string name="tool_list_mcp_servers">Список серверов MCP</string>
+    <string name="tool_listing_mcp_servers">Получение списка серверов MCP…</string>
+    <string name="tool_listed_mcp_servers_default">Список серверов MCP получен</string>
+    <string name="tool_no_mcp_servers_returned">Серверы MCP не возвращены</string>
+    <string name="tool_list_mcp_servers_failed">Не удалось получить список серверов MCP</string>
+    <plurals name="tool_listed_mcp_servers">
+        <item quantity="one">Получен %1$d сервер MCP</item>
+        <item quantity="few">Получено %1$d сервера MCP</item>
+        <item quantity="many">Получено %1$d серверов MCP</item>
+        <item quantity="other">Получено %1$d сервера MCP</item>
+    </plurals>
+    <string name="tool_edit_operation_update">Изменить</string>
+    <string name="tool_edit_operation_add">Добавить</string>
+    <string name="tool_edit_operation_delete">Удалить</string>
+    <string name="tool_edit_operation_move">Переместить</string>
 </resources>

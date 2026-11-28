@@ -20,11 +20,75 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import com.newoether.agora.model.ToolImageAttachment
+import com.newoether.agora.viewmodel.GenerationContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.put
 
+/** Schema and dispatch share the same eligible target set, including the local server. */
+internal fun shellServerNames(ctx: GenerationContext, standardOnly: Boolean = false): List<String> =
+    buildList {
+        if (ctx.sandboxEnabled) add("Local Sandbox")
+        addAll(ctx.shellDevices.filter { !standardOnly || it.type != "ssh" }.map { it.name })
+    }
+
+internal fun resolveShellServerName(
+    name: String,
+    ctx: GenerationContext,
+    standardOnly: Boolean = false,
+): String? {
+    val names = shellServerNames(ctx, standardOnly)
+    return if (name.isBlank()) names.singleOrNull()
+    else names.singleOrNull { it.equals(name, ignoreCase = true) }
+}
+
+internal fun openShellBackend(
+    name: String,
+    ctx: GenerationContext,
+    sandbox: SandboxManager?,
+    standardOnly: Boolean = false,
+): Backend? {
+    val resolved = resolveShellServerName(name, ctx, standardOnly) ?: return null
+    if (resolved == "Local Sandbox") {
+        // Availability discovery must not wait for a running command's rootfs mutation lock.
+        return sandbox?.takeIf { it.isAvailableSync() }?.let(::SandboxBackend)
+    }
+    val device = ctx.shellDevices.singleOrNull { it.name == resolved } ?: return null
+    return if (device.type == "ssh") SshBackend(device) else ConchBackend(device)
+}
+
+internal fun shellServerNotFoundMessage(
+    name: String,
+    ctx: GenerationContext,
+    standardOnly: Boolean = false,
+): String {
+    val names = shellServerNames(ctx, standardOnly)
+    return when {
+        names.isEmpty() -> "No supported shell server is enabled."
+        name.isBlank() && names.size > 1 ->
+            "Multiple servers available. Specify one: ${names.joinToString(", ")}."
+        name.isBlank() || names.any { it.equals(name, ignoreCase = true) } ->
+            "Shell server ${name.ifBlank { names.single() }} is unavailable."
+        else -> "Unknown or unsupported server: $name. Available: ${names.joinToString(", ")}."
+    }
+}
+
 internal sealed interface Backend {
-    /** The remote device this backend targets, or null for the local sandbox (never gated). */
+    /** Null denotes the local target; shared-storage mutations still require confirmation. */
     val device: ShellDeviceConfig?
+    val serverName: String get() = device?.name ?: "Local Sandbox"
+    val supportsStandardTools: Boolean get() = device?.type != "ssh"
+    suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int, description: String = ""): String =
+        error("Durable jobs are not supported on $serverName")
+    suspend fun listJobs(offset: Int = 0, limit: Int = 100): String =
+        error("Durable jobs are not supported on $serverName")
+    suspend fun getJob(jobId: String): String = error("Durable jobs are not supported on $serverName")
+    suspend fun stopJob(jobId: String, callTimeoutMillis: Long? = null): String =
+        error("Durable jobs are not supported on $serverName")
+    suspend fun acknowledgeJob(jobId: String): String = error("Durable jobs are not supported on $serverName")
+    suspend fun loadImage(path: String, store: ToolImageStore): ToolImageAttachment =
+        error("Image reads are not supported on $serverName")
     suspend fun executeCommand(cmd: String, workdir: String, timeoutMs: Int): String
     fun executeCommandEvents(
         cmd: String,
@@ -57,9 +121,7 @@ internal sealed interface Backend {
 }
 
 internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
-    // Sanitize: a saved URL can contain a stray newline + extra text; keep only the first
-    // whitespace-delimited token so request paths and error messages use a clean base.
-    private val url = com.newoether.agora.util.sanitizeConchServerUrl(device.serverUrl)
+    private val url = device.serverUrl.trimEnd('/')
     private val apiKey = device.apiKey
     private val pubKey = device.conchPublicKey
     private val deviceName = device.name
@@ -86,32 +148,47 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
         timeoutMs: Int,
         onOutput: suspend (String) -> Unit,
     ): String {
-        if (url.isBlank()) return jsonError("execute_shell_command", "Server \"$deviceName\" has no URL configured.")
+        if (url.isBlank()) return jsonError("shell_exec", "Server \"$deviceName\" has no URL configured.")
         if (!client.fetchPublicKey() && apiKey.isNotBlank()) {
             return jsonError(
-                "execute_shell_command",
+                "shell_exec",
                 client.lastError ?: "Conch public-key exchange failed for $url",
                 server = deviceName,
             )
         }
-        val prepared = client.prepareRequest(cmd, timeoutMs, workdir)
+        lateinit var prepared: ShellClient.PreparedRequest
+        val progress = com.newoether.agora.util.NetworkRequestProgress()
         val handle = try {
-            HttpClient.streamPost(
-                "${prepared.serverUrl}/execute",
-                prepared.body,
-                prepared.headers,
-                scope = HttpClient.boundStreamScope(),
-                callClient = com.newoether.agora.util.ConchNetwork.streamCalls,
-                maxLineBytes = com.newoether.agora.util.ConchNetwork.LINE_LIMIT,
-                maxErrorBytes = com.newoether.agora.util.ConchNetwork.CONTROL_LIMIT,
-            )
+            com.newoether.agora.util.NetworkRetryPolicy.retry(
+                canRetry = { failure ->
+                    com.newoether.agora.util.NetworkRetryPolicy
+                        .isReplayableUnanswered(failure, progress.statusCode)
+                },
+            ) {
+                prepared = client.prepareRequest(cmd, timeoutMs, workdir)
+                progress.statusCode = null
+                HttpClient.streamPost(
+                    "${prepared.serverUrl}/execute",
+                    prepared.body,
+                    prepared.headers,
+                    scope = HttpClient.boundStreamScope(),
+                    callClient = okhttp3.Call.Factory { request ->
+                        com.newoether.agora.util.ConchNetwork.client.newCall(
+                            request.newBuilder()
+                                .tag(com.newoether.agora.util.NetworkRequestProgress::class.java, progress).build(),
+                        )
+                    },
+                    maxLineBytes = com.newoether.agora.util.ConchNetwork.LINE_LIMIT,
+                    maxErrorBytes = com.newoether.agora.util.ConchNetwork.CONTROL_LIMIT,
+                )
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {
             return jsonError(
-                "execute_shell_command",
+                "shell_exec",
                 com.newoether.agora.util.describeConchRequestFailure(
-                    prepared.serverUrl,
+                    url,
                     "/execute request",
                     e,
                 ),
@@ -120,14 +197,15 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
             )
         }
         if (handle.code !in 200..299) {
+            val statusCode = handle.code
             val detail = handle.errorBody
                 ?.take(240)
                 ?.ifBlank { "empty response" }
                 ?: "empty response"
             handle.close()
             return jsonError(
-                "execute_shell_command",
-                "Conch at ${prepared.serverUrl} returned HTTP ${handle.code}: $detail",
+                "shell_exec",
+                "Conch at ${prepared.serverUrl} returned HTTP $statusCode: $detail",
                 server = deviceName,
                 command = cmd,
             )
@@ -140,13 +218,27 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
                 onOutput = onOutput,
             )
             buildJsonObject {
-                put("type", "execute_shell_command"); put("server", deviceName); put("command", cmd)
-                if (result.errorMessage != null) {
-                    put("error", "execution_error")
-                    put("message", result.errorMessage)
-                    if (result.timedOut) put("timed_out", true)
-                } else {
-                    put("exit_code", result.exitCode ?: -1)
+                put("type", "shell_exec"); put("server", deviceName); put("command", cmd)
+                when {
+                    result.backgroundedJobId != null -> {
+                        put("backgrounded", true)
+                        put("job_id", result.backgroundedJobId)
+                        put("state", "running")
+                        put(
+                            "note",
+                            "The foreground wait budget expired and the command keeps running " +
+                                "as a durable job; it was not killed or restarted. Await it with " +
+                                "shell_job_wait or inspect it with shell_job_get using this job_id.",
+                        )
+                    }
+                    result.errorMessage != null -> {
+                        put("error", "execution_error")
+                        put("message", result.errorMessage)
+                        if (result.timedOut) put("timed_out", true)
+                    }
+                    else -> {
+                        put("exit_code", result.exitCode ?: -1)
+                    }
                 }
                 result.warningMessage?.let { put("warning", it) }
                 put("output", result.output)
@@ -154,7 +246,7 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {
-            jsonError("execute_shell_command", e.message ?: "Unknown error", server = deviceName, command = cmd)
+            jsonError("shell_exec", e.message ?: "Unknown error", server = deviceName, command = cmd)
         } finally { handle.close() }
     }
 
@@ -187,22 +279,28 @@ internal class ConchBackend(override val device: ShellDeviceConfig) : Backend {
 
     override fun close() {}
 
-    suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int): String =
-        client.startJob(cmd, timeoutMs, workdir)
+    override suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int, description: String): String =
+        client.startJob(cmd, timeoutMs, workdir, description)
 
-    suspend fun listJobs(): String = client.listJobs()
+    override suspend fun listJobs(offset: Int, limit: Int): String = client.listJobs(offset, limit)
 
-    suspend fun getJob(jobId: String): String = client.getJob(jobId)
+    override suspend fun getJob(jobId: String): String = client.getJob(jobId)
 
-    suspend fun stopJob(
+    override suspend fun stopJob(
         jobId: String,
-        callTimeoutMillis: Long? = null,
+        callTimeoutMillis: Long?,
     ): String = client.stopJob(jobId, callTimeoutMillis)
 
-    suspend fun acknowledgeJob(jobId: String): String = client.acknowledgeJob(jobId)
+    override suspend fun acknowledgeJob(jobId: String): String = client.acknowledgeJob(jobId)
 
-    suspend fun viewImage(path: String): ShellClient.FileImageResult =
-        client.fileImage(path)
+    suspend fun viewImage(path: String): ShellClient.FileImageResult = client.fileImage(path)
+
+    override suspend fun loadImage(path: String, store: ToolImageStore): ToolImageAttachment {
+        val remote = viewImage(path)
+        remote.error?.let { error(it) }
+        currentCoroutineContext().ensureActive()
+        return store.persistBase64(remote.data, remote.mimeType, "conch")
+    }
 }
 
 internal class SshBackend(override val device: ShellDeviceConfig) : Backend {
@@ -215,25 +313,23 @@ internal class SshBackend(override val device: ShellDeviceConfig) : Backend {
             device = device,
             pinnedHostKey = hostKey,
             // Un-pinned devices stay usable (capture-only); once a key is pinned it is enforced.
-            allowUnknownHostKey = hostKey.isBlank(),
-            privateKey = device.sshPrivateKey,
-            keyPassphrase = device.sshKeyPassphrase,
+            allowUnknownHostKey = hostKey.isBlank()
         )
     }
 
     override suspend fun executeCommand(cmd: String, workdir: String, timeoutMs: Int): String {
-        if (host.isBlank()) return jsonError("execute_shell_command", "SSH device \"$deviceName\" has no host configured.")
+        if (host.isBlank()) return jsonError("shell_exec", "SSH device \"$deviceName\" has no host configured.")
         return try {
             val result = client.executeCommand(cmd, workdir, timeoutMs)
             buildJsonObject {
-                put("type", "execute_shell_command"); put("server", deviceName); put("command", cmd)
+                put("type", "shell_exec"); put("server", deviceName); put("command", cmd)
                 put("exit_code", result.exitCode)
                 put("output", (result.stdout + if (result.stderr.isNotBlank()) "\n${result.stderr}" else "").trimEnd())
             }.toString()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {
-            jsonError("execute_shell_command", e.message ?: "Unknown error", server = deviceName, command = cmd)
+            jsonError("shell_exec", e.message ?: "Unknown error", server = deviceName, command = cmd)
         }
     }
 
@@ -281,12 +377,30 @@ internal class SandboxBackend(sandbox: SandboxManager?) : Backend {
     override val device: ShellDeviceConfig? get() = null
     private val mgr = sandbox ?: throw IllegalStateException("Sandbox not available")
 
+    override suspend fun startJob(cmd: String, workdir: String, timeoutMs: Int, description: String): String =
+        mgr.startJob(cmd, workdir, timeoutMs, description)
+    override suspend fun listJobs(offset: Int, limit: Int): String = mgr.listJobs(offset, limit)
+    override suspend fun getJob(jobId: String): String = mgr.getJob(jobId)
+    override suspend fun stopJob(jobId: String, callTimeoutMillis: Long?): String =
+        if (callTimeoutMillis == null) mgr.stopJob(jobId)
+        else withTimeout(callTimeoutMillis) { mgr.stopJob(jobId) }
+    override suspend fun acknowledgeJob(jobId: String): String = mgr.acknowledgeJob(jobId)
+
+    override suspend fun loadImage(path: String, store: ToolImageStore): ToolImageAttachment {
+        require(path.startsWith('/')) { "Local Sandbox image path must be absolute" }
+        val file = mgr.resolveHostFile(path) ?: error("Sandbox path is unavailable")
+        require(file.isFile && file.canRead()) { "Image file is missing or unreadable: $path" }
+        require(file.length() <= ToolImageStore.MAX_IMAGE_BYTES) { "Tool image exceeds its byte bound" }
+        currentCoroutineContext().ensureActive()
+        return file.inputStream().use { store.persistStream(it, "image/unknown", "sandbox") }
+    }
+
     override suspend fun executeCommand(cmd: String, workdir: String, timeoutMs: Int): String {
-        if (!mgr.isAvailable()) return jsonError("execute_shell_command", "Local Sandbox is not installed.")
+        if (!mgr.isAvailable()) return jsonError("shell_exec", "Local Sandbox is not installed.")
         return try {
             val result = mgr.executeCommand(cmd, workdir, timeoutMs)
             buildJsonObject {
-                put("type", "execute_shell_command"); put("server", "Local Sandbox"); put("command", cmd)
+                put("type", "shell_exec"); put("server", "Local Sandbox"); put("command", cmd)
                 put("exit_code", result.exitCode)
                 result.warning?.let { put("warning", it) }
                 put("output", (result.stdout + if (result.stderr.isNotBlank()) "\n${result.stderr}" else "").trimEnd())
@@ -294,7 +408,7 @@ internal class SandboxBackend(sandbox: SandboxManager?) : Backend {
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {
-            jsonError("execute_shell_command", e.message ?: "Unknown error", server = "Local Sandbox", command = cmd)
+            jsonError("shell_exec", e.message ?: "Unknown error", server = "Local Sandbox", command = cmd)
         }
     }
 

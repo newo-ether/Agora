@@ -8,6 +8,7 @@
     <string name="remote_connection_hint">Cài đặt Filo trên thiết bị đích, rồi nhập địa chỉ IP hoặc URL của thiết bị.</string>
     <string name="remote_sessions">Phiên</string>
     <string name="remote_empty">Không tìm thấy phiên có sẵn</string>
+    <string name="remote_empty_hint">Các phiên từ nguồn này sẽ xuất hiện ở đây.</string>
     <string name="remote_sync_hint">Giữ phiên này mở trong Codex. Câu trả lời sẽ đồng bộ sau khi được lưu.</string>
     <string name="remote_refresh">Làm mới</string>
     <string name="remote_load_more">Tải thêm</string>
@@ -38,8 +39,13 @@
     <string name="remote_source_codex_desktop">Codex Desktop</string>
     <string name="remote_source_codex_cli">Codex CLI</string>
     <string name="remote_source_claude_code">Claude Code</string>
+    <string name="remote_source_claude_desktop">Claude Desktop</string>
     <string name="remote_source_read_only">Cuộc trò chuyện này chỉ có thể đọc qua nguồn này.</string>
     <string name="remote_history_bounded">Nguồn này chỉ cung cấp bản chụp lịch sử gần đây.</string>
     <string name="remote_source_unavailable">Nguồn này không khả dụng. Hãy kiểm tra ứng dụng gốc trên máy tính đích.</string>
+    <string name="remote_source_no_session">Không có phiên %1$s nào đang hoạt động</string>
     <string name="remote_history_observed">Chỉ hiển thị văn bản được thu thập sau khi Claude Mod đăng ký. Không bao gồm lịch sử trước đó, hoạt động của công cụ, nội dung đa phương tiện và phần suy nghĩ.</string>
+    <string name="remote_settings_pending_request">Chờ yêu cầu gốc tiếp theo xác nhận cài đặt</string>
+    <string name="remote_settings_confirmed_request">Yêu cầu gốc đã xác nhận cài đặt</string>
+    <string name="remote_settings_failed_request">Cài đặt không khớp · mô hình thực tế: %1$s · suy luận: %2$s</string>
 </resources>

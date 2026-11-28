@@ -33,6 +33,8 @@ class ConversationExecutionCoordinator(
 
     private val generationAdmissions = mutableMapOf<String, GenerationAdmission>()
     private val generationChanges = MutableStateFlow(0L)
+    private val _admittedGenerationIds = MutableStateFlow<Set<String>>(emptySet())
+    val admittedGenerationIds: StateFlow<Set<String>> = _admittedGenerationIds.asStateFlow()
 
     /**
      * A worker retains this reference across ordinary/Compact handoffs. Installed generation Jobs
@@ -69,7 +71,10 @@ class ConversationExecutionCoordinator(
                     existing.references += 1
                     existing
                 } else if (generationAdmissions.values.count { it.parentId == parentId } < maximum) {
-                    GenerationAdmission(parentId).also { generationAdmissions[conversationId] = it }
+                    GenerationAdmission(parentId).also {
+                        generationAdmissions[conversationId] = it
+                        _admittedGenerationIds.value = generationAdmissions.keys.toSet()
+                    }
                 } else {
                     null
                 }
@@ -91,6 +96,31 @@ class ConversationExecutionCoordinator(
         }
     }
 
+    /** Atomically reserves a tool-requested child before any creation or queue mutation. */
+    fun reserveSubagentGeneration(parentId: String, conversationId: String): () -> Unit {
+        require(parentId.isNotBlank() && conversationId.isNotBlank() && parentId != conversationId)
+        val admission = synchronized(monitor) {
+            val existing = generationAdmissions[conversationId]
+            if (existing != null) {
+                check(existing.parentId == parentId) { "Generation parent changed while admitted" }
+                existing.references += 1
+                existing
+            } else {
+                val maximum = subagentMaxConcurrent.value.coerceIn(1, 16)
+                val running = generationAdmissions.values.count { it.parentId == parentId }
+                check(running < maximum) {
+                    "Subagent concurrency limit reached ($running/$maximum running for this conversation). " +
+                        "Wait for a running subagent to finish (agent_wait) before starting another."
+                }
+                GenerationAdmission(parentId).also {
+                    generationAdmissions[conversationId] = it
+                    _admittedGenerationIds.value = generationAdmissions.keys.toSet()
+                }
+            }
+        }
+        return releaseGenerationAdmission(conversationId, admission)
+    }
+
     private fun releaseGenerationAdmission(
         conversationId: String,
         admission: GenerationAdmission,
@@ -102,6 +132,7 @@ class ConversationExecutionCoordinator(
                 check(--admission.references >= 0)
                 if (admission.references == 0) {
                     generationAdmissions.remove(conversationId)
+                    _admittedGenerationIds.value = generationAdmissions.keys.toSet()
                     generationChanges.update { it + 1 }
                 }
             }

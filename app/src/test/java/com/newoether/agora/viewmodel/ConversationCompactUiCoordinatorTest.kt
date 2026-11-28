@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -193,6 +194,7 @@ class ConversationCompactUiCoordinatorTest {
         compactManual = compactManual,
         failureMessage = failureMessage,
         onFailure = onFailure,
+        workDispatcher = scope.coroutineContext[kotlin.coroutines.ContinuationInterceptor] as CoroutineDispatcher,
     )
 
     private fun runtimeState(stream: MutableStateFlow<ChatMessage?>) =

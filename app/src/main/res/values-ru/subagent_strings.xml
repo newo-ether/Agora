@@ -22,6 +22,12 @@
     <string name="subagents_max_concurrent">Одновременные субагенты</string>
     <string name="subagents_max_concurrent_desc">Максимальное число одновременно работающих субагентов для каждой родительской беседы. Остальные задачи ждут; при уменьшении лимита работающие субагенты могут завершить работу.</string>
     <string name="subagents_limit_value">%1$d</string>
+    <plurals name="subagents_running_count">
+        <item quantity="one">%d выполняется</item>
+        <item quantity="few">%d выполняются</item>
+        <item quantity="many">%d выполняются</item>
+        <item quantity="other">%d выполняются</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="one">%d субагент</item>
         <item quantity="few">%d субагента</item>

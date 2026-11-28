@@ -2,8 +2,7 @@ package com.newoether.agora.automation
 
 import android.app.Application
 import android.content.Context
-import com.newoether.agora.api.HttpClient
-import com.newoether.agora.api.LlmProvider
+import com.newoether.agora.api.local.LocalProvider
 import com.newoether.agora.data.MemoryManager
 import com.newoether.agora.data.SkillManager
 import com.newoether.agora.data.repository.ConversationRepository
@@ -70,7 +69,7 @@ class TaskExecutionEngine(
     private val memoryManager: MemoryManager,
     private val skillManager: SkillManager,
     private val providerRegistry: ProviderRegistry,
-    localProvider: LlmProvider,
+    localProvider: LocalProvider,
     sandboxFactory: SandboxManagerFactory?,
     private val appScope: CoroutineScope,
     private val executionCoordinator: ConversationExecutionCoordinator,
@@ -83,6 +82,7 @@ class TaskExecutionEngine(
         AutomationWakeLockOwner(appContext),
     private val pauseConversationLoop: suspend (String) -> Unit = {},
     private val additionalTools: () -> List<com.newoether.agora.tool.ToolProvider> = { emptyList() },
+    private val phoneReady: suspend (String) -> Boolean = { false },
 ) {
     sealed interface Result {
         data class Success(val modelMessageId: String, val text: String) : Result
@@ -180,27 +180,7 @@ class TaskExecutionEngine(
      * conversation loop cannot repeatedly retitle itself after every cycle.
      */
     suspend fun updateTaskExecutionTitle(conversationId: String, response: String) {
-        settings.awaitInitialLoad()
-        providerRegistry.awaitInitialSync()
-        if (settings.titleGenerationEnabled.value) {
-            when (val result = titleGenerator.generateAndPersist(conversationId)) {
-                is ConversationTitleGenerator.Result.Success -> return
-                is ConversationTitleGenerator.Result.Failure ->
-                    DebugLog.w(
-                        "TaskExecutionEngine",
-                        "Task title generation failed; using response fallback",
-                    )
-            }
-        }
-        val fallback = fallbackConversationTitle(response)
-        if (fallback.isBlank()) return
-        convRepo.getConversation(conversationId)?.let { conversation ->
-            convRepo.updateConversationTitleIfUnchanged(
-                id = conversationId,
-                expectedTitle = conversation.title,
-                newTitle = fallback,
-            )
-        }
+        titleGenerator.updateTaskTitle(conversationId, response)
     }
 
     private val generationManager by lazy { GenerationManager(
@@ -220,7 +200,9 @@ class TaskExecutionEngine(
     ).also {
         // Foreground Task/Loop executions share the exact same prompt and session trust state as
         // Chat, including the notification-backed wait when no Activity is visible.
-        it.onConfirmShellCommand = shellConfirmation::confirm
+        it.onConfirmShellCommand = { server, summary, conversationId, detail, description ->
+            shellConfirmation.confirm(server, summary, conversationId, detail, description)
+        }
         it.onMessagePersisted = ragManager::indexMessageForRag
     } }
 
@@ -360,6 +342,7 @@ class TaskExecutionEngine(
             }
 
             val builder = GenerationRequestBuilder(
+                phoneReady = phoneReady,
                 settings = settings,
                 convRepo = convRepo,
                 memoryManager = memoryManager,
@@ -372,6 +355,7 @@ class TaskExecutionEngine(
                 conversationId = conversationId,
                 runId = runId,
                 modelId = effectiveModelId,
+                automationCaller = requestKind == "task" || requestKind == "loop",
                 resolvedPromptOverride = systemPromptOverride?.let {
                     GenerationRequestBuilder.ResolvedPrompt(
                         it.ifBlank { null },
@@ -531,7 +515,7 @@ class TaskExecutionEngine(
             generationState.loadingChange(uiToken, true)
             generationState.streamUpdate(uiToken, placeholder)
 
-            val requestTrace = HttpClient.RequestTrace(
+            val requestTrace = DeveloperDiagnostics.newRequestTrace(
                 requestId = modelMessageId,
                 origin = requestKind,
                 diagnosticContext = DeveloperDiagnostics.newRequestContext(
@@ -582,7 +566,10 @@ class TaskExecutionEngine(
                 )
             }
             val boundaryParentId = generationResult.followUpParentMessageId
-            if (boundaryParentId != null) generationState.deferNextQueueDrain()
+            if (boundaryParentId != null) {
+                generationState.retainRunHandoff(uiToken)
+                generationState.deferNextQueueDrain()
+            }
             ownerJob.complete()
             ownerJob.join()
             generationState.awaitGenerationSettled(uiToken)
@@ -794,6 +781,8 @@ class TaskExecutionEngine(
                 }
             }
             Result.Failure(reason, modelMessageId.takeIf { runCreated })
+        } finally {
+            generationState.finishRunHandoff(inputEffect?.identity?.ownerToken)
         }
     }
 }

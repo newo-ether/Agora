@@ -1,5 +1,6 @@
 package com.newoether.agora.viewmodel
 
+import com.newoether.agora.model.RunState
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,8 @@ import java.util.concurrent.ConcurrentHashMap
  * conversation's private flows into the global UI StateFlows.
  */
 class ConversationStateRegistry(
+    private val onRunStateChanged: (ConversationGenerationState, RunState, RunState?) -> Unit = { _, _, _ -> },
+    private val onRunHandoffFinished: (ConversationGenerationState, Long) -> Unit = { _, _ -> },
     private val reclaimQueuedAttachments: (List<com.newoether.agora.model.SelectedAttachment>) -> Unit,
 ) {
 
@@ -48,6 +51,8 @@ class ConversationStateRegistry(
                 onRegistryActive = ::markActive,
                 onRegistryIdle = ::markIdle,
                 reclaimQueuedAttachments = reclaimQueuedAttachments,
+                onRunStateChanged = onRunStateChanged,
+                onRunHandoffFinished = onRunHandoffFinished,
             )
         }
         // Re-applying the current binder is idempotent and closes the race where a state is

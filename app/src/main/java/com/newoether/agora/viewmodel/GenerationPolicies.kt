@@ -202,10 +202,13 @@ internal fun applyMessageTemplatesToMessages(
                 message.id.startsWith(Constants.RESULT_MSG_PREFIX) ||
                 message.id.startsWith(Constants.COMPACT_MSG_PREFIX) ||
                 message.id.startsWith("context_summary_") ||
+                // projectToolResultImagesToUserMessage's API-only turn carrying tool images.
+                message.id.startsWith("image_context_") ||
                 message.id.startsWith("api_initial_user_") ||
                 message.id.startsWith("api_compact_continuation_")
         val template = when {
-            isSpecialMessage || message.text.isEmpty() -> null
+            // Task, Loop, subagent and deferred ask_user turns carry a source; only typed turns get templates.
+            isSpecialMessage || message.source != null || message.text.isEmpty() -> null
             message.participant == Participant.USER -> userPrepend to userPostpend
             message.participant == Participant.MODEL -> assistantPrepend to assistantPostpend
             else -> null
@@ -252,11 +255,14 @@ internal fun projectGenerationInputMessages(
     assistantPrepend: String? = null,
     assistantPostpend: String? = null,
     initialUserPrompt: String? = null,
+    phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
 ): List<ChatMessage> {
     val projected = applyMessageTemplatesToMessages(
         messages = projectToolResultImagesToUserMessage(
             messages = projectAssistantImagesToLatestUserMessage(
-                projectAutomaticMessagesForApi(messages),
+                projectAutomaticMessagesForApi(
+                    projectPhoneToolImages(messages, phoneMaxScreenshots).map(::projectSandboxGeneratedImages),
+                ),
                 includeImages,
             ),
             includeImages = includeImages,
@@ -275,12 +281,22 @@ internal fun projectGenerationInputMessages(
         }
     }
     val prompt = initialUserPrompt?.takeIf(String::isNotBlank) ?: return projected
-    val parent = projected.lastOrNull()
-    return projected + ChatMessage(
-        id = "api_initial_user_${parent?.id.orEmpty()}",
-        parentId = parent?.id,
-        text = prompt,
-        participant = Participant.USER,
-        timestamp = parent?.timestamp?.let { if (it == Long.MAX_VALUE) it else it + 1L } ?: 0L,
-    )
+    return projected + initialUserMessage(projected.lastOrNull(), prompt)
 }
+
+/**
+ * The API-only USER message carrying [GenerationConfig.initialUserPrompt]. Its id prefix keeps it
+ * out of user templates, so it is sent verbatim after the projected history.
+ */
+internal fun initialUserMessage(parent: ChatMessage?, prompt: String): ChatMessage = ChatMessage(
+    id = "api_initial_user_${parent?.id.orEmpty()}",
+    parentId = parent?.id,
+    text = prompt,
+    participant = Participant.USER,
+    timestamp = parent?.timestamp?.let { if (it == Long.MAX_VALUE) it else it + 1L } ?: 0L,
+)
+
+/** Result text for every tool call refused by a Preserve-Context Compact request. */
+internal const val COMPACT_TOOL_CALL_REJECTED =
+    "Tool calls are disabled while the conversation is being compacted. " +
+        "This call was not executed. Do not call tools; write the summary now."

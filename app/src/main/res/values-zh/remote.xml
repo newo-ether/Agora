@@ -8,6 +8,7 @@
     <string name="remote_connection_hint">在目标设备上安装 Filo，然后输入该设备的 IP 地址或 URL。</string>
     <string name="remote_sessions">会话</string>
     <string name="remote_empty">未找到已有会话</string>
+    <string name="remote_empty_hint">此来源的会话将在这里显示。</string>
     <string name="remote_sync_hint">请在 Codex 中保持此会话打开。回复保存后会同步显示。</string>
     <string name="remote_refresh">刷新</string>
     <string name="remote_load_more">加载更多</string>
@@ -38,8 +39,13 @@
     <string name="remote_source_codex_desktop">Codex Desktop</string>
     <string name="remote_source_codex_cli">Codex CLI</string>
     <string name="remote_source_claude_code">Claude Code</string>
+    <string name="remote_source_claude_desktop">Claude Desktop</string>
     <string name="remote_source_read_only">通过此来源只能查看此对话。</string>
     <string name="remote_history_bounded">此来源仅提供近期历史快照。</string>
     <string name="remote_source_unavailable">此来源不可用，请检查目标电脑上的原生客户端。</string>
+    <string name="remote_source_no_session">没有活跃的 %1$s 会话</string>
     <string name="remote_history_observed">仅显示 Claude Mod 注册后采集的文本，不含此前历史、工具活动、媒体和思考内容。</string>
+    <string name="remote_settings_pending_request">设置待下一轮原生请求确认</string>
+    <string name="remote_settings_confirmed_request">设置已由原生请求确认</string>
+    <string name="remote_settings_failed_request">设置不符 · 实际模型：%1$s · 思考深度：%2$s</string>
 </resources>

@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -53,6 +53,13 @@ internal fun composerSendActionEnabled(
     else -> showStop || canSend || canSendQueued
 }
 
+/** State handed to the send button while a voice capture owns the composer. */
+internal data class ComposerVoiceSendAction(
+    val isActionable: Boolean,
+    val isBusy: Boolean,
+    val onClick: () -> Unit,
+)
+
 @Composable
 internal fun ComposerSendButton(
     textFieldState: TextFieldState,
@@ -68,6 +75,8 @@ internal fun ComposerSendButton(
     onSendQueued: () -> Unit = {},
     onStopGeneration: () -> Unit,
     onCollapse: () -> Unit,
+    /** Replaces the button's own state while recording; null leaves the normal behaviour intact. */
+    voiceAction: ComposerVoiceSendAction? = null,
 ) {
     val haptics = LocalAgoraHaptics.current
 
@@ -89,12 +98,8 @@ internal fun ComposerSendButton(
         canSend = canSend,
         canSendQueued = canSendQueued,
     )
-    ComposerSendButton(
-        isActionable = isActionable,
-        isBusy = isStopping || submission.isFrozen,
-        showStop = showStop,
-        onClick = {
-            if (!isActionable) return@ComposerSendButton
+    val sendClick: () -> Unit = {
+        if (isActionable) {
             when {
                 submission.isWaiting -> {
                     haptics.selection()
@@ -111,7 +116,16 @@ internal fun ComposerSendButton(
                     onSendQueued()
                 }
             }
-        },
+        }
+    }
+    // One visual call site for both paths. Branching into a second ComposerSendButton call would
+    // rebuild the node whenever voice input takes over, and the colour animation would restart
+    // from its target instead of fading.
+    ComposerSendButton(
+        isActionable = voiceAction?.isActionable ?: isActionable,
+        isBusy = voiceAction?.isBusy ?: (isStopping || submission.isFrozen),
+        showStop = voiceAction == null && showStop,
+        onClick = voiceAction?.onClick ?: sendClick,
     )
 }
 
@@ -179,12 +193,12 @@ internal fun ComposerSendButton(
                         color = contentColor,
                     )
                     ComposerActionIcon.STOP -> Icon(
-                        Icons.Default.Stop,
+                        Icons.Rounded.Stop,
                         stringResource(R.string.action),
                         modifier = Modifier.size(24.dp),
                     )
                     ComposerActionIcon.SEND -> Icon(
-                        Icons.Default.ArrowUpward,
+                        Icons.Rounded.ArrowUpward,
                         stringResource(R.string.action),
                         modifier = Modifier.size(24.dp),
                     )

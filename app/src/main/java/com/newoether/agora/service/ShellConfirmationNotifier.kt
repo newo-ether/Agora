@@ -69,7 +69,8 @@ object ShellConfirmationNotifier {
         val summary = pending.summary.lineSequence().first().take(SUMMARY_MAX_CHARS)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.shell_confirm_title, pending.server))
+            .setContentTitle(if (pending.phone) pending.server
+                else context.getString(R.string.shell_confirm_title, pending.server))
             .setContentText(summary)
             .setStyle(NotificationCompat.BigTextStyle().bigText(summary))
             .setOnlyAlertOnce(true)

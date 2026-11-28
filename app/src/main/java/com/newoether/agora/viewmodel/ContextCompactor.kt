@@ -179,7 +179,10 @@ internal fun automaticCompactNeeded(
     includeAssistantReasoning: Boolean = false,
     userPrepend: String? = null,
     userPostpend: String? = null,
+    assistantPrepend: String? = null,
+    assistantPostpend: String? = null,
     costs: ContextCostModel = ContextCostModel.Default,
+    phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
 ): Boolean {
     val selectedPath = ConversationUiState.resolvePath(
         allMessages = entities.map { it.toUiChatMessage { text -> text } },
@@ -202,10 +205,12 @@ internal fun automaticCompactNeeded(
         includeAssistantReasoning = includeAssistantReasoning,
         userPrepend = userPrepend,
         userPostpend = userPostpend,
-        // Transcription-enabled models receive descriptions instead of raw images at dispatch;
-        // the admission estimate must match.
-        includeImages = !includeStoredTranscriptions,
+        assistantPrepend = assistantPrepend,
+        assistantPostpend = assistantPostpend,
+        // Stored descriptions remove only their own images before admission accounting.
+        includeImages = true,
         costs = costs,
+        phoneMaxScreenshots = phoneMaxScreenshots,
     )
 }
 
@@ -217,8 +222,11 @@ internal fun automaticCompactNeeded(
     includeAssistantReasoning: Boolean = false,
     userPrepend: String? = null,
     userPostpend: String? = null,
+    assistantPrepend: String? = null,
+    assistantPostpend: String? = null,
     includeImages: Boolean = true,
     costs: ContextCostModel = ContextCostModel.Default,
+    phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
 ): Boolean {
     if (path.isEmpty() || retainLogicalMessages < 0) return false
     val semanticPath = path.filterNot { it.isContextCompact() && !it.isSuccessfulContextCompact() }
@@ -234,6 +242,9 @@ internal fun automaticCompactNeeded(
                 includeImages = includeImages,
                 userPrepend = userPrepend,
                 userPostpend = userPostpend,
+                assistantPrepend = assistantPrepend,
+                assistantPostpend = assistantPostpend,
+                phoneMaxScreenshots = phoneMaxScreenshots,
             ),
             contextLimit.coerceAtLeast(1),
             fixedTokenCost = fixedTokenCost,
@@ -247,8 +258,9 @@ internal fun automaticCompactNeeded(
 internal class ContextCompactor(
     private val conversations: ConversationRepository,
     private val generationErrorFormatter: (String) -> String,
+    appContext: android.content.Context? = null,
     private val contextLoader: DurableSelectedContextLoader =
-        DurableSelectedContextLoader(conversations, generationErrorFormatter),
+        DurableSelectedContextLoader(conversations, generationErrorFormatter, appContext = appContext),
 ) : ContextCompactOperation {
     override suspend fun automaticNeeded(
         conversationId: String,
@@ -260,12 +272,15 @@ internal class ContextCompactor(
             contextLimit,
             config.thresholdPercent,
         )
+        val mainPrompt = config.mainPromptTemplate?.let {
+            resolveGenerationPromptTemplate(it, config.mainModelId.orEmpty())
+        }
         val path = contextLoader.load(
             DurableSelectedContextRequest(
                 conversationId = conversationId,
                 followSelectedBranch = true,
                 includeStoredTranscriptions =
-                    config.generationContext.imageTranscriptionEnabled,
+                    config.mainImageTranscriptionEnabled,
             ),
         ).messages
         return automaticCompactNeeded(
@@ -273,11 +288,16 @@ internal class ContextCompactor(
             contextLimit = threshold,
             retainLogicalMessages = config.request.retainLogicalMessages,
             fixedTokenCost = config.fixedTokenCost,
-            costs = ContextCostModels.forModel(config.mainModelId),
+            costs = ContextCostModels.forModel(
+                config.mainModelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
+            ),
             includeAssistantReasoning = config.includeAssistantReasoning,
-            userPrepend = config.userPrepend,
-            userPostpend = config.userPostpend,
-            includeImages = !config.generationContext.imageTranscriptionEnabled,
+            userPrepend = mainPrompt?.userPrepend ?: config.userPrepend,
+            userPostpend = mainPrompt?.userPostpend ?: config.userPostpend,
+            assistantPrepend = mainPrompt?.assistantPrepend ?: config.assistantPrepend,
+            assistantPostpend = mainPrompt?.assistantPostpend ?: config.assistantPostpend,
+            includeImages = true,
+            phoneMaxScreenshots = config.mainPhoneMaxScreenshots,
         )
     }
 }

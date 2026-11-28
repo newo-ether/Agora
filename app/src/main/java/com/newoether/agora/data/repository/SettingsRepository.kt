@@ -11,6 +11,8 @@ import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_PRESERVE_SYSTEM_PROMPT
 import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_RETAIN_COUNT
 import com.newoether.agora.data.DEFAULT_CONTEXT_COMPACT_THRESHOLD_PERCENT
 import com.newoether.agora.data.DEFAULT_DYNAMIC_COLOR
+import com.newoether.agora.data.DEFAULT_LOCAL_INFERENCE_THREADS
+import com.newoether.agora.data.DEFAULT_LOCAL_KV_CACHE_TYPE
 import com.newoether.agora.data.DEFAULT_LOCAL_MODEL_IDLE_RETENTION_MINUTES
 import com.newoether.agora.data.DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
 import com.newoether.agora.data.DEFAULT_SUBAGENT_MAX_TOTAL
@@ -25,7 +27,9 @@ import com.newoether.agora.data.CustomProviderNamePolicy
 import com.newoether.agora.data.EmbeddingModelConfig
 import com.newoether.agora.data.LocalChatModelConfig
 import com.newoether.agora.data.PredefinedVariables
+import com.newoether.agora.data.providerNameShownByDefault
 import com.newoether.agora.data.PromptTemplateItem
+import com.newoether.agora.data.ProviderEditorDraft
 import com.newoether.agora.data.SettingsManager
 import com.newoether.agora.data.ShellDeviceConfig
 import com.newoether.agora.data.McpServerConfig
@@ -57,11 +61,11 @@ import kotlinx.coroutines.withContext
  * so observable behavior is unchanged.
  */
 class SettingsRepository(
-    settingsManager: SettingsManager,
-    scope: CoroutineScope,
+    internal val settingsManager: SettingsManager,
+    internal val scope: CoroutineScope,
     private val touchConversationData: suspend (String) -> Unit = {},
-) : SettingsRepositoryAppearanceBase(settingsManager, scope) {
-    private val publication = SettingsFlowPublication(scope)
+) {
+    internal val publication = SettingsFlowPublication(scope)
 
     private val conversationSettingsState = ConversationSettingsState()
     private val conversationSettingsWriteMutex = Mutex()
@@ -81,14 +85,20 @@ class SettingsRepository(
     val selectedModel: StateFlow<String> = publication.hot(settingsManager.selectedModel, Constants.EXAMPLE_MODEL_ID)
     val anthropicCacheEnabled: StateFlow<Boolean> = publication.hot(settingsManager.anthropicCacheEnabled, true)
     val anthropicCacheTtl: StateFlow<String> = publication.hot(settingsManager.anthropicCacheTtl, "1h")
-    fun setAnthropicCacheEnabled(providerId: String, enabled: Boolean) = scope.launch {
-        if (providerId == Constants.PROVIDER_ANTHROPIC) settingsManager.saveAnthropicCacheEnabled(enabled)
-        else settingsManager.updateCustomProviderCache(providerId, enabled = enabled)
-    }
-    fun setAnthropicCacheTtl(providerId: String, ttl: String) = scope.launch {
-        if (providerId == Constants.PROVIDER_ANTHROPIC) settingsManager.saveAnthropicCacheTtl(ttl)
-        else settingsManager.updateCustomProviderCache(providerId, ttl = ttl)
-    }
+    /** Ordered user Provider list (built-in and custom names); Local is not part of it. */
+    val providerList: StateFlow<List<String>> =
+        publication.hot(settingsManager.providerListStore.providerList, emptyList())
+    fun addBuiltInProvider(name: String) = scope.launch { settingsManager.providerListStore.addBuiltIn(name) }
+    fun removeBuiltInProvider(name: String) =
+        scope.launch { settingsManager.providerListStore.removeBuiltIn(name) }
+    fun reorderProviders(order: List<String>) = scope.launch { settingsManager.providerListStore.reorder(order) }
+    suspend fun materializeProviderList() = settingsManager.providerListStore.materialize()
+    /** Atomic Provider detail save. Custom live-map upkeep goes through ProviderRegistry.commitEditor. */
+    internal suspend fun commitProviderEditor(originalName: String, draft: ProviderEditorDraft) =
+        settingsManager.providerEditorStore.commit(originalName, draft)
+    /** Atomic creation from the full Provider editor; registry upkeep goes through its createEditor. */
+    internal suspend fun createProviderFromEditor(draft: ProviderEditorDraft) =
+        settingsManager.providerEditorStore.create(draft)
     val availableModels: StateFlow<Map<String, List<String>>> = publication.hot(settingsManager.availableModels, emptyMap())
     val customModels: StateFlow<Set<String>> = publication.hot(settingsManager.customModels, emptySet())
     val enabledModels: StateFlow<Set<String>> = publication.hot(settingsManager.enabledModels, emptySet())
@@ -120,6 +130,7 @@ class SettingsRepository(
     val codeExecutionEnabled: StateFlow<Boolean> = publication.hot(settingsManager.codeExecutionEnabled, false)
     val googleSearchEnabled: StateFlow<Boolean> = publication.hot(settingsManager.googleSearchEnabled, false)
     val thinkingEnabled: StateFlow<Boolean> = publication.hot(settingsManager.thinkingEnabled, true)
+    val replayReasoningInHistory: StateFlow<Boolean> = publication.hot(settingsManager.replayReasoningInHistory, false)
     val thinkingLevel: StateFlow<String> = publication.hot(settingsManager.thinkingLevel, "medium")
     val thinkingBudgetEnabled: StateFlow<Boolean> = publication.hot(settingsManager.thinkingBudgetEnabled, false)
     val thinkingBudgetTokens: StateFlow<Int> = publication.hot(settingsManager.thinkingBudgetTokens, 4096)
@@ -134,9 +145,9 @@ class SettingsRepository(
     val titleGenerationModel: StateFlow<String?> = publication.hot(settingsManager.titleGenerationModel, null)
     val titleGenerationPrompt: StateFlow<String> = publication.hot(settingsManager.titleGenerationPrompt, BuiltInPrompts.TITLE_GENERATION_SYSTEM)
     val titleGenerationNotificationsEnabled: StateFlow<Boolean> =
-        publication.hot(settingsManager.titleGenerationNotificationsEnabled, true)
+        publication.hot(settingsManager.titleGenerationNotificationsEnabled, false)
     val imageTranscriptionEnabled: StateFlow<Boolean> =
-        publication.hot(settingsManager.imageTranscriptionEnabled, true)
+        publication.hot(settingsManager.imageTranscriptionEnabled, false)
     val imageTranscriptionEnabledModels: StateFlow<Set<String>> = publication.hot(settingsManager.imageTranscriptionEnabledModels, emptySet())
     val imageTranscriptionModel: StateFlow<String?> = publication.hot(settingsManager.imageTranscriptionModel, null)
     val imageTranscriptionBatchSize: StateFlow<Int> = publication.hot(settingsManager.imageTranscriptionBatchSize, 3)
@@ -149,20 +160,23 @@ class SettingsRepository(
     val ragSearchEnabled: StateFlow<Boolean> = publication.hot(settingsManager.ragSearchEnabled, false)
     val autoCacheEnabled: StateFlow<Boolean> = publication.hot(settingsManager.autoCacheEnabled, true)
     val showUncachedNotification: StateFlow<Boolean> = publication.hot(settingsManager.showUncachedNotification, true)
-    val autoUpdateCheck: StateFlow<Boolean> = publication.hot(settingsManager.autoUpdateCheck, true)
-    val lastUpdateCheckTime: StateFlow<Long> = publication.hot(settingsManager.lastUpdateCheckTime, 0L)
+    val liveVoiceConfig: StateFlow<com.newoether.agora.voice.live.LiveVoiceConfig> =
+        publication.hot(settingsManager.liveVoiceConfig, com.newoether.agora.voice.live.LiveVoiceConfig())
     val modelSearchMethod: StateFlow<String> = publication.hot(settingsManager.modelSearchMethod, "keyword")
+    val attachmentMode: StateFlow<String> = publication.hot(settingsManager.attachmentMode, Constants.ATTACHMENT_MODE_SANDBOX_LINK)
     val manualSearchMethod: StateFlow<String> = publication.hot(settingsManager.manualSearchMethod, "keyword")
     val embeddingModels: StateFlow<List<EmbeddingModelConfig>> = publication.hot(settingsManager.embeddingModels, emptyList())
     val activeEmbeddingModelId: StateFlow<String> = publication.hot(settingsManager.activeEmbeddingModelId, "")
-    val liveVoiceConfig: StateFlow<com.newoether.agora.voice.live.LiveVoiceConfig> =
-        publication.hot(settingsManager.liveVoiceConfig, com.newoether.agora.voice.live.LiveVoiceConfig())
     val appLanguage: StateFlow<String> = publication.hot(settingsManager.appLanguage, "system")
     val webSearchEnabled: StateFlow<Boolean> = publication.hot(settingsManager.webSearchEnabled, false)
-    val webSearchProvider: StateFlow<String> = publication.hot(settingsManager.webSearchProvider, "duckduckgo")
+    val webSearchProvider: StateFlow<String> = publication.hot(settingsManager.webSearchProvider, "exa")
     val webSearchApiKeys: StateFlow<Map<String, String>> = publication.hot(settingsManager.webSearchApiKeys, emptyMap())
     val webSearchNumResults: StateFlow<Int> = publication.hot(settingsManager.webSearchNumResults, 5)
     val webSearchBaseUrl: StateFlow<String> = publication.hot(settingsManager.webSearchBaseUrl, "")
+    val imageQuality = publication.hot(settingsManager.imageQuality.settings, com.newoether.agora.data.ImageQualitySettings())
+    fun updateImageQuality(mode: String? = null, customMaxLongEdge: Int? = null, customJpegQuality: Int? = null) = scope.launch {
+        settingsManager.imageQuality.update(mode, customMaxLongEdge, customJpegQuality)
+    }
     val imageGenEnabled: StateFlow<Boolean> = publication.hot(settingsManager.imageGenEnabled, false)
     val imageGenModel: StateFlow<String?> = publication.hot(settingsManager.imageGenModel, null)
     val imageGenSize: StateFlow<String> = publication.hot(settingsManager.imageGenSize, "1024x1024")
@@ -188,6 +202,7 @@ class SettingsRepository(
     val askUserTimeoutMinutes: StateFlow<Int> = publication.hot(settingsManager.askUserTimeoutMinutes, com.newoether.agora.data.DEFAULT_ASK_USER_TIMEOUT_MINUTES)
     val todoEnabled: StateFlow<Boolean> = publication.hot(settingsManager.todoEnabled, true)
     val subagentToolsEnabled: StateFlow<Boolean> = publication.hot(settingsManager.subagentToolsEnabled, true)
+    val subagentDeleteEnabled: StateFlow<Boolean> = publication.hot(settingsManager.subagentDeleteEnabled, false)
     val subagentMaxTotal: StateFlow<Int> = publication.hot(settingsManager.subagentMaxTotal, DEFAULT_SUBAGENT_MAX_TOTAL)
     val subagentMaxConcurrent: StateFlow<Int> = publication.hot(settingsManager.subagentMaxConcurrent, DEFAULT_SUBAGENT_MAX_CONCURRENT)
     suspend fun getSubagentMaxTotal(): Int = settingsManager.subagentMaxTotal.first()
@@ -204,6 +219,7 @@ class SettingsRepository(
     val sandboxEnabled: StateFlow<Boolean> = publication.hot(settingsManager.sandboxEnabled, false)
     val sandboxSharedStorageEnabled: StateFlow<Boolean> =
         publication.hot(settingsManager.sandboxSharedStorageEnabled, false)
+    val sandboxMirror = sandboxMirrorFlow()
     val defaultTemperature: StateFlow<Float?> = publication.hot(settingsManager.defaultTemperature, null)
     val defaultMaxTokens: StateFlow<Int?> = publication.hot(settingsManager.defaultMaxTokens, null)
     val defaultTopP: StateFlow<Float?> = publication.hot(settingsManager.defaultTopP, null)
@@ -232,23 +248,19 @@ class SettingsRepository(
     val fontPreference: StateFlow<String> = publication.hot(settingsManager.fontPreference, "app_default")
     val customFontPath: StateFlow<String> = publication.hot(settingsManager.customFontPath, "")
     val customFontName: StateFlow<String> = publication.hot(settingsManager.customFontName, "")
-    val userBubbleColor: StateFlow<String> = publication.hot(settingsManager.userBubbleColor, "")
-    val chatBackground: StateFlow<String> = publication.hot(settingsManager.chatBackground, "")
-    val chatBackgroundOpacity: StateFlow<Float> = publication.hot(settingsManager.chatBackgroundOpacity, 0.3f)
-    val chatBackgroundVideoMuted: StateFlow<Boolean> = publication.hot(settingsManager.chatBackgroundVideoMuted, true)
-    val chatBackgroundVideoLoop: StateFlow<Boolean> = publication.hot(settingsManager.chatBackgroundVideoLoop, true)
     val searchContextWindow: StateFlow<Int> = publication.hot(settingsManager.searchContextWindow, 8)
     val searchMatchLimit: StateFlow<Int> = publication.hot(settingsManager.searchMatchLimit, 10)
     val ragThreshold: StateFlow<Float> = publication.hot(settingsManager.ragThreshold, 0.5f)
     val localChatModels: StateFlow<List<LocalChatModelConfig>> = publication.hot(settingsManager.localChatModels, emptyList())
-    val localModelIdleRetentionMinutes: StateFlow<Int> = publication.hot(
-        settingsManager.localModelIdleRetentionMinutes,
-        DEFAULT_LOCAL_MODEL_IDLE_RETENTION_MINUTES,
-    )
-    val localLowContextModeEnabled: StateFlow<Boolean> = publication.hot(
-        settingsManager.localLowContextModeEnabled,
-        DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED,
-    )
+    val localModelIdleRetentionMinutes: StateFlow<Int> = publication.hot(settingsManager.localModelIdleRetentionMinutes, DEFAULT_LOCAL_MODEL_IDLE_RETENTION_MINUTES)
+    val localLowContextModeEnabled: StateFlow<Boolean> = publication.hot(settingsManager.localLowContextModeEnabled, DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED)
+    val localInferenceThreads: StateFlow<Int> = publication.hot(settingsManager.localInferenceThreads, DEFAULT_LOCAL_INFERENCE_THREADS)
+    val localKvCacheType: StateFlow<String> = publication.hot(settingsManager.localKvCacheType, DEFAULT_LOCAL_KV_CACHE_TYPE)
+    val localToolIncapableModels: StateFlow<Set<String>> = publication.hot(settingsManager.localToolIncapableModels, emptySet())
+
+    /** Called by the local provider when a template silently drops offered tools. */
+    fun markLocalToolIncapableTemplate(modelId: String) =
+        scope.launch { settingsManager.markLocalToolIncapableTemplate(modelId) }
     val customProviders: StateFlow<List<CustomProviderConfig>> = publication.hot(settingsManager.customProviders, emptyList())
     val lastModelsFetchFingerprint: StateFlow<String> = publication.hot(settingsManager.lastModelsFetchFingerprint, "")
     // ── Auto Backup ───────────────────────────────────────────
@@ -286,13 +298,13 @@ class SettingsRepository(
         }
     }
 
-    fun addCustomModel(provider: String, modelName: String, alias: String = "", showProviderName: Boolean = true) {
+    fun addCustomModel(provider: String, modelName: String, alias: String = "", showProviderName: Boolean? = null) {
         val normalizedProvider = stableProviderReference(provider)
         val normalizedName = modelName.trim()
         if (normalizedProvider.isEmpty() || normalizedName.isEmpty()) return
         val modelId = ModelId(normalizedProvider, normalizedName).prefixed
         scope.launch {
-            settingsManager.addCustomModel(modelId, alias, showProviderName)
+            settingsManager.addCustomModel(modelId, alias, showProviderName ?: providerNameShownByDefault(modelId))
         }
     }
 
@@ -303,15 +315,7 @@ class SettingsRepository(
         showProviderName: Boolean? = null,
     ) = settingsManager.replaceCustomModel(oldModelId, newModelId, alias, showProviderName)
 
-    // API keys
-    fun addApiKey(name: String, key: String, provider: String) {
-        scope.launch {
-            val entry = ApiKeyEntry(name = name, key = key, provider = provider)
-            settingsManager.saveApiKeys(apiKeys.value + entry)
-            settingsManager.setActiveApiKeyId(provider, entry.id)
-        }
-    }
-
+    // API keys. Provider detail pages save keys through ProviderEditorStore.
     /**
      * Store exactly one key for [provider]: update the existing entry in place if there
      * is one, otherwise add it — and drop any extra entries for the same provider.
@@ -325,29 +329,6 @@ class SettingsRepository(
             settingsManager.saveApiKeys(current.filter { it.provider != provider } + entry)
             settingsManager.setActiveApiKeyId(provider, entry.id)
         }
-    }
-
-    fun deleteApiKey(id: String) {
-        scope.launch {
-            val current = apiKeys.value
-            val entry = current.find { it.id == id } ?: return@launch
-            val newList = current.filter { it.id != id }
-            if (activeApiKeyIds.value[entry.provider] == id) {
-                val other = newList.firstOrNull { it.provider == entry.provider }
-                settingsManager.setActiveApiKeyId(entry.provider, other?.id)
-            }
-            settingsManager.saveApiKeys(newList)
-        }
-    }
-
-    fun updateApiKey(id: String, name: String, key: String) {
-        scope.launch {
-            settingsManager.saveApiKeys(apiKeys.value.map { if (it.id == id) it.copy(name = name, key = key) else it })
-        }
-    }
-
-    fun setActiveApiKey(provider: String, id: String) {
-        scope.launch { settingsManager.setActiveApiKeyId(provider, id) }
     }
 
     // System prompts
@@ -459,11 +440,12 @@ class SettingsRepository(
                 settingsManager.renameCustomEndpointResolution(oldName, newName)
                 settingsManager.saveProviderBaseUrl(oldName, "")
                 settingsManager.saveProviderBaseUrl(newName, url)
-                val models = availableModels.value.toMutableMap()
-                models[newName] = models.remove(oldName) ?: emptyList()
-                settingsManager.saveAvailableModels(newName, models[newName] ?: emptyList())
-                settingsManager.saveAvailableModels(oldName, emptyList())
+                // The catalog lives behind the Provider key, so it is moved inside the store from the
+                // persisted map. Reading a StateFlow snapshot here could wipe the models whenever
+                // that snapshot had not observed the current catalog yet.
+                settingsManager.renameProviderModelReferences(oldName, newName)
                 settingsManager.renameApiKeyProvider(oldName, newName)
+                settingsManager.providerListStore.renameCustom(oldName, newName)
             }
         }
     }
@@ -604,8 +586,7 @@ class SettingsRepository(
         settingsManager.saveProviderBaseUrl(provider, url)
     }
     fun setTitleGenerationEnabled(enabled: Boolean) = scope.launch { settingsManager.saveTitleGenerationEnabled(enabled) }
-    fun setTitleGenerationNotificationsEnabled(enabled: Boolean) =
-        scope.launch { settingsManager.saveTitleGenerationNotificationsEnabled(enabled) }
+    fun setTitleGenerationNotificationsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveTitleGenerationNotificationsEnabled(enabled) }
     fun setContextCompactEnabled(enabled: Boolean) = scope.launch { settingsManager.saveContextCompactEnabled(enabled) }
     fun setContextCompactModel(model: String?) = scope.launch { settingsManager.saveContextCompactModel(model) }
     fun setContextCompactPrompt(prompt: String) = scope.launch { settingsManager.saveContextCompactPrompt(prompt) }
@@ -630,12 +611,26 @@ class SettingsRepository(
     fun setAccessSkillsModify(enabled: Boolean) = scope.launch { settingsManager.saveAccessSkillsModify(enabled) }
     fun setRagSearchEnabled(enabled: Boolean) = scope.launch { settingsManager.saveRagSearchEnabled(enabled) }
     fun setAutoCacheEnabled(enabled: Boolean) = scope.launch { settingsManager.saveAutoCacheEnabled(enabled) }
-    fun setShowUncachedNotification(enabled: Boolean) =
-        scope.launch { settingsManager.saveShowUncachedNotification(enabled) }
-    fun setAutoUpdateCheck(enabled: Boolean) = scope.launch { settingsManager.saveAutoUpdateCheck(enabled) }
+    fun setShowUncachedNotification(enabled: Boolean) = scope.launch { settingsManager.saveShowUncachedNotification(enabled) }
+    fun setLiveVoiceConfig(config: com.newoether.agora.voice.live.LiveVoiceConfig) = scope.launch { settingsManager.saveLiveVoiceConfig(config) }
     fun setLastUpdateCheckTime(time: Long) = scope.launch { settingsManager.saveLastUpdateCheckTime(time) }
     fun setModelSearchMethod(method: String) = scope.launch { settingsManager.saveModelSearchMethod(method) }
+    fun setAttachmentMode(mode: String) = scope.launch { settingsManager.saveAttachmentMode(mode) }
     fun setManualSearchMethod(method: String) = scope.launch { settingsManager.saveManualSearchMethod(method) }
+
+    /**
+     * Drops a stored semantic selection once no embedding model is configured. Every reader
+     * settles the same way, so the two writes below are never observed as a usable semantic
+     * selection while no embedding model exists.
+     */
+    suspend fun settleSearchMethodsWithoutEmbeddingModel() {
+        if (modelSearchMethod.value == Constants.SEARCH_METHOD_RAG) {
+            settingsManager.saveModelSearchMethod(Constants.SEARCH_METHOD_KEYWORD)
+        }
+        if (manualSearchMethod.value == Constants.SEARCH_METHOD_RAG) {
+            settingsManager.saveManualSearchMethod(Constants.SEARCH_METHOD_KEYWORD)
+        }
+    }
     fun setAppLanguage(language: String) = scope.launch { settingsManager.saveAppLanguage(language) }
     fun setWebSearchEnabled(enabled: Boolean) = scope.launch { settingsManager.saveWebSearchEnabled(enabled) }
     fun setWebSearchProvider(provider: String) = scope.launch { settingsManager.saveWebSearchProvider(provider) }
@@ -665,6 +660,8 @@ class SettingsRepository(
     fun setSandboxEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSandboxEnabled(enabled) }
     fun setSandboxSharedStorageEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSandboxSharedStorageEnabled(enabled) }
     fun setThinkingEnabled(enabled: Boolean) = scope.launch { settingsManager.saveThinkingEnabled(enabled) }
+    fun setReplayReasoningInHistory(enabled: Boolean) =
+        scope.launch { settingsManager.saveReplayReasoningInHistory(enabled) }
     fun setThinkingLevel(level: String) = scope.launch { settingsManager.saveThinkingLevel(level) }
     fun setThinkingBudgetEnabled(enabled: Boolean) = scope.launch { settingsManager.saveThinkingBudgetEnabled(enabled) }
     fun setThinkingBudgetTokens(tokens: Int) = scope.launch { settingsManager.saveThinkingBudgetTokens(tokens) }
@@ -678,10 +675,31 @@ class SettingsRepository(
     fun setDefaultTopP(v: Float?) = scope.launch { settingsManager.saveDefaultTopP(v) }
     fun setDefaultFrequencyPenalty(v: Float?) = scope.launch { settingsManager.saveDefaultFrequencyPenalty(v) }
     fun setDefaultPresencePenalty(v: Float?) = scope.launch { settingsManager.saveDefaultPresencePenalty(v) }
+    fun setThemeMode(mode: String) = scope.launch { settingsManager.saveThemeMode(mode) }
+    fun setAmoledEnabled(enabled: Boolean) = scope.launch { settingsManager.saveAmoledEnabled(enabled) }
+    fun setColorScheme(scheme: String) = scope.launch { settingsManager.saveColorScheme(scheme) }
+    fun setDynamicColor(enabled: Boolean) = scope.launch { settingsManager.saveDynamicColor(enabled) }
+    fun setBlurEffectsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveBlurEffectsEnabled(enabled) }
+    fun setReduceMotion(enabled: Boolean) = scope.launch { settingsManager.saveReduceMotion(enabled) }
+    fun setStickToBottom(enabled: Boolean) = scope.launch { settingsManager.saveStickToBottom(enabled) }
+    fun setParseInlineDollarMath(enabled: Boolean) =
+        scope.launch { settingsManager.saveParseInlineDollarMath(enabled) }
+    fun setAutoWrapCodeBlocks(enabled: Boolean) = scope.launch { settingsManager.saveAutoWrapCodeBlocks(enabled) }
+    fun setHapticsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveHapticsEnabled(enabled) }
+    fun setDetailedTokenUsage(enabled: Boolean) =
+        scope.launch { settingsManager.saveDetailedTokenUsage(enabled) }
+    fun setToolCallDisplayMode(mode: String) = scope.launch { settingsManager.saveToolCallDisplayMode(mode) }
+    fun setThinkingSegmentDisplayMode(mode: String) =
+        scope.launch { settingsManager.saveThinkingSegmentDisplayMode(mode) }
+    fun setAutoExpandActiveGroup(enabled: Boolean) =
+        scope.launch { settingsManager.saveAutoExpandActiveGroup(enabled) }
+    fun setSchemeStyle(style: String) = scope.launch { settingsManager.saveSchemeStyle(style) }
+    fun setFontPreference(value: String) = scope.launch { settingsManager.saveFontPreference(value) }
+    fun setCustomFontPath(value: String) = scope.launch { settingsManager.saveCustomFontPath(value) }
+    fun setCustomFontName(value: String) = scope.launch { settingsManager.saveCustomFontName(value) }
     fun setSearchMatchLimit(n: Int) = scope.launch { settingsManager.saveSearchMatchLimit(n) }
     fun setSearchContextWindow(n: Int) = scope.launch { settingsManager.saveSearchContextWindow(n) }
     fun setRagThreshold(threshold: Float) = scope.launch { settingsManager.saveRagThreshold(threshold) }
-
     fun setShellConfirmEnabled(enabled: Boolean) = scope.launch { settingsManager.saveShellConfirmEnabled(enabled) }
     fun setAskUserEnabled(enabled: Boolean) = scope.launch { settingsManager.saveAskUserEnabled(enabled) }
     fun setAskUserTimeoutMinutes(minutes: Int) = scope.launch { settingsManager.saveAskUserTimeoutMinutes(minutes) }
@@ -689,6 +707,7 @@ class SettingsRepository(
     fun setSubagentMaxTotal(value: Int) = scope.launch { settingsManager.saveSubagentMaxTotal(value) }
     fun setSubagentMaxConcurrent(value: Int) = scope.launch { settingsManager.saveSubagentMaxConcurrent(value) }
     fun setSubagentToolsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSubagentToolsEnabled(enabled) }
+    fun setSubagentDeleteEnabled(enabled: Boolean) = scope.launch { settingsManager.saveSubagentDeleteEnabled(enabled) }
     fun setSubagentCapsuleDisplayMode(mode: String) = scope.launch { settingsManager.saveSubagentCapsuleDisplayMode(mode) }
     fun addShellDevice(device: ShellDeviceConfig, onResult: (Boolean) -> Unit = {}, onError: (Exception) -> Unit = { onResult(false) }) =
         persistShellDevice(device, creating = true, onResult, onError)
@@ -721,14 +740,7 @@ class SettingsRepository(
         return keys.find { it.id == activeIds[provider] }?.key
     }
 
-    // ── Suspending DataStore access ───────────────────────────
-    //
-    // The StateFlows above are eagerly-shared with a default initial value, so at app
-    // startup `.value` may briefly be the default before DataStore loads. These suspend
-    // accessors read/write DataStore directly (awaiting the on-disk value, preserving
-    // write ordering) for callers that need the persisted value immediately or ordered,
-    // read-after-write semantics. They keep [SettingsManager] encapsulated as an internal
-    // detail of this repository — the single owner of the settings surface.
+    // Suspending accessors preserve DataStore ordering before the eager flows publish.
 
     suspend fun getAutoUpdateCheck(): Boolean = settingsManager.autoUpdateCheck.first()
     suspend fun getAutoCacheEnabled(): Boolean = settingsManager.autoCacheEnabled.first()
@@ -766,11 +778,10 @@ class SettingsRepository(
     fun setLocalLowContextModeEnabled(enabled: Boolean) = scope.launch {
         settingsManager.saveLocalLowContextModeEnabled(enabled)
     }
+    fun setLocalInferenceThreads(threads: Int) = scope.launch { settingsManager.saveLocalInferenceThreads(threads) }
+    fun setLocalKvCacheType(type: String) = scope.launch { settingsManager.saveLocalKvCacheType(type) }
     suspend fun saveEmbeddingModels(models: List<EmbeddingModelConfig>) = settingsManager.saveEmbeddingModels(models)
     suspend fun setActiveEmbeddingModelId(id: String) = settingsManager.setActiveEmbeddingModelId(id)
-    fun setLiveVoiceConfig(config: com.newoether.agora.voice.live.LiveVoiceConfig) = scope.launch {
-        settingsManager.saveLiveVoiceConfig(config)
-    }
     suspend fun saveAutoBackupEnabled(enabled: Boolean) = settingsManager.saveAutoBackupEnabled(enabled)
     suspend fun saveAutoBackupPeriodHours(hours: Int) = settingsManager.saveAutoBackupPeriodHours(hours)
     suspend fun saveAutoBackupCategories(categories: String) = settingsManager.saveAutoBackupCategories(categories)
@@ -778,6 +789,8 @@ class SettingsRepository(
     suspend fun saveAutoDeleteEnabled(enabled: Boolean) = settingsManager.saveAutoDeleteEnabled(enabled)
     suspend fun saveAutoDeletePeriodHours(hours: Int) = settingsManager.saveAutoDeletePeriodHours(hours)
 
+    val phoneUseStore = settingsManager.phoneUse
+    val phoneUse = publication.hot(phoneUseStore.values, com.newoether.agora.phone.PhoneUseSettings())
     fun stableProviderReference(reference: String): String {
         val normalized = reference.trim()
         return customProviders.value.firstOrNull { provider ->

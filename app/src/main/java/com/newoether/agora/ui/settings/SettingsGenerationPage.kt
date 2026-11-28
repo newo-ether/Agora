@@ -11,12 +11,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.ui.res.painterResource
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.util.Constants
 import com.newoether.agora.ui.common.OpenAiServiceTierControlPanel
 import com.newoether.agora.ui.common.PersistedSliderFeedbackGate
 import com.newoether.agora.ui.common.ThinkingControlPanel
@@ -47,9 +49,12 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val thinkingLevel by viewModel.settings.thinkingLevel.collectAsState()
     val thinkingBudgetEnabled by viewModel.settings.thinkingBudgetEnabled.collectAsState()
     val thinkingBudgetTokens by viewModel.settings.thinkingBudgetTokens.collectAsState()
+    val replayReasoningInHistory by viewModel.settings.replayReasoningInHistory.collectAsState()
     val openAiServiceTierEnabled by
         viewModel.settings.openAiServiceTierEnabled.collectAsState()
     val openAiServiceTier by viewModel.settings.openAiServiceTier.collectAsState()
+    val imageQuality by viewModel.settings.imageQuality.collectAsState()
+    val attachmentMode by viewModel.settings.attachmentMode.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
 
     CollapsingSettingsScaffold(
@@ -91,6 +96,32 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 showHeader = false,
                                 animateSections = true
                             )
+                        },
+                        {
+                            SettingsItem(
+                                headlineContent = {
+                                    Text(stringResource(R.string.replay_reasoning_in_history))
+                                },
+                                supportingContent = {
+                                    Text(stringResource(R.string.replay_reasoning_in_history_desc))
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        painterResource(id = R.drawable.neurology_24),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                },
+                                trailingContent = {
+                                    Switch(
+                                        checked = replayReasoningInHistory,
+                                        onCheckedChange = { viewModel.settings.setReplayReasoningInHistory(it) }
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    viewModel.settings.setReplayReasoningInHistory(!replayReasoningInHistory)
+                                }
+                            )
                         }
                     )
                 )
@@ -114,7 +145,7 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Speed,
+                                        Icons.Rounded.Speed,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
@@ -213,6 +244,61 @@ fun SettingsGenerationPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         }
                     )
                 )
+
+                // ── Section: Attachments ──
+                SettingsGroup(
+                    title = stringResource(R.string.attachments_group_title),
+                    items = listOf(
+                        {
+                            val sandboxLink = attachmentMode == Constants.ATTACHMENT_MODE_SANDBOX_LINK
+                            SettingsItem(
+                                headlineContent = {
+                                    Text(stringResource(R.string.attachment_sandbox_link))
+                                },
+                                supportingContent = {
+                                    Text(stringResource(R.string.attachment_sandbox_link_desc))
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        Icons.Rounded.AttachFile,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                },
+                                trailingContent = {
+                                    Switch(
+                                        checked = sandboxLink,
+                                        onCheckedChange = { enabled ->
+                                            viewModel.settings.setAttachmentMode(
+                                                if (enabled) {
+                                                    Constants.ATTACHMENT_MODE_SANDBOX_LINK
+                                                } else {
+                                                    Constants.ATTACHMENT_MODE_INLINE
+                                                },
+                                            )
+                                        },
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    viewModel.settings.setAttachmentMode(
+                                        if (sandboxLink) {
+                                            Constants.ATTACHMENT_MODE_INLINE
+                                        } else {
+                                            Constants.ATTACHMENT_MODE_SANDBOX_LINK
+                                        },
+                                    )
+                                },
+                            )
+                        },
+                    ),
+                )
+
+                SettingsImageQualityGroup(
+                    quality = imageQuality,
+                    onModeChange = { viewModel.settings.updateImageQuality(mode = it) },
+                    onMaxLongEdgeChange = { viewModel.settings.updateImageQuality(customMaxLongEdge = it) },
+                    onJpegQualityChange = { viewModel.settings.updateImageQuality(customJpegQuality = it) },
+                )
             }
 
             if (showDocFab) { Spacer(modifier = Modifier.height(80.dp)) }
@@ -262,7 +348,7 @@ private fun GenParamSlider(
             verticalAlignment = Alignment.Top
         ) {
             Icon(
-                Icons.Default.Tune,
+                Icons.Rounded.Tune,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp)
@@ -378,7 +464,7 @@ private fun GenParamSlider(
             verticalAlignment = Alignment.Top
         ) {
             Icon(
-                Icons.Default.Tune,
+                Icons.Rounded.Tune,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp)

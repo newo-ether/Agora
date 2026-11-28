@@ -22,6 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import com.newoether.agora.R
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.viewmodel.buildLiveToolBridge
+import com.newoether.agora.viewmodel.installVoiceMessageSink
 import com.newoether.agora.voice.live.LiveVoiceSession
 import com.newoether.agora.voice.live.LiveVoiceState
 

@@ -1,11 +1,10 @@
 package com.newoether.agora.viewmodel
 
 import android.app.Application
+import android.os.SystemClock
 import com.newoether.agora.util.DebugLog
 import com.newoether.agora.api.LlmProvider
-import com.newoether.agora.api.ProviderConfig
 import com.newoether.agora.api.StreamEvent
-import com.newoether.agora.api.resolveRequest
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.MemoryManager
 import com.newoether.agora.data.SkillManager
@@ -21,7 +20,6 @@ import com.newoether.agora.model.ToolCallData
 import com.newoether.agora.R
 import com.newoether.agora.service.AgoraForegroundService
 import com.newoether.agora.service.AppForegroundTracker
-import com.newoether.agora.api.util.ContextTokenEstimator
 import com.newoether.agora.api.util.tokens.FixedContextComposition
 import com.newoether.agora.tool.ToolProvider
 import com.newoether.agora.util.Constants
@@ -33,6 +31,9 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+
+/** Preserve-Context Compact refuses tool rounds without persisting them; bound the retries. */
+internal const val MAX_REFUSED_TOOL_ROUNDS = 4
 
 internal suspend fun acquireGenerationForegroundLease(
     managedExternally: Boolean,
@@ -57,9 +58,15 @@ class GenerationManager(
 
     /** User-confirmation gate for remote shell mutations. Set by the ViewModel.
      *  Returns true to proceed, false to deny. */
-    var onConfirmShellCommand: (suspend (server: String, summary: String, conversationId: String?) -> Boolean)? = null
+    var onConfirmShellCommand: (suspend (
+        server: String,
+        summary: String,
+        conversationId: String?,
+        detail: ShellActionDetail?,
+        description: String,
+    ) -> Boolean)? = null
 
-    private val toolExecutor = GenerationToolExecutor.createDefault(
+    internal val toolExecutor = GenerationToolExecutor.createDefault(
         app = app,
         conversations = conversations,
         memoryManager = memoryManager,
@@ -67,19 +74,18 @@ class GenerationManager(
         sandboxFactory = sandboxFactory,
         additionalProviders = additionalToolProviders,
         generatingConversationIds = generatingConversationIds,
-        confirmShellCommand = { server, summary, conversationId ->
-            onConfirmShellCommand?.invoke(server, summary, conversationId) ?: true
+        confirmShellCommand = { server, summary, conversationId, detail, description ->
+            onConfirmShellCommand?.invoke(server, summary, conversationId, detail, description) ?: true
         },
     )
+    private val contextAccounting = GenerationContextAccounting(toolExecutor)
     private val providerPassEffects = ProviderPassEffectExecutor()
-    /** A live-voice tool bridge over the SAME MCP-including executor normal generation uses. */
-    fun buildLiveToolBridge(ctx: GenerationContext): com.newoether.agora.voice.live.LiveToolBridge =
-        LiveVoiceToolBridge(toolExecutor, ctx)
     private val toolBatchEffects = GenerationToolBatchEffectExecutor(toolExecutor)
     private val toolRoundBuilder = GenerationToolRoundBuilder()
     private val runFinalizationExecutor = GenerationRunFinalizationExecutor(conversations)
     private val apiPathBuilder = GenerationApiPathBuilder(
         conversations = conversations,
+        appContext = context,
         generationErrorFormatter = { raw ->
             normalizePersistedGenerationErrorText(context, raw)
         },
@@ -110,77 +116,29 @@ class GenerationManager(
         )
     }
 
-    internal fun fixedContextTokenCost(
-        config: GenerationConfig,
-        context: GenerationContext,
-    ): Int = ContextTokenEstimator.forModel(config.modelId).estimateFixed(
-        systemPrompt = config.effectiveSystemPrompt,
-        tools = if (config.lowContextModeEnabled) emptyList()
-        else toolExecutor.definitions(context),
-        initialUserPrompt = config.initialUserPrompt,
-        codeExecutionEnabled = config.codeExecutionEnabled,
-        googleSearchEnabled = config.googleSearchEnabled,
-        openAiWebSearchEnabled = config.openAiWebSearchEnabled,
-    )
-    /** The same cost as [fixedContextTokenCost], split for the context indicator. */
+    internal fun fixedContextTokenCost(config: GenerationConfig, context: GenerationContext): Int =
+        contextAccounting.fixedContextTokenCost(config, context)
+
     internal fun fixedContextComposition(
         config: GenerationConfig,
         context: GenerationContext,
-    ): FixedContextComposition =
-        ContextTokenEstimator.forModel(config.modelId).estimateFixedComposition(
-            systemPrompt = config.effectiveSystemPrompt,
-            tools = if (config.lowContextModeEnabled) emptyList()
-            else toolExecutor.definitions(context),
-            initialUserPrompt = config.initialUserPrompt,
-            codeExecutionEnabled = config.codeExecutionEnabled,
-            googleSearchEnabled = config.googleSearchEnabled,
-            openAiWebSearchEnabled = config.openAiWebSearchEnabled,
-        )
+    ): FixedContextComposition = contextAccounting.fixedContextComposition(config, context)
 
-    internal fun includesAssistantReasoning(
-        config: GenerationConfig,
-        context: GenerationContext,
-    ): Boolean =
-        !config.responsesApiEnabled &&
-            config.thinkingEnabled &&
-            (
-                config.providerName == Constants.PROVIDER_DEEPSEEK ||
-                    com.newoether.agora.api.openai.isDeepSeekModel(config.modelId)
-                ) &&
-            !config.lowContextModeEnabled &&
-            toolExecutor.definitions(context).isNotEmpty()
+    internal fun includesAssistantReasoning(config: GenerationConfig, context: GenerationContext): Boolean =
+        contextAccounting.includesAssistantReasoning(config, context)
 
-    internal suspend fun resolvedFixedContextTokenCost(
-        config: GenerationConfig,
-        context: GenerationContext,
-    ): Int {
-        val resolver = config.requestResolver ?: return fixedContextTokenCost(config, context)
-        val definitions = if (config.lowContextModeEnabled) emptyList()
-        else toolExecutor.definitions(context)
-        val providerConfig = ProviderConfig(
-            apiKey = config.apiKey,
+    /** Session tool selector data; [probe] is explained at [SessionToolCatalog.build]. */
+    internal fun sessionToolCatalog(config: GenerationConfig, context: GenerationContext, probe: GenerationContext = context) =
+        SessionToolCatalog.build(
             modelId = config.modelId,
-            anthropicCacheEnabled = config.anthropicCacheEnabled,
-            anthropicCacheTtl = config.anthropicCacheTtl,
-            maxContextWindow = config.maxContextWindow,
-            codeExecutionEnabled = config.codeExecutionEnabled,
-            googleSearchEnabled = config.googleSearchEnabled,
-            openAiWebSearchEnabled = config.openAiWebSearchEnabled,
-            tools = definitions,
-            includeImages = !context.imageTranscriptionEnabled,
-            includeAssistantReasoning = includesAssistantReasoning(config, context),
-            requestResolver = resolver,
+            context = context,
+            definitionsByGroup = toolExecutor.sessionToolGroups(probe, config.lowContextModeEnabled),
+            lowContextMode = config.lowContextModeEnabled,
+            probe = probe,
         )
-        val resolvedRequest = providerConfig.resolveRequest(emptyList())
-        return ContextTokenEstimator.forModel(config.modelId).estimateFixed(
-            systemPrompt = resolvedRequest.systemPrompt,
-            tools = definitions,
-            initialUserPrompt = config.initialUserPrompt,
-            codeExecutionEnabled = config.codeExecutionEnabled,
-            googleSearchEnabled = config.googleSearchEnabled,
-            openAiWebSearchEnabled = config.openAiWebSearchEnabled,
-        )
-    }
+
+    internal suspend fun resolvedFixedContextTokenCost(config: GenerationConfig, context: GenerationContext): Int =
+        contextAccounting.resolvedFixedContextTokenCost(config, context)
 
     internal suspend fun buildApiPath(request: GenerationApiPathRequest): GenerationApiPath =
         apiPathBuilder.build(request)
@@ -320,6 +278,12 @@ class GenerationManager(
                 "messages=${currentPath.size} tools=${rawProviderConfig.tools.orEmpty().size}",
             )
             val providerConfig = rawProviderConfig
+            // The API-only invocation is part of the raw path so tool continuations (refused
+            // rounds of a Preserve-Context Compact) keep it before their tool rows.
+            val dispatchPath = config.initialUserPrompt?.takeIf(String::isNotBlank)
+                ?.let { prompt -> currentPath + initialUserMessage(currentPath.lastOrNull(), prompt) }
+                ?: currentPath
+            val rejectToolCalls = config.rejectToolCalls
 
             var toolCallData: ToolCallData? = null
             var toolCallDataList: List<ToolCallData> = emptyList()
@@ -351,6 +315,10 @@ class GenerationManager(
                     output.generationErrorMessage,
                     output.generationErrorCode,
                     answerDeltas = output.currentAnswerDeltas,
+                    // Sampled right after liveDurationMs(): the UI resumes this timer from the
+                    // generation clock instead of restarting it on every recomposition.
+                    thoughtDurationSampledAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                        .takeIf { output.thoughtTiming.isRunning },
                 ),
                 retryText = output.retryText,
                 runId = runId,
@@ -381,7 +349,8 @@ class GenerationManager(
                         conversationId = conversationId,
                         authorizedToolNames = providerConfig.tools.orEmpty()
                             .mapTo(linkedSetOf()) { it.function.name },
-                        // view_image results reuse this generation's transcription flow when
+                        rejectionText = COMPACT_TOOL_CALL_REJECTED.takeIf { rejectToolCalls },
+                        // file_view_image results reuse this generation's transcription flow when
                         // image transcription is enabled for the current model.
                         toolImageTranscriber =
                             if (
@@ -426,6 +395,7 @@ class GenerationManager(
             ): ProviderPassOutcome {
                 val providerAnswerStart = output.totalText.length
                 output.beginProviderRequest()
+                var providerResponded = false
                 val providerRequestIndex = providerRequestOrdinal++
                 val providerRequestTrace = if (providerRequestIndex == 0) {
                     requestTrace
@@ -458,6 +428,7 @@ class GenerationManager(
                             },
                             onFirstEvent = onFirstEvent,
                             onEvent = { event ->
+                                providerResponded = true
                                 output.handleStreamEvent(
                                     event = event,
                                     providerAnswerStart = providerAnswerStart,
@@ -469,7 +440,9 @@ class GenerationManager(
                                     publishRetrySnapshot = {
                                         val projected = projectOutput(modelMessage())
                                         onStreamUpdate(projected)
-                                        if (event is StreamEvent.Retrying && event.resetCurrentAttempt) {
+                                        if (event is StreamEvent.Retrying &&
+                                            (event.resetCurrentAttempt || event.error != null)
+                                        ) {
                                             checkpoints.persist(projected, force = true)
                                         }
                                     },
@@ -478,7 +451,16 @@ class GenerationManager(
                         ),
                     )
                 } finally {
-                    output.tokenUsageAccumulator.finishRequest()
+                    val requestUsage = output.tokenUsageAccumulator.finishRequest()
+                    // A request the provider never answered is not counted as usage.
+                    if (providerResponded) {
+                        com.newoether.agora.data.UsageRecorder.record(
+                            provider = config.providerName,
+                            model = modelName,
+                            usage = requestUsage,
+                            conversationId = conversationId,
+                        )
+                    }
                     output.totalTokenUsage = output.tokenUsageAccumulator.snapshot()
                     output.totalTokenCount = output.totalTokenUsage?.totalTokenCount ?: output.totalTokenCount
                 }
@@ -514,16 +496,16 @@ class GenerationManager(
             }
 
             val apiPath = if (providerConfig.requestResolver != null) {
-                currentPath
+                dispatchPath
             } else {
                 projectGenerationInputMessages(
-                    messages = currentPath,
+                    messages = dispatchPath,
                     includeImages = providerConfig.includeImages,
                     userPrepend = config.userPrepend,
                     userPostpend = config.userPostpend,
                     assistantPrepend = config.assistantPrepend,
                     assistantPostpend = config.assistantPostpend,
-                    initialUserPrompt = config.initialUserPrompt,
+                    phoneMaxScreenshots = config.phoneMaxScreenshots,
                 )
             }
             requestTrace?.mark("provider_dispatch")
@@ -542,7 +524,7 @@ class GenerationManager(
 
             // Multi-tool loop
             var toolRound = 0
-            toolPath = currentPath
+            toolPath = dispatchPath
 
             while (toolCallDataList.isNotEmpty() && output.currentStatus != MessageStatus.ERROR && currentCoroutineContext().isActive) {
                 toolRound++
@@ -567,24 +549,39 @@ class GenerationManager(
                 )
                 toolPath = toolPath + round.pathMessages
                 toolRoundEffects.commitRound { commitIdentity ->
-                    conversations.appendToolRoundToRun(
-                        messages = round.entities,
-                        expectedPass = commitIdentity.pass,
+                    // Refused rounds stay in memory: they are protocol filler for this request
+                    // only and must never become history after the Compact boundary.
+                    if (!rejectToolCalls) {
+                        conversations.appendToolRoundToRun(
+                            messages = round.entities,
+                            expectedPass = commitIdentity.pass,
+                        )
+                    }
+                }
+                if (!rejectToolCalls) {
+                    // A refused round never reaches Room, so its id must never be stamped onto a
+                    // segment: the compact message persists those segments, and a dangling
+                    // reference breaks tool-round resolution on the next cold start.
+                    output.toolOverlay.markCommittedRound(
+                        tcds.mapTo(linkedSetOf()) { call ->
+                            checkNotNull(call.toolCallId) {
+                                "Committed tool call is missing its provider call id"
+                            }
+                        },
+                        toolRoundId = round.entities.first().id,
                     )
                 }
-                output.toolOverlay.markCommittedRound(
-                    tcds.mapTo(linkedSetOf()) { call ->
-                        checkNotNull(call.toolCallId) {
-                            "Committed tool call is missing its provider call id"
-                        }
-                    },
-                    toolRoundId = round.entities.first().id,
-                )
                 publishStreamUpdate(forceCheckpoint = true)
                 uiUpdateGate.recordPublished(System.currentTimeMillis())
                 // A terminal Conch job may be deleted only after the complete tool result is
                 // durable. ACK is best-effort and cannot influence the already-authorized
                 // continuation; Conch's bounded retention remains the failure fallback.
+                if (rejectToolCalls) {
+                    // toolPath already holds this request's history plus the refused round.
+                    toolCallData = null
+                    toolCallDataList = emptyList()
+                    if (toolRound >= MAX_REFUSED_TOOL_ROUNDS) break
+                } else {
                 toolExecutor.acknowledgeCommittedShellJobs(tcds, ctx)
                 val boundaryDecision = callbacks.onToolRoundPersisted()
                 if (boundaryDecision is ToolRoundBoundaryDecision.CompleteForFollowUp) {
@@ -613,6 +610,7 @@ class GenerationManager(
                     endedAtGuidanceBoundary = true
                     break
                 }
+                }
 
                 uiUpdateGate.reset()
 
@@ -626,6 +624,7 @@ class GenerationManager(
                         userPostpend = config.userPostpend,
                         assistantPrepend = config.assistantPrepend,
                         assistantPostpend = config.assistantPostpend,
+                        phoneMaxScreenshots = config.phoneMaxScreenshots,
                     )
                 }
                 acceptProviderPass(collectProviderRequest(apiToolPath))
@@ -644,12 +643,10 @@ class GenerationManager(
 
             if (output.currentStatus != MessageStatus.ERROR) {
                 // A queue-steered interruption is a SUCCESSFUL turn even with no answer text —
-                // its value is the persisted tool activity. Inline generated images (direct-chat
-                // image models) also count: the answer is the image, not text.
+                // its value is the persisted tool activity.
                 output.currentStatus = if (
                     output.totalText.isNotEmpty() ||
                     output.totalThoughts.isNotEmpty() ||
-                    output.totalImageCount > 0 ||
                     endedAtGuidanceBoundary ||
                     endedForFollowUp
                 ) {
@@ -729,7 +726,8 @@ class GenerationManager(
                         val terminalDisposition = generationTerminalDisposition(
                             messageStatus = output.currentStatus,
                             hasPendingGuidance =
-                                callbacks.hasQueuedSends() || endedAtGuidanceBoundary || endedForFollowUp,
+                                callbacks.hasQueuedSends() || callbacks.hasPendingContinuation ||
+                                    endedAtGuidanceBoundary || endedForFollowUp,
                             conversationVisible = terminalConversationVisible,
                         )
                         val finalizationIdentity = RunEffectIdentity(
@@ -787,7 +785,7 @@ class GenerationManager(
                     foregroundLeaseAcquired = foregroundLeaseAcquired,
                     isContextCompact = modelMessageId.startsWith(Constants.COMPACT_MSG_PREFIX),
                     conversationVisible = terminalConversationVisible,
-                    hasPendingContinuation = endedForFollowUp,
+                    hasPendingContinuation = endedForFollowUp || callbacks.hasPendingContinuation,
                 ),
                 callbacks = callbacks.completionEffectsCallbacks(onMessagePersisted),
             )

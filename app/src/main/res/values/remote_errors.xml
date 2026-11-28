@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex did not accept this message. Check the error details before trying again.</string>
     <string name="remote_storage_failed">Agora could not access local Remote storage. Check available space.</string>
     <string name="remote_network_failed">Cannot reach Filo. Check the target computer, service address and network.</string>
-    <string name="remote_auth_failed">Filo rejected the access token. Use the token from the target computer.</string>
+    <string name="remote_auth_failed">Filo could not authenticate this request. This does not necessarily mean the access token is wrong. If it persists, check the target computer’s token and clock.</string>
     <string name="remote_configuration_failed">Enter a valid service URL and a 64-character access token.</string>
     <string name="remote_protocol_failed">Agora could not verify or read the Filo response. Check that both apps are up to date.</string>
     <string name="remote_service_failed">Codex could not complete the request.</string>

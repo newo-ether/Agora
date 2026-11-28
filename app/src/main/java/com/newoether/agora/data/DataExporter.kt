@@ -24,6 +24,7 @@ import java.io.InputStream
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import java.util.zip.CRC32
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 
@@ -36,11 +37,14 @@ class DataExporter(
     companion object {
         private const val SNAPSHOT_PREFIX = "agora-export-snapshot-"
         private const val SNAPSHOT_SUFFIX = ".jsonl"
+        private const val STALE_SPOOL_AGE_MS = 60 * 60 * 1000L
         private const val SNAPSHOT_CONVERSATION = "C"
         private const val SNAPSHOT_RUN = "R"
         private const val SNAPSHOT_MESSAGE = "M"
         private const val SNAPSHOT_TASK = "T"
         private const val SNAPSHOT_LOOP = "L"
+        private const val MEDIA_BUFFER_BYTES = 256 * 1024
+        private const val OUTPUT_BUFFER_BYTES = 256 * 1024
     }
 
     enum class ExportCategory(val manifestKey: String) {
@@ -220,24 +224,37 @@ class DataExporter(
         }
     }
 
-    /**
-     * Copies one opened media stream directly into the archive without a heap-sized byte array.
-     * Any failure here leaves a partial entry behind, so it fails the export instead of being
-     * counted as a missing resource. An empty file is a valid resource.
-     */
-    private fun copyStreamToZipEntry(
-        zip: ZipArchiveOutputStream,
-        entryName: String,
-        input: InputStream,
-    ) {
-        input.use { stream ->
-            zip.putArchiveEntry(ZipArchiveEntry(entryName))
-            try {
-                stream.copyTo(zip)
-            } finally {
-                zip.closeArchiveEntry()
-            }
+    private class SourceChecksum(val size: Long, val crc: Long)
+
+    /** Reads [input] to its end once to learn the size and CRC a stored entry must declare. */
+    private fun checksumOf(input: InputStream): SourceChecksum = input.use { stream ->
+        val crc = CRC32()
+        val buffer = ByteArray(MEDIA_BUFFER_BYTES)
+        var total = 0L
+        while (true) {
+            val count = stream.read(buffer)
+            if (count < 0) break
+            crc.update(buffer, 0, count)
+            total += count
         }
+        SourceChecksum(total, crc.value)
+    }
+
+    /**
+     * Messages without any of these keys reference no media, so the media pass can skip decoding
+     * them. Tool image metadata sits inside the escaped toolCallJson string, hence the bare name.
+     */
+    private fun mayReferenceMedia(rawMessage: String): Boolean =
+        rawMessage.contains("\"images\":") ||
+            rawMessage.contains("\"attachmentMeta\":") ||
+            rawMessage.contains("toolImages")
+
+    /** Drops spools a killed export left behind; anything over an hour old is orphaned. */
+    private fun deleteStaleSpools() {
+        val cutoff = System.currentTimeMillis() - STALE_SPOOL_AGE_MS
+        context.cacheDir.listFiles { file -> file.isFile && file.name.startsWith(SNAPSHOT_PREFIX) &&
+            file.name.endsWith(SNAPSHOT_SUFFIX) && file.lastModified() < cutoff }
+            ?.forEach { runCatching { it.delete() } }
     }
 
     private suspend fun captureConversationSnapshot(
@@ -399,10 +416,13 @@ class DataExporter(
         zip: ZipArchiveOutputStream,
         spool: ExportedSpool,
         baseline: NativeBackupV5Baseline?,
+        onConversationWritten: () -> Unit = {},
     ): ExportResult {
         val spoolReader = ExportSpoolReader(spool.file)
         val sourceToArchiveEntry = mutableMapOf<String, String>()
         val copiedBaselineMedia = linkedSetOf<String>()
+        val rawChecksums = mutableMapOf<String, Long>()
+        val scratchDir = context.cacheDir
         val indexEntries = mutableListOf<NativeConversationIndexEntry>()
         var imagesExported = 0
         var missingResourceCount = 0
@@ -419,13 +439,27 @@ class DataExporter(
                 return entry
             }
             val entry = archiveMediaEntry(prefix, source)
-            // Only a source that cannot be opened is a missing resource.
+            // Only a source that cannot be opened is a missing resource. Media is already
+            // compressed, so it is stored as is; the first read supplies the declared size and CRC.
+            // A read failure after opening still fails the export.
+            val checksum = try {
+                openImageStream(source)
+            } catch (_: Exception) {
+                null
+            }?.let(::checksumOf) ?: return null
             val input = try {
                 openImageStream(source)
             } catch (_: Exception) {
                 null
             } ?: return null
-            copyStreamToZipEntry(zip = zip, entryName = entry, input = input)
+            NativeBackupV5Writer.writeStoredEntry(
+                zip = zip,
+                name = entry,
+                input = input,
+                size = checksum.size,
+                crc = checksum.crc,
+                checksums = rawChecksums,
+            )
             sourceToArchiveEntry[sourceKey] = entry
             referenced?.add(entry)
             return entry
@@ -449,7 +483,9 @@ class DataExporter(
                     baseline = baseline,
                     baselineEntry = baselineEntry,
                     copiedMedia = copiedBaselineMedia,
+                    checksums = rawChecksums,
                 )
+                onConversationWritten()
                 continue
             }
 
@@ -481,6 +517,7 @@ class DataExporter(
                             ?.let { Json.encodeToString(it) }
                     }
                     SNAPSHOT_MESSAGE -> {
+                        if (!mayReferenceMedia(raw)) return@readRecords
                         val message = Json.decodeFromString<ExportMessageEntity>(raw)
                         val meta = message.attachmentMeta?.let {
                             runCatching { Json.decodeFromString<AttachmentMeta>(it) }.getOrNull()
@@ -495,18 +532,13 @@ class DataExporter(
 
                         if (message.images.isNotEmpty()) {
                             val oldToNewImageIndex = mutableMapOf<Int, Int>()
-                            archivedImagesByMessage[message.id] = buildList {
-                                message.images.forEachIndexed { oldIndex, source ->
-                                    copySource(
-                                        source,
-                                        NativeBackupFormat.IMAGE_MEDIA_PREFIX,
-                                        referencedMedia,
-                                    )?.let { entry ->
-                                        oldToNewImageIndex[oldIndex] = size
-                                        add(entry)
-                                        imagesExported++
-                                    }
-                                }
+                            archivedImagesByMessage[message.id] = message.images.mapIndexed { index, source ->
+                                oldToNewImageIndex[index] = index
+                                copySource(
+                                    source,
+                                    NativeBackupFormat.IMAGE_MEDIA_PREFIX,
+                                    referencedMedia,
+                                )?.also { imagesExported++ }.orEmpty()
                             }
                             attachmentMetaByMessage[message.id] =
                                 NativeBackupMediaPolicy.rewriteAttachmentMetaForExport(
@@ -565,6 +597,7 @@ class DataExporter(
                             toolCallJson = NativeBackupMediaPolicy.rewriteToolImagePathsForExport(
                                 raw = message.toolCallJson,
                                 archiveEntryForSource = trackedLookup(referencedMedia),
+                                onMissingResource = { missingResourceCount++ },
                             ),
                             attachmentMeta = if (message.id in attachmentMetaByMessage) {
                                 attachmentMetaByMessage[message.id]
@@ -584,7 +617,10 @@ class DataExporter(
                 messages = messages,
                 loops = loops.iterator(),
                 mediaEntries = referencedMedia,
+                scratchDir = scratchDir,
+                checksums = rawChecksums,
             )
+            onConversationWritten()
         }
 
         NativeBackupV5Writer.writeTasksEntry(
@@ -592,6 +628,7 @@ class DataExporter(
             tasks = spoolReader.recordIterator(spool.index.taskSlices),
         )
         NativeBackupV5Writer.writeConversationIndex(zip, indexEntries)
+        NativeBackupV5Writer.writeRawChecksums(zip, rawChecksums)
         return ExportResult(
             imagesExported = imagesExported,
             missingResourceCount = missingResourceCount,
@@ -620,15 +657,13 @@ class DataExporter(
 
         var imagesExportedTotal = 0
         var missingResourceCount = 0
-        val totalSteps = categories.size + 1 // +1 for manifest
-        var completed = 0
-        fun step() { completed++; onProgress(completed.toFloat() / totalSteps) }
-
         val baseline = if (ExportCategory.CONVERSATIONS in categories) {
             NativeBackupV5Baseline.openOrNull(baselineFile)
         } else {
             null
         }
+        // A killed export leaves its JSONL spool in cacheDir; clear the orphaned ones first.
+        deleteStaleSpools()
         val conversationSpool = try {
             if (ExportCategory.CONVERSATIONS in categories) {
                 captureConversationSnapshot(settingsManager.conversationSettings.first(), baseline)
@@ -639,11 +674,22 @@ class DataExporter(
             baseline?.close()
             throw error
         }
+        // Each non-conversation category and the manifest count as one unit; conversations count
+        // one unit per conversation because they dominate export time.
+        val conversationUnits = conversationSpool?.index?.conversations?.size?.coerceAtLeast(1) ?: 0
+        val totalUnits = (categories - ExportCategory.CONVERSATIONS).size + 1 + conversationUnits
+        var completed = 0
+        fun advance(units: Int = 1) {
+            completed += units
+            onProgress((completed.toFloat() / totalUnits).coerceAtMost(1f))
+        }
+        fun step() = advance()
+        onProgress(0f)
         try {
             val rawOutput = context.contentResolver.openOutputStream(uri)
                 ?: throw IOException("Could not open the selected backup destination")
             rawOutput.use { raw ->
-                val zip = ZipArchiveOutputStream(BufferedOutputStream(raw))
+                val zip = ZipArchiveOutputStream(BufferedOutputStream(raw, OUTPUT_BUFFER_BYTES))
 
                 // Manifest
                 zip.putArchiveEntry(ZipArchiveEntry(NativeBackupFormat.MANIFEST_ENTRY))
@@ -657,10 +703,11 @@ class DataExporter(
                         zip = zip,
                         spool = conversationSpool,
                         baseline = baseline,
+                        onConversationWritten = { advance() },
                     )
                     imagesExportedTotal += archiveResult.imagesExported
                     missingResourceCount += archiveResult.missingResourceCount
-                    step()
+                    if (conversationSpool.index.conversations.isEmpty()) advance()
                 }
 
             // Memories

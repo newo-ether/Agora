@@ -4,7 +4,7 @@ import com.newoether.agora.api.anthropic.AnthropicProvider
 import com.newoether.agora.api.gemini.GeminiProvider
 import com.newoether.agora.api.ollama.OllamaProvider
 import com.newoether.agora.api.openai.CustomOpenAiProvider
-import com.newoether.agora.api.util.ProviderRetryPolicy
+import com.newoether.agora.util.NetworkRetryPolicy
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
@@ -12,6 +12,7 @@ import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.model.ToolCallData
 import com.newoether.agora.viewmodel.ProviderPassRunner
 import com.newoether.agora.util.DebugLog
+import com.newoether.agora.util.CloudDebugLog
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -35,19 +36,41 @@ import org.junit.Test
 class ProviderInterruptionQuotaRetryTest {
     @Before
     fun useImmediateRetriesAndJvmLogging() {
-        mockkObject(DebugLog)
-        mockkObject(ProviderRetryPolicy)
+        mockkObject(DebugLog, CloudDebugLog)
+        mockkObject(NetworkRetryPolicy)
         every { DebugLog.d(any(), any()) } just Runs
         every { DebugLog.e(any(), any()) } just Runs
         every { DebugLog.w(any(), any()) } just Runs
-        every { ProviderRetryPolicy.delayMillis(any()) } returns 1L
+        every { CloudDebugLog.d(any(), any()) } just Runs
+        every { CloudDebugLog.e(any(), any()) } just Runs
+        every { CloudDebugLog.w(any(), any()) } just Runs
+        every { NetworkRetryPolicy.delayMillis(any(), any(), any()) } returns 1L
+        every { NetworkRetryPolicy.providerDelayMillis(any(), any(), any()) } returns 1L
     }
 
     @After
     fun restoreObjects() {
         unmockkObject(HttpClient)
-        unmockkObject(ProviderRetryPolicy)
-        unmockkObject(DebugLog)
+        unmockkObject(NetworkRetryPolicy)
+        unmockkObject(DebugLog, CloudDebugLog)
+    }
+
+    @Test
+    fun retriesCarryActualFailuresAcrossEveryRemoteProtocol() {
+        cases().forEach { case ->
+            val opening = collect(case, reads = case.success, openingFailure = EOFException("opening EOF"))
+                .first.filterIsInstance<StreamEvent.Retrying>().single().error
+            assertTrue(case.name, opening is GenerationError.Network)
+            val http = collect(case, reads = case.success, status = 503, recoverHttp = true,
+                errorBody = """{"error":{"message":"Busy now","type":"server_error"}}""")
+                .first.filterIsInstance<StreamEvent.Retrying>().single().error
+            assertTrue(case.name, http is GenerationError.Api)
+            assertEquals(case.name, "Busy now", (http as GenerationError.Api).message)
+            val malformed = if (case.name == "Ollama") "not-json" else "data: not-json"
+            val stream = collect(case, reads = case.partial + malformed + case.success)
+                .first.filterIsInstance<StreamEvent.Retrying>().single().error
+            assertTrue(case.name, stream is GenerationError.SseParse)
+        }
     }
 
     @Test
@@ -60,16 +83,10 @@ class ProviderInterruptionQuotaRetryTest {
                 IOException("read failed", EOFException("premature close")),
             ).forEach { failure ->
                 val before = collect(case, reads = listOf(failure) + case.success)
-                assertRecovered(case, before)
+                assertRecovered(case, before, resetCurrentAttempt = true)
 
-                val after = collect(case, reads = case.partial + failure)
-                assertEquals(case.name, 1, after.second)
-                assertEquals(case.name, "partial", answer(after.first))
-                assertFalse(case.name, after.first.any { it is StreamEvent.Retrying })
-                assertTrue(
-                    case.name,
-                    after.first.filterIsInstance<StreamEvent.Error>().single().error is GenerationError.Network,
-                )
+                val after = collect(case, reads = case.partial + failure + case.success)
+                assertRecoveredPartial(case, after) { it is StreamEvent.TextChunk && it.text == "partial" }
             }
         }
     }
@@ -86,7 +103,7 @@ class ProviderInterruptionQuotaRetryTest {
                 ).forEach { failure ->
                     val result = collect(case, reads = prefix + failure + case.success, throughConsumer = true)
                     assertEquals(case.name, 2, result.second)
-                    assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = failure !is EOFException)), result.first.filterIsInstance<StreamEvent.Retrying>())
+                    assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
                     assertEquals(case.name, "ok", answer(result.first))
                     assertEquals(case.name, "", result.first.filterIsInstance<StreamEvent.ThoughtChunk>().joinToString("") { it.thought })
                     assertTrue(case.name, result.first.none { it is StreamEvent.Error })
@@ -96,7 +113,7 @@ class ProviderInterruptionQuotaRetryTest {
     }
 
     @Test
-    fun unreadableApiEnvelopeRetriesAfterPartialAndDespitePermanentFields() {
+    fun unreadableApiEnvelopeRetriesPartialButRejectsPermanentFields() {
         cases().forEach { case ->
             val message = "The server response could not be read."
             assertRecovered(
@@ -117,7 +134,17 @@ class ProviderInterruptionQuotaRetryTest {
                     ) + case.success,
                     throughConsumer = true,
                 )
-                assertRecovered(case, withPermanentFields, resetCurrentAttempt = true)
+                assertTerminalApi(case, withPermanentFields, "$message Insufficient quota")
+            }
+        }
+    }
+
+    @Test
+    fun socketDiagnosticsInsideApiEnvelopesRetryAfterPartialOutput() {
+        cases().forEach { case ->
+            listOf("Unexpected end of stream", "Software caused connection abort", "Socket is closed").forEach { message ->
+                val result = collect(case, reads = case.partial + case.errorLine("503", "server_error", message, 2) + case.success)
+                assertRecoveredPartial(case, result) { it is StreamEvent.TextChunk && it.text == "partial" }
             }
         }
     }
@@ -149,7 +176,7 @@ class ProviderInterruptionQuotaRetryTest {
                 val prefix = case.formattingOnlyLines().first()
                 val result = collect(case, reads = prefix + failure + case.success, messages = history, throughConsumer = true)
                 assertEquals(case.name, 2, result.second)
-                assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = failure !is EOFException)), result.first.filterIsInstance<StreamEvent.Retrying>())
+                assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
                 assertEquals(case.name, "ok", answer(result.first))
                 assertTrue(case.name, result.first.none { it is StreamEvent.Error })
             }
@@ -213,7 +240,7 @@ class ProviderInterruptionQuotaRetryTest {
                 Triple("insufficient_quota", "insufficient_quota", "Failed to generate: insufficient quota"),
                 Triple("invalid_api_key", "authentication_error", "Failed to generate: invalid API key"),
                 Triple("invalid_request_error", "invalid_request_error", "Invalid request: unsupported parameter"),
-                Triple("provider_error", "provider_error", "Request rejected by provider"),
+                Triple("provider_rejected", "provider_rejected", "Request rejected by provider"),
             ).forEach { (code, type, message) ->
                 val result = collect(case, reads = listOf(case.errorLine(code, type, message)))
                 assertTerminalApi(case, result, message)
@@ -264,18 +291,15 @@ class ProviderInterruptionQuotaRetryTest {
     }
 
     @Test
-    fun rateLimitAfterPartialOutputRemainsTerminalAcrossRemoteProviders() {
+    fun rateLimitAfterPartialOutputRetriesAcrossProviders() {
         cases().forEach { case ->
             val result = collect(
                 case,
                 reads = case.partial + case.errorLine(
                     "rate_limit_exceeded", "rate_limit_error", "Rate limit exceeded", sequenceNumber = 2,
-                ),
+                ) + case.success,
             )
-            assertEquals(case.name, 1, result.second)
-            assertEquals(case.name, "partial", answer(result.first))
-            assertFalse(case.name, result.first.any { it is StreamEvent.Retrying })
-            assertTrue(case.name, result.first.filterIsInstance<StreamEvent.Error>().single().error is GenerationError.Api)
+            assertRecoveredPartial(case, result) { it is StreamEvent.TextChunk && it.text == "partial" }
         }
     }
 
@@ -303,10 +327,10 @@ class ProviderInterruptionQuotaRetryTest {
     fun eofAndRateLimitExhaustOnlyTheExistingFiveRetriesAndReportOnce() {
         cases().forEach { case ->
             listOf(
-                collect(case, reads = List(ProviderRetryPolicy.MAX_ATTEMPTS) { EOFException() }),
+                collect(case, reads = List(NetworkRetryPolicy.PROVIDER_MAX_ATTEMPTS) { EOFException() }),
                 collect(
                     case,
-                    reads = List(ProviderRetryPolicy.MAX_ATTEMPTS) {
+                    reads = List(NetworkRetryPolicy.PROVIDER_MAX_ATTEMPTS) {
                         case.formattingOnlyLines().first() +
                             (if (case.name == "Ollama") "not-json" else "data: not-json")
                     }.flatten(),
@@ -314,16 +338,16 @@ class ProviderInterruptionQuotaRetryTest {
                 collect(case, status = 429, errorBody = "Too many requests, retry later"),
                 collect(
                     case,
-                    reads = List(ProviderRetryPolicy.MAX_ATTEMPTS) {
+                    reads = List(NetworkRetryPolicy.PROVIDER_MAX_ATTEMPTS) {
                         case.errorLine("rate_limit_exceeded", "rate_limit_error", "Rate limit exceeded")
                     },
                 ),
             ).forEachIndexed { failureIndex, result ->
-                assertEquals(case.name, ProviderRetryPolicy.MAX_ATTEMPTS, result.second)
+                assertEquals(case.name, NetworkRetryPolicy.PROVIDER_MAX_ATTEMPTS, result.second)
                 assertEquals(
                     case.name,
-                    (1..ProviderRetryPolicy.MAX_RETRIES).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = failureIndex == 1) },
-                    result.first.filterIsInstance<StreamEvent.Retrying>(),
+                    (1..NetworkRetryPolicy.PROVIDER_MAX_RETRIES).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = failureIndex <= 1) },
+                    result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) },
                 )
                 assertEquals(case.name, 1, result.first.filterIsInstance<StreamEvent.Error>().size)
                 assertTrue(case.name, answer(result.first).isBlank())
@@ -339,7 +363,9 @@ class ProviderInterruptionQuotaRetryTest {
                     if (case.name == "Ollama") "not-json" else "data: not-json",
                     IOException("The server response could not be read."),
                     IOException("read failed", IOException("The server response could not be read.")),
-                    case.errorLine("invalid_request_error", "authentication_error", "The server response could not be read.", 2),
+                    EOFException(),
+                    java.net.SocketException("Software caused connection abort"),
+                    java.net.SocketException("Socket is closed"),
                 ).forEach { failure ->
                     val result = collect(case, reads = prefix + failure + case.success)
                     assertRecoveredPartial(case, result) { event ->
@@ -364,14 +390,14 @@ class ProviderInterruptionQuotaRetryTest {
             listOf<Any>(
                 if (case.name == "Ollama") "not-json" else "data: not-json",
                 IOException("The server response could not be read."),
-                case.errorLine("insufficient_quota", "invalid_request_error", "The server response could not be read.", 2),
+                java.net.SocketException("Connection reset"),
             ).forEach { failure ->
                 val result = collect(case, reads = List(6) { case.partial + failure }.flatten())
                 assertEquals(case.name, 6, result.second)
                 assertEquals(
                     case.name,
                     (1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) },
-                    result.first.filterIsInstance<StreamEvent.Retrying>(),
+                    result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) },
                 )
                 assertEquals(case.name, List(6) { "partial" }, result.first.filterIsInstance<StreamEvent.TextChunk>().map { it.text })
                 val error = result.first.filterIsInstance<StreamEvent.Error>().single().error
@@ -401,7 +427,7 @@ class ProviderInterruptionQuotaRetryTest {
                 assertEquals(
                     case.name,
                     (1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) },
-                    exhausted.first.filterIsInstance<StreamEvent.Retrying>(),
+                    exhausted.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) },
                 )
                 val error = exhausted.first.filterIsInstance<StreamEvent.Error>().single().error
                 assertTrue(case.name, error is GenerationError.Network)
@@ -413,7 +439,7 @@ class ProviderInterruptionQuotaRetryTest {
     }
 
     @Test
-    fun exactUnreadableHttpFailuresOverridePermanentFieldsWithoutEndpointFallback() {
+    fun unreadableHttpFailuresPreservePermanentFieldsWithoutEndpointFallback() {
         cases().forEach { case ->
             listOf(401 to "authentication_error", 403 to "permission_error", 503 to "invalid_request_error").forEach { (status, type) ->
                 val urls = mutableListOf<String>()
@@ -422,9 +448,9 @@ class ProviderInterruptionQuotaRetryTest {
                     case, status = status, errorBody = body,
                     config = case.config.copy(baseUrl = "https://example.invalid"), requestUrls = urls,
                 )
-                assertEquals(case.name, 6, result.second)
+                assertEquals(case.name, 1, result.second)
                 assertEquals(case.name, 1, urls.distinct().size)
-                assertEquals(case.name, (1..5).map { StreamEvent.Retrying(it, 5) }, result.first.filterIsInstance<StreamEvent.Retrying>())
+                assertTrue(case.name, result.first.filterIsInstance<StreamEvent.Retrying>().isEmpty())
                 val error = result.first.filterIsInstance<StreamEvent.Error>().single().error as GenerationError.Api
                 assertEquals(case.name, "The server response could not be read.", error.message)
                 assertEquals(case.name, "insufficient_quota", error.code)
@@ -434,7 +460,7 @@ class ProviderInterruptionQuotaRetryTest {
     }
 
     @Test
-    fun encodedUnreadableHttpResponseRetriesAtOneEndpointAndReportsDecodedMessage() {
+    fun encodedUnreadableHttpResponsePreservesPermanentClassificationAndDecodedMessage() {
         val body = """{"error":{"type":"invalid_request_error","message":"The server response could not be \u0072ead."}}"""
         assertFalse(body.contains("The server response could not be read."))
         cases().forEach { case ->
@@ -444,10 +470,10 @@ class ProviderInterruptionQuotaRetryTest {
                     case, status = status, errorBody = body,
                     config = case.config.copy(baseUrl = "https://example.invalid"), requestUrls = urls,
                 )
-                assertEquals(case.name, 6, result.second)
-                assertEquals(case.name, 6, urls.size)
+                assertEquals(case.name, 1, result.second)
+                assertEquals(case.name, 1, urls.size)
                 assertEquals(case.name, 1, urls.distinct().size)
-                assertEquals(case.name, (1..5).map { StreamEvent.Retrying(it, 5) }, result.first.filterIsInstance<StreamEvent.Retrying>())
+                assertTrue(case.name, result.first.filterIsInstance<StreamEvent.Retrying>().isEmpty())
                 val error = result.first.filterIsInstance<StreamEvent.Error>().single().error as GenerationError.Api
                 assertEquals(case.name, "The server response could not be read.", error.message)
                 assertEquals(case.name, "invalid_request_error", error.type)
@@ -477,6 +503,10 @@ class ProviderInterruptionQuotaRetryTest {
     fun cancellationDuringPartialReadOrRetryDoesNotStartAnotherRequest() {
         cases().forEach { case ->
             listOf(false, true).forEach { cancelOnRetry ->
+                // Keep the producer in backoff until the buffered retry reaches the collector.
+                val retryDelay = if (cancelOnRetry) Long.MAX_VALUE else 1L
+                // Provider streams back off through providerDelayMillis, so the stub has to target it.
+                every { NetworkRetryPolicy.providerDelayMillis(any(), any(), any()) } returns retryDelay
                 val urls = mutableListOf<String>()
                 val events = mutableListOf<StreamEvent>()
                 val failure = if (cancelOnRetry) IOException("The server response could not be read.")
@@ -504,7 +534,7 @@ class ProviderInterruptionQuotaRetryTest {
         assertTrue(recovered.first.none { it is StreamEvent.ToolCallRequest || it is StreamEvent.ToolCallsRequest })
         val exhausted = collect(case, reads = List(6) { prefix + listOf(null) }.flatten())
         assertEquals(6, exhausted.second)
-        assertEquals((1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) }, exhausted.first.filterIsInstance<StreamEvent.Retrying>())
+        assertEquals((1..5).map { StreamEvent.Retrying(it, 5, resetCurrentAttempt = true) }, exhausted.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
         assertTrue(exhausted.first.filterIsInstance<StreamEvent.Error>().single().error is GenerationError.SseParse)
         assertTrue(exhausted.first.last() is StreamEvent.Error)
     }
@@ -515,7 +545,7 @@ class ProviderInterruptionQuotaRetryTest {
         failedOutput: (StreamEvent) -> Boolean,
     ) {
         assertEquals(case.name, 2, result.second)
-        assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>())
+        assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt = true)), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
         val retryIndex = result.first.indexOfFirst { it is StreamEvent.Retrying }
         assertTrue(case.name, result.first.take(retryIndex).any(failedOutput))
         assertEquals(case.name, "ok", answer(result.first.drop(retryIndex + 1)))
@@ -528,7 +558,7 @@ class ProviderInterruptionQuotaRetryTest {
         resetCurrentAttempt: Boolean = false,
     ) {
         assertEquals(case.name, 2, result.second)
-        assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt)), result.first.filterIsInstance<StreamEvent.Retrying>())
+        assertEquals(case.name, listOf(StreamEvent.Retrying(1, 5, resetCurrentAttempt)), result.first.filterIsInstance<StreamEvent.Retrying>().onEach { assertTrue(it.error != null) }.map { it.copy(error = null) })
         assertEquals(case.name, "ok", answer(result.first))
         assertTrue(case.name, result.first.none { it is StreamEvent.Error })
     }
@@ -536,7 +566,7 @@ class ProviderInterruptionQuotaRetryTest {
     private fun assertTerminalApi(case: Case, result: Pair<List<StreamEvent>, Int>, message: String) {
         assertEquals(case.name, 1, result.second)
         assertFalse(case.name, result.first.any { it is StreamEvent.Retrying })
-        assertEquals(case.name, "", answer(result.first))
+        assertTrue(case.name, answer(result.first).isBlank())
         val error = result.first.filterIsInstance<StreamEvent.Error>().single().error as GenerationError.Api
         assertEquals(case.name, message, error.message)
     }
@@ -606,7 +636,11 @@ class ProviderInterruptionQuotaRetryTest {
             "OpenAI Responses" -> """data: {"type":"error","sequence_number":$sequenceNumber,"error":{"code":"$code","type":"$type","message":"$message"}}"""
             "Anthropic" -> """data: {"type":"error","error":{"type":"$type","message":"$message"}}"""
             "Gemini" -> {
-                val status = code.toIntOrNull() ?: if (code == "rate_limit_exceeded") 429 else 400
+                val status = code.toIntOrNull() ?: when {
+                    code == "rate_limit_exceeded" -> 429
+                    type == "provider_error" -> 500
+                    else -> 400
+                }
                 """data: {"error":{"code":$status,"status":"$type","message":"$message"}}"""
             }
             else -> """{"error":"$message"}"""

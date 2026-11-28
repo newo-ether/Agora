@@ -35,16 +35,18 @@ internal fun rememberIdentityClipWidth(
 ): Dp {
     val latestTargetWidth by rememberUpdatedState(targetWidth)
     var clipWidth by remember { mutableStateOf(targetWidth) }
-    var settledIdentity by remember { mutableStateOf(identity) }
+    var observedIdentity by remember { mutableStateOf(identity) }
     var motionRunning by remember { mutableStateOf(false) }
-    val transitionPending = settledIdentity != identity
+    val transitionPending = observedIdentity != identity
     LaunchedEffect(identity, allowSpatialTransitions) {
-        val identityChanged = settledIdentity != identity
+        val identityChanged = observedIdentity != identity
         if (!allowSpatialTransitions || !identityChanged) {
             clipWidth = latestTargetWidth
-            settledIdentity = identity
+            observedIdentity = identity
             return@LaunchedEffect
         }
+        // Record the admitted identity before motion so an interrupted return is a new change.
+        observedIdentity = identity
         motionRunning = true
         try {
             val clipStartNanos = withFrameNanos { it }
@@ -71,7 +73,6 @@ internal fun rememberIdentityClipWidth(
                 val easedFraction = FastOutSlowInEasing.transform(segmentFraction)
                 clipWidth = segmentStartWidth + (segmentTargetWidth - segmentStartWidth) * easedFraction
             }
-            settledIdentity = identity
         } finally {
             motionRunning = false
         }

@@ -28,8 +28,14 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -52,13 +58,15 @@ import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
 import com.newoether.agora.ui.components.CircularBackButton
 import com.newoether.agora.ui.components.clearFocusOnTap
+import com.newoether.agora.ui.theme.chatCompactWidth
 
 // ── Shared geometry for the iOS-style collapsing large title, used by the
 //    Settings home page and every settings sub-page so the morph is identical. ──
 internal val SettingsBarHeight = 64.dp          // fixed top bar height (below the status bar)
 internal val SettingsTitleDockTop = 18.dp       // docked title's top inside the bar
-internal val SettingsTitleBottomInset = 70.dp   // big title's top-left, measured up from the header bottom
-internal val SettingsTitleAreaHeight = 90.dp    // big-title header room; taller = longer rise
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) tighten the space above (8 dp) and below (10 dp) the big title.
+internal val SettingsTitleBottomInset get() = if (chatCompactWidth) 60.dp else 70.dp   // big title's top-left, measured up from the header bottom
+internal val SettingsTitleAreaHeight get() = if (chatCompactWidth) 72.dp else 90.dp    // big-title header room; taller = longer rise
 internal val SettingsTitleExpandedFont = 33.sp
 internal val SettingsTitleCollapsedFont = 22.sp
 internal val SettingsContentMaxWidth = 840.dp
@@ -243,6 +251,36 @@ fun CollapsingSettingsScaffold(
     }
 }
 
+/** Optional pull-to-refresh; its indicator drops from the page top above the title and content. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsPullRefresh(
+    refreshing: Boolean,
+    onRefresh: (() -> Unit)?,
+    indicatorTop: Dp,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    if (onRefresh == null) {
+        Box(Modifier.fillMaxSize(), content = content)
+        return
+    }
+    val state = rememberPullToRefreshState()
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize().testTag("settings-pull-refresh"),
+        state = state,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = state,
+                isRefreshing = refreshing,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = indicatorTop),
+            )
+        },
+        content = content,
+    )
+}
+
 /**
  * Collapsing-large-title scaffold for **LazyColumn** settings sub-pages (dynamic lists). Uses the
  * exact mechanism of the Settings home page: a tall header spacer (item 0) holds the big title and
@@ -258,6 +296,8 @@ fun CollapsingSettingsLazyScaffold(
     contentBottomPadding: Dp = 32.dp,
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
+    refreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     content: LazyListScope.() -> Unit
 ) {
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -275,42 +315,44 @@ fun CollapsingSettingsLazyScaffold(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxHeight()
-                .widthIn(max = SettingsContentMaxWidth)
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .imePadding()
-                .clearFocusOnTap()
-                .padding(horizontal = contentHorizontalPadding),
-            contentPadding = PaddingValues(top = statusBarTop + SettingsBarHeight)
-        ) {
-            item { Spacer(modifier = Modifier.height(titleAreaHeight)) }
-            content()
-            item { Spacer(modifier = Modifier.height(contentBottomPadding)) }
-        }
-        CollapsingSettingsTitleBar(
-            title = title,
-            backDescription = stringResource(R.string.back),
-            fraction = fraction,
-            statusBarTop = statusBarTop,
-            titleAreaHeight = titleAreaHeight,
-            titleTravel = titleTravel,
-            onBack = onBack,
-            actions = actions
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            floatingActionButton()
+        SettingsPullRefresh(refreshing, onRefresh, statusBarTop) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxHeight()
+                    .widthIn(max = SettingsContentMaxWidth)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .clearFocusOnTap()
+                    .padding(horizontal = contentHorizontalPadding),
+                contentPadding = PaddingValues(top = statusBarTop + SettingsBarHeight)
+            ) {
+                item { Spacer(modifier = Modifier.height(titleAreaHeight)) }
+                content()
+                item { Spacer(modifier = Modifier.height(contentBottomPadding)) }
+            }
+            CollapsingSettingsTitleBar(
+                title = title,
+                backDescription = stringResource(R.string.back),
+                fraction = fraction,
+                statusBarTop = statusBarTop,
+                titleAreaHeight = titleAreaHeight,
+                titleTravel = titleTravel,
+                onBack = onBack,
+                actions = actions
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                floatingActionButton()
+            }
         }
     }
 }

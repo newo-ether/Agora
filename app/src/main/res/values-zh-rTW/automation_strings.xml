@@ -67,7 +67,7 @@
     <string name="settings_automation">自動化</string>
     <string name="settings_automation_desc">任務、對話迴圈與排程精度</string>
     <string name="automation_ai_tools">存取任務與迴圈</string>
-    <string name="automation_ai_tools_desc">允許模型建立和管理任務，或啟動、停止對話迴圈。預設關閉。</string>
+    <string name="automation_ai_tools_desc">允許模型建立和管理任務，或啟動、停止對話迴圈。</string>
     <string name="automation_background_execution">背景執行</string>
     <string name="automation_wake_lock">喚醒鎖</string>
     <string name="automation_wake_lock_desc">讓每次任務或迴圈執行期間保持喚醒。WorkManager 已保障一般排程工作；開啟這項額外喚醒鎖會增加耗電。</string>

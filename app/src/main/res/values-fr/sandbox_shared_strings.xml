@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">Activé · l’accès au stockage reste requis</string>
     <string name="sandbox_shared_storage_grant">Autoriser l’accès au stockage</string>
     <string name="sandbox_shared_storage_warning">Cela permet aux commandes du bac à sable de lire et modifier les photos, téléchargements et autres fichiers partagés. Les appels d’outils qui modifient des données nécessitent une confirmation.</string>
+    <string name="sandbox_distribution">Distribution</string>
+    <string name="sandbox_distribution_desc">Choisissez l’environnement Linux et installez-le séparément si nécessaire.</string>
+    <string name="sandbox_distribution_busy">Arrêtez les tâches du bac à sable et attendez la fin des opérations en cours avant de changer de distribution.</string>
+    <string name="sandbox_distribution_switch_failed">Impossible de changer de distribution. Réessayez.</string>
 </resources>

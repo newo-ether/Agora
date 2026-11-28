@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Error
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -129,18 +129,18 @@ internal fun McpStatusIcon(status: McpConnectionStatus) {
             contentAlignment = Alignment.Center,
         ) {
             when (current) {
-                McpConnectionStatus.IDLE -> Icon(Icons.Default.CloudOff, null)
+                McpConnectionStatus.IDLE -> Icon(Icons.Rounded.CloudOff, null)
                 McpConnectionStatus.CONNECTING -> CircularProgressIndicator(
                     modifier = Modifier.size(22.dp),
                     strokeWidth = 2.dp,
                 )
                 McpConnectionStatus.CONNECTED -> Icon(
-                    Icons.Default.CheckCircle,
+                    Icons.Rounded.CheckCircle,
                     null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
                 McpConnectionStatus.ERROR -> Icon(
-                    Icons.Default.Error,
+                    Icons.Rounded.Error,
                     null,
                     tint = MaterialTheme.colorScheme.error,
                 )

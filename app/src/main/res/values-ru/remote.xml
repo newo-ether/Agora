@@ -8,6 +8,7 @@
     <string name="remote_connection_hint">Установите Filo на целевом устройстве, затем введите его IP-адрес или URL.</string>
     <string name="remote_sessions">Сеансы</string>
     <string name="remote_empty">Существующие сеансы не найдены</string>
+    <string name="remote_empty_hint">Здесь появятся сеансы из этого источника.</string>
     <string name="remote_sync_hint">Оставьте этот сеанс открытым в Codex. Ответы синхронизируются после сохранения.</string>
     <string name="remote_refresh">Обновить</string>
     <string name="remote_load_more">Загрузить ещё</string>
@@ -38,8 +39,13 @@
     <string name="remote_source_codex_desktop">Codex Desktop</string>
     <string name="remote_source_codex_cli">Codex CLI</string>
     <string name="remote_source_claude_code">Claude Code</string>
+    <string name="remote_source_claude_desktop">Claude Desktop</string>
     <string name="remote_source_read_only">Через этот источник разговор доступен только для чтения.</string>
     <string name="remote_history_bounded">Этот источник предоставляет только снимок недавней истории.</string>
     <string name="remote_source_unavailable">Этот источник недоступен. Проверьте его нативный клиент на целевом компьютере.</string>
+    <string name="remote_source_no_session">Нет активного сеанса %1$s</string>
     <string name="remote_history_observed">Показывает только текст, полученный после регистрации Claude Mod. Предыдущая история, действия инструментов, медиафайлы и рассуждения не включены.</string>
+    <string name="remote_settings_pending_request">Настройки ожидают следующего нативного запроса</string>
+    <string name="remote_settings_confirmed_request">Настройки подтверждены нативным запросом</string>
+    <string name="remote_settings_failed_request">Настройки отличаются · фактическая модель: %1$s · глубина: %2$s</string>
 </resources>

@@ -70,7 +70,7 @@ class NativeBackupFormatTest {
 
         val local = EmbeddingModelConfig(
             name = "local",
-            type = EmbeddingModelType.LOCAL_ONNX,
+            type = EmbeddingModelType.LOCAL,
             localFilePath = "/data/user/0/private.gguf",
         ).asPortableRemoteConfig()
         assertNull(local)

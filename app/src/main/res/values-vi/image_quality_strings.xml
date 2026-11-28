@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="image_quality_title">Chất lượng hình ảnh</string>
+    <string name="image_quality_mode">Chế độ chất lượng</string>
+    <string name="image_quality_mode_desc">Ảnh mới: tối đa %1$d px, JPEG %2$d. Tệp đính kèm hiện có không thay đổi.</string>
+    <string name="image_quality_light">Nhẹ</string>
+    <string name="image_quality_balanced">Cân bằng</string>
+    <string name="image_quality_high">Cao</string>
+    <string name="image_quality_custom">Tùy chỉnh</string>
+    <string name="image_quality_long_edge">Cạnh dài tối đa</string>
+    <string name="image_quality_long_edge_desc">Giới hạn pixel cho ảnh mới, ảnh chụp màn hình, trang PDF và khung hình video. Không phóng to ảnh nhỏ.</string>
+    <string name="image_quality_jpeg">Chất lượng JPEG</string>
+    <string name="image_quality_jpeg_desc">Giá trị cao hơn giữ lại nhiều chi tiết hơn. Ảnh trong suốt dùng PNG.</string>
+    <string name="image_quality_pixels">%1$d px</string>
+</resources>

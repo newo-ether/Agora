@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Lets the phone-control notice become a Live Update (status bar chip) on Android 16+. -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Network scanner gateway lookup and file-server LAN IP / WifiLock. -->
@@ -22,8 +24,7 @@
     <!-- Optional: capture goes through the platform IMAGE_CAPTURE intent, so the
          camera feature must not exclude hardware-less devices (e.g. Chromebooks). -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <!-- On-device speech-to-text (sherpa-onnx). Mic is optional hardware; voice input is
-         a user-granted, opt-in capability gated on the model being installed. -->
+    <!-- Voice input in the composer; requested at runtime on first microphone tap. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- Optional user-granted access; exact automation remains off by default. -->
@@ -39,7 +40,19 @@
     <!-- Allows a visibility-safe preflight before using the platform capture contract. -->
     <queries>
         <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+        <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <!-- Android 11+ hides recognition services unless the app declares this query. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 
@@ -59,12 +72,26 @@
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Agora"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".AskAgoraActivity"
+            android:exported="true"
+            android:label="@string/ask_agora_action"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
 
@@ -104,6 +131,12 @@
                 android:value="Local web server that lets the user control this app from their own browser on the same network" />
         </service>
 
+        <!-- WorkManager owns the foreground lifecycle for scheduled automation runs. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
         <!-- LAN file server; runs until the user turns it off, so specialUse not dataSync. -->
         <service
             android:name=".fileserver.FileServerService"
@@ -113,40 +146,6 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Local HTTP file server that shares a user-chosen folder with other devices on the same network" />
         </service>
-
-        <!-- WorkManager owns the foreground lifecycle for scheduled automation runs. -->
-        <service
-            android:name="androidx.work.impl.foreground.SystemForegroundService"
-            android:foregroundServiceType="dataSync"
-            tools:node="merge" />
-
-        <!-- Fires a scheduled task; internal only. -->
-        <receiver
-            android:name=".automation.AutomationAlarmReceiver"
-            android:exported="false" />
-
-        <!-- Applies a shell-confirmation decision made on a notification; internal only. -->
-        <receiver
-            android:name=".service.ShellConfirmationReceiver"
-            android:exported="false" />
-
-        <!-- Applies an ask_user answer given on a notification; internal only. -->
-        <receiver
-            android:name=".service.AskUserReceiver"
-            android:exported="false" />
-
-        <!-- Re-arms task alarms after reboot / app update. -->
-        <receiver
-            android:name=".service.BootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.TIME_SET" />
-                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
-                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
-            </intent-filter>
-        </receiver>
 
         <!-- ================= Assistant (Layer 1) ================= -->
         <!-- Always-on voice-interaction service: holding it + the ASSISTANT
@@ -206,6 +205,34 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:noHistory="true" />
+
+        <!-- Fires a scheduled task; internal only. -->
+        <receiver
+            android:name=".automation.AutomationAlarmReceiver"
+            android:exported="false" />
+
+        <!-- Applies a shell-confirmation decision made on a notification; internal only. -->
+        <receiver
+            android:name=".service.ShellConfirmationReceiver"
+            android:exported="false" />
+
+        <!-- Applies an ask_user answer given on a notification; internal only. -->
+        <receiver
+            android:name=".service.AskUserReceiver"
+            android:exported="false" />
+
+        <!-- Re-arms task alarms after reboot / app update. -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

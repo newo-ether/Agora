@@ -67,7 +67,7 @@
     <string name="settings_automation">Automatización</string>
     <string name="settings_automation_desc">Tareas, bucles y precisión de programación</string>
     <string name="automation_ai_tools">Acceder a tareas y bucles</string>
-    <string name="automation_ai_tools_desc">Permite que el modelo cree y administre tareas o inicie y detenga bucles de conversación. Desactivado de forma predeterminada.</string>
+    <string name="automation_ai_tools_desc">Permite que el modelo cree y administre tareas o inicie y detenga bucles de conversación.</string>
     <string name="automation_background_execution">Ejecución en segundo plano</string>
     <string name="automation_wake_lock">Bloqueo de activación</string>
     <string name="automation_wake_lock_desc">Mantiene activo cada proceso de tarea o bucle. WorkManager ya gestiona el trabajo programado normal; este bloqueo adicional puede aumentar el consumo de batería.</string>

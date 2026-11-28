@@ -67,7 +67,7 @@
     <string name="settings_automation">自動化</string>
     <string name="settings_automation_desc">タスク、ループ、スケジュール精度</string>
     <string name="automation_ai_tools">タスクとループへのアクセス</string>
-    <string name="automation_ai_tools_desc">モデルによるタスクの作成と管理、会話ループの開始と停止を許可します。デフォルトではオフです。</string>
+    <string name="automation_ai_tools_desc">モデルによるタスクの作成と管理、会話ループの開始と停止を許可します。</string>
     <string name="automation_background_execution">バックグラウンド実行</string>
     <string name="automation_wake_lock">ウェイクロック</string>
     <string name="automation_wake_lock_desc">各タスクまたはループの実行中に端末を起動状態に保ちます。通常の予約作業は WorkManager がすでに管理しており、この追加のウェイクロックは電池消費を増やす可能性があります。</string>

@@ -2,6 +2,8 @@ package com.newoether.agora.viewmodel
 
 import android.content.Context
 import com.newoether.agora.R
+import com.newoether.agora.api.ProviderConfig
+import com.newoether.agora.api.resolveRequest
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.CustomEndpointProtocol
@@ -333,9 +335,15 @@ class GenerationRequestBuilderProviderDisplayTest {
             RequestBuilderFixture.COMPACT_PROMPT,
             snapshot.automaticCompact.request.prompt,
         )
+        // The compact request carries the ordinary template and resolver, so it renders the same
+        // complete system prompt as a normal turn instead of a pre-resolved copy.
+        val compactConfig = snapshot.automaticCompact.generationConfig
+        assertEquals(snapshot.config.promptTemplate, compactConfig.promptTemplate)
         assertEquals(
             RequestBuilderFixture.RESOLVED_SYSTEM_PROMPT,
-            snapshot.automaticCompact.generationConfig.effectiveSystemPrompt,
+            com.newoether.agora.api.ProviderConfig(
+                apiKey = "key", modelId = "model", requestResolver = compactConfig.requestResolver,
+            ).resolveRequest(emptyList()).systemPrompt,
         )
     }
     @Test
@@ -372,12 +380,14 @@ class GenerationRequestBuilderProviderDisplayTest {
         every { settings.codeExecutionEnabled } returns MutableStateFlow(false)
         every { settings.googleSearchEnabled } returns MutableStateFlow(false)
         every { settings.thinkingEnabled } returns MutableStateFlow(true)
+        every { settings.replayReasoningInHistory } returns MutableStateFlow(false)
         every { settings.thinkingLevel } returns MutableStateFlow("medium")
         every { settings.thinkingBudgetEnabled } returns MutableStateFlow(false)
         every { settings.thinkingBudgetTokens } returns MutableStateFlow(4096)
         every { settings.openAiServiceTierEnabled } returns MutableStateFlow(false)
         every { settings.openAiServiceTier } returns MutableStateFlow("auto")
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
+        every { settings.phoneUse } returns MutableStateFlow(com.newoether.agora.phone.PhoneUseSettings())
         every { settings.shellEnabled } returns MutableStateFlow(true)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
         every { settings.askUserTimeoutMinutes } returns MutableStateFlow(5)
@@ -495,7 +505,7 @@ class GenerationRequestBuilderProviderDisplayTest {
         verify { fixture.memoryManager.getActiveMemory() }
     }
     @Test
-    fun `active memory is frozen for every provider pass of one run`() = runTest {
+    fun `active memory and skill catalog are frozen for every provider pass of one run`() = runTest {
         val fixture = RequestBuilderFixture(
             providerName = Constants.PROVIDER_OPENAI,
             lowContextModeEnabled = false,
@@ -506,8 +516,9 @@ class GenerationRequestBuilderProviderDisplayTest {
             modelId = fixture.modelId,
         )
         val resolver = requireNotNull(snapshot.config.requestResolver)
-        // A tool call edits active memory mid-run; later passes must keep the captured text.
+        // Tool calls edit active memory and skills mid-run; later passes keep the captured text.
         every { fixture.memoryManager.getActiveMemory() } returns "edited mid-run"
+        every { fixture.skillManager.catalog() } returns "- edited.md: edited mid-run"
         val config = com.newoether.agora.api.ProviderConfig(apiKey = "key", modelId = "model")
         val first = resolver.resolve(emptyList(), config)
         val second = resolver.resolve(emptyList(), config)
@@ -629,6 +640,7 @@ internal class RequestBuilderFixture(
     lowContextModeEnabled: Boolean,
     compactPreserveSystemPrompt: Boolean = false,
     accessActiveMemory: Boolean = true,
+    phoneReady: suspend (String) -> Boolean = { false },
 ) {
     companion object {
         const val COMPACT_PROMPT = "compact prompt"
@@ -699,17 +711,20 @@ internal class RequestBuilderFixture(
         every { settings.codeExecutionEnabled } returns MutableStateFlow(true)
         every { settings.googleSearchEnabled } returns MutableStateFlow(true)
         every { settings.thinkingEnabled } returns MutableStateFlow(true)
+        every { settings.replayReasoningInHistory } returns MutableStateFlow(false)
         every { settings.thinkingLevel } returns MutableStateFlow("medium")
         every { settings.thinkingBudgetEnabled } returns MutableStateFlow(false)
         every { settings.thinkingBudgetTokens } returns MutableStateFlow(4096)
         every { settings.openAiServiceTierEnabled } returns MutableStateFlow(false)
         every { settings.openAiServiceTier } returns MutableStateFlow("auto")
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
+        every { settings.phoneUse } returns MutableStateFlow(com.newoether.agora.phone.PhoneUseSettings())
         every { settings.shellEnabled } returns MutableStateFlow(true)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
         every { settings.askUserTimeoutMinutes } returns MutableStateFlow(5)
         every { settings.todoEnabled } returns MutableStateFlow(true)
         every { settings.subagentToolsEnabled } returns MutableStateFlow(true)
+        every { settings.subagentDeleteEnabled } returns MutableStateFlow(false)
         every { settings.localLowContextModeEnabled } returns MutableStateFlow(false)
         every { settings.contextCompactModel } returns MutableStateFlow(null)
         every { settings.contextCompactPrompt } returns MutableStateFlow(COMPACT_PROMPT)
@@ -776,6 +791,7 @@ internal class RequestBuilderFixture(
             providerRegistry = providerRegistry,
             ragManager = ragManager,
             appContext = appContext,
+            phoneReady = phoneReady,
         )
     }
 }

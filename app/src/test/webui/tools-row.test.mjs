@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { readWebUiStyles } from "./webui-test-sources.mjs";
 import { h } from "../../main/assets/webui/vendor/preact.mjs";
 import htm from "../../main/assets/webui/vendor/htm.mjs";
 
@@ -805,7 +806,7 @@ test("same-family return reinserts parent tools outside the retained anchor at e
 });
 
 test("row order, single scroller, shadow, localized label and source icon remain wired", () => {
-  const row = source("tools-row.js"), css = source("style.css"), subagents = source("subagents.js");
+  const row = source("tools-row.js"), css = readWebUiStyles(), subagents = source("subagents.js");
   const markup = row.slice(row.indexOf('return html`<div class="tools-row"'));
   assert.ok(markup.indexOf("<${InteractionBar}") < markup.indexOf("<${TodoBar}"));
   assert.ok(markup.indexOf("<${TodoBar}") < markup.indexOf("<${SubagentsBar}"));
@@ -815,7 +816,7 @@ test("row order, single scroller, shadow, localized label and source icon remain
   assert.match(css, /\.subagent-capsule \{[^}]*box-shadow: var\(--shadow-4\)/);
   assert.ok(subagents.includes("<small>${t.sourceSubagent}</small>"));
   assert.ok(subagents.includes("ICON_ACCOUNT_TREE"));
-  assert.ok(source("messages.js").includes('subagent: [ICON_ACCOUNT_TREE, "sourceSubagent"]'));
+  assert.ok(source("message-user.js").includes('subagent: [ICON_ACCOUNT_TREE, "sourceSubagent"]'));
   assert.ok(source("shell.js").includes("composer.getBoundingClientRect().top + toolsInset"));
   assert.ok(!css.includes("--chat-todo-lift"));
 });
@@ -850,7 +851,7 @@ test("fully visible tools have no fade and floating scrollbar remains outside th
   assert.equal(f.viewport.style["--tools-edge-left"], "0");
   assert.equal(f.viewport.style["--tools-edge-right"], "0");
   f.dispose();
-  const css = source("style.css"), row = source("tools-row.js");
+  const css = readWebUiStyles(), row = source("tools-row.js");
   assert.match(css, /\.tools-scroll \{\s*mask-mode: alpha;\s*mask-image: linear-gradient\(to right/);
   assert.match(css, /--tools-edge-left 200ms cubic-bezier\(\.4, 0, \.2, 1\)/);
   assert.match(row, /<\/div><div class="scrollbar-overlay tools-scrollbar"/);

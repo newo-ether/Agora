@@ -79,7 +79,7 @@ class ConversationGroupedSubagentsTest {
         compose.onNodeWithText("Worker z", useUnmergedTree = true)
             .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(nameLayouts) }
         assertEquals(16f, nameLayouts.single().layoutInput.style.fontSize.value, 0.01f)
-        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, nameLayouts.single().layoutInput.style.fontWeight)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.Medium, nameLayouts.single().layoutInput.style.fontWeight)
         val first = compose.onNodeWithTag("subagents-sheet-agent:z").fetchSemanticsNode()
         val second = compose.onNodeWithTag("subagents-sheet-agent:a").fetchSemanticsNode()
         assertTrue("Rows consume the canonical creation order, not alphabetical order",
@@ -169,6 +169,56 @@ class ConversationGroupedSubagentsTest {
         compose.onNode(progress, useUnmergedTree = true).assertExists()
     }
 
+    @Test fun runningLabelCountsOnlyRunningChildrenAndReturnsToTheIdleTotal() {
+        var agents by mutableStateOf((1..14).map { index ->
+            agent("$index", if (index == 1) "running" else listOf("idle", "completed", "failed", "stopped")[index % 4])
+        })
+        val progress = SemanticsMatcher.expectValue(
+            SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo.Indeterminate,
+        )
+        compose.setContent {
+            MaterialTheme {
+                ConversationToolsRow("parent", emptyList(), agents, {}, {},
+                    subagentCapsuleDisplayMode = SubagentCapsuleDisplayModes.GROUPED)
+            }
+        }
+        compose.onNodeWithText("1 Running").assertExists()
+        compose.onNodeWithText("14 Subagents").assertDoesNotExist()
+        compose.onNode(progress, useUnmergedTree = true).assertExists()
+        val capsule = compose.onNodeWithTag("subagents-capsule:parent")
+        val identity = capsule.fetchSemanticsNode().id
+        compose.runOnIdle { agents = agents.map { if (it.id == "2") it.copy(status = "running") else it } }
+        compose.onNodeWithText("2 Running").assertExists()
+        assertEquals(identity, capsule.fetchSemanticsNode().id)
+        compose.runOnIdle { agents = agents.map { it.copy(status = "idle") } }
+        compose.onNodeWithText("14 Subagents").assertExists()
+        compose.onNodeWithText("2 Running").assertDoesNotExist()
+        compose.onNode(progress, useUnmergedTree = true).assertDoesNotExist()
+        assertEquals(identity, capsule.fetchSemanticsNode().id)
+    }
+
+    @Test fun singleGroupedChildKeepsItsNameAcrossEveryStatusAndRetainsDirectNavigation() {
+        var child by mutableStateOf(agent("a", "running"))
+        var selected: String? = null
+        compose.setContent {
+            MaterialTheme {
+                ConversationToolsRow("parent", emptyList(), listOf(child), { selected = it }, {},
+                    subagentCapsuleDisplayMode = SubagentCapsuleDisplayModes.GROUPED)
+            }
+        }
+        val capsule = compose.onNodeWithTag("subagents-capsule:parent")
+        val identity = capsule.fetchSemanticsNode().id
+        for (status in listOf("running", "idle", "completed", "failed", "stopped")) {
+            compose.runOnIdle { child = child.copy(title = "Worker $status", status = status); selected = null }
+            compose.onNodeWithText("Worker $status").performClick()
+            assertEquals("a", selected)
+            assertEquals(identity, capsule.fetchSemanticsNode().id)
+            compose.onNode(isDialog()).assertDoesNotExist()
+            compose.onNodeWithText("1 Running").assertDoesNotExist()
+            compose.onNodeWithText("1 Subagent").assertDoesNotExist()
+        }
+    }
+
     @Test fun invalidatingSheetNeverReopensStaleFamilyOrKeepsPendingNavigation() {
         var agents by mutableStateOf(listOf(agent("a"), agent("b")))
         var family by mutableStateOf<String?>("parent")
@@ -244,6 +294,7 @@ class ConversationGroupedSubagentsTest {
 
     private fun verifyCountCrossfade(reduced: Boolean) {
         var agents by mutableStateOf(listOf(agent("a")))
+        val one = "Worker a"
         lateinit var two: String
         lateinit var three: String
         var selections = 0
@@ -262,7 +313,7 @@ class ConversationGroupedSubagentsTest {
         compose.mainClock.autoAdvance = false
         compose.runOnIdle { agents = listOf(agent("a"), agent("b")) }
         advance(96)
-        compose.onNodeWithText("Worker a", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText(one, useUnmergedTree = true).assertExists()
         compose.onNodeWithText(two, useUnmergedTree = true).assertExists()
         assertEquals(initial.id, capsule.fetchSemanticsNode().id)
         assertEquals(initial.boundsInRoot.height, capsule.fetchSemanticsNode().boundsInRoot.height)
@@ -273,16 +324,18 @@ class ConversationGroupedSubagentsTest {
         compose.onNodeWithText(three, useUnmergedTree = true).assertExists()
         assertEquals(initial.id, capsule.fetchSemanticsNode().id)
         advance(400)
-        compose.onNodeWithText("Worker a", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(one, useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText(two, useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText(three, useUnmergedTree = true).assertExists()
         compose.runOnIdle { agents = listOf(agent("a").copy(title = "Renamed worker")) }
         advance(96)
         compose.onNodeWithText(three, useUnmergedTree = true).assertExists()
+        compose.onNodeWithText(one, useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText("Renamed worker", useUnmergedTree = true).assertExists()
         assertEquals(initial.id, capsule.fetchSemanticsNode().id)
         advance(400)
         compose.onNodeWithText(three, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(one, useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText("Renamed worker", useUnmergedTree = true).assertExists()
         capsule.performClick()
         assertEquals(1, selections)

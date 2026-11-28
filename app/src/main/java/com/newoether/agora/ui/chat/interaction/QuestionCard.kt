@@ -39,6 +39,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -153,8 +154,12 @@ internal class QuestionDrafts {
 internal fun QuestionBody(
     request: AskUserController.Request,
     draft: QuestionDraft,
+    textFieldModifier: @Composable () -> Modifier = { Modifier },
+    prepareTextInput: suspend () -> Unit = {},
+    enabled: Boolean = true,
 ) {
-    QuestionPage(request = request, draft = draft)
+    QuestionPage(request = request, draft = draft, textFieldModifier = textFieldModifier,
+        prepareTextInput = prepareTextInput, enabled = enabled)
 }
 
 /**
@@ -172,27 +177,28 @@ internal fun QuestionActions(
     onNext: (() -> Unit)?,
     onSubmit: (List<Pair<Long, AskUserController.Answer>>) -> Unit,
     onSkip: (Long) -> Unit,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(onClick = { requests.forEach { onSkip(it.id) } }) {
+        TextButton(onClick = { if (enabled) requests.forEach { onSkip(it.id) } }, enabled = enabled) {
             Text(stringResource(R.string.ask_user_skip))
         }
         Spacer(Modifier.weight(1f))
         onBack?.let {
-            TextButton(onClick = it) { Text(stringResource(R.string.back)) }
+            TextButton(onClick = { if (enabled) it() }, enabled = enabled) { Text(stringResource(R.string.back)) }
             Spacer(Modifier.width(4.dp))
         }
         if (onNext != null) {
-            Button(onClick = onNext) { Text(stringResource(R.string.ask_user_next)) }
+            Button(onClick = { if (enabled) onNext() }, enabled = enabled) { Text(stringResource(R.string.ask_user_next)) }
         } else {
             Button(
                 // A question left blank on an earlier page is marked unanswered, not invented.
-                onClick = { onSubmit(requests.map { it.id to draftOf(it).answerFor(it) }) },
-                enabled = requests.any { draftOf(it).answered },
+                onClick = { if (enabled) onSubmit(requests.map { it.id to draftOf(it).answerFor(it) }) },
+                enabled = enabled && requests.any { draftOf(it).answered },
             ) { Text(stringResource(R.string.ask_user_send)) }
         }
     }
@@ -202,6 +208,9 @@ internal fun QuestionActions(
 private fun QuestionPage(
     request: AskUserController.Request,
     draft: QuestionDraft,
+    textFieldModifier: @Composable () -> Modifier,
+    prepareTextInput: suspend () -> Unit,
+    enabled: Boolean,
 ) {
     val hasOptions = request.options.isNotEmpty()
     val motion = LocalAgoraMotionPolicy.current
@@ -213,13 +222,22 @@ private fun QuestionPage(
     val field = remember { BringIntoViewRequester() }
     val focus = remember { FocusRequester() }
     var revealed by remember { mutableStateOf(false) }
-    LaunchedEffect(revealed) {
-        if (revealed) focus.requestFocus()
+    var requestInputFocus by remember { mutableStateOf(false) }
+    val latestPrepareTextInput by rememberUpdatedState(prepareTextInput)
+    LaunchedEffect(requestInputFocus, enabled) {
+        if (requestInputFocus && enabled) {
+            latestPrepareTextInput()
+            focus.requestFocus()
+            requestInputFocus = false
+        } else if (!enabled) {
+            requestInputFocus = false
+        }
     }
     fun setOwnAnswer(on: Boolean) {
         if (on == draft.ownAnswer) return
         draft.ownAnswer = on
         revealed = on
+        requestInputFocus = on
         if (!on) {
             // The field is leaving, so it must not keep the keyboard up behind it.
             keyboard?.hide()
@@ -233,7 +251,7 @@ private fun QuestionPage(
             .verticalScroll(rememberScrollState()),
     ) {
         // Only the question is selectable (long-press, like message bubbles); options stay tap targets.
-        NoAutoScrollSelectionContainer {
+        NoAutoScrollSelectionContainer(enabled = enabled) {
             Text(
                 text = request.question,
                 style = MaterialTheme.typography.bodyMedium,
@@ -247,6 +265,7 @@ private fun QuestionPage(
                     option = option,
                     checked = option in draft.selected,
                     allowMultiple = request.allowMultiple,
+                    enabled = enabled,
                     onToggle = {
                         draft.selected = when {
                             !request.allowMultiple -> setOf(option)
@@ -263,6 +282,7 @@ private fun QuestionPage(
                 option = stringResource(R.string.ask_user_custom_answer),
                 checked = draft.ownAnswer,
                 allowMultiple = request.allowMultiple,
+                enabled = enabled,
                 onToggle = {
                     setOwnAnswer(if (request.allowMultiple) !draft.ownAnswer else true)
                     if (!request.allowMultiple) draft.selected = emptySet()
@@ -296,9 +316,11 @@ private fun QuestionPage(
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = draft.typed,
-                    onValueChange = { draft.typed = it },
+                    onValueChange = { if (enabled) draft.typed = it },
+                    enabled = enabled,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .then(textFieldModifier())
                         .focusRequester(focus)
                         .bringIntoViewRequester(field),
                     placeholder = if (hasOptions) {
@@ -333,13 +355,14 @@ private fun OptionRow(
     option: String,
     checked: Boolean,
     allowMultiple: Boolean,
+    enabled: Boolean,
     onToggle: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(OptionShape)
-            .clickable(onClick = onToggle)
+            .clickable(enabled = enabled, onClick = { if (enabled) onToggle() })
             // Inset so the rounded highlight never cuts into the control.
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -347,9 +370,9 @@ private fun OptionRow(
         // The row owns the click, so the control itself stays non-interactive and the whole row
         // reads as one target for accessibility services.
         if (allowMultiple) {
-            Checkbox(checked = checked, onCheckedChange = null)
+            Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
         } else {
-            RadioButton(selected = checked, onClick = null)
+            RadioButton(selected = checked, onClick = null, enabled = enabled)
         }
         Spacer(Modifier.width(12.dp))
         Text(

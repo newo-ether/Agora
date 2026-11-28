@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -40,7 +40,6 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.newoether.agora.R
 import com.newoether.agora.model.MessageSegment
-import com.newoether.agora.model.ToolImageAttachment
 import com.newoether.agora.ui.chat.MEDIA_STATE_CROSSFADE_MILLIS
 import com.newoether.agora.ui.chat.MediaLoadPresentation
 import com.newoether.agora.ui.chat.toMediaLoadPresentation
@@ -70,10 +69,11 @@ internal fun GeneratedImageThumbnail(
         initialScale = SEGMENT_ENTER_INITIAL_SCALE,
     )
     val images = remember(segment.toolImages) {
-        segment.toolImages.filter { it.path.isNotBlank() }
+        segment.toolImages.filter { it.path.isNotBlank() || it.unavailable }
     }
-    val paths = remember(images) { images.map(ToolImageAttachment::path) }
-    val image = images.firstOrNull()
+    val paths = remember(images) { projectToolImageOccurrences(images).urls }
+    val thumbnail = images.firstOrNull()
+    val image = thumbnail?.takeUnless { it.unavailable }
     val thumbnailSize = 300.dp
     val thumbnailSizePx = with(LocalDensity.current) {
         thumbnailSize.roundToPx().coerceAtLeast(1)
@@ -89,14 +89,18 @@ internal fun GeneratedImageThumbnail(
     }
     val imagePainter = rememberAsyncImagePainter(model = imageRequest)
     val targetState = when {
+        thumbnail?.unavailable == true -> MediaLoadPresentation.FAILED
         presentation.isActive -> MediaLoadPresentation.LOADING
         presentation.state != ToolPresentationState.COMPLETED ->
             MediaLoadPresentation.FAILED
         image == null -> MediaLoadPresentation.FAILED
         else -> imagePainter.state.toMediaLoadPresentation()
     }
-    var presentedState by remember(appearanceKey) {
-        mutableStateOf(MediaLoadPresentation.LOADING)
+    var presentedState by remember(appearanceKey, thumbnail?.unavailable) {
+        mutableStateOf(
+            if (thumbnail?.unavailable == true) MediaLoadPresentation.FAILED
+            else MediaLoadPresentation.LOADING,
+        )
     }
     LaunchedEffect(targetState) {
         presentedState = targetState
@@ -163,7 +167,7 @@ internal fun GeneratedImageThumbnail(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = Icons.Default.BrokenImage,
+                            imageVector = Icons.Rounded.BrokenImage,
                             contentDescription = stringResource(
                                 R.string.attachment_copy_failed_image,
                             ),

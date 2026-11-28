@@ -84,7 +84,7 @@
     <string name="prompts_template_blank">فارغ</string>
     <string name="prompts_template_blank_desc">ابدأ بموجّه نظام فارغ قابل للتحرير.</string>
     <string name="prompts_template_default">افتراضي</string>
-    <string name="prompts_template_default_desc">استخدم الموجّه الافتراضي في Agora مع سياق التشغيل والذاكرة وبحث الويب والصدفة وقواعد الوصول إلى ملفات الجهاز.</string>
+    <string name="prompts_template_default_desc">استخدم قواعد الرد الافتراضية في Agora وإرشادات الأدوات وكتالوج المهارات والذاكرة النشطة.</string>
     <string name="prompts_duplicate">تكرار</string>
     <string name="prompts_duplicate_title">نسخة من %1$s</string>
     <string name="prompts_empty_preview">موجّه فارغ</string>
@@ -164,6 +164,11 @@
     <string name="default_thinking">التفكير الافتراضي</string>
     <string name="gen_thinking_enabled">التفكير</string>
     <string name="gen_thinking_enabled_desc">تفعيل قدرة النموذج على التفكير/الاستدلال</string>
+    <string name="replay_reasoning_in_history">إعادة التفكير في السجل</string>
+    <string name="replay_reasoning_in_history_desc">إرسال reasoning_content مع كل رسالة مساعد؛ النماذج التي تتطلب الحقل تقبل قيمة فارغة</string>
+    <string name="attachments_group_title">المرفقات</string>
+    <string name="attachment_sandbox_link">روابط ملفات وضع الحماية</string>
+    <string name="attachment_sandbox_link_desc">أرفق الملفات كروابط وضع الحماية عند توفره، وإلا فضمّن محتواها؛ عند الإيقاف: ضمّن دائمًا</string>
     <string name="gen_thinking_level">مستوى التفكير</string>
     <string name="gen_thinking_level_desc">يتحكم في عمق التفكير؛ أعلى = استدلال أكثر دقة</string>
     <string name="gen_thinking_level_low">منخفض</string>
@@ -200,12 +205,10 @@
     <string name="tool_call_display_mode">كتل التفكير والأدوات</string>
     <string name="tool_call_display_mode_timeline">المخطط الزمني</string>
     <string name="tool_call_display_mode_grouped_timeline">مجمّع</string>
-    <string name="tool_call_display_mode_compact">مضغوط</string>
     <string name="tool_call_display_mode_timeline_desc">إظهار الإجابة والتفكير وكتل الأدوات حسب الترتيب الزمني</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">الحفاظ على ترتيب المخطط الزمني مع دمج كتل التفكير والأدوات والصور المتتالية</string>
     <string name="auto_expand_active_group">توسيع المجموعة النشطة تلقائيًا</string>
     <string name="auto_expand_active_group_desc">وسّع مجموعة التفكير والأدوات الحالية تلقائيًا، ثم اطوها عندما ينتقل النموذج إلى المرحلة التالية.</string>
-    <string name="tool_call_display_mode_compact_desc">تجميع كتل التفكير والأدوات فوق الإجابة</string>
     <string name="interaction_feedback">تعليقات التفاعل</string>
     <string name="stick_to_bottom">التثبيت في الأسفل</string>
     <string name="stick_to_bottom_desc">متابعة المحتوى الجديد تلقائيًا أثناء إنشاء الرد.</string>
@@ -220,11 +223,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">واجهة بحث تركّز على الخصوصية. تتوفر باقة مجانية.</string>
     <string name="web_search_serper_desc">واجهة بحث Google سريعة. 2,500 استعلام مجاني شهريًا.</string>
     <string name="web_search_tavily_desc">واجهة بحث محسّنة للذكاء الاصطناعي. مصممة لوكلاء LLM.</string>
+    <string name="web_search_exa_desc">بحث عصبي مع مقتطفات من الصفحات. يعمل بدون مفتاح عبر نقطة نهاية MCP العامة من Exa.</string>
     <string name="web_search_searxng_desc">محرك بحث وصفي ذاتي الاستضافة. يُفضّل استخدامه مع نسختك الخاصة.</string>
     <string name="web_search_duckduckgo_desc">مجاني، بدون مفتاح API. استخراج من lite.duckduckgo.com. قد يكون غير مستقر ويُشغّل حماية ضد البوتات.</string>
     <string name="web_search_select_provider">اختيار مزوّد البحث</string>
@@ -233,7 +238,9 @@
     <string name="web_search_serper_key">مفتاح API لـ Serper</string>
     <string name="web_search_serper_key_hint">مفتاح API من serper.dev</string>
     <string name="web_search_tavily_key">مفتاح API لـ Tavily</string>
+    <string name="web_search_exa_key">مفتاح API لـ Exa (اختياري)</string>
     <string name="web_search_tavily_key_hint">مفتاح API من tavily.com</string>
+    <string name="web_search_exa_key_hint">اختياري. اتركه فارغًا لاستخدام نقطة النهاية العامة بدون مفتاح من Exa.</string>
     <string name="web_search_num_results">أقصى عدد للنتائج</string>
     <string name="web_search_num_results_desc">عدد النتائج المراد جلبها: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">غالبًا ما تكون النسخ العامة محدودة المعدل. يُوصى بالاستضافة الذاتية للاستخدام الموثوق.</string>
@@ -271,7 +278,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">صندوق رمل محلي</string>
     <string name="sandbox_enable">تفعيل الصندوق الرملي المحلي</string>
-    <string name="sandbox_enable_desc">تشغيل الأوامر في Alpine Linux معزول على الجهاز</string>
+    <string name="sandbox_enable_desc">تشغيل الأوامر في بيئة Linux معزولة على الجهاز</string>
     <string name="shell_device_host">مضيف SSH</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">المنفذ</string>
@@ -297,12 +304,12 @@
     <string name="sandbox_package_name">اسم الحزمة</string>
     <string name="sandbox_quick_install">تثبيت سريع</string>
     <string name="sandbox_installed">الحزم المثبتة</string>
-    <string name="sandbox_no_packages">لا توجد حزم مثبتة. قاعدة Alpine فقط.</string>
+    <string name="sandbox_no_packages">لا توجد حزم مثبتة لعرضها.</string>
     <string name="sandbox_danger_zone">منطقة الخطر</string>
     <string name="sandbox_reset">إعادة تعيين البيئة</string>
     <string name="sandbox_reset_title">إعادة تعيين البيئة؟</string>
-    <string name="sandbox_reset_desc">إزالة نظام ملفات Alpine الجذري وجميع الحزم</string>
-    <string name="sandbox_reset_confirm">سيؤدي هذا إلى حذف نظام ملفات Alpine Linux الجذري وجميع الحزم المثبتة. لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="sandbox_reset_desc">حذف نظام Linux المحدد وحزمه المثبتة</string>
+    <string name="sandbox_reset_confirm">سيتم حذف نظام Linux المحدد وحزمه المثبتة. ستبقى ملفات المجلد الشخصي المشترك والتوزيعات الأخرى. لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="sandbox_not_supported">الصندوق الرملي المحلي غير مدعوم</string>
     <string name="sandbox_snackbar_installed">تم تثبيت %s</string>
     <string name="sandbox_snackbar_install_failed">فشل تثبيت %s</string>
@@ -316,14 +323,24 @@
     <string name="sandbox_snackbar_error">خطأ: %s</string>
     <string name="sandbox_not_supported_desc">هذه الميزة غير متاحة في هذا الإصدار</string>
     <string name="sandbox_not_installed">غير مثبت</string>
-    <string name="sandbox_extracting_rootfs">جارٍ استخراج نظام ملفات Alpine الجذري...</string>
-    <string name="sandbox_downloading_rootfs">جارٍ تنزيل نظام ملفات Alpine الجذري… %d%%</string>
+    <string name="sandbox_extracting_rootfs">جارٍ استخراج نظام Linux...</string>
+    <string name="sandbox_downloading_rootfs">جارٍ تنزيل نظام Linux… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">جارٍ تنزيل نظام Linux…</string>
+    <string name="sandbox_verifying_rootfs">جارٍ التحقق من التنزيل…</string>
+    <string name="sandbox_validating_rootfs">جارٍ التحقق من نظام Linux…</string>
+    <string name="sandbox_preparing_rootfs">جارٍ التحضير…</string>
+    <string name="sandbox_mirror">مصدر البرامج</string>
+    <string name="sandbox_mirror_desc">تنزيل نظام Linux والحزم من هذا المصدر</string>
+    <string name="sandbox_mirror_official">المصدر الرسمي</string>
+    <string name="sandbox_mirror_tuna">مرآة الصين (TUNA)</string>
+    <string name="sandbox_mirror_applied">تم تحديث مصادر الحزم</string>
+    <string name="sandbox_mirror_failed">تعذّر تحديث مصادر الحزم</string>
     <string name="sandbox_install_failed">فشل التثبيت</string>
     <string name="sandbox_installed_label">مثبت</string>
     <string name="sandbox_failed_label">فشل</string>
     <string name="sandbox_dashboard_summary">%d حزمة مثبتة · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d ميجابايت / 2 جيجابايت</string>
-    <string name="sandbox_disk_usage_gb">~%.1f جيجابايت / 2 جيجابايت</string>
+    <string name="sandbox_disk_usage_mb">~%d ميجابايت</string>
+    <string name="sandbox_disk_usage_gb">~%.1f جيجابايت</string>
     <string name="sandbox_remove_pkg_title">إزالة %s؟</string>
     <string name="sandbox_remove_pkg_desc">إزالة %s من الصندوق الرملي؟ سيؤدي ذلك إلى تحرير مساحة القرص الخاصة به.</string>
     <string name="sandbox_remove_content_desc">إزالة الحزمة</string>
@@ -468,6 +485,17 @@
     <string name="provider_cache_desc">طلب تخزين المطالبات مؤقتًا؛ تخزين خادم الترحيل مستقل</string>
     <string name="provider_cache_duration">مدة التخزين المؤقت</string>
     <string name="provider_cache_duration_desc">مدة إمكانية إعادة استخدام المطالبات المخزنة مؤقتًا</string>
+    <string name="provider_save_failed">تعذّر حفظ إعدادات المزوّد</string>
+    <string name="provider_custom_entry_desc">نقطة نهاية متوافقة مع OpenAI أو Anthropic أو Google</string>
+    <string name="provider_remove_title">إزالة %1$s؟</string>
+    <string name="provider_remove_text">سيتم الاحتفاظ بالإعدادات. أضفه مجددًا لاستعادتها.</string>
+    <string name="provider_remove">إزالة</string>
+    <string name="provider_search_hint">البحث عن مزوّدين</string>
+    <string name="provider_custom_entry">مزوّد مخصص</string>
+    <string name="provider_add_no_match">لا يوجد مزوّدون مطابقون</string>
+    <string name="provider_added">تمت الإضافة</string>
+    <string name="provider_list_empty">لا يوجد مزوّدون بعد</string>
+    <string name="provider_reorder">إعادة الترتيب</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">الشبكة</string>
     <string name="settings_proxy">الوكيل</string>
@@ -540,6 +568,6 @@
     <string name="install_guide_help">مساعدة</string>
     <string name="install_guide_open_terminal">افتح الطرفية</string>
     <string name="install_guide_run_command">انسخ الأمر وشغّله</string>
-    <string name="conch_guide_finish">ارجع إلى إضافة جهاز. أدخل عنوان الخدمة ومفتاح API من برنامج التثبيت، واختر اسمًا ثم احفظ.</string>
-    <string name="filo_guide_finish">اختر حساب Windows المستخدم للعميل الأصلي عند الطلب. ارجع إلى إضافة جهاز، وأدخل عنوان URL للخدمة القابل للوصول ورمز الوصول ثم احفظ. يعمل localhost على الكمبيوتر نفسه فقط.</string>
+    <string name="conch_guide_finish">أضف الجهاز باستخدام عنوان الخدمة ومفتاح API اللذين يعرضهما برنامج التثبيت.</string>
+    <string name="filo_guide_finish">اختر حساب Windows والمصادر عند الطلب، ثم أضف الجهاز باستخدام عنوان URL للخدمة ورمز الوصول اللذين يعرضهما برنامج التثبيت.</string>
 </resources>

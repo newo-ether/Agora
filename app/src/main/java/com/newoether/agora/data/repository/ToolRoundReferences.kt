@@ -21,26 +21,36 @@ internal suspend fun ConversationRepository.loadReferencedToolRounds(
     return ids.chunked(500).flatMap { getMessagesByIds(it) }
 }
 
+/**
+ * Replaces stub tool segments with their committed round bodies.
+ *
+ * Every lookup fails soft. A persisted reference can dangle (a refused Compact round never
+ * reaches Room) or point at a row that no longer qualifies, and none of that may take down
+ * message hydration: the original segment stays as it was persisted.
+ */
 internal fun MessageEntity.resolveToolRoundReferences(
     segments: List<MessageSegment>?,
     rounds: List<MessageEntity>,
 ): List<MessageSegment>? {
     val referencedIds = segments.orEmpty().mapNotNull { it.toolRoundId }.toSet()
     if (referencedIds.isEmpty()) return segments
-    val toolsByRound = rounds.filter { it.id in referencedIds }.associate { round ->
-        check(round.conversationId == conversationId && runId.isNotBlank() && round.runId == runId) {
-            "Tool round reference has a different owner"
+    val toolsByRound = rounds
+        .filter { it.id in referencedIds }
+        .filter { round ->
+            round.conversationId == conversationId && runId.isNotBlank() && round.runId == runId &&
+                round.id.startsWith(Constants.TOOL_MSG_PREFIX) && round.status == MessageStatus.SUCCESS
         }
-        check(round.id.startsWith(Constants.TOOL_MSG_PREFIX) && round.status == MessageStatus.SUCCESS) {
-            "Tool round reference is not committed protocol data"
+        .associate { round ->
+            val body = round.toolCallJson?.let { raw ->
+                runCatching { referenceJson.decodeFromString<List<MessageSegment>>(raw) }.getOrNull()
+            }.orEmpty()
+            round.id to body
         }
-        round.id to referenceJson.decodeFromString<List<MessageSegment>>(checkNotNull(round.toolCallJson))
-    }
     return segments?.map { segment ->
         val roundId = segment.toolRoundId ?: return@map segment
-        val body = checkNotNull(toolsByRound[roundId]?.singleOrNull {
+        val body = toolsByRound[roundId]?.singleOrNull {
             it.type == "tool" && it.toolCallId == segment.toolCallId
-        }) { "Committed tool body is missing or ambiguous" }
+        } ?: return@map segment
         body.copy(
             toolRoundId = roundId,
             responseOutputItems = emptyList(),
@@ -57,9 +67,9 @@ internal fun remapToolRoundReferences(raw: String?, messageIds: Map<String, Stri
     if (segments.none { it.toolRoundId != null }) return raw
     return referenceJson.encodeToString(segments.map { segment ->
         segment.toolRoundId?.let { roundId ->
-            segment.copy(toolRoundId = checkNotNull(messageIds[roundId]) {
-                "Fork is missing a referenced tool round"
-            })
+            // A round that never persisted (refused Compact calls) has no forked counterpart;
+            // dropping the reference keeps the fork alive with the segment's inline data.
+            segment.copy(toolRoundId = messageIds[roundId])
         } ?: segment
     })
 }

@@ -23,11 +23,11 @@ class SkillToolProvider(
         val readTools = if (ctx.skillReadAccess) {
             listOf(
                 tool(
-                    name = "list_skill_files",
+                    name = "skill_list",
                     description = "List saved skill files with their names and compact descriptions.",
                 ),
                 tool(
-                    name = "read_skill_file",
+                    name = "skill_read",
                     description = "Read one or more saved skill files. Read a relevant skill before applying it.",
                     properties = mapOf(
                         "name" to ToolProperty("string", "One skill file name."),
@@ -45,7 +45,7 @@ class SkillToolProvider(
         val modifyTools = if (ctx.skillModifyAccess) {
             listOf(
                 tool(
-                    name = "create_skill_file",
+                    name = "skill_create",
                     description = "Create a saved Markdown skill file.",
                     properties = mapOf(
                         "name" to ToolProperty("string", "The skill file name."),
@@ -55,7 +55,7 @@ class SkillToolProvider(
                     required = listOf("name", "content"),
                 ),
                 tool(
-                    name = "edit_skill_file",
+                    name = "skill_edit",
                     description = "Edit one aspect of a saved skill file. operation must be replace, patch, rename, or describe.",
                     properties = mapOf(
                         "name" to ToolProperty("string", "The current file name."),
@@ -84,7 +84,7 @@ class SkillToolProvider(
                     required = listOf("name", "operation"),
                 ),
                 tool(
-                    name = "delete_skill_file",
+                    name = "skill_delete",
                     description = "Delete a saved skill file.",
                     properties = mapOf(
                         "name" to ToolProperty("string", "The skill file name to delete."),
@@ -109,19 +109,19 @@ class SkillToolProvider(
         arguments: String,
         ctx: GenerationContext,
     ): ToolExecutionResult = withContext(Dispatchers.IO) {
-        if (!ctx.skillReadAccess && name in READ_TOOL_NAMES) {
+        if (!ctx.skillReadAccess && BuiltInToolNames.canonical(name) in READ_TOOL_NAMES) {
             return@withContext ToolExecutionResult("Error: Skill read access is disabled.", isError = true)
         }
-        if (!ctx.skillModifyAccess && name in MODIFY_TOOL_NAMES) {
+        if (!ctx.skillModifyAccess && BuiltInToolNames.canonical(name) in MODIFY_TOOL_NAMES) {
             return@withContext ToolExecutionResult("Error: Skill modify access is disabled.", isError = true)
         }
         val args = Json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(
             arguments.ifBlank { "{}" },
         )
         fun arg(key: String): String = arg(args, key)
-        ToolExecutionResult(when (name) {
-            "list_skill_files" -> buildJsonObject {
-                put("type", "list_skill_files")
+        ToolExecutionResult(when (BuiltInToolNames.canonical(name)) {
+            "skill_list" -> buildJsonObject {
+                put("type", "skill_list")
                 putJsonArray("files") {
                     skillManager.listFiles().forEach { file ->
                         add(
@@ -133,7 +133,7 @@ class SkillToolProvider(
                     }
                 }
             }.toString()
-            "read_skill_file" -> {
+            "skill_read" -> {
                 val names = (args["names"] as? JsonArray)
                     ?.mapNotNull { (it as? JsonPrimitive)?.content?.takeIf(String::isNotBlank) }
                     .orEmpty()
@@ -145,12 +145,12 @@ class SkillToolProvider(
                     else -> return@withContext ToolExecutionResult("Error: Provide name or names.", isError = true)
                 }
             }
-            "create_skill_file" -> skillManager.createFile(
+            "skill_create" -> skillManager.createFile(
                 name = arg("name"),
                 content = arg("content"),
                 description = arg("description"),
             )
-            "edit_skill_file" -> {
+            "skill_edit" -> {
                 val fileName = arg("name")
                 when (arg("operation").trim().lowercase()) {
                     "replace" -> skillManager.editFile(
@@ -193,12 +193,12 @@ class SkillToolProvider(
                     )
                 }
             }
-            "delete_skill_file" -> skillManager.deleteFile(arg("name"))
+            "skill_delete" -> skillManager.deleteFile(arg("name"))
             else -> return@withContext ToolExecutionResult("Unknown tool: $name", isError = true)
         })
     }
 
-    override fun handles(name: String): Boolean = name in TOOL_NAMES
+    override fun handles(name: String): Boolean = BuiltInToolNames.canonical(name) in TOOL_NAMES
 
     private fun tool(
         name: String,
@@ -215,13 +215,13 @@ class SkillToolProvider(
 
     private companion object {
         val TOOL_NAMES = setOf(
-            "list_skill_files",
-            "read_skill_file",
-            "create_skill_file",
-            "edit_skill_file",
-            "delete_skill_file",
+            "skill_list",
+            "skill_read",
+            "skill_create",
+            "skill_edit",
+            "skill_delete",
         )
-        val READ_TOOL_NAMES = setOf("list_skill_files", "read_skill_file")
-        val MODIFY_TOOL_NAMES = setOf("create_skill_file", "edit_skill_file", "delete_skill_file")
+        val READ_TOOL_NAMES = setOf("skill_list", "skill_read")
+        val MODIFY_TOOL_NAMES = setOf("skill_create", "skill_edit", "skill_delete")
     }
 }

@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.AltRoute
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.automirrored.rounded.AltRoute
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Lan
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,7 +52,7 @@ fun SettingsProxyPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         SettingsItem(
                             headlineContent = { Text(stringResource(R.string.proxy_enable)) },
                             supportingContent = { Text(stringResource(R.string.proxy_enable_desc)) },
-                            leadingContent = { Icon(Icons.Default.Lan, null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingContent = { Icon(Icons.Rounded.Lan, null, tint = MaterialTheme.colorScheme.primary) },
                             trailingContent = {
                                 Switch(checked = enabled, onCheckedChange = { viewModel.settings.setProxyEnabled(it) })
                             },
@@ -62,7 +62,7 @@ fun SettingsProxyPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                     if (enabled) {
                         // Type selector
                         add {
-                            SettingsIconContent(icon = Icons.Default.Lan) {
+                            SettingsIconContent(icon = Icons.Rounded.Lan) {
                                 Text(
                                     stringResource(R.string.proxy_type),
                                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
@@ -73,13 +73,12 @@ fun SettingsProxyPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     tabs = proxyTypes.map { it.second },
                                     selectedIndex = proxyTypes.indexOfFirst { it.first == type }.coerceAtLeast(0),
                                     onSelect = { viewModel.settings.setProxyType(proxyTypes[it].first) },
-                                    allowLabelOverflow = true,
                                 )
                             }
                         }
                         // Server endpoint: host + port on one row
                         add {
-                            SettingsIconContent(icon = Icons.Default.Dns) {
+                            SettingsIconContent(icon = Icons.Rounded.Dns) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -104,7 +103,7 @@ fun SettingsProxyPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         }
                         // Credentials: username + password stacked in one card
                         add {
-                            SettingsIconContent(icon = Icons.Default.Person) {
+                            SettingsIconContent(icon = Icons.Rounded.Person) {
                                 ProxyLabeledField(
                                     label = stringResource(R.string.proxy_username),
                                     value = username,
@@ -126,7 +125,7 @@ fun SettingsProxyPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                 SettingsGroup(
                     title = stringResource(R.string.proxy_bypass),
                     items = listOf({
-                        SettingsIconContent(icon = Icons.AutoMirrored.Filled.AltRoute) {
+                        SettingsIconContent(icon = Icons.AutoMirrored.Rounded.AltRoute) {
                             ProxyLabeledField(
                                 label = stringResource(R.string.proxy_bypass),
                                 description = stringResource(R.string.proxy_bypass_desc),

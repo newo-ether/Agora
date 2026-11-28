@@ -1,10 +1,13 @@
 package com.newoether.agora.viewmodel
 
 import com.newoether.agora.api.ToolDefinition
+import com.newoether.agora.api.ToolFunction
+import com.newoether.agora.api.ToolParameters
 import com.newoether.agora.model.ConversationCommand
 import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.model.ToolExecutionStates
 import com.newoether.agora.tool.AskUserToolProvider
+import com.newoether.agora.tool.SessionToolGroup
 import com.newoether.agora.tool.ToolExecutionEvent
 import com.newoether.agora.tool.ToolExecutionResult
 import com.newoether.agora.tool.ToolProvider
@@ -34,6 +37,98 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GenerationToolExecutorTest {
+    @Test
+    fun `MCP null absent and blank errors remain successful`() {
+        val payloads = listOf(
+            """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}""",
+            """{"ok":true,"data":{"fields":3,"methods":9}}""",
+            """{"ok":true,"error":"","data":{"fields":3,"methods":9}}""",
+            """{"ok":true,"error":"  ","data":{"fields":3,"methods":9}}""",
+        )
+        for (name in listOf("mcp_call_tool", "mcp_mt_read_class_outline_abcdef")) {
+            for (payload in payloads) {
+                assertEquals(
+                    "$name: $payload",
+                    ToolExecutionStates.SUCCEEDED,
+                    finalToolState(ToolExecutionResult("class outline", structuredContent = payload), name),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `MCP string null and nonblank errors remain failures`() {
+        for (error in listOf("null", "permission_denied")) {
+            val result = ToolExecutionResult(
+                "class outline",
+                structuredContent = """{"ok":true,"error":"$error"}""",
+            )
+            assertEquals(error, ToolExecutionStates.FAILED, finalToolState(result, "mcp_call_tool"))
+        }
+    }
+
+    @Test
+    fun `provider error remains failed despite successful structured payload`() {
+        val result = ToolExecutionResult(
+            "class outline",
+            structuredContent = """{"ok":true,"error":null,"data":{"fields":3,"methods":9}}""",
+            isError = true,
+        )
+
+        assertEquals(ToolExecutionStates.FAILED, finalToolState(result, "mcp_call_tool"))
+    }
+
+    @Test
+    fun `explicit failed flag remains failed with a null error`() {
+        val result = ToolExecutionResult(
+            "class outline",
+            structuredContent = """{"ok":true,"error":null,"failed":true}""",
+        )
+
+        assertEquals(ToolExecutionStates.FAILED, finalToolState(result, "mcp_call_tool"))
+    }
+
+    @Test
+    fun `nested shell null error preserves successful and running job states`() {
+        for ((state, expected) in listOf(
+            "succeeded" to ToolExecutionStates.SUCCEEDED,
+            "running" to ToolExecutionStates.BACKGROUND_RUNNING,
+        )) {
+            val result = ToolExecutionResult(
+                """{"error":null,"result":{"error":null,"job_id":"job-1","state":"$state"}}""",
+            )
+            assertEquals(state, expected, finalToolState(result, "shell_job_get"))
+        }
+    }
+
+    @Test
+    fun `nested shell null errors do not hide outer or nested failures`() {
+        val payloads = listOf(
+            """{"error":"connection_lost","result":{"error":null,"state":"succeeded"}}""",
+            """{"error":null,"failed":true,"result":{"error":null,"state":"succeeded"}}""",
+            """{"error":null,"result":{"error":"connection_lost","state":"succeeded"}}""",
+        )
+        for (payload in payloads) {
+            assertEquals(
+                payload,
+                ToolExecutionStates.FAILED,
+                finalToolState(ToolExecutionResult(payload), "shell_job_get"),
+            )
+        }
+    }
+
+    @Test
+    fun `no results remains empty even when provider marks an error`() {
+        for (name in listOf("web_search", "mcp_call_tool")) {
+            val result = ToolExecutionResult(
+                "no results",
+                structuredContent = """{"error":"no_results"}""",
+                isError = true,
+            )
+            assertEquals(name, ToolExecutionStates.EMPTY, finalToolState(result, name))
+        }
+    }
+
     @Test
     fun `durable wait timeout remains background running at the completion boundary`() {
         val result =
@@ -312,6 +407,215 @@ class GenerationToolExecutorTest {
         withTimeout(5_000L) { state.stopping.first { stopping -> !stopping } }
         assertFalse(state.generating.value)
         assertFalse(state.stopping.value)
+    }
+
+    @Test
+    fun `a disabled tool group leaves the request and is refused on execution`() = runTest {
+        val controller = AskUserController()
+        val executor = GenerationToolExecutor.forTest(listOf(AskUserToolProvider(controller)))
+        val enabledContext = GenerationContext(askUserEnabled = true)
+        assertTrue(executor.definitions(enabledContext).any { it.function.name == "ask_user" })
+
+        val disabledContext = enabledContext.copy(
+            disabledToolGroups = setOf(SessionToolGroup.ASK_USER.id),
+        )
+        assertTrue(executor.definitions(disabledContext).none { it.function.name == "ask_user" })
+
+        val executed = executor.execute(
+            call = AuthorizedToolCall(
+                batchIdentity = BATCH_IDENTITY,
+                callId = "ask-disabled",
+                name = "ask_user",
+                arguments = """{"question":"Choose?","options":["A"]}""",
+                context = disabledContext,
+                authorizedToolNames = setOf("ask_user"),
+            ),
+            onEvent = {},
+        )
+
+        assertTrue(executed.result.isError)
+        assertTrue(executed.result.text.contains("disabled for this session"))
+        assertTrue(controller.requests.value.isEmpty())
+    }
+
+    @Test
+    fun `session tool catalog separates switch-off from empty groups`() {
+        val definition = ToolDefinition(
+            function = ToolFunction(
+                name = "web_search",
+                description = "Search the web",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val catalog = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(webSearchEnabled = false),
+            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(definition)),
+        )
+
+        val web = catalog.groups.first { it.group == SessionToolGroup.WEB }
+        assertEquals(SessionToolUnavailable.SWITCH_OFF, web.unavailable)
+        assertEquals(1, web.tools.size)
+        assertTrue(web.tokens > 0)
+        val memory = catalog.groups.first { it.group == SessionToolGroup.MEMORY }
+        assertEquals(SessionToolUnavailable.NO_TOOLS, memory.unavailable)
+
+        val memoryRead = ToolDefinition(
+            function = ToolFunction(
+                name = "memory_read",
+                description = "Read a saved memory",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val disabled = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(
+                accessSavedMemories = true,
+                disabledToolGroups = setOf(SessionToolGroup.MEMORY.id),
+            ),
+            definitionsByGroup = mapOf(SessionToolGroup.MEMORY to listOf(memoryRead)),
+        )
+        assertEquals(1, disabled.totalToolCount)
+        assertEquals(0, disabled.enabledToolCount)
+        assertEquals(setOf(SessionToolGroup.MEMORY.id), disabled.disabledIds(emptySet()))
+    }
+
+    @Test
+    fun `selector total charges the tool-use preamble once, like the context indicator`() {
+        fun tool(name: String) = ToolDefinition(
+            function = ToolFunction(
+                name = name,
+                description = "Tool $name with a short description",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val byGroup = mapOf(
+            SessionToolGroup.MEMORY to listOf(tool("memory_read"), tool("memory_list")),
+            SessionToolGroup.TODO to listOf(tool("todo_read")),
+            SessionToolGroup.ASK_USER to listOf(tool("ask_user")),
+        )
+        val modelId = "${com.newoether.agora.util.Constants.PROVIDER_ANTHROPIC}:claude-opus-5-5"
+        val catalog = SessionToolCatalog.build(
+            modelId = modelId,
+            context = GenerationContext(accessSavedMemories = true),
+            definitionsByGroup = byGroup,
+        )
+        val indicator = com.newoether.agora.api.util.ContextTokenEstimator.forModel(modelId)
+            .estimateFixedComposition(systemPrompt = null, tools = byGroup.values.flatten())
+            .toolTokens
+        assertTrue(catalog.toolSetTokens > 0)
+        // Per-part rounding may differ by a token per group.
+        assertTrue(kotlin.math.abs(catalog.tokensOf(catalog.groups) - indicator) <= byGroup.size)
+    }
+
+    @Test
+    fun `linked groups follow the conversation switch, not the disabled ids`() {
+        val definition = ToolDefinition(
+            function = ToolFunction(
+                name = "web_search",
+                description = "Search the web",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        // Conversation turned Web off; the global switch is on, so the probe still lists it.
+        val context = GenerationContext(
+            webSearchEnabled = false,
+            disabledToolGroups = setOf(SessionToolGroup.WEB.id, "retired_group"),
+        )
+        val catalog = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = context,
+            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(definition)),
+            probe = context.copy(webSearchEnabled = true),
+        )
+        val web = catalog.groups.first { it.group == SessionToolGroup.WEB }
+        assertNull(web.unavailable)
+        assertTrue(SessionToolGroup.WEB !in catalog.enabledGroups)
+        // A stale linked id is dropped and never written again.
+        assertEquals(setOf("retired_group"), catalog.disabledIds(emptySet()))
+        assertEquals(setOf("retired_group"), catalog.disabledIds(setOf(SessionToolGroup.WEB)))
+        assertTrue(SessionToolGroup.fromIds(context.disabledToolGroups).isEmpty())
+
+        val on = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(
+                webSearchEnabled = true,
+                disabledToolGroups = setOf(SessionToolGroup.WEB.id),
+            ),
+            definitionsByGroup = mapOf(SessionToolGroup.WEB to listOf(definition)),
+        )
+        assertTrue(SessionToolGroup.WEB in on.enabledGroups)
+    }
+
+    @Test
+    fun `low context catalog prices only the groups the request still carries`() {
+        val web = ToolDefinition(
+            function = ToolFunction(
+                name = "web_search",
+                description = "Search the web",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val memory = ToolDefinition(
+            function = ToolFunction(
+                name = "memory_read",
+                description = "Read a saved memory",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val catalog = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(webSearchEnabled = true, accessSavedMemories = true),
+            definitionsByGroup = mapOf(
+                SessionToolGroup.WEB to listOf(web),
+                SessionToolGroup.MEMORY to listOf(memory),
+            ),
+            lowContextMode = true,
+        )
+
+        val webGroup = catalog.groups.first { it.group == SessionToolGroup.WEB }
+        assertNull(webGroup.unavailable)
+        assertEquals(1, webGroup.tools.size)
+        assertTrue(webGroup.tokens > 0)
+        val memoryGroup = catalog.groups.first { it.group == SessionToolGroup.MEMORY }
+        assertEquals(SessionToolUnavailable.LOW_CONTEXT, memoryGroup.unavailable)
+        assertTrue(memoryGroup.tools.isEmpty())
+        assertEquals(0, memoryGroup.tokens)
+        assertEquals(1, catalog.totalToolCount)
+    }
+
+    @Test
+    fun `saving keeps stored ids for groups this session cannot switch`() {
+        val todo = ToolDefinition(
+            function = ToolFunction(
+                name = "todo_read",
+                description = "Read the todo list",
+                parameters = ToolParameters(properties = emptyMap()),
+            ),
+        )
+        val unavailable = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(
+                todoEnabled = false,
+                disabledToolGroups = setOf("mcp", SessionToolGroup.MEMORY.id, "retired_group"),
+            ),
+            definitionsByGroup = mapOf(SessionToolGroup.TODO to listOf(todo)),
+        )
+        assertEquals(
+            setOf("mcp", SessionToolGroup.MEMORY.id, "retired_group"),
+            unavailable.disabledIds(setOf(SessionToolGroup.TODO)),
+        )
+
+        val switchable = SessionToolCatalog.build(
+            modelId = "openai:gpt-5",
+            context = GenerationContext(
+                todoEnabled = true,
+                disabledToolGroups = setOf("retired_group"),
+            ),
+            definitionsByGroup = mapOf(SessionToolGroup.TODO to listOf(todo)),
+        )
+        assertEquals(setOf("retired_group", SessionToolGroup.TODO.id), switchable.disabledIds(emptySet()))
+        assertEquals(setOf("retired_group"), switchable.disabledIds(setOf(SessionToolGroup.TODO)))
     }
 
     private class FakeToolProvider : ToolProvider {

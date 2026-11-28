@@ -4,7 +4,13 @@ import java.io.File
 
 // ── APKINDEX Parsing ────────────────────────────────
 
-internal data class FullPkgEntry(val name: String, val version: String, val deps: List<String>)
+internal data class FullPkgEntry(
+    val name: String,
+    val version: String,
+    val deps: List<String>,
+    /** Repository base URL that owns this record, so the archive is fetched from the same index. */
+    val repositoryBase: String = "",
+)
 
 /** Compare two Alpine-style package versions. Returns >0 if a > b, 0 if equal, <0 if a < b.
  *  Alpine version format: {version}-r{revision}  (e.g. "3.5.2-r1", "1.2.3_pre1-r0").
@@ -75,6 +81,7 @@ internal fun compareAlpineVersions(a: String, b: String): Int {
 internal fun parseFullApkIndex(
     indexFile: File,
     preferredPackages: Set<String> = emptySet(),
+    repositoryBase: String = "",
 ): Pair<Map<String, FullPkgEntry>, Map<String, String>> {
     val result = mutableMapOf<String, FullPkgEntry>()
     val provides = mutableMapOf<String, List<String>>()
@@ -93,7 +100,9 @@ internal fun parseFullApkIndex(
                         if (name.startsWith("so:") && provided.isNotEmpty()) {
                             soToPkg[name] = provided
                         } else if (name.isNotEmpty() && version.isNotEmpty()) {
-                            result[name] = FullPkgEntry(name, version, apkIndexWords(fields['D']))
+                            result[name] = FullPkgEntry(
+                                name, version, apkIndexWords(fields['D']), repositoryBase,
+                            )
                             provides[name] = apkIndexWords(provided).map { it.substringBefore('=') }
                             priorities[name] = fields['k']?.toIntOrNull() ?: 0
                         }

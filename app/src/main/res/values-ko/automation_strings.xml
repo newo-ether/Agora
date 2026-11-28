@@ -67,7 +67,7 @@
     <string name="settings_automation">자동화</string>
     <string name="settings_automation_desc">작업, 루프 및 일정 정밀도</string>
     <string name="automation_ai_tools">작업 및 루프에 접근</string>
-    <string name="automation_ai_tools_desc">모델이 작업을 만들고 관리하거나 대화 루프를 시작하고 중지하도록 허용합니다. 기본적으로 꺼져 있습니다.</string>
+    <string name="automation_ai_tools_desc">모델이 작업을 만들고 관리하거나 대화 루프를 시작하고 중지하도록 허용합니다.</string>
     <string name="automation_background_execution">백그라운드 실행</string>
     <string name="automation_wake_lock">절전 모드 해제 잠금</string>
     <string name="automation_wake_lock_desc">각 작업 또는 루프 실행 중 기기를 깨어 있게 합니다. 일반 예약 작업은 이미 WorkManager가 처리하며, 이 추가 잠금은 배터리 사용량을 늘릴 수 있습니다.</string>

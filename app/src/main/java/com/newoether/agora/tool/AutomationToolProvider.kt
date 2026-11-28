@@ -101,7 +101,7 @@ class AutomationToolProvider(
         )
     }
 
-    override fun handles(name: String): Boolean = name in TOOL_NAMES
+    override fun handles(name: String): Boolean = BuiltInToolNames.canonical(name) in TOOL_NAMES
 
     override suspend fun execute(name: String, arguments: String, ctx: GenerationContext): String {
         if (!ctx.automationToolsEnabled || !isCurrentlyEnabled()) {
@@ -111,7 +111,7 @@ class AutomationToolProvider(
 
         return try {
             val args = Json.parseToJsonElement(arguments.ifBlank { "{}" }).jsonObject
-            when (name) {
+            when (BuiltInToolNames.canonical(name)) {
                 CREATE_TASK -> createTask(args)
                 LIST_TASKS -> listTasks()
                 DELETE_TASK -> deleteTask(args)
@@ -189,7 +189,7 @@ class AutomationToolProvider(
 
     private suspend fun startLoop(args: JsonObject, ctx: GenerationContext): String {
         val conversationId = ctx.conversationId?.takeIf { it.isNotBlank() }
-            ?: return error("start_loop requires a current conversation")
+            ?: return error("loop_start requires a current conversation")
         val intervalSeconds = args.long("interval_seconds")
             ?: return error("interval_seconds must be an integer")
         if (intervalSeconds !in LoopPolicy.MIN_INTERVAL_SECONDS..LoopPolicy.MAX_INTERVAL_SECONDS) {
@@ -227,7 +227,7 @@ class AutomationToolProvider(
 
     private suspend fun stopLoop(ctx: GenerationContext): String {
         val conversationId = ctx.conversationId?.takeIf { it.isNotBlank() }
-            ?: return error("stop_loop requires a current conversation")
+            ?: return error("loop_stop requires a current conversation")
 
         return when (loopManager.stopLoop(conversationId)) {
             LoopManager.StopResult.Stopped -> stopLoopJson(conversationId, "stopped")
@@ -277,11 +277,11 @@ class AutomationToolProvider(
     private fun error(message: String): String = "Error: $message"
 
     private companion object {
-        const val CREATE_TASK = "create_task"
-        const val LIST_TASKS = "list_tasks"
-        const val DELETE_TASK = "delete_task"
-        const val START_LOOP = "start_loop"
-        const val STOP_LOOP = "stop_loop"
+        const val CREATE_TASK = "task_create"
+        const val LIST_TASKS = "task_list"
+        const val DELETE_TASK = "task_delete"
+        const val START_LOOP = "loop_start"
+        const val STOP_LOOP = "loop_stop"
 
         val TOOL_NAMES = setOf(CREATE_TASK, LIST_TASKS, DELETE_TASK, START_LOOP, STOP_LOOP)
     }

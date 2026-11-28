@@ -4,6 +4,7 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.model.SelectedAttachment
 import com.newoether.agora.util.DebugLog
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
@@ -86,10 +87,15 @@ private class RepositoryComposerDraftPersistence(
 internal class ComposerDraftController(
     private val persistence: ComposerDraftPersistence,
     private val conversations: ConversationRepository,
+    private val hydrateAttachment: suspend (SelectedAttachment) -> SelectedAttachment = { it },
 ) {
-    constructor(conversations: ConversationRepository) : this(
+    constructor(
+        conversations: ConversationRepository,
+        hydrateAttachment: suspend (SelectedAttachment) -> SelectedAttachment = { it },
+    ) : this(
         persistence = RepositoryComposerDraftPersistence(conversations),
         conversations = conversations,
+        hydrateAttachment = hydrateAttachment,
     )
     private val persistenceMutex = Mutex()
     private val persistedDrafts = mutableMapOf<String, PersistedComposerDraft>()
@@ -269,6 +275,8 @@ internal class ComposerDraftController(
         val draft = persistence.loadDraft(conversationId)
         val decoded = try {
             decodeAttachments(draft.attachmentsJson)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             DebugLog.w(
                 "ChatViewModel",
@@ -286,9 +294,11 @@ internal class ComposerDraftController(
                     attachmentsJson = Json.encodeToString(decoded.attachments),
                 )
                 revision += 1L
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // Keep the normalized attachment visible and retryable in memory. Its first
-                // processing transition will attempt another durable write.
+                // Keep the normalized attachment visible and retryable in memory. A later load
+                // or composer change can retry the durable metadata write.
                 DebugLog.w(
                     "ChatViewModel",
                     "Failed to persist legacy attachment upgrade for $conversationId",
@@ -312,7 +322,7 @@ internal class ComposerDraftController(
      * Old drafts predate importState and canonical private artifacts. Serialization defaults would
      * otherwise turn those records into incomplete READY attachments that Send silently omits.
      */
-    private fun decodeAttachments(raw: String?): DecodedAttachments {
+    private suspend fun decodeAttachments(raw: String?): DecodedAttachments {
         if (raw == null) return DecodedAttachments(emptyList(), migrated = false)
         val elements = Json.parseToJsonElement(raw) as? JsonArray
             ?: error("Draft attachments must be a JSON array")
@@ -322,19 +332,18 @@ internal class ComposerDraftController(
                 SelectedAttachment.serializer(),
                 element,
             )
+            val hydrated = hydrateAttachment(attachment)
             val objectValue = element as? JsonObject
-            if (
+            val normalized = if (
                 objectValue?.containsKey("importState") != false ||
-                attachment.hasCanonicalReadyArtifact()
+                hydrated.unavailable || hydrated.hasCanonicalReadyArtifact()
             ) {
-                attachment
+                hydrated
             } else {
-                migrated = true
-                attachment.copy(
-                    importState = AttachmentImportState.PROCESSING,
-                    unavailable = false,
-                )
+                hydrated.copy(importState = AttachmentImportState.PROCESSING)
             }
+            if (normalized != attachment) migrated = true
+            normalized
         }
         return DecodedAttachments(attachments, migrated)
     }

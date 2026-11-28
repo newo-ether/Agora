@@ -27,6 +27,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.model.ContextBudget
@@ -126,24 +127,16 @@ internal fun ContextCompositionBar(
 }
 
 /**
- * The part of the window the automatic compaction keeps free. Mirrors the threshold arithmetic in
- * [contextUsageExceedsCompactThreshold] so the bar and the warning state flip at the same token.
+ * Shared segmented bar: each fraction of the whole width in order, separated by gaps that expose
+ * the track. Also used by the Settings Storage and Usage breakdowns.
  */
-internal fun contextReservedTokens(tokenBudget: Int, thresholdPercent: Int): Int {
-    val budget = tokenBudget.coerceAtLeast(1)
-    val percent = thresholdPercent.coerceIn(50, 100)
-    val threshold = ((budget.toLong() * percent + 99L) / 100L)
-        .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-    return (budget - threshold).coerceAtLeast(0)
-}
-
 @Composable
-private fun SegmentedBar(
+internal fun SegmentedBar(
     fractions: List<Float>,
     colors: List<Color>,
-    trackColor: Color,
-    reservedFraction: Float,
-    reservedColor: Color,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    reservedFraction: Float = 0f,
+    reservedColor: Color = Color.Transparent,
 ) {
     val motionPolicy = LocalAgoraMotionPolicy.current
     val animated = fractions.mapIndexed { index, fraction ->
@@ -201,7 +194,24 @@ private fun SegmentedBar(
 }
 
 @Composable
-private fun LegendRow(color: Color, label: String, tokens: Int) {
+private fun LegendRow(color: Color, label: String, tokens: Int) =
+    LegendRow(color, label, ContextBudget.compactLabel(tokens))
+
+/** Legend line for [SegmentedBar]: dot, label, and the value aligned right. */
+@Composable
+internal fun LegendRow(color: Color, label: String, value: String) {
+    LegendRow(color, label) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Legend line whose value slot is composed by the caller, e.g. for a loading cross-fade. */
+@Composable
+internal fun LegendRow(color: Color, label: String, value: @Composable () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(LegendDotSize).clip(CircleShape).background(color))
         Spacer(Modifier.width(8.dp))
@@ -209,13 +219,11 @@ private fun LegendRow(color: Color, label: String, tokens: Int) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.weight(1f))
         Spacer(Modifier.width(12.dp))
-        Text(
-            text = ContextBudget.compactLabel(tokens),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        value()
     }
 }

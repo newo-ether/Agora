@@ -20,7 +20,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -32,6 +32,7 @@ import com.newoether.agora.R
 import com.newoether.agora.model.AttachmentImportState
 import com.newoether.agora.ui.common.LocalAgoraHaptics
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
+import com.newoether.agora.ui.theme.chatCompactWidth
 import com.newoether.agora.viewmodel.ConversationComposerController
 import com.newoether.agora.viewmodel.ConversationComposerSnapshot
 import com.newoether.agora.viewmodel.ConversationComposerSubmissionController
@@ -49,6 +50,7 @@ import com.newoether.agora.model.ThinkingResolution
 import com.newoether.agora.util.Constants
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.data.modelDisplayName
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.AgoraExposedDropdownMenu
 internal val CHAT_BOTTOM_BAR_OUTER_RADIUS = 28.dp
@@ -56,7 +58,8 @@ internal val CHAT_BOTTOM_BAR_OUTER_SHAPE = RoundedCornerShape(CHAT_BOTTOM_BAR_OU
 // Non-expanded bar geometry, measured from the bar's outer edge.
 // The controls capsule and the send button share one height and sit 10 dp from the start/end and
 // bottom edges. They are not concentric with the outer corners: the owner chose larger controls.
-internal val COMPOSER_CONTROL_HEIGHT = 48.dp
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) shrink both to 44 dp.
+internal val COMPOSER_CONTROL_HEIGHT get() = if (chatCompactWidth) 44.dp else 48.dp
 internal val COMPOSER_CONTROLS_INSET = 10.dp
 // The expand icon sits 18 dp from the top and end edges. The expand button's circle is a fade to
 // transparent, so only its 20 dp icon is placed, not the circle.
@@ -64,23 +67,14 @@ internal val COMPOSER_CORNER_CONTENT_INSET = 18.dp
 // The input text starts 18 dp from the start edge and 16 dp from the top, and ends 22 dp above the
 // controls.
 internal val COMPOSER_TEXT_START_INSET = 18.dp
-internal val COMPOSER_TEXT_TOP_INSET = 16.dp
-internal val COMPOSER_TEXT_CONTROLS_GAP = 22.dp
+// Narrow windows (see CHAT_COMPACT_WIDTH_DP) tighten both to 13 dp and 18 dp.
+internal val COMPOSER_TEXT_TOP_INSET get() = if (chatCompactWidth) 13.dp else 16.dp
+internal val COMPOSER_TEXT_CONTROLS_GAP get() = if (chatCompactWidth) 18.dp else 22.dp
 internal val COMPOSER_EXPAND_BUTTON_SIZE = 40.dp
 internal val COMPOSER_EXPAND_ICON_SIZE = 20.dp
 // The host padding the status rows, attachment previews and expanded collapse button share.
 internal val COMPOSER_HOST_SIDE_PADDING = 4.dp
 internal val COMPOSER_HOST_TOP_PADDING = 8.dp
-internal fun contextUsageExceedsCompactThreshold(
-    estimatedTokens: Int, tokenBudget: Int, thresholdPercent: Int,
-): Boolean {
-    val normalizedBudget = tokenBudget.coerceAtLeast(1)
-    val normalizedPercent = thresholdPercent.coerceIn(50, 100)
-    val threshold = ((normalizedBudget.toLong() * normalizedPercent + 99L) / 100L)
-        .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-    return tokenBudget > 0 && estimatedTokens > threshold
-}
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun ChatBottomBar(
@@ -97,6 +91,8 @@ internal fun ChatBottomBar(
     modelAliases: Map<String, String> = emptyMap(),
     modelProviderNames: Map<String, Boolean> = emptyMap(),
     customProviders: List<CustomProviderConfig> = emptyList(),
+    /** User Provider list order; providers outside it (Local) sort after it. */
+    providerOrder: List<String> = emptyList(),
     codeExecutionEnabled: Boolean = false,
     googleSearchEnabled: Boolean = false,
     openAiWebSearchAvailable: Boolean = false,
@@ -112,6 +108,8 @@ internal fun ChatBottomBar(
     shellEnabled: Boolean = false,
     showLowContextMode: Boolean = false,
     lowContextModeEnabled: Boolean = false,
+    /** A local model whose chat template cannot express tools; its tool switches are greyed. */
+    selectedModelToolIncapable: Boolean = false,
     onCodeExecutionToggle: (Boolean) -> Unit = {},
     onGoogleSearchToggle: (Boolean) -> Unit = {},
     onOpenAiWebSearchToggle: (Boolean) -> Unit = {},
@@ -135,7 +133,6 @@ internal fun ChatBottomBar(
     fullScreenViewerUrls: List<String>? = null,
     modifier: Modifier = Modifier,
     textFieldState: TextFieldState = rememberSaveable(saver = TextFieldState.Saver) { TextFieldState() },
-    liveVoiceButton: @Composable () -> Unit = {},
     composerState: ChatComposerState = rememberChatComposerState(),
     focusRequester: FocusRequester = FocusRequester(),
     onInputFocusChanged: (Boolean) -> Unit = {},
@@ -146,6 +143,8 @@ internal fun ChatBottomBar(
     showWebSearch: Boolean = true,
     showShell: Boolean = true,
     onAdvancedClick: () -> Unit = {},
+    liveVoiceButton: @Composable () -> Unit = {},
+    onToolsClick: () -> Unit = {},
     compactDefaultModel: String? = null,
     compactDefaultPrompt: String = "",
     compactDefaultRetainCount: Int = 6,
@@ -239,16 +238,48 @@ internal fun ChatBottomBar(
         object : ReceiveContentListener {
             override fun onReceive(transferableContent: TransferableContent): TransferableContent? {
                 val imageUris = mutableListOf<Uri>()
+                val pastedTexts = mutableListOf<String>()
+                val sandboxPaste = composer.acceptsLocalSandboxAttachments()
                 val advertisesImages = transferableContent.hasMediaType(MediaType.Image)
                 val remaining = transferableContent.consume { item ->
+                    val text = item.text?.toString()
+                    if (sandboxPaste && text != null &&
+                        text.length >= com.newoether.agora.util.SANDBOX_PASTE_MIN_CHARS
+                    ) {
+                        pastedTexts += text
+                        return@consume true
+                    }
                     val uri = item.uri ?: return@consume false
-                    val resolvedMime = context.contentResolver.getType(uri)
+                    val resolvedMime = runCatching { context.contentResolver.getType(uri) }.getOrNull()
                     val isImage = resolvedMime?.startsWith("image/") == true ||
                         (resolvedMime == null && advertisesImages)
-                    if (isImage) imageUris += uri
-                    isImage
+                    if (isImage || sandboxPaste) imageUris += uri
+                    isImage || sandboxPaste
                 }
-                importUris(composerOwnerId, imageUris, "image", emitSuccessHaptic = false)
+                importUris(composerOwnerId, imageUris, if (sandboxPaste) null else "image", emitSuccessHaptic = false)
+                if (pastedTexts.isNotEmpty()) {
+                    val ownerId = composerOwnerId
+                    activityLaunchScope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                        for (text in pastedTexts) {
+                            var admitted = false
+                            try {
+                                withContext(NonCancellable) {
+                                    withOwner(ownerId) {
+                                        admitted = composerController.importAttachment(
+                                            ownerId, com.newoether.agora.util.sandboxPastedAttachment(text),
+                                        )
+                                    }
+                                }
+                            } finally {
+                                if (!admitted) {
+                                    // The clipboard still owns the original. Refuse admission visibly;
+                                    // inserting it into the field would silently restore inline sending.
+                                    composer.rejectedMessage = context.getString(com.newoether.agora.R.string.attachment_copy_failed_image)
+                                }
+                            }
+                        }
+                    }
+                }
                 return remaining
             }
         }
@@ -314,7 +345,8 @@ internal fun ChatBottomBar(
         if (composer.pendingVideoAttachmentId == null && composer.pendingPdfAttachmentId == null) {
             composerSnapshot.attachments.firstOrNull {
                 it.type == "video" && it.importState == AttachmentImportState.PROCESSING &&
-                    it.frameCount == null && it.localPath != null
+                    it.frameCount == null && it.localPath != null &&
+                    it.storage != com.newoether.agora.model.AttachmentStorage.LOCAL_SANDBOX_PENDING
             }?.let { attachment ->
                 composer.pendingVideoOwnerId = composerOwnerId
                 composer.pendingVideoAttachmentId = attachment.localId
@@ -384,6 +416,11 @@ internal fun ChatBottomBar(
             cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
         }
     }
+    val voice = rememberComposerVoice(composerOwnerId, enabled = composerSnapshot.loaded && !submission.isFrozen) {
+        textFieldState.insertTranscript(it)
+    }
+    val latestSnapshot by rememberUpdatedState(composerSnapshot)
+    val voiceCanSend = composerSnapshot.loaded && isModelValid && !isSwitching && !isStopping && !submission.isFrozen
     ChatComposerLayout(
         textFieldState = textFieldState,
         focusRequester = focusRequester,
@@ -416,7 +453,8 @@ internal fun ChatBottomBar(
         }
         },
     ) {
-            ComposerControlGroup {
+        ComposerVoiceControls(voice = voice, controls = {
+            ComposerControlGroup(voice = voice) {
                 AttachmentAddMenu(
                     enabled = !submission.isFrozen,
                     onCamera = {
@@ -460,10 +498,6 @@ internal fun ChatBottomBar(
                     },
                     onFiles = { pendingFileOwnerId = composerOwnerId; fileLauncher.launch("*/*") },
                 )
-                ComposerMicButton(
-                    textFieldState = textFieldState,
-                    enabled = !submission.isFrozen,
-                )
                 liveVoiceButton()
                 val activeMenuState = remember { mutableStateOf<String?>(null) }
                 var activeMenu by activeMenuState
@@ -477,7 +511,7 @@ internal fun ChatBottomBar(
                 )
                 val capabilityControlsEnabled = !lowContextModeEnabled
                 val displayText = when {
-                    isModelValid -> modelDisplayName(selectedModel, modelAliases, customProviders, modelProviderNames[selectedModel] != false)
+                    isModelValid -> modelDisplayName(selectedModel, modelAliases, customProviders, modelProviderNameShown(selectedModel, modelProviderNames))
                     enabledModels.isNotEmpty() -> stringResource(R.string.select_model)
                     else -> stringResource(R.string.no_model_selected)
                 }
@@ -508,12 +542,21 @@ internal fun ChatBottomBar(
                             enabled = false
                         )
                     } else {
-                        // Grouped by provider, then alphabetical. enabledModels is a Set whose
-                        // iteration order is insertion order (i.e. whenever each model was
-                        // enabled), which scrambles providers together in the picker.
-                        val sortedModels = remember(enabledModels, customProviders) {
+                        // Grouped by provider in the user's Provider list order, then
+                        // alphabetical. enabledModels is a Set whose iteration order is insertion
+                        // order (i.e. whenever each model was enabled), which scrambles providers.
+                        val sortedModels = remember(enabledModels, customProviders, providerOrder) {
+                            val positions = providerOrder.withIndex().associate { (index, name) -> name to index }
                             enabledModels.sortedWith(
                                 compareBy(
+                                    {
+                                        positions[
+                                            providerDisplayName(
+                                                com.newoether.agora.model.ModelId.parse(it).providerName,
+                                                customProviders,
+                                            )
+                                        ] ?: Int.MAX_VALUE
+                                    },
                                     {
                                         providerDisplayName(
                                             com.newoether.agora.model.ModelId.parse(it).providerName,
@@ -526,7 +569,7 @@ internal fun ChatBottomBar(
                         }
                         sortedModels.forEach { model ->
                             ComposerModelMenuItem(
-                                displayText = modelDisplayName(model, modelAliases, customProviders, modelProviderNames[model] != false),
+                                displayText = modelDisplayName(model, modelAliases, customProviders, modelProviderNameShown(model, modelProviderNames)),
                                 selected = model == selectedModel,
                                 onClick = {
                                     haptics.selection()
@@ -575,7 +618,7 @@ internal fun ChatBottomBar(
                         }, 
                         modifier = Modifier.size(32.dp).menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                     ) {
-                        Icon(Icons.Default.MoreVert, stringResource(R.string.tools), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Rounded.MoreVert, stringResource(R.string.tools), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     
                     AgoraExposedDropdownMenu(
@@ -622,14 +665,20 @@ internal fun ChatBottomBar(
                             showShell = showShell,
                             shellEnabled = shellEnabled,
                             onShellToggle = onShellToggle,
+                            toolControlsEnabled = !selectedModelToolIncapable,
                             canCompact = canCompact,
                             isCompacting = isCompacting,
                             onCompactClick = onCompactClick,
                             onAdvancedClick = onAdvancedClick,
+                            onToolsClick = onToolsClick,
                         )
                     }
                 }
             }
+        }) {
+            // While recording, send stops capture, transcribes into the draft and submits it;
+            // submit() queues behind a running generation instead of interrupting it. The voice
+            // state rides into the same button call so its colours fade instead of snapping.
             ComposerSendButton(
                 textFieldState = textFieldState,
                 ownerId = composerOwnerId,
@@ -644,7 +693,23 @@ internal fun ChatBottomBar(
                 onSendQueued = onSendQueuedNow,
                 onStopGeneration = onStopGeneration,
                 onCollapse = onCollapse,
+                voiceAction = voice?.takeIf { it.active }?.let { active ->
+                    ComposerVoiceSendAction(
+                        isActionable = active.phase == ComposerVoicePhase.RECORDING && voiceCanSend,
+                        isBusy = active.sendPending,
+                        onClick = {
+                            active.finishAndSend {
+                                submissionController.submit(
+                                    ownerId = composerOwnerId,
+                                    text = textFieldState.text.toString(),
+                                    attachmentIds = latestSnapshot.attachments.map { it.localId },
+                                )
+                            }
+                        },
+                    )
+                },
             )
+        }
     }
 
     ChatBottomBarOverlayHost(

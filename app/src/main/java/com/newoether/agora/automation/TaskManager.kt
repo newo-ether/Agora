@@ -247,13 +247,16 @@ class TaskManager(
         taskRepository.deleteTask(task.id)
     }
 
-    fun nextRunFor(task: TaskEntity, now: Long): Long = when {
-        !task.enabled -> 0L
-        // One-shot: its instant IS the next run, and only while still in the future. Returning 0
-        // once it has passed is what retires the task after it fires (see finishScheduledRun).
-        task.runAt != null -> task.runAt.takeIf { it > now } ?: 0L
-        task.cronExpr.isNotBlank() -> CronExpression.parse(task.cronExpr)?.next(now) ?: 0L
-        else -> 0L
+    fun nextRunFor(task: TaskEntity, now: Long): Long {
+        if (!task.enabled) return 0L
+        val runAt = task.runAt
+        return when {
+            // One-shot: its instant IS the next run, and only while still in the future. Returning 0
+            // once it has passed is what retires the task after it fires (see finishScheduledRun).
+            runAt != null -> runAt.takeIf { it > now } ?: 0L
+            task.cronExpr.isNotBlank() -> CronExpression.parse(task.cronExpr)?.next(now) ?: 0L
+            else -> 0L
+        }
     }
 
     /** Starts one exclusive manual run. A second tap while queued/running is ignored. */
@@ -485,11 +488,11 @@ class TaskManager(
      * process-interrupted attempts are terminal for this occurrence.
      */
     private suspend fun recoverExistingExecution(existing: ChatEntity): ExecutionResult? {
-        val recoverySnapshot = conversationRepository.withProviderContextSnapshot {
+        val recoverySnapshot = conversationRepository.withReadSnapshot { reader ->
             val topology =
-                conversationRepository.getProviderContextTopologySnapshot(existing.id)
-                    ?: return@withProviderContextSnapshot null
-            if (topology.messages.isEmpty()) return@withProviderContextSnapshot null
+                reader.getProviderContextTopologySnapshot(existing.id)
+                    ?: return@withReadSnapshot null
+            if (topology.messages.isEmpty()) return@withReadSnapshot null
             val assistantId = topology.messages
                 .asSequence()
                 .filter {
@@ -498,7 +501,7 @@ class TaskManager(
                 .filterNot { isSyntheticToolMessageId(it.id) }
                 .maxByOrNull { it.timestamp }
                 ?.id
-            topology to assistantId?.let { conversationRepository.getMessage(it) }
+            topology to assistantId?.let { reader.getMessage(it) }
         } ?: return null
         val (topology, assistant) = recoverySnapshot
         return when (assistant?.status) {

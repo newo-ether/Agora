@@ -34,6 +34,7 @@ internal class HeadlessCompactPipeline(
     /** Decides whether a context compact is needed and performs it. */
     val compactor = ContextCompactor(
         conversations = conversations,
+        appContext = appContext,
         generationErrorFormatter = { raw ->
             normalizePersistedGenerationErrorText(appContext, raw)
         },

@@ -19,34 +19,6 @@ data class ApiKeyEntry(
     val provider: String = Constants.PROVIDER_GOOGLE
 )
 
-const val SSH_AUTH_PASSWORD = "password"
-const val SSH_AUTH_PRIVATE_KEY = "private_key"
-@Serializable
-data class ShellDeviceConfig(
-    val id: String = UUID.randomUUID().toString(),
-    val name: String,
-    val description: String = "",
-    val type: String = "conch",          // "conch" | "ssh"
-    // Conch fields (type=conch)
-    val serverUrl: String = "",
-    val apiKey: String = "",
-    val conchPublicKey: String = "",
-    // SSH fields (type=ssh)
-    val sshHost: String = "",
-    val sshPort: Int = 22,
-    val sshUser: String = "root",
-    val sshPassword: String = "",
-    // Optional private-key auth (PEM). When set, used in addition to / instead of the password.
-    // sshKeyPassphrase decrypts an encrypted key; blank for an unencrypted key.
-    val sshAuthMode: String = SSH_AUTH_PASSWORD,
-    val sshPrivateKey: String = "",
-    val sshPrivateKeyName: String = "",
-    val sshKeyPassphrase: String = "",
-    // Pinned SSH host key (base64 of the server public-key blob). Blank = not yet
-    // pinned (trust-on-first-use); once set, connections must match or are rejected.
-    val sshHostKey: String = ""
-)
-
 @Serializable
 enum class McpTransportType {
     @SerialName("streamable_http")
@@ -79,6 +51,8 @@ data class SystemPromptEntry(
     // Legacy fields retained only so prompts saved before structured message templates deserialize.
     val userPrependItems: List<PromptTemplateItem> = emptyList(),
     val userPostpendItems: List<PromptTemplateItem> = emptyList(),
+    /** Completed built-in migration revision; absent legacy JSON starts at zero. Never prompt text. */
+    val builtInMigrationVersion: Int = 0,
 ) {
     val resolvedSystemItems: List<PromptTemplateItem>
         get() = if (systemItems.isNotEmpty()) systemItems
@@ -99,11 +73,11 @@ data class SystemPromptEntry(
 }
 
 internal val WEB_SEARCH_PROVIDERS = setOf(
-    "duckduckgo", "brave", "kagi", "serper", "tavily", "searxng",
+    "duckduckgo", "brave", "kagi", "serper", "tavily", "exa", "searxng",
 )
 
 internal fun normalizeWebSearchProvider(provider: String?): String =
-    provider?.trim()?.lowercase()?.takeIf(WEB_SEARCH_PROVIDERS::contains) ?: "duckduckgo"
+    provider?.trim()?.lowercase()?.takeIf(WEB_SEARCH_PROVIDERS::contains) ?: "exa"
 
 internal fun decodeWebSearchApiKeys(preferences: Preferences, json: Json): Map<String, String> {
     val raw = SecretCrypto.decrypt(preferences[WEB_SEARCH_API_KEYS_JSON] ?: "{}")
@@ -163,6 +137,8 @@ data class ConversationSettings(
     val webSearchEnabled: Boolean? = null,
     val shellEnabled: Boolean? = null,
     val lowContextModeEnabled: Boolean? = null,
+    /** Tool groups this conversation hides from the model. Null means every group stays on. */
+    val disabledToolGroups: Set<String>? = null,
 ) {
     fun isAllNull() = contextWindow == null && temperature == null && maxTokens == null && topP == null
         && frequencyPenalty == null && presencePenalty == null
@@ -171,5 +147,5 @@ data class ConversationSettings(
         && thinkingLevel == null && thinkingBudgetEnabled == null && thinkingBudgetTokens == null
         && openAiServiceTierEnabled == null && openAiServiceTier == null
         && webSearchEnabled == null && shellEnabled == null
-        && lowContextModeEnabled == null
+        && lowContextModeEnabled == null && disabledToolGroups == null
 }

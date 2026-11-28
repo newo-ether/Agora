@@ -84,7 +84,7 @@
     <string name="prompts_template_blank">Пустой</string>
     <string name="prompts_template_blank_desc">Начать с пустого редактируемого системного промпта.</string>
     <string name="prompts_template_default">По умолчанию</string>
-    <string name="prompts_template_default_desc">Использовать промпт Agora по умолчанию с контекстом выполнения, памятью, веб-поиском, shell и правилами доступа к файлам устройства.</string>
+    <string name="prompts_template_default_desc">Использовать стандартные правила ответов Agora, рекомендации для инструментов, каталог навыков и активную память.</string>
     <string name="prompts_duplicate">Дублировать</string>
     <string name="prompts_duplicate_title">Копия %1$s</string>
     <string name="prompts_empty_preview">Пустой промпт</string>
@@ -164,6 +164,11 @@
     <string name="default_thinking">Размышление по умолчанию</string>
     <string name="gen_thinking_enabled">Размышление</string>
     <string name="gen_thinking_enabled_desc">Включить способность модели к размышлению/рассуждению</string>
+    <string name="replay_reasoning_in_history">Повторять рассуждения в истории</string>
+    <string name="replay_reasoning_in_history_desc">Отправлять reasoning_content в каждом сообщении ассистента; модели, требующие это поле, принимают пустое значение</string>
+    <string name="attachments_group_title">Вложения</string>
+    <string name="attachment_sandbox_link">Ссылки на файлы в песочнице</string>
+    <string name="attachment_sandbox_link_desc">Прикреплять файлы ссылками на песочницу, когда она доступна, иначе встраивать содержимое; выкл.: всегда встраивать</string>
     <string name="gen_thinking_level">Уровень размышления</string>
     <string name="gen_thinking_level_desc">Управляет глубиной размышления; выше = более тщательное рассуждение</string>
     <string name="gen_thinking_level_low">Низкий</string>
@@ -200,12 +205,10 @@
     <string name="tool_call_display_mode">Блоки размышлений и инструментов</string>
     <string name="tool_call_display_mode_timeline">Хронология</string>
     <string name="tool_call_display_mode_grouped_timeline">Сгруппировано</string>
-    <string name="tool_call_display_mode_compact">Компактно</string>
     <string name="tool_call_display_mode_timeline_desc">Показывать ответ, размышления и блоки инструментов в хронологическом порядке</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">Сохранять хронологию, но объединять соседние блоки размышлений, инструментов и изображений</string>
     <string name="auto_expand_active_group">Автоматически раскрывать активную группу</string>
     <string name="auto_expand_active_group_desc">Автоматически раскрывает текущую группу размышлений и инструментов и сворачивает её, когда модель продолжает.</string>
-    <string name="tool_call_display_mode_compact_desc">Группировать блоки размышлений и инструментов над ответом</string>
     <string name="interaction_feedback">Обратная связь взаимодействия</string>
     <string name="stick_to_bottom">Оставаться внизу</string>
     <string name="stick_to_bottom_desc">Автоматически следить за новым содержимым во время создания ответа.</string>
@@ -220,11 +223,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">API поиска с упором на конфиденциальность. Доступен бесплатный тариф.</string>
     <string name="web_search_serper_desc">Быстрый API Google Search. 2 500 бесплатных запросов в месяц.</string>
     <string name="web_search_tavily_desc">API поиска, оптимизированный для ИИ. Создан для LLM-агентов.</string>
+    <string name="web_search_exa_desc">Нейронный поиск с выдержками со страниц. Работает без ключа через публичный MCP-эндпоинт Exa.</string>
     <string name="web_search_searxng_desc">Самостоятельно размещаемый метапоисковик. Лучше использовать со своим экземпляром.</string>
     <string name="web_search_duckduckgo_desc">Бесплатно, без API-ключа. Веб-скрапинг lite.duckduckgo.com. Может быть нестабильным и вызывать защиту от ботов.</string>
     <string name="web_search_select_provider">Выбрать провайдера поиска</string>
@@ -233,7 +238,9 @@
     <string name="web_search_serper_key">API-ключ Serper</string>
     <string name="web_search_serper_key_hint">API-ключ с serper.dev</string>
     <string name="web_search_tavily_key">API-ключ Tavily</string>
+    <string name="web_search_exa_key">Ключ API Exa (необязательно)</string>
     <string name="web_search_tavily_key_hint">API-ключ с tavily.com</string>
+    <string name="web_search_exa_key_hint">Необязательно. Оставьте пустым, чтобы использовать публичный эндпоинт Exa без ключа.</string>
     <string name="web_search_num_results">Макс. результатов</string>
     <string name="web_search_num_results_desc">Количество получаемых результатов: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Публичные экземпляры часто имеют ограничения по частоте. Для надёжной работы рекомендуется собственный хостинг.</string>
@@ -271,7 +278,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Локальная песочница</string>
     <string name="sandbox_enable">Включить локальную песочницу</string>
-    <string name="sandbox_enable_desc">Выполнять команды в изолированном Alpine Linux на устройстве</string>
+    <string name="sandbox_enable_desc">Выполнять команды в изолированном окружении Linux на устройстве</string>
     <string name="shell_device_host">SSH-хост</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Порт</string>
@@ -297,12 +304,12 @@
     <string name="sandbox_package_name">Имя пакета</string>
     <string name="sandbox_quick_install">Быстрая установка</string>
     <string name="sandbox_installed">Установленные пакеты</string>
-    <string name="sandbox_no_packages">Пакеты не установлены. Только база Alpine.</string>
+    <string name="sandbox_no_packages">Нет установленных пакетов для отображения.</string>
     <string name="sandbox_danger_zone">Опасная зона</string>
     <string name="sandbox_reset">Сбросить окружение</string>
     <string name="sandbox_reset_title">Сбросить окружение?</string>
-    <string name="sandbox_reset_desc">Удалить rootfs Alpine и все пакеты</string>
-    <string name="sandbox_reset_confirm">Это удалит rootfs Alpine Linux и все установленные пакеты. Это действие нельзя отменить.</string>
+    <string name="sandbox_reset_desc">Удалить выбранную систему Linux и установленные в ней пакеты</string>
+    <string name="sandbox_reset_confirm">Выбранная система Linux и установленные в ней пакеты будут удалены. Файлы общего домашнего каталога и другие дистрибутивы сохранятся. Это действие нельзя отменить.</string>
     <string name="sandbox_not_supported">Локальная песочница не поддерживается</string>
     <string name="sandbox_snackbar_installed">%s установлен</string>
     <string name="sandbox_snackbar_install_failed">Не удалось установить %s</string>
@@ -316,14 +323,24 @@
     <string name="sandbox_snackbar_error">Ошибка: %s</string>
     <string name="sandbox_not_supported_desc">Эта функция недоступна в текущей сборке</string>
     <string name="sandbox_not_installed">Не установлено</string>
-    <string name="sandbox_extracting_rootfs">Извлечение rootfs Alpine...</string>
-    <string name="sandbox_downloading_rootfs">Загрузка rootfs Alpine… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Распаковка системы Linux...</string>
+    <string name="sandbox_downloading_rootfs">Загрузка системы Linux… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Загрузка системы Linux…</string>
+    <string name="sandbox_verifying_rootfs">Проверка загрузки…</string>
+    <string name="sandbox_validating_rootfs">Проверка системы Linux…</string>
+    <string name="sandbox_preparing_rootfs">Подготовка…</string>
+    <string name="sandbox_mirror">Источник пакетов</string>
+    <string name="sandbox_mirror_desc">Загружать систему Linux и пакеты из этого источника</string>
+    <string name="sandbox_mirror_official">Официальный</string>
+    <string name="sandbox_mirror_tuna">Зеркало Китая (TUNA)</string>
+    <string name="sandbox_mirror_applied">Источники пакетов обновлены</string>
+    <string name="sandbox_mirror_failed">Не удалось обновить источники пакетов</string>
     <string name="sandbox_install_failed">Не удалось установить</string>
     <string name="sandbox_installed_label">Установлено</string>
     <string name="sandbox_failed_label">Ошибка</string>
     <string name="sandbox_dashboard_summary">Установлено пакетов: %d · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d МБ / 2 ГБ</string>
-    <string name="sandbox_disk_usage_gb">~%.1f ГБ / 2 ГБ</string>
+    <string name="sandbox_disk_usage_mb">~%d МБ</string>
+    <string name="sandbox_disk_usage_gb">~%.1f ГБ</string>
     <string name="sandbox_remove_pkg_title">Удалить %s?</string>
     <string name="sandbox_remove_pkg_desc">Удалить %s из песочницы? Это освободит место на диске.</string>
     <string name="sandbox_remove_content_desc">Удалить пакет</string>
@@ -468,6 +485,17 @@
     <string name="provider_cache_desc">Запрашивать кэширование промптов; кэш ретранслятора независим</string>
     <string name="provider_cache_duration">Срок хранения кэша</string>
     <string name="provider_cache_duration_desc">Как долго можно повторно использовать кэшированные промпты</string>
+    <string name="provider_save_failed">Не удалось сохранить настройки провайдера</string>
+    <string name="provider_custom_entry_desc">Эндпоинт, совместимый с OpenAI, Anthropic или Google</string>
+    <string name="provider_remove_title">Убрать %1$s?</string>
+    <string name="provider_remove_text">Настройки сохранятся. Добавьте провайдера снова, чтобы восстановить их.</string>
+    <string name="provider_remove">Убрать</string>
+    <string name="provider_search_hint">Поиск провайдеров</string>
+    <string name="provider_custom_entry">Свой провайдер</string>
+    <string name="provider_add_no_match">Нет подходящих провайдеров</string>
+    <string name="provider_added">Добавлен</string>
+    <string name="provider_list_empty">Провайдеров пока нет</string>
+    <string name="provider_reorder">Изменить порядок</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Сеть</string>
     <string name="settings_proxy">Прокси</string>
@@ -540,6 +568,6 @@
     <string name="install_guide_help">Справка</string>
     <string name="install_guide_open_terminal">Откройте терминал</string>
     <string name="install_guide_run_command">Скопируйте и выполните команду</string>
-    <string name="conch_guide_finish">Вернитесь в раздел добавления устройства. Введите адрес службы и ключ API из установщика, задайте имя и сохраните.</string>
-    <string name="filo_guide_finish">По запросу выберите учётную запись Windows нативного клиента. Вернитесь к добавлению устройства, введите доступный URL службы и токен доступа и сохраните. localhost работает только на самом компьютере.</string>
+    <string name="conch_guide_finish">Добавьте устройство, указав адрес службы и ключ API из установщика.</string>
+    <string name="filo_guide_finish">По запросу выберите учётную запись Windows и источники. Затем добавьте устройство, указав URL службы и токен доступа из установщика.</string>
 </resources>

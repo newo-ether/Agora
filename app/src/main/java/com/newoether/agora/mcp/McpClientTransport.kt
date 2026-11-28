@@ -12,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -50,6 +51,7 @@ internal interface McpClientTransport : AutoCloseable {
         envelope: JsonObject,
         expectResponse: Boolean,
         callTimeoutMillis: Long,
+        progress: com.newoether.agora.util.NetworkRequestProgress? = null,
     ): JsonObject?
 
     fun resetSession()
@@ -190,6 +192,9 @@ private class StreamableHttpMcpTransport(
     private val sessionGeneration = AtomicLong(0)
     private val activeCalls = ConcurrentHashMap.newKeySet<Call>()
     private val client = HttpClient.client.newBuilder()
+        .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .callTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(Constants.NETWORK_CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         .readTimeout(Constants.TOOL_EXECUTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
@@ -211,6 +216,7 @@ private class StreamableHttpMcpTransport(
         envelope: JsonObject,
         expectResponse: Boolean,
         callTimeoutMillis: Long,
+        progress: com.newoether.agora.util.NetworkRequestProgress?,
     ): JsonObject? {
         check(!closed) { "MCP transport is closed" }
         guardMcpCredentials(endpoint.toString(), headers)
@@ -222,6 +228,7 @@ private class StreamableHttpMcpTransport(
             .applyMcpHeaders(headers)
             .apply { sessionId?.let { header("Mcp-Session-Id", it) } }
             .post(envelope.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .tag(com.newoether.agora.util.NetworkRequestProgress::class.java, progress)
             .build()
         val call = client.newCall(request).also {
             it.timeout().timeout(callTimeoutMillis, TimeUnit.MILLISECONDS)
@@ -304,12 +311,18 @@ private class LegacySseMcpTransport(
     private val stateLock = Any()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val streamClient = HttpClient.client.newBuilder()
+        .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .callTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(Constants.NETWORK_CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .writeTimeout(Constants.NETWORK_CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         .build()
     private val postClient = HttpClient.client.newBuilder()
+        .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .callTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(Constants.NETWORK_CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         .readTimeout(Constants.TOOL_EXECUTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
@@ -327,6 +340,7 @@ private class LegacySseMcpTransport(
         envelope: JsonObject,
         expectResponse: Boolean,
         callTimeoutMillis: Long,
+        progress: com.newoether.agora.util.NetworkRequestProgress?,
     ): JsonObject? {
         val ready = awaitReadyConnection()
         val requestId = (envelope["id"] as? JsonPrimitive)?.contentOrNull
@@ -354,6 +368,7 @@ private class LegacySseMcpTransport(
                 endpoint = ready.messageEndpoint,
                 envelope = envelope,
                 callTimeoutMillis = callTimeoutMillis,
+                progress = progress,
             )
             if (!expectResponse) return null
             if (directResponse != null) {
@@ -365,7 +380,8 @@ private class LegacySseMcpTransport(
                     checkNotNull(pending).await()
                 }
             } catch (error: TimeoutCancellationException) {
-                throw IOException("MCP SSE request timed out", error)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                throw java.net.SocketTimeoutException("MCP SSE request timed out")
             }
         } finally {
             if (requestId != null) {
@@ -414,7 +430,8 @@ private class LegacySseMcpTransport(
                 selected.messageEndpoint.await()
             }
         } catch (error: TimeoutCancellationException) {
-            val failure = IOException("MCP SSE endpoint timed out", error)
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            val failure = java.net.SocketTimeoutException("MCP SSE endpoint timed out")
             invalidateConnection(failure, expected = selected)
             throw failure
         } catch (error: Throwable) {
@@ -521,6 +538,7 @@ private class LegacySseMcpTransport(
         endpoint: HttpUrl,
         envelope: JsonObject,
         callTimeoutMillis: Long,
+        progress: com.newoether.agora.util.NetworkRequestProgress?,
     ): JsonObject? {
         guardMcpCredentials(endpoint.toString(), headers)
         val request = Request.Builder()
@@ -530,6 +548,7 @@ private class LegacySseMcpTransport(
             .header("MCP-Protocol-Version", protocolVersion)
             .applyMcpHeaders(headers)
             .post(envelope.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .tag(com.newoether.agora.util.NetworkRequestProgress::class.java, progress)
             .build()
         val call = postClient.newCall(request).also {
             it.timeout().timeout(callTimeoutMillis, TimeUnit.MILLISECONDS)
@@ -687,12 +706,18 @@ private fun parseFiniteSseResponse(source: BufferedSource, json: Json): JsonObje
             return parsed
         }
     }
-    throw IOException("MCP SSE stream ended before a JSON-RPC response")
+    throw java.io.EOFException("MCP SSE stream ended before a JSON-RPC response")
 }
 
 private fun mcpHttpException(response: Response): IOException {
-    val body = response.body?.string().orEmpty().take(2_048)
-    return IOException(
+    val body = try {
+        response.body?.string().orEmpty().take(2_048)
+    } catch (failure: Exception) {
+        com.newoether.agora.util.NetworkRetryPolicy.throwIfCancelled(failure)
+        "Response body could not be read"
+    }
+    return com.newoether.agora.util.NetworkHttpException(
+        response.code, response.header("Retry-After"),
         "MCP HTTP ${response.code}${body.takeIf(String::isNotBlank)?.let { ": $it" }.orEmpty()}",
     )
 }

@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { readWebUiStyles } from "./webui-test-sources.mjs";
 import { Fragment, h } from "../../main/assets/webui/vendor/preact.mjs";
 import htm from "../../main/assets/webui/vendor/htm.mjs";
 
 const root = new URL("../../main/assets/webui/", import.meta.url);
-const source = name => fs.readFileSync(new URL(name, root), "utf8");
+const source = name => fs.readFileSync(new URL(name, root), "utf8").replaceAll("\r\n", "\n");
 
 test("the production shell consumes the continuous message inset through its single measurement owner", () => {
   const code = source("shell.js");
@@ -61,7 +62,7 @@ test("the production shell consumes the continuous message inset through its sin
 });
 
 test("the full-height message viewport reserves tools clearance instead of cancelling it with its flex margin", () => {
-  const css = source("style.css");
+  const css = readWebUiStyles();
   const messages = css.match(/\.messages\s*\{([^}]+)\}/)[1];
   const column = css.match(/\.message-column\s*\{([^}]+)\}/)[1];
   const margin = messages.match(/margin-bottom:\s*([^;]+);/)[1];
@@ -124,7 +125,7 @@ test("Interaction resize uses live viewport geometry before the row publishes it
 });
 
 test("Todo keeps the shared detail bottom safe-area spacing and literal selectable content", () => {
-  const css = source("style.css"), todo = source("todo.js");
+  const css = readWebUiStyles(), todo = source("todo.js");
   assert.match(css, /\.todo-list\s*\{\s*padding:\s*4px 24px calc\(32px \+ env\(safe-area-inset-bottom\)\);\s*\}/);
   assert.match(css, /\.todo-content\s*\{[^}]*user-select:\s*text/);
   assert.match(todo, /role="listitem"/);

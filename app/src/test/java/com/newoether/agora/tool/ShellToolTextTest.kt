@@ -116,7 +116,7 @@ class ShellToolTextTest {
     fun tailLinesKeepsOnlyTheLastLinesForTheModel() {
         val json = """{"type":"execute_shell_command","server":"S","exit_code":0,"output":"1\n2\n3\n4\n"}"""
         assertEquals(
-            "server: S\nexit_code: 0\noutput_tail_lines: last 2 of 4\n\n3\n4",
+            "server: S\nexit_code: 0\noutput_tail_lines: last 2 of 4\noutput_omitted_lines: 2\n\n... (2 lines omitted) ...\n3\n4",
             shellToolModelText("execute_shell_command", json, tailLines = 2),
         )
         // file_read ignores tail_lines.
@@ -124,6 +124,22 @@ class ShellToolTextTest {
         assertEquals("path: /a\n\n1\n2\n3\n", shellToolModelText("file_read", read, tailLines = 1))
         assertEquals(2, parseTailLines("""{"tail_lines":2}"""))
         assertNull(parseTailLines("""{"tail_lines":0}"""))
+    }
+
+    @Test
+    fun headAndTailSelectBothEndsWithoutDuplicatingOverlapOrChangingStructuredOutput() {
+        val json = """{"output":"1\n2\n3\n4\n5\n"}"""
+        val both = shellToolModelText("shell_exec", json, tailLines = 1, headLines = 2)!!
+        assertTrue(both.endsWith("1\n2\n... (2 lines omitted) ...\n5"))
+        assertTrue(both.contains("output_omitted_lines: 2"))
+        assertEquals("1\n2\n3\n4\n5\n", shellToolModelText("shell_exec", json, tailLines = 4, headLines = 4))
+        assertTrue(shellToolModelText("shell_job_get", json, headLines = 2)!!.endsWith("1\n2\n... (3 lines omitted) ..."))
+        assertEquals("1\n2\n3\n4\n5\n", shellToolModelText("shell_exec", json, tailLines = Int.MAX_VALUE, headLines = Int.MAX_VALUE))
+        val result = shellModelFacingResult("shell_exec", """{"head_lines":1,"tail_lines":1}""", ToolExecutionResult(text = json))
+        assertEquals(json, result.structuredContent)
+        assertTrue(result.text.endsWith("1\n... (3 lines omitted) ...\n5"))
+        assertEquals(2, parseHeadLines("""{"head_lines":2}"""))
+        assertNull(parseHeadLines("""{"head_lines":-1}"""))
     }
 
     @Test

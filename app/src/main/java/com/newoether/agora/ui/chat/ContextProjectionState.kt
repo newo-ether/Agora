@@ -5,7 +5,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.newoether.agora.viewmodel.ChatViewModel
 
-/** Every value capable of changing fixed system-prompt or tool-definition token cost. */
+/** Values capable of changing the request's image projection, prompt or tool-definition token cost. */
 @Composable
 internal fun rememberContextProjectionInvalidationKey(
     viewModel: ChatViewModel,
@@ -25,9 +25,11 @@ internal fun rememberContextProjectionInvalidationKey(
     val automationToolsEnabled by settings.automationToolsEnabled.collectAsState()
     val todoEnabled by settings.todoEnabled.collectAsState()
     val subagentToolsEnabled by settings.subagentToolsEnabled.collectAsState()
+    val subagentDeleteEnabled by settings.subagentDeleteEnabled.collectAsState()
     val enabledModels by settings.enabledModels.collectAsState()
     val subagentEnabledModels by settings.subagentEnabledModels.collectAsState()
     val subagentRecommendedModel by settings.subagentRecommendedModel.collectAsState()
+    val phoneUse by settings.phoneUse.collectAsState()
     val sandboxEnabled by settings.sandboxEnabled.collectAsState()
     val sandboxSharedStorageEnabled by settings.sandboxSharedStorageEnabled.collectAsState()
     val mcpServers by viewModel.mcpServerSnapshots.collectAsState()
@@ -47,9 +49,11 @@ internal fun rememberContextProjectionInvalidationKey(
         automationToolsEnabled,
         todoEnabled,
         subagentToolsEnabled,
+        subagentDeleteEnabled,
         enabledModels,
         subagentEnabledModels,
         subagentRecommendedModel,
+        phoneUse,
         sandboxEnabled,
         sandboxSharedStorageEnabled,
         mcpServers,

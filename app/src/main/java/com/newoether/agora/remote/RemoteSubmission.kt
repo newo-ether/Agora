@@ -28,14 +28,12 @@ internal class RemoteSubmission(
             settingsConflict(snapshot) || !snapshot.canSend) return
         val owner = snapshot.owner ?: return
         val client = clientFor(snapshot) ?: return
-        if (!snapshot.selectedAdapter.legacy && !snapshot.isDraft && (snapshot.runtime == null || snapshot.runtime.status !in
-            setOf("idle", "active", "running", "ready"))) return
         val text = snapshot.drafts[owner].orEmpty()
         val attachments = snapshot.attachments[owner].orEmpty()
         val previous = snapshot.attempts[owner]
         if ((text.isBlank() && attachments.isEmpty()) || previous?.delivery in
             setOf(RemoteDelivery.SUBMITTING, RemoteDelivery.ACCEPTED) ||
-            previous?.delivery == RemoteDelivery.UNKNOWN && previous.accessKey != snapshot.attemptAccessKey) return
+            previous?.delivery == RemoteDelivery.UNKNOWN && (previous.receiptKind == "submitted_observed" || previous.accessKey != snapshot.attemptAccessKey)) return
         if (snapshot.isDraft && snapshot.capabilities.models && snapshot.settingsModel == null) {
             report("models_failed", FiloInputException(), true)
             return
@@ -47,7 +45,8 @@ internal class RemoteSubmission(
         }
         val selected = selectionEpoch()
         val attempt = RemoteAttempt(UUID.randomUUID().toString(), text, RemoteDelivery.SUBMITTING,
-            accessKey = snapshot.attemptAccessKey)
+            accessKey = snapshot.attemptAccessKey,
+            receiptKind = if (snapshot.selectedAdapter.family == "claude" && !snapshot.isDraft) "submitted_observed" else "")
         mutableState.value = snapshot.copy(attempts = snapshot.attempts + (owner to attempt))
         scope.launch {
             var uploadComplete = false
@@ -57,6 +56,7 @@ internal class RemoteSubmission(
                 uploadComplete = true
                 if (!sameSource(snapshot, client)) throw FiloInputException()
                 var acceptedTurnId: String?
+                var sendReceipt: RemoteSendReceipt? = null
                 if (snapshot.isDraft) {
                     val settings = snapshot.settingsModel?.let {
                         RemoteSettings(it.id, snapshot.selectedEffort, snapshot.selectedServiceTier,
@@ -82,14 +82,18 @@ internal class RemoteSubmission(
                     }
                 } else {
                     // Navigation never transfers an admitted write to a different native route.
-                    acceptedTurnId = client.send(snapshot.session!!.id, text, attempt.clientId, uploads.map { it.id })
+                    sendReceipt = if (snapshot.selectedAdapter.family == "claude") {
+                        client.sendReceipt(snapshot.session!!.id, text, attempt.clientId, uploads.map { it.id })
+                    } else RemoteSendReceipt(client.send(snapshot.session!!.id, text, attempt.clientId, uploads.map { it.id }), attempt.clientId)
+                    acceptedTurnId = sendReceipt.turnId.takeIf { it.isNotBlank() }
                 }
                 if (!sameSource(snapshot, client)) return@launch
                 val current = mutableState.value.attempts[owner]
                 if (current?.clientId == attempt.clientId && current.delivery == RemoteDelivery.SUBMITTING) {
                     mutableState.value = mutableState.value.copy(attempts = mutableState.value.attempts +
-                        (owner to current.copy(delivery = RemoteDelivery.ACCEPTED, turnId = acceptedTurnId)))
-                    confirm(owner, attempt)
+                        (owner to current.copy(delivery = if (sendReceipt?.state == "unconfirmed") RemoteDelivery.UNKNOWN else RemoteDelivery.ACCEPTED,
+                            turnId = acceptedTurnId, receiptKind = sendReceipt?.kind.orEmpty())))
+                    confirm(owner, attempt, sendReceipt?.let { listOf(RemoteInputReceipt(it.clientId, it.turnId, it.messageId, it.kind, it.state)) }.orEmpty())
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
@@ -116,15 +120,28 @@ internal class RemoteSubmission(
         val current = snapshot.attempts[owner]?.takeIf { it.clientId == attempt.clientId } ?: return
         if (current.delivery == RemoteDelivery.DELIVERED || snapshot.owner != owner ||
             current.accessKey != snapshot.confirmationPath) return
+        val observation = receipts.firstOrNull { it.clientId == current.clientId && it.kind == "submitted_observed" }
+        if (observation != null && observation.state != "observed") {
+            val delivery = when {
+                current.delivery == RemoteDelivery.UNKNOWN && observation.state == "submitted" -> RemoteDelivery.UNKNOWN
+                observation.state == "submitted" -> RemoteDelivery.ACCEPTED
+                observation.state == "rejected" -> RemoteDelivery.REJECTED
+                else -> RemoteDelivery.UNKNOWN
+            }
+            mutableState.value = snapshot.copy(attempts = snapshot.attempts +
+                (owner to current.copy(delivery = delivery, receiptKind = observation.kind)))
+            return
+        }
         val message = snapshot.nodes.firstOrNull { it.role == "user" && it.clientId == attempt.clientId &&
             (current.turnId == null || current.turnId == it.turnId) }
-        val receipt = receipts.firstOrNull { it.clientId == current.clientId && it.turnId.isNotBlank() &&
-            it.messageId.isNotBlank() && (current.turnId == null || current.turnId == it.turnId) }
+        val receipt = receipts.firstOrNull { it.clientId == current.clientId &&
+            (it.kind == "submitted_observed" && it.state == "observed" && (it.turnId.isNotBlank() || it.messageId.isNotBlank()) ||
+                it.kind == "" && it.turnId.isNotBlank() && it.messageId.isNotBlank() && (current.turnId == null || current.turnId == it.turnId)) }
         if (message == null && receipt == null) return
         snapshot.attachments[owner].orEmpty().forEach { attachmentStore?.remove(it) }
         mutableState.value = snapshot.copy(attachments = snapshot.attachments - owner,
             drafts = if (snapshot.drafts[owner] == attempt.text) snapshot.drafts - owner else snapshot.drafts,
-            attempts = snapshot.attempts + (owner to current.copy(delivery = RemoteDelivery.DELIVERED)))
+            attempts = snapshot.attempts + (owner to current.copy(delivery = RemoteDelivery.DELIVERED, receiptKind = receipt?.kind ?: current.receiptKind)))
         val target = message?.let { it.nativeId ?: it.id } ?: snapshot.messageGroups.lastOrNull()?.stub?.id
         if (target != null) scrollRequests.requestAbsoluteBottomAfter(owner, target)
     }

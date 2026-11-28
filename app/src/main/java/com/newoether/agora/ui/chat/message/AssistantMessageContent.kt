@@ -13,13 +13,13 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CallSplit
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -44,7 +44,6 @@ import com.newoether.agora.model.CitationRecord
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
-import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
 import com.newoether.agora.model.citationRecords
 import com.newoether.agora.ui.chat.GenerationActivityDot
@@ -265,7 +264,6 @@ internal fun AssistantMessageContent(
                 }
                 val errorContent = presentation.errorContent
                 val orderedSegments = presentation.orderedSegments
-                val normalizedToolCallDisplayMode = presentation.normalizedToolCallDisplayMode
                 val useThinkingSheet = presentation.useThinkingSheet
                 val groupAdjacentTimelineTools = presentation.groupAdjacentTimelineTools
                 val groupOrderedInfoBlocks = presentation.groupOrderedInfoBlocks
@@ -310,9 +308,7 @@ internal fun AssistantMessageContent(
                         onLayoutMutationSettled = onLayoutMutationSettled,
                         onMediaClick = onMediaClick,
                         opensDetailSheet = useThinkingSheet,
-                        preserveInitialCompactIdentity =
-                            normalizedToolCallDisplayMode == ToolCallDisplayModes.COMPACT ||
-                                useThinkingSheet,
+                        preserveInitialCompactIdentity = useThinkingSheet,
                         onGroupHeaderClick = if (useThinkingSheet) {
                             { indices -> onSegmentSelected(indices, true) }
                         } else {
@@ -324,9 +320,7 @@ internal fun AssistantMessageContent(
                     )
                 }
 
-                // Compact segment block: single block, newest title/icon when collapsed.
-                // Answer segments are timeline anchors only; compact mode still renders
-                // message.text below as the complete answer.
+                // Shared Thinking card for Bottom Sheet and legacy segment presentation.
                 if (compactVisible) {
                     AnimatedTimelineBlockAppearance(
                         animationKey = compactAppearanceKey,
@@ -486,6 +480,8 @@ internal fun AssistantMessageContent(
                         precededByCard = terminalImmediatelyFollowsCard,
                     )
                 }
+            }
+            Column {
                 if (message.participant == Participant.MODEL && message.images.isNotEmpty()) {
                     val genImages = message.images
                     // Generated images are primary output, not input references:
@@ -579,7 +575,7 @@ internal fun AssistantMessageContent(
                                     .graphicsLayer { alpha = informationActionsAlpha },
                             ) {
                                 Icon(
-                                    Icons.Default.ContentCopy,
+                                    Icons.Rounded.ContentCopy,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
                                     tint = enabledActionTint,
@@ -599,7 +595,7 @@ internal fun AssistantMessageContent(
                                 .graphicsLayer { alpha = terminalActionsAlpha },
                         ) {
                             Icon(
-                                Icons.Default.Refresh,
+                                Icons.Rounded.Refresh,
                                 contentDescription = null,
                                 modifier = Modifier.size(19.dp),
                                 tint = terminalActionTint,
@@ -613,7 +609,7 @@ internal fun AssistantMessageContent(
                                 .graphicsLayer { alpha = terminalActionsAlpha },
                         ) {
                             Icon(
-                                Icons.Default.CallSplit,
+                                Icons.Rounded.CallSplit,
                                 contentDescription = stringResource(R.string.conversation_fork_from_here),
                                 modifier = Modifier.size(18.dp),
                                 tint = terminalActionTint,
@@ -627,7 +623,7 @@ internal fun AssistantMessageContent(
                                 .graphicsLayer { alpha = terminalActionsAlpha },
                         ) {
                             Icon(
-                                Icons.Default.Share,
+                                Icons.Rounded.Share,
                                 contentDescription = stringResource(R.string.conversation_share),
                                 modifier = Modifier.size(16.dp),
                                 tint = terminalActionTint,
@@ -644,7 +640,7 @@ internal fun AssistantMessageContent(
                                     .graphicsLayer { alpha = informationActionsAlpha },
                             ) {
                                 Icon(
-                                    Icons.Default.MoreVert,
+                                    Icons.Rounded.MoreVert,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                     tint = enabledActionTint,
@@ -663,7 +659,7 @@ internal fun AssistantMessageContent(
                                         onShowInfo()
                                     },
                                     enabled = actionAvailability.informationEnabled,
-                                    leadingIcon = { Icon(Icons.Default.Info, null) },
+                                    leadingIcon = { Icon(Icons.Rounded.Info, null) },
                                 )
                                 AgoraDropdownMenuItem(
                                     text = {
@@ -681,7 +677,7 @@ internal fun AssistantMessageContent(
                                     enabled = actionAvailability.terminalEnabled,
                                     leadingIcon = {
                                         Icon(
-                                            Icons.Default.Delete,
+                                            Icons.Rounded.Delete,
                                             contentDescription = null,
                                             tint = destructiveActionTint,
                                         )

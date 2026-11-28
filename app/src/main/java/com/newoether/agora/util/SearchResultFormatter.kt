@@ -18,14 +18,15 @@ object SearchResultFormatter {
         return try {
             val type = Json.parseToJsonElement(text).jsonObject["type"]
                 ?.let { (it as? JsonPrimitive)?.content }
+                ?.let(com.newoether.agora.tool.BuiltInToolNames::canonical)
             type == "web_search" ||
-                type == "search_conversations" ||
-                type == "execute_shell_command" ||
-                type == "list_shells" ||
-                type == "list_memory_files" ||
-                type == "list_skill_files" ||
-                type == "list_conversations" ||
-                type == "read_conversation"
+                type == "conversation_search" ||
+                type == "shell_exec" ||
+                type == "shell_list" ||
+                type == "memory_list" ||
+                type == "skill_list" ||
+                type == "conversation_list" ||
+                type == "conversation_read"
         } catch (_: Exception) {
             false
         }
@@ -37,14 +38,14 @@ object SearchResultFormatter {
             val json = Json.parseToJsonElement(text).jsonObject
             val error = json["error"]?.let { (it as? JsonPrimitive)?.content }
             if (error != null) return formatError(json, error, context)
-            when (json["type"]?.let { (it as? JsonPrimitive)?.content }) {
+            when (json["type"]?.let { (it as? JsonPrimitive)?.content }?.let(com.newoether.agora.tool.BuiltInToolNames::canonical)) {
                 "web_search" -> formatWebSearch(json, context)
-                "search_conversations" -> formatConversationSearch(json, context)
-                "list_conversations" -> formatConversationList(json, context)
-                "read_conversation" -> formatConversationRead(json, context)
-                "list_memory_files", "list_skill_files" -> formatMemoryList(json)
-                "list_shells" -> formatShellList(json, context)
-                "execute_shell_command" -> formatShellCommand(json, context)
+                "conversation_search" -> formatConversationSearch(json, context)
+                "conversation_list" -> formatConversationList(json, context)
+                "conversation_read" -> formatConversationRead(json, context)
+                "memory_list", "skill_list" -> formatMemoryList(json)
+                "shell_list" -> formatShellList(json, context)
+                "shell_exec" -> formatShellCommand(json, context)
                 else -> text
             }
         } catch (_: Exception) {

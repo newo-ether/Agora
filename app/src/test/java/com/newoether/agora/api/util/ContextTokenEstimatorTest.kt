@@ -1,5 +1,11 @@
 package com.newoether.agora.api.util
 
+import com.newoether.agora.api.util.tokens.HeuristicPixelImageCost
+import com.newoether.agora.api.util.tokens.ImageDescriptor
+import com.newoether.agora.api.util.tokens.ImageEstimateBasis
+import com.newoether.agora.api.util.tokens.CostModelContextEstimator
+import com.newoether.agora.api.util.tokens.ContextCostModel
+import com.newoether.agora.model.ImageArtifact
 import com.newoether.agora.model.AttachmentItem
 import com.newoether.agora.model.AttachmentMeta
 import com.newoether.agora.model.ChatMessage
@@ -281,45 +287,43 @@ class ContextTokenEstimatorTest {
     }
 
     @Test
-    fun imageCostGrowsWithStoredBytesAndStaysInsideTheBounds() {
-        // 768 bytes per token puts a 768 KiB image at the historical 1024-token figure.
-        assertEquals(300L, ContextTokenEstimator.estimateImageTokens(768L * 300L))
-        assertEquals(1_024L, ContextTokenEstimator.estimateImageTokens(768L * 1_024L))
-        assertEquals(1_400L, ContextTokenEstimator.estimateImageTokens(768L * 1_400L))
-        assertTrue(ContextTokenEstimator.estimateImageTokens(768L * 1_400L) >
-            ContextTokenEstimator.estimateImageTokens(768L * 300L))
-        // Bounds keep one image between a quarter and one and a half of that figure.
-        assertEquals(256L, ContextTokenEstimator.estimateImageTokens(1L))
-        assertEquals(256L, ContextTokenEstimator.estimateImageTokens(768L * 10L))
-        assertEquals(1_536L, ContextTokenEstimator.estimateImageTokens(768L * 1_536L))
-        assertEquals(1_536L, ContextTokenEstimator.estimateImageTokens(Long.MAX_VALUE))
+    fun unpublishedImageCostUsesMeasuredPixelsAndIgnoresEncodedLength() {
+        val small = ImageDescriptor(byteSize = Long.MAX_VALUE, pixelWidth = 512, pixelHeight = 512)
+        val large = ImageDescriptor(byteSize = 1L, pixelWidth = 2_048, pixelHeight = 2_048)
+        assertEquals(256L, ContextTokenEstimator.estimateImageTokens(small))
+        assertEquals(4_096L, ContextTokenEstimator.estimateImageTokens(large))
+        assertEquals(ContextTokenEstimator.estimateImageTokens(small),
+            ContextTokenEstimator.estimateImageTokens(small.copy(byteSize = 1L)))
     }
 
     @Test
-    fun imagesWithoutRecordedBytesFallBackToTheHistoricalFlatEstimate() {
-        assertEquals(1_024L, ContextTokenEstimator.estimateImageTokens(null))
-        assertEquals(1_024L, ContextTokenEstimator.estimateImageTokens(0L))
-        assertEquals(1_024L, ContextTokenEstimator.estimateImageTokens(-4_096L))
+    fun imagesWithoutMeasuredDimensionsRetainMissingProvenance() {
+        val estimator = CostModelContextEstimator(ContextCostModel.Default)
+        listOf(null, 0L, Long.MAX_VALUE).forEach { bytes ->
+            val input = message("u", "look", Participant.USER).copy(
+                images = listOf("legacy.jpg"),
+                attachmentMeta = attachment(type = "image", imageIndex = 0, fileSize = bytes),
+            )
+            val estimate = estimator.imageEstimates(listOf(input)).single()
+            assertEquals(ImageEstimateBasis.MISSING_DIMENSIONS, estimate.basis)
+            assertEquals(HeuristicPixelImageCost.MISSING_DIMENSIONS_RESERVATION, estimate.tokens)
+        }
     }
 
     @Test
-    fun conversationCostTracksStoredImageBytesInsteadOfAFlatPerImageConstant() {
-        val text = "check the screenshots"
-        val noImage = message("u", text, Participant.USER)
-        val thumbnail = message("u", text, Participant.USER).copy(
+    fun conversationCostTracksTheActualArtifactDimensions() {
+        val noImage = message("u", "check the screenshots", Participant.USER)
+        val thumbnail = noImage.copy(
             images = listOf("thumb.jpg"),
-            attachmentMeta = attachment(type = "image", imageIndex = 0, fileSize = 768L * 300L),
+            imageArtifacts = mapOf("thumb.jpg" to artifact("thumb.jpg", 512, 512)),
         )
         val fullResolution = thumbnail.copy(
-            attachmentMeta = attachment(type = "image", imageIndex = 0, fileSize = 768L * 1_400L),
+            imageArtifacts = mapOf("thumb.jpg" to artifact("thumb.jpg", 2_048, 2_048)),
         )
-
-        val withoutImage = ContextTokenEstimator.estimate(listOf(noImage))
-        val small = ContextTokenEstimator.estimate(listOf(thumbnail))
-        val large = ContextTokenEstimator.estimate(listOf(fullResolution))
-
-        assertTrue(small > withoutImage)
-        assertTrue(large > small)
+        assertTrue(ContextTokenEstimator.estimate(listOf(thumbnail)) >
+            ContextTokenEstimator.estimate(listOf(noImage)))
+        assertTrue(ContextTokenEstimator.estimate(listOf(fullResolution)) >
+            ContextTokenEstimator.estimate(listOf(thumbnail)))
     }
 
     @Test
@@ -358,31 +362,26 @@ class ContextTokenEstimatorTest {
         )
     }
     @Test
-    fun oneAttachmentSplitsItsBytesAcrossTheImagesItRenders() {
+    fun oneAttachmentPricesEveryPageUsingItsOwnArtifact() {
+        val first = artifact("page-1.jpg", 256, 256)
+        val second = artifact("page-2.jpg", 512, 512)
+        val third = artifact("page-3.jpg", 1_024, 1_024)
         val pages = message("u", "read the pdf", Participant.USER).copy(
-            images = listOf("page-1.jpg", "page-2.jpg", "page-3.jpg"),
-            attachmentMeta = attachment(
-                type = "pdf",
-                imageIndex = 0,
-                fileSize = 768L * 900L,
-                pageCount = 3,
-            ),
+            images = listOf(first.path, second.path, third.path),
+            attachmentMeta = AttachmentMeta(listOf(AttachmentItem(
+                type = "pdf", imageIndex = 0, fileSize = Long.MAX_VALUE, pageCount = 3,
+                imageArtifacts = listOf(first, second, third),
+            ))),
         )
-        val withoutMeta = pages.copy(attachmentMeta = null)
-
-        // Three recorded pages cost one third of the attachment each instead of three unknown-size
-        // fallbacks, and stay deterministic.
-        assertTrue(ContextTokenEstimator.estimate(listOf(pages)) < ContextTokenEstimator.estimate(listOf(withoutMeta)))
-        assertEquals(
-            ContextTokenEstimator.estimate(listOf(pages)),
-            ContextTokenEstimator.estimate(listOf(pages)),
-        )
+        val estimates = CostModelContextEstimator(ContextCostModel.Default)
+            .imageEstimates(listOf(pages))
+        assertEquals(listOf(64L, 256L, 1_024L), estimates.map { it.tokens })
     }
 
     @Test
     fun imagesOutsideTheUserRoleStayDisplayOnly() {
-        // Every provider adapter serializes images for user rows only, so counting a tool-result
-        // image would charge context that is never sent.
+        // Source tool-protocol rows are text-only; their image occurrence is counted after
+        // projectToolResultImagesToUserMessage supplies the ordinary USER projection.
         val toolResult = message(
             Constants.RESULT_MSG_PREFIX + "1",
             "",
@@ -402,6 +401,11 @@ class ContextTokenEstimatorTest {
             ContextTokenEstimator.estimate(listOf(toolResult)),
         )
     }
+
+    private fun artifact(path: String, width: Int, height: Int) = ImageArtifact(
+        path = path, mimeType = "image/jpeg", sizeBytes = 100L,
+        width = width, height = height,
+    )
 
     private fun attachment(
         type: String,

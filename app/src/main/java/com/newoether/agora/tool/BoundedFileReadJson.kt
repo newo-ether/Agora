@@ -265,8 +265,8 @@ internal suspend fun lineModeFileReadJson(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        return jsonError("file_read", e.message ?: "Read failed", server = server)
-    } ?: return jsonError("file_read", readError ?: "Read failed", server = server)
+        return fileReadErrorJson(server, path, e.message ?: "Read failed")
+    } ?: return fileReadErrorJson(server, path, readError ?: "Read failed")
     return boundedFileLinesJson(server, path, offset.coerceAtLeast(0), startLine, lines)
 }
 

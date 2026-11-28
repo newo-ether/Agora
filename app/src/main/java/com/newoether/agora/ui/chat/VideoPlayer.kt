@@ -9,14 +9,17 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,28 +27,42 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import android.app.Activity
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.newoether.agora.R
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToLong
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoPlayer(
     uri: String,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
-    closing: Boolean = false
+    closing: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
+    onControlsVisibleChange: (Boolean) -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var contentReady by remember { mutableStateOf(false) }
+    var playbackFailed by remember(uri) { mutableStateOf(false) }
     var internalClosing by remember { mutableStateOf(false) }
     val effectiveClosing = closing || internalClosing
     val alpha by animateFloatAsState(
@@ -57,6 +74,12 @@ fun VideoPlayer(
     var currentPositionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
     var controlsVisible by remember { mutableStateOf(true) }
+    // A viewer that draws its own close button and page counter follows this state machine instead
+    //of running a second, independent visibility state.
+    val reportControlsVisible by rememberUpdatedState(onControlsVisibleChange)
+    LaunchedEffect(controlsVisible) { reportControlsVisible(controlsVisible) }
+    var fullscreen by remember { mutableStateOf(false) }
+    VideoFullscreenEffect(fullscreen)
     val scope = rememberCoroutineScope()
     var autoHideJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
@@ -84,7 +107,7 @@ fun VideoPlayer(
 
     val player = remember {
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse(uri)))
+            setMediaItem(MediaItem.fromUri(playableUri(uri)))
             prepare()
             playWhenReady = false
         }
@@ -101,6 +124,11 @@ fun VideoPlayer(
             }
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                // Without this the surface stays at alpha 0 and the dialog is a silent black
+                // rectangle: the reader cannot tell a missing file from a decoding failure.
+                playbackFailed = true
             }
             override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
                 currentPositionMs = new.positionMs.coerceAtLeast(0)
@@ -142,6 +170,25 @@ fun VideoPlayer(
 
     val progress = if (durationMs > 0) currentPositionMs.toFloat() / durationMs else 0f
 
+    if (playbackFailed) {
+        Box(
+            modifier = modifier.fillMaxSize().background(Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = stringResource(R.string.video_playback_failed),
+                    color = Color.White.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                TextButton(onClick = onClose) {
+                    Text(stringResource(R.string.provider_close), color = Color.White)
+                }
+            }
+        }
+        return
+    }
+
     fun formatTime(ms: Long): String {
         val s = (ms / 1000)
         val m = s / 60
@@ -151,17 +198,7 @@ fun VideoPlayer(
 
     Box(modifier = modifier.fillMaxSize()) {
         // Video surface (no built-in controls)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .alpha(alpha)
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() }
-                ) { toggleControls() }
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             AndroidView(
                 factory = { ctx ->
                     (LayoutInflater.from(ctx).inflate(
@@ -175,12 +212,26 @@ fun VideoPlayer(
                 update = { view ->
                     if (view.player !== player) view.player = player
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().alpha(alpha)
+            )
+
+            // PlayerView is an Android view and can consume raw touches, so the tap and long-press
+            // handlers live on a transparent layer above it instead of on the parent box.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { toggleControls() },
+                        onLongClick = onLongPress,
+                        hapticFeedbackEnabled = false,
+                    )
             )
 
             // Central play/pause button (visible when paused or controls shown)
             AnimatedVisibility(
-                visible = !isPlaying || controlsVisible,
+                visible = contentReady && (!isPlaying || controlsVisible),
                 enter = fadeIn(tween(200)),
                 exit = fadeOut(tween(200)),
                 modifier = Modifier.align(Alignment.Center)
@@ -203,7 +254,7 @@ fun VideoPlayer(
                         .background(Color.Black.copy(alpha = 0.4f), CircleShape)
                 ) {
                     Icon(
-                        if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (isPlaying) "Pause" else "Play",
                         tint = Color.White,
                         modifier = Modifier.size(40.dp)
@@ -226,16 +277,33 @@ fun VideoPlayer(
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))))
                     .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)
             ) {
-                // Time label
-                Text(
-                    "${formatTime(currentPositionMs)} / ${formatTime(durationMs)}",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 12.sp,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "${formatTime(currentPositionMs)} / ${formatTime(durationMs)}",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    // Full screen turns the player landscape and hides the system bars.
+                    IconToggleButton(
+                        checked = fullscreen,
+                        onCheckedChange = {
+                            fullscreen = it
+                            controlsVisible = true
+                            scheduleAutoHide()
+                        },
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    ) {
+                        Icon(
+                            if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                            contentDescription = stringResource(R.string.html_preview_fullscreen),
+                            tint = Color.White,
+                        )
+                    }
+                }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(4.dp))
 
                 // Seekbar
                 Slider(
@@ -252,4 +320,41 @@ fun VideoPlayer(
             }
         }
     }
+}
+
+/**
+ * While [enabled], the activity rotates to landscape (either way, following the sensor) and the
+ * window that hosts the player hides its status and navigation bars. Leaving full screen or
+ * disposing the player restores the previous orientation and the bars.
+ */
+@Composable
+private fun VideoFullscreenEffect(enabled: Boolean) {
+    val view = LocalView.current
+    DisposableEffect(enabled, view) {
+        if (!enabled) return@DisposableEffect onDispose {}
+        val activity = view.context.hostActivity()
+        val window = (view as? DialogWindowProvider ?: view.parent as? DialogWindowProvider)?.window
+            ?: activity?.window
+        val previous = activity?.requestedOrientation
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        val bars = window?.let { WindowCompat.getInsetsController(it, view) }
+        bars?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        bars?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose {
+            if (previous != null) activity?.requestedOrientation = previous
+            bars?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+}
+
+private tailrec fun android.content.Context.hostActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.hostActivity()
+    else -> null
+}
+
+/** ExoPlayer needs an explicit scheme; bare storage paths arrive from attachment metadata. */
+private fun playableUri(raw: String): Uri {
+    val trimmed = raw.trim()
+    return if (trimmed.startsWith("/")) Uri.fromFile(File(trimmed)) else Uri.parse(trimmed)
 }

@@ -1,0 +1,6 @@
+* Exa joins web search: keyless through its public MCP endpoint, or with your own key
+* Search result counts hold for SearXNG and Tavily, and tool cards name the backend
+* Swipe through every image in a conversation from the full-screen viewer
+* Inline math uses text style; over-wide formulas take their own line with faded edges
+* Debian and Ubuntu join Alpine in the local sandbox, with streamed install output
+* Backups keep the destination you chose and survive one broken media row

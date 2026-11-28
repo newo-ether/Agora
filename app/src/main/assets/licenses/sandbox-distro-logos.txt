@@ -1,0 +1,19 @@
+Local Sandbox distribution icons
+
+Debian Open Use Logo (without text)
+Copyright (c) 1999 Software in the Public Interest.
+Source: https://www.debian.org/logos/openlogo-nd.svg
+Upstream license: https://www.debian.org/logos/
+This adaptation uses the GNU General Public License, version 3 or later.
+A copy of version 3 is included in LICENSE-GPL-3.0.txt.
+
+Ubuntu Circle of Friends icon from Font Awesome Free 6.7.2
+Copyright 2024 Fonticons, Inc. (https://fontawesome.com/).
+Source: https://github.com/FortAwesome/Font-Awesome/blob/6.7.2/svgs/brands/ubuntu.svg
+License: Creative Commons Attribution 4.0 International (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/
+Ubuntu and the Circle of Friends are trademarks of Canonical Ltd.
+
+On 2026-11-18, Agora converted the SVGs to Android vector drawables, centered
+and uniformly scaled the original paths, and set a monochrome fill for theme
+tinting. The marks identify the distributions only and do not imply endorsement.

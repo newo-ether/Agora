@@ -3,40 +3,8 @@ package com.newoether.agora.ui.components
 import android.graphics.Bitmap
 import android.graphics.Canvas
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.unit.dp
-import com.newoether.agora.model.MarkdownImage
-import com.newoether.agora.ui.chat.message.MarkdownImageThumbnail
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.isUnspecified
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.painter.ColorPainter
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.IntSize
-import com.mikepenz.markdown.model.ImageData
-import com.mikepenz.markdown.model.ImageTransformer
-import com.mikepenz.markdown.model.ImageWidth
-import com.mikepenz.markdown.model.PlaceholderConfig
-import androidx.compose.ui.text.PlaceholderVerticalAlign
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
@@ -46,7 +14,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.scilab.forge.jlatexmath.DefaultTeXFont
 import org.scilab.forge.jlatexmath.TeXConstants
-import ru.noties.jlatexmath.JLatexMathDrawable
+import org.scilab.forge.jlatexmath.TeXFormula
+import org.scilab.forge.jlatexmath.TeXIcon
+import ru.noties.jlatexmath.awt.AndroidGraphics2D
+import ru.noties.jlatexmath.awt.Color as LatexColor
 import com.newoether.agora.util.DebugLog
 import kotlin.io.encoding.Base64
 import kotlin.math.roundToInt
@@ -411,27 +382,26 @@ fun renderLatexToBitmap(
     latex: String,
     textSize: Float = 48f,
     color: Int = 0xFF000000.toInt(),
+    display: Boolean = true,
     fallbackW: Int = 800,
     fallbackH: Int = 200,
     minW: Int = 0,
 ): Bitmap? {
     return try {
-        val drawable = JLatexMathDrawable.builder(latex)
-            .textSize(textSize)
-            .color(color)
-            .build()
-        val iw = drawable.intrinsicWidth
-        val ih = drawable.intrinsicHeight
+        val icon = latexIcon(latex, textSize, color, display)
+        val iw = icon.iconWidth
+        val ih = icon.iconHeight
         val w = maxOf(iw.takeIf { it > 0 } ?: fallbackW, minW)
         val h = ih.takeIf { it > 0 } ?: fallbackH
-        // Placeholders are centered on the text, so pad above or below until the TeX math axis
-        // (where fraction bars and the minus sign sit) is the bitmap's vertical center.
-        val padding = if (ih > 0) mathAxisCenteringPadding(drawable, textSize, h) else AxisPadding(0, 0)
+        // The padding below centres the formula's math axis in the bitmap, so the same axis has to
+        // carry the line's vertical alignment for inline math and block math alike.
+        val padding = if (ih > 0) latexVerticalPadding(icon, textSize, h, display) else AxisPadding(0, 0)
         val bmp = Bitmap.createBitmap(w, h + padding.top + padding.bottom, Bitmap.Config.ARGB_8888)
         val canvas = FilledTextCanvas(bmp)
         canvas.translate(0f, padding.top.toFloat())
-        drawable.setBounds(0, 0, w, h)
-        drawable.draw(canvas)
+        val graphics = AndroidGraphics2D()
+        graphics.setCanvas(canvas)
+        icon.paintIcon(null, graphics, 0, 0)
         bmp
     } catch (e: Exception) {
         // A swallowed exception here is what turns a formula back into its own source text, so the
@@ -446,13 +416,26 @@ fun renderLatexToBitmap(
 internal data class AxisPadding(val top: Int, val bottom: Int)
 
 /**
- * The transparent rows to add so the math axis lands on the vertical center of a formula of
- * [height] pixels. The axis is the formula font's axis height above the icon's baseline.
+ * Builds the TeX icon itself so the style follows the delimiter: inline math is typeset in text
+ * style (compact fractions, side-set limits) and display math in display style.
  */
-private fun mathAxisCenteringPadding(drawable: JLatexMathDrawable, textSize: Float, height: Int): AxisPadding {
-    val icon = drawable.icon()
+internal fun latexIcon(latex: String, textSize: Float, color: Int, display: Boolean): TeXIcon =
+    TeXFormula(latex).TeXIconBuilder()
+        .setStyle(if (display) TeXConstants.STYLE_DISPLAY else TeXConstants.STYLE_TEXT)
+        .setSize(textSize)
+        .setFGColor(LatexColor(color))
+        .build()
+
+/**
+ * The transparent rows to add around a formula. Every formula is centered on the math axis, so a
+ * `TextCenter` placeholder puts that axis on the text's centre line. Inline math therefore sits
+ * vertically centred in its line instead of riding above the baseline. The axis height follows the
+ * typesetting style, so text style uses the smaller text-style axis.
+ */
+internal fun latexVerticalPadding(icon: TeXIcon, textSize: Float, height: Int, display: Boolean): AxisPadding {
     val baselineY = icon.baseLine * height
-    val axisHeight = DefaultTeXFont(textSize).getAxisHeight(TeXConstants.STYLE_DISPLAY) * textSize
+    val style = if (display) TeXConstants.STYLE_DISPLAY else TeXConstants.STYLE_TEXT
+    val axisHeight = DefaultTeXFont(textSize).getAxisHeight(style) * textSize
     return axisCenteringPadding(axisY = baselineY - axisHeight, height = height)
 }
 
@@ -469,7 +452,7 @@ internal fun axisCenteringPadding(axisY: Float, height: Int): AxisPadding {
 
 fun canRenderLatex(latex: String): Boolean {
     return try {
-        JLatexMathDrawable.builder(latex).textSize(48f).color(0).build()
+        latexIcon(latex, 48f, 0, display = false)
         true
     } catch (_: Exception) { false }
 }
@@ -547,13 +530,14 @@ private fun renderTextToBitmap(text: String, textSize: Float, color: Int): Bitma
     return bmp
 }
 
-private data class LatexRenderKey(
+internal data class LatexRenderKey(
     val latex: String,
     val textSize: Float,
     val color: Int,
+    val display: Boolean,
 )
 
-private object LatexBitmapCache {
+internal object LatexBitmapCache {
     private const val MAX_ENTRIES = 128
 
     private val lock = Any()
@@ -623,6 +607,7 @@ private object LatexBitmapCache {
             key.latex,
             key.textSize,
             key.color,
+            display = key.display,
             fallbackW = fw,
             fallbackH = fh,
             minW = 0,
@@ -630,168 +615,12 @@ private object LatexBitmapCache {
     }
 }
 
-private fun estimateLatexPlaceholderSize(latex: String, textSize: Float, display: Boolean): Size {
+internal fun estimateLatexPlaceholderSize(latex: String, textSize: Float, display: Boolean): Size {
     val charCount = latex.length.coerceAtLeast(1)
     val minWidth = textSize * if (display) 4f else 1.4f
     val maxWidth = textSize * if (display) 18f else 8f
-    val width = (charCount * textSize * if (display) 0.46f else 0.38f)
+    val width = (charCount * textSize * if (display) 0.46f else 0.36f)
         .coerceIn(minWidth, maxWidth)
-    val height = textSize * if (display) 1.45f else 1.05f
+    val height = textSize * if (display) 1.45f else 1f
     return Size(width, height)
-}
-
-// ── Image transformer ──────────────────────────────────────────────────
-
-class LatexImageTransformer(
-    private val textSize: Float = 40f,
-    private val color: Int = 0xFF000000.toInt(),
-    private val inlineImages: Map<String, MarkdownImage> = emptyMap(),
-    private val onMediaClick: (List<String>, Int) -> Unit = { _, _ -> },
-) : ImageTransformer {
-    private fun inlineImage(link: String): MarkdownImage? {
-        fun decoded(value: String) = android.net.Uri.decode(value.removeSurrounding("<", ">"))
-        return inlineImages[link] ?: inlineImages.entries.firstOrNull { decoded(it.key) == decoded(link) }?.value
-    }
-    @Composable
-    fun renderInlineImage(link: String): Boolean {
-        val image = inlineImage(link) ?: return false
-        val paths = remember(inlineImages) {
-            inlineImages.values.mapNotNull { it.attachment?.path }.distinct()
-        }
-        Box(Modifier.padding(vertical = 8.dp)) {
-            MarkdownImageThumbnail(link, image) {
-                val index = paths.indexOf(image.attachment?.path)
-                if (index >= 0) onMediaClick(paths, index)
-            }
-        }
-        return true
-    }
-
-    /**
-     * The formula's size in pixels: the rendered bitmap once it exists, the placeholder estimate
-     * before. Reading it in composition recomposes when the bitmap finishes. Null for other links.
-     */
-    fun formulaSize(link: String): Size? {
-        val request = latexImageRequest(link) ?: return null
-        val key = LatexRenderKey(request.latex, textSize, color)
-        return LatexBitmapCache.observedSize(key)
-            ?: estimateLatexPlaceholderSize(request.latex, textSize, request.display)
-    }
-
-    @Composable
-    override fun transform(link: String): ImageData? {
-        // Markdown measures the slot here; both image components render the shared viewport.
-        if (inlineImage(link) != null) {
-            val side = with(LocalDensity.current) { 300.dp.toPx() }
-            val verticalSpace = with(LocalDensity.current) { 16.dp.toPx() }
-            val viewport = remember(side, verticalSpace) {
-                object : Painter() {
-                    override val intrinsicSize = Size(side, side + verticalSpace)
-                    override fun DrawScope.onDraw() = Unit
-                }
-            }
-            // A known size promotes the image to a measured block before decoding.
-            // An unspecified transparent painter leaves it in the text line, whose
-            // height can be smaller than the actual thumbnail on Android.
-            return ImageData(painter = viewport)
-        }
-        val request = latexImageRequest(link) ?: return null
-        val key = LatexRenderKey(request.latex, textSize, color)
-        var bitmap by remember(key) { mutableStateOf(LatexBitmapCache.get(key)) }
-        val fade = remember(key) { Animatable(if (bitmap != null) 1f else 0f) }
-        LaunchedEffect(key) {
-            val cached = LatexBitmapCache.get(key)
-            if (cached != null) {
-                bitmap = cached
-                fade.snapTo(1f)
-                return@LaunchedEffect
-            }
-
-            bitmap = null
-            fade.snapTo(0f)
-            val rendered = try {
-                LatexBitmapCache.awaitRendered(key)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Throwable) {
-                null
-            }
-            if (rendered != null) {
-                bitmap = rendered
-                fade.snapTo(0f)
-                fade.animateTo(1f, tween(durationMillis = 180))
-            }
-        }
-        val bmp: Bitmap? = bitmap
-        val density = LocalDensity.current
-        val placeholderModifier = if (bmp == null) {
-            val estimated = estimateLatexPlaceholderSize(request.latex, textSize, request.display)
-            with(density) {
-                Modifier.size(estimated.width.toDp(), estimated.height.toDp())
-            }
-        } else {
-            Modifier
-        }
-        return ImageData(
-            painter = bmp?.let { FadingBitmapPainter(it.asImageBitmap(), fade.value) }
-                ?: ColorPainter(Color.Transparent),
-            contentDescription = request.latex,
-            modifier = placeholderModifier,
-            alignment = Alignment.CenterStart,
-            contentScale = ContentScale.Fit,
-        )
-    }
-
-    override fun placeholderConfig(
-        link: String,
-        density: Density,
-        containerSize: Size,
-        imageWidth: ImageWidth,
-        imageSize: Size,
-        imageSizeChanged: ((link: String, Size) -> Unit)?,
-    ): PlaceholderConfig {
-        if (inlineImage(link) != null) {
-            val side = with(density) {
-                if (containerSize.isUnspecified) 300f else containerSize.width.toDp().value.coerceIn(1f, 300f)
-            }
-            return PlaceholderConfig(Size(side, side + 16f))
-        }
-        val request = latexImageRequest(link) ?: return super.placeholderConfig(
-            link, density, containerSize, imageWidth, imageSize, imageSizeChanged
-        )
-        val key = LatexRenderKey(request.latex, textSize, color)
-        val resolvedSize = if (imageSize.isUnspecified) {
-            LatexBitmapCache.get(key)?.let { bmp ->
-                Size(bmp.width.toFloat(), bmp.height.toFloat())
-            } ?: estimateLatexPlaceholderSize(request.latex, textSize, request.display)
-        } else {
-            imageSize
-        }
-        val sizeDp = with(density) {
-            Size(
-                width = resolvedSize.width.toDp().value,
-                height = resolvedSize.height.toDp().value,
-            )
-        }
-        return PlaceholderConfig(size = sizeDp, verticalAlign = PlaceholderVerticalAlign.TextCenter)
-    }
-}
-
-private class FadingBitmapPainter(
-    private val image: ImageBitmap,
-    private val alpha: Float,
-) : Painter() {
-    override val intrinsicSize: Size
-        get() = Size(image.width.toFloat(), image.height.toFloat())
-
-    override fun DrawScope.onDraw() {
-        drawImage(
-            image = image,
-            dstSize = IntSize(
-                width = size.width.roundToInt().coerceAtLeast(1),
-                height = size.height.roundToInt().coerceAtLeast(1),
-            ),
-            alpha = alpha.coerceIn(0f, 1f),
-        )
-    }
 }

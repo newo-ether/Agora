@@ -249,14 +249,16 @@ class LatexRendererTest {
         assertTrue(source.contains("inlineImage = { model -> ChatMarkdownInlineImage(model) }"))
         val inline = images.substringAfter("internal fun ChatMarkdownInlineImage(")
             .substringBefore("internal fun markdownImageLink(")
-        assertTrue(inline.contains("?.renderInlineImage(model.content) != true"))
+        assertTrue(inline.contains(
+            "?.renderInlineImage(model.content, LocalMarkdownImageOccurrences.current[model.node]) != true",
+        ))
         assertTrue(inline.contains("MarkdownInlineImage(model.content, model.node)"))
     }
 
     @Test
     fun authenticatedInlineImageViewportStaysSquareAcrossLoadStates() {
         val link = "C:/picture.png"
-        val attachment = ToolImageAttachment("/private/picture.png", "image/png", 128, 1024, 200, "hash")
+        val attachment = ToolImageAttachment("/private/picture.png", "image/png", 128, 1024, 200)
         val states = listOf(MarkdownImage(), MarkdownImage(attachment), MarkdownImage(failed = true))
         for (state in states) {
             val transformer = LatexImageTransformer(inlineImages = mapOf(link to state))

@@ -1,11 +1,13 @@
 package com.newoether.agora.data
 
+import androidx.datastore.core.DataMigration
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.newoether.agora.model.ToolCallDisplayModes
 
 internal val SELECTED_MODEL = stringPreferencesKey("selected_model")
 internal val AVAILABLE_MODELS_JSON = stringPreferencesKey("available_models_json")
@@ -40,6 +42,8 @@ internal val THINKING_BUDGET_TOKENS = intPreferencesKey("thinking_budget_tokens"
 internal val OPENAI_SERVICE_TIER_ENABLED = booleanPreferencesKey("openai_service_tier_enabled")
 internal val OPENAI_SERVICE_TIER = stringPreferencesKey("openai_service_tier")
 internal val OPENAI_RESPONSES_API_ENABLED = booleanPreferencesKey("openai_responses_api_enabled")
+/** Send `reasoning_content` on every assistant history turn, empty when none was stored (#198). */
+internal val REPLAY_REASONING_IN_HISTORY = booleanPreferencesKey("replay_reasoning_in_history")
 internal val ANTHROPIC_CACHE_ENABLED = booleanPreferencesKey("anthropic_cache_enabled")
 internal val ANTHROPIC_CACHE_TTL = stringPreferencesKey("anthropic_cache_ttl")
 internal val PROVIDER_BASE_URLS = stringPreferencesKey("provider_base_urls")
@@ -63,9 +67,9 @@ internal val ACCESS_SKILLS_MODIFY = booleanPreferencesKey("access_skills_modify"
 internal val RAG_SEARCH_ENABLED = booleanPreferencesKey("rag_search_enabled")
 internal val MODEL_SEARCH_METHOD = stringPreferencesKey("model_search_method")
 internal val MANUAL_SEARCH_METHOD = stringPreferencesKey("manual_search_method")
+internal val ATTACHMENT_MODE = stringPreferencesKey("attachment_mode")
 internal val EMBEDDING_MODELS_JSON = stringPreferencesKey("embedding_models_json")
 internal val ACTIVE_EMBEDDING_MODEL_ID = stringPreferencesKey("active_embedding_model_id")
-internal val LIVE_VOICE_CONFIG_JSON = stringPreferencesKey("live_voice_config_json")
 internal val APP_LANGUAGE = stringPreferencesKey("app_language")
 internal val WEB_SEARCH_ENABLED = booleanPreferencesKey("web_search_enabled")
 internal val WEB_SEARCH_PROVIDER = stringPreferencesKey("web_search_provider")
@@ -88,6 +92,10 @@ internal val LOCAL_MODEL_IDLE_RETENTION_MINUTES =
     intPreferencesKey("local_model_idle_retention_minutes")
 internal val LOCAL_LOW_CONTEXT_MODE_ENABLED =
     booleanPreferencesKey("local_low_context_mode_enabled")
+internal val LOCAL_INFERENCE_THREADS = intPreferencesKey("local_inference_threads")
+internal val LOCAL_KV_CACHE_TYPE = stringPreferencesKey("local_kv_cache_type")
+/** Local models whose chat template proved unable to express tools; the composer greys tool switches. */
+internal val LOCAL_TOOL_INCAPABLE_MODELS = stringSetPreferencesKey("local_tool_incapable_models")
 internal val CUSTOM_PROVIDERS_JSON = stringPreferencesKey("custom_providers_json")
 internal val SHELL_ENABLED = booleanPreferencesKey("shell_enabled")
 internal val AUTOMATION_TOOLS_ENABLED = booleanPreferencesKey("automation_tools_enabled")
@@ -105,6 +113,7 @@ internal val ASK_USER_ENABLED = booleanPreferencesKey("ask_user_enabled")
 internal val ASK_USER_TIMEOUT_MINUTES = intPreferencesKey("ask_user_timeout_minutes")
 internal val TODO_ENABLED = booleanPreferencesKey("todo_enabled")
 internal val SUBAGENT_TOOLS_ENABLED = booleanPreferencesKey("subagent_tools_enabled")
+internal val SUBAGENT_DELETE_ENABLED = booleanPreferencesKey("subagent_delete_enabled")
 internal val SUBAGENT_MAX_TOTAL = intPreferencesKey("subagent_max_total")
 internal val SUBAGENT_MAX_CONCURRENT = intPreferencesKey("subagent_max_concurrent")
 internal val SUBAGENT_CAPSULE_DISPLAY_MODE = stringPreferencesKey("subagent_capsule_display_mode")
@@ -115,6 +124,7 @@ internal val MCP_SERVERS_JSON = stringPreferencesKey("mcp_servers_json")
 internal val SANDBOX_ENABLED = booleanPreferencesKey("sandbox_enabled")
 internal val SANDBOX_SHARED_STORAGE_ENABLED =
     booleanPreferencesKey("sandbox_shared_storage_enabled")
+internal val SANDBOX_MIRROR = stringPreferencesKey("sandbox_mirror")
 internal const val DEFAULT_COLOR_SCHEME = "FOREST"
 internal const val DEFAULT_SCHEME_STYLE = "TONAL_SPOT"
 internal const val DEFAULT_DYNAMIC_COLOR = false
@@ -137,14 +147,6 @@ internal val SCHEME_STYLE = stringPreferencesKey("scheme_style")
 internal val FONT_PREFERENCE = stringPreferencesKey("font_preference")
 internal val CUSTOM_FONT_PATH = stringPreferencesKey("custom_font_path")
 internal val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
-// Theming: user bubble color override (hex "#RRGGBB" or empty = theme default); chat background
-// spec: "" / "none" = default, "color:#RRGGBB", or "image:<absolute path>".
-internal val USER_BUBBLE_COLOR = stringPreferencesKey("user_bubble_color")
-internal val CHAT_BACKGROUND = stringPreferencesKey("chat_background")
-// Chat-background tuning: opacity (0..1, low keeps chat readable) + video playback options.
-internal val CHAT_BACKGROUND_OPACITY = floatPreferencesKey("chat_background_opacity")
-internal val CHAT_BACKGROUND_VIDEO_MUTED = booleanPreferencesKey("chat_background_video_muted")
-internal val CHAT_BACKGROUND_VIDEO_LOOP = booleanPreferencesKey("chat_background_video_loop")
 internal val FIRST_LAUNCH_TIME = longPreferencesKey("first_launch_time")
 internal val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
 internal val DISPLAYED_SUBMISSION_MESSAGES = stringSetPreferencesKey("displayed_submission_messages")
@@ -170,3 +172,20 @@ internal val AUTO_DELETE_ENABLED = booleanPreferencesKey("auto_delete_enabled")
 internal val AUTO_DELETE_PERIOD_HOURS = intPreferencesKey("auto_delete_period_hours")
 internal val LAST_BACKUP_TIMESTAMP = longPreferencesKey("last_backup_timestamp")
 internal val LAST_MODELS_FETCH_FINGERPRINT = stringPreferencesKey("last_models_fetch_fingerprint")
+
+/** Persist the retired display value before any Settings flow is published. */
+internal val toolCallDisplayModeMigration = object : DataMigration<Preferences> {
+    override suspend fun shouldMigrate(currentData: Preferences): Boolean =
+        currentData[TOOL_CALL_DISPLAY_MODE] == "compact"
+
+    override suspend fun migrate(currentData: Preferences): Preferences =
+        if (shouldMigrate(currentData)) {
+            currentData.toMutablePreferences().apply {
+                this[TOOL_CALL_DISPLAY_MODE] = ToolCallDisplayModes.GROUPED_TIMELINE
+            }
+        } else {
+            currentData
+        }
+
+    override suspend fun cleanUp() = Unit
+}

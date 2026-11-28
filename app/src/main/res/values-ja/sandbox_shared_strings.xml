@@ -6,4 +6,8 @@
     <string name="sandbox_shared_storage_permission_required">有効 · ストレージへのアクセス許可が必要です</string>
     <string name="sandbox_shared_storage_grant">ストレージへのアクセスを許可</string>
     <string name="sandbox_shared_storage_warning">サンドボックスのコマンドが写真、ダウンロード、その他の共有ファイルを読み書きできるようになります。変更を行うツール呼び出しには確認が必要です。</string>
+    <string name="sandbox_distribution">ディストリビューション</string>
+    <string name="sandbox_distribution_desc">Linux 環境を選択し、必要に応じて別途インストールします。</string>
+    <string name="sandbox_distribution_busy">ディストリビューションを切り替える前に、実行中のサンドボックスジョブを停止し、現在の操作が完了するまでお待ちください。</string>
+    <string name="sandbox_distribution_switch_failed">ディストリビューションを切り替えられませんでした。もう一度お試しください。</string>
 </resources>

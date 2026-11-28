@@ -7,7 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,7 +65,7 @@ internal fun AutoBackupSection(viewModel: ChatViewModel) {
                 headlineContent = { Text(stringResource(R.string.auto_backup_title)) },
                 supportingContent = { Text(stringResource(R.string.auto_backup_subtitle)) },
                 leadingContent = {
-                    Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Schedule, null, tint = MaterialTheme.colorScheme.primary)
                 },
                 trailingContent = {
                     Switch(checked = autoBackupEnabled, onCheckedChange = { viewModel.dataControl.setAutoBackupEnabled(it) })
@@ -95,7 +95,7 @@ internal fun AutoBackupSection(viewModel: ChatViewModel) {
                     headlineContent = { Text(stringResource(R.string.auto_delete_title)) },
                     supportingContent = { Text(stringResource(R.string.auto_delete_subtitle)) },
                     leadingContent = {
-                        Icon(Icons.Default.AutoDelete, null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.AutoDelete, null, tint = MaterialTheme.colorScheme.primary)
                     },
                     trailingContent = {
                         Switch(checked = autoDeleteEnabled, onCheckedChange = { viewModel.dataControl.setAutoDeleteEnabled(it) })
@@ -133,7 +133,7 @@ private fun AutoBackupPeriodDropdown(currentHours: Int, onSelect: (Int) -> Unit)
             headlineContent = { Text(stringResource(R.string.auto_backup_period_label)) },
             supportingContent = { Text(stringResource(currentLabel), color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingContent = {
-                Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.primary)
             },
             modifier = Modifier.clickable { expanded = true }
         )
@@ -145,7 +145,7 @@ private fun AutoBackupPeriodDropdown(currentHours: Int, onSelect: (Int) -> Unit)
                 AgoraDropdownMenuItem(
                     text = { Text(stringResource(labelRes)) },
                     onClick = { onSelect(hours); expanded = false },
-                    leadingIcon = if (hours == currentHours) {{ Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }} else {{}}
+                    leadingIcon = if (hours == currentHours) {{ Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary) }} else {{}}
                 )
             }
         }
@@ -167,7 +167,7 @@ private fun AutoDeletePeriodDropdown(currentHours: Int, backupHours: Int, onSele
             headlineContent = { Text(stringResource(R.string.auto_delete_period_label)) },
             supportingContent = { Text(stringResource(currentLabel), color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingContent = {
-                Icon(Icons.Default.DeleteSweep, null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Rounded.DeleteSweep, null, tint = MaterialTheme.colorScheme.primary)
             },
             modifier = Modifier.clickable { expanded = true }
         )
@@ -179,7 +179,7 @@ private fun AutoDeletePeriodDropdown(currentHours: Int, backupHours: Int, onSele
                 AgoraDropdownMenuItem(
                     text = { Text(stringResource(labelRes)) },
                     onClick = { onSelect(hours); expanded = false },
-                    leadingIcon = if (hours == currentHours) {{ Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }} else {{}}
+                    leadingIcon = if (hours == currentHours) {{ Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary) }} else {{}}
                 )
             }
         }
@@ -210,7 +210,7 @@ private fun AutoBackupDirectoryItem(viewModel: ChatViewModel) {
             Text(displayPath, color = MaterialTheme.colorScheme.onSurfaceVariant)
         },
         leadingContent = {
-            Icon(Icons.Default.Folder, null, tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.primary)
         },
         modifier = Modifier.clickable { dirPickerLauncher.launch(null) }
     )
@@ -232,7 +232,7 @@ private fun AutoBackupCategoriesItem(viewModel: ChatViewModel) {
         headlineContent = { Text(stringResource(R.string.auto_backup_categories_label)) },
         supportingContent = { Text(displaySummary, color = MaterialTheme.colorScheme.onSurfaceVariant) },
         leadingContent = {
-            Icon(Icons.Default.Topic, null, tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Rounded.Topic, null, tint = MaterialTheme.colorScheme.primary)
         },
         modifier = Modifier.clickable { showDialog = true }
     )
@@ -284,7 +284,7 @@ private fun AutoBackupCategoriesDialog(
                 if (apiKeysChecked) {
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Warning, null, modifier = Modifier.size(16.dp),
+                        Icon(Icons.Rounded.Warning, null, modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(6.dp))
                         Text(

@@ -84,29 +84,69 @@ restricted choices. Offering `ultrafast` for a model does not establish account 
 warns that permission may be required. Chat Completions omits this Responses-only field. The
 ordinary Provider owns request serialization; UI visibility must not create a second request path.
 
-Every OpenAI-compatible Chat request forwards a captured non-null `temperature`, `max_tokens`,
-`top_p`, `frequency_penalty`, and `presence_penalty` without model-family remapping. Thinking is a
-separate protocol-local control. Alibaba Qwen hybrid families serialize top-level
-`enable_thinking`, and serialize `thinking_budget` only while thinking plus the budget control are
-enabled. Qwen 3.8 Max/Flash serialize their documented `reasoning_effort` values, or
-`thinking_budget`, never both. Documented Qwen thinking-only models reject a disabled-thinking
-request locally before HTTP. Groq maps only its documented Qwen 3.6, Qwen 3.8, and GPT-OSS model IDs
-to their respective effort value sets; GPT-OSS rejects off/`none` locally. Custom OpenAI Chat
-relays map raw Qwen 3.8 model names to `none`/`low`/`medium`/`xhigh`; unrelated model names remain
-untouched. OpenAI Responses forwards temperature, max output tokens, and top-p but has no native
-frequency/presence fields in this request contract, so those penalties are protocol N/A rather than
-silently approximated.
+Every OpenAI-compatible Chat request forwards captured non-null `temperature`, `max_tokens`,
+`top_p`, `frequency_penalty`, and `presence_penalty`, except the documented current Claude models
+below, which omit sampling parameters. Thinking resolution is shared by UI and every request
+transport through `ModelThinkingCapabilities` and `ThinkingResolution`. IDs are trimmed, lowercased,
+stripped to their last provider namespace component and normalized across dotted/dashed versions and
+dated snapshots. Model facts refine OPENAI_COMPATIBLE, OPENROUTER, OPENAI, ANTHROPIC and GEMINI;
+the QWEN family retains its existing Bailian-specific semantics, including Kimi's off switch.
+Unknown IDs retain their existing permissive/family fallback and never become a request rejection.
+
+The owner's 2026-10-26 compatibility table is authoritative for these recognized IDs:
+
+| Model | Thinking off | Enabled efforts | Token budget |
+| --- | --- | --- | --- |
+| GLM 5.3 / Flash / FlashX | No | low, high, max | No |
+| GLM 5.2 | Yes | high, max | No |
+| Qwen3.8 27B / Flash-Next / Flash / Max variants / Omni-Flash | Yes | low, medium, xhigh | Exclusive with effort |
+| Qwen3.8 2.4T-A95B | No | low, medium, xhigh | Exclusive with effort |
+| DeepSeek v4 / v4.1 variants | Yes | low, high, max | No |
+| Kimi K3 / K3.1 Pro | No | low, high, max | No |
+| Doubao Seed 2.1 variants / Seed Evolving | Yes | low, medium, high | No |
+| MiniMax M3.1 Flash | No | low, medium, high, xhigh, max | No |
+| MiniMax M3 | Yes | None | No |
+| GPT 6.1 Sol | No | low, medium, high, xhigh, max | No |
+| Claude Opus 5.5 / Sonnet 5.5 / Fable 5.1 | No | low, medium, high, xhigh, max | No |
+| Claude Haiku 5.5 | Yes | low, medium, high, xhigh, max | No |
+| Gemini 4 Argon / 3.8 Flash | No | low, medium, high | No |
+| Gemini 3.6 Flash / 3.5 Flash / 3.5 Flash Lite | No | minimal, low, medium, high | No |
+| Grok 4.7 / 4.6 | No | low, medium, high, xhigh | No |
+| Grok 4.5 | No | low, medium, high | No |
+| Step 5 Preview / 3.7 Flash | Yes, owner compatibility policy | low, medium, high | No |
+
+Source links and endpoint differences are recorded beside the implementation entries in
+`ModelThinkingCapabilityDefaults.kt`. The table is an explicit compatibility policy where catalogs
+differ, not a claim that every endpoint advertises identical metadata. Existing GPT 6 Sol/Luna and
+Astra behavior is unchanged. Off is a separate control, not an enabled effort. Saved illegal efforts
+resolve to the nearest legal level (ties upward); unknown values normalize to the default first.
+Forced off on a mandatory-thinking model resolves to its lowest legal effort. Unsupported budgets
+are omitted; Qwen effort/budget exclusivity is applied before serialization. Stored settings are not
+rewritten and no local rejection is added.
+
+Alibaba Qwen hybrid requests keep their top-level `enable_thinking` and `thinking_budget` fields.
+Custom OpenAI-compatible Qwen3.8 Chat and Responses requests additionally send
+`chat_template_kwargs.enable_thinking=false` when off. Enabled requests with a resolved effort send
+both nested `chat_template_kwargs.reasoning_effort` and top-level `reasoning_effort` with the same
+legal value. A budget request omits both effort fields. Other models and the QWEN endpoint do not
+receive these template kwargs. Embedded Local already passes `enableThinking` directly through JNI
+to llama.cpp's template input; it does not fabricate HTTP kwargs. Remote Strata via LiteLLM uses the
+custom OpenAI-compatible transport.
+
+OpenRouter keeps its `reasoning` object; official/custom OpenAI Responses resolve the same model
+capability before serializing `reasoning.effort` and summary. Responses forwards supported
+temperature, max output tokens, and top-p; it has no native frequency/presence fields in this request
+contract. Endpoint errors remain ordinary generation errors without field-removal retries.
 
 Anthropic keeps temperature/top-p only on its legacy request families and has no native
 frequency/presence penalty fields. With legacy manual thinking enabled, temperature is omitted and
 top-p is forwarded only in the protocol-compatible 0.95–1 range; with thinking off, both captured
 values are forwarded. Manual-thinking families use `thinking.type=enabled` plus the captured budget;
 adaptive families use `thinking.type=adaptive` plus `output_config.effort`.
-Sonnet 5 and Opus 5 serialize `thinking.type=disabled` when thinking is off, without `display` or
-`budget_tokens`, and retain their effort control. Fable 5, Mythos 5, and Mythos Preview reject off
-locally before HTTP. Opus 5 does the same when off is combined with `xhigh` or `max`; high and lower
-efforts remain valid. Legacy non-thinking/default-off families continue omitting `thinking` rather
-than receiving a current-only disabled shape.
+Claude Opus/Sonnet 5.5 and Fable 5.1 always serialize adaptive thinking, legal effort and no manual
+budget or sampling parameters. Haiku 5.5 retains its off switch with the same effort-only controls.
+Older undocumented 5-series IDs retain the permissive fallback. Legacy non-thinking/default-off
+families continue omitting `thinking` rather than receiving a current-only disabled shape.
 
 Ollama requests always carry the native top-level `think` control. Ordinary and unknown model names
 use a Boolean matching the captured thinking toggle. Native `gpt-oss` model names use the required
@@ -127,7 +167,9 @@ the ordinary `ThoughtChunk` path and therefore form normal durable thinking segm
 blocks. Deltas with the same `output_index` and `summary_index` remain contiguous; a change in either
 index inserts exactly one blank line between summary parts. Bold text or a Markdown heading in the
 current summary part supplies the thinking-card title with its marker removed, matching Gemini.
-Disabling thinking suppresses both the summary request and its presentation.
+For models that can disable thinking, off suppresses the summary request. Mandatory-thinking
+models instead request their lowest legal effort and its summary. Returned summary events retain
+the ordinary shared presentation path.
 
 Provider-hosted tools use non-executing hosted-tool stream events. They may create and settle durable
 ordinary tool segments, but they cannot authorize local execution, enter the tool-effect reducer, or
@@ -143,7 +185,58 @@ text-recovery batch follows the same publication rule even though no earlier str
 The batch executor's later per-call running updates do not own creation visibility. UI placeholders,
 delays, retries, or shadow Tool state must not substitute for this overlay publication boundary.
 
-`generate_image` alone uses a 600,000 ms outer execution budget and the same 600,000 ms budget for
+`image_generate` reuses the selected Provider's captured protocol, effective Base URL, model ID
+and optional credential. OpenAI-compatible endpoints use JSON `/images/generations` for text-only
+requests and multipart `/images/edits` when ordered references are supplied. Google-protocol
+Providers use native Gemini `generateContent`, inline prepared image parts, `responseModalities`
+TEXT/IMAGE and optional `imageConfig.aspectRatio`/`imageSize`. Protocol selection comes from
+Provider configuration, not model-name guessing. Unsupported protocols fail before network work;
+no provider fallback or parameter-removal retry may spend another request. Empty API keys omit
+authentication headers so explicitly configured local image services work without dummy secrets.
+
+References use explicit server/path pairs. Local Sandbox requires enabled sandbox access; Conch
+requires enabled Shell access and a selected configured device. Both enter the same ToolImageStore
+processing boundary as other model images. Temporary prepared references are deleted after the
+call; original source files remain unchanged. OpenAI masks retain PNG alpha and must match the
+first prepared image's dimensions. Model arguments never contain reference-image Base64.
+OpenAI options are omitted unless supplied; Gemini rejects incompatible OpenAI controls before
+submission. Each request admits at most ten references and four output images, subject to lower
+model-specific limits; native Gemini accepts n=1. Every final response image is attached in wire
+order, excluding Gemini thought images. When Local Sandbox is enabled, ToolImageStore publishes
+prepared outputs directly under `/home/agora/attachments/generated_<id>/` through the existing
+SandboxManager path resolver. Tool result text includes ordered server/path, MIME, byte-length and
+measured-dimension descriptors so later edits and file tools can reuse them. ProviderMessageProjector
+and current-round request projection recognize this persisted descriptor and omit the generated
+`images`, `toolImages` and `resultImages` from Provider input. Tool result JSON retains its sandbox
+paths; Room segments and native/browser previews retain the prepared image artifacts. Canonical
+GenerationToolRoundBuilder persistence marks each generated preview image index with the existing
+`LOCAL_SANDBOX_RUNTIME` attachment storage in both the current path and Room. Deleting its message
+or conversation does not enqueue those runtime files for reclamation. The result descriptor remains
+the sole API-visible path; ownership metadata does not add a second attachment instruction. Legacy
+outputs without sandbox descriptors and later explicit `file_view_image` results retain their
+existing visual-input behavior. An unavailable sandbox
+fails before a generation request; it never silently falls back to private media storage.
+Failed or cancelled calls remove unpublished generated
+artifacts and temporary references. Image-provider credentials never accompany returned URL downloads.
+Generation JSON is byte-bounded, image downloads and decoded image ingress retain their byte bounds,
+and non-success responses expose bounded provider details. Neither these limits nor the existing
+shared image-quality settings establish a model's native resolution or API compatibility.
+
+Official protocol references: OpenAI image-generation guide, Gemini image-generation guide,
+Qwen/Qwen-Image-2.1 model card, vLLM-Omni's Qwen Image 2.1 recipe and ComfyUI server routes.
+vLLM-Omni documents JSON generation and multipart editing, but its repeated `image` field differs
+from Agora's `image[]`, and the recipe requires explicit `num_inference_steps=40` with
+`true_cfg_scale=1.0` and at most four references. Agora does not expose these sampling controls;
+direct compatibility is unverified. A configured Images compatibility adapter must translate
+fields, supply the documented sampling values, enforce the backend's reference bound and reject
+controls it cannot implement rather than discard them. A raw ComfyUI server instead needs a
+workflow adapter using upload/prompt/history/view routes. Agora does not install or start a model.
+Focused verification covers JSON/multipart/native Gemini request capture, reference ordering,
+optional local credentials, multi-image ordering and thought exclusion, invalid controls,
+provider errors, byte limits and cancellation cleanup. Paid upstream calls and real GPU serving
+remain separate, explicitly reported evidence.
+
+`image_generate` alone uses a 600,000 ms outer execution budget and the same 600,000 ms budget for
 its generation request and returned-image download. Every other Tool keeps its ordinary configured
 execution timeout. A successful image is persisted through `ToolImageStore` and returned in the
 owning `ToolExecutionResult.images`; the overlay copies it to that exact Tool call and
@@ -152,21 +245,21 @@ message-level generated-image tail may own current output. Existing `ChatMessage
 read-compatible and retain their legacy full-width renderer, but new generated images never enter
 that path.
 
-The visible `generate_image` segment is a hard ordered presentation boundary in Compact, Grouped
-Timeline, ordinary Timeline, and the Compact/Grouped Bottom Sheet presentation mode. Its current
+The visible `image_generate` segment is a hard ordered presentation boundary in Grouped,
+ordinary Timeline, and Grouped Bottom Sheet presentation mode. Its current
 information card ends immediately after that call. The fixed left-aligned `300 x 300 dp` slot is
 rendered next, and every later image call, Tool, Thought, Transcription, or Answer starts after that
 slot. Group and slot identity depend only on the append-only segment/detail position, never on the
 pending, failed, or successful payload, so lifecycle updates cannot replace, regroup, resize, or
 otherwise rewrite the preceding prefix. Multiple image calls establish multiple boundaries in their
-original segment order. In Grouped/Compact and ordinary Timeline, the information card immediately
+original segment order. In Grouped and ordinary Timeline, the information card immediately
 before the generated-image slot has exactly `8 dp` of bottom separation. This matches the existing
 `8 dp` top separation owned by a later independent Timeline information card. Expanded grouped-card
 spacing, the ordinary `2 dp` within-group separation, answer spacing, the Thinking Bottom Sheet, and
 the fixed image-slot geometry remain unchanged.
 
 On the boundary's first visible frame, the owning card is presented collapsed and one collapsed
-value is committed through the existing expansion map. Compact and Bottom Sheet preserve the first
+value is committed through the existing expansion map. Bottom Sheet preserves the first
 card's existing expansion and appearance identity during this transition. The image-boundary claim
 is session-scoped and one-shot: terminal completion does not collapse again, and a later manual
 expansion remains effective. The slot owns one draw-only 0.90-to-1.0 scale plus opacity entrance
@@ -187,27 +280,54 @@ For a completed attachment, the Coil request receives the explicit pixel size de
 `300 dp` slot so decoding never waits for the painter's first draw; the Pending matrix remains until
 decode succeeds, then Crossfades to a `ContentScale.Crop` image that reuses the ordinary media-open
 callback. Tool-detail image previews follow the same full-viewport loading/success/failure Crossfade
-and use the shared 4 dp indeterminate loading stroke.
+and use the shared 3 dp indeterminate loading stroke.
 Remote `view_image` previews retain this exact presentation but admit their image request only when
 the Tool preview is expanded. The square viewport exists before the request starts and remains fixed
 through download and decode; the decoded image fades in without changing surrounding geometry.
 
-In the Tool detail Bottom Sheet, a `generate_image` result keeps the same `24 dp` outer horizontal
+In the Tool detail Bottom Sheet, an `image_generate` result keeps the same `24 dp` outer horizontal
 content padding as ordinary Tool text. Its rounded preview is centered and fills that padded content
 width as a `width x width` square. `ContentScale.Crop` center-crops only the source bitmap inside the
 square; it does not remove container margins or cap the square by sheet height. Arguments, labels,
 result text, and the image therefore share the same outer edges. Non-generation Tool images retain
 their existing aspect-ratio sizing and `ContentScale.Fit` behavior.
 
-Local Sandbox and Conch share one shell-tool baseline: foreground command/workdir validation,
-bounded retained output and cancellation propagation; bounded typed `file_read`; 1MB UTF-8
-`file_write`; backend-native `file_edit`; and home-default glob/grep with the documented caps,
-truncation metadata, regex failures, and line-content bounds. Conch durable background jobs,
-foreground continuation after the client wait budget, and `view_image` are explicit extensions rather
-than baseline behavior that Local must imitate. SSH may implement the transport-neutral interfaces,
-but it is not the authority for the Local/Conch baseline.
+Local Sandbox is a standard shell/file server alongside Conch. Both expose foreground and
+background commands, retained job list/get/wait/stop, explicit `file_view_image`, file transfer,
+bounded typed file reads, 1MB UTF-8 writes, native edits, and home-default glob/grep with documented
+caps and truncation metadata. Schemas and execution resolve the same enabled server set; omission
+is allowed only when a tool has exactly one eligible server. SSH retains its supported subset.
 
-Local Sandbox package installation and upgrade share one dependency download closure. APKINDEX
+A foreground wait budget expires without killing or restarting its job. Background execution is
+owned by the server, independent of a tool/provider instance; Local Sandbox retains job records and
+bounded cumulative output in private storage. After app process death, unfinished local jobs become
+`interrupted`, never silently replayed. Explicit Stop during foreground execution stops the process
+tree and waits for settlement; cancelling a job read/wait only cancels observation. Sandbox reset
+quiesces its jobs before deleting the rootfs. Shared-storage command and stop confirmation follows
+the existing Local Sandbox target gate. Terminal job acknowledgement follows the existing Room
+commit boundary and does not delete retained records.
+
+Explicit local image reads use the existing sandbox path/mount resolver and shared `ToolImageStore`
+processing, with the same byte bounds, image attachments, and cancellation behavior as remote reads.
+Ordinary sandbox attachments remain path projections until explicitly read as images.
+
+Local Sandbox supports Alpine, Debian and Ubuntu arm64 userlands in the F-Droid flavor, with
+one device-local selected distribution and independent root filesystems. Missing selection means
+legacy Alpine; its existing rootfs and shared home are preserved. Downloads use pinned SHA-256
+archives and stage the complete filesystem before publication. Failure/cancellation must not
+replace a previous installation. Guest symbolic links and merged-/usr directories retain their
+Linux semantics; direct file tools resolve links within the guest and authorized mounts and reject
+host escapes and cycles. Switching is refused while retained jobs or filesystem mutations are
+active, and cannot retarget an already admitted job. Reset deletes only the selected rootfs and
+retains shared home, other installed distributions and retained job history.
+
+Debian and Ubuntu package operations use apt/dpkg for signed repository verification, dependency
+resolution and transactions. Settings operations are noninteractive, report command failures,
+protect base packages and never silently autoremove user packages. Package lists and quick-install
+names match the selected distribution. Existing shared job recovery and mutation ownership remain
+authoritative for installation, package operations and selection.
+
+Alpine package installation and upgrade share one dependency download closure. APKINDEX
 records are read completely through their blank-line boundary or EOF. Virtual dependency providers
 prefer an already-installed candidate present in the index, otherwise the highest repository
 provider priority, with stable name ordering for ties. Index order must not pull a competing shell
@@ -233,8 +353,8 @@ thought duration is a fallback only when at least one thought segment
 exists; it must not turn a tool-only card into `Thought for xs, called x tools`.
 Gemini keeps its hosted output protocol-local. Candidate `groundingMetadata` becomes a completed,
 durable `google_search` hosted block with normalized `results` and full grounding metadata. The shared
-UI segment-preparation boundary excludes that exact tool name from compact, grouped timeline,
-ordinary timeline, and thinking-detail presentation, so it produces neither a `Google Search` card
+UI segment-preparation boundary excludes that exact tool name from the shared Thinking card, grouped
+timeline, ordinary timeline, and thinking-detail presentation, so it produces neither a `Google Search` card
 nor a `Called x tools` count; generic `web_search`, OpenAI `openai_search`, and other tools remain
 visible. This presentation rule does not change request serialization, hosted-tool settlement,
 persistence, replay, citation extraction, source order, or failure behavior. An `executableCode` part

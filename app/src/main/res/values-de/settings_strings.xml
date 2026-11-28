@@ -84,7 +84,7 @@
     <string name="prompts_template_blank">Leer</string>
     <string name="prompts_template_blank_desc">Mit einem leeren, bearbeitbaren System-Prompt beginnen.</string>
     <string name="prompts_template_default">Standard</string>
-    <string name="prompts_template_default_desc">Agoras Standard-Prompt mit Laufzeitkontext, Speicher, Websuche, Shell und Regeln für den Zugriff auf Gerätedateien verwenden.</string>
+    <string name="prompts_template_default_desc">Agoras Standardregeln für Antworten, Werkzeughinweise, Skill-Katalog und aktiven Speicher verwenden.</string>
     <string name="prompts_duplicate">Duplizieren</string>
     <string name="prompts_duplicate_title">%1$s Kopie</string>
     <string name="prompts_empty_preview">Leerer Prompt</string>
@@ -164,6 +164,11 @@
     <string name="default_thinking">Standard-Nachdenken</string>
     <string name="gen_thinking_enabled">Nachdenken</string>
     <string name="gen_thinking_enabled_desc">Nachdenk-/Reasoning-Fähigkeit des Modells aktivieren</string>
+    <string name="replay_reasoning_in_history">Reasoning im Verlauf wiederholen</string>
+    <string name="replay_reasoning_in_history_desc">reasoning_content bei jeder Assistenten-Nachricht senden; Modelle, die das Feld verlangen, akzeptieren einen leeren Wert</string>
+    <string name="attachments_group_title">Anhänge</string>
+    <string name="attachment_sandbox_link">Sandbox-Dateilinks</string>
+    <string name="attachment_sandbox_link_desc">Dateien als Sandbox-Links anhängen, wenn verfügbar, sonst Inhalt einbetten; aus: immer einbetten</string>
     <string name="gen_thinking_level">Nachdenk-Stufe</string>
     <string name="gen_thinking_level_desc">Steuert die Nachdenktiefe; höher = gründlicheres Reasoning</string>
     <string name="gen_thinking_level_low">Niedrig</string>
@@ -200,12 +205,10 @@
     <string name="tool_call_display_mode">Nachdenk- und Werkzeugblöcke</string>
     <string name="tool_call_display_mode_timeline">Zeitverlauf</string>
     <string name="tool_call_display_mode_grouped_timeline">Gruppiert</string>
-    <string name="tool_call_display_mode_compact">Kompakt</string>
     <string name="tool_call_display_mode_timeline_desc">Antworten, Nachdenken und Werkzeugblöcke in zeitlicher Reihenfolge anzeigen</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">Zeitliche Reihenfolge beibehalten, aber aufeinanderfolgende Nachdenk-, Werkzeug- und Bildblöcke zusammenfassen</string>
     <string name="auto_expand_active_group">Aktive Gruppe automatisch erweitern</string>
     <string name="auto_expand_active_group_desc">Erweitert die aktuelle Denk- und Werkzeuggruppe automatisch und klappt sie ein, sobald das Modell fortfährt.</string>
-    <string name="tool_call_display_mode_compact_desc">Nachdenk- und Werkzeugblöcke oberhalb der Antwort gruppieren</string>
     <string name="interaction_feedback">Interaktionsfeedback</string>
     <string name="stick_to_bottom">Am unteren Rand bleiben</string>
     <string name="stick_to_bottom_desc">Neuen Inhalten automatisch folgen, während eine Antwort generiert wird.</string>
@@ -220,11 +223,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">Datenschutzorientierte Such-API. Kostenlose Stufe verfügbar.</string>
     <string name="web_search_serper_desc">Schnelle Google-Such-API. 2.500 kostenlose Abfragen/Monat.</string>
     <string name="web_search_tavily_desc">KI-optimierte Such-API. Für LLM-Agenten entwickelt.</string>
+    <string name="web_search_exa_desc">Neuronale Suche mit Seitenauszügen. Funktioniert ohne Schlüssel über den öffentlichen MCP-Endpunkt von Exa.</string>
     <string name="web_search_searxng_desc">Selbst gehostete Metasuchmaschine. Am besten mit eigener Instanz.</string>
     <string name="web_search_duckduckgo_desc">Kostenlos, kein API-Key. Web-Scraping von lite.duckduckgo.com. Kann instabil sein und Bot-Schutz auslösen.</string>
     <string name="web_search_select_provider">Suchanbieter auswählen</string>
@@ -233,7 +238,9 @@
     <string name="web_search_serper_key">Serper-API-Schlüssel</string>
     <string name="web_search_serper_key_hint">API-Schlüssel von serper.dev</string>
     <string name="web_search_tavily_key">Tavily-API-Schlüssel</string>
+    <string name="web_search_exa_key">Exa-API-Schlüssel (optional)</string>
     <string name="web_search_tavily_key_hint">API-Schlüssel von tavily.com</string>
+    <string name="web_search_exa_key_hint">Optional. Leer lassen, um den schlüsselfreien öffentlichen Endpunkt von Exa zu nutzen.</string>
     <string name="web_search_num_results">Max. Ergebnisse</string>
     <string name="web_search_num_results_desc">Anzahl der abzurufenden Ergebnisse: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Öffentliche Instanzen sind oft ratenbegrenzt. Für zuverlässige Nutzung wird Selbst-Hosting empfohlen.</string>
@@ -271,7 +278,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Lokale Sandbox</string>
     <string name="sandbox_enable">Lokale Sandbox aktivieren</string>
-    <string name="sandbox_enable_desc">Befehle in isoliertem Alpine Linux auf dem Gerät ausführen</string>
+    <string name="sandbox_enable_desc">Befehle in einer isolierten Linux-Umgebung auf dem Gerät ausführen</string>
     <string name="shell_device_host">SSH-Host</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Port</string>
@@ -297,12 +304,12 @@
     <string name="sandbox_package_name">Paketname</string>
     <string name="sandbox_quick_install">Schnellinstallation</string>
     <string name="sandbox_installed">Installierte Pakete</string>
-    <string name="sandbox_no_packages">Keine Pakete installiert. Nur Alpine-Basis.</string>
+    <string name="sandbox_no_packages">Keine installierten Pakete zum Anzeigen.</string>
     <string name="sandbox_danger_zone">Gefahrenzone</string>
     <string name="sandbox_reset">Umgebung zurücksetzen</string>
     <string name="sandbox_reset_title">Umgebung zurücksetzen?</string>
-    <string name="sandbox_reset_desc">Alpine-rootfs und alle Pakete entfernen</string>
-    <string name="sandbox_reset_confirm">Dadurch werden das Alpine-Linux-rootfs und alle installierten Pakete gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="sandbox_reset_desc">Ausgewähltes Linux-System und seine installierten Pakete löschen</string>
+    <string name="sandbox_reset_confirm">Das ausgewählte Linux-System und seine installierten Pakete werden gelöscht. Gemeinsame Home-Dateien und andere Distributionen bleiben erhalten. Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="sandbox_not_supported">Lokale Sandbox nicht unterstützt</string>
     <string name="sandbox_snackbar_installed">%s installiert</string>
     <string name="sandbox_snackbar_install_failed">Installation von %s fehlgeschlagen</string>
@@ -316,14 +323,24 @@
     <string name="sandbox_snackbar_error">Fehler: %s</string>
     <string name="sandbox_not_supported_desc">Diese Funktion ist im aktuellen Build nicht verfügbar</string>
     <string name="sandbox_not_installed">Nicht installiert</string>
-    <string name="sandbox_extracting_rootfs">Alpine-rootfs wird extrahiert...</string>
-    <string name="sandbox_downloading_rootfs">Alpine-rootfs wird heruntergeladen… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Linux-System wird entpackt...</string>
+    <string name="sandbox_downloading_rootfs">Linux-System wird heruntergeladen… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Linux-System wird heruntergeladen…</string>
+    <string name="sandbox_verifying_rootfs">Download wird überprüft…</string>
+    <string name="sandbox_validating_rootfs">Linux-System wird überprüft…</string>
+    <string name="sandbox_preparing_rootfs">Wird vorbereitet…</string>
+    <string name="sandbox_mirror">Paketquelle</string>
+    <string name="sandbox_mirror_desc">Linux-System und Pakete aus dieser Quelle herunterladen</string>
+    <string name="sandbox_mirror_official">Offiziell</string>
+    <string name="sandbox_mirror_tuna">China-Spiegel (TUNA)</string>
+    <string name="sandbox_mirror_applied">Paketquellen aktualisiert</string>
+    <string name="sandbox_mirror_failed">Paketquellen konnten nicht aktualisiert werden</string>
     <string name="sandbox_install_failed">Installation fehlgeschlagen</string>
     <string name="sandbox_installed_label">Installiert</string>
     <string name="sandbox_failed_label">Fehlgeschlagen</string>
     <string name="sandbox_dashboard_summary">%d Pakete installiert · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">%s entfernen?</string>
     <string name="sandbox_remove_pkg_desc">%s aus der Sandbox entfernen? Dadurch wird der Speicherplatz freigegeben.</string>
     <string name="sandbox_remove_content_desc">Paket entfernen</string>
@@ -468,6 +485,17 @@
     <string name="provider_cache_desc">Prompt-Caching anfordern; der Relay-Cache ist unabhängig</string>
     <string name="provider_cache_duration">Cache-Dauer</string>
     <string name="provider_cache_duration_desc">Wie lange zwischengespeicherte Prompts wiederverwendbar bleiben</string>
+    <string name="provider_save_failed">Anbietereinstellungen konnten nicht gespeichert werden</string>
+    <string name="provider_custom_entry_desc">OpenAI-, Anthropic- oder Google-kompatibler Endpunkt</string>
+    <string name="provider_remove_title">%1$s entfernen?</string>
+    <string name="provider_remove_text">Die Einstellungen bleiben erhalten. Füge den Anbieter erneut hinzu, um sie wiederherzustellen.</string>
+    <string name="provider_remove">Entfernen</string>
+    <string name="provider_search_hint">Anbieter suchen</string>
+    <string name="provider_custom_entry">Benutzerdefinierter Anbieter</string>
+    <string name="provider_add_no_match">Keine passenden Anbieter</string>
+    <string name="provider_added">Hinzugefügt</string>
+    <string name="provider_list_empty">Noch keine Anbieter</string>
+    <string name="provider_reorder">Neu anordnen</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Netzwerk</string>
     <string name="settings_proxy">Proxy</string>
@@ -540,6 +568,6 @@
     <string name="install_guide_help">Hilfe</string>
     <string name="install_guide_open_terminal">Terminal öffnen</string>
     <string name="install_guide_run_command">Befehl kopieren und ausführen</string>
-    <string name="conch_guide_finish">Kehre zu Gerät hinzufügen zurück. Gib die Dienstadresse und den API-Schlüssel aus der Installation ein, wähle einen Namen und speichere.</string>
-    <string name="filo_guide_finish">Wähle bei Aufforderung das Windows-Konto des nativen Clients. Kehre zu Gerät hinzufügen zurück, gib die erreichbare Dienst-URL und das Zugriffstoken ein und speichere. localhost funktioniert nur auf dem Computer.</string>
+    <string name="conch_guide_finish">Füge das Gerät mit der Dienstadresse und dem API-Schlüssel aus der Installation hinzu.</string>
+    <string name="filo_guide_finish">Wähle bei Aufforderung das Windows-Konto und die Quellen. Füge dann das Gerät mit der Dienst-URL und dem Zugriffstoken aus der Installation hinzu.</string>
 </resources>

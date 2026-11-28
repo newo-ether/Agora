@@ -19,20 +19,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,6 +59,7 @@ import com.newoether.agora.ui.components.AgoraDropdownMenuItem
 import com.newoether.agora.ui.components.rememberUnsavedChangesBack
 import com.newoether.agora.ui.components.sheetOptionClickable
 
+@Composable
 private fun variableDisplayName(key: String): String = when (key) {
     PredefinedVariables.TIME -> "Current Time"
     PredefinedVariables.DATE -> "Current Date"
@@ -69,21 +71,21 @@ private fun variableDisplayName(key: String): String = when (key) {
     PredefinedVariables.MESSAGE_MODEL_ID -> "Message Model ID"
     PredefinedVariables.MODEL_ID -> "Current Model ID (Legacy)"
     PredefinedVariables.PROMPT -> "Prompt"
-    else -> key
+    else -> stringResource(R.string.unknown)
 }
 
 private fun variableIcon(key: String): ImageVector = when (key) {
-    PredefinedVariables.TIME -> Icons.Default.Schedule
-    PredefinedVariables.DATE -> Icons.Default.CalendarMonth
-    PredefinedVariables.SENT_TIME -> Icons.Default.History
-    PredefinedVariables.SENT_DATE -> Icons.Default.CalendarMonth
-    PredefinedVariables.ACTIVE_MEMORY -> Icons.Default.Memory
-    PredefinedVariables.SKILL_CATALOG -> Icons.Default.Extension
+    PredefinedVariables.TIME -> Icons.Rounded.Schedule
+    PredefinedVariables.DATE -> Icons.Rounded.CalendarMonth
+    PredefinedVariables.SENT_TIME -> Icons.Rounded.History
+    PredefinedVariables.SENT_DATE -> Icons.Rounded.CalendarMonth
+    PredefinedVariables.ACTIVE_MEMORY -> Icons.Rounded.Memory
+    PredefinedVariables.SKILL_CATALOG -> Icons.Rounded.Extension
     PredefinedVariables.CURRENT_MODEL_ID,
     PredefinedVariables.MESSAGE_MODEL_ID,
-    PredefinedVariables.MODEL_ID -> Icons.Default.Info
-    PredefinedVariables.PROMPT -> Icons.Default.TextFields
-    else -> Icons.Default.Info
+    PredefinedVariables.MODEL_ID -> Icons.Rounded.Info
+    PredefinedVariables.PROMPT -> Icons.Rounded.TextFields
+    else -> Icons.Rounded.Info
 }
 
 
@@ -145,13 +147,11 @@ fun SystemPromptEditorPage(
     val guardedBack = rememberUnsavedChangesBack(
         hasUnsavedChanges = hasUnsavedChanges,
         onBack = onBack,
+        enabled = !showVariablePicker,
     )
 
     BackHandler(enabled = showVariablePicker) {
         showVariablePicker = false
-    }
-    BackHandler(enabled = !showVariablePicker) {
-        guardedBack()
     }
 
     CollapsingSettingsScaffold(
@@ -173,7 +173,7 @@ fun SystemPromptEditorPage(
                     )
                 },
             ) {
-                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.provider_save))
+                Icon(Icons.Rounded.Save, contentDescription = stringResource(R.string.provider_save))
             }
         },
         floatingActionButton = { if (showDocFab) DocumentationFab("system-prompts.md") }
@@ -207,7 +207,6 @@ fun SystemPromptEditorPage(
                 tabs = tabLabels,
                 selectedIndex = selectedTab,
                 onSelect = { selectedTab = it },
-                allowLabelOverflow = true,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -265,7 +264,7 @@ fun SystemPromptEditorPage(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp)
                         ) {
                             Icon(
-                                Icons.Default.TextFields,
+                                Icons.Rounded.TextFields,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                                 modifier = Modifier.size(36.dp)
@@ -290,7 +289,7 @@ fun SystemPromptEditorPage(
                                     PromptTemplateItem(type = PromptItemType.CUSTOM, value = "")
                                 )
                             },
-                            onInsertVariable = { insertAtIndex = i; showVariablePicker = true }
+                            onInsertVariable = { insertAtIndex = i; showVariablePicker = true },
                         )
 
                         TemplateItemRow(
@@ -323,7 +322,7 @@ fun SystemPromptEditorPage(
                         },
                         onInsertVariable = {
                             insertAtIndex = currentItems.size; showVariablePicker = true
-                        }
+                        },
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -382,28 +381,30 @@ fun SystemPromptEditorPage(
             )
             Spacer(modifier = Modifier.height(8.dp))
             val availableVars = if (selectedTab == 0) PredefinedVariables.ALL.filter { it !in PredefinedVariables.PER_MESSAGE_VARS } else PredefinedVariables.ALL
-            for (key in availableVars) {
-                SettingsItem(
-                    headlineContent = { Text(variableDisplayName(key)) },
-                    supportingContent = { Text("{${key}}") },
-                    leadingContent = {
-                        Icon(variableIcon(key), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    },
-                    startPadding = SETTINGS_ITEM_SHEET_PADDING,
-                    endPadding = SETTINGS_ITEM_SHEET_PADDING,
-                    modifier = Modifier.fillMaxWidth().sheetOptionClickable {
-                        val item = PromptTemplateItem(type = PromptItemType.PREDEFINED, value = key)
-                        if (targetIndex >= 0 && targetIndex <= currentItems.size) {
-                            currentItems.add(targetIndex, item)
-                        } else {
-                            currentItems.add(item)
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                for (key in availableVars) {
+                    SettingsItem(
+                        headlineContent = { Text(variableDisplayName(key)) },
+                        supportingContent = { Text("{${key}}") },
+                        leadingContent = {
+                            Icon(variableIcon(key), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        startPadding = SETTINGS_ITEM_SHEET_PADDING,
+                        endPadding = SETTINGS_ITEM_SHEET_PADDING,
+                        modifier = Modifier.fillMaxWidth().sheetOptionClickable {
+                            val item = PromptTemplateItem(type = PromptItemType.PREDEFINED, value = key)
+                            if (targetIndex >= 0 && targetIndex <= currentItems.size) {
+                                currentItems.add(targetIndex, item)
+                            } else {
+                                currentItems.add(item)
+                            }
+                            showVariablePicker = false
+                            insertAtIndex = -1
                         }
-                        showVariablePicker = false
-                        insertAtIndex = -1
-                    }
-                )
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -411,7 +412,7 @@ fun SystemPromptEditorPage(
 @Composable
 private fun InsertBetweenButton(
     onInsertText: () -> Unit,
-    onInsertVariable: () -> Unit
+    onInsertVariable: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(
@@ -430,7 +431,7 @@ private fun InsertBetweenButton(
                 modifier = Modifier.size(20.dp)
             ) {
                 Icon(
-                    Icons.Default.Add,
+                    Icons.Rounded.Add,
                     contentDescription = stringResource(R.string.template_insert_title),
                     modifier = Modifier.size(12.dp)
                 )
@@ -443,7 +444,7 @@ private fun InsertBetweenButton(
             ) {
                 AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.template_add_text)) },
-                    leadingIcon = { Icon(Icons.Default.TextFields, null) },
+                    leadingIcon = { Icon(Icons.Rounded.TextFields, null) },
                     onClick = { expanded = false; onInsertText() }
                 )
                 AgoraDropdownMenuItem(
@@ -473,17 +474,17 @@ private fun TemplateItemRow(
             ) {
                 if (onMoveUp != null) {
                     IconButton(onClick = onMoveUp, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.template_move_up), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = stringResource(R.string.template_move_up), modifier = Modifier.size(18.dp))
                     }
                 }
                 if (onMoveDown != null) {
                     IconButton(onClick = onMoveDown, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.template_move_down), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.template_move_down), modifier = Modifier.size(18.dp))
                     }
                 }
                 if (onDelete != null) {
                     IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.provider_delete), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.provider_delete), modifier = Modifier.size(18.dp))
                     }
                 }
             }

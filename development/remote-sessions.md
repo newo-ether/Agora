@@ -1,12 +1,20 @@
 # Remote Sessions
 
-Status: current owner-approved Filo multi-source integration, 2026-10-21. Earlier staged
+Status: current owner-approved Filo four-source installation and integration, 2026-10-22. Earlier staged
 plans and superseded decisions are retained in Git and the single active task log.
 
 ## Ownership and protocol
 
-Remote connects Agora to an independent Filo service. Configured sources are Codex Desktop,
-Codex CLI and Claude Code. Source selection is an explicit catalog filter and access path;
+Remote connects Agora to an independent Filo service. Installed sources are Codex Desktop,
+Codex CLI, Claude Code and Claude Desktop (Code surface). Filo discovers installed native
+clients under the selected Windows account and offers one checkbox per source. Selecting a
+source authorizes automatic installation and persistent official registration of its required
+Filo components, including the Claude Mod; no manual copy, environment variable or plugin
+load step belongs in the normal installation flow. Installation failures must roll back
+Filo-owned component changes and cannot advertise a partially installed source as installed.
+Installed descriptors remain visible while their native application, Mod or worker is offline;
+only uninstalled integrations may be omitted. Status is independently verified for each source
+and never inferred from readable history or gateway health. Source selection is an explicit catalog filter and access path;
 capabilities reflect implemented and verified operations on that path. The Desktop adapter
 supports its original owner for execution and bounded read-only native history for browsing.
 Isolated native helpers may handle peripheral operations such as model catalog, rename and
@@ -18,9 +26,37 @@ permits an additional unchanged Desktop-provided runtime. Desktop-only use never
 a separate Codex CLI installation or desktop page/focus/input automation. CLI source access
 uses the selected account's existing official shared daemon and never starts or replaces it
 while browsing. Embedded/no-daemon CLI sessions do not imply attach/control support.
-Claude Code initially exposes only open sessions with the opted-in official JavaScript Mod
-loaded. Busy input is rejected. Phone-created Claude sessions are outside this stage.
-Claude Desktop Code can use that Mod when supported; Chat/Cowork are not advertised.
+Claude Code and Claude Desktop initially expose open sessions with the automatically installed
+official JavaScript Mod loaded by their supported native plugin mechanism. The terminal requires
+Claude Code 2.1.287 or later; Desktop requires its own embedded Code engine 2.1.286 or later.
+Component installation alone never establishes native compatibility or online status. Until a
+supported native session registers, that installed source stays visible and offline. Only a single
+terminal or Desktop surface is admitted; mixed or changing attachments revoke the old access binding.
+A running session that cannot reload plugins remains offline until native reload or its next normal start; the
+installer never restarts or automates a native client. Claude Mod Send and active Insert
+use explicitly non-exact `submitted_observed` receipts. `submitted` means only that the native
+API accepted the call. `observed` additionally requires a new same-registration native user
+item or turn after submission, with fully matching content and the command's observation ID.
+Idle Send submits a native user prompt. Running Insert appends a native user-role note;
+its returned row UUID and full text can establish observation. The note enters subsequent
+model requests in the loop, without altering an in-flight request or forcing a new request
+after completion. Observation alone does not prove model consumption.
+This does not prove exact client/message/turn linkage. A 20-second observation timeout becomes
+`unconfirmed`; it blocks resend and never causes replay. Independent Mod capabilities include
+bounded native model options, current model, main-loop request effort and exact-turn Stop.
+Stop requires its result plus the matching native terminal event. Model/effort selections are
+session-local rewrites for subsequent main turns; they remain pending until the settled
+`turn.step` engine/core trace proves the actual request values. Missing request evidence stays
+pending; mismatches fail and expose actual values. Named effort choices come from the native
+request API, not a per-model support guarantee. Claude Desktop uses the same Code
+Mod implementation but still needs embedded-engine runtime qualification; CLI probes do not
+qualify Desktop. Codex CLI and Claude Code never expose remote creation; their source descriptors
+and scoped creation routes refuse it before native allocation. Agora also hides CLI New Chat
+against an older service that still advertises creation. Existing CLI conversations, including
+previously Filo-created work, retain their independently admitted controls.
+Claude Desktop Code uses existing Mod-registered conversations and does not support creation;
+New Chat stays unavailable through the create capability, without an unsupported-creation
+notice in the catalog. Chat/Cowork are not advertised.
 Filo-created Codex Desktop tasks may execute on its runtime. An existing idle Desktop task
 may be recovered only inside an explicit Send or settings request after verifying the
 native account, idle state and absent IPC owner. Recheck ownership before allocation and
@@ -31,18 +67,27 @@ execution. Independent completion and writer release require actual qualificatio
 
 Remote transport, saved connections and transient presentation are independent of Room,
 LlmProvider, GenerationManager and ordinary conversation drafts. Codex is durable truth.
+Remote image loading preserves the received image bytes, encoding and dimensions. It does not
+invoke Agora's model-input image processor or apply Generation image-quality settings. Bounded
+viewport decoding remains a display operation only. This owner clarification on 2026-10-27 is
+also scoped in [image-processing.md](image-processing.md).
 Only the selected session owns Remote history/subscription. Changing selection, connection,
 visibility or read generation cancels old reads and rejects late results. In-flight writes
 stay bound to their original owner. No automatic POST retry or input replay is allowed.
 
 Protocol 2 uses the shared authenticated encrypted channel and an explicit service address.
 Legacy `/v1/*` remains the fixed Codex Desktop projection. Negotiated `extensions.multiAdapter=1`
-adds at most three configured source descriptors and `/v1/adapters/{adapterId}/...` routes.
+adds at most four installed source descriptors and `/v1/adapters/{adapterId}/...` routes.
 A new client against an old service synthesizes one connection-local legacy Desktop source;
 a Claude-only service never pretends to be legacy Codex. Unknown required schemas fail closed.
 Create, history, live, idle Send, active Send semantics, Stop, individual settings, model/usage,
 rename/archive, uploads and lazy messages are separate capabilities, defaulting unsupported.
-A bounded history snapshot is explicitly identified and never presented as complete history.
+Session `updatedAt` is integer Unix seconds. Message/node `timestamp` is integer Unix
+milliseconds or `null` when native time is unknown. Unknown time remains unknown in
+presentation; client receipt time cannot replace it. Row ordering uses admitted native
+identity and topology, never an invented timestamp.
+A bounded history snapshot is never presented as complete history; the UI shows no separate
+snapshot or read-only notice.
 Bearer authentication is private-loopback only; public callers cannot bypass the encrypted
 envelope. Codex Desktop idle Send starts a native turn and active Send steers its exact original
 turn. Other sources expose only their admitted semantics. Stop requires its native active ID.
@@ -86,8 +131,14 @@ shared device read/cache/stream/upload limits never multiply with configured sou
 Unsupported create/settings/send/Stop/manage controls stay hidden or disabled by explicit capability;
 history remains readable and drafts editable. Read-only sources subscribe only when their explicit
 live capability permits native observation; read-only history alone never starts a live subscription.
-Native acceptance still requires the actual client ID, user-message identity and turn identity;
-a text match, poll index or locally invented acknowledgement is not evidence.
+A successful initial detail read may supply a fresh, identity-validated session grant for idle Send
+or settings even when `live:false`. Preserve that snapshot's runtime for those explicitly granted
+controls; model metadata, catalog grants and a missing detail grant cannot establish control.
+If the detail grant adds `live:true`, enter the existing subscription using the same selected owner.
+This initial capability discovery is separate from the failed-subscription fallback below.
+Native exact acceptance requires the actual client ID, user-message identity and turn identity.
+Claude Mod's explicitly labeled non-exact submitted/observed contract above is a separate weaker
+claim; a content observation never manufactures exact native linkage.
 
 ## Devices and local persistence
 
@@ -101,8 +152,8 @@ Remote sits below Tasks in their original joined drawer group and opens Settings
 Both drawer buttons use the owner-requested 46 dp height, joined 24/5 dp corner shapes and
 2 dp inter-button gap. Their icons, labels, focus clearing and navigation remain unchanged.
 Device selection precedes Sessions; Add Device is a separate shared settings page. Its top Help
-group offers the independent `What Is Filo?` guide defined by settings-ui-ux.md. Guide Back and its
-final return action restore the same unsaved editor draft; the device list has no guide entry.
+group offers the independent `What Is Filo?` guide defined by settings-ui-ux.md. Guide Back
+restores the same unsaved editor draft; the device list has no guide entry.
 Save and discarded Back follow the original return to Devices. Help does not change save semantics.
 Devices renders its scaffold and locally saved rows independently of all network checks.
 No loading text, bar or overlay belongs here. The original MCP status dot reports
@@ -178,8 +229,12 @@ This is presentation state only; Filo verifies native ownership/state at dispatc
 
 The session catalog title is the configured device name (localized Device fallback), replacing
 Sessions. Immediately below it, a horizontally scrollable source selector shows only configured
-Codex Desktop, Codex CLI and Claude Code sources. There is one chip per source, never per process.
-Unavailable configured sources remain visible with their status; source selection never follows
+Codex Desktop, Codex CLI, Claude Code and Claude Desktop integrations. There is one chip per
+installed source, never per process. Online sources appear before all other sources. Within each
+group, use Codex Desktop, Codex CLI, Claude Code, then Claude Desktop, independent of advertisement
+order or current selection. Connecting and unavailable states do not count as Online.
+Offline installed sources remain visible with their status;
+source selection never follows
 availability automatically. Preserve the last explicit configured selection, defaulting to Desktop
 when configured, otherwise the first configured source. A selection scopes list and New Chat,
 invalidates old reads and never launches a native session. Chips retain their existing 40dp height,
@@ -191,7 +246,13 @@ Each dot reports its authenticated source status independently of gateway reacha
 Desktop uses `/v1/info` `desktop.state`: `connected` uses connected, `connecting` connecting,
 `unavailable` error, and absent/unknown/disconnected neutral idle. Only a real native connected
 snapshot establishes Online. Accessibility includes the localized status and source name.
+Remote dots (device rows, source chips and the conversation subtitle) use three colors only:
+Online primary, Connecting translucent primary, and the neutral idle gray for every other state,
+including error/unavailable; no Remote dot renders red. Accessibility labels keep the real state.
 Dot changes use a 200ms opacity Crossfade in fixed geometry, including Reduced Motion.
+Chip selection colors animate over 200ms. The chip row applies the drawer list's alpha edge fade
+horizontally (40dp, RTL-aware); each edge fades in over 200ms only after the row has scrolled more
+than the drawer's 2dp tolerance away from that edge, so a flush edge stays crisp.
 A successful gateway, model catalog or history read cannot fabricate native readiness.
 
 The existing device directory owns at most one serial Desktop observer, scoped to the selected,
@@ -211,13 +272,34 @@ can remove readiness but cannot establish Online. Native read admission, history
 their independent runtime/gateway semantics. One bounded configured-source advertisement and
 existing directory observer own source status; no generic provider/plugin registry is introduced.
 
+Sessions keeps the already loaded catalog rows and continuation while a conversation is open.
+Back renders that cache immediately; its background refresh replaces the previously loaded page
+range atomically, never shrinking it to page one while later pages are pending. Failure retains
+the complete cache. Successful visible-page refresh replaces that page's membership, so native
+archives disappear instead of surviving a title-only merge; unrelated loaded pages stay present.
+The catalog reuses SettingsScrollRetention for its numeric index and offset, keyed by device and
+source/native scope. Outgoing transitions cannot overwrite the current page's retained position.
+Local drawer rows already use the eager ViewModel snapshot and retained drawer composition;
+no second local cache or scroll owner is introduced.
+
 Sessions keeps row detail/More menus and read-only navigation available while rename, archive
 or another native mutation is pending. Busy admission belongs to the conflicting mutation,
 not the menu trigger or unrelated read-only controls. Opening a menu never submits a mutation.
 Sessions automatically loads the next cursor at the laid-out list bottom. Preserve rows
 and scroll position, reject repeated cursors, fence late pages and retain explicit error
-retry. There is no Refresh or Load More button. Sessions alone shows a bottom 4dp progress
-bar for actual loading/paging/control work: opacity enter/exit 300ms, fixed thickness,
+retry. There is no Refresh or Load More button; pull-to-refresh on the catalog list performs the
+existing explicit refresh, and its indicator shows only for that user pull while loading. The
+shared Settings scaffold brings it down from the safe page top above the title, toolbar and list
+(see settings-ui-ux.md). Switching source or moving between loading, empty and populated states
+cross-fades the Sessions group over
+200ms; edits within one populated list do not. The Sessions SettingsGroup always remains visible,
+including empty, loading and failed reads. An empty loading list shows a 20dp/2dp circular indicator
+with the localized Loading label in a standard SettingsItem. Once loading ends, an empty list uses
+the saved-Memory empty SettingsItem reference: neutral icon/headline, muted supporting guidance and
+64dp minimum height. Errors continue through Snackbar. Existing rows remain visible during refresh;
+the empty loading item never replaces populated content. Sessions shows a bottom 4dp progress
+bar for populated loading, paging or control work, without duplicating the empty-list circular state:
+opacity enter/exit 300ms, fixed thickness,
 initially hidden transition state, retained composition until exit finishes. No overlay.
 
 Selecting history preserves its native ID and starts bounded reads and original-owner
@@ -313,12 +395,18 @@ rejects stale results. Collapsed cards, body observation, paging and Search neve
 images; reopening an expanded preview reuses the private image cache.
 Tool progress/results and genuine timing retain native semantics. Trim only terminal CR/LF
 in presentation text, not interior whitespace, tool payloads or original cached records.
+Supported native tool formats from all four sources reuse the shared detail components through
+[tool-presentation.md](tool-presentation.md#remote-native-tools). Incomplete or unsupported payloads
+retain their original JSON/plain display; this projection does not change the native records.
 
 ## Exact original ChatApp presentation
 
 Reuse MessageList, Markdown/glyph fade, ChatTopBar, composer/TextField, message menus,
 ChatScrollCoordinator, ChatLaunchInteractionEffects and bottom-scroll button directly.
 No invented Remote renderer, scroll algorithm, keyboard behavior or animation.
+Tool-call display follows the shared Timeline/Grouped policy in streaming-markdown.md. A retired
+`compact` value resolves to Grouped before rendering; Remote has no independent Compact display branch.
+The shared Grouped Thinking card and ordinary Context Compact features retain their existing owners.
 The bottom-scroll button must use ordinary ChatApp's canonical visibility owner, including its
 scroll-direction latch, not only the lower-level availability predicate. Each conversation starts
 with the button hidden. Preserve the existing 32dp directional-travel rule, readiness, near-bottom,
@@ -359,7 +447,8 @@ exact English fallback Thought for a while; when the card contains tools it rema
 Thought for a while, called X tools. The fallback only replaces the duration, never the
 native tool count. Genuine timing retains original duration text.
 
-Errors and unknown runtime never disable an explicitly supported Send with nonblank input.
+Errors and unknown runtime never disable an explicitly supported Send with nonblank input,
+except an unresolved non-exact Claude Mod submission, whose resend barrier remains closed.
 Unavailable or unsupported source/session operations do not acquire a control capability through
 an error or history read. Filo decides whether the original owner can accept an admitted request;
 HTTP/SSE failures use stable Filo error
@@ -367,15 +456,20 @@ codes to select an actionable Snackbar in the current application locale. Unknow
 older servers retain the bounded native detail beside a localized category. Keep the detail
 in the transient notice for diagnosis; never log this text or credentials. Every default
 error key must exist in every supported locale. Codes never authorize automatic mutation retries.
-A rejected or unconfirmed send retains its draft and uses a text-only Snackbar with no action.
+A rejected or unconfirmed send retains its draft. Exact-receipt sources use a text-only Snackbar
+with no action; Claude Mod uses the same existing Snackbar for actual input failure and uncertainty.
 An uncertain result says that delivery could not be confirmed, never that non-delivery is proven.
-The next explicit Send admits one fresh attempt with a new client ID, including after UNKNOWN;
-SUBMITTING and ACCEPTED still coalesce duplicate taps. Refresh, reconnect and navigation never replay
+Receipt state remains internal; no input receipt label is shown in the composer.
+The next explicit exact-receipt Send admits one fresh attempt with a new client ID after UNKNOWN.
+Claude Mod UNKNOWN blocks resend, including a fresh client ID; only later valid observed evidence
+can resolve it. SUBMITTING and ACCEPTED coalesce duplicate taps. Refresh, reconnect and navigation never replay
 input. Old receipts and late results cannot confirm a newer attempt, clear its draft or report failure.
 Reuse original ComposerSendButton: active + empty draft means Stop, text means Send/steer,
 submission/Stop settlement means Busy. Keep pending Stop through both HTTP success and
 native end/replacement of that exact turn, regardless of arrival order. Failure clears
-pending presentation without pretending idle. Client-ID confirmation requires the matching native turn and user-message identity.
+pending presentation without pretending idle. Exact client-ID confirmation requires the matching
+native turn and user-message identity. Claude Mod instead requires its matching accepted command
+and a new same-registration native item/turn with full matching text, and remains explicitly non-exact.
 Bounded `inputReceipts` carry that evidence independently of the visible page; an
 unrelated receipt or an off-page text match cannot acknowledge a send. Native
 `completedTurnId` survives executor retirement in runtime and catalog statuses.
@@ -387,11 +481,15 @@ scroll. Navigation and repeated reconciliation cannot duplicate it.
 
 New Chat is local until Send: immediate original keyboard, no background creation or immediate
 request. Its visible Desktop-status observer follows the delayed info-read contract above.
-Its empty body follows the WebUI homepage welcome: centered OpenAI mark with an 80dp maximum,
+Its empty body follows the WebUI homepage welcome: the selected source's mark (OpenAI or Claude)
+at a fixed 80dp,
 16dp mark-to-title spacing, and a 28sp Bold headlineMedium title with 35sp line height and
 onBackground color. In an online local draft, confirmed-empty history, or pending/reconnecting empty
-body, that title is the technical product name `Codex Desktop`; never show the central Connecting
-headline. An 8dp gap separates it from the selected device's configured name in
+body, that title is the selected source's technical product name; never show the central Connecting
+headline. A negotiated source that is disconnected but explicitly permits creation keeps this welcome
+for its local draft while the reachable gateway and top bar retain their actual status. This does not
+grant control over existing history or make an unavailable source ready. An 8dp gap separates the title
+from the selected device's configured name in
 bodyMedium/onSurfaceVariant, centered with at most two lines and ellipsis. Resolve that name through
 remoteDeviceName and the localized Device fallback; never derive it from an address or hostname,
 or hard-code a particular device. Device selection/name changes immediately update the subtitle.
@@ -410,11 +508,11 @@ cover or animate/remove Retry. Loaded history stays readable during recovery and
 an empty-state retry cover. Loaded messages and a missing session remove the empty body immediately.
 Keep the block inside the original measured
 top-bar/composer range, including IME changes. Measure the actual title, subtitle, gaps and Retry
-at their natural height before assigning remaining space to the decorative mark, preserving text
-and action geometry for large fonts, long names and RTL. When those details alone exceed the
-available height, the mark becomes zero-sized and ordinary vertical scrolling keeps every detail
-and Retry reachable inside a clipped viewport bounded by that same top-bar/composer range.
-Content that fits retains the original centered block. Initial history opening keeps only the
+at their natural height, preserving text and action geometry for large fonts, long names and RTL.
+The mark is never shrunk. The whole block is vertically centered in that range with no maximum
+height; when it exceeds the available height, ordinary vertical scrolling keeps the mark, every
+detail and Retry reachable inside a clipped viewport bounded by that same top-bar/composer range.
+The empty body shows no read-only or history-snapshot text. Initial history opening keeps only the
 original single centered loading indicator and its gesture barrier. It displays no connection hint,
 welcome mark, device subtitle, action or additional scrolling content below that indicator.
 Empty guidance never hides loaded messages or replaces the original composer. Explicit reconnect on an offline
@@ -428,12 +526,23 @@ Photos and Files with raw draft copies; Camera and Videos are absent. Picking do
 upload or create a native task; upload begins only on Send. Model catalog reads admitted by prior navigation
 may finish; draft entry/refresh does not start them. Actual model loading says Loading…,
 not Model Unavailable. Display cached native defaults or local choices without fabrication.
+Automatic model-catalog failures retain the current content and privacy-safe diagnostic,
+without another Snackbar on navigation or refresh. Explicit model-menu retry reports its
+failure through the existing Snackbar. Successful native metadata reads remain available
+for first Send without claiming native Online or creating an empty session.
 
 Both original and Remote model dropdowns share the leading check for the selected model.
-Remote always retains the original bottom-bar details button and its Thinking and Service Tier
-rows, including while loading or using a read-only source. Each row is disabled independently when
-its capability, model options or runtime admission is unavailable. The same capability fence applies
-to an already-open sheet if capabilities change. Unsupported rows are never hidden.
+Remote always retains the attachment plus, model selector and original bottom-bar details
+button, including while loading or using a read-only source. Thinking remains visible and
+is independently disabled when its capability, model options or runtime admission is unavailable.
+Service Tier is hidden when the selected source does not advertise `serviceTier` settings,
+including both Claude sources. An advertised tier row stays visible but disabled while its
+model options or current session grant are unavailable. The model-selector trigger is disabled
+when model switching is unsupported, its catalog or conversation is loading, no usable model
+options are available, or its label is Model Unavailable. Preserve a known native model label
+without granting a menu. Revoking admission also closes an already-open model menu.
+The composer shows no read-only or snapshot notice line.
+The same capability fence applies to an already-open sheet if capabilities change.
 Remote Thinking and Service Tier use plain rows in the original details dropdown. Those rows
 open the original bottom sheets and slider panels; neither the dropdown nor panel exposes a
 toggle. Remote sheets omit the panels' top header/description item and its spacing.
@@ -449,15 +558,42 @@ into a bounded latest patch. Shared canonical draft identity never merges pendin
 source paths. An unresolved old-path mutation blocks conflicting new-path admission; no queued
 patch transfers to another source. Omitted fields stay unchanged and explicit `serviceTier:null`
 selects native Default.
-Each dispatched patch is attempted once and requires native application/read-back for success;
-never replay a mutation automatically. Older snapshots or acknowledgements cannot replace a
+Each dispatched patch is attempted once. Exact settings sources require native application/read-back
+for success; Claude Mod reports accepted submission as pending until a subsequent native request
+proves the actual model/effort. Never replay a mutation automatically. Older snapshots or acknowledgements cannot replace a
 newer optimistic choice. Failure removes only the affected optimistic choice, restores the last
 confirmed native value, settles the original panel feedback gate, and reports through the existing
 Snackbar. A stale failure cannot roll back a newer choice or affect a different selected owner.
-Keep model switching and Send behind outstanding settings so they cannot overtake the user's
-chosen parameters. Draft choices remain local until first Send. Unknown tier
+For Claude Mod, releasing the native settings submission barrier permits the next Send while
+request confirmation remains pending, because that next turn supplies the required evidence.
+The Thinking panel retains the accepted pending choice for its exact granted access binding;
+this presentation never replaces the actual runtime effort. Confirmed or failed request evidence
+settles the choice back to actual native values. An exact Claude effort-only grant remains usable
+when fresh registration or native resume leaves runtime status unknown; it neither fabricates
+an idle state nor grants model changes, Stop or control on another source.
+The composer never renders native settings pending/confirmed/failed labels, request receipts,
+raw mismatch values, or other diagnostic markers. Confirmation remains internal; setting failures
+use the existing Snackbar. Other sources keep Send behind outstanding native application.
+Draft choices remain local until first Send. Unknown tier
 is distinct from confirmed Default (`serviceTierKnown:true` with null/default).
-The native model catalog alone defines supported efforts, tiers and defaults.
+Native model catalogs define model IDs. For Codex, Remote displays the nonblank native model
+name with hyphens replaced by spaces in both the selector and its menu (`GPT-6.1-Sol` becomes
+`GPT 6.1 Sol`). Other families retain their native names. A missing catalog entry or blank native
+name uses the shared model-alias display fallback; neither path changes the model ID sent to Filo.
+CLI session access retains source-level read-only model metadata while execution capabilities
+remain bound to the admitted native task. Claude Code reads model metadata from its selected
+executable's native initialize response, preserving IDs, labels and effort metadata; Mod aliases
+never override that catalog. Claude Mod's named effort controls reflect the official request
+rewrite API; they do not assert model-specific support. An admitted existing Claude session with
+an exact effort grant keeps request effort controls when its actual runtime model has no catalog
+entry or the catalog is unavailable. Prefer advertised named efforts, falling back to the request
+API's low/medium/high/xhigh/max enum; never invent an alias mapping or replace the actual model.
+A missing session effort grant disables the control. Other sources use their native catalog's
+supported efforts, tiers and defaults. Original Claude Mod sessions advertise effort only and
+refuse model mutations until a provider-ready native catalog and switching path are qualified.
+Claude Desktop's `config.list` aliases are not its true `modelSelectorConfig` catalog; the current
+helper has no supported read-only getter or alias resolver for that catalog, so its model catalog
+route is unsupported. CLI models must never substitute for Desktop's native directory.
 Settings apply to subsequent turns.
 Draft choices apply after one native creation and before first Send. If settings fail after
 known creation, explicit retry uses the same native ID. Unknown creation/send retains the draft;
@@ -482,15 +618,17 @@ which render through the original neutral grey GenerationErrorBar/GenerationTerm
 Preserve preceding answers and tools, and keep one stable error identity per native turn.
 Transport errors remain Snackbar notices. Missing live state must never invent a native error
 or mark a failed turn as generating. Error messages do not disable an explicit Send retry.
-No delivery-status text/card belongs above the composer. Rejected/unknown delivery details
-use the original text-only Snackbar without a check, acknowledgment or retry button. An unconfirmed
-send reports only that successful delivery could not be confirmed; known rejections keep their
-localized failure reason. The draft remains editable and the next explicit Send performs the new
-attempt directly. No confirmation step or acknowledgment guard is required. Automatic replay stays
-prohibited even when that manual resend could duplicate an input accepted before its response was lost.
+Errors and delivery uncertainty use the existing Snackbar. Input receipt states are internal only;
+no submitting/submitted/observed/non-exact receipt label belongs above the composer.
+Native settings confirmation and input receipt states stay internal; normal chat exposes no
+request-status or debug lines. UNKNOWN keeps the draft editable and Send blocked; no retry or acknowledgment
+button is added. Other sources retain text-only Snackbar delivery feedback and explicit fresh
+attempt semantics. Automatic input replay remains prohibited.
 
-Filo bounds conversation pages to 256KiB/128 records with explicit tool previews. Android
-limits SSE lines/HTTP bodies to 1MiB before UTF-8 allocation, including missing delimiters.
+Filo bounds conversation pages to 3MiB/128 records and complete response bodies to 4MiB.
+Tool arguments/results are decoded before leaf fields are limited (256KiB text target,
+384KiB serialized field cap); nested JSON strings remain parseable and truncation is marked.
+Android limits SSE lines/HTTP bodies to 4MiB before UTF-8 allocation, including missing delimiters.
 Retained payloads use a bounded cache with native replay bookmarks. Eviction cannot make
 any valid conversation permanently unenterable; both older and newer content remain readable.
 Long text parts preserve native identity, Unicode and internal whitespace. No larger heap or
@@ -509,8 +647,11 @@ races. Use focused tests while iterating, then the full build and matching deplo
 Service startup, unit tests, APK hash/install and actual UI acceptance are distinct evidence.
 Physical phone UI acceptance belongs to the owner; no taps/screenshots/UI dumps are implied.
 
-Codex Desktop Sessions rows expose the original three-dot dropdown with Rename and Archive and reuse
-ChatRenameDialog/ChatDeleteConfirmDialog with archive-specific copy. The owner requires
+Sessions rows expose the original three-dot management dropdown only when that session's
+verified access supports Rename or Archive. Unsupported actions and an empty management entry
+are absent, including ordinary Codex CLI sessions without either grant. Supported actions stay
+visible but disabled during a pending mutation. Capability loss closes the affected menu/dialog.
+Codex Desktop reuses ChatRenameDialog/ChatDeleteConfirmDialog with archive-specific copy. The owner requires
 only Codex thread/archive, preserving history and synchronizing the desktop archive
 notification. Neither desktop ownership nor generation disables Archive. Update/remove
 a row only after confirmed native success; failures use Snackbar and never hide the task.

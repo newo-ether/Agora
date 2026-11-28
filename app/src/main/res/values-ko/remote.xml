@@ -8,6 +8,7 @@
     <string name="remote_connection_hint">연결할 기기에 Filo를 설치한 다음 IP 주소 또는 URL을 입력하세요.</string>
     <string name="remote_sessions">세션</string>
     <string name="remote_empty">기존 세션을 찾을 수 없음</string>
+    <string name="remote_empty_hint">이 소스의 세션이 여기에 표시됩니다.</string>
     <string name="remote_sync_hint">Codex에서 이 세션을 열어 두세요. 답변이 저장되면 동기화됩니다.</string>
     <string name="remote_refresh">새로고침</string>
     <string name="remote_load_more">더 불러오기</string>
@@ -38,8 +39,13 @@
     <string name="remote_source_codex_desktop">Codex Desktop</string>
     <string name="remote_source_codex_cli">Codex CLI</string>
     <string name="remote_source_claude_code">Claude Code</string>
+    <string name="remote_source_claude_desktop">Claude Desktop</string>
     <string name="remote_source_read_only">이 소스를 통해서는 이 대화를 읽기만 할 수 있습니다.</string>
     <string name="remote_history_bounded">이 소스에서는 최근 기록의 스냅샷만 제공됩니다.</string>
     <string name="remote_source_unavailable">이 소스를 사용할 수 없습니다. 대상 컴퓨터에서 해당 네이티브 클라이언트를 확인하세요.</string>
+    <string name="remote_source_no_session">활성 %1$s 세션이 없습니다</string>
     <string name="remote_history_observed">Claude Mod 등록 후 수집된 텍스트만 표시합니다. 이전 기록, 도구 활동, 미디어 및 사고 내용은 포함되지 않습니다.</string>
+    <string name="remote_settings_pending_request">다음 네이티브 요청에서 설정 확인 대기 중</string>
+    <string name="remote_settings_confirmed_request">네이티브 요청에서 설정 확인됨</string>
+    <string name="remote_settings_failed_request">설정 불일치 · 실제 모델: %1$s · 사고 수준: %2$s</string>
 </resources>

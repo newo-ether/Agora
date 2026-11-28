@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="image_quality_title">Qualidade da imagem</string>
+    <string name="image_quality_mode">Modo de qualidade</string>
+    <string name="image_quality_mode_desc">Novas imagens: até %1$d px, JPEG %2$d. Os anexos existentes não são alterados.</string>
+    <string name="image_quality_light">Leve</string>
+    <string name="image_quality_balanced">Equilibrado</string>
+    <string name="image_quality_high">Alta</string>
+    <string name="image_quality_custom">Personalizado</string>
+    <string name="image_quality_long_edge">Lado maior máximo</string>
+    <string name="image_quality_long_edge_desc">Limite de pixels para novas imagens, capturas, páginas PDF e quadros de vídeo. Imagens pequenas não são ampliadas.</string>
+    <string name="image_quality_jpeg">Qualidade JPEG</string>
+    <string name="image_quality_jpeg_desc">Valores maiores preservam mais detalhes. Imagens transparentes usam PNG.</string>
+    <string name="image_quality_pixels">%1$d px</string>
+</resources>

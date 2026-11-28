@@ -49,6 +49,7 @@ import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.MarkdownColors
+import com.mikepenz.markdown.model.MarkdownDimens
 import com.mikepenz.markdown.model.MarkdownPadding
 import com.mikepenz.markdown.model.MarkdownTypography
 import com.mikepenz.markdown.compose.MarkdownElement
@@ -60,7 +61,6 @@ import com.mikepenz.markdown.compose.elements.MarkdownTableHeader
 import com.mikepenz.markdown.compose.elements.MarkdownTableRow
 import com.mikepenz.markdown.compose.elements.LocalTableRowIndex
 import org.intellij.markdown.flavours.MarkdownFlavourDescriptor
-import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import com.mikepenz.markdown.annotator.AnnotatorSettings
 import com.mikepenz.markdown.annotator.annotatorSettings
 import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
@@ -119,7 +119,7 @@ internal fun buildCitationAwareMarkdownAnnotatedString(
             annotatorSettings = annotatorSettings,
         )
     }
-    return annotated.replaceCitationInlineTokens(citationTokens)
+    return annotated.replaceCitationInlineTokens(citationTokens).trimMarkdownLinkTail()
 }
 
 private const val MARKDOWN_LINE_HEIGHT_MULTIPLIER = 1.1f
@@ -149,6 +149,7 @@ internal fun rememberChatMarkdownAssets(
     onMediaClick: (List<String>, Int) -> Unit = { _, _ -> },
     preparedMarkdown: Map<String, com.mikepenz.markdown.model.State.Success> = emptyMap(),
     autoWrapCodeBlocks: Boolean = true,
+    imageOwnerId: String? = null,
 ): ChatMarkdownAssets {
     val linkColor = MaterialTheme.colorScheme.primary
     val linkTextStyles = remember(linkColor) { chatLinkTextStyles(linkColor) }
@@ -194,18 +195,8 @@ internal fun rememberChatMarkdownAssets(
         textLink = linkTextStyles,
         table = thoughtMarkdownBodyStyle,
     )
-    val fg = MaterialTheme.colorScheme.onBackground
-    val bg = MaterialTheme.colorScheme.surface
-    // Composite fg at 0.1 alpha over bg to produce the exact opaque equivalent
-    val codeBg = remember(fg, bg) {
-        Color(
-            red   = fg.red   * 0.1f + bg.red   * 0.9f,
-            green = fg.green * 0.1f + bg.green * 0.9f,
-            blue  = fg.blue  * 0.1f + bg.blue  * 0.9f,
-        )
-    }
     val customMarkdownColors = markdownColor(
-        codeBackground = codeBg,
+        codeBackground = MaterialTheme.colorScheme.surfaceContainerLow,
         inlineCodeBackground = Color.Transparent,
     )
     val customMarkdownPadding = markdownPadding(block = 8.dp)
@@ -382,9 +373,9 @@ internal fun rememberChatMarkdownAssets(
                         highlightColor = searchHighlightColor,
                         activeHighlightColor = activeSearchHighlightColor,
                     )
-                } else {
-                    // Installing a custom component makes the dependency consider every unknown
-                    // node handled. Preserve its normal recursive fallback for non-HTML nodes.
+                } else if (type != MarkdownElementTypes.LINK_DEFINITION) {
+                    // Definitions are document metadata. Preserve recursive fallback for other
+                    // unknown nodes without rendering a nested definition's label or destination.
                     model.node.children.forEach { child ->
                         MarkdownElement(
                             node = child,
@@ -403,15 +394,18 @@ internal fun rememberChatMarkdownAssets(
     val thoughtMarkdownComponents = customMarkdownComponents
 
     val latexTextSize = with(LocalDensity.current) { 20.sp.toPx() }
-    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick, latexTextSize) {
+    val shellMedia = LocalShellMarkdownMedia.current
+    val latexImageTransformer = remember(textColor, inlineImages, onMediaClick, latexTextSize, shellMedia, imageOwnerId) {
         LatexImageTransformer(
             textSize = latexTextSize,
             color = textColor.toArgb(),
             inlineImages = inlineImages,
             onMediaClick = onMediaClick,
+            shellMedia = shellMedia,
+            imageOwnerId = imageOwnerId,
         )
     }
-    val markdownFlavour = remember { GFMFlavourDescriptor() }
+    val markdownFlavour = remember { AgoraMarkdownFlavour() }
     val markdownRenderContext = remember(
         customMarkdownColors,
         customTypography,
@@ -491,6 +485,7 @@ internal fun rememberChatMarkdownAssets(
  * MarkdownTable draws the GFM delimiter row as a MarkdownDivider using dividerColor. A 0dp
  * thickness would still render as a hairline, so the divider is made transparent instead.
  * Table cells only hold inline content, so no other divider lives inside this scope.
+ * Both table paths retain their existing layout and share the code shell's 24 dp corners.
  */
 @Composable
 private fun WithoutTableHeaderDivider(content: @Composable () -> Unit) {
@@ -500,7 +495,17 @@ private fun WithoutTableHeaderDivider(content: @Composable () -> Unit) {
             override val dividerColor: Color = Color.Transparent
         }
     }
-    CompositionLocalProvider(LocalMarkdownColors provides colors, content = content)
+    val baseDimens = LocalMarkdownDimens.current
+    val dimens = remember(baseDimens) {
+        object : MarkdownDimens by baseDimens {
+            override val tableCornerSize = 24.dp
+        }
+    }
+    CompositionLocalProvider(
+        LocalMarkdownColors provides colors,
+        LocalMarkdownDimens provides dimens,
+        content = content,
+    )
 }
 
 @Composable

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="image_quality_title">Image Quality</string>
+    <string name="image_quality_mode">Quality Mode</string>
+    <string name="image_quality_mode_desc">New images: up to %1$d px, JPEG %2$d. Existing attachments stay unchanged.</string>
+    <string name="image_quality_light">Light</string>
+    <string name="image_quality_balanced">Balanced</string>
+    <string name="image_quality_high">High</string>
+    <string name="image_quality_custom">Custom</string>
+    <string name="image_quality_long_edge">Maximum Long Edge</string>
+    <string name="image_quality_long_edge_desc">Pixel limit for new images, screenshots, PDF pages and video frames. Small images are not enlarged.</string>
+    <string name="image_quality_jpeg">JPEG Quality</string>
+    <string name="image_quality_jpeg_desc">Higher values retain more detail. Transparent images use PNG.</string>
+    <string name="image_quality_pixels">%1$d px</string>
+</resources>

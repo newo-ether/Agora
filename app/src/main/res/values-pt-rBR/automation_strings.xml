@@ -67,7 +67,7 @@
     <string name="settings_automation">Automação</string>
     <string name="settings_automation_desc">Tarefas, loops e precisão de agendamento</string>
     <string name="automation_ai_tools">Acessar tarefas e loops</string>
-    <string name="automation_ai_tools_desc">Permitir que o modelo crie e gerencie tarefas ou inicie e pare loops de conversa. Desativado por padrão.</string>
+    <string name="automation_ai_tools_desc">Permitir que o modelo crie e gerencie tarefas ou inicie e pare loops de conversa.</string>
     <string name="automation_background_execution">Execução em segundo plano</string>
     <string name="automation_wake_lock">Bloqueio de ativação</string>
     <string name="automation_wake_lock_desc">Mantém cada execução de tarefa ou loop ativa. O WorkManager já cuida do trabalho agendado normal; este bloqueio adicional pode aumentar o consumo de bateria.</string>

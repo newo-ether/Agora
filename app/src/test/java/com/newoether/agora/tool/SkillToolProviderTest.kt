@@ -31,17 +31,17 @@ class SkillToolProviderTest {
         val names = definitions.map { it.function.name }
         assertEquals(
             listOf(
-                "list_skill_files",
-                "read_skill_file",
-                "create_skill_file",
-                "edit_skill_file",
-                "delete_skill_file",
+                "skill_list",
+                "skill_read",
+                "skill_create",
+                "skill_edit",
+                "skill_delete",
             ),
             names,
         )
         assertFalse(names.any { it.contains("active") })
 
-        val edit = definitions.single { it.function.name == "edit_skill_file" }.function.parameters
+        val edit = definitions.single { it.function.name == "skill_edit" }.function.parameters
         assertEquals(listOf("name", "operation"), edit.required)
         assertEquals(
             setOf(
@@ -62,14 +62,14 @@ class SkillToolProviderTest {
         val disabled = enabled.copy(skillReadAccess = false, skillModifyAccess = false)
         assertTrue(provider.definitions(disabled).isEmpty())
         assertTrue(
-            provider.execute("list_skill_files", "{}", disabled)
+            provider.execute("skill_list", "{}", disabled)
                 .contains("disabled", ignoreCase = true),
         )
     }
 
     @Test
     fun listReturnsOnlyCatalogMetadata() = runTest {
-        val result = provider.execute("list_skill_files", "{}", enabled)
+        val result = provider.execute("skill_list", "{}", enabled)
         assertTrue(result.contains("review.md"))
         assertTrue(result.contains("Review changes"))
         assertFalse(result.contains("skill body"))
@@ -78,11 +78,11 @@ class SkillToolProviderTest {
     @Test
     fun successfulErrorPrefixedReadAndAccessFailureHaveExplicitMetadata() = runTest {
         every { skillManager.readFile("review.md") } returns "Error: documented example"
-        val success = provider.executeEvents("read_skill_file", """{"name":"review.md"}""", enabled)
+        val success = provider.executeEvents("skill_read", """{"name":"review.md"}""", enabled)
             .toList().single() as ToolExecutionEvent.Completed
         assertFalse(success.result.isError)
         assertEquals("Error: documented example", success.result.text)
-        val failure = provider.executeEvents("read_skill_file", "{}", enabled.copy(skillReadAccess = false))
+        val failure = provider.executeEvents("skill_read", "{}", enabled.copy(skillReadAccess = false))
             .toList().single() as ToolExecutionEvent.Completed
         assertTrue(failure.result.isError)
         assertTrue(failure.result.text.contains("disabled"))
@@ -93,7 +93,7 @@ class SkillToolProviderTest {
         assertEquals(
             "skill body",
             provider.execute(
-                "read_skill_file",
+                "skill_read",
                 """{"name":"review.md"}""",
                 enabled,
             ),
@@ -105,7 +105,7 @@ class SkillToolProviderTest {
         assertEquals(
             "Updated",
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"replace","content":"replacement","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ),
@@ -113,7 +113,7 @@ class SkillToolProviderTest {
         assertEquals(
             "Updated",
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"replace","content":"","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ),
@@ -143,7 +143,7 @@ class SkillToolProviderTest {
         assertEquals(
             "Updated",
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"patch","content":"","old_string":"old","new_string":"new","new_name":"","description":""}""",
                 enabled,
             ),
@@ -151,7 +151,7 @@ class SkillToolProviderTest {
         assertEquals(
             "Updated",
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"patch","content":"","old_string":"remove","new_string":"","new_name":"","description":""}""",
                 enabled,
             ),
@@ -181,7 +181,7 @@ class SkillToolProviderTest {
         assertEquals(
             "Updated",
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"rename","content":"","old_string":"","new_string":"","new_name":"renamed.md","description":""}""",
                 enabled,
             ),
@@ -203,7 +203,7 @@ class SkillToolProviderTest {
         assertEquals(
             "Updated",
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"describe","content":"","old_string":"","new_string":"","new_name":"","description":"Review carefully"}""",
                 enabled,
             ),
@@ -211,7 +211,7 @@ class SkillToolProviderTest {
         assertEquals(
             "Updated",
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"describe","content":"","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ),
@@ -240,28 +240,28 @@ class SkillToolProviderTest {
     fun invalidEditOperationsDoNotMutateSkill() = runTest {
         assertTrue(
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"","content":"","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ).contains("operation", ignoreCase = true),
         )
         assertTrue(
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"patch","content":"","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ).contains("old_string", ignoreCase = true),
         )
         assertTrue(
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"rename","content":"","old_string":"","new_string":"","new_name":"","description":""}""",
                 enabled,
             ).contains("new_name", ignoreCase = true),
         )
         assertTrue(
             provider.execute(
-                "edit_skill_file",
+                "skill_edit",
                 """{"name":"review.md","operation":"move","content":"","old_string":"","new_string":"","new_name":"other.md","description":""}""",
                 enabled,
             ).contains("operation", ignoreCase = true),
@@ -273,7 +273,7 @@ class SkillToolProviderTest {
 
     @Test
     fun handlesOnlySkillTools() {
-        assertTrue(provider.handles("read_skill_file"))
+        assertTrue(provider.handles("skill_read"))
         assertFalse(provider.handles("update_active_memory"))
         assertFalse(provider.handles("web_search"))
     }

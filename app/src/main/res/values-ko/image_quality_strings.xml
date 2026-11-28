@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="image_quality_title">이미지 품질</string>
+    <string name="image_quality_mode">품질 모드</string>
+    <string name="image_quality_mode_desc">새 이미지: 긴 변 최대 %1$d px, JPEG 품질 %2$d. 기존 첨부 파일은 변경되지 않습니다.</string>
+    <string name="image_quality_light">경량</string>
+    <string name="image_quality_balanced">균형</string>
+    <string name="image_quality_high">고화질</string>
+    <string name="image_quality_custom">사용자 지정</string>
+    <string name="image_quality_long_edge">긴 변 최대 길이</string>
+    <string name="image_quality_long_edge_desc">새 이미지, 스크린샷, PDF 페이지 및 동영상 프레임의 픽셀 제한입니다. 작은 이미지는 확대하지 않습니다.</string>
+    <string name="image_quality_jpeg">JPEG 품질</string>
+    <string name="image_quality_jpeg_desc">값이 높을수록 세부 정보가 더 많이 유지됩니다. 투명 이미지는 PNG를 사용합니다.</string>
+    <string name="image_quality_pixels">%1$d px</string>
+</resources>

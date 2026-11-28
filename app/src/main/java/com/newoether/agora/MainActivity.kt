@@ -21,7 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,6 +42,8 @@ import com.newoether.agora.data.SettingsManager
 import com.newoether.agora.service.AgoraForegroundService
 import com.newoether.agora.service.AppForegroundTracker
 import com.newoether.agora.ui.chat.ChatApp
+import com.newoether.agora.ui.chat.message.LocalShellMarkdownMedia
+import androidx.compose.runtime.CompositionLocalProvider
 import com.newoether.agora.ui.chat.FullScreenMediaPreviewDialog
 import com.newoether.agora.ui.chat.MediaPreviewTarget
 import com.newoether.agora.ui.onboarding.WelcomeScreen
@@ -50,6 +52,8 @@ import com.newoether.agora.ui.motion.ProvideAgoraMotionPolicy
 import com.newoether.agora.ui.settings.SettingsScreen
 import com.newoether.agora.ui.tasks.TaskEditorSessionViewModel
 import com.newoether.agora.ui.tasks.TaskHistoryPreviewPhase
+import com.newoether.agora.ui.common.AgoraSnackbar
+import com.newoether.agora.ui.common.LocalSnackbarMessage
 import com.newoether.agora.ui.theme.AgoraTheme
 import com.newoether.agora.util.snackbarTimeoutMillis
 import com.newoether.agora.util.withAppLocale
@@ -62,6 +66,7 @@ private fun fullScreenPreviewExitTransition(allowSpatialTransitions: Boolean): E
 class MainActivity : ComponentActivity() {
 
     private val notificationConversationId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    private val processTextInbox = ProcessTextInbox()
 
     companion object {
         const val EXTRA_CONVERSATION_ID = "com.newoether.agora.extra.CONVERSATION_ID"
@@ -81,6 +86,10 @@ class MainActivity : ComponentActivity() {
         var startupReady = false
         splashScreen.setKeepOnScreenCondition { !startupReady }
         super.onCreate(savedInstanceState)
+        val restoredProcessText = savedStateRegistry.consumeRestoredStateForKey(ProcessTextInbox.SAVED_STATE_KEY)
+        processTextInbox.restore(restoredProcessText)
+        savedStateRegistry.registerSavedStateProvider(ProcessTextInbox.SAVED_STATE_KEY, processTextInbox::save)
+        if (restoredProcessText == null) processTextInbox.receive(intent)
         handleNavigationIntent(intent)
 
         com.newoether.agora.util.DebugLog.init(this)
@@ -133,10 +142,6 @@ class MainActivity : ComponentActivity() {
             val fontPreference by settingsManager.fontPreference.collectAsState(initial = "app_default")
             val customFontPath by settingsManager.customFontPath.collectAsState(initial = "")
             val appReduceMotion by settingsManager.reduceMotion.collectAsState(initial = false)
-            val userBubbleColorPref by settingsManager.userBubbleColor.collectAsState(initial = "")
-            val userBubbleColor = remember(userBubbleColorPref) {
-                com.newoether.agora.ui.theme.parseHexColor(userBubbleColorPref)
-            }
 
             val themeModeEnum = try { com.newoether.agora.ui.theme.ThemeMode.valueOf(themeMode) } catch (_: Exception) { com.newoether.agora.ui.theme.ThemeMode.FOLLOW_DEVICE }
             val colorSchemePreset = try { com.newoether.agora.ui.theme.ColorSchemePreset.valueOf(colorSchemeName) } catch (_: Exception) { com.newoether.agora.ui.theme.ColorSchemePreset.FOREST }
@@ -165,9 +170,6 @@ class MainActivity : ComponentActivity() {
                 fontPreference = fontPreference,
                 customFontPath = customFontPath
             ) {
-                androidx.compose.runtime.CompositionLocalProvider(
-                    com.newoether.agora.ui.theme.LocalUserBubbleColor provides userBubbleColor
-                ) {
                 ProvideAgoraMotionPolicy(appReduceMotion = appReduceMotion) {
                 val activity = LocalActivity.current
 
@@ -231,6 +233,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         false -> {
+                            val processTextRequests by processTextInbox.requests.collectAsState()
                             MainNavigation(
                                 viewModel = viewModel,
                                 settingsManager = settingsManager,
@@ -239,11 +242,12 @@ class MainActivity : ComponentActivity() {
                                     consumeNotificationTarget(notificationConversationId, expectedId)
                                 },
                                 screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
+                                processTextRequest = processTextRequests.firstOrNull(),
+                                onProcessTextConsumed = processTextInbox::consume,
                             )
                         }
                     }
                 }
-            }
             }
             }
             }
@@ -268,6 +272,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        processTextInbox.receive(intent)
         handleNavigationIntent(intent)
     }
 
@@ -288,6 +293,8 @@ fun MainNavigation(
     notificationConversationId: kotlinx.coroutines.flow.StateFlow<String?>,
     onNotificationConversationConsumed: (String) -> Unit,
     screenshotDestination: String? = null,
+    processTextRequest: ProcessTextRequest? = null,
+    onProcessTextConsumed: (String) -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
     val motionPolicy = LocalAgoraMotionPolicy.current
@@ -382,20 +389,39 @@ fun MainNavigation(
         pdfViewerSelection = selection
     }
     var pdfPreviewFromDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(processTextRequest?.id) {
+        if (processTextRequest != null) {
+            // Selected text always starts its own conversation, never the one already open.
+            viewModel.createNewChat()
+            showSettings = false
+            showRemote = false
+            showTasks = false
+            taskToOpen = null
+            taskEditorSession.clear()
+            viewModel.mediaPreview.clear()
+            mediaPreviewTarget = null
+            pdfPreviewFromDialog = false
+            topLevelPresentation.present(TopLevelPresentation.CHAT)
+        }
+    }
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
+    val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
     val pdfPages by viewModel.mediaPreview.pdfPages.collectAsState()
+    val textPreviewOpen = viewModel.mediaPreview.fileContent.collectAsState().value != null
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarVersionState = remember { mutableIntStateOf(0) }
     var snackbarVersion by snackbarVersionState
     val accessibilityManager = LocalAccessibilityManager.current
     var chatSnackbarOffset by remember { mutableStateOf(0.dp) }
-    var remoteSnackbarOffset by remember { mutableStateOf(0.dp) }
     val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    // Full-screen media viewer (and settings) drop the snackbar to the bottom (nav-bar inset only);
-    // in chat it floats above the bottom bar. The animateDpAsState below turns the change into a
-    // rise/fall animation as the viewer opens/closes.
-    val targetSnackbarPadding = if (showSettings || mediaPreviewTarget != null) navBarPadding
-        else if (showRemote) remoteSnackbarOffset else chatSnackbarOffset
+    // Full-screen media and text viewers, Settings, Tasks and Remote sit at the bottom (nav-bar
+    // inset only), like the Settings pages; in chat the snackbar floats above the bottom bar. The
+    // animateDpAsState below turns the change into a rise/fall animation.
+    val targetSnackbarPadding = if (showSettings || mediaPreviewTarget != null || textPreviewOpen || showTasks || showRemote) {
+        navBarPadding
+    } else {
+        chatSnackbarOffset
+    }
     val snackbarBottomPadding by animateDpAsState(
         targetValue = targetSnackbarPadding,
         animationSpec = if (motionPolicy.allowSpatialTransitions) {
@@ -466,82 +492,92 @@ fun MainNavigation(
         color = MaterialTheme.colorScheme.background
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            ChatApp(
-                viewModel = viewModel,
-                initialComposerFocusReady = initialComposerFocusReady,
-                onNavigateBack = subagentParentId?.takeIf { !isNewChatMode }?.let { parent ->
-                    { viewModel.selectConversation(parent); Unit }
-                } ?: taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode)
-                    ?.let { taskId ->
-                        {
-                            taskToOpen = taskId
-                            taskEditorSession.requestHistoryReturn()
-                            taskEditorSession.beginHistoryReturnRestore { restore, onRestoreFailure ->
-                                if (restore.originWasNewChat) {
-                                    viewModel.restoreNewChatDestination(onRestoreFailure)
-                                } else {
-                                    restore.originConversationId?.let { origin ->
-                                        viewModel.restoreConversationDestination(origin, onRestoreFailure)
+            // Only native chat resolves shell:// Markdown images; Remote stays outside this provider.
+            CompositionLocalProvider(
+                LocalShellMarkdownMedia provides viewModel.shellMarkdownMedia,
+                LocalSnackbarMessage provides { message -> viewModel.emitSnackbar(message) },
+                com.newoether.agora.ui.chat.bottombar.LocalSpeechInput provides viewModel.speechInput,
+            ) {
+                ChatApp(
+                    viewModel = viewModel,
+                    initialComposerFocusReady = initialComposerFocusReady,
+                    processTextRequest = processTextRequest,
+                    onProcessTextConsumed = onProcessTextConsumed,
+                    onNavigateBack = subagentParentId?.takeIf { !isNewChatMode }?.let { parent ->
+                        { viewModel.selectConversation(parent); Unit }
+                    } ?: taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode)
+                        ?.let { taskId ->
+                            {
+                                taskToOpen = taskId
+                                taskEditorSession.requestHistoryReturn()
+                                taskEditorSession.beginHistoryReturnRestore { restore, onRestoreFailure ->
+                                    if (restore.originWasNewChat) {
+                                        viewModel.restoreNewChatDestination(onRestoreFailure)
+                                    } else {
+                                        restore.originConversationId?.let { origin ->
+                                            viewModel.restoreConversationDestination(origin, onRestoreFailure)
+                                        }
                                     }
                                 }
+                                topLevelPresentation.present(TopLevelPresentation.TASKS)
+                                showTasks = true
                             }
-                            topLevelPresentation.present(TopLevelPresentation.TASKS)
-                            showTasks = true
-                        }
+                        },
+                    drawerEnabled = taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode) == null,
+                    openDrawerOnStart = screenshotDestination == "drawer",
+                    initialScrollToTop = screenshotDestination == "chat",
+                    onOpenSettings = {
+                        topLevelPresentation.present(TopLevelPresentation.SETTINGS)
+                        showSettings = true
                     },
-                drawerEnabled = taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode) == null,
-                openDrawerOnStart = screenshotDestination == "drawer",
-                initialScrollToTop = screenshotDestination == "chat",
-                onOpenSettings = {
-                    topLevelPresentation.present(TopLevelPresentation.SETTINGS)
-                    showSettings = true
-                },
-                onOpenRemote = {
-                    topLevelPresentation.present(TopLevelPresentation.REMOTE)
-                    showRemote = true
-                },
-                onOpenTasks = { taskId ->
-                    taskToOpen = taskId
-                    topLevelPresentation.present(TopLevelPresentation.TASKS)
-                    showTasks = true
-                },
-                onMediaClick = openMediaPreview,
-                onFileContentClick = { name, content ->
-                    focusManager.clearFocus()
-                    topLevelPresentation.present(TopLevelPresentation.TEXT_PREVIEW)
-                    viewModel.mediaPreview.showFile(name, content)
-                },
-                onPdfPagesClick = { pages, idx ->
-                    focusManager.clearFocus()
-                    viewModel.mediaPreview.showPdf(pages, idx)
-                    mediaPreviewTarget = MediaPreviewTarget(pages, idx)
-                    pdfPreviewFromDialog = false
-                    topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
-                },
-                onPdfPreviewSelect = { pages, idx ->
-                    focusManager.clearFocus()
-                    viewModel.mediaPreview.showPdf(pages, idx)
-                    mediaPreviewTarget = MediaPreviewTarget(pages, idx)
-                    pdfPreviewFromDialog = true
-                    topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
-                },
-                pdfViewerSelection = pdfViewerSelection,
-                onTogglePdfSelection = onTogglePdfSelection,
-                onInitPdfSelection = onInitPdfSelection,
-                fullScreenViewerUrls = mediaPreviewTarget?.urls,
-                topLevelPresentation = topLevelPresentation.owner,
-                onSnackbarOffsetChanged = { chatSnackbarOffset = it }
-            )
+                    onOpenRemote = {
+                        topLevelPresentation.present(TopLevelPresentation.REMOTE)
+                        showRemote = true
+                    },
+                    onOpenTasks = { taskId ->
+                        taskToOpen = taskId
+                        topLevelPresentation.present(TopLevelPresentation.TASKS)
+                        showTasks = true
+                    },
+                    onMediaClick = openMediaPreview,
+                    onFileContentClick = { name, content ->
+                        focusManager.clearFocus()
+                        topLevelPresentation.present(TopLevelPresentation.TEXT_PREVIEW)
+                        viewModel.mediaPreview.showFile(name, content)
+                    },
+                    onPdfPagesClick = { pages, idx ->
+                        focusManager.clearFocus()
+                        viewModel.mediaPreview.showPdf(pages, idx)
+                        mediaPreviewTarget = MediaPreviewTarget(pages, idx)
+                        pdfPreviewFromDialog = false
+                        topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
+                    },
+                    onPdfPreviewSelect = { pages, idx ->
+                        focusManager.clearFocus()
+                        viewModel.mediaPreview.showPdf(pages, idx)
+                        mediaPreviewTarget = MediaPreviewTarget(pages, idx)
+                        pdfPreviewFromDialog = true
+                        topLevelPresentation.present(TopLevelPresentation.MEDIA_PREVIEW)
+                    },
+                    pdfViewerSelection = pdfViewerSelection,
+                    onTogglePdfSelection = onTogglePdfSelection,
+                    onInitPdfSelection = onInitPdfSelection,
+                    fullScreenViewerUrls = mediaPreviewTarget?.urls,
+                    topLevelPresentation = topLevelPresentation.owner,
+                    onSnackbarOffsetChanged = { chatSnackbarOffset = it }
+                )
+            }
 
-            com.newoether.agora.ui.remote.RemoteOverlay(
-                visible = showRemote, settings = viewModel.settings,
-                hapticsActive = topLevelPresentation.owner == TopLevelPresentation.REMOTE,
-                onDismiss = { showRemote = false },
-                onExitFinished = { topLevelPresentation.release(TopLevelPresentation.REMOTE) },
-                onMessage = viewModel::emitSnackbar,
-                onSnackbarOffsetChanged = { remoteSnackbarOffset = it },
-                onMediaClick = openMediaPreview,
-            )
+            CompositionLocalProvider(com.newoether.agora.ui.chat.bottombar.LocalSpeechInput provides viewModel.speechInput) {
+                com.newoether.agora.ui.remote.RemoteOverlay(
+                    visible = showRemote, settings = viewModel.settings,
+                    hapticsActive = topLevelPresentation.owner == TopLevelPresentation.REMOTE,
+                    onDismiss = { showRemote = false },
+                    onExitFinished = { topLevelPresentation.release(TopLevelPresentation.REMOTE) },
+                    onMessage = viewModel::emitSnackbar,
+                    onMediaClick = openMediaPreview,
+                )
+            }
 
             SettingsOverlayHost(
                 visible = showSettings && screenshotDestination?.startsWith("settings") != true,
@@ -666,7 +702,12 @@ fun MainNavigation(
                 exit = fullScreenPreviewExitTransition(motionPolicy.allowSpatialTransitions)
             ) {
                 if (savedContent != null && savedName != null) {
-                    com.newoether.agora.ui.chat.TextFileViewer(content = savedContent!!, fileName = savedName!!, onClose = { viewModel.mediaPreview.clear() })
+                    com.newoether.agora.ui.chat.TextFileViewer(
+                        content = savedContent!!,
+                        fileName = savedName!!,
+                        onClose = { viewModel.mediaPreview.clear() },
+                        autoWrapCodeBlocks = autoWrapCodeBlocks,
+                    )
                 }
             }
 
@@ -711,27 +752,7 @@ fun MainNavigation(
                 },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = snackbarBottomPadding + 2.dp)
             ) {
-                content?.let { data ->
-                    Snackbar(
-                        modifier = Modifier.padding(horizontal = 12.dp).padding(vertical = 10.dp).shadow(6.dp, RoundedCornerShape(12.dp), clip = false),
-                        shape = RoundedCornerShape(12.dp),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        actionContentColor = MaterialTheme.colorScheme.primary,
-                        dismissActionContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        dismissAction = @Composable {
-                            Box(modifier = Modifier.padding(end = 8.dp)) {
-                                IconButton(onClick = { data.dismiss() }, modifier = Modifier.size(28.dp).clip(CircleShape)) {
-                                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cancel), modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        },
-                        action = data.visuals.actionLabel?.let { label ->
-                            @Composable { TextButton(onClick = { data.performAction() }) { Text(label) } }
-                        },
-                        content = { Text(data.visuals.message) }
-                    )
-                }
+                content?.let { data -> AgoraSnackbar(data) }
             }
         }
     }

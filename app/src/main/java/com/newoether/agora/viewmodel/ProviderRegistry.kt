@@ -5,8 +5,10 @@ import com.newoether.agora.api.DebugProvider
 import com.newoether.agora.api.LlmProvider
 import com.newoether.agora.api.ModelFetchEmptyResultException
 import com.newoether.agora.api.ModelFetchTimeoutException
+import com.newoether.agora.api.OAuthBackedProvider
 import com.newoether.agora.api.anthropic.AnthropicProvider
 import com.newoether.agora.api.gemini.GeminiProvider
+import com.newoether.agora.api.local.LocalProvider
 import com.newoether.agora.api.ollama.OllamaProvider
 import com.newoether.agora.api.openai.CustomOpenAiProvider
 import com.newoether.agora.api.openai.DeepSeekProvider
@@ -20,6 +22,8 @@ import com.newoether.agora.data.CustomEndpointResolution
 import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.CustomProviderIdentityPolicy
 import com.newoether.agora.data.CustomProviderNamePolicy
+import com.newoether.agora.data.ProviderEditorCommitResult
+import com.newoether.agora.data.ProviderEditorDraft
 import com.newoether.agora.data.canonicalCustomModelId
 import com.newoether.agora.data.providerDisplayName
 import com.newoether.agora.data.repository.ConversationRepository
@@ -105,9 +109,12 @@ internal fun providerConfigurationIsValid(
     builtIn: Boolean,
     effectiveBaseUrl: String?,
     debugProviderEnabled: Boolean = false,
+    /** Non-null for account sign-in providers, which need a stored login instead of a key. */
+    accountSignedIn: Boolean? = null,
 ): Boolean = when {
     providerName == Constants.PROVIDER_UNKNOWN -> false
     !registered -> false
+    accountSignedIn != null -> accountSignedIn
     providerName == DebugProvider.PROVIDER_NAME -> debugProviderEnabled
     providerName == Constants.PROVIDER_LOCAL -> true
     !builtIn || providerName == Constants.PROVIDER_OLLAMA -> !effectiveBaseUrl.isNullOrBlank()
@@ -125,21 +132,15 @@ internal fun providerConfigurationIsValid(
  * [ConcurrentHashMap]: mutated by the sync collectors while read on `Dispatchers.IO`
  * during generation.
  */
-// Bump when fetchModels changes WHICH models it keeps (e.g. adding embedding/Live models), so the
-// provider fingerprint changes and a one-time re-fetch repopulates stale caches. v2: + embed/live.
-// v3: the v2 resync ran while the sync-skip branch still wiped unconfigured providers' lists, so it
-// cached a poisoned (seeds-only) result and saved the matching fingerprint, suppressing further
-// syncs. Bump to force one clean resync now that the wipe is fixed.
-private const val MODEL_FETCH_SCHEMA_VERSION = 3
-
 class ProviderRegistry(
     private val settings: SettingsRepository,
     private val conversations: ConversationRepository,
-    localProvider: LlmProvider,
+    localProvider: LocalProvider,
     private val scope: CoroutineScope,
     appVersion: String = "?",
+    accountProviders: Map<String, LlmProvider> = emptyMap(),
 ) {
-    private val builtInProviders: Map<String, LlmProvider> = mapOf(
+    private val builtInProviders: Map<String, LlmProvider> = accountProviders + mapOf(
         Constants.PROVIDER_GOOGLE to GeminiProvider(),
         Constants.PROVIDER_OPENAI to OpenAiProvider(),
         Constants.PROVIDER_ANTHROPIC to AnthropicProvider(),
@@ -214,6 +215,7 @@ class ProviderRegistry(
             builtIn = isBuiltIn(providerName),
             effectiveBaseUrl = getEffectiveBaseUrl(providerName),
             debugProviderEnabled = isDebugProviderEnabled(),
+            accountSignedIn = (getInstanceOrNull(providerName) as? OAuthBackedProvider)?.tokenSource?.signedIn,
         )
 
     fun providerForModel(modelId: String): String {
@@ -297,6 +299,56 @@ class ProviderRegistry(
         if (provider == null) providers.remove(name) else providers[name] = provider
         runtimeEndpointResolutions.remove(name)
         settings.updateCustomProviderProtocol(name, protocol)
+    }
+
+    /**
+     * Commits a Provider detail draft. For a custom Provider the live map and the in-memory
+     * endpoint resolution follow the committed config immediately, as [renameCustom] does; the
+     * old connection key stays until the customProviders collector observes the change.
+     */
+    suspend fun commitEditor(
+        originalName: String,
+        draft: ProviderEditorDraft,
+    ): ProviderEditorCommitResult {
+        val before = settings.customProviders.value.firstOrNull { it.name == originalName }
+        val beforeUrl = settings.providerBaseUrls.value[originalName].orEmpty().trim()
+        val result = settings.commitProviderEditor(originalName, draft)
+        if (result != ProviderEditorCommitResult.SAVED || before == null) return result
+        val newName = draft.name.trim()
+        val newUrl = draft.baseUrl.trim()
+        val updated = before.copy(
+            name = newName,
+            protocol = draft.protocol ?: before.protocol,
+            responsesApiEnabled = draft.responsesApiEnabled,
+            anthropicCacheEnabled = draft.cacheEnabled,
+            anthropicCacheTtl = draft.cacheTtl,
+        )
+        val provider = createCustomProvider(updated, newUrl)
+        if (provider != null) providers[newName] = provider
+        else if (newName == originalName) providers.remove(originalName)
+        val resolution = runtimeEndpointResolutions.remove(originalName)
+        if (resolution != null && beforeUrl == newUrl && updated.protocol == before.protocol) {
+            runtimeEndpointResolutions[newName] = resolution
+        }
+        return result
+    }
+
+    /**
+     * Creates a custom Provider from the full editor draft the add route shows. The store commits
+     * the config and its fields atomically; the live map then gets the probe instance directly so
+     * the first message does not wait for the customProviders collector.
+     */
+    suspend fun createEditor(draft: ProviderEditorDraft): ProviderEditorCommitResult {
+        val result = settings.createProviderFromEditor(draft)
+        if (result != ProviderEditorCommitResult.SAVED) return result
+        val name = draft.name.trim()
+        val config = CustomProviderConfig(
+            name = name,
+            protocol = draft.protocol ?: CustomEndpointProtocol.OPENAI,
+        )
+        createCustomProvider(config, draft.baseUrl.trim())?.let { providers[name] = it }
+        runtimeEndpointResolutions.remove(name)
+        return result
     }
 
     fun deleteCustom(name: String) {
@@ -393,10 +445,7 @@ class ProviderRegistry(
             ?.wireValue
             .orEmpty()
         "$name|$keyId|$url|$protocol"
-        // Fold in the fetch-schema version so changing what fetchModels keeps (e.g. adding
-        // embedding + Live models) forces a one-time re-fetch even when provider config is
-        // unchanged — otherwise the cached list stays stale behind the matching fingerprint.
-    }.sorted().joinToString(",").let { "$it|v$MODEL_FETCH_SCHEMA_VERSION" }.hashCode().toString()
+    }.sorted().joinToString(",").hashCode().toString()
 
     /** Starts the process-wide provider lifecycle once, from UI post-list or headless demand. */
     @Synchronized
@@ -421,6 +470,15 @@ class ProviderRegistry(
                     ?.second
                     ?.getOrThrow()
                 settings.awaitInitialLoad()
+                // Freeze the legacy-derived Provider list once, so later credential edits can no
+                // longer change which built-ins are listed.
+                // A failed write only defers this; the derived list stays readable.
+                try {
+                    settings.materializeProviderList()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                }
                 settings.customProviders.first { custom ->
                     custom.all { CustomProviderIdentityPolicy.isStableId(it.id) }
                 }
@@ -446,6 +504,19 @@ class ProviderRegistry(
         }
     }
 
+    /** After an account sign-in or sign-out: fetch that account's models, or drop them. */
+    suspend fun refreshAccountProvider(name: String): List<String> {
+        val provider = providers[name] as? OAuthBackedProvider ?: return emptyList()
+        if (provider.tokenSource.signedIn) return fetchModelsForProvider(name)
+        if (!settings.getAvailableModels()[name].isNullOrEmpty()) {
+            settings.saveAvailableModels(name, emptyList())
+            val known = settings.getAvailableModels().values.flatten().toSet() + settings.customModels.value
+            val enabled = settings.enabledModels.value.intersect(known)
+            if (enabled != settings.enabledModels.value) settings.setEnabledModels(enabled)
+        }
+        return emptyList()
+    }
+
     private suspend fun collectCredentialChanges() {
         var prevConfigured = emptyMap<String, Boolean>()
         combine(
@@ -457,7 +528,12 @@ class ProviderRegistry(
                 if (keys.isEmpty() && activeIds.isEmpty()) return@collect
 
                 val current = mutableMapOf<String, Boolean>()
+                val listed = settings.providerList.value.toSet()
                 providers.toMap().forEach { (name, _) ->
+                    // Removed built-ins keep their catalog; their configured state is not tracked.
+                    if (isBuiltIn(name) && name != Constants.PROVIDER_LOCAL && name !in listed) {
+                        return@forEach
+                    }
                     val activeKey = keys.find { it.id == activeIds[name] }?.key ?: ""
                     current[name] = isConfigured(name, activeKey)
                 }

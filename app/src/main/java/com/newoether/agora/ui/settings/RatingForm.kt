@@ -12,9 +12,9 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.*
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator as CircularProgressIndicator
 import androidx.compose.runtime.*
@@ -119,7 +119,7 @@ fun RatingForm(
             onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(projectUrl))) },
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
         ) {
-            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(
                 text = decodeRatingOriginText(stringResource(
@@ -150,7 +150,7 @@ fun RatingForm(
                     modifier = Modifier.size(52.dp)
                 ) {
                     Icon(
-                        imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        imageVector = if (isSelected) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                         contentDescription = stringResource(R.string.rating_star, i),
                         tint = if (isSelected) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),

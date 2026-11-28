@@ -18,9 +18,13 @@ Custom header values use the same secret-setting storage as API keys: normally a
 
 An enabled server connects in the background. Its status is shown as **Idle**, **Connecting**, **Connected**, or **Connection error**. Use **Reconnect** from the server menu or editor to retry discovery.
 
-After a successful connection, Agora lists the server's tools. Each discovered tool is enabled by default; open the server editor to disable individual tools. Disabling the server removes all of its tools from new model requests without deleting the configuration.
+After a successful connection, Agora lists the server's tools. Each discovered tool is enabled by default; open the server editor to disable individual tools. Disabling the server makes all of its tools unavailable without deleting the configuration.
 
-Enabled MCP tools join Agora's normal tool-calling pipeline. The model sees each tool's name, description, and input schema, and a tool result is stored with the conversation like other tool calls.
+Models receive three fixed MCP entries. `mcp_list_servers` lists enabled servers with stable IDs, local connection status and available tool counts, including unavailable servers and servers with no tools. It does not connect or refresh, and omits endpoint URLs, headers and error details. `mcp_search_tools` discovers available tools and returns their full input schemas; `mcp_call_tool` invokes an exact discovered `tool_id` with an `arguments` object. The server validates tool-specific arguments.
+
+Search is global by default; listing first is optional. Search supports keywords, empty-query browsing, exact `server_id` filtering and pagination. Unknown or disabled server IDs return `invalid_server`; enabled servers that are not currently connected return `server_unavailable`. A valid connected server with no matching tools returns an empty page. A scoped search never silently falls back to global search. Only connected, enabled tools can be discovered or called.
+
+Directory reads, searches and calls use Agora's normal tool pipeline and their results remain in conversation history. Changing servers or their tool lists does not rewrite the three entry definitions or earlier results, preserving prompt-cache reuse eligibility. Adding the list entry changes that prefix once; actual hits still depend on the provider, model, system prompt, context window and cache lifetime.
 
 ## Edit or Remove a Server
 

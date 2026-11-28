@@ -293,7 +293,7 @@ class ProviderPassRunnerTest {
             prefixes.forEach { prefix ->
                 val output = GenerationOutputAccumulator(
                     object : GenerationToolPresentationSource {
-                        override fun presentationMetadata(name: String) = null
+                        override fun presentationMetadata(name: String, arguments: String?) = null
                     },
                     "provider",
                 )
@@ -370,7 +370,7 @@ class ProviderPassRunnerTest {
     fun `successful formatting keeps usage and citation order before real accumulation`() = runTest {
         val output = GenerationOutputAccumulator(
             object : GenerationToolPresentationSource {
-                override fun presentationMetadata(name: String) = null
+                override fun presentationMetadata(name: String, arguments: String?) = null
             },
             "provider",
         )

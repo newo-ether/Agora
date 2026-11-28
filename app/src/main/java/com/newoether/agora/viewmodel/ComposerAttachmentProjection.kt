@@ -1,6 +1,7 @@
 package com.newoether.agora.viewmodel
 
 import com.newoether.agora.model.AttachmentImportState
+import com.newoether.agora.model.AttachmentStorage
 import com.newoether.agora.model.SelectedAttachment
 
 internal fun durableAttachmentProjection(
@@ -49,7 +50,8 @@ internal fun SelectedAttachment.asProcessing() = copy(
 
 internal fun SelectedAttachment.isConfiguredForProcessing(): Boolean = when (type) {
     "pdf" -> selectedPages != null
-    "video" -> frameCount != null && sliceIntervalMs != null
+    "video" -> storage == AttachmentStorage.LOCAL_SANDBOX_PENDING ||
+        (frameCount != null && sliceIntervalMs != null)
     else -> true
 }
 internal fun SelectedAttachment.shouldPreparePdfPreview(): Boolean =

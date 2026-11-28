@@ -7,6 +7,7 @@ import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.model.ToolCallData
 import com.newoether.agora.model.apiModelName
+import com.newoether.agora.util.Constants
 import com.newoether.agora.util.SnackbarEvent
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
@@ -234,7 +235,7 @@ private fun ChatMessage.mayHoldProviderIds(): Boolean {
     return ids(text) || ids(thoughts) || ids(thoughtTitle) || ids(retryText) ||
         toolCall?.let { call ->
             ids(call.toolName) || ids(call.arguments) || ids(call.result) || ids(call.displayName) ||
-                ids(call.resultText) || ids(call.structuredResult)
+                ids(call.target) || ids(call.resultText) || ids(call.structuredResult)
         } == true ||
         segments?.any { segment ->
             segment.type != "citation" && (ids(segment.content) || ids(segment.toolName) ||
@@ -266,6 +267,7 @@ private fun ToolCallData.forDisplay(
     arguments = replaceCustomProviderIdsForDisplay(arguments, customProviders),
     result = replaceCustomProviderIdsForDisplay(result, customProviders),
     displayName = displayName.replaceCustomProviderIdsForDisplayOrNull(customProviders),
+    target = target.replaceCustomProviderIdsForDisplayOrNull(customProviders),
     resultText = resultText.replaceCustomProviderIdsForDisplayOrNull(customProviders),
     structuredResult = structuredResult.replaceCustomProviderIdsForDisplayOrNull(customProviders),
 )
@@ -479,3 +481,16 @@ fun modelDisplayName(
     val parsed = ModelId.parse(modelId)
     return "$alias (${providerDisplayName(parsed.providerName, customProviders)})"
 }
+
+/**
+ * Default Provider-name visibility when the user never toggled it: a custom Provider keeps the name
+ * the owner gave it, while a built-in Provider is already implied by the model and only adds noise.
+ */
+fun providerNameShownByDefault(modelId: String): Boolean {
+    val provider = ModelId.parse(modelId).providerName
+    return provider !in BUILT_IN_REMOTE_PROVIDERS && provider != Constants.PROVIDER_LOCAL
+}
+
+/** Stored switch value for [modelId], else the per-Provider default above; no ID shows nothing. */
+fun modelProviderNameShown(modelId: String?, overrides: Map<String, Boolean>): Boolean =
+    modelId?.let { overrides[it] ?: providerNameShownByDefault(it) } ?: false

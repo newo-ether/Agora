@@ -7,8 +7,8 @@ import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.data.repository.ConversationSettingsTransferCoordinator
 import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ChatConversation
-import com.newoether.agora.ui.chat.validGenerationParameters
-import com.newoether.agora.ui.chat.withGenerationParameters
+import com.newoether.agora.presentation.validGenerationParameters
+import com.newoether.agora.presentation.withGenerationParameters
 import com.newoether.agora.viewmodel.*
 import io.mockk.*
 import kotlinx.coroutines.*
@@ -62,6 +62,7 @@ class WebUiChatSessionEditorsTest {
         every { openAiResponsesApiEnabled } returns MutableStateFlow(false)
         every { webSearchEnabled } returns MutableStateFlow(true)
         every { shellEnabled } returns MutableStateFlow(true)
+        every { sandboxEnabled } returns MutableStateFlow(false)
         every { localLowContextModeEnabled } returns MutableStateFlow(false)
         every { maxContextWindow } returns MutableStateFlow(32768)
         every { defaultTemperature } returns MutableStateFlow(0.6f)
@@ -101,7 +102,7 @@ class WebUiChatSessionEditorsTest {
         mockk<AttachmentImportProcessor>(), scope, temporary.newFolder(), { it.reason.name },
     ) }
     @After fun finish() { scope.cancel() }
-    private suspend fun ready(id: String? = null, seq: Long = 0): WebUiChatSession.ComposerState {
+    private suspend fun ready(id: String? = null, seq: Long = 0): WebUiComposerState {
         session.open(id, seq)
         return withTimeout(5_000) { session.composerState.first { it.conversationId == id && it.seq == seq && it.modelValid } }
     }

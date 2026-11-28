@@ -9,7 +9,6 @@ import com.newoether.agora.model.RunEffect
 import com.newoether.agora.model.RunEffectIdentity
 import com.newoether.agora.model.RunEndReason
 import com.newoether.agora.model.RunStatus
-import com.newoether.agora.util.Constants
 
 data class GenerationPromptTemplate(
     val systemItems: List<PromptTemplateItem>,
@@ -18,9 +17,15 @@ data class GenerationPromptTemplate(
     /**
      * Active memory read once when the template is captured, so every Provider pass of one Run
      * (initial request, tool continuations, retries) sees the same text and keeps the prompt
-     * cache stable. Mid-Run edits become visible through read_active_memory and land next Run.
+     * cache stable. Mid-Run edits become visible through active_memory_read and land next Run.
      */
     val activeMemory: String = "",
+    /**
+     * Skill catalog frozen with the template for the same reason as [activeMemory]: mid-Run
+     * skill edits must not rewrite the system prompt between Provider passes. Empty when skill
+     * access was off at capture time. Edits land next Run.
+     */
+    val skillCatalog: String = "",
 )
 
 data class GenerationConfig(
@@ -30,6 +35,12 @@ data class GenerationConfig(
     val effectiveSystemPrompt: String?,
     /** Optional API-only USER invocation appended to the initial Provider request. */
     val initialUserPrompt: String? = null,
+    /**
+     * Preserve-Context Compact: tools stay declared so the request prefix matches an ordinary
+     * turn, but every client tool call is answered with a refusal instead of being executed.
+     * Refused rounds live only in memory and never reach Room.
+     */
+    val rejectToolCalls: Boolean = false,
     val maxContextWindow: Int = ContextBudget.DEFAULT_TOKENS,
     val codeExecutionEnabled: Boolean,
     val googleSearchEnabled: Boolean,
@@ -58,63 +69,11 @@ data class GenerationConfig(
     val maxTokens: Int? = null,
     val topP: Float? = null,
     val frequencyPenalty: Float? = null,
-    val presencePenalty: Float? = null
-)
-
-data class GenerationContext(
-    val conversationId: String? = null,
-    val subagentToolsEnabled: Boolean = false,
-    val enabledModelIds: List<String> = emptyList(),
-    /** Null and empty both allow no new subagents; global enabled IDs are not a fallback. */
-    val subagentModelIds: List<String>? = null,
-    val subagentRecommendedModel: String? = null,
-    val todoEnabled: Boolean = true,
-    /** Supplied only by the authorized executor, never by Provider arguments. */
-    val toolEffectIdentity: RunEffectIdentity? = null,
-    val accessSavedMemories: Boolean = true,
-    val accessActiveMemory: Boolean = true,
-    val skillReadAccess: Boolean = true,
-    val skillModifyAccess: Boolean = true,
-    val skillCatalog: String = "",
-    val accessPastConversations: Boolean = true,
-    val modelSearchMethod: String = "keyword",
-    val activeEmbeddingConfig: com.newoether.agora.data.EmbeddingModelConfig? = null,
-    val embeddingApiKey: String = "",
-    val ragThreshold: Float = 0.5f,
-    val searchMatchLimit: Int = 10,
-    val searchContextWindow: Int = 8,
-    val webSearchEnabled: Boolean = false,
-    val webSearchApiKeys: Map<String, String> = emptyMap(),
-    val webSearchProvider: String = "duckduckgo",
-    val webSearchNumResults: Int = 5,
-    val webSearchBaseUrl: String = "",
-    val imageGenEnabled: Boolean = false,
-    val askUserEnabled: Boolean = false,
-    val askUserTimeoutMinutes: Int = com.newoether.agora.data.DEFAULT_ASK_USER_TIMEOUT_MINUTES,
-    val imageGenApiKey: String = "",
-    val imageGenBaseUrl: String = "",
-    val imageGenModel: String = "gpt-image-1",
-    val imageGenSize: String = "1024x1024",
-    val automationToolsEnabled: Boolean = false,
-    /** Workers use WorkManager's foreground execution instead of starting our service. */
-    val foregroundServiceManagedExternally: Boolean = false,
-    val shellEnabled: Boolean = false,
-    val shellDevices: List<com.newoether.agora.data.ShellDeviceConfig> = emptyList(),
-    val sandboxEnabled: Boolean = false,
-    val sandboxSharedStorageEnabled: Boolean = false,
-    val imageTranscriptionEnabled: Boolean = false,
-    val imageTranscriptionModel: String? = null,
-    val imageTranscriptionBatchSize: Int = 3,
-    val imageTranscriptionPrompt: String = com.newoether.agora.data.BuiltInPrompts.IMAGE_TRANSCRIPTION_USER,
-    val transcriptionProviderName: String = "",
-    val transcriptionModelId: String = "",
-    val transcriptionApiKey: String = "",
-    val transcriptionBaseUrl: String? = null,
-    val transcriptionAnthropicCacheEnabled: Boolean = true,
-    val transcriptionAnthropicCacheTtl: String = "1h",
-    /** Wall-clock budget for a single tool execution; downgrades a blocking tool from a
-     *  permanent generation hang to a recoverable tool error (#49). */
-    val toolTimeoutMs: Long = Constants.TOOL_EXECUTION_TIMEOUT_MS
+    val presencePenalty: Float? = null,
+    /** Phone tool image budget frozen at Run admission; other image sources are unaffected. */
+    val phoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
+    /** Send `reasoning_content` on every assistant turn, empty when none was stored (#198). */
+    val replayReasoningInHistory: Boolean = false,
 )
 
 /** Frozen automatic-Compact policy and provider access captured with one generation. */
@@ -137,6 +96,14 @@ internal data class AutomaticCompactConfig(
     /** Frozen API-only USER templates included in the exact Auto Compact threshold projection. */
     val userPrepend: String? = null,
     val userPostpend: String? = null,
+    val assistantPrepend: String? = null,
+    val assistantPostpend: String? = null,
+    /** Main-request templates resolve at the same accounting boundary, independently of Compact. */
+    val mainPromptTemplate: GenerationPromptTemplate? = null,
+    /** Main-request transcription policy. Compact's policy applies only to its summary request. */
+    val mainImageTranscriptionEnabled: Boolean = false,
+    /** Main-request Phone image budget, captured independently from Compact's configuration. */
+    val mainPhoneMaxScreenshots: Int = com.newoether.agora.phone.PHONE_MAX_SCREENSHOTS_DEFAULT,
     /** Filled by the effect owner that has the exact frozen tool-definition set. */
     val fixedTokenCost: Int = 0,
     /**
@@ -217,6 +184,8 @@ internal data class GenerationCallbacks(
      *  each round boundary and ends the generation there so the queue can flush immediately
      *  (steering) instead of waiting out the entire loop. Headless runs keep the default. */
     val hasQueuedSends: () -> Boolean = { false },
+    /** An already-scheduled ordinary successor keeps successful terminalization interim. */
+    val hasPendingContinuation: Boolean = false,
     /** Null for headless automation, which retains its existing foreground/background policy. */
     val isConversationVisible: (() -> Boolean)? = null,
     /** A validated Provider outcome is necessary but not sufficient: runtime identity must accept

@@ -16,6 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.runCurrent
@@ -462,9 +464,17 @@ class ConversationContextProjectorTest {
         )
         val firstLoad = CompletableDeferred<DurableSelectedContext>()
         val secondLoad = CompletableDeferred<DurableSelectedContext>()
+        val firstStarted = CompletableDeferred<Unit>()
+        val secondStarted = CompletableDeferred<Unit>()
         var loadIndex = 0
         coEvery { contextLoader.load(any()) } coAnswers {
-            if (loadIndex++ == 0) firstLoad.await() else secondLoad.await()
+            if (loadIndex++ == 0) {
+                firstStarted.complete(Unit)
+                firstLoad.await()
+            } else {
+                secondStarted.complete(Unit)
+                secondLoad.await()
+            }
         }
         val admission = testGenerationAdmissionSnapshot(conversationId = "conversation")
         val snapshot = GenerationContextProjectionSnapshot(admission.config, admission.context)
@@ -487,11 +497,12 @@ class ConversationContextProjectorTest {
         val firstJob = launch {
             projector.project("conversation", firstSelection, "provider:model", 4_096)
         }
-        runCurrent()
+        // project switches to Dispatchers.Default, which runCurrent does not drain.
+        firstStarted.await()
         val secondJob = launch {
             projector.project("conversation", secondSelection, "provider:model", 4_096)
         }
-        runCurrent()
+        secondStarted.await()
         secondLoad.complete(secondContext)
         secondJob.join()
 
@@ -617,6 +628,58 @@ class ConversationContextProjectorTest {
         assertEquals(secondSelection, settled.selectedBranchesJson)
         assertEquals(setOf(second.id), settled.retainedMessageIds.orEmpty())
     }
+    @Test
+    fun invalidationRequestsFreshProjectionEvenWhenTheGraphAndSelectionAreUnchanged() = runTest {
+        val contextLoader = mockk<DurableSelectedContextLoader>()
+        val row = entity("retained", null, Participant.USER, "same payload", 0)
+        val context = DurableSelectedContext(
+            messages = projectProviderMessages(listOf(row), false),
+            entities = listOf(row),
+        )
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val loads = AtomicInteger()
+        coEvery { contextLoader.load(any()) } coAnswers {
+            if (loads.getAndIncrement() == 0) {
+                started.complete(Unit)
+                withContext(NonCancellable) { release.await() }
+            }
+            context
+        }
+        val projector = ConversationContextProjector(
+            conversations = mockk(),
+            requestBuilder = mockk(),
+            generationManager = { mockk() },
+            generationErrorFormatter = { it },
+            contextLoader = contextLoader,
+        )
+        // Matches ChatApp's revision-keyed Effect while all other request inputs stay equal.
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            projector.invalidationRevision.collect {
+                projector.request(this@runTest, "conversation", "{}", "", 4_096)
+            }
+        }
+        started.await()
+        projector.invalidate("conversation")
+        runCurrent()
+        release.complete(Unit)
+        val refreshed = projector.projection.first { it.completed && !it.loading }
+
+        assertEquals(1L, projector.invalidationRevision.value)
+        assertEquals(2, loads.get())
+        assertFalse(refreshed.failed)
+        assertEquals("{}", refreshed.selectedBranchesJson)
+        assertEquals(setOf(row.id), refreshed.retainedMessageIds)
+
+        // The same race can also invalidate a projection that Room already completed.
+        projector.invalidate("conversation")
+        runCurrent()
+        val refreshedAgain = projector.projection.first { it.completed && !it.loading }
+        assertEquals(2L, projector.invalidationRevision.value)
+        assertEquals(3, loads.get())
+        assertEquals(refreshed, refreshedAgain)
+    }
+
     private fun stubFixedComposition(generationManager: GenerationManager) {
         every { generationManager.fixedContextComposition(any(), any()) } returns
             FixedContextComposition(systemPromptTokens = 0, toolTokens = 0)

@@ -17,6 +17,8 @@ internal data class ConchSseResult(
     val errorMessage: String?,
     val timedOut: Boolean,
     val warningMessage: String?,
+    /** Set when the foreground wait budget was spent: the command keeps running as this job. */
+    val backgroundedJobId: String? = null,
 )
 
 /**
@@ -38,6 +40,7 @@ internal suspend fun parseConchSseLines(
     var errorMessage: String? = null
     var timedOut = false
     var warningMessage: String? = null
+    var backgroundedJobId: String? = null
     var outputTruncationReported = false
     var currentEvent: String? = null
     var terminalSeen = false
@@ -139,6 +142,12 @@ internal suspend fun parseConchSseLines(
                         timedOut = data.optionalBoolean("timed_out", event) ?: false
                         terminalSeen = true
                     }
+                    "backgrounded" -> {
+                        // Terminal for the stream, not for the process: the command keeps running
+                        // as a durable job and the client tracks it through the job endpoints.
+                        backgroundedJobId = data.requiredString("job_id", event)
+                        terminalSeen = true
+                    }
                 }
             }
             else -> fail("unexpected line")
@@ -155,6 +164,7 @@ internal suspend fun parseConchSseLines(
         errorMessage = errorMessage,
         timedOut = timedOut,
         warningMessage = warningMessage,
+        backgroundedJobId = backgroundedJobId,
     )
 }
 
@@ -193,6 +203,6 @@ private fun JsonObject.optionalBoolean(key: String, event: String): Boolean? {
         )
 }
 
-private val SUPPORTED_EVENTS = setOf("line", "warning", "result", "error")
+private val SUPPORTED_EVENTS = setOf("line", "warning", "result", "error", "backgrounded")
 private val OUTPUT_STREAMS = setOf("stdout", "stderr")
 private const val MAX_WARNING_CHARS = 8_192

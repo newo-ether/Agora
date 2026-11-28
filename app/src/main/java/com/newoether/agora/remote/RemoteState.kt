@@ -19,7 +19,7 @@ internal data class RemoteNotice(val stage: String, val failure: RemoteFailure, 
 internal enum class RemoteDelivery { SUBMITTING, ACCEPTED, DELIVERED, REJECTED, UNKNOWN }
 internal data class RemoteAttempt(
     val clientId: String, val text: String, val delivery: RemoteDelivery, val turnId: String? = null,
-    val accessKey: String? = null,
+    val accessKey: String? = null, val receiptKind: String = "",
 )
 internal data class RemoteState(
     val devices: List<RemoteDevice> = emptyList(), val deviceId: String? = null,
@@ -107,6 +107,15 @@ internal data class RemoteState(
         draftSettings.model ?: models.firstOrNull { it.isDefault }?.id
     } else runtime?.model ?: lastKnownModel
     val settingsModel: RemoteModel? get() = models.firstOrNull { it.id == selectedModel }
+    val effortChoices: List<String> get() = when {
+        settingsModel != null -> settingsModel?.reasoningEfforts.orEmpty()
+        // Claude's session request API supports named efforts independently of model discovery.
+        !isDraft && selectedAdapter.family == "claude" && "effort" in capabilities.settings ->
+            models.flatMap { it.reasoningEfforts.orEmpty() }.distinct().ifEmpty {
+                listOf("low", "medium", "high", "xhigh", "max")
+            }
+        else -> emptyList()
+    }
     val settingsKey: String? get() = accessOwner?.let {
         if (selectedAdapter.legacy) it else "${owner}/@settings/$it"
     }
@@ -114,7 +123,10 @@ internal data class RemoteState(
     val settingsPending: Boolean get() = settingsProjection != null ||
         optimisticSettings.keys.any { it != settingsKey && it.startsWith("${owner.orEmpty()}/@settings/") }
     val selectedEffort: String? get() = if (isDraft) draftSettings.effort ?: settingsModel?.defaultReasoningEffort
-        else settingsProjection?.effort ?: runtime?.effort
+        else settingsProjection?.effort ?: runtime?.settingsChange?.takeIf {
+            selectedAdapter.family == "claude" && verifiedSessionAccess &&
+                "effort" in capabilities.settings && it.state == "pending"
+        }?.requested?.effort ?: runtime?.effort
     val selectedServiceTier: String? get() {
         val tier = when {
             isDraft -> if (draftSettings.updateServiceTier) draftSettings.serviceTier else settingsModel?.defaultServiceTier
@@ -126,14 +138,16 @@ internal data class RemoteState(
     val serviceTierKnown: Boolean get() = isDraft || settingsProjection?.updateServiceTier == true ||
         runtime?.serviceTierKnown == true || runtime?.serviceTier != null
     private val canControlSettings: Boolean get() = session != null && capabilities.settings.isNotEmpty() &&
-        (isDraft || runtime?.status in setOf("idle", "active", "running", "ready", "notLoaded")) &&
+        (isDraft || runtime?.status in setOf("idle", "active", "running", "ready", "notLoaded") ||
+            selectedAdapter.family == "claude" && verifiedSessionAccess &&
+                capabilities.settings == listOf("effort") && runtime?.status == "unknown") &&
         !controlling && !controlPending && !isStopping && attempts[owner]?.delivery !in
             setOf(RemoteDelivery.SUBMITTING, RemoteDelivery.ACCEPTED, RemoteDelivery.UNKNOWN)
     val canChooseModel: Boolean get() = capabilities.models && "model" in capabilities.settings && canControlSettings && !settingsPending
-    val canEditSettings: Boolean get() = canControlSettings && settingsModel != null
+    val canEditSettings: Boolean get() = canControlSettings && (settingsModel != null || effortChoices.isNotEmpty())
     val historyBounded: Boolean get() = !selectedAdapter.legacy && capabilities.historyMode == "bounded"
     val canRead: Boolean get() = selectedAdapter.capabilities.history
-    val canCreate: Boolean get() = selectedAdapter.capabilities.create
+    val canCreate: Boolean get() = selectedAdapter.origin != "cli" && selectedAdapter.capabilities.create
     val canSend: Boolean get() = if (isDraft) canCreate else if (runtime?.isRunning == true)
         capabilities.activeSend == "native-steer" else capabilities.idleSend
     val canStop: Boolean get() = capabilities.stop && runtime?.activeTurnId != null

@@ -1,6 +1,7 @@
 package com.newoether.agora.viewmodel
 
 import android.content.Context
+import com.newoether.agora.PHONE_USE_SUPPORTED
 import com.newoether.agora.R
 import com.newoether.agora.api.ProviderRequestInput
 import com.newoether.agora.api.ProviderRequestResolver
@@ -28,36 +29,9 @@ import com.newoether.agora.model.OpenAiServiceTiers
 import com.newoether.agora.model.apiModelName
 import com.newoether.agora.util.Constants
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-
-internal fun buildPromptRuntimeValues(
-    now: java.util.Date,
-    modelId: String,
-    activeMemory: String,
-    skillCatalog: String,
-): Map<String, String> {
-    val timeFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
-    val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-    val sentDateFormat = java.text.SimpleDateFormat(
-        PredefinedVariables.SENT_DATE_PATTERN,
-        java.util.Locale.US,
-    )
-    return mapOf(
-        PredefinedVariables.TIME to timeFormat.format(now),
-        PredefinedVariables.DATE to dateFormat.format(now),
-        PredefinedVariables.SENT_TIME to timeFormat.format(now),
-        PredefinedVariables.SENT_DATE to sentDateFormat.format(now),
-        PredefinedVariables.CURRENT_MODEL_ID to modelId,
-        PredefinedVariables.MESSAGE_MODEL_ID to "",
-        PredefinedVariables.MODEL_ID to modelId,
-        PredefinedVariables.ACTIVE_MEMORY to activeMemory,
-        PredefinedVariables.SKILL_CATALOG to skillCatalog,
-    )
-}
 
 /**
  * Stateless builder for the LLM generation request. Extracted from ChatViewModel.
@@ -71,6 +45,7 @@ class GenerationRequestBuilder(
     private val providerRegistry: ProviderRegistry,
     private val ragManager: RagManager,
     private val appContext: Context,
+    private val phoneReady: suspend (String) -> Boolean = { false },
 ) {
     data class ProviderKey(val providerName: String, val apiKey: String)
 
@@ -215,7 +190,9 @@ class GenerationRequestBuilder(
 
     private fun resolveImageGenBaseUrl(model: String?): String {
         model ?: return ""
-        return providerRegistry.getEffectiveBaseUrl(providerRegistry.providerForModel(model)) ?: ""
+        val provider = providerRegistry.providerForModel(model)
+        return providerRegistry.getEffectiveBaseUrl(provider)
+            ?: providerRegistry.getInstanceOrNull(provider)?.defaultBaseUrl.orEmpty()
     }
 
     fun buildEffectiveConversationSettings(conversationId: String): ConversationSettings {
@@ -251,6 +228,7 @@ class GenerationRequestBuilder(
             shellEnabled = if (settings.shellEnabled.value) (overrides.shellEnabled ?: true) else false,
             lowContextModeEnabled =
                 overrides.lowContextModeEnabled ?: settings.localLowContextModeEnabled.value,
+            disabledToolGroups = overrides.disabledToolGroups,
         )
     }
 
@@ -268,7 +246,9 @@ class GenerationRequestBuilder(
         conversationOverride: ChatEntity? = null,
         resolvedPromptOverride: ResolvedPrompt? = null,
         conversationSettingsOverride: ConversationSettings? = null,
+        automationCaller: Boolean = false,
     ): GenerationAdmissionSnapshot {
+        settings.awaitInitialLoad()
         providerRegistry.awaitInitialSync()
         val selectedModelId = providerRegistry.canonicalModelId(modelId)
         val providerName = providerRegistry.providerForModel(selectedModelId)
@@ -295,6 +275,7 @@ class GenerationRequestBuilder(
             effectiveSettings = effectiveSettings,
             currentId = conversationId,
             applyLowContextMode = true,
+            automationCaller = automationCaller,
             includeSkillCatalog =
                 settings.accessSkills.value &&
                     !(
@@ -302,10 +283,17 @@ class GenerationRequestBuilder(
                             effectiveSettings.lowContextModeEnabled == true
                         ),
         )
-        val compactModel = settings.contextCompactModel.value
-            ?.takeIf(String::isNotBlank)
-            ?.let(providerRegistry::canonicalModelId)
-            ?: selectedModelId
+        val compactPreserveSystemPrompt = settings.contextCompactPreserveSystemPrompt.value
+        // Preserve Context reuses the ordinary model so the request prefix can hit the prompt
+        // cache; a separate Compact model only applies to the legacy replace-the-prompt mode.
+        val compactModel = if (compactPreserveSystemPrompt) {
+            selectedModelId
+        } else {
+            settings.contextCompactModel.value
+                ?.takeIf(String::isNotBlank)
+                ?.let(providerRegistry::canonicalModelId)
+                ?: selectedModelId
+        }
         val compactProviderName = providerRegistry.providerForModel(compactModel)
         val providerInstances = providerRegistry.generationSnapshot()
         val compactKey = if (compactProviderName == providerName) {
@@ -313,55 +301,6 @@ class GenerationRequestBuilder(
         } else {
             settings.resolveActiveKey(compactProviderName).orEmpty()
         }
-        val compactPreserveSystemPrompt = settings.contextCompactPreserveSystemPrompt.value
-        val compactSystemPrompt = if (compactPreserveSystemPrompt) {
-            resolveStandardSystemPromptForCompact(
-                conversationId = conversationId,
-                conversationOverride = conversation,
-                modelId = compactModel,
-            )
-        } else {
-            settings.contextCompactPrompt.value
-        }
-        val (compactGenerationConfig, compactGenerationContext) = buildGenerationPair(
-            providerName = compactProviderName,
-            modelId = compactModel,
-            activeKey = compactKey,
-            resolvedSystemPrompt = compactSystemPrompt,
-            resolvedUserPrepend = null,
-            resolvedUserPostpend = null,
-            effectiveSettings = effectiveSettings,
-            currentId = conversationId,
-            applyLowContextMode = false,
-            includeSkillCatalog = false,
-        )
-        val automaticCompact = AutomaticCompactConfig(
-            enabled = settings.contextCompactEnabled.value,
-            thresholdPercent = settings.contextCompactThresholdPercent.value,
-            request = CompactRequest(
-                model = compactModel,
-                prompt = settings.contextCompactPrompt.value,
-                retainLogicalMessages = settings.contextCompactRetainCount.value,
-                preserveSystemPrompt = compactPreserveSystemPrompt,
-            ),
-            providerName = compactProviderName,
-            apiKey = compactKey,
-            baseUrl = providerRegistry.getEffectiveBaseUrl(compactProviderName),
-            responsesApiEnabled = isResponsesApiEnabledForProvider(
-                providerName = compactProviderName,
-                builtInOpenAiEnabled = settings.openAiResponsesApiEnabled.value,
-                customProviders = settings.customProviders.value,
-            ),
-            provider = providerInstances[compactProviderName],
-            configured = providerRegistry.isConfigured(compactProviderName, compactKey),
-            generationConfig = compactGenerationConfig,
-            providerInstances = providerInstances,
-            generationContext = compactGenerationContext.copy(
-                webSearchApiKeys = context.webSearchApiKeys.toMap(),
-                shellDevices = context.shellDevices.toList(),
-            ),
-        )
-        val titleGenerationEnabled = settings.titleGenerationEnabled.value
         val ordinaryConfig = if (baseConfig.lowContextModeEnabled) {
             baseConfig.copy(
                 effectiveSystemPrompt = null,
@@ -393,22 +332,79 @@ class GenerationRequestBuilder(
                 assistantPrepend = null,
                 assistantPostpend = null,
                 promptTemplate = promptTemplate,
-                requestResolver = createRequestResolver(promptTemplate, selectedModelId),
+                requestResolver = createRequestResolver(
+                    promptTemplate, selectedModelId, baseConfig.phoneMaxScreenshots,
+                ),
             )
         }
+        val titleGenerationEnabled = settings.titleGenerationEnabled.value
+        val (compactGenerationConfig, compactGenerationContext) = if (compactPreserveSystemPrompt) {
+            // Identical to an ordinary turn: system prompt, templates, tools, sampling, history.
+            ordinaryConfig to context
+        } else {
+            buildGenerationPair(
+                providerName = compactProviderName,
+                modelId = compactModel,
+                activeKey = compactKey,
+                resolvedSystemPrompt = settings.contextCompactPrompt.value,
+                resolvedUserPrepend = null,
+                resolvedUserPostpend = null,
+                effectiveSettings = effectiveSettings,
+                currentId = conversationId,
+                applyLowContextMode = false,
+                includeSkillCatalog = false,
+                phoneToolsEnabled = false,
+            )
+        }
+        val automaticCompact = AutomaticCompactConfig(
+            enabled = settings.contextCompactEnabled.value,
+            thresholdPercent = settings.contextCompactThresholdPercent.value,
+            request = CompactRequest(
+                model = compactModel,
+                prompt = settings.contextCompactPrompt.value,
+                retainLogicalMessages = settings.contextCompactRetainCount.value,
+                preserveSystemPrompt = compactPreserveSystemPrompt,
+            ),
+            providerName = compactProviderName,
+            apiKey = compactKey,
+            baseUrl = providerRegistry.getEffectiveBaseUrl(compactProviderName),
+            responsesApiEnabled = isResponsesApiEnabledForProvider(
+                providerName = compactProviderName,
+                builtInOpenAiEnabled = settings.openAiResponsesApiEnabled.value,
+                customProviders = settings.customProviders.value,
+            ),
+            provider = providerInstances[compactProviderName],
+            configured = providerRegistry.isConfigured(compactProviderName, compactKey),
+            generationConfig = compactGenerationConfig,
+            providerInstances = providerInstances,
+            generationContext = compactGenerationContext.copy(
+                webSearchApiKeys = context.webSearchApiKeys.toMap(),
+                shellDevices = context.shellDevices.toList(),
+            ),
+        )
         return GenerationAdmissionSnapshot(
             conversationId = conversationId,
             runId = runId,
             selectedModelId = selectedModelId,
             config = ordinaryConfig,
             context = context.copy(
+                automationCaller = automationCaller,
                 subagentToolsEnabled = context.subagentToolsEnabled && !isSubagent,
                 accessPastConversations = context.accessPastConversations && !isSubagent,
                 webSearchApiKeys = context.webSearchApiKeys.toMap(),
                 shellDevices = context.shellDevices.toList(),
             ),
             providerInstances = providerInstances,
-            automaticCompact = automaticCompact,
+            automaticCompact = automaticCompact.copy(
+                mainModelId = ordinaryConfig.modelId,
+                mainImageTranscriptionEnabled = context.imageTranscriptionEnabled,
+                mainPhoneMaxScreenshots = ordinaryConfig.phoneMaxScreenshots,
+                userPrepend = ordinaryConfig.userPrepend,
+                userPostpend = ordinaryConfig.userPostpend,
+                assistantPrepend = ordinaryConfig.assistantPrepend,
+                assistantPostpend = ordinaryConfig.assistantPostpend,
+                mainPromptTemplate = ordinaryConfig.promptTemplate,
+            ),
             titleGenerationEnabled = titleGenerationEnabled,
         )
     }
@@ -477,7 +473,7 @@ class GenerationRequestBuilder(
         )
     }
 
-    private fun buildGenerationPair(
+    private suspend fun buildGenerationPair(
         providerName: String,
         modelId: String,
         activeKey: String,
@@ -488,12 +484,15 @@ class GenerationRequestBuilder(
         currentId: String,
         applyLowContextMode: Boolean,
         includeSkillCatalog: Boolean,
+        automationCaller: Boolean = false,
+        phoneToolsEnabled: Boolean = true,
     ): Pair<GenerationConfig, GenerationContext> {
         val lowContextModeEnabled =
             applyLowContextMode &&
                 providerName == Constants.PROVIDER_LOCAL &&
                 effectiveSettings.lowContextModeEnabled == true
         val imageGenModel = settings.imageGenModel.value
+        val imageGenProvider = imageGenModel?.let { providerRegistry.providerForModel(it) }.orEmpty()
         val transcriptionModel = settings.imageTranscriptionModel.value
         val cacheProviders = settings.customProviders.value
         val cacheEnabled = settings.anthropicCacheEnabled.value
@@ -509,6 +508,7 @@ class GenerationRequestBuilder(
             customProviders = settings.customProviders.value,
         )
         val apiModelId = ModelId.parse(providerRegistry.canonicalModelId(modelId)).modelName
+        val phoneConfig = settings.phoneUse.value
         val config = GenerationConfig(
             anthropicCacheEnabled = isAnthropicCacheEnabledForProvider(providerName, cacheEnabled, cacheProviders),
             anthropicCacheTtl = anthropicCacheTtlForProvider(providerName, cacheTtl, cacheProviders),
@@ -543,19 +543,28 @@ class GenerationRequestBuilder(
             userPrepend = resolvedUserPrepend,
             userPostpend = resolvedUserPostpend,
             lowContextModeEnabled = lowContextModeEnabled,
+            replayReasoningInHistory = settings.replayReasoningInHistory.value,
             temperature = effectiveSettings.temperature,
             maxTokens = effectiveSettings.maxTokens,
             topP = effectiveSettings.topP,
             frequencyPenalty = effectiveSettings.frequencyPenalty,
-            presencePenalty = effectiveSettings.presencePenalty
+            presencePenalty = effectiveSettings.presencePenalty,
+            phoneMaxScreenshots = phoneConfig.maxScreenshots,
         )
         val enabledModelIds = settings.enabledModels.value.toSet()
         val subagentModelIds = settings.subagentEnabledModels.value.orEmpty()
             .intersect(enabledModelIds).sorted()
         val genCtx = GenerationContext(
+            phoneEnabled = PHONE_USE_SUPPORTED && phoneToolsEnabled && phoneConfig.enabled,
+            phoneMode = phoneConfig.mode,
+            phoneAllowAutomation = phoneConfig.allowAutomation,
+            phoneReady = PHONE_USE_SUPPORTED && phoneToolsEnabled && phoneConfig.enabled && !lowContextModeEnabled &&
+                (!automationCaller || phoneConfig.allowAutomation) && phoneReady(phoneConfig.mode),
+            automationCaller = automationCaller,
             conversationId = currentId,
             todoEnabled = settings.todoEnabled.value,
             subagentToolsEnabled = settings.subagentToolsEnabled.value,
+            subagentDeleteEnabled = settings.subagentDeleteEnabled.value,
             enabledModelIds = enabledModelIds.sorted(),
             subagentModelIds = subagentModelIds,
             subagentRecommendedModel = settings.subagentRecommendedModel.value
@@ -582,10 +591,20 @@ class GenerationRequestBuilder(
             askUserTimeoutMinutes = settings.askUserTimeoutMinutes.value,
             imageGenApiKey = resolveImageGenApiKey(imageGenModel),
             imageGenBaseUrl = resolveImageGenBaseUrl(imageGenModel),
+            imageGenProviderName = imageGenProvider,
+            imageGenProtocol = imageGenModel?.let {
+                settings.customProviders.value.firstOrNull { it.name == imageGenProvider || it.ownsIdentity(imageGenProvider) }?.protocol?.wireValue
+                    ?: when (imageGenProvider) {
+                        Constants.PROVIDER_GOOGLE -> "google"
+                        Constants.PROVIDER_LOCAL, Constants.PROVIDER_ANTHROPIC -> "unsupported"
+                        else -> "openai"
+                    }
+            } ?: "openai",
             imageGenModel = resolveImageGenModelId(imageGenModel),
             imageGenSize = settings.imageGenSize.value,
             automationToolsEnabled = settings.automationToolsEnabled.value,
             shellEnabled = effectiveSettings.shellEnabled ?: settings.shellEnabled.value,
+            disabledToolGroups = effectiveSettings.disabledToolGroups.orEmpty(),
             shellDevices = settings.shellDevices.value,
             sandboxEnabled = settings.sandboxEnabled.value,
             sandboxSharedStorageEnabled = settings.sandboxSharedStorageEnabled.value,
@@ -621,25 +640,6 @@ class GenerationRequestBuilder(
         systemPrompts = settings.systemPrompts.value.toList(),
     )
 
-    /**
-     * Preserved-Compact path: resolve the conversation's ordinary system prompt so the
-     * compaction request carries exactly what a normal generation would send for the compact
-     * model. Prompt variables are evaluated at admission; compaction is single-pass, so no
-     * per-provider-pass re-resolution is required.
-     */
-    private suspend fun resolveStandardSystemPromptForCompact(
-        conversationId: String,
-        conversationOverride: ChatEntity?,
-        modelId: String,
-    ): String? {
-        val promptTemplate = capturePromptTemplate(
-            currentId = conversationId,
-            conversationOverride = conversationOverride,
-            promptSettings = capturePromptSettings(),
-        )
-        return resolvePromptTemplate(promptTemplate, modelId).systemPrompt
-    }
-
     data class ResolvedPrompt(
         val systemPrompt: String?,
         val userPrepend: String?,
@@ -663,6 +663,8 @@ class GenerationRequestBuilder(
         // stored active memory so turning the tools off cannot erase context. It is frozen here,
         // once per Run, rather than re-read on every Provider pass.
         val activeMemory = withContext(Dispatchers.IO) { memoryManager.getActiveMemory() }
+        // The skill catalog is frozen with it, once per Run.
+        val skillCatalog = if (settings.accessSkills.value) skillManager.catalog() else ""
         GenerationPromptTemplate(
             systemItems = entry?.resolvedSystemItems?.toList().orEmpty(),
             userItems = entry?.resolvedUserItems?.toList()
@@ -670,16 +672,20 @@ class GenerationRequestBuilder(
             assistantItems = entry?.resolvedAssistantItems?.toList()
                 ?: PredefinedVariables.normalizeMessageTemplate(emptyList()),
             activeMemory = activeMemory,
+            skillCatalog = skillCatalog,
         )
     }
 
     private fun createRequestResolver(
         promptTemplate: GenerationPromptTemplate,
         activeModel: String,
+        phoneMaxScreenshots: Int,
     ): ProviderRequestResolver = ProviderRequestResolver { messages, providerConfig ->
         val resolved = resolvePromptTemplate(promptTemplate, activeModel)
         // One cost model per request: the fixed cost, the trimming and the indicator must agree.
-        val costs = ContextCostModels.forModel(providerConfig.modelId)
+        val costs = ContextCostModels.forModel(
+            providerConfig.modelId, com.newoether.agora.api.LocalModelRuntime::exactTokenCountOrNull,
+        )
         val fixedTokenCost = CostModelContextEstimator(costs).estimateFixed(
             systemPrompt = resolved.systemPrompt,
             tools = providerConfig.tools.orEmpty(),
@@ -697,9 +703,15 @@ class GenerationRequestBuilder(
             userPostpend = resolved.userPostpend,
             assistantPrepend = resolved.assistantPrepend,
             assistantPostpend = resolved.assistantPostpend,
+            phoneMaxScreenshots = phoneMaxScreenshots,
         )
         ProviderRequestInput(
-            messages = prepareMessages(projectedMessages, providerTokenBudget, costs = costs),
+            messages = prepareMessages(
+                projectedMessages,
+                providerTokenBudget,
+                includeAssistantReasoning = providerConfig.includeAssistantReasoning,
+                costs = costs,
+            ),
             systemPrompt = resolved.systemPrompt,
         )
     }
@@ -707,55 +719,8 @@ class GenerationRequestBuilder(
     private suspend fun resolvePromptTemplate(
         promptTemplate: GenerationPromptTemplate,
         activeModel: String,
-    ): ResolvedPrompt = withContext(Dispatchers.Default) {
-        coroutineScope {
-            val includeSkillCatalog = settings.accessSkills.value
-            val skillCatalogDeferred = async {
-                if (includeSkillCatalog) skillManager.catalog() else ""
-            }
-            val modelId = ModelId.parse(
-                providerRegistry.canonicalModelId(activeModel),
-            ).modelName
-            val runtimeValues = buildPromptRuntimeValues(
-                now = java.util.Date(),
-                modelId = modelId,
-                activeMemory = promptTemplate.activeMemory,
-                skillCatalog = skillCatalogDeferred.await()
-                    .takeIf { includeSkillCatalog }
-                    .orEmpty(),
-            )
-            val perMessageValues = runtimeValues.filterKeys {
-                it !in PredefinedVariables.PER_MESSAGE_VARS
-            }
-
-            fun resolveMessageTemplate(items: List<com.newoether.agora.data.PromptTemplateItem>): Pair<String?, String?> {
-                val parts = PredefinedVariables.splitMessageTemplate(items)
-                val before = PredefinedVariables.compile(
-                    parts.beforePrompt,
-                    perMessageValues,
-                    emptyMap(),
-                ).takeIf(String::isNotEmpty)
-                val after = PredefinedVariables.compile(
-                    parts.afterPrompt,
-                    perMessageValues,
-                    emptyMap(),
-                ).takeIf(String::isNotEmpty)
-                return before to after
-            }
-
-            val userTemplate = resolveMessageTemplate(promptTemplate.userItems)
-            val assistantTemplate = resolveMessageTemplate(promptTemplate.assistantItems)
-            ResolvedPrompt(
-                systemPrompt = PredefinedVariables.compile(
-                    promptTemplate.systemItems,
-                    runtimeValues,
-                    emptyMap(),
-                ).takeIf(String::isNotEmpty),
-                userPrepend = userTemplate.first,
-                userPostpend = userTemplate.second,
-                assistantPrepend = assistantTemplate.first,
-                assistantPostpend = assistantTemplate.second,
-            )
-        }
-    }
+    ): ResolvedPrompt = resolveGenerationPromptTemplate(
+        promptTemplate = promptTemplate,
+        modelId = providerRegistry.canonicalModelId(activeModel),
+    )
 }

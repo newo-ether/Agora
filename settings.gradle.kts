@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Agora"
-include(":app")
+include(":app", ":core:model", ":core:contracts", ":core:presentation", ":data:database", ":provider:cloud")

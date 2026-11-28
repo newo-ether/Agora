@@ -13,6 +13,7 @@ import com.newoether.agora.util.DebugLog
 import com.newoether.agora.viewmodel.AttachmentOrphanSweeper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 
@@ -76,10 +77,10 @@ class MaintenanceDebtWorker(
         attachmentSweeper: AttachmentOrphanSweeper,
     ): Boolean {
         return when (claim.kind) {
+            MaintenanceDebtEntity.KIND_ATTACHMENT_DIRECTORIES -> attachmentSweeper.deleteDirectory(claim.identity)
             MaintenanceDebtEntity.KIND_ATTACHMENT_ORPHANS -> {
                 if (claim.identity == MaintenanceDebtEntity.RECONCILE_IDENTITY) {
                     attachmentSweeper.sweep()
-                    true
                 } else {
                     attachmentSweeper.deleteExact(claim.identity)
                 }
@@ -90,6 +91,19 @@ class MaintenanceDebtWorker(
                     reconcileEmbeddings(debtDao)
                 } else {
                     debtDao.deleteOrphanEmbeddingsForMessage(claim.identity)
+                }
+                true
+            }
+
+            MaintenanceDebtEntity.KIND_STALE_EMBEDDINGS -> {
+                var afterId = 0L
+                while (true) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    val ids = debtDao.getModelEmbeddingIdsPage(claim.identity, afterId, RECONCILE_PAGE_SIZE)
+                    if (ids.isEmpty()) break
+                    debtDao.deleteStaleEmbeddingIds(ids)
+                    afterId = ids.last()
+                    yield()
                 }
                 true
             }
@@ -110,7 +124,7 @@ class MaintenanceDebtWorker(
     private suspend fun reconcileEmbeddings(debtDao: MaintenanceDebtDao) {
         var afterId = 0L
         while (true) {
-            val ids = debtDao.getOrphanEmbeddingIdsPage(afterId, RECONCILE_PAGE_SIZE)
+            val ids = debtDao.getEmbeddingMaintenanceIdsPage(afterId, RECONCILE_PAGE_SIZE)
             if (ids.isEmpty()) return
             debtDao.deleteOrphanEmbeddingsByIds(ids)
             afterId = ids.last()

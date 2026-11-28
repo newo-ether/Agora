@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_file_transfer">Truyền tệp</string>
+    <string name="tool_transferring_file">Đang truyền %1$s…</string>
+    <string name="tool_transferring_file_default">Đang truyền tệp…</string>
+    <string name="tool_transferred_file">Đã truyền %1$s (%2$d byte)</string>
+    <string name="tool_transfer_unchanged">Không thay đổi %1$s</string>
+    <string name="tool_transfer_failed">Không thể truyền tệp</string>
+    <string name="tool_transfer_unconfirmed">Không thể xác nhận việc truyền tệp đã hoàn tất</string>
+</resources>

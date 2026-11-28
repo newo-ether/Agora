@@ -33,13 +33,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -240,7 +240,7 @@ internal fun SettingsDeveloperCapturePage(
                 CaptureTooltip(label = moreActionsLabel) {
                     IconButton(onClick = { showActionsMenu = true }) {
                         Icon(
-                            imageVector = Icons.Default.MoreVert,
+                            imageVector = Icons.Rounded.MoreVert,
                             contentDescription = moreActionsLabel,
                         )
                     }
@@ -260,7 +260,7 @@ internal fun SettingsDeveloperCapturePage(
                             )
                         },
                         leadingIcon = {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = null)
+                            Icon(Icons.Rounded.DeleteSweep, contentDescription = null)
                         },
                         enabled = hasCaptureData,
                         onClick = {
@@ -340,7 +340,7 @@ internal fun SettingsDeveloperCapturePage(
                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.KeyboardArrowUp,
+                                        imageVector = Icons.Rounded.KeyboardArrowUp,
                                         contentDescription = scrollUpLabel,
                                     )
                                 }
@@ -371,7 +371,7 @@ internal fun SettingsDeveloperCapturePage(
                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        imageVector = Icons.Rounded.KeyboardArrowDown,
                                         contentDescription = scrollDownLabel,
                                     )
                                 }
@@ -416,9 +416,9 @@ internal fun SettingsDeveloperCapturePage(
                                 val label = if (running) pauseLabel else playLabel
                                 Icon(
                                     imageVector = if (running) {
-                                        Icons.Default.Pause
+                                        Icons.Rounded.Pause
                                     } else {
-                                        Icons.Default.PlayArrow
+                                        Icons.Rounded.PlayArrow
                                     },
                                     contentDescription = label,
                                 )
@@ -480,7 +480,7 @@ private fun CaptureExportMenuItem(
 ) {
     AgoraDropdownMenuItem(
         text = { Text(label) },
-        leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null) },
+        leadingIcon = { Icon(Icons.Rounded.FileUpload, contentDescription = null) },
         enabled = enabled,
         onClick = onClick,
     )

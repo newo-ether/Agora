@@ -12,23 +12,25 @@ class ImageGenPendingImagesTest {
         val executor = source("viewmodel/GenerationToolExecutor.kt")
         val batch = source("viewmodel/GenerationToolBatchEffectExecutor.kt")
         val store = source("tool/ToolImageStore.kt")
-        val httpClient = source("api/HttpClient.kt")
+        val processor = source("util/ImageArtifactProcessor.kt")
+        val httpClient = source("api/HttpClient.kt", module = "provider/cloud")
 
         assertTrue(provider.contains("override fun executeEvents("))
-        assertTrue(provider.contains("images = listOfNotNull(textAndImage.second)"))
+        assertTrue(provider.contains("images = outputs.toList()"))
         assertTrue(provider.contains("imageStore.persistGeneratedBytes("))
         assertTrue(provider.contains("callTimeoutMillis = Constants.IMAGE_GENERATION_TIMEOUT_MS"))
         assertTrue(
-            // Every image-generation HTTP call (native DashScope, chat fallback,
-            // images/generations, and both download paths) must carry the long read timeout.
             Regex("readTimeoutMillis = Constants\\.IMAGE_GENERATION_TIMEOUT_MS")
                 .findAll(provider)
-                .count() >= 4,
+                .count() == 2,
         )
         assertTrue(httpClient.contains("readTimeoutMillis: Long? = null"))
         assertTrue(httpClient.contains("client.newBuilder()"))
         assertTrue(httpClient.contains(".readTimeout(timeoutMillis, TimeUnit.MILLISECONDS)"))
-        assertTrue(store.contains("Generated image has an unknown media type"))
+        assertTrue(store.contains("ToolImageAttachment = persistBytes(bytes, \"image/unknown\", filePrefix)"))
+        assertTrue(store.contains("return processor.fromSource("))
+        assertTrue(processor.contains("bounds.outWidth <= 0 || bounds.outHeight <= 0"))
+        assertTrue(processor.contains("?: throw IOException(\"Image decode failed\")"))
         assertFalse(store.contains("?: \"image/png\""))
         assertFalse(provider.contains("PendingImagesByConversation"))
         assertFalse(provider.contains("drainImages("))
@@ -36,12 +38,12 @@ class ImageGenPendingImagesTest {
         assertFalse(batch.contains("generatedImages"))
     }
 
-    private fun source(relativePath: String): String {
+    private fun source(relativePath: String, module: String = "app"): String {
         var directory = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
         repeat(8) {
             val candidate = File(
                 directory,
-                "app/src/main/java/com/newoether/agora/$relativePath",
+                "$module/src/main/java/com/newoether/agora/$relativePath",
             )
             if (candidate.isFile) return candidate.readText().replace("\r\n", "\n")
             directory = directory.parentFile ?: return@repeat

@@ -37,6 +37,7 @@ internal enum class ToolKind {
     SHELL_JOB_STOP,
     FILE_READ,
     FILE_WRITE,
+    FILE_TRANSFER,
     FILE_EDIT,
     FILE_GLOB,
     FILE_GREP,
@@ -47,6 +48,7 @@ internal enum class ToolKind {
     TASK_DELETE,
     LOOP_START,
     LOOP_STOP,
+    PHONE,
     ASK_USER,
     TODO_READ,
     TODO_UPDATE,
@@ -55,6 +57,9 @@ internal enum class ToolKind {
     SUBAGENT_WAIT,
     SUBAGENT_LIST,
     SUBAGENT_STOP,
+    SUBAGENT_DELETE,
+    MCP_LIST,
+    MCP_SEARCH,
     MCP,
     UNKNOWN,
 }
@@ -65,6 +70,7 @@ internal enum class ToolPresentationState {
     COMPLETED,
     EMPTY,
     FAILED,
+    TIMED_OUT,
     STOPPED,
     BACKGROUND_RUNNING,
 }
@@ -82,6 +88,8 @@ internal data class ToolPresentation(
     val liveOutput: String?,
     val subject: String?,
     val device: String?,
+    /** Web-search backend that answered, as reported by the search tool's envelope. */
+    val provider: String? = null,
     val count: Int?,
     val errorMessage: String?,
     val exitCode: Int?,
@@ -92,6 +100,7 @@ internal data class ToolPresentation(
     val destination: String? = null,
     val outcome: String? = null,
     val answeredCount: Int? = null,
+    val transferBytes: Long? = null,
 ) {
     /**
      * Drives the group loading indicator. BACKGROUND_RUNNING is deliberately excluded: a
@@ -130,7 +139,8 @@ internal object ToolPresentationResolver {
         )
     }
 
-    fun kindForToolName(toolName: String?): ToolKind = kindFor(toolName.orEmpty())
+    fun kindForToolName(toolName: String?): ToolKind =
+        kindFor(com.newoether.agora.tool.BuiltInToolNames.canonical(toolName.orEmpty()))
 
     private const val RESOLVED_CACHE_SIZE = 64
 
@@ -152,9 +162,16 @@ internal object ToolPresentationResolver {
     }
 
     private fun compute(segment: MessageSegment): ToolPresentation {
-        val toolName = segment.toolName.orEmpty()
+        val toolName = if (segment.remoteToolSource == null) {
+            com.newoether.agora.tool.BuiltInToolNames.canonical(segment.toolName.orEmpty())
+        } else segment.toolName.orEmpty()
+        val remoteShell = if (segment.remoteToolSource != null && isRemoteShellTool(toolName)) {
+            mapRemoteToolDetail(segment.remoteToolSource, toolName, segment.toolArgs,
+                segment.toolResult ?: segment.toolProgress, segment.toolState)
+        } else null
+        val remoteShellBody = remoteShell?.body as? ToolDetailBody.Shell
         val malformed = malformedCallOriginals(toolName, segment.toolArgs)
-        val kind = kindFor(toolName)
+        val kind = if (remoteShellBody != null) ToolKind.SHELL_EXECUTE else kindForToolName(toolName)
         val displayArguments = malformed?.arguments ?: segment.toolArgs
         val resultElement = parseElement(
             segment.toolStructuredResult ?: segment.toolResult.takeUnless {
@@ -164,7 +181,11 @@ internal object ToolPresentationResolver {
         val resultEnvelope = resultElement as? JsonObject
         val resultObject = effectiveResultObject(kind, resultEnvelope)
         val errorCode = resultObject.string("error") ?: resultEnvelope.string("error")
-        val exitCode = resultObject.int("exit_code") ?: resultEnvelope.int("exit_code")
+        val provider = if (kind == ToolKind.WEB_SEARCH) {
+            resultObject.string("provider") ?: resultEnvelope.string("provider")
+        } else null
+        val exitCode = remoteShellBody?.status?.toIntOrNull()
+            ?: resultObject.int("exit_code") ?: resultEnvelope.int("exit_code")
         val explicitState = stateFromWire(segment.toolState)
         // Until a result arrives, arguments can still be a JSON prefix and can also contain a very
         // large file payload. Never strictly parse that growing buffer on the UI thread. The
@@ -176,6 +197,12 @@ internal object ToolPresentationResolver {
         val streamingHints = StreamingToolArgumentHintResolver.resolve(kind, displayArguments)
         val jobState = if (kind in setOf(ToolKind.SHELL_EXECUTE, ToolKind.SHELL_JOB_GET,
                 ToolKind.SHELL_JOB_WAIT, ToolKind.SHELL_JOB_STOP)) resultObject.string("state")?.lowercase() else null
+        // A timed-out job is its own terminal state, not a failure. The `timed_out` flag alone only
+        // counts when no lifecycle state was reported: shell_job_wait's wait expiry also sets it,
+        // but that payload carries state "running" and must stay BACKGROUND_RUNNING.
+        val timedOut = jobState == "timed_out" ||
+            (jobState == null && (resultObject.boolean("timed_out") == true ||
+                resultEnvelope.boolean("timed_out") == true))
         val background = resultEnvelope.boolean("background") == true ||
             jobState in setOf("running", "stopping", "settling") &&
             (resultObject.string("job_id") ?: resultEnvelope.string("job_id")) != null
@@ -189,13 +216,18 @@ internal object ToolPresentationResolver {
         // completed card just because the payload has no readable content field. The one exception
         // is a provider-declared empty result (`no_results`), which is an explicit success even when
         // the protocol row carries a terminal FAILED state.
-        val declaredEmpty = errorCode == "no_results"
+        val declaredEmpty = kind != ToolKind.FILE_TRANSFER && errorCode == "no_results"
         val failureCode = errorCode?.takeIf { it.isNotBlank() && !declaredEmpty }
         val failedFlag = resultObject.boolean("failed") == true ||
             resultEnvelope.boolean("failed") == true
         val wireFailure = explicitState == ToolPresentationState.FAILED
-        val failed = !declaredEmpty &&
-            (failureCode != null || failedFlag || wireFailure)
+        val invalidTransferReceipt = kind == ToolKind.FILE_TRANSFER &&
+            explicitState != ToolPresentationState.STOPPED &&
+            (segment.toolResult != null || segment.toolStructuredResult != null ||
+                explicitState in setOf(ToolPresentationState.COMPLETED, ToolPresentationState.EMPTY)) &&
+            !validFileTransferReceipt(resultObject)
+        val failed = !declaredEmpty && (failureCode != null || failedFlag || wireFailure ||
+            kind == ToolKind.FILE_TRANSFER && (fileTransferFailed(resultObject) || invalidTransferReceipt))
         val semanticEmpty = !failed && isSemanticEmpty(
             kind = kind,
             rawResult = segment.toolResult.orEmpty(),
@@ -204,8 +236,12 @@ internal object ToolPresentationResolver {
             count = count,
             errorCode = errorCode,
         )
-        val error = if (!failed) {
+        // A timeout carries no error text: the capsule already says Timeout, and the old
+        // "command timed out" detail line only restated that.
+        val error = if (!failed || timedOut) {
             null
+        } else if (kind == ToolKind.FILE_TRANSFER) {
+            fileTransferError(resultObject, segment.toolResultText ?: segment.toolResult)
         } else {
             failureCode?.let { code ->
                 (resultObject.string("message") ?: resultEnvelope.string("message")
@@ -220,10 +256,18 @@ internal object ToolPresentationResolver {
                     }
         }
         val state = when {
+            kind == ToolKind.FILE_TRANSFER -> when {
+                explicitState == ToolPresentationState.STOPPED -> ToolPresentationState.STOPPED
+                failed -> ToolPresentationState.FAILED
+                segment.toolResult != null || segment.toolStructuredResult != null -> ToolPresentationState.COMPLETED
+                else -> explicitState ?: if (segment.toolProgress.isNullOrEmpty()) ToolPresentationState.CALLING
+                    else ToolPresentationState.RUNNING
+            }
             segment.toolResult == null -> explicitState ?: run {
                 if (segment.toolProgress.isNullOrEmpty()) ToolPresentationState.CALLING
                 else ToolPresentationState.RUNNING
             }
+            timedOut -> ToolPresentationState.TIMED_OUT
             failed -> ToolPresentationState.FAILED
             jobState == "stopped" || jobState == "interrupted" -> ToolPresentationState.STOPPED
             semanticEmpty -> ToolPresentationState.EMPTY
@@ -243,7 +287,7 @@ internal object ToolPresentationResolver {
             rawStructuredResult = segment.toolStructuredResult,
             liveOutput = segment.toolProgress,
             subject = normalizeToolSummarySubject(
-                subject(kind, args, resultObject)
+                remoteShell?.codeArgument?.text ?: subject(kind, args, resultObject)
                     ?: subject(kind, args, resultEnvelope)
                     ?: streamingHints.subject,
             ),
@@ -252,6 +296,7 @@ internal object ToolPresentationResolver {
                 ?: segment.toolTarget
                 ?: args.string("server")
                 ?: streamingHints.server,
+            provider = provider,
             count = count,
             errorMessage = error,
             exitCode = exitCode,
@@ -259,7 +304,10 @@ internal object ToolPresentationResolver {
             outputLength = resultObject.string("output")?.length,
             jobState = jobState,
             operation = (args.string("operation") ?: streamingHints.operation)?.trim()?.lowercase(),
-            destination = normalizeToolSummarySubject(args.string("new_name") ?: streamingHints.destination),
+            destination = normalizeToolSummarySubject(if (kind == ToolKind.FILE_TRANSFER) {
+                fileTransferEndpoint(resultObject.transferText("destination_server") ?: args.string("destination_server"),
+                    resultObject.transferText("destination_path") ?: args.string("destination_path")) ?: streamingHints.destination
+            } else args.string("new_name") ?: streamingHints.destination),
             outcome = when (kind) {
                 ToolKind.ASK_USER -> when {
                     resultObject.string("delivery") == "queued" -> "queued"
@@ -268,9 +316,14 @@ internal object ToolPresentationResolver {
                     resultObject.array("answers") != null -> "answers"
                     else -> null
                 }
+                ToolKind.FILE_TRANSFER -> if (invalidTransferReceipt && !fileTransferFailed(resultObject)) "invalid_receipt"
+                    else resultObject.transferText("status")
                 ToolKind.LOOP_STOP -> resultObject.string("status")
                 else -> null
             },
+            transferBytes = if (kind == ToolKind.FILE_TRANSFER && validFileTransferReceipt(resultObject)) {
+                resultObject?.get("bytes")?.let { (it as? JsonPrimitive)?.contentOrNull?.toLongOrNull() }
+            } else null,
             answeredCount = if (kind == ToolKind.ASK_USER) resultObject.array("answers")?.count {
                 (it as? JsonObject).boolean("answered") == true
             } else null,
@@ -289,48 +342,54 @@ internal object ToolPresentationResolver {
     }
 
     private fun kindFor(name: String): ToolKind = when (name) {
-        "list_memory_files" -> ToolKind.MEMORY_LIST
-        "read_memory_file", "read_active_memory" -> ToolKind.MEMORY_READ
-        "create_memory_file" -> ToolKind.MEMORY_CREATE
-        "edit_memory_file" -> ToolKind.MEMORY_EDIT
-        "delete_memory_file" -> ToolKind.MEMORY_DELETE
-        "update_active_memory" -> ToolKind.MEMORY_UPDATE_ACTIVE
-        "list_skill_files" -> ToolKind.SKILL_LIST
-        "read_skill_file" -> ToolKind.SKILL_READ
-        "create_skill_file" -> ToolKind.SKILL_CREATE
-        "edit_skill_file" -> ToolKind.SKILL_EDIT
-        "delete_skill_file" -> ToolKind.SKILL_DELETE
+        "memory_list" -> ToolKind.MEMORY_LIST
+        "memory_read", "active_memory_read" -> ToolKind.MEMORY_READ
+        "memory_create" -> ToolKind.MEMORY_CREATE
+        "memory_edit" -> ToolKind.MEMORY_EDIT
+        "memory_delete" -> ToolKind.MEMORY_DELETE
+        "active_memory_update" -> ToolKind.MEMORY_UPDATE_ACTIVE
+        "skill_list" -> ToolKind.SKILL_LIST
+        "skill_read" -> ToolKind.SKILL_READ
+        "skill_create" -> ToolKind.SKILL_CREATE
+        "skill_edit" -> ToolKind.SKILL_EDIT
+        "skill_delete" -> ToolKind.SKILL_DELETE
         "web_search", "openai_search", "google_search" -> ToolKind.WEB_SEARCH
         "web_fetch" -> ToolKind.WEB_FETCH
-        "search_conversations" -> ToolKind.CONVERSATION_SEARCH
-        "list_conversations" -> ToolKind.CONVERSATION_LIST
-        "read_conversation" -> ToolKind.CONVERSATION_READ
-        "list_shells" -> ToolKind.SHELL_LIST
-        "execute_shell_command" -> ToolKind.SHELL_EXECUTE
-        "list_shell_jobs" -> ToolKind.SHELL_JOB_LIST
-        "get_shell_job" -> ToolKind.SHELL_JOB_GET
-        "wait_for_job" -> ToolKind.SHELL_JOB_WAIT
-        "stop_shell_job" -> ToolKind.SHELL_JOB_STOP
+        "conversation_search" -> ToolKind.CONVERSATION_SEARCH
+        "conversation_list" -> ToolKind.CONVERSATION_LIST
+        "conversation_read" -> ToolKind.CONVERSATION_READ
+        "shell_list" -> ToolKind.SHELL_LIST
+        "shell_exec" -> ToolKind.SHELL_EXECUTE
+        "shell_job_list" -> ToolKind.SHELL_JOB_LIST
+        "shell_job_get" -> ToolKind.SHELL_JOB_GET
+        "shell_job_wait" -> ToolKind.SHELL_JOB_WAIT
+        "shell_job_stop" -> ToolKind.SHELL_JOB_STOP
         "file_read" -> ToolKind.FILE_READ
         "file_write" -> ToolKind.FILE_WRITE
+        "file_transfer" -> ToolKind.FILE_TRANSFER
         "file_edit", "file_multi_edit" -> ToolKind.FILE_EDIT
         "file_glob" -> ToolKind.FILE_GLOB
         "file_grep" -> ToolKind.FILE_GREP
-        "view_image" -> ToolKind.IMAGE_VIEW
-        "generate_image" -> ToolKind.IMAGE_GENERATE
-        "create_task" -> ToolKind.TASK_CREATE
-        "list_tasks" -> ToolKind.TASK_LIST
-        "delete_task" -> ToolKind.TASK_DELETE
-        "start_loop" -> ToolKind.LOOP_START
-        "stop_loop" -> ToolKind.LOOP_STOP
+        "file_view_image" -> ToolKind.IMAGE_VIEW
+        "image_generate" -> ToolKind.IMAGE_GENERATE
+        "task_create" -> ToolKind.TASK_CREATE
+        "task_list" -> ToolKind.TASK_LIST
+        "task_delete" -> ToolKind.TASK_DELETE
+        "loop_start" -> ToolKind.LOOP_START
+        "loop_stop" -> ToolKind.LOOP_STOP
+        "phone_claim", "phone_release", "phone_screenshot", "phone_ui_tree", "phone_tap",
+        "phone_long_press", "phone_swipe", "phone_type", "phone_key", "phone_app_launch", "phone_app_list" -> ToolKind.PHONE
         "ask_user" -> ToolKind.ASK_USER
-        "read_todo" -> ToolKind.TODO_READ
-        "update_todo" -> ToolKind.TODO_UPDATE
-        "spawn_agent" -> ToolKind.SUBAGENT_SPAWN
-        "send_agent_message" -> ToolKind.SUBAGENT_SEND
-        "wait_agents" -> ToolKind.SUBAGENT_WAIT
-        "list_agents" -> ToolKind.SUBAGENT_LIST
-        "stop_agent" -> ToolKind.SUBAGENT_STOP
+        "todo_read" -> ToolKind.TODO_READ
+        "todo_update" -> ToolKind.TODO_UPDATE
+        "agent_spawn" -> ToolKind.SUBAGENT_SPAWN
+        "agent_send_message" -> ToolKind.SUBAGENT_SEND
+        "agent_wait" -> ToolKind.SUBAGENT_WAIT
+        "agent_list" -> ToolKind.SUBAGENT_LIST
+        "agent_stop" -> ToolKind.SUBAGENT_STOP
+        "agent_delete" -> ToolKind.SUBAGENT_DELETE
+        "mcp_list_servers" -> ToolKind.MCP_LIST
+        "mcp_search_tools" -> ToolKind.MCP_SEARCH
         else -> if (name.startsWith("mcp_")) ToolKind.MCP else ToolKind.UNKNOWN
     }
 
@@ -354,6 +413,8 @@ internal object ToolPresentationResolver {
     }
 
     private fun semanticCount(kind: ToolKind, result: JsonObject?): Int? = when (kind) {
+        ToolKind.MCP_LIST -> result.int("returned") ?: result.arraySize("servers")
+        ToolKind.MCP_SEARCH -> result.int("returned") ?: result.arraySize("tools")
         ToolKind.MEMORY_LIST,
         ToolKind.SKILL_LIST -> result.arraySize("files")
         ToolKind.WEB_SEARCH -> result.arraySize("results")
@@ -418,6 +479,7 @@ internal object ToolPresentationResolver {
         ToolKind.SKILL_EDIT,
         ToolKind.SKILL_DELETE -> arguments.string("name")
         ToolKind.WEB_SEARCH,
+        ToolKind.MCP_SEARCH,
         ToolKind.CONVERSATION_SEARCH -> arguments.string("query")
         ToolKind.WEB_FETCH -> arguments.string("url")
         ToolKind.CONVERSATION_READ -> result.string("title")
@@ -433,6 +495,10 @@ internal object ToolPresentationResolver {
         ToolKind.FILE_EDIT,
         ToolKind.IMAGE_VIEW -> arguments.string("path")
             ?: result.string("path")
+        ToolKind.FILE_TRANSFER -> fileTransferEndpoint(
+            result.transferText("source_server") ?: arguments.string("source_server"),
+            result.transferText("source_path") ?: arguments.string("source_path"),
+        )
         ToolKind.FILE_GLOB,
         ToolKind.FILE_GREP -> arguments.string("pattern")
             ?: result.string("pattern")

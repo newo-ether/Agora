@@ -27,15 +27,40 @@ class FiloAdapterDiscoveryTest {
         } finally { server.stop(0) }
     }
 
+    @Test fun fourInstalledSourcesRetainIndependentNativeStates() = fixture { client, respond ->
+        runBlocking {
+            val sources = listOf(
+                RemoteAdapter("codex-desktop", "codex", "desktop", "connected"),
+                RemoteAdapter("codex-cli", "codex", "cli", "disconnected"),
+                RemoteAdapter("claude-code", "claude", "cli", "unavailable"),
+                RemoteAdapter("claude-desktop", "claude", "desktop", "connecting"),
+            )
+            respond(discovery(sources))
+            assertEquals(RemoteDeviceStatus.CONNECTED, client.connect())
+            assertEquals(sources, client.adapters)
+            assertEquals(listOf(RemoteDeviceStatus.CONNECTED, RemoteDeviceStatus.IDLE,
+                RemoteDeviceStatus.ERROR, RemoteDeviceStatus.CONNECTING), client.adapters!!.map { it.status })
+            val offline = sources.map { it.copy(state = "disconnected") }
+            respond(discovery(offline))
+            assertEquals(RemoteDeviceStatus.IDLE, client.connect())
+            assertEquals(offline, client.adapters)
+        }
+    }
+
     @Test fun claudeOnlyAndEmptyConfigurationsNeverAcquireLegacyDesktopCapabilities() = fixture { client, respond ->
         runBlocking {
-            val source = RemoteAdapter("claude-code", "claude", "cli", "connected", nativeScopeId = "scope",
-                capabilities = RemoteCapabilities(history = true))
-            respond(discovery(listOf(source)))
-            assertEquals(RemoteDeviceStatus.IDLE, client.connect())
-            assertEquals(listOf(source), client.adapters)
-            assertFalse(client.adapters!!.single().capabilities.create)
-            assertFalse(client.adapters!!.single().capabilities.stop)
+            for (source in listOf(
+                RemoteAdapter("claude-code", "claude", "cli", "connected", nativeScopeId = "scope",
+                    capabilities = RemoteCapabilities(history = true)),
+                RemoteAdapter("claude-desktop", "claude", "desktop", "disconnected", nativeScopeId = "desktop-scope",
+                    capabilities = RemoteCapabilities(history = true)),
+            )) {
+                respond(discovery(listOf(source)))
+                assertEquals(RemoteDeviceStatus.IDLE, client.connect())
+                assertEquals(listOf(source), client.adapters)
+                assertFalse(client.adapters!!.single().capabilities.create)
+                assertFalse(client.adapters!!.single().capabilities.stop)
+            }
             respond(discovery(emptyList()))
             client.connect()
             assertEquals(emptyList<RemoteAdapter>(), client.adapters)
@@ -45,7 +70,13 @@ class FiloAdapterDiscoveryTest {
     @Test fun malformedExtensionsDuplicateIdsAndConfusedFamilyOriginAreRejected() = fixture { client, respond ->
         runBlocking {
             val source = RemoteAdapter("codex-desktop", "codex", "desktop", "connected")
+            val claudeDesktop = RemoteAdapter("claude-desktop", "claude", "desktop", "disconnected")
+            val sources = listOf(source, source.copy(id = "codex-cli", origin = "cli"),
+                RemoteAdapter("claude-code", "claude", "cli", "disconnected"), claudeDesktop)
             val invalid = listOf(discovery(listOf(source), "{}"), discovery(listOf(source), "2"),
+                discovery(sources + source.copy(id = "unknown")),
+                discovery(listOf(claudeDesktop.copy(family = "codex"))),
+                discovery(listOf(claudeDesktop.copy(origin = "cli"))),
                 discovery(listOf(source, source)), discovery(listOf(source.copy(family = "claude"))),
                 discovery(listOf(source.copy(origin = "cli"))),
                 discovery(listOf(source.copy(capabilities = RemoteCapabilities(activeSend = "append")))))

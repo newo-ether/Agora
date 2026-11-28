@@ -9,43 +9,41 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.unit.offset
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Tag
+import com.newoether.agora.ui.icons.LocalModelIcon
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
-import com.newoether.agora.data.CustomProviderConfig
 import com.newoether.agora.data.modelAliasDisplayName
 import com.newoether.agora.data.modelApiDisplayName
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.data.providerDisplayName
+import com.newoether.agora.data.providerNameShownByDefault
 import com.newoether.agora.model.ModelId
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.ui.components.providerIcon
@@ -63,18 +61,6 @@ private val MidRounded    = RoundedCornerShape(5.dp)
 internal val FlatShape     = RoundedCornerShape(0.dp)
 internal val FlatToBottom  = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
 internal val FiveBottom    = RoundedCornerShape(bottomStart = 5.dp, bottomEnd = 5.dp)
-
-private val RemoteModelProviders = listOf(
-    Constants.PROVIDER_GOOGLE,
-    Constants.PROVIDER_OPENAI,
-    Constants.PROVIDER_ANTHROPIC,
-    Constants.PROVIDER_DEEPSEEK,
-    Constants.PROVIDER_QWEN,
-    Constants.PROVIDER_GROQ,
-    Constants.PROVIDER_OLLAMA,
-    Constants.PROVIDER_OPEN_ROUTER,
-    Constants.PROVIDER_OPENCODE_GO,
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,11 +90,11 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
 
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     val lastFingerprint by viewModel.settings.lastModelsFetchFingerprint.collectAsState()
-    val providerChoices = remember(customProviders) {
-        (RemoteModelProviders + customProviders.map { it.name }).distinct()
-    }
-    val manualProviderOrder = remember(customProviders) {
-        RemoteModelProviders + customProviders.map(CustomProviderConfig::providerId)
+    val providerList by viewModel.settings.providerList.collectAsState()
+    // Groups and choices follow the user's Provider list order; removed built-ins are hidden.
+    val providerChoices = providerList
+    val manualProviderOrder = remember(customProviders, providerList) {
+        providerList.map { name -> customProviders.firstOrNull { it.name == name }?.providerId ?: name }
     }
     val manualModelGroups = remember(customModels, manualProviderOrder) {
         customModelGroups(customModels, manualProviderOrder)
@@ -118,12 +104,14 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         customModels,
         modelAliases,
         modelSearchQuery,
+        providerList,
     ) {
         fetchedModelGroups(
             availableModels = availableModels,
             customModels = customModels,
             modelAliases = modelAliases,
             query = modelSearchQuery,
+            providerOrder = providerList,
         )
     }
     val normalizedSearchQuery = modelSearchQuery.trim()
@@ -222,10 +210,10 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                         leadingContent = {
                             val tint = if (hasEnabledModels) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                             when {
-                                !hasEnabledModels -> Icon(Icons.Default.Chat, null, tint = tint, modifier = Modifier.size(24.dp))
-                                isActiveLocal -> Icon(Icons.Default.AutoAwesome, null, tint = tint, modifier = Modifier.size(24.dp))
+                                !hasEnabledModels -> Icon(Icons.Rounded.Layers, null, tint = tint, modifier = Modifier.size(24.dp))
+                                isActiveLocal -> Icon(LocalModelIcon, null, tint = tint, modifier = Modifier.size(24.dp))
                                 activeIconRes != 0 -> Icon(painterResource(activeIconRes), null, tint = tint, modifier = Modifier.size(24.dp))
-                                else -> Icon(Icons.Default.Chat, null, tint = tint, modifier = Modifier.size(24.dp))
+                                else -> Icon(Icons.Rounded.Layers, null, tint = tint, modifier = Modifier.size(24.dp))
                             }
                         },
                         modifier = Modifier.heightIn(min = 66.dp).clickable(enabled = hasEnabledModels) { showActiveModelDialog = true }
@@ -253,7 +241,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.Chat,
+                                    Icons.Rounded.Layers,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 )
@@ -357,7 +345,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     )
                                 } else {
                                     Icon(
-                                        Icons.Default.Refresh,
+                                        Icons.Rounded.Refresh,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp),
@@ -379,13 +367,13 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             singleLine = true,
                             placeholder = { Text(stringResource(R.string.models_search_hint)) },
                             leadingIcon = {
-                                Icon(Icons.Default.Search, contentDescription = null)
+                                Icon(Icons.Rounded.Search, contentDescription = null)
                             },
                             trailingIcon = if (modelSearchQuery.isNotEmpty()) {
                                 {
                                     IconButton(onClick = { modelSearchQuery = "" }) {
                                         Icon(
-                                            Icons.Default.Clear,
+                                            Icons.Rounded.Clear,
                                             contentDescription =
                                                 stringResource(R.string.models_clear_search),
                                         )
@@ -424,7 +412,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             },
                             leadingContent = {
                                 Icon(
-                                    Icons.Default.Search,
+                                    Icons.Rounded.Search,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 )
@@ -521,8 +509,8 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         val unchangedDisplayAlias = originalModelId?.let { model ->
             modelAliasDisplayName(model, modelAliases, customProviders)
         }.orEmpty()
-        var showProviderName by remember(originalModelId) {
-            mutableStateOf(modelProviderNames[originalModelId] != false)
+        var showProviderNameChoice by remember(originalModelId) {
+            mutableStateOf(originalModelId?.let { modelProviderNames[it] })
         }
         val aliasToPersist = if (originalModelId != null) {
             modelAliasToPersist(
@@ -541,6 +529,10 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         } else {
             ""
         }
+        // Until the owner touches the switch it follows the Provider picked in this dialog.
+        val showProviderName = showProviderNameChoice
+            ?: pendingModelId.takeIf(String::isNotEmpty)?.let(::providerNameShownByDefault)
+            ?: false
         val modelAlreadyExists =
             pendingModelId in customModels && pendingModelId != originalModelId
         val canSaveModel = pendingModelId.isNotEmpty() && !modelAlreadyExists
@@ -582,6 +574,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             onValueChange = { customModelId = it },
                             singleLine = true,
                             label = { Text(stringResource(R.string.model_id_label)) },
+                            leadingIcon = { Icon(Icons.Rounded.Tag, contentDescription = null) },
                             isError = modelAlreadyExists,
                             supportingText = if (modelAlreadyExists) {
                                 { Text(stringResource(R.string.models_custom_exists)) }
@@ -605,7 +598,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
-                    ModelProviderNameSwitch(showProviderName) { showProviderName = it }
+                    ModelProviderNameSwitch(showProviderName) { showProviderNameChoice = it }
                 }
             },
             confirmButton = {
@@ -722,7 +715,7 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
         val rawAlias = modelAliases[model].orEmpty()
         val displayAlias = modelAliasDisplayName(model, modelAliases, customProviders)
         val aliasState = rememberTextFieldState(displayAlias)
-        var showProviderName by remember(model) { mutableStateOf(modelProviderNames[model] != false) }
+        var showProviderName by remember(model) { mutableStateOf(modelProviderNameShown(model, modelProviderNames)) }
 
         AlertDialog(
             modifier = Modifier.clearFocusOnTap(),
@@ -763,38 +756,5 @@ fun SettingsModelsPage(viewModel: ChatViewModel, onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { showModelAliasDialog = null }) { Text(stringResource(R.string.provider_cancel)) } }
         )
-    }
-}
-@Composable
-private fun ModelProviderNameSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val rippleOutset = 8.dp
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .padding(top = 8.dp)
-            .layout { measurable, constraints ->
-                val outset = rippleOutset.roundToPx()
-                val placeable = measurable.measure(constraints.offset(horizontal = outset * 2))
-                layout(placeable.width - outset * 2, placeable.height) {
-                    placeable.placeRelative(-outset, 0)
-                }
-            }
-            .clip(RoundedCornerShape(16.dp))
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-            .padding(horizontal = rippleOutset, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(start = 8.dp, end = 12.dp)) {
-            Text(
-                stringResource(R.string.models_show_provider_name),
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
-            )
-            Text(
-                stringResource(R.string.models_show_provider_name_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(checked = checked, onCheckedChange = null)
     }
 }

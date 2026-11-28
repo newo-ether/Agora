@@ -2,9 +2,9 @@ package com.newoether.agora.ui.chat.message
 
 import android.app.Application
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.test.core.app.ApplicationProvider
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.ToolExecutionStates
@@ -43,11 +43,11 @@ class TodoSubagentPresentationTest {
             assertEquals(kinds[index], ToolPresentationResolver.kindForToolName(name))
             assertEquals(kinds[index], ToolPresentationResolver.resolve(call).kind)
             assertEquals(titles[index], resources.toolDisplayName(call))
-            assertEquals(if (index < 2) Icons.Default.Checklist else Icons.Default.AccountTree,
+            assertEquals(if (index < 2) Icons.Rounded.Checklist else Icons.Rounded.AccountTree,
                 toolHeaderIcon(kinds[index]))
         }
         assertEquals(ToolKind.UNKNOWN, ToolPresentationResolver.kindForToolName("external_tool"))
-        assertEquals(Icons.Default.Build, toolHeaderIcon(ToolKind.UNKNOWN))
+        assertEquals(Icons.Rounded.Build, toolHeaderIcon(ToolKind.UNKNOWN))
     }
 
     @Test
@@ -123,7 +123,8 @@ class TodoSubagentPresentationTest {
         val presentation = ToolPresentationResolver.resolve(segment)
         assertEquals(arguments, presentation.rawArguments)
         assertEquals(result, presentation.rawResult)
-        assertEquals("update_todo", presentation.toolName)
+        assertEquals("todo_update", presentation.toolName)
+        assertEquals("update_todo", segment.toolName)
         val detail = resources.toolDetailPresentation(segment)
         assertEquals(arguments, detail.arguments)
         assertEquals(listOf(result), (detail.body as ToolDetailBody.JsonContent).values)

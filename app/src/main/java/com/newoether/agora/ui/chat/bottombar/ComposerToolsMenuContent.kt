@@ -3,12 +3,13 @@ package com.newoether.agora.ui.chat.bottombar
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Compress
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Compress
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -60,10 +61,13 @@ internal fun ComposerToolsMenuContent(
     showShell: Boolean,
     shellEnabled: Boolean,
     onShellToggle: (Boolean) -> Unit,
+    /** False when the selected model's template cannot express tools (#218). */
+    toolControlsEnabled: Boolean = true,
     canCompact: Boolean,
     isCompacting: Boolean,
     onCompactClick: () -> Unit,
     onAdvancedClick: () -> Unit,
+    onToolsClick: () -> Unit,
 ) {
     var activeMenu by activeMenuState
     var showThinkingSheet by showThinkingSheetState
@@ -73,7 +77,7 @@ internal fun ComposerToolsMenuContent(
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Default.Memory,
+                        Icons.Rounded.Memory,
                         contentDescription = null,
                         modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp),
                     )
@@ -129,7 +133,7 @@ internal fun ComposerToolsMenuContent(
         AgoraDropdownMenuItem(
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Terminal, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+                    Icon(Icons.Rounded.Terminal, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(stringResource(R.string.code_execution))
                     Spacer(modifier = Modifier.width(10.dp))
@@ -179,7 +183,7 @@ internal fun ComposerToolsMenuContent(
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Default.Speed,
+                        Icons.Rounded.Speed,
                         contentDescription = null,
                         modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp),
                     )
@@ -224,7 +228,7 @@ internal fun ComposerToolsMenuContent(
         AgoraDropdownMenuItem(
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Language, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+                    Icon(Icons.Rounded.Language, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(stringResource(R.string.web_search))
                 }
@@ -233,11 +237,11 @@ internal fun ComposerToolsMenuContent(
                 Switch(
                     checked = webSearchEnabled,
                     onCheckedChange = { onWebSearchToggle(it) },
-                    enabled = capabilityControlsEnabled,
+                    enabled = toolControlsEnabled,
                     modifier = Modifier.scale(0.7f)
                 )
             },
-            enabled = capabilityControlsEnabled,
+            enabled = toolControlsEnabled,
             onClick = { onWebSearchToggle(!webSearchEnabled) }
         )
     }
@@ -245,7 +249,7 @@ internal fun ComposerToolsMenuContent(
         AgoraDropdownMenuItem(
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Terminal, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+                    Icon(Icons.Rounded.Terminal, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(stringResource(R.string.shell_title))
                 }
@@ -254,18 +258,30 @@ internal fun ComposerToolsMenuContent(
                 Switch(
                     checked = shellEnabled,
                     onCheckedChange = { onShellToggle(it) },
-                    enabled = capabilityControlsEnabled,
+                    enabled = toolControlsEnabled,
                     modifier = Modifier.scale(0.7f)
                 )
             },
-            enabled = capabilityControlsEnabled,
+            enabled = toolControlsEnabled,
             onClick = { onShellToggle(!shellEnabled) }
         )
     }
+    // Tools sits with the other session controls, above Context Compact: it edits what the next
+    // request sends, while compacting only cuts down what was already sent.
     AgoraDropdownMenuItem(
         text = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Compress, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+                Icon(Icons.Rounded.Build, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(stringResource(R.string.tools))
+            }
+        },
+        onClick = { activeMenu = null; onToolsClick() }
+    )
+    AgoraDropdownMenuItem(
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Compress, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(stringResource(R.string.context_compact))
             }
@@ -276,7 +292,7 @@ internal fun ComposerToolsMenuContent(
     AgoraDropdownMenuItem(
         text = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Tune, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
+                Icon(Icons.Rounded.Tune, null, modifier = Modifier.size(CHAT_DROPDOWN_MENU_ICON_SIZE_DP.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(stringResource(R.string.advanced_settings))
             }

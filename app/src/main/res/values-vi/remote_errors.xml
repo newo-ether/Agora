@@ -5,7 +5,7 @@
     <string name="remote_rejected">Codex không chấp nhận tin nhắn. Hãy xem chi tiết lỗi trước khi thử lại.</string>
     <string name="remote_storage_failed">Agora không thể truy cập dữ liệu Remote cục bộ. Hãy kiểm tra dung lượng trống.</string>
     <string name="remote_network_failed">Không thể kết nối Filo. Hãy kiểm tra máy đích, địa chỉ dịch vụ và mạng.</string>
-    <string name="remote_auth_failed">Filo từ chối mã truy cập. Hãy dùng mã trên máy đích.</string>
+    <string name="remote_auth_failed">Filo không thể xác thực yêu cầu này. Điều này không nhất thiết có nghĩa là mã truy cập sai. Nếu lỗi tiếp diễn, hãy kiểm tra mã và đồng hồ trên máy đích.</string>
     <string name="remote_configuration_failed">Nhập URL dịch vụ hợp lệ và mã truy cập gồm 64 ký tự.</string>
     <string name="remote_protocol_failed">Agora không thể xác minh hoặc đọc phản hồi Filo. Hãy kiểm tra bản cập nhật của cả hai ứng dụng.</string>
     <string name="remote_service_failed">Codex không thể hoàn tất yêu cầu.</string>

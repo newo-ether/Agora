@@ -29,6 +29,8 @@ class SubagentManager(
     private val enqueueCompletions: suspend (String) -> Unit,
     private val enqueueMessage: suspend (String, String, GenerationContext) -> String,
     private val stopLoop: suspend (String) -> Unit = {},
+    /** Canonical lifecycle deletion of an idle child (child ID, parent ID); false when rejected. */
+    private val deleteIdleChild: suspend (String, String) -> Boolean = { _, _ -> false },
 ) {
     init {
         conversations.onSubagentTerminal = ::conversationIdle
@@ -64,12 +66,20 @@ class SubagentManager(
             systemPromptId = parent.systemPromptId, origin = "subagent",
             parentConversationId = parent.id,
         )
-        conversations.createSubagent(
-            identity, child,
-            settings.conversationSettings.value[parent.id]?.let { Json.encodeToString(it) },
-            maxSubagents = settings.getSubagentMaxTotal(),
-        )
-        launch(child, task, ctx)
+        val releaseAdmission = coordinator.reserveSubagentGeneration(parent.id, id)
+        try {
+            scope.coroutineContext.ensureActive()
+            conversations.createSubagent(
+                identity, child,
+                settings.conversationSettings.value[parent.id]?.let { Json.encodeToString(it) },
+                maxSubagents = settings.getSubagentMaxTotal(),
+            )
+            currentCoroutineContext().ensureActive()
+            launch(child, task, ctx, releaseAdmission)
+        } catch (error: Throwable) {
+            releaseAdmission()
+            throw error
+        }
         return id
     }
 
@@ -80,13 +90,13 @@ class SubagentManager(
         return enqueueMessage(id, text, ctx)
     }
 
-    private fun launch(child: ChatEntity, task: String, ctx: GenerationContext) {
+    private fun launch(
+        child: ChatEntity, task: String, ctx: GenerationContext, releaseAdmission: () -> Unit,
+    ) {
         val job = scope.launch(start = CoroutineStart.LAZY) {
-            var releaseAdmission: (() -> Unit)? = null
             var completion: SubagentCompletion? = null
             var previousMessageId: String? = null
             try {
-                releaseAdmission = coordinator.acquireGenerationAdmission(child.id)
                 gate.withExecution {
                     coordinator.withAutomationConversationLock(child.id) {
                         transfers.complete(child.id)
@@ -123,11 +133,7 @@ class SubagentManager(
                     conversations.recordSubagentCompletion(child.id, checkNotNull(child.parentConversationId), it)
                 }
             } finally {
-                try {
-                    if (completion != null) requestDelivery(checkNotNull(child.parentConversationId))
-                } finally {
-                    releaseAdmission?.invoke()
-                }
+                if (completion != null) requestDelivery(checkNotNull(child.parentConversationId))
             }
         }
         val previous = jobs.getAndUpdate { current ->
@@ -139,8 +145,10 @@ class SubagentManager(
         }
         job.invokeOnCompletion {
             jobs.update { current -> if (current[child.id] === job) current - child.id else current }
+            // Completion also covers cancellation before the lazy body ever starts.
+            releaseAdmission()
         }
-        job.start()
+        check(job.start()) { "Subagent could not start because execution was cancelled" }
     }
 
     suspend fun list(ctx: GenerationContext): List<SubagentSummary> {
@@ -160,11 +168,12 @@ class SubagentManager(
             selected.forEach { id ->
                 jobs.value[id]?.join()
                 registry.get(id)?.awaitSendAvailable()
+                coordinator.admittedGenerationIds.first { id !in it }
             }
         }
         authorized(ctx)
         val results = conversations.pendingSubagentResults(identity.conversationId)
-            .filter { it.id in selected && jobs.value[it.id] == null }
+            .filter { it.id in selected && jobs.value[it.id] == null && it.id !in coordinator.admittedGenerationIds.value }
             .map { it.id to checkNotNull(SubagentCompletion.decode(it.resultJson)) }
         // Receipts are acknowledged only when the ordinary tool round commits its result rows.
         return results
@@ -175,6 +184,28 @@ class SubagentManager(
         ownedChild(identity, id)
         cancel(id)
         authorized(ctx)
+    }
+
+    /**
+     * Deletes one owned child only while it is idle and holds no undelivered completion, so the
+     * parent never loses a result or interrupts work. Deleting frees its total-capacity slot.
+     */
+    suspend fun delete(id: String, ctx: GenerationContext) {
+        val identity = authorized(ctx)
+        check(ctx.subagentDeleteEnabled) { "Deleting subagents is disabled in Settings" }
+        val child = ownedChild(identity, id)
+        val state = registry.get(id)
+        check(id !in coordinator.admittedGenerationIds.value &&
+            jobs.value[id] == null && !registry.isActive(id) && conversations.getLiveRun(id) == null &&
+            state?.queuedSends?.value.isNullOrEmpty()) {
+            "Subagent is running or has queued messages; stop it or wait for it first"
+        }
+        check(child.subagentResultId == null || child.subagentResultId == child.subagentDeliveredResultId) {
+            "Subagent has an undelivered result; call agent_wait first"
+        }
+        check(deleteIdleChild(id, identity.conversationId)) {
+            "Subagent could not be deleted because it is busy or already changed"
+        }
     }
 
     suspend fun cancel(id: String) {

@@ -22,6 +22,10 @@
     <string name="subagents_max_concurrent">Sous-agents simultanés</string>
     <string name="subagents_max_concurrent_desc">Nombre maximal de sous-agents exécutés simultanément par conversation parente. Les tâches supplémentaires attendent ; réduire cette limite laisse les sous-agents en cours terminer leur travail.</string>
     <string name="subagents_limit_value">%1$d</string>
+    <plurals name="subagents_running_count">
+        <item quantity="one">%d en cours</item>
+        <item quantity="other">%d en cours</item>
+    </plurals>
     <plurals name="subagents_count">
         <item quantity="one">%d sous-agent</item>
         <item quantity="other">%d sous-agents</item>

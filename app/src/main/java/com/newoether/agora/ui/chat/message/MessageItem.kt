@@ -16,12 +16,12 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.filled.Compress
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.StopCircle
+import androidx.compose.material.icons.rounded.Compress
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
@@ -42,9 +42,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.forDisplay
+import com.newoether.agora.data.modelProviderNameShown
 import com.newoether.agora.data.replaceCustomProviderIdsForDisplay
 import com.newoether.agora.model.ChatMessage
-import com.newoether.agora.ui.theme.contrastingOn
 import com.newoether.agora.model.MessageSource
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.isContextCompact
@@ -198,7 +198,7 @@ internal fun MessageItem(
         MessageInfoDialog(
             message = displayMessage,
             modelAliases = modelAliases.map,
-            showProviderName = modelAliases.providerNames[message.modelName] != false,
+            showProviderName = modelProviderNameShown(message.modelName, modelAliases.providerNames),
             customProviders = customProviders,
             onDismiss = { showInfoDialog = false }
         )
@@ -256,17 +256,14 @@ internal fun MessageItem(
         Participant.ERROR -> Alignment.CenterHorizontally
     }
 
-    val customUserBubble = com.newoether.agora.ui.theme.LocalUserBubbleColor.current
     val backgroundColor = when (message.participant) {
-        Participant.USER -> customUserBubble ?: MaterialTheme.colorScheme.primaryContainer
+        Participant.USER -> MaterialTheme.colorScheme.primaryContainer
         Participant.MODEL -> Color.Transparent
         Participant.ERROR -> MaterialTheme.colorScheme.errorContainer
     }
 
     val textColor = when (message.participant) {
-        Participant.USER ->
-            if (customUserBubble != null) contrastingOn(customUserBubble)
-            else MaterialTheme.colorScheme.onPrimaryContainer
+        Participant.USER -> MaterialTheme.colorScheme.onPrimaryContainer
         Participant.MODEL -> MaterialTheme.colorScheme.onSurface
         Participant.ERROR -> MaterialTheme.colorScheme.onErrorContainer
     }
@@ -307,6 +304,7 @@ internal fun MessageItem(
         onMediaClick,
         message.preparedMarkdown,
         autoWrapCodeBlocks,
+        imageOwnerId = message.id,
     )
     val markdownRenderContext = markdownAssets.renderContext
     val thoughtMarkdownRenderContext = markdownAssets.thoughtRenderContext
@@ -401,8 +399,11 @@ internal fun MessageItem(
                         onShowInfo = { showInfoDialog = true },
                         onShowDelete = onShowDelete,
                         searchHighlight = searchHighlight,
+                        onLayoutMutationStarted = onLayoutMutationStarted,
+                        onLayoutMutationSettled = onLayoutMutationSettled,
                     )
-                } else {
+                } else MarkdownMediaGalleryHost {
+                    // One viewer pages through every picture and video of this answer.
                     AssistantMessageContent(
                         message = displayMessage,
                         includeOuterSpacing = includeAssistantOuterSpacing,
@@ -598,10 +599,10 @@ internal fun ContextCompactPill(
                         Icon(
                             imageVector = when (renderedPresentation) {
                                 ContextCompactPillPresentation.ERROR ->
-                                    androidx.compose.material.icons.Icons.Default.Error
+                                    androidx.compose.material.icons.Icons.Rounded.Error
                                 ContextCompactPillPresentation.STOPPED ->
-                                    androidx.compose.material.icons.Icons.Default.StopCircle
-                                else -> androidx.compose.material.icons.Icons.Default.Compress
+                                    androidx.compose.material.icons.Icons.Rounded.StopCircle
+                                else -> androidx.compose.material.icons.Icons.Rounded.Compress
                             },
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
@@ -650,7 +651,7 @@ internal fun ContextCompactPill(
                     modifier = Modifier.size(32.dp),
                 ) {
                     Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.MoreVert,
+                        imageVector = androidx.compose.material.icons.Icons.Rounded.MoreVert,
                         contentDescription = stringResource(com.newoether.agora.R.string.more),
                         modifier = Modifier.size(18.dp),
                     )
@@ -669,7 +670,7 @@ internal fun ContextCompactPill(
                         },
                         leadingIcon = {
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.Refresh,
+                                imageVector = androidx.compose.material.icons.Icons.Rounded.Refresh,
                                 contentDescription = null,
                             )
                         },
@@ -688,7 +689,7 @@ internal fun ContextCompactPill(
                         },
                         leadingIcon = {
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.Delete,
+                                imageVector = androidx.compose.material.icons.Icons.Rounded.Delete,
                                 contentDescription = null,
                                 tint = destructiveActionTint,
                             )

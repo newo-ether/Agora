@@ -84,6 +84,31 @@ class ConversationBranchMutationServiceTest {
     }
 
     @Test
+    fun busyQueueRejectsDeletionAndLeavesTheOwnersLockHeld() = runTest {
+        val conversations = mockk<ConversationRepository>()
+        val events = mutableListOf<String>()
+        val results = mutableListOf<Boolean>()
+        val state = ConversationGenerationState("conversation", reclaimQueuedAttachments = {})
+        val owner = Any()
+        state.queueMutationMutex.lock(owner)
+        try {
+            service(conversations, events).delete(
+                "conversation", "model", state,
+                listOf(chat("model", null, Participant.MODEL)), origin, results::add,
+            )
+            runCurrent()
+
+            assertEquals(listOf(false), results)
+            assertEquals(listOf("start:true", "failed:7"), events)
+            assertEquals(true, state.queueMutationMutex.holdsLock(owner))
+            coVerify(exactly = 0) { conversations.getLiveRun(any()) }
+        } finally {
+            state.queueMutationMutex.unlock(owner)
+            state.dispose()
+        }
+    }
+
+    @Test
     fun compactBoundaryUsesDedicatedTransactionWithoutRequestingAScrollTarget() = runTest {
         val conversations = mockk<ConversationRepository>()
         val compactId = "${Constants.COMPACT_MSG_PREFIX}one"

@@ -1,5 +1,9 @@
 package com.newoether.agora.ui.chat
 
+import com.newoether.agora.presentation.conversationSettingsOwnerId
+import com.newoether.agora.presentation.validGenerationParameters
+import com.newoether.agora.presentation.withGenerationParameters
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -38,6 +43,9 @@ import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.ui.components.SystemPromptPickerDialog
 import com.newoether.agora.ui.components.clearFocusOnTap
 import com.newoether.agora.viewmodel.ChatViewModel
+import com.newoether.agora.viewmodel.SessionToolCatalog
+import com.newoether.agora.tool.SessionToolGroup
+import com.newoether.agora.ui.common.LocalAgoraHaptics
 import kotlinx.coroutines.launch
 
 /** Rename-conversation dialog. Owns its own editable text, seeded from [initialName]. */
@@ -89,6 +97,9 @@ internal fun ChatDeleteConfirmDialog(
     title: String? = null,
     message: String? = null,
     confirmLabel: String? = null,
+    /** Completed share of a multi-conversation delete, shown under the message while pending. */
+    progress: Float? = null,
+    progressLabel: String? = null,
 ) {
     val pending = phase == ChatDeleteDialogPhase.PENDING
     AlertDialog(
@@ -102,6 +113,20 @@ internal fun ChatDeleteConfirmDialog(
         text = {
             Column {
                 Text(message ?: stringResource(R.string.delete_chat_confirm))
+                if (pending && progress != null) {
+                    LinearProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    )
+                    if (progressLabel != null) {
+                        Text(
+                            text = progressLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
                 if (phase == ChatDeleteDialogPhase.FAILED) {
                     Text(
                         text = stringResource(R.string.tool_state_failed),
@@ -312,5 +337,46 @@ internal fun ChatAdvancedSettingsDialog(
             }
         },
         onDismiss = onDismiss
+    )
+}
+
+/**
+ * Session tool selector wrapper: loads the tools this conversation currently sends and applies each
+ * switch at once. Web and Terminal write the same conversation settings as the composer switches;
+ * every other group writes the disabled group ids.
+ */
+@Composable
+internal fun ChatSessionToolsDialog(
+    viewModel: ChatViewModel,
+    onDismiss: () -> Unit,
+) {
+    val currentConversationId by viewModel.currentConversationId.collectAsState()
+    val isNewChatMode by viewModel.isNewChatMode.collectAsState()
+    val haptics = LocalAgoraHaptics.current
+    var catalog by remember { mutableStateOf<SessionToolCatalog?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val loaded = viewModel.captureSessionToolCatalog()
+        if (loaded == null) failed = true else catalog = loaded
+    }
+    // No loading state: the sheet appears once the list is read (it is computed off the main thread).
+    if (catalog == null && !failed) return
+    SessionToolsDialog(
+        catalog = catalog,
+        failed = failed,
+        onDismiss = onDismiss,
+        onToggle = { group, enabled ->
+            val loaded = catalog ?: return@SessionToolsDialog
+            val on = group in enabled
+            haptics.toggle(on)
+            val ownerId = conversationSettingsOwnerId(isNewChatMode, currentConversationId)
+            viewModel.updateConversationSetting(ownerId) {
+                when (group) {
+                    SessionToolGroup.WEB -> it.copy(webSearchEnabled = on)
+                    SessionToolGroup.TERMINAL -> it.copy(shellEnabled = on)
+                    else -> it.copy(disabledToolGroups = loaded.disabledIds(enabled).ifEmpty { null })
+                }
+            }
+        },
     )
 }

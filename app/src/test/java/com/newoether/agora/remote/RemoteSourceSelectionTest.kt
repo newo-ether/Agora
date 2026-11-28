@@ -9,7 +9,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -24,7 +26,9 @@ internal class RemoteSourceSelectionTest : RemoteViewModelFixture() {
     private val cli = desktop.copy(id = "codex-cli", origin = "cli")
     private val claude = RemoteAdapter("claude-code", "claude", "cli", "disconnected",
         nativeScopeId = "claude-a", capabilities = RemoteCapabilities(history = true))
-    private var advertised = listOf(desktop, cli, claude)
+    private val claudeDesktop = claude.copy(id = "claude-desktop", origin = "desktop",
+        nativeScopeId = "claude-desktop-a", state = "unavailable")
+    private var advertised = listOf(desktop, cli, claude, claudeDesktop)
     private val sourceClients = mutableMapOf<String, FiloClient>()
 
     private fun scoped(source: RemoteAdapter): FiloClient = sourceClients.getOrPut(source.id) {
@@ -51,6 +55,52 @@ internal class RemoteSourceSelectionTest : RemoteViewModelFixture() {
         vm.setVisible(true)
         runCurrent()
         return vm
+    }
+
+    @Test fun fourInstalledSourcesSurviveFailedObservationWithoutSwitchingOrNativeLaunch() = runTest(dispatcher) {
+        advertised = listOf(desktop, cli.copy(state = "connecting", capabilities = RemoteCapabilities(history = true)),
+            claude, claudeDesktop)
+        val installed = advertised
+        val vm = open()
+        assertEquals(installed, vm.state.value.devices.single().adapters)
+        assertEquals(listOf(RemoteDeviceStatus.CONNECTED, RemoteDeviceStatus.CONNECTING,
+            RemoteDeviceStatus.IDLE, RemoteDeviceStatus.ERROR), vm.state.value.devices.single().adapters.map { it.status })
+        for (source in installed.drop(1)) {
+            vm.selectAdapter(source.id)
+            runCurrent()
+            assertEquals(source.id, vm.state.value.selectedAdapter.id)
+            assertFalse(vm.state.value.canCreate)
+            assertFalse(vm.state.value.canSend)
+            assertFalse(vm.state.value.canStop)
+        }
+        vm.selectSession(vm.state.value.sessions.single())
+        runCurrent()
+        assertEquals(claudeDesktop.id, vm.state.value.selectedAdapter.id)
+        assertFalse(vm.state.value.canCreate)
+        assertFalse(vm.state.value.canSend)
+        assertFalse(vm.state.value.canStop)
+        val loaded = vm.state.value.sessions
+        coEvery { client.connect() } throws java.io.IOException("offline")
+        advanceTimeBy(3000)
+        runCurrent()
+        val offline = vm.state.value
+        assertEquals(installed.map { it.copy(state = "disconnected") }, offline.devices.single().adapters)
+        assertEquals(RemoteDeviceStatus.CONNECTED, offline.devices.single().status)
+        assertEquals(claudeDesktop.id, offline.selectedAdapter.id)
+        assertEquals(loaded, offline.sessions)
+        assertNotNull(offline.session)
+        coEvery { client.connect() } returns RemoteDeviceStatus.CONNECTED
+        advanceTimeBy(3000)
+        runCurrent()
+        assertEquals(installed, vm.state.value.devices.single().adapters)
+        assertEquals(claudeDesktop.id, vm.state.value.selectedAdapter.id)
+        for (native in listOf(client) + sourceClients.values) {
+            coVerify(exactly = 0) { native.create(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { native.send(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { native.stop(any(), any()) }
+        }
+        io.mockk.verify(exactly = 0) { scoped(claudeDesktop).events(any()) }
+        vm.setVisible(false)
     }
 
     @Test fun offlineSelectionIsPreservedAndFreshRemovalNeverFallsBack() = runTest(dispatcher) {
@@ -124,6 +174,43 @@ internal class RemoteSourceSelectionTest : RemoteViewModelFixture() {
         assertEquals("account-b", vm.state.value.sessions.single().access?.nativeScopeId)
         models.complete(emptyList())
         runCurrent()
+        vm.setVisible(false)
+    }
+
+    @Test fun automaticModelFailuresStayQuietAndExplicitRetriesStillReport() = runTest(dispatcher) {
+        val unavailable = claude.copy(state = "unavailable", capabilities = RemoteCapabilities(
+            history = true, models = true, create = true, settings = listOf("model")))
+        advertised = listOf(desktop, cli, unavailable, claudeDesktop)
+        val unavailableClient = scoped(unavailable)
+        coEvery { unavailableClient.models() } throws FiloHttpException(503)
+        val vm = open()
+        val notices = mutableListOf<RemoteNotice>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.notices.collect { notices += it } }
+        vm.selectAdapter(unavailable.id)
+        runCurrent()
+        repeat(3) { vm.refresh(); runCurrent() }
+        assertEquals(unavailable.id, vm.state.value.selectedAdapter.id)
+        assertEquals("unavailable", vm.state.value.selectedAdapter.state)
+        assertEquals(RemoteDeviceStatus.CONNECTED, vm.state.value.devices.single().status)
+        assertEquals(listOf("session"), vm.state.value.sessions.map { it.id })
+        assertTrue(vm.state.value.models.isEmpty())
+        assertFalse(vm.state.value.modelsLoading)
+        assertTrue(notices.none { it.stage == "models_failed" })
+        vm.refreshModels()
+        runCurrent()
+        assertEquals(1, notices.count { it.stage == "models_failed" })
+        coEvery { unavailableClient.models() } returns listOf(RemoteModel("native", "Native", true))
+        vm.refreshModels()
+        runCurrent()
+        assertEquals("native", vm.state.value.models.single().id)
+        vm.newSession()
+        runCurrent()
+        assertFalse(vm.state.value.isDraft)
+        assertEquals("native", vm.state.value.models.single().id)
+        assertFalse(vm.state.value.canCreate)
+        assertEquals(1, notices.count { it.stage == "models_failed" })
+        coVerify(exactly = 0) { unavailableClient.create(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { unavailableClient.send(any(), any(), any(), any()) }
         vm.setVisible(false)
     }
 

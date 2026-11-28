@@ -383,6 +383,52 @@ class DurableSelectedContextLoaderTest {
         }
     }
 
+    @Test
+    fun `payload formatting runs after the immutable database snapshot is released`() = runTest {
+        val entity = message("failed", null, Participant.MODEL, "partial", 0, "run").copy(
+            status = MessageStatus.ERROR,
+            toolCallJson = Json.encodeToString(
+                listOf(MessageSegment(type = "error", content = "raw failure")),
+            ),
+        )
+        val conversations = mockk<ConversationRepository>()
+        val reader = mockk<ChatDao>()
+        var inTransaction = false
+        var formatted = false
+        coEvery {
+            conversations.withReadSnapshot<List<InterruptedToolRounds.Row>>(any())
+        } coAnswers {
+            inTransaction = true
+            try {
+                firstArg<suspend (ChatDao) -> List<InterruptedToolRounds.Row>>().invoke(reader)
+            } finally {
+                inTransaction = false
+            }
+        }
+        coEvery { reader.getProviderContextTopologySnapshot(CONVERSATION_ID) } coAnswers {
+            assertTrue(inTransaction)
+            snapshot(listOf(entity))
+        }
+        coEvery { reader.getMessagesByIds(listOf(entity.id)) } coAnswers {
+            assertTrue(inTransaction)
+            listOf(entity)
+        }
+        val loaded = DurableSelectedContextLoader(conversations) {
+            assertFalse(inTransaction)
+            formatted = true
+            "formatted failure"
+        }.load(
+            DurableSelectedContextRequest(
+                conversationId = CONVERSATION_ID,
+                anchorMessageId = entity.id,
+                includeStoredTranscriptions = false,
+            ),
+        )
+        assertTrue(formatted)
+        assertTrue(loaded.messages.single().text.contains("formatted failure"))
+        assertEquals(entity.id, loaded.entities.single().id)
+    }
+
     private fun loader(
         snapshot: ProviderContextTopologySnapshot,
         entities: List<MessageEntity>,

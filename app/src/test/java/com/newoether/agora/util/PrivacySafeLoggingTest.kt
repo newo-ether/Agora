@@ -83,6 +83,24 @@ class PrivacySafeLoggingTest {
     }
 
     @Test
+    fun `phone releases remain visible in release and logging failure cannot escape`() {
+        mockkStatic(Log::class)
+        val lines = mutableListOf<String>()
+        every { Log.i("AgoraPhone", any()) } answers { lines.add(secondArg()); 0 }
+        val context = mockk<Context>()
+        every { context.applicationInfo } returns ApplicationInfo().apply { flags = 0 }
+        DebugLog.forceEnabled = false
+        DebugLog.init(context)
+
+        DebugLog.phoneRelease("permission_lost:root_denied", 7, 30_000, "root")
+        assertEquals(listOf("release reason=permission_lost:root_denied epoch=7 held_ms=30000 mode=root"), lines)
+        every { Log.i("AgoraPhone", any()) } throws IOException("TOP_SECRET_EXCEPTION")
+        DebugLog.phoneRelease("run_ended", 8, 1_000, "shizuku")
+        verify(exactly = 0) { Log.e(any(), any<String>()) }
+        verify(exactly = 0) { Log.w(any(), any<String>()) }
+    }
+
+    @Test
     fun `send stage logging failure does not escape or log its exception`() {
         mockkStatic(Log::class)
         every { Log.i("SendDiagnostics", any()) } throws IOException("TOP_SECRET_EXCEPTION")
@@ -109,6 +127,38 @@ class PrivacySafeLoggingTest {
         assertTrue(summary.contains("SafeComponent.kt:42"))
         assertFalse(summary.contains("TOP_SECRET_THROWABLE_MESSAGE"))
         assertFalse(summary.contains("TOP_SECRET_CAUSE_MESSAGE"))
+    }
+
+    @Test
+    fun `application facade and cloud logger share initialization and force enabled state`() {
+        mockkStatic(Log::class)
+        every { Log.d(any(), any<String>()) } returns 0
+        every { Log.w(any(), any<String>()) } returns 0
+        val context = mockk<Context>()
+        every { context.applicationInfo } returns ApplicationInfo().apply { flags = 0 }
+        DebugLog.forceEnabled = false
+        DebugLog.init(context)
+
+        DebugLog.d("app", "disabled")
+        CloudDebugLog.d("cloud", "disabled")
+        verify(exactly = 0) { Log.d(any(), any<String>()) }
+
+        DebugLog.forceEnabled = true
+        assertTrue(CloudDebugLog.forceEnabled)
+        CloudDebugLog.d("cloud", "enabled")
+        verify(exactly = 1) { Log.d("cloud", "enabled") }
+
+        CloudDebugLog.forceEnabled = false
+        assertFalse(DebugLog.forceEnabled)
+        DebugLog.d("app", "disabled-again")
+        verify(exactly = 0) { Log.d("app", "disabled-again") }
+
+        every { context.applicationInfo } returns ApplicationInfo().apply {
+            flags = ApplicationInfo.FLAG_DEBUGGABLE
+        }
+        CloudDebugLog.init(context)
+        DebugLog.w("app", "debug-enabled")
+        verify(exactly = 1) { Log.w("app", "debug-enabled") }
     }
 
     @Test

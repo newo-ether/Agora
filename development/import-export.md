@@ -28,7 +28,7 @@ Adding a DataStore key does not make it portable. A setting enters an archive on
 contract, export, restore, Replace reset, and focused compatibility tests are updated together.
 
 Conversation `createdAt` is stable portable metadata. New conversations record creation time once;
-message, title and status writes preserve it. Subagent capsules and list_agents use ascending
+message, title and status writes preserve it. Subagent capsules and agent_list use ascending
 `createdAt`, then child ID, shared across native and WebUI. Schema 38 to 39 fills legacy rows once
 from the minimum stored update, Run-start and message times, retaining every graph and receipt;
 this is an approximation when no original creation record exists. That migration advances each
@@ -162,6 +162,18 @@ format, or structurally invalid is rejected before writing and the export falls 
 current-version archive. Writing goes to a `.tmp` file and is published by an atomic rename; failure
 or cancellation deletes the temporary file and never disturbs existing backups.
 
+Export records the CRC32 of every conversation item's and media entry's stored (compressed) bytes in
+the optional `conv/raw_crc.json` entry. A reused baseline entry that has a recorded checksum is not
+decompressed: its stored bytes are checksummed while they are raw-copied, and a mismatch aborts the
+export, after which the automatic backup rebuilds the whole archive without a baseline. Entries
+without a recorded checksum (archives written before this entry existed) are still fully inflated
+and checked against their ZIP size and CRC before reuse. Item entries are deflated at level 3 into a
+scratch file in the application cache and added as raw entries with known sizes. Media is already
+compressed, so it is added as stored entries: a first read of the source yields the declared size
+and CRC, and the copy is checked against them, failing the export if the source changed in between.
+The media pass skips decoding message rows that contain none of `"images":`, `"attachmentMeta":`, or
+`toolImages`. Importers treat `conv/raw_crc.json` as ordinary small metadata and do not need it.
+
 Import normalizes both shapes to one graph view before any mutation: version 1-4 streams
 `conversations.json` directly, while version 5+ merges index, items, and tasks into one temporary
 spool file in the application cache. The spool is deleted when the source closes, including failure
@@ -182,12 +194,13 @@ The following JSON field names are the complete current portable allowlist.
 | Context | `contextTokenBudget`, `visualizeContextRollout`, `contextCompactEnabled`, `contextCompactModel`, `contextCompactPrompt`, `contextCompactRetainCount`, `contextCompactThresholdPercent` |
 | Provider and reasoning | `codeExecutionEnabled`, `googleSearchEnabled`, `thinkingEnabled`, `thinkingLevel`, `thinkingBudgetEnabled`, `thinkingBudgetTokens`, `openAiServiceTierEnabled`, `openAiServiceTier`, `openAiResponsesApiEnabled`, `anthropicCacheEnabled`, `anthropicCacheTtl`, `providerBaseUrls` |
 | Title generation | `titleGenerationEnabled`, `titleGenerationModel`, `titleGenerationPrompt`, `titleGenerationNotificationsEnabled` |
-| Tool access | `accessPastConversations`, `accessSavedMemories`, `accessActiveMemory`, `accessSkills`, `todoEnabled`, `subagentToolsEnabled`, `subagentMaxTotal`, `subagentMaxConcurrent`, `subagentEnabledModels`, `subagentRecommendedModel`, `subagentCapsuleDisplayMode` |
+| Tool access | `accessPastConversations`, `accessSavedMemories`, `accessActiveMemory`, `accessSkills`, `todoEnabled`, `subagentToolsEnabled`, `subagentDeleteEnabled`, `subagentMaxTotal`, `subagentMaxConcurrent`, `subagentEnabledModels`, `subagentRecommendedModel`, `subagentCapsuleDisplayMode` |
 | Interaction | `askUserEnabled`, `askUserTimeoutMinutes` |
 | Search and embedding | `ragSearchEnabled`, `modelSearchMethod`, `manualSearchMethod`, `remoteEmbeddingModels`, `activeRemoteEmbeddingModelId`, `searchContextWindow`, `searchMatchLimit`, `ragThreshold`, `autoCacheEnabled`, `showUncachedNotification` |
 | Language, Web Search, and image generation | `appLanguage`, `webSearchEnabled`, `webSearchProvider`, `webSearchNumResults`, `webSearchBaseUrl`, `imageGenEnabled`, `imageGenModel`, `imageGenSize`, `autoUpdateCheck` |
+| Image quality | `imageQualityMode`, `imageQualityMaxLongEdge`, `imageQualityJpegQuality` |
 | Image transcription | `imageTranscriptionEnabled`, `imageTranscriptionEnabledModels`, `imageTranscriptionModel`, `imageTranscriptionBatchSize`, `imageTranscriptionPrompt` |
-| Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, secret-free `mcpServers` |
+| Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, `providerList`, `hiddenProviderModels`, secret-free `mcpServers` |
 | Proxy | `proxyEnabled`, `proxyType`, `proxyHost`, `proxyPort`, `proxyUsername`, `proxyBypass` |
 | Appearance | `showDocumentationFab`, `themeMode`, `amoledEnabled`, `colorScheme`, `dynamicColor`, `blurEffectsEnabled`, `reduceMotion`, `stickToBottom`, `parseInlineDollarMath`, `hapticsEnabled`, `detailedTokenUsage`, `toolCallDisplayMode`, `thinkingSegmentDisplayMode`, `autoExpandActiveGroup`, `schemeStyle` |
 | Custom font | `fontPreference`; `customFontName` only when `custom_font/font` is included. The device file path is never portable. |
@@ -203,6 +216,17 @@ the existing record replacement and stable-identity remapping rules. Missing cus
 on/1h defaults, including when an imported record replaces a matching local record. Explicit invalid
 cache values are rejected before any Settings reset or restore write. These fields contain no
 secrets; their request and UI semantics are owned by `settings-ui-ux.md`.
+
+`imageQualityMode` is a string normalized to `light`, `balanced`, `high` or `custom`; unknown
+strings resolve to `balanced`. `imageQualityMaxLongEdge` and `imageQualityJpegQuality` are
+non-string JSON integers storing retained custom values, even while a preset is active. They
+clamp to 128..8192 and 1..100 respectively, with defaults 2048 and 80. Export reads one settings
+snapshot and writes all three fields. MERGE preserves each absent field; a partial import patches
+only present fields together in one DataStore edit. REPLACE clears all three keys before restore,
+so older archives use Balanced and the default custom values. Explicit wrong JSON types are
+rejected before any reset or restore write. These settings contain no secrets or paths and never
+reprocess existing artifacts. Runtime/UI behavior is owned by `image-processing.md` and
+`settings-ui-ux.md`.
 
 `modelProviderNames` maps complete model IDs to booleans independently of aliases. False explicitly
 hides the Provider suffix; absent model IDs default to true. Export preserves both values. Import
@@ -228,6 +252,8 @@ effective values. These preferences never restore pending questions or restart a
 local preference when its field is absent. REPLACE clears both keys before restoring present fields,
 so older archives resolve to true. They control tool admission, not conversation Todo contents or
 subagent ownership, and contain no credentials or device paths.
+`subagentDeleteEnabled` is a default-false portable boolean with the same MERGE/REPLACE rules;
+older archives resolve to false. It controls only `agent_delete` admission.
 
 `subagentMaxTotal` and `subagentMaxConcurrent` are secret-free integer limits per parent, with
 range 1–16 for both and defaults 16 and 4. There is no unlimited value. Stored reads, saves and
@@ -250,6 +276,20 @@ older missing fields restore an effectively empty candidate list and no recommen
 empty set under REPLACE keeps it empty. Existing children and their model IDs are never rewritten by
 these global preferences.
 
+`providerList` is the ordered list of built-in remote and custom Provider names shown on the
+Providers page; `hiddenProviderModels` maps an unlisted built-in to its parked enabled model IDs.
+Both restore after `customProviders`, with names passed through the custom Provider rename map and
+model IDs through the ordinary model remap. REPLACE clears both keys; an archive without
+`providerList` then derives it from the legacy rule (built-ins with a key or, for Ollama, a Base URL,
+plus every custom). MERGE appends imported entries missing from the current order, and an absent
+field keeps the current list. Only built-in names are accepted as parked keys. A parked set whose
+built-in ends up listed returns to `enabledModels`; enabled models of every unlisted built-in are parked.
+
+`toolCallDisplayMode` writes only `timeline` or `grouped_timeline` (default). Legacy `compact`
+imports normalize to `grouped_timeline` through the ordinary Settings write in both MERGE and REPLACE.
+An absent field remains untouched in MERGE and resolves to the default after REPLACE. Device-local
+legacy preferences migrate transactionally before publication, and exports contain the resolved value.
+Thinking Card/Bottom Sheet preferences remain independent; Context Compact data and settings are unchanged.
 `subagentCapsuleDisplayMode` is a secret-free presentation string: `individual` or `grouped` (default).
 Unknown, invalid or absent values normalize to `grouped`; an explicitly saved `individual` remains
 unchanged. Export writes the resolved value. MERGE leaves an absent field unchanged; REPLACE clears
@@ -353,6 +393,29 @@ indeterminate, motion-aware circular progress indicator, reject Back and outside
 and expose no cancel action. Preview-loading state is distinct from actual import progress and clears
 on success, invalid or empty archives, failure, and cancellation. Third-party Claude/GPT imports
 retain their determinate percentage presentation.
+
+Native graph import finishes archive decoding, media-reference restoration, graph validation and
+selection serialization before taking the Room writer. Prepared messages are streamed through a
+private temporary application-cache file, with bounded object retention, then replayed in batches
+inside the existing single atomic graph transaction. The file is deleted on success, failure and
+cancellation; it is an internal transient representation, never an accepted external archive format.
+The prepared file uses one locked channel. Android unlinks the open file immediately, so process death
+also releases its storage; hosts that cannot unlink open files retain the lock and reclaim abandoned
+unlocked prepared files at the next import. Concurrent active imports and unrelated cache files are
+excluded from that cleanup. Object serialization resets its handle table after each message, and
+archive JSON/media decoding stays outside the writer. Prepared-file reads and typed-object replay
+remain inside the atomic transaction, whose total cost scales with the imported graph.
+The final transaction still checks MERGE identities and commits graphs, settings-transfer records
+and maintenance debt together. A late batch failure rolls back earlier batches and REPLACE deletions.
+This removes archive/media preparation from writer occupancy without introducing partial imports.
+
+Legacy custom-Provider normalization preserves physical stable-ID remapping and the existing
+`legacyNames` resume marker. Conversation and historical message references are found through
+model-leading indexes and rewritten in transactions of at most 64 rows; each message batch updates
+only its affected backup watermarks. The marker is cleared only after all batches and remaining
+configuration references finish. Cancellation may leave completed batches and retains the marker
+for retry. Provider deletion, name reuse and import mapping keep their existing identity meaning;
+permanent name aliases are not introduced.
 
 ## 7. Legacy compatibility and failure behavior
 

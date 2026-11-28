@@ -56,6 +56,27 @@ class SettingsPreferenceSchemaTest {
     }
 
     @Test
+    fun localInferenceTuningUsesClosedPresetsAndStableDefaults() {
+        assertEquals("local_inference_threads", LOCAL_INFERENCE_THREADS.name)
+        assertEquals("local_kv_cache_type", LOCAL_KV_CACHE_TYPE.name)
+        assertEquals(4, DEFAULT_LOCAL_INFERENCE_THREADS)
+        assertArrayEquals(intArrayOf(1, 2, 4, 6, 8), LOCAL_INFERENCE_THREAD_PRESETS)
+        LOCAL_INFERENCE_THREAD_PRESETS.forEach {
+            assertEquals(it, normalizeLocalInferenceThreads(it))
+        }
+        listOf(null, -1, 3, 16).forEach {
+            assertEquals(4, normalizeLocalInferenceThreads(it))
+        }
+        assertEquals("q8_0", DEFAULT_LOCAL_KV_CACHE_TYPE)
+        LOCAL_KV_CACHE_TYPES.forEach {
+            assertEquals(it, normalizeLocalKvCacheType(it))
+        }
+        listOf(null, "", "q5_0").forEach {
+            assertEquals("q8_0", normalizeLocalKvCacheType(it))
+        }
+    }
+
+    @Test
     fun publicProxyDefaultsRemainCompatible() {
         assertEquals("127.0.0.1", SettingsManager.DEFAULT_PROXY_HOST)
         assertEquals("7890", SettingsManager.DEFAULT_PROXY_PORT)

@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 internal class ConversationMessagePayloadHydration(
     private val conversations: ConversationRepository,
@@ -24,7 +25,7 @@ internal class ConversationMessagePayloadHydration(
     ): Flow<ChatMessage?> = conversations.observeMessage(messageId).distinctUntilChanged().map { entity ->
         entity?.takeIf { it.id == messageId }?.let { row ->
             projector.project {
-                transform(row.toUiChatMessage(appContext, conversations.loadReferencedToolRounds(row)))
+                transform(hydrate(row))
             }
         }
     }
@@ -36,8 +37,15 @@ internal class ConversationMessagePayloadHydration(
     ): Flow<List<ChatMessage>> = conversations.observeMessagesByIds(conversationId, messageIds)
         .distinctUntilChanged().map { entities ->
             projector.projectAll(entities) { entity ->
-                transform(entity.toUiChatMessage(appContext, conversations.loadReferencedToolRounds(entity)))
+                transform(hydrate(entity))
             }
+        }
+
+    private suspend fun hydrate(entity: com.newoether.agora.data.local.MessageEntity): ChatMessage =
+        withContext(Dispatchers.IO) {
+            ImageArtifactHydration(appContext).hydrate(
+                entity.toUiChatMessage(appContext, conversations.loadReferencedToolRounds(entity)),
+            )
         }
 
     suspend fun loadMessages(
@@ -51,7 +59,7 @@ internal class ConversationMessagePayloadHydration(
             .associateBy { entity -> entity.id }
         val orderedEntities = requestedIds.mapNotNull(entitiesById::get)
         return projector.projectAll(orderedEntities) { entity ->
-            transform(entity.toUiChatMessage(appContext, conversations.loadReferencedToolRounds(entity)))
+            transform(hydrate(entity))
         }
     }
 }

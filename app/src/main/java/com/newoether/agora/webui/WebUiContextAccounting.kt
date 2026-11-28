@@ -1,5 +1,6 @@
 package com.newoether.agora.webui
 
+import android.content.Context
 import com.newoether.agora.data.ConversationSettings
 import com.newoether.agora.data.repository.ConversationRepository
 import com.newoether.agora.model.ContextBudget
@@ -92,6 +93,7 @@ internal class WebUiContextAccounting(
     private val generationErrorFormatter: (String) -> String,
     val compactThresholdPercent: StateFlow<Int>,
     val compactEnabled: StateFlow<Boolean>,
+    private val appContext: Context? = null,
 ) {
     /**
      * The projector of one connection. Its New Chat overrides come from that connection's own New Chat
@@ -102,6 +104,7 @@ internal class WebUiContextAccounting(
         newChatConversationSettings: () -> ConversationSettings?,
     ) = ConversationContextProjector(
         conversations = conversations,
+        appContext = appContext,
         requestBuilder = requestBuilder,
         generationManager = generationManager,
         generationErrorFormatter = generationErrorFormatter,

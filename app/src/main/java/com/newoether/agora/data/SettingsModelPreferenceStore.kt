@@ -36,6 +36,26 @@ internal class SettingsModelPreferenceStore(
     private val dataStore: DataStore<Preferences>,
     private val json: Json,
 ) {
+    val localModelIdleRetentionMinutes: Flow<Int> = dataStore.data.map {
+        normalizeLocalModelIdleRetentionMinutes(it[LOCAL_MODEL_IDLE_RETENTION_MINUTES])
+    }
+    val localLowContextModeEnabled: Flow<Boolean> = dataStore.data.map {
+        it[LOCAL_LOW_CONTEXT_MODE_ENABLED] ?: DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
+    }
+    suspend fun saveLocalModelIdleRetentionMinutes(minutes: Int) {
+        dataStore.edit { it[LOCAL_MODEL_IDLE_RETENTION_MINUTES] = normalizeLocalModelIdleRetentionMinutes(minutes) }
+    }
+    suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) {
+        dataStore.edit { it[LOCAL_LOW_CONTEXT_MODE_ENABLED] = enabled }
+    }
+
+    val localToolIncapableModels: Flow<Set<String>> = dataStore.data.map { it[LOCAL_TOOL_INCAPABLE_MODELS] ?: emptySet() }
+
+    /** Recorded the first time a model's template drops offered tools; template updates stay manual. */
+    suspend fun markLocalToolIncapable(modelId: String) {
+        if (modelId.isBlank()) return
+        dataStore.edit { it[LOCAL_TOOL_INCAPABLE_MODELS] = (it[LOCAL_TOOL_INCAPABLE_MODELS] ?: emptySet()) + modelId }
+    }
     val selectedModel: Flow<String> = dataStore.data.map { it[SELECTED_MODEL] ?: Constants.EXAMPLE_MODEL_ID }
     val anthropicCacheEnabled: Flow<Boolean> = dataStore.data.map { it[ANTHROPIC_CACHE_ENABLED] ?: true }
     val anthropicCacheTtl: Flow<String> = dataStore.data.map { it[ANTHROPIC_CACHE_TTL] ?: "1h" }
@@ -267,11 +287,17 @@ internal class SettingsModelPreferenceStore(
         }
     }
 
+    /** Moves a Provider's fetched catalog and every model reference that still names it. */
+    suspend fun renameProviderModelReferences(oldName: String, newName: String) {
+        if (oldName == newName) return
+        dataStore.edit { prefs -> prefs.renameProviderModelReferences(json, oldName, newName) }
+    }
+
     suspend fun saveCustomModels(models: Set<String>) {
         dataStore.edit { it[CUSTOM_MODELS] = models }
     }
 
-    suspend fun addCustomModel(modelId: String, alias: String, showProviderName: Boolean = true) {
+    suspend fun addCustomModel(modelId: String, alias: String, showProviderName: Boolean = providerNameShownByDefault(modelId)) {
         dataStore.edit { prefs ->
             prefs[CUSTOM_MODELS] = (prefs[CUSTOM_MODELS] ?: emptySet()) + modelId
             val enabledModels = (prefs[ENABLED_MODELS] ?: emptySet()) + modelId
@@ -692,7 +718,8 @@ internal class SettingsModelPreferenceStore(
             previous.forEach { old ->
                 val replacement = byId[old.id]
                 if (replacement?.modelId != old.modelId) {
-                    val showProviderName = visibility.remove("Local:${old.modelId}") ?: true
+                    val oldModelId = "Local:${old.modelId}"
+                    val showProviderName = visibility.remove(oldModelId) ?: providerNameShownByDefault(oldModelId)
                     if (replacement != null) visibility["Local:${replacement.modelId}"] = showProviderName
                 }
             }
@@ -722,3 +749,52 @@ internal class SettingsModelPreferenceStore(
         }
     }
 }
+
+/**
+ * Renames a Provider's fetched catalog and every model reference that still spells the Provider by
+ * name. A custom Provider's model IDs carry its stable ID, so those references stay untouched; only
+ * "<providerName>:<model>" forms are remapped. Callers run this inside the same DataStore edit that
+ * renames the Provider, so a rename can never strand the catalog or clear the model list.
+ */
+internal fun MutablePreferences.renameProviderModelReferences(
+    json: Json,
+    oldName: String,
+    newName: String,
+) {
+    if (oldName == newName) return
+    val migration = mapOf(oldName to newName)
+    val remap: (String) -> String = { it.remapProviderReference(migration) }
+
+    runCatching {
+        json.decodeFromString<MutableMap<String, List<String>>>(this[AVAILABLE_MODELS_JSON] ?: "{}")
+    }.getOrNull()?.let { catalogs ->
+        catalogs.remove(oldName)?.let { catalogs[newName] = it }
+        this[AVAILABLE_MODELS_JSON] = json.encodeToString(catalogs)
+    }
+    listOf(CUSTOM_MODELS, ENABLED_MODELS, IMAGE_TRANSCRIPTION_ENABLED_MODELS, SUBAGENT_ENABLED_MODELS)
+        .forEach { key ->
+            this[key]?.let { models -> this[key] = models.mapTo(linkedSetOf(), remap) }
+        }
+    listOf(
+        SELECTED_MODEL,
+        TITLE_GENERATION_MODEL,
+        IMAGE_TRANSCRIPTION_MODEL,
+        IMAGE_GEN_MODEL,
+        CONTEXT_COMPACT_MODEL,
+        SUBAGENT_RECOMMENDED_MODEL,
+    ).forEach { key ->
+        this[key]?.let { modelId -> this[key] = remap(modelId) }
+    }
+    runCatching { json.decodeFromString<Map<String, String>>(this[MODEL_ALIASES_JSON] ?: "{}") }
+        .getOrNull()?.let { aliases ->
+            this[MODEL_ALIASES_JSON] = json.encodeToString(remapModelPreferenceKeys(aliases, migration))
+        }
+    runCatching { json.decodeFromString<Map<String, Boolean>>(this[MODEL_PROVIDER_NAMES_JSON] ?: "{}") }
+        .getOrNull()?.let { visibility ->
+            this[MODEL_PROVIDER_NAMES_JSON] =
+                json.encodeToString(remapModelPreferenceKeys(visibility, migration))
+        }
+    // The catalog belongs to a different Provider key now, so the old fetch result is not evidence.
+    remove(LAST_MODELS_FETCH_FINGERPRINT)
+}
+

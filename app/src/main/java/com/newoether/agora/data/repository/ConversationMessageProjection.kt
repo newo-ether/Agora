@@ -33,6 +33,12 @@ internal fun ChatMessage.toStreamCheckpoint(): MessageStreamCheckpoint {
                 toolResult = it.result,
                 signature = it.signature,
                 toolCallId = it.toolCallId,
+                toolDisplayName = it.displayName,
+                toolTarget = it.target,
+                toolResultText = it.resultText,
+                toolStructuredResult = it.structuredResult,
+                toolImages = it.resultImages,
+                toolTranscription = it.transcription,
                 responseOutputItems = it.responseOutputItems,
                 responseOutputItemProvider = it.responseOutputItemProvider,
             )

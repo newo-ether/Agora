@@ -7,6 +7,8 @@ Open **Settings → Title Generation** to control automatic conversation titles.
 - Edit the prompt used to request a concise title.
 - Enable or disable the completion notification.
 
-Title requests are sent to the selected model provider and can include conversation content needed for the title. A manually renamed title is controlled through the conversation UI.
+When enabled, automatic title generation starts as soon as the first message is saved and New Chat becomes a conversation. It does not wait for the assistant's reply.
+
+Automatic and manual title requests use only the first user message on the currently selected branch, including its available attachment text or metadata. Assistant replies and later user messages are excluded. The request goes to the selected title model provider. A manual rename made while a title request is running is preserved.
 
 See [Conversations](conversations.md) and [Privacy & Security](privacy.md).

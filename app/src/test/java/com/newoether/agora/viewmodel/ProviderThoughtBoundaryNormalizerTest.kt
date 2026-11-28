@@ -15,6 +15,72 @@ import org.junit.Test
 
 class ProviderThoughtBoundaryNormalizerTest {
     @Test
+    fun `untagged mixed language thought stays thought before a native tool`() = runTest {
+        val thought = "I should inspect the browser process tree.\n\n" +
+            "42 个 chrome.exe 中，只有这一组是桌面浏览器。我现在只结束这一组浏览器进程。\n\n"
+        val tool = StreamEvent.ToolCallRequest(
+            id = "call_browser",
+            name = "file_read",
+            arguments = "{}",
+            streamKey = "browser_stream",
+        )
+        val events = normalize(
+            thought.map { StreamEvent.ThoughtChunk(it.toString()) } + tool,
+            TOOLS,
+        )
+
+        assertEquals(thought, events.filterIsInstance<StreamEvent.ThoughtChunk>()
+            .joinToString("") { it.thought })
+        assertTrue(events.none { it is StreamEvent.TextChunk })
+        assertEquals(tool, events.last())
+    }
+
+    @Test
+    fun `both close variants recover answer at every transport boundary`() = runTest {
+        for (close in listOf("</think>", "</thinking>")) {
+            val source = "English reasoning\n\n${close}中文正文"
+            for (split in 0..source.length) {
+                val events = normalize(
+                    listOf(
+                        StreamEvent.ThoughtChunk(source.substring(0, split)),
+                        StreamEvent.ThoughtChunk(source.substring(split)),
+                        StreamEvent.ThoughtChunk("，后续正文"),
+                    )
+                )
+
+                assertEquals("$close split=$split", "English reasoning\n\n",
+                    events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                        .joinToString("") { it.thought })
+                assertEquals("$close split=$split", "中文正文，后续正文",
+                    events.filterIsInstance<StreamEvent.TextChunk>()
+                        .joinToString("") { it.text })
+            }
+        }
+    }
+
+    @Test
+    fun `body thinking tags recover both variants across every transport boundary`() = runTest {
+        for (tag in listOf("think", "thinking")) {
+            val source = "正文前缀<$tag>reasoning</$tag>正文后缀"
+            for (split in 0..source.length) {
+                val events = normalize(
+                    listOf(
+                        StreamEvent.TextChunk(source.substring(0, split)),
+                        StreamEvent.TextChunk(source.substring(split)),
+                    )
+                )
+
+                assertEquals("$tag split=$split", "reasoning",
+                    events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                        .joinToString("") { it.thought })
+                assertEquals("$tag split=$split", "正文前缀正文后缀",
+                    events.filterIsInstance<StreamEvent.TextChunk>()
+                        .joinToString("") { it.text })
+            }
+        }
+    }
+
+    @Test
     fun `implicit close splits thought and answer while preserving metadata`() = runTest {
         val events = normalize(
             listOf(
@@ -318,6 +384,27 @@ class ProviderThoughtBoundaryNormalizerTest {
     }
 
     @Test
+    fun `a JSON example starting the answer is still shown as text`() = runTest {
+        val content = "{\n  \"name\": \"order\",\n  \"items\": [1, 2]\n}\n\nThat is the payload shape."
+        val events = normalize(listOf(StreamEvent.TextChunk(content)), TOOLS)
+
+        assertEquals(content, events.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text })
+        assertTrue(events.none { it is StreamEvent.ToolCallRequest })
+    }
+
+    @Test
+    fun `a truncated tool payload stays visible beside its malformed call`() = runTest {
+        val content = "{\"name\":\"file_read\",\"arguments\":{\"path\":\"a"
+        val events = normalize(listOf(StreamEvent.TextChunk(content)), TOOLS)
+
+        assertEquals(content, events.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text })
+        assertEquals(
+            MALFORMED_TOOL_CALL_NAME,
+            events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
+        )
+    }
+
+    @Test
     fun `malformed syntax is answered as a malformed call`() = runTest {
         val malformed = normalize(
             listOf(StreamEvent.TextChunk("<tool_call>{\"name\":\"file_read\"}")),
@@ -366,6 +453,143 @@ class ProviderThoughtBoundaryNormalizerTest {
         assertEquals("same reasoning", thoughts.joinToString("") { it.thought })
         assertTrue(thoughts.any { it.title == "Thinking" && it.signature == "sig" })
     }
+
+    @Test
+    fun `tool call inside unclosed reasoning is executed`() = runTest {
+        val events = normalize(
+            listOf(
+                StreamEvent.ThoughtChunk(
+                    "I need to read the file first.\n" +
+                        "<tool_call>{\"id\":\"call_1\",\"name\":\"file_read\"," +
+                        "\"arguments\":{\"path\":\"a.txt\"}}</tool_call>"
+                )
+            ),
+            TOOLS,
+        )
+
+        assertEquals(
+            "I need to read the file first.\n",
+            events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                .joinToString("") { it.thought },
+        )
+        val call = events.filterIsInstance<StreamEvent.ToolCallRequest>().single()
+        assertEquals("call_1", call.id)
+        assertEquals("file_read", call.name)
+        assertEquals("{\"path\":\"a.txt\"}", call.arguments)
+        assertTrue(events.none { it is StreamEvent.Error })
+    }
+
+    @Test
+    fun `tool call opener ends reasoning at every transport boundary`() = runTest {
+        val source = "reason<tool_call>{\"name\":\"file_read\",\"arguments\":{}}</tool_call>"
+        for (split in 0..source.length) {
+            val events = normalize(
+                listOf(
+                    StreamEvent.ThoughtChunk(source.substring(0, split)),
+                    StreamEvent.ThoughtChunk(source.substring(split)),
+                ),
+                TOOLS,
+            )
+
+            assertEquals(
+                "split=$split",
+                "reason",
+                events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                    .joinToString("") { it.thought },
+            )
+            assertEquals(
+                "split=$split",
+                "file_read",
+                events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
+            )
+        }
+    }
+
+    @Test
+    fun `tool call markers inside reasoning code stay thought`() = runTest {
+        val code = "`<tool_call>`\n```\n<tool_call>{\"name\":\"file_read\"}</tool_call>\n```\n"
+        val events = normalize(
+            (code + "reason<tool_call>{\"name\":\"file_read\",\"arguments\":{}}</tool_call>")
+                .map { character -> StreamEvent.ThoughtChunk(character.toString()) },
+            TOOLS,
+        )
+
+        assertEquals(
+            code + "reason",
+            events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                .joinToString("") { it.thought },
+        )
+        assertEquals(
+            "file_read",
+            events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
+        )
+    }
+
+    @Test
+    fun `unterminated tool call inside reasoning fails as a malformed call`() = runTest {
+        val events = normalize(
+            listOf(StreamEvent.ThoughtChunk("reason<tool_call>{\"name\":\"file_read\"}")),
+            TOOLS,
+        )
+
+        assertEquals(
+            "reason",
+            events.filterIsInstance<StreamEvent.ThoughtChunk>()
+                .joinToString("") { it.thought },
+        )
+        assertEquals(
+            MALFORMED_TOOL_CALL_NAME,
+            events.filterIsInstance<StreamEvent.ToolCallRequest>().single().name,
+        )
+    }
+
+    @Test
+    fun `deepseek DSML calls are recovered at every chunk boundary`() = runTest {
+        val source = dsmlSample()
+        for (split in 0 until source.length) {
+            val events = normalize(
+                listOf(
+                    StreamEvent.TextChunk(source.substring(0, split)),
+                    StreamEvent.TextChunk(source.substring(split)),
+                ),
+                TOOLS,
+            )
+
+            val calls = events.flatMap { event ->
+                when (event) {
+                    is StreamEvent.ToolCallRequest -> listOf(event)
+                    is StreamEvent.ToolCallsRequest -> event.calls
+                    else -> emptyList()
+                }
+            }
+            assertEquals("split=$split", listOf("{\"path\":\"a.txt\"}", "{\"path\":\"b.txt\"}"),
+                calls.map { it.arguments })
+            assertTrue("split=$split", calls.all { it.name == "file_read" })
+            val visible = events.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text }
+            assertFalse("split=$split leaked $visible", visible.contains("DSML"))
+        }
+    }
+
+    @Test
+    fun `unfinished DSML never renders raw markup`() = runTest {
+        val source = dsmlSample()
+        for (cut in 1 until source.length) {
+            val events = normalize(listOf(StreamEvent.TextChunk(source.substring(0, cut))), TOOLS)
+            val visible = events.filterIsInstance<StreamEvent.TextChunk>().joinToString("") { it.text }
+            assertFalse("cut=$cut leaked $visible", visible.contains("DSML") || visible.contains("parameter"))
+        }
+    }
+
+    private fun dsmlSample(): String = """
+        <｜DSML｜function_calls>
+        <｜DSML｜invoke name="file_read">
+        <｜DSML｜parameter name="path" string="true">a.txt</｜DSML｜parameter>
+        </｜DSML｜invoke>
+        <｜DSML｜invoke name="file_read">
+        <｜DSML｜parameter name="path" string="true">b.txt</｜DSML｜parameter>
+        </｜DSML｜invoke>
+        </｜DSML｜function_calls>
+    """.trimIndent()
 
     private suspend fun normalize(
         events: List<StreamEvent>,

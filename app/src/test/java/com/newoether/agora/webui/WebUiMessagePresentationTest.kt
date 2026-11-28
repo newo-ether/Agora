@@ -32,6 +32,7 @@ class WebUiMessagePresentationTest {
     private fun repositoryForConversationOpen() =
         io.mockk.mockk<com.newoether.agora.data.repository.ConversationRepository>(relaxed = true) {
             io.mockk.every { subagentJobs } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap())
+            io.mockk.every { subagentGenerationIds } returns kotlinx.coroutines.flow.MutableStateFlow(emptySet())
             io.mockk.every { chatDao } returns io.mockk.mockk {
                 io.mockk.every { observeConversationTodo(any()) } returns kotlinx.coroutines.flow.flowOf(null)
                 io.mockk.every { observeParentConversationId(any()) } returns kotlinx.coroutines.flow.flowOf(null)
@@ -50,10 +51,11 @@ class WebUiMessagePresentationTest {
     private fun display(
         language: String = "en",
         toolMode: String = ToolCallDisplayModes.DEFAULT,
+        thinkingMode: String = ThinkingSegmentDisplayModes.DEFAULT,
     ) = WebDisplayContext(
         resources = context.appLanguageResources(language),
         toolCallDisplayMode = toolMode,
-        thinkingSegmentDisplayMode = ThinkingSegmentDisplayModes.DEFAULT,
+        thinkingSegmentDisplayMode = thinkingMode,
         autoExpandActiveGroup = true,
         parseInlineDollarMath = false,
         autoWrapCodeBlocks = true,
@@ -104,12 +106,13 @@ class WebUiMessagePresentationTest {
     fun todoAndSubagentCardsUseTheAppLocaleInBothDisplayModes() {
         val names = listOf("read_todo", "update_todo", "spawn_agent", "send_agent_message", "wait_agents", "list_agents", "stop_agent")
         val titles = listOf("读取待办清单", "更新待办清单", "启动子代理", "向子代理发送消息", "等待子代理", "列出子代理", "停止子代理")
-        for (mode in listOf(ToolCallDisplayModes.GROUPED_TIMELINE, ToolCallDisplayModes.COMPACT)) {
+        for (mode in listOf(ToolCallDisplayModes.GROUPED_TIMELINE, ToolCallDisplayModes.TIMELINE)) {
             names.forEachIndexed { index, name ->
                 val segment = MessageSegment(type = "tool", toolName = name, toolArgs = "{\"agent_id\":\"CaseSensitive\"}")
                 val projected = webPresentation(model(MessageStatus.SENDING, segment), true, display(language = "zh", toolMode = mode))!!
-                val item = projected.compact?.items?.single()
-                    ?: (projected.blocks.single() as WebTimelineBlock.Group).group.items.single()
+                val item = projected.thinkingCard?.items?.single()
+                    ?: (projected.blocks.single() as? WebTimelineBlock.Group)?.group?.items?.single()
+                    ?: (projected.blocks.single() as WebTimelineBlock.Card).item
                 assertEquals(titles[index], item.title)
                 assertEquals(com.newoether.agora.ui.chat.message.ToolPresentationResolver.kindForToolName(name).name, item.toolDetail!!.kind)
                 assertEquals(display(language = "zh").resources.toolSummary(segment), item.summary)
@@ -133,7 +136,7 @@ class WebUiMessagePresentationTest {
         val segments = listOf(MessageSegment("answer", answer)) + citations.map {
             MessageSegment("citation", com.newoether.agora.model.CitationPolicy.encode(it))
         }
-        for (mode in listOf(ToolCallDisplayModes.COMPACT, ToolCallDisplayModes.GROUPED_TIMELINE)) {
+        for (mode in listOf(ToolCallDisplayModes.TIMELINE, ToolCallDisplayModes.GROUPED_TIMELINE)) {
             for (status in listOf(MessageStatus.SUCCESS, MessageStatus.ERROR, MessageStatus.STOPPED)) {
                 val message = model(status, *segments.toTypedArray(), text = answer)
                 val wire = webPresentation(message, false, display(toolMode = mode))!!
@@ -248,7 +251,7 @@ class WebUiMessagePresentationTest {
     }
 
     @Test
-    fun `compact mode sends one block and the answer body`() {
+    fun `grouped bottom sheet retains the shared thinking card and answer body`() {
         val message = model(
             MessageStatus.SUCCESS,
             MessageSegment(type = "thought", content = "plan", durationMs = 2_000),
@@ -256,11 +259,28 @@ class WebUiMessagePresentationTest {
             text = "hi",
         )
         val presentation =
-            webPresentation(message, isStreaming = false, display(toolMode = ToolCallDisplayModes.COMPACT))!!
+            webPresentation(message, isStreaming = false,
+                display(thinkingMode = ThinkingSegmentDisplayModes.BOTTOM_SHEET))!!
         assertTrue(!presentation.useTimeline)
         assertTrue(presentation.blocks.isEmpty())
-        assertEquals("compact", presentation.compact!!.key)
+        assertEquals("thinking", presentation.thinkingCard!!.key)
         assertEquals("hi", presentation.answer!!.markdown)
+    }
+
+    @Test
+    fun legacyCompactMatchesGroupedOnTheWireAndPublishesOnlyTheCurrentMode() {
+        val message = model(MessageStatus.SUCCESS,
+            MessageSegment("thought", "first"), MessageSegment("answer", "middle"),
+            MessageSegment(type = "tool", toolName = "file_read"),
+            MessageSegment("answer", "last"), text = "middlelast")
+        val grouped = webPresentation(message, false, display())!!
+        val legacy = webPresentation(message, false, display(toolMode = "compact"))!!
+        assertEquals(grouped, legacy)
+        assertEquals(ToolCallDisplayModes.GROUPED_TIMELINE, display(toolMode = "compact").toEvent().toolCallDisplayMode)
+        assertEquals(listOf("middle", "last"),
+            legacy.blocks.filterIsInstance<WebTimelineBlock.Answer>().map { it.text.markdown })
+        assertEquals(2, legacy.blocks.filterIsInstance<WebTimelineBlock.Group>().size)
+        assertNull(legacy.thinkingCard)
     }
 
     @Test
@@ -279,10 +299,11 @@ class WebUiMessagePresentationTest {
         )
         fun item(message: ChatMessage, streaming: Boolean, mode: String): WebInfoItem {
             val projected = webPresentation(message, streaming, display(toolMode = mode))!!
-            return projected.compact?.items?.single()
-                ?: (projected.blocks.single() as WebTimelineBlock.Group).group.items.single()
+            return projected.thinkingCard?.items?.single()
+                ?: (projected.blocks.single() as? WebTimelineBlock.Group)?.group?.items?.single()
+                    ?: (projected.blocks.single() as WebTimelineBlock.Card).item
         }
-        for (mode in listOf(ToolCallDisplayModes.GROUPED_TIMELINE, ToolCallDisplayModes.COMPACT)) {
+        for (mode in listOf(ToolCallDisplayModes.GROUPED_TIMELINE, ToolCallDisplayModes.TIMELINE)) {
             assertTrue(item(active, true, mode).toolDetail!!.body is WebToolBody.Active)
             val done = active.copy(status = MessageStatus.SUCCESS, segments = active.segments.orEmpty().map {
                 it.copy(toolResult = "{\"path\":\"/file\",\"content\":\"result\"}")
@@ -325,7 +346,7 @@ class WebUiMessagePresentationTest {
             model(MessageStatus.ERROR, answer, text = "partial") to false,
         )
         for ((message, expected) in cases) {
-            for (mode in listOf(ToolCallDisplayModes.COMPACT, ToolCallDisplayModes.GROUPED_TIMELINE, ToolCallDisplayModes.TIMELINE)) {
+            for (mode in listOf(ToolCallDisplayModes.GROUPED_TIMELINE, ToolCallDisplayModes.TIMELINE)) {
                 val projected = webPresentation(message, true, display(toolMode = mode))!!
                 assertEquals("${message.status} ${message.segments} $mode", expected, projected.answerTailVisible)
                 assertTrue(!projected.answerTailVisible || projected.inlineActivity == null)
@@ -351,7 +372,7 @@ class WebUiMessagePresentationTest {
     fun wireContainsOneRenderedBodyAndPreservesOriginalCopySource() {
         val source = "x \\(a^2\\) y".repeat(1000)
         val message = model(MessageStatus.SENDING, MessageSegment("answer", source), text = source)
-        val projection = message.toWeb(webPresentation(message, true, display(toolMode = ToolCallDisplayModes.COMPACT)))
+        val projection = message.toWeb(webPresentation(message, true, display(thinkingMode = ThinkingSegmentDisplayModes.BOTTOM_SHEET)))
         assertEquals(source, projection.text.markdown)
         assertEquals(emptyList<WebMath>(), projection.text.math)
         assertTrue(projection.presentation!!.answer!!.math.isNotEmpty())
@@ -391,7 +412,7 @@ class WebUiMessagePresentationTest {
         val accounting = WebUiContextAccounting(repository, io.mockk.mockk(), { io.mockk.mockk() }, { it },
             kotlinx.coroutines.flow.MutableStateFlow(90), kotlinx.coroutines.flow.MutableStateFlow(true))
         val owner = WebUiSync(repository, registry, com.newoether.agora.automation.ConversationExecutionCoordinator(),
-            hydration, providers, kotlinx.coroutines.flow.flowOf(display(toolMode = ToolCallDisplayModes.COMPACT)), { session },
+            hydration, providers, kotlinx.coroutines.flow.flowOf(display()), { session },
             io.mockk.mockk(), io.mockk.mockk(), io.mockk.mockk(), com.newoether.agora.viewmodel.AskUserController(),
             com.newoether.agora.viewmodel.ShellConfirmationController(kotlinx.coroutines.flow.MutableStateFlow(true), {}),
             accounting, { emptyList() }, kotlinx.coroutines.test.StandardTestDispatcher(testScheduler))

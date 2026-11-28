@@ -84,7 +84,7 @@
     <string name="prompts_template_blank">Trống</string>
     <string name="prompts_template_blank_desc">Bắt đầu với một gợi ý hệ thống trống có thể chỉnh sửa.</string>
     <string name="prompts_template_default">Mặc định</string>
-    <string name="prompts_template_default_desc">Sử dụng gợi ý mặc định của Agora với ngữ cảnh thời gian chạy, bộ nhớ, tìm kiếm web, shell và hướng dẫn tệp thiết bị.</string>
+    <string name="prompts_template_default_desc">Dùng quy tắc trả lời mặc định của Agora, hướng dẫn công cụ, danh mục kỹ năng và bộ nhớ đang hoạt động.</string>
     <string name="prompts_duplicate">Tạo bản sao</string>
     <string name="prompts_duplicate_title">Bản sao %1$s</string>
     <string name="prompts_empty_preview">Gợi ý trống</string>
@@ -164,6 +164,11 @@
     <string name="default_thinking">Suy nghĩ mặc định</string>
     <string name="gen_thinking_enabled">Suy nghĩ</string>
     <string name="gen_thinking_enabled_desc">Bật khả năng suy nghĩ/suy luận của mô hình</string>
+    <string name="replay_reasoning_in_history">Phát lại suy luận trong lịch sử</string>
+    <string name="replay_reasoning_in_history_desc">Gửi reasoning_content trong mọi tin nhắn trợ lý; mô hình yêu cầu trường này chấp nhận giá trị rỗng</string>
+    <string name="attachments_group_title">Tệp đính kèm</string>
+    <string name="attachment_sandbox_link">Liên kết tệp sandbox</string>
+    <string name="attachment_sandbox_link_desc">Đính kèm tệp dưới dạng liên kết sandbox khi khả dụng, nếu không thì nhúng nội dung; tắt: luôn nhúng</string>
     <string name="gen_thinking_level">Mức độ suy nghĩ</string>
     <string name="gen_thinking_level_desc">Điều chỉnh độ sâu suy nghĩ; cao hơn = suy luận kỹ lưỡng hơn</string>
     <string name="gen_thinking_level_minimal">Tối thiểu</string>
@@ -196,12 +201,10 @@
     <string name="tool_call_display_mode">Khối suy nghĩ &amp; công cụ</string>
     <string name="tool_call_display_mode_timeline">Dòng thời gian</string>
     <string name="tool_call_display_mode_grouped_timeline">Nhóm lại</string>
-    <string name="tool_call_display_mode_compact">Thu gọn</string>
     <string name="tool_call_display_mode_timeline_desc">Hiển thị câu trả lời, suy nghĩ và khối công cụ theo thứ tự thời gian</string>
     <string name="tool_call_display_mode_grouped_timeline_desc">Giữ thứ tự dòng thời gian nhưng gộp các khối suy nghĩ, công cụ và hình ảnh liên tiếp</string>
     <string name="auto_expand_active_group">Tự động mở rộng nhóm đang hoạt động</string>
     <string name="auto_expand_active_group_desc">Tự động mở rộng nhóm suy luận và công cụ hiện tại, rồi thu gọn khi mô hình chuyển sang bước tiếp theo.</string>
-    <string name="tool_call_display_mode_compact_desc">Nhóm các khối suy nghĩ và công cụ phía trên câu trả lời</string>
 
     <!-- Settings - Web Search Page -->
     <string name="web_search_title">Tìm kiếm Web</string>
@@ -211,11 +214,13 @@
     <string name="web_search_brave">Brave</string>
     <string name="web_search_serper">Serper</string>
     <string name="web_search_tavily">Tavily</string>
+    <string name="web_search_exa">Exa</string>
     <string name="web_search_searxng">SearXNG</string>
     <string name="web_search_duckduckgo">DuckDuckGo</string>
     <string name="web_search_brave_desc">API tìm kiếm tập trung vào quyền riêng tư. Có gói miễn phí.</string>
     <string name="web_search_serper_desc">API tìm kiếm Google nhanh. 2,500 truy vấn miễn phí/tháng.</string>
     <string name="web_search_tavily_desc">API tìm kiếm tối ưu hóa cho AI. Được xây dựng cho các tác nhân LLM.</string>
+    <string name="web_search_exa_desc">Tìm kiếm nơ-ron với trích đoạn từ trang. Hoạt động không cần khóa qua điểm cuối MCP công khai của Exa.</string>
     <string name="web_search_searxng_desc">Công cụ tìm kiếm tổng hợp tự lưu trữ. Tốt nhất nên dùng với máy chủ của riêng bạn.</string>
     <string name="web_search_duckduckgo_desc">Miễn phí, no API key. Web scraping lite.duckduckgo.com. May be unstable and trigger anti-bot protection.</string>
     <string name="web_search_select_provider">Chọn nhà cung cấp tìm kiếm</string>
@@ -224,7 +229,9 @@
     <string name="web_search_serper_key">Khóa API Serper</string>
     <string name="web_search_serper_key_hint">Khóa API từ serper.dev</string>
     <string name="web_search_tavily_key">Khóa API Tavily</string>
+    <string name="web_search_exa_key">Khóa API Exa (tùy chọn)</string>
     <string name="web_search_tavily_key_hint">Khóa API từ tavily.com</string>
+    <string name="web_search_exa_key_hint">Tùy chọn. Để trống để dùng điểm cuối công khai không cần khóa của Exa.</string>
     <string name="web_search_num_results">Kết quả tối đa</string>
     <string name="web_search_num_results_desc">Số kết quả cần lấy: %1$d (1-10)</string>
     <string name="web_search_searxng_fallback_desc">Các máy chủ công cộng thường bị giới hạn lượt truy cập. Khuyên dùng tự lưu trữ để sử dụng ổn định.</string>
@@ -262,7 +269,7 @@
     <!-- Settings - Linux Sandbox -->
     <string name="sandbox_title">Hộp cát cục bộ (Sandbox)</string>
     <string name="sandbox_enable">Bật hộp cát cục bộ</string>
-    <string name="sandbox_enable_desc">Chạy các lệnh trong môi trường Alpine Linux cô lập trên thiết bị</string>
+    <string name="sandbox_enable_desc">Chạy các lệnh trong môi trường Linux cô lập trên thiết bị</string>
     <string name="shell_device_host">Host SSH</string>
     <string name="shell_device_host_hint">192.168.1.100</string>
     <string name="shell_device_port">Cổng</string>
@@ -289,12 +296,12 @@
     <string name="sandbox_package_name">Tên gói</string>
     <string name="sandbox_quick_install">Cài đặt nhanh</string>
     <string name="sandbox_installed">Các gói đã cài đặt</string>
-    <string name="sandbox_no_packages">Không có gói nào được cài đặt. Chỉ có nền tảng Alpine.</string>
+    <string name="sandbox_no_packages">Không có gói đã cài đặt để hiển thị.</string>
     <string name="sandbox_danger_zone">Vùng nguy hiểm</string>
     <string name="sandbox_reset">Đặt lại môi trường</string>
     <string name="sandbox_reset_title">Đặt lại môi trường?</string>
-    <string name="sandbox_reset_desc">Xóa Alpine rootfs và tất cả các gói</string>
-    <string name="sandbox_reset_confirm">Thao tác này sẽ xóa rootfs Alpine Linux và tất cả các gói đã cài đặt. Hành động này không thể hoàn tác.</string>
+    <string name="sandbox_reset_desc">Xóa hệ thống Linux đã chọn và các gói đã cài đặt trong đó</string>
+    <string name="sandbox_reset_confirm">Hệ thống Linux đã chọn và các gói đã cài đặt trong đó sẽ bị xóa. Các tệp trong thư mục home dùng chung và các bản phân phối khác sẽ được giữ lại. Không thể hoàn tác hành động này.</string>
     <string name="sandbox_not_supported">Không hỗ trợ hộp cát cục bộ</string>
     <string name="sandbox_snackbar_installed">Đã cài đặt %s</string>
     <string name="sandbox_snackbar_install_failed">Cài đặt %s thất bại</string>
@@ -308,14 +315,24 @@
     <string name="sandbox_snackbar_error">Lỗi: %s</string>
     <string name="sandbox_not_supported_desc">Tính năng này không khả dụng trong phiên bản hiện tại</string>
     <string name="sandbox_not_installed">Chưa cài đặt</string>
-    <string name="sandbox_extracting_rootfs">Đang giải nén Alpine rootfs...</string>
-    <string name="sandbox_downloading_rootfs">Đang tải xuống Alpine rootfs… %d%%</string>
+    <string name="sandbox_extracting_rootfs">Đang giải nén hệ thống Linux...</string>
+    <string name="sandbox_downloading_rootfs">Đang tải xuống hệ thống Linux… %d%%</string>
+    <string name="sandbox_downloading_rootfs_unknown">Đang tải xuống hệ thống Linux…</string>
+    <string name="sandbox_verifying_rootfs">Đang xác minh bản tải xuống…</string>
+    <string name="sandbox_validating_rootfs">Đang xác thực hệ thống Linux…</string>
+    <string name="sandbox_preparing_rootfs">Đang chuẩn bị…</string>
+    <string name="sandbox_mirror">Nguồn phần mềm</string>
+    <string name="sandbox_mirror_desc">Tải hệ thống Linux và các gói từ nguồn này</string>
+    <string name="sandbox_mirror_official">Chính thức</string>
+    <string name="sandbox_mirror_tuna">Gương Trung Quốc (TUNA)</string>
+    <string name="sandbox_mirror_applied">Đã cập nhật nguồn gói</string>
+    <string name="sandbox_mirror_failed">Không thể cập nhật nguồn gói</string>
     <string name="sandbox_install_failed">Cài đặt thất bại</string>
     <string name="sandbox_installed_label">Đã cài đặt</string>
     <string name="sandbox_failed_label">Thất bại</string>
     <string name="sandbox_dashboard_summary">Đã cài đặt %d gói · aarch64</string>
-    <string name="sandbox_disk_usage_mb">~%d MB / 2 GB</string>
-    <string name="sandbox_disk_usage_gb">~%.1f GB / 2 GB</string>
+    <string name="sandbox_disk_usage_mb">~%d MB</string>
+    <string name="sandbox_disk_usage_gb">~%.1f GB</string>
     <string name="sandbox_remove_pkg_title">Xóa %s?</string>
     <string name="sandbox_remove_pkg_desc">Xóa %s khỏi hộp cát? Các gói không còn cần thiết cũng sẽ bị xóa bỏ.</string>
     <string name="sandbox_remove_content_desc">Xóa gói</string>
@@ -468,6 +485,17 @@
     <string name="provider_cache_desc">Yêu cầu lưu đệm lời nhắc; bộ nhớ đệm của máy chủ chuyển tiếp hoạt động độc lập</string>
     <string name="provider_cache_duration">Thời hạn lưu đệm</string>
     <string name="provider_cache_duration_desc">Khoảng thời gian có thể tái sử dụng lời nhắc đã lưu đệm</string>
+    <string name="provider_save_failed">Không lưu được cài đặt nhà cung cấp</string>
+    <string name="provider_custom_entry_desc">Endpoint tương thích OpenAI, Anthropic hoặc Google</string>
+    <string name="provider_remove_title">Xóa %1$s?</string>
+    <string name="provider_remove_text">Cấu hình vẫn được giữ lại. Thêm lại để khôi phục.</string>
+    <string name="provider_remove">Xóa</string>
+    <string name="provider_search_hint">Tìm nhà cung cấp</string>
+    <string name="provider_custom_entry">Nhà cung cấp tùy chỉnh</string>
+    <string name="provider_add_no_match">Không có nhà cung cấp phù hợp</string>
+    <string name="provider_added">Đã thêm</string>
+    <string name="provider_list_empty">Chưa có nhà cung cấp</string>
+    <string name="provider_reorder">Sắp xếp lại</string>
     <!-- Network and service tier -->
     <string name="settings_group_network">Mạng</string>
     <string name="settings_proxy">Proxy</string>
@@ -540,6 +568,6 @@
     <string name="install_guide_help">Trợ giúp</string>
     <string name="install_guide_open_terminal">Mở terminal</string>
     <string name="install_guide_run_command">Sao chép và chạy lệnh</string>
-    <string name="conch_guide_finish">Quay lại Thêm thiết bị. Nhập địa chỉ dịch vụ và khóa API từ trình cài đặt, đặt tên rồi lưu.</string>
-    <string name="filo_guide_finish">Khi được hỏi, chọn tài khoản Windows dùng cho ứng dụng gốc. Quay lại Thêm thiết bị, nhập URL dịch vụ có thể truy cập và mã truy cập rồi lưu. localhost chỉ hoạt động trên máy tính đó.</string>
+    <string name="conch_guide_finish">Thêm thiết bị bằng địa chỉ dịch vụ và khóa API do trình cài đặt hiển thị.</string>
+    <string name="filo_guide_finish">Khi được hỏi, chọn tài khoản Windows và các nguồn. Sau đó thêm thiết bị bằng URL dịch vụ và mã truy cập do trình cài đặt hiển thị.</string>
 </resources>

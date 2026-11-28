@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.ShellDeviceConfig
 import com.newoether.agora.data.repository.SettingsRepository
+import com.newoether.agora.sandbox.SandboxMirror
 import com.newoether.agora.ui.motion.AgoraMotionPolicy
 import com.newoether.agora.ui.motion.LocalAgoraMotionPolicy
 import com.newoether.agora.viewmodel.ChatViewModel
@@ -55,6 +56,7 @@ class SettingsShellGuideNavigationTest {
         every { settings.shellDevices } returns devices
         every { settings.sandboxEnabled } returns MutableStateFlow(false)
         every { settings.sandboxSharedStorageEnabled } returns MutableStateFlow(false)
+        every { settings.sandboxMirror } returns MutableStateFlow(SandboxMirror.DEFAULT)
         every { settings.showDocumentationFab } returns MutableStateFlow(true)
         every { settings.addShellDevice(any(), any(), any()) } answers {
             additions += firstArg<ShellDeviceConfig>()
@@ -95,7 +97,7 @@ class SettingsShellGuideNavigationTest {
     private fun name() = compose.onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("shell-field-name")))
     private fun save() = compose.onNodeWithContentDescription(strings.getValue(R.string.save))
     private fun returnFromGuide() {
-        compose.onNodeWithTag("conch-guide-return").performScrollTo().performClick()
+        back().performClick()
         compose.waitForIdle()
         name().assertExists()
         compose.onNodeWithTag("conch-install-guide").assertDoesNotExist()
@@ -164,14 +166,14 @@ class SettingsShellGuideNavigationTest {
         val editorScroll = compose.onNode(hasScrollAction()).fetchSemanticsNode()
             .config[SemanticsProperties.VerticalScrollAxisRange].value()
         openGuide()
-        compose.onNodeWithTag("conch-guide-return").performScrollTo()
+        compose.onNodeWithTag("conch-guide-source").performScrollTo()
         back().performClick()
         compose.waitForIdle()
         val returnedScroll = compose.onNode(hasScrollAction()).fetchSemanticsNode()
             .config[SemanticsProperties.VerticalScrollAxisRange].value()
         assertEquals(editorScroll, returnedScroll)
         openGuide()
-        compose.onNodeWithTag("conch-guide-return").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("conch-guide-source").performScrollTo().assertIsDisplayed()
         assertNoPersistence()
         compose.runOnIdle { assertEquals(0, backs) }
     }

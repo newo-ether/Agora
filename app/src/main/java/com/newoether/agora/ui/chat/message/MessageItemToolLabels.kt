@@ -4,14 +4,15 @@ import android.content.res.Resources
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.newoether.agora.R
 import com.newoether.agora.model.MessageSegment
+import com.newoether.agora.phone.PhoneUseIcon
 
 /**
  * The only localization layer for tool cards. Parsing and lifecycle inference live in
@@ -47,7 +48,9 @@ internal fun shellExecutionSummary(presentation: ToolPresentation): String =
     currentResources().shellExecutionSummary(presentation)
 
 internal fun Resources.toolDisplayName(segment: MessageSegment): String {
-    val toolName = segment.toolName.orEmpty()
+    val toolName = if (segment.remoteToolSource == null) {
+        com.newoether.agora.tool.BuiltInToolNames.canonical(segment.toolName.orEmpty())
+    } else segment.toolName.orEmpty()
     val kind = ToolPresentationResolver.kindForToolName(toolName)
     if (kind == ToolKind.MCP) {
         return mcpToolDisplayName(
@@ -60,7 +63,7 @@ internal fun Resources.toolDisplayName(segment: MessageSegment): String {
     // the plain failure reason instead of inventing a shape for a call that never ran.
     val sentName = ToolPresentationResolver
         .malformedCallOriginals(toolName, segment.toolArgs)
-        ?.name
+        ?.name?.let(com.newoether.agora.tool.BuiltInToolNames::canonical)
     return toolBaseDisplayName(
         kind = sentName?.let(ToolPresentationResolver::kindForToolName)
             ?.takeUnless { it == ToolKind.MCP } ?: kind,
@@ -101,10 +104,11 @@ internal fun mcpToolDisplayName(
 }
 
 internal fun toolHeaderIcon(kind: ToolKind): ImageVector = when (kind) {
-    ToolKind.TODO_READ, ToolKind.TODO_UPDATE -> Icons.Default.Checklist
+    ToolKind.PHONE -> PhoneUseIcon
+    ToolKind.TODO_READ, ToolKind.TODO_UPDATE -> Icons.Rounded.Checklist
     ToolKind.SUBAGENT_SPAWN, ToolKind.SUBAGENT_SEND, ToolKind.SUBAGENT_WAIT,
-    ToolKind.SUBAGENT_LIST, ToolKind.SUBAGENT_STOP -> Icons.Default.AccountTree
-    else -> Icons.Default.Build
+    ToolKind.SUBAGENT_LIST, ToolKind.SUBAGENT_STOP, ToolKind.SUBAGENT_DELETE -> Icons.Rounded.AccountTree
+    else -> Icons.Rounded.Build
 }
 
 internal fun fallbackToolDisplayName(toolName: String): String =
@@ -118,7 +122,7 @@ private fun Resources.toolBaseDisplayName(
 ): String = when (kind) {
     ToolKind.MEMORY_LIST -> getString(R.string.tool_look_up_memories)
     ToolKind.MEMORY_READ -> getString(
-        if (toolName == "read_active_memory") R.string.tool_read_active_memory
+        if (toolName == "active_memory_read") R.string.tool_read_active_memory
         else R.string.tool_read_memory,
     )
     ToolKind.MEMORY_CREATE -> getString(R.string.tool_add_memory)
@@ -147,6 +151,7 @@ private fun Resources.toolBaseDisplayName(
     ToolKind.SHELL_JOB_STOP -> getString(R.string.tool_stop_shell_job)
     ToolKind.FILE_READ -> getString(R.string.tool_file_read)
     ToolKind.FILE_WRITE -> getString(R.string.tool_file_write)
+    ToolKind.FILE_TRANSFER -> getString(R.string.tool_file_transfer)
     ToolKind.FILE_EDIT -> getString(R.string.tool_file_edit)
     ToolKind.FILE_GLOB -> getString(R.string.tool_file_glob)
     ToolKind.FILE_GREP -> getString(R.string.tool_file_grep)
@@ -157,6 +162,8 @@ private fun Resources.toolBaseDisplayName(
     ToolKind.TASK_DELETE -> getString(R.string.tool_delete_task)
     ToolKind.LOOP_START -> getString(R.string.tool_start_loop)
     ToolKind.LOOP_STOP -> getString(R.string.tool_stop_loop)
+    ToolKind.PHONE -> com.newoether.agora.phone.phoneActionLabel(toolName)?.let(::getString)
+        ?: fallbackToolDisplayName(toolName)
     ToolKind.ASK_USER -> getString(R.string.tool_ask_user)
     ToolKind.TODO_READ -> getString(R.string.tool_read_todo)
     ToolKind.TODO_UPDATE -> getString(R.string.tool_update_todo)
@@ -165,6 +172,9 @@ private fun Resources.toolBaseDisplayName(
     ToolKind.SUBAGENT_WAIT -> getString(R.string.tool_wait_agents)
     ToolKind.SUBAGENT_LIST -> getString(R.string.tool_list_agents)
     ToolKind.SUBAGENT_STOP -> getString(R.string.tool_stop_agent)
+    ToolKind.SUBAGENT_DELETE -> getString(R.string.tool_delete_agent)
+    ToolKind.MCP_LIST -> getString(R.string.tool_list_mcp_servers)
+    ToolKind.MCP_SEARCH -> getString(R.string.tool_search_mcp_tools)
     ToolKind.MCP -> "MCP"
     ToolKind.UNKNOWN -> if (toolName == "code_execution") {
         getString(R.string.code_execution)
@@ -187,6 +197,8 @@ internal fun Resources.toolSummary(presentation: ToolPresentation): String {
     val subject = presentation.subject
     return when (presentation.state) {
         ToolPresentationState.FAILED -> failedSummary(presentation, subject)
+        // Shell jobs settle TIMED_OUT; other kinds never reach it, so a plain label is enough.
+        ToolPresentationState.TIMED_OUT -> getString(R.string.tool_state_timeout)
         ToolPresentationState.STOPPED -> stoppedToolSummary(presentation)
         ToolPresentationState.BACKGROUND_RUNNING -> getString(R.string.tool_background_job_running_default)
         ToolPresentationState.CALLING,
@@ -201,7 +213,7 @@ private fun Resources.runningSummary(
     subject: String?,
 ): String = when (presentation.kind) {
     ToolKind.MEMORY_LIST -> getString(R.string.tool_looking_up_memories)
-    ToolKind.MEMORY_READ -> if (presentation.toolName == "read_active_memory") {
+    ToolKind.MEMORY_READ -> if (presentation.toolName == "active_memory_read") {
         getString(R.string.tool_reading_active_memory)
     } else presentation.count?.takeIf { it > 1 }?.let {
         getQuantityString(R.plurals.tool_reading_files_count, it, it)
@@ -297,6 +309,7 @@ private fun Resources.runningSummary(
         R.string.tool_reading_file,
         R.string.tool_progress_reading,
     )
+    ToolKind.FILE_TRANSFER -> fileTransferSummary(presentation)
     ToolKind.FILE_WRITE -> optionalSubjectSummary(
         subject,
         R.string.tool_writing_file,
@@ -340,6 +353,7 @@ private fun Resources.runningSummary(
     )
     ToolKind.LOOP_START -> getString(R.string.tool_progress_starting)
     ToolKind.LOOP_STOP -> getString(R.string.tool_progress_stopping)
+    ToolKind.PHONE -> getString(com.newoether.agora.phone.phoneSummaryLabel(presentation.toolName, completed = false))
     ToolKind.ASK_USER -> getString(R.string.tool_waiting_for_answers)
     ToolKind.TODO_READ -> getString(R.string.tool_reading_todo)
     ToolKind.TODO_UPDATE -> getString(R.string.tool_updating_todo)
@@ -348,6 +362,13 @@ private fun Resources.runningSummary(
     ToolKind.SUBAGENT_WAIT -> getString(R.string.tool_waiting_agents)
     ToolKind.SUBAGENT_LIST -> getString(R.string.tool_listing_agents)
     ToolKind.SUBAGENT_STOP -> getString(R.string.tool_stopping_agent)
+    ToolKind.SUBAGENT_DELETE -> getString(R.string.tool_deleting_agent)
+    ToolKind.MCP_LIST -> getString(R.string.tool_listing_mcp_servers)
+    ToolKind.MCP_SEARCH -> optionalSubjectSummary(
+        subject,
+        R.string.tool_searching_mcp_tools_for,
+        R.string.tool_searching_mcp_tools,
+    )
     ToolKind.MCP,
     ToolKind.UNKNOWN -> getString(R.string.tool_calling_ellipsis)
 }
@@ -356,6 +377,7 @@ internal sealed interface ShellPresentationStatus {
     data object Executing : ShellPresentationStatus
     data class Background(val jobId: String?) : ShellPresentationStatus
     data object Stopped : ShellPresentationStatus
+    data object TimedOut : ShellPresentationStatus
     data class Exit(val code: Int?) : ShellPresentationStatus
 
     /**
@@ -372,6 +394,7 @@ internal fun shellPresentationStatus(presentation: ToolPresentation): ShellPrese
             ShellPresentationStatus.Background(presentation.jobId)
         presentation.isActive -> ShellPresentationStatus.Executing
         presentation.state == ToolPresentationState.STOPPED -> ShellPresentationStatus.Stopped
+        presentation.state == ToolPresentationState.TIMED_OUT -> ShellPresentationStatus.TimedOut
         // A failed call must not fall through to the exit-code branch and read as "completed".
         presentation.state == ToolPresentationState.FAILED ->
             ShellPresentationStatus.Failed(presentation.exitCode, presentation.errorMessage)
@@ -388,6 +411,7 @@ internal fun Resources.shellToolSummary(presentation: ToolPresentation): String 
         is ShellPresentationStatus.Background ->
             getString(R.string.tool_background_job_running_default)
         ShellPresentationStatus.Stopped -> stoppedToolSummary(presentation)
+        ShellPresentationStatus.TimedOut -> getString(R.string.tool_state_timeout)
         is ShellPresentationStatus.Failed -> shellFailureSummary(status)
         is ShellPresentationStatus.Exit -> status.code?.let { code ->
             getString(R.string.tool_shell_returned_code, code)
@@ -421,6 +445,7 @@ internal fun Resources.shellExecutionSummary(presentation: ToolPresentation): St
         is ShellPresentationStatus.Background ->
             getString(R.string.tool_background_job_running_default)
         ShellPresentationStatus.Stopped -> stoppedToolSummary(presentation)
+        ShellPresentationStatus.TimedOut -> getString(R.string.tool_state_timeout)
         is ShellPresentationStatus.Failed -> status.code?.let { code ->
             getString(R.string.tool_shell_detail_returned_code, code)
         } ?: getString(R.string.tool_state_failed)
@@ -484,12 +509,14 @@ private fun Resources.emptySummary(
     subject: String?,
 ): String = when (presentation.kind) {
     ToolKind.MEMORY_READ,
-    ToolKind.SKILL_READ -> if (presentation.toolName == "read_active_memory") {
+    ToolKind.SKILL_READ -> if (presentation.toolName == "active_memory_read") {
         getString(R.string.tool_read_active_memory_empty)
     } else optionalSubjectSummary(
         subject, R.string.tool_read_file_empty, R.string.tool_read_content_empty,
     )
     ToolKind.CONVERSATION_READ -> getString(R.string.tool_read_conversation_empty)
+    ToolKind.MCP_LIST -> getString(R.string.tool_no_mcp_servers_returned)
+    ToolKind.MCP_SEARCH -> getString(R.string.tool_no_mcp_tools)
     ToolKind.MEMORY_LIST -> getString(R.string.tool_no_memories)
     ToolKind.SKILL_LIST -> getString(R.string.tool_no_skills)
     ToolKind.WEB_SEARCH -> optionalSubjectSummary(
@@ -552,7 +579,7 @@ private fun Resources.completedSummary(
         R.string.tool_deleted_skill,
         R.string.tool_deleted_skill_default,
     )
-    ToolKind.MEMORY_READ -> if (presentation.toolName == "read_active_memory") {
+    ToolKind.MEMORY_READ -> if (presentation.toolName == "active_memory_read") {
         getString(R.string.tool_read_active_memory_success)
     } else presentation.count?.takeIf { it > 1 }?.let {
         getQuantityString(R.plurals.tool_read_files_count, it, it)
@@ -636,6 +663,7 @@ private fun Resources.completedSummary(
         R.string.tool_read_file_done,
         R.string.tool_read_file_done_default,
     )
+    ToolKind.FILE_TRANSFER -> fileTransferSummary(presentation)
     ToolKind.FILE_WRITE -> optionalSubjectSummary(
         subject,
         R.string.tool_wrote_file,
@@ -674,6 +702,7 @@ private fun Resources.completedSummary(
     ToolKind.LOOP_START -> getString(R.string.tool_started_loop)
     ToolKind.LOOP_STOP -> getString(if (presentation.outcome == "already_stopped")
         R.string.tool_loop_already_stopped else R.string.tool_stopped_loop)
+    ToolKind.PHONE -> getString(com.newoether.agora.phone.phoneSummaryLabel(presentation.toolName, completed = true))
     ToolKind.ASK_USER -> questionOutcomeSummary(presentation)
     ToolKind.TODO_READ -> getString(R.string.tool_read_todo_done)
     ToolKind.TODO_UPDATE -> getString(R.string.tool_updated_todo)
@@ -682,6 +711,13 @@ private fun Resources.completedSummary(
     ToolKind.SUBAGENT_WAIT -> getString(R.string.tool_waited_agents)
     ToolKind.SUBAGENT_LIST -> getString(R.string.tool_listed_agents)
     ToolKind.SUBAGENT_STOP -> getString(R.string.tool_stopped_agent)
+    ToolKind.SUBAGENT_DELETE -> getString(R.string.tool_deleted_agent)
+    ToolKind.MCP_LIST -> presentation.count?.let {
+        getQuantityString(R.plurals.tool_listed_mcp_servers, it, it)
+    } ?: getString(R.string.tool_listed_mcp_servers_default)
+    ToolKind.MCP_SEARCH -> presentation.count?.let {
+        getQuantityString(R.plurals.tool_found_mcp_tools, it, it)
+    } ?: getString(R.string.tool_searched_mcp_tools)
     ToolKind.MCP,
     ToolKind.UNKNOWN -> getString(R.string.tool_done)
 }
@@ -694,7 +730,7 @@ private fun Resources.failedSummary(
     val target = subject?.takeIf { it.isNotBlank() }
     return when (presentation.kind) {
         ToolKind.MEMORY_READ, ToolKind.SKILL_READ, ToolKind.CONVERSATION_READ, ToolKind.FILE_READ ->
-            if (presentation.toolName == "read_active_memory") getString(R.string.tool_read_active_memory_failed)
+            if (presentation.toolName == "active_memory_read") getString(R.string.tool_read_active_memory_failed)
             else target?.let { getString(R.string.tool_failed_to_read, it) }
                 ?: getString(R.string.tool_read_failed_default)
         ToolKind.MEMORY_CREATE, ToolKind.SKILL_CREATE, ToolKind.TASK_CREATE ->
@@ -707,9 +743,10 @@ private fun Resources.failedSummary(
         ToolKind.MEMORY_DELETE, ToolKind.SKILL_DELETE, ToolKind.TASK_DELETE ->
             target?.let { getString(R.string.tool_failed_to_delete, it) }
                 ?: getString(R.string.tool_delete_failed_default)
+        ToolKind.FILE_TRANSFER -> fileTransferSummary(presentation)
         ToolKind.FILE_WRITE -> target?.let { getString(R.string.tool_failed_to_write, it) }
             ?: getString(R.string.tool_write_failed_default)
-        ToolKind.WEB_SEARCH, ToolKind.CONVERSATION_SEARCH, ToolKind.FILE_GREP ->
+        ToolKind.WEB_SEARCH, ToolKind.MCP_SEARCH, ToolKind.CONVERSATION_SEARCH, ToolKind.FILE_GREP ->
             target?.let { getString(R.string.tool_failed_to_search, it) }
                 ?: getString(R.string.tool_search_failed)
         ToolKind.WEB_FETCH -> target?.let { getString(R.string.tool_failed_to_fetch, it) }
@@ -725,17 +762,19 @@ private fun Resources.failedSummary(
         ToolKind.SHELL_JOB_GET, ToolKind.SHELL_JOB_WAIT ->
             getString(R.string.tool_shell_job_read_failed)
         ToolKind.SHELL_JOB_STOP -> getString(R.string.tool_shell_job_stop_failed)
+        ToolKind.MCP_LIST -> getString(R.string.tool_list_mcp_servers_failed)
         ToolKind.MEMORY_LIST, ToolKind.SKILL_LIST, ToolKind.CONVERSATION_LIST,
         ToolKind.SHELL_LIST, ToolKind.SHELL_JOB_LIST, ToolKind.TASK_LIST ->
             getString(R.string.tool_list_failed_default)
         ToolKind.LOOP_START -> getString(R.string.tool_loop_start_failed)
         ToolKind.LOOP_STOP -> getString(R.string.tool_loop_stop_failed)
+        ToolKind.PHONE -> reason ?: getString(R.string.tool_call_failed)
         ToolKind.ASK_USER -> getString(R.string.tool_ask_user_failed)
         ToolKind.TODO_READ -> getString(R.string.tool_read_failed_default)
         ToolKind.TODO_UPDATE -> getString(R.string.tool_update_failed_default)
         ToolKind.SUBAGENT_SPAWN -> getString(R.string.tool_create_failed_default)
         ToolKind.SUBAGENT_LIST -> getString(R.string.tool_list_failed_default)
-        ToolKind.SUBAGENT_SEND, ToolKind.SUBAGENT_WAIT, ToolKind.SUBAGENT_STOP,
+        ToolKind.SUBAGENT_SEND, ToolKind.SUBAGENT_WAIT, ToolKind.SUBAGENT_STOP, ToolKind.SUBAGENT_DELETE,
         ToolKind.MCP, ToolKind.UNKNOWN -> reason ?: getString(R.string.tool_call_failed)
     }
 }

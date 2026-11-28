@@ -31,6 +31,9 @@ layout, states, density, or interaction design has been approved.
 - Every full-screen Settings surface uses `CollapsingSettingsScaffold` or
   `CollapsingSettingsLazyScaffold` so it has the established collapsing large
   heading. Do not replace it with a page-local top bar or title treatment.
+- Pull-to-refresh in the shared lazy scaffold drops its indicator from the safe page top, above
+  the collapsing heading, toolbar and list. The refresh container encloses those layers so the
+  Material indicator is drawn last; do not offset its entry below the toolbar.
 - Organize content into named categories with `SettingsGroup`. Standard cards use
   `SettingsItem` and contain a leading icon, a title, and a supporting
   description. Omitting any of those elements requires an explicit approved
@@ -61,15 +64,196 @@ layout, states, density, or interaction design has been approved.
 - Advanced contains a whole-row Cache Switch. Only while enabled, a following Cache Duration
   SettingsItem shows the selected 5m or 1h value and opens the existing Appearance-style dropdown,
   including its selected-item checkmark. Reuse the shared group, item, icon, description, and motion
-  conventions; do not replace the choice with segmented buttons or add a separate Save action.
+  conventions; do not replace the choice with segmented buttons.
 - Existing and newly created Provider configurations default to Cache enabled and duration 1h.
-  Changes apply and persist immediately per Provider. Disabling retains the selected duration;
+  Changes are part of the Provider detail draft and persist only on its explicit Save (see Provider
+  list and remote detail editor). Disabling retains the selected duration;
   re-enabling restores it. Changing a custom Provider's protocol hides and ignores these controls
   without erasing their stored values.
 - Cache controls only Agora's Anthropic request marker: disabled omits the entire top-level
   `cache_control`; enabled sends ephemeral caching with the selected duration. It does not disable
   relay-owned caching, negotiate relay policy, add block-level breakpoints, or retry with altered
   cache parameters. Provider settings must reach every applicable request caller.
+
+## Generation image quality
+- Generation places its immediate-save Image Quality group last, after generation parameters.
+  Its whole-row Quality Mode SettingsItem has a leading image icon, title,
+  effective longest-edge/JPEG description and a trailing selected value. It opens the shared
+  Appearance-style dropdown with a selected-item checkmark and the existing menu surface treatment.
+- Modes are Light, Balanced, High and Custom. `image-processing.md` owns their numeric policy.
+  Only Custom shows the two controls Maximum Long Edge and JPEG Quality. Each control retains a
+  leading icon, title, supporting description and displayed value, and uses the existing persisted
+  slider feedback gate. A drag updates its local displayed value and commits once on release;
+  stale persistence emissions do not interrupt the gesture or overwrite its pending final value.
+  Maximum Long Edge uses seven discrete integer stops: 128, 256, 512, 1024, 2048, 4096 and 8192 px.
+  An existing off-stop integer remains displayed and persisted unchanged until the user selects
+  a stop. JPEG Quality retains its existing range and interaction.
+- Mode changes persist immediately, retain custom values and apply to newly processed images.
+  There is no Save action or save-on-exit draft. The existing Generation scaffold/navigation and
+  shared SettingsGroup own spacing and navigation. All supported locales define the complete copy.
+
+## Sandbox distributions
+
+The F-Droid sandbox supports Alpine, Debian and Ubuntu arm64 userlands. Existing installations
+remain on Alpine by default without moving or deleting their root filesystem. Each distribution
+retains its own root filesystem and installed packages; the existing `/home/agora` directory and
+optional `/mnt/shared` mount remain shared. Exactly one distribution is selected globally.
+Selection is device-local sandbox state and is not included in portable settings archives.
+
+Before the selected system is available, Environment shows Distribution and Install as whole-row
+SettingsItems with the same headline, supporting text and primary trailing-label hierarchy. Reuse
+Appearance's end-aligned value treatment, AgoraDropdownMenu and selected checkmark. The selector
+uses a list icon; the version row uses the selected distribution's brand mark. Selection
+applies immediately and does not start a download. Once the selected system is ready, show only
+its installed dashboard, with its own version, packages and quick-install suggestions. A completed
+reset returns to the setup rows. There is no Save action.
+
+The Upgrade action on an installed dashboard and the not-installed Install action fade once
+between their enabled and disabled paints when their state switches: the `primary` fill and its
+`onPrimary` label cross to the component's ordinary disabled colors, and back on re-enable, over
+200 ms. The fade runs only on a state switch, never as a loop; the first composition starts
+settled, so opening the page has no color motion. Color feedback remains under Reduced Motion.
+No second button style, border, or moving gradient appears.
+
+Changing distribution clears stale operation output and package projections. Installation and
+package work disable selection; the backend also refuses a switch while shell jobs or filesystem
+mutations are active. A refused switch leaves the persisted selection unchanged and reports why.
+An uninstalled system is a normal state, not a failure. A failed Install operation emits one
+localized message with the actual failure reason through the existing app snackbar path. A
+background availability check or recomposition must not post or replace that outcome. Do not show
+an inline error block. When the operation settles without installing a system, Install is available
+again for an explicit retry.
+
+Reset deletes only the selected distribution's system and installed packages after existing job
+settlement. Its confirmation states that shared home files and other distributions remain intact.
+Installation verifies a pinned archive before extraction, stages a complete filesystem before
+publication, and never overwrites an existing system to recover from an error. The existing
+scaffold, groups, dashboard, storage display, file access and documentation entry remain owners.
+All supported locales define the choice, install, failure and reset copy. Focused verification covers
+matching setup row typography, disabled actions and progress during installation, hiding setup
+controls after success, restoring them after reset, and retry with exactly one failure snackbar.
+
+Package install, removal and upgrade stream each output line to the dashboard terminal while the
+process runs; the terminal must never wait for the process to exit before showing output. Streamed
+chunks are split into complete lines, carriage-return progress updates become separate lines, and
+the retained copy used for failure messages stays bounded. The terminal card keeps its fixed height,
+monospace body and bottom-following scroll inside a 20 dp rounded surface.
+
+## Sandbox storage usage
+
+The Sandbox dashboard displays approximate private regular-file usage from the root filesystem
+and the separate home directory, including attachments. It does not follow symbolic links or count
+`/mnt/shared`. Show the used size only; there is no enforced 2 GiB sandbox quota, capacity denominator
+or quota progress bar. Refresh on page entry and after package/backend operations settle. This is
+a best-effort file-size snapshot, not allocated filesystem blocks or a live storage meter.
+
+## Data Control Storage page
+
+Owner-approved (2026-11-21). Data Control's first group gains a third row, Storage, which opens a
+full-screen secondary page (`SettingsStoragePage`) through the same guarded transition and Back
+handling as other Settings sub-pages.
+
+Revised 2026-11-22 (owner-approved): segmented bar, cached scan, in-card loading.
+
+- **Total group.** One card: the summed size in large bold type, a segmented bar and one legend row
+  per owner. The bar and legend reuse the context-composition style (`SegmentedBar`, `LegendRow`:
+  12dp bar, 2dp gaps, 4dp minimum segment, `surfaceVariant` track, 400ms motion-aware animation;
+  legend rows are dot, label, right-aligned value). Segment colors come from the theme
+  (`statsSegmentColors()`), never fixed values. Owners: Database (`agora_db` plus
+  `-wal`/`-shm`/`-journal`), Attachments (top-level `att_`/`vid_`/`img_`/`pdf_` files, the `images`,
+  `run-inputs`, `fork-attachments`, `tool-media`, `attachments`, `markdown-media` directories and
+  `sandbox-home/attachments`), Local models (top-level `*.gguf`), Sandbox (every `*-rootfs` plus
+  `sandbox-home`, minus its attachments so no byte is counted twice) and Temporary Files
+  (`cacheDir`: export spools, shared copies and media previews). RAG embeddings are database rows
+  and appear as the per-conversation Embeddings legend, never here. An export spool left behind by a
+  killed export is deleted at the start of the next export once it is over an hour old.
+- **Conversations group.** A Size/Messages `PillTabSwitcher` above the rows picks the order: Size
+  keeps the report order (total size, largest first), Messages orders by message count with size and
+  then id as tie-breakers; the choice is saved with the page. A "Sort by" row opens the card stack
+  and looks like any other item: the `Sort` leading icon in primary, the title on the headline line,
+  and the two pills (40dp, 6dp under the title) on the supporting line. The control lines up with
+  the rows it orders, every locale fits, and the bare nouns read as an order rather than a filter.
+  Top-level conversations only; subagent children (any depth, cycle-safe) roll into their root.
+  Each row shows title, message count (prefixed with the Task label for task executions) and
+  total size, plus a chevron at the end that points down while the row is expanded and up while it
+  is collapsed. Tapping expands a per-conversation segmented bar with Text, Tool calls,
+  Attachments, Embeddings and Metadata legend rows. The rows are lazy: the page is a `LazyColumn`
+  that composes only the rows on screen, so a long conversation list scrolls without composing
+  all of it; the page keeps the saved Settings scroll state.
+- **Multi-select.** Long-press toggles selection and enters selection mode: the title becomes the
+  selected count, checkboxes appear, taps toggle, Back clears. Each leading checkbox expands
+  horizontally out of the row edge with a fade (200ms in, 150ms out; instant when motion is
+  disabled), and a long press starts the same transition. The checkbox and its 16dp gap live inside
+  that animation, so a row without selection keeps the plain 16dp start padding. Delete reuses
+  `ChatDeleteConfirmDialog` and `ChatViewModel.deleteConversation`, one conversation at a time. While
+  it runs the dialog shows a determinate progress bar and `done/total`. Conversations that fail stay
+  selected and the dialog moves to its failed state so the user can retry.
+- **Loading.** No page-level progress bar and no counting indicator. While a scan runs the total
+  figure and each legend value cross-fade (200ms, `StatsLoadingValue`) into the same shimmering
+  placeholder block the conversation rows use, and the bar, the legend and the rows keep the previous
+  report dimmed (alpha 0.45). With no previous report the same block stands in for the total and the
+  list shows three placeholder rows.
+- **Computation.** `StorageUsageCalculator` runs grouped read-only SQL (`StorageUsageDao`) plus
+  file walks that never follow symbolic links, off the main thread. Image files referenced by
+  several messages of one conversation count once for it. Per-conversation message figures are
+  cached in `noBackupFilesDir/storage-usage.json` with the conversation's `dataChangedAt`; a scan
+  rescans message rows only for conversations whose watermark moved (batches of 500 IDs).
+  Embeddings, managed attachment directories and the owner breakdown are measured on every scan.
+  The persisted report is shown first on entry. Sizes are logical byte lengths, not allocated blocks.
+
+## Usage page
+
+Owner-approved (2026-11-21). Settings' Memory & Data group gains Usage (`"usage"`,
+`SettingsUsagePage`) right after Data Control.
+
+Revised 2026-11-22 (owner-approved): request ledger, statistics-card layout, in-card loading.
+
+- **Activity group.** The group title sits outside the card. A Tokens/Requests `PillTabSwitcher`
+  (the same two-pill component as the period switcher) sits above a 53-week dot heatmap (columns are
+  weeks starting on the locale's first day of week, scrolled to today, month labels above, weekday
+  labels on alternate rows). The scrolled weeks fade at both ends through the same edge mask as the
+  attachment row, so a half-visible column never looks cut off. Tokens is the default; while a count
+  runs, the counting row trails the caption on the heatmap footer line, so fading it in never
+  shifts the date sideways.
+  Five shades: zero, then quartiles of the non-zero days, so one heavy day does not flatten the
+  rest. Tapping a dot shows its date and value below; the picked dot is drawn as a contrasting
+  collar with a smaller value dot inside it, and today is outlined. A tab switch holds the current
+  shades until the count settles, then fades every dot to its new shade (240ms, instant when motion
+  is disabled), so the calendar never animates against figures that are still being recounted and
+  never repaints in one frame.
+- **Overview group.** Two-column `StatsCardGrid`: total tokens, requests, current streak, longest
+  streak. No cost figures.
+- **Tokens group.** A 7/30/90/All `PillTabSwitcher` under the "Token Statistics" title selects the
+  period for the cards below it (input, output, cached input, cache hit rate as cached over reported
+  input, `—` when nothing was reported), the bar chart and the "Tokens per Model" group. Seven days
+  is the default. Changing the period cross-fades the chart in 200ms (instant when motion is
+  disabled), because the bars, the date labels and the scroll range all change at once. The bar
+  chart keeps one bar per day for every period and never bins days into weeks. Thirty days is the
+  widest span that fits the plot, so 90 and All keep the day's width and scroll horizontally; the
+  edge that still hides bars fades through the same 24dp mask as the heatmap. The value axis
+  (maximum, half, zero) and its grid lines stay fixed in a 40dp gutter while the bars scroll under
+  them. Date labels (`MMM d`) sit inside the scrolling content and mark every slot that fits its
+  neighbour's width. Bars keep a 3dp gap and a 6dp corner radius, capped at half the bar width. The
+  picked (or latest) bar's date and tokens are captioned under the plot. The By source breakdown
+  stays removed. By model uses the segmented bar and legend of the Storage page; at most six
+  segments, the rest folded into Other, legend values "tokens · percent". The card opens with the
+  period's total: a small "Total tokens" label over the figure in `headlineMedium` bold, both left
+  aligned, with the bar below.
+- **Loading.** Unlike Storage, the page keeps an in-card spinner with "Counting…", dimmed previous
+  values, placeholders on first load, no page-level progress bar. The spinner is 16dp with a 2dp
+  stroke and a bodyMedium label 8dp away. A reload that finishes within 200ms never shows the
+  counting state, and one that does show it stays up for at least 400ms, so a request-ledger write
+  does not blink the page. Placeholder blocks and an empty segmented bar fill with a slow
+  left-to-right shimmer (1100ms), which becomes a solid fill when motion is disabled.
+- **Data.** `usage_ledger` (DB 48) holds per-request totals in 15-minute UTC buckets keyed by
+  provider, model and source (Chat, Task, Subagent, Title, Transcription). `UsageRecorder` writes one
+  row update when a Provider request ends (chat generation, title generation, transcription); a
+  request that never received a response is not counted. DB 49 folds the usage already stored on
+  MODEL messages into the ledger once, during the upgrade: one request per run, provider taken from
+  the model name prefix, source from the conversation's task or parent link. Older data therefore
+  appears without the page ever reading `messages`. Ledger rows are kept when conversations are
+  deleted. `UsageStats` assigns buckets to local days in the device zone. An open page reloads when
+  `UsageRecorder.revision` changes.
 
 ## Appearance defaults
 
@@ -138,30 +322,32 @@ and WebUI share this contract.
 Owner screenshot corrections on 2026-10-21 place `What Is Conch?` and `What Is Filo?` in a top Help
 group on Add Device, before Connection. Device lists and Edit pages do not duplicate the entries.
 Help uses the shared scaffold, guarded transition and scroll owner. Opening help retains the current
-editor-owned draft; Back and the final return action restore that same draft without saving. Closed
+editor-owned draft; the top-bar Back restores that same draft without saving. The guide has no
+separate in-page Back or return button (owner correction, 2026-10-22). Closed
 or outgoing editor callbacks cannot regain authority on return. DocumentationFab remains unchanged.
 Conch and Filo help pages have exactly three named `SettingsGroup` categories in this order:
 Introduction, Installation, and Project Address (owner correction, 2026-10-21 21:45). Introduction
 uses one standard icon/title/supporting-description item. Installation has exactly three numbered
-steps in one group: open the target terminal, copy and run the maintained command, then return to
-fill connection details. Conch target-system choices appear at the start of Installation,
+steps in one group: open the target terminal, copy and run the maintained command, then one short
+sentence on adding the device with the installer's address and credential. Conch target-system choices appear at the start of Installation,
 before the numbered steps, not in a fourth category. Owner screenshot correction on 2026-10-22
 uses the existing `PillTabSwitcher` instead of radio rows. Its icon/title/chips card uses
 `SettingsIconContent` with the same 16 dp top/bottom inset as ordinary cards and a 12 dp title-to-chips
 gap. The control does not repeat a supporting description. Windows/Linux/Termux labels wrap without
 truncation on narrow screens, at large fonts and in RTL; selection and disabled semantics remain
 accessible. Step numbers reserve the same 24 dp leading width as standard icons. Step two renders
-the exact command with the shared `ChatMarkdownCodeBlock`, wrapped and selectable. The host retains
-its existing guarded Copy Command action and omits the block's built-in copy header, so an outgoing
-or closed page cannot copy through an unfenced second action. Project Address contains one whole-row external link
+the exact command with the shared `ChatMarkdownCodeBlock`, wrapped and selectable. Copy uses the
+block's own header copy target above the code, like chat Markdown (owner correction, 2026-10-22),
+labelled with the shell language. There is no separate Copy Command button. The header copy is
+disabled and fenced by page ownership, so an outgoing or closed page cannot copy. Project Address contains one whole-row external link
 with a Code icon, GitHub title,
 visible repository address, and the established external-link icon and launcher. Do not leave the
 introduction or project link as ungrouped text/buttons or add separate Advanced, Copy Command or
 Connect groups or repeated explanatory paragraphs. Commands are displayed/copied only.
 Conch uses default user-mode commands: ordinary Windows PowerShell, Linux without sudo and Termux
 without root. Advanced mode/linger instructions stay in the linked source; existing modes are never
-silently changed. Filo targets Windows x64 administrator PowerShell. Its final step identifies the
-native Windows account and a reachable service URL/token; localhost works only on the computer.
+silently changed. Filo targets Windows x64 administrator PowerShell. Its final step names the
+Windows account/source choice and the installer's service URL/token.
 Do not promise generic LAN, macOS/Linux, Chat/Cowork or unsupported native control. Credentials stay
 in the existing editor. Source links retain the established external-link icon and launcher.
 
@@ -211,23 +397,31 @@ in the existing editor. Source links retain the established external-link icon a
 ## Conversation Search model editors
 
 - The Add Model type picker uses Cloud for Remote and the Provider Local AutoAwesome stars for Local.
+- Model identifier fields, including Local Chat, Remote Embedding Add/Edit and manual custom models,
+  use the localized `Model ID` label and Badge icon. API Key fields retain their key icon.
 - Remote Add uses a Cloud-icon Provider SettingsItem with the current provider as its trailing value.
   The whole row opens the same selected-item dropdown style as Model Search Method; provider chips
-  are not shown. Model uses AutoAwesome and one text input with a model-ID hint, without preset chips.
-- Local Add shows Model File as a whole-row AutoAwesome import action using the shared two-line
-  model-import item. Its headline and leading icon use primary, including a selected filename. The
-  description identifies a GGUF embedding model for local semantic search, not generic inference.
-  Both empty and selected-file states open the picker; there is no separate Replace action.
+  are not shown. The Model group contains one Badge Model ID field with a model-ID hint, without preset chips.
+- Local Add shows the shared ModelImportItem with an AutoAwesome icon and a fixed Embedding Model
+  (.gguf) title. Its description identifies a GGUF embedding model for local semantic search.
 - Failed remote embedding connection tests use the existing app snackbar with localized failure
   text, not an inline error item that changes the form layout. Failure keeps the editor and draft
   unchanged, and never saves the model. A closed/discarded editor must not emit a late result.
-- Embedding, Local Chat and vision-projector import actions share one fixed 24dp leading slot.
-  Empty-selection titles end with `(.gguf)` for Embedding/Chat and `(.mmproj)` for the vision
-  projector in every supported locale. Selected filenames are not given another suffix.
-  The ordinary icon and importing progress ring crossfade there over 250ms; importing never adds
-  a right-side spinner or shifts text. Imported-name changes also crossfade over 250ms. Importing
-  disables the whole row without changing its primary action styling. The existing motion-aware
-  progress indicator and shared Reduced Motion policy remain authoritative.
+- Embedding, Local Chat, vision-projector and SSH private-key imports share ModelImportItem.
+  Titles stay fixed across states; Chat/Embedding titles retain `(.gguf)`. Empty rows use the item's
+  inactive icon (VisibilityOff for projector), onSurfaceVariant gray, `Not imported · <purpose>`
+  supporting text and a trailing FileUpload action. Importing disables the row, shows `Importing…`
+  and only the leading progress indicator. Imported rows use the original icon in primary
+  (Visibility for projector), `<filename> · <size>` supporting text, and an optional enablement line
+  (`Image input enabled` for projector). Titles use the ordinary onSurface headline color.
+- Whole-row clicks import or replace. Only removable optional items have a trailing Delete action;
+  required main model files have none. A fixed 24dp leading slot and 48dp trailing slot prevent
+  action/icon changes from moving text. Leading state and supporting text crossfade for 250ms.
+  The motion-aware progress indicator and shared Reduced Motion policy remain authoritative.
+- File-backed rows read basename and length from the saved path on IO, including on editor re-entry.
+  A missing file uses an error-colored warning icon and `File missing`, without an enablement claim.
+  SSH keys have no retained source file: their saved filename and stored UTF-8 byte length supply
+  metadata to the same component without writing key files or exposing key content.
 - Local Edit omits Model File, including the private generated filename. The model's stored identity
   remains immutable. Both editors retain explicit Save and their unsaved-draft Back guard.
 - Edit Cache uses a stable title and the existing cache status as supporting text, with the existing
@@ -239,10 +433,10 @@ in the existing editor. Source links retain the established external-link icon a
   each model's Edit action navigate through the existing Settings transition owner to a full-page
   Add/Edit Local Model editor, not an AlertDialog.
 - Reuse the collapsing Settings scaffold, groups and icon/field rows. New models import a GGUF
-  through the same primary AutoAwesome import row as Embedding, but copy explicitly identifies a
-  Chat model running conversations on-device. The optional vision-projector row uses the same primary
-  action and left progress crossfade, with a Visibility icon and copy requiring a matching mmproj
-  GGUF for image input. Existing model files stay unchanged and are omitted from Edit. Keep Model ID,
+  through the same shared import row as Embedding with a fixed Chat Model (.gguf) title; copy
+  identifies a Chat model running conversations on-device. The optional Vision Projector row has
+  a fixed title, VisibilityOff/Visibility state icons and copy requiring a matching mmproj GGUF for
+  image input. Existing main model files stay unchanged and are omitted from Edit. Keep Model ID,
   alias, optional vision projector and the existing numeric settings.
 - Save is explicit. Back discards only after the shared unsaved-changes guard; field edits,
   navigation and picker dismissal never persist a model. Unsaved imported files are draft-owned;
@@ -254,13 +448,48 @@ in the existing editor. Source links retain the established external-link icon a
 
 ## Add Provider creation editor
 
-- Add Provider on the Providers list navigates to a separate full-page editor through the shared
-  Settings transition owner, never an Add Provider dialog. Existing provider destinations stay unchanged.
-- Reuse the collapsing Settings scaffold, icon/field rows and named groups. Keep the current protocol
-  selector, Provider name and Base URL fields, name-conflict policy and required URL validation.
-- Only explicit Save creates a provider. Back uses the shared unsaved-draft guard and never persists
-  partial values. Save trims the name and URL and returns to the existing Providers list.
+- Add Provider opens the same remote Provider editor the detail route uses, in creation mode: the
+  Provider name, connection (protocol and Base URL), API keys and advanced cache groups are the same
+  fields by construction, so a field can never exist on only one of the two routes.
+- The editor starts from an empty draft with the OpenAI-compatible protocol. The protocol selector,
+  name-conflict policy, required URL validation and the unsaved-draft guard are unchanged.
+- Only explicit Save creates a provider: the config, URL, keys, cache fields and list membership are
+  one edit. Save trims the name and URL and returns to the existing Providers list.
 - Provider documentation uses the shared FAB, visibility setting and bottom clearance.
+
+## Provider list and remote detail editor
+
+- The Providers root shows only the user's ordered Provider list. Entries are built-in remote
+  Providers or custom Providers; Local is a separate group fixed at the bottom and never in the list.
+  Each row keeps the existing icon, key count / URL / Not configured summary and custom protocol
+  badge, ends with a DragHandle, and opens the detail page on a whole-row tap. An empty list shows
+  one muted "No Providers yet" row above the add item.
+- Rows reorder by dragging the handle; the order is persisted once when the drag ends and is the
+  Provider order of the chat model selector and the Models page groups (customs map to their
+  Provider ID there). The lifted row follows the finger with all corners at 24dp, a slight scale and
+  shadow; rows it passes slide into their new slot with a spring instead of jumping. On release the
+  row springs into its slot and every corner radius animates to its positional group shape.
+- The add item at the bottom of the list opens a full-page search picker with a Custom group (one
+  Custom Provider row that opens the Add Provider creation editor) and a Built-in group of all
+  remote built-ins filtered by the query. Every picker row has a supporting line so all rows share
+  one height: Custom Provider describes the compatible protocols, listed built-ins are disabled and
+  read Added, unlisted built-ins show their retained key count, URL or Not configured. Tapping
+  an unlisted built-in opens its detail page; saving that page appends it, and Back from there
+  returns to the picker. Saving the custom creation editor returns to the root.
+- Long press: built-ins offer Remove, customs offer Rename and Delete; this menu is the only place
+  for both. Removing a built-in confirms first and states that its configuration is kept. Removal only unlists it:
+  keys, Base URL and fetched models stay stored, its enabled models move to a parked set that is
+  restored when it is added again, and model sync skips unlisted built-ins. Conversations that used
+  a removed Provider follow the existing unavailable-model fallback.
+- Migration: when no list is stored, built-ins with a key (Ollama: a Base URL) and every custom are
+  listed in catalog order; the derived list is persisted on start. Welcome onboarding adds the
+  built-in it configures. `providerList` and `hiddenProviderModels` are portable settings.
+- Remote Provider detail pages are explicit-save editors: Base URL, protocol, Responses API, cache
+  switch and duration, API key add/edit/delete, the active key and the custom Provider Name field
+  form one in-memory draft (never saveable state, because it holds keys). The top bar Save commits
+  the draft in one DataStore edit; Back uses the shared unsaved-changes guard. An unchanged draft
+  follows external writes. The top bar holds only Save, with no overflow menu. Provider -> Local is
+  unchanged.
 
 ## Shell device list and editors
 
@@ -372,6 +601,10 @@ in the existing editor. Source links retain the established external-link icon a
   never substitutes for an explicitly chosen model. Neither section has a Save action.
 - Disabling does not erase stored lists, hide existing navigation, stop children or discard completion
   delivery. Existing admitted work keeps its frozen context, like other tool-access preferences.
+- While delegation is enabled, the Subagents group shows a second whole-row switch, Allow Deleting
+  Subagents (Delete icon), default off, immediate save. It controls only the parent's `agent_delete`
+  tool (message-generation.md 8.14); manual deletion through the child's conversation menu is
+  unaffected. Chinese copy is 允许删除子代理.
 - Capsule Display and Limits follow the Models group, in that order, outside the delegation-enabled
   condition so both remain configurable while delegation is disabled. Capsule Display follows the
   Appearance selector row: its trailing value uses primary `labelLarge`, a 96dp end-aligned text
@@ -452,6 +685,20 @@ in the existing editor. Source links retain the established external-link icon a
   Filename and content `generatedAtMillis` derive from the same export instant.
   Existing format identifiers, extensions, MIME types and capture content remain unchanged.
 
+## System Prompt templates
+- The explicit-save editor offers only the ordinary context variables. Tool guidance is static text
+  in the Default template, with no per-tool guide cards or example values. Retired saved variables
+  remain removable rows with the existing localized Unknown label and technical key underneath;
+  preview compilation contributes no text for them. Opening or leaving the editor never deletes
+  or rewrites those saved items. Save and unsaved Back behavior stay unchanged.
+- The explicit-save editor also offers an HTML Preview Guidance insertion as an ordinary CUSTOM text
+  item, following [interactive-html.md](interactive-html.md). It edits only the draft and remains fully
+  editable/removable; it is not a predefined tool variable or runtime prompt injection.
+- The existing variable picker keeps its title, SettingsItem rows, spacing and scroll behavior.
+  Selection changes the draft only. Default copy describes response rules, tool guidance, the Skill
+  catalog and Active Memory. Exact template ordering, migration and ownership follow
+  message-generation.md 9.2.
+
 ## Copy and localization
 
 - All title-like UI copy follows the hard global capitalization contract in
@@ -459,6 +706,11 @@ in the existing editor. Source links retain the established external-link icon a
   actions, and dialogs are explicitly in scope.
 - Field labels, descriptions, helper text, and status text use sentence case.
   Status text has no trailing period.
+- Storage and Usage name their own surfaces in Title Case: `Total`, `Conversations`, `Activity`,
+  `Overview`, `Token Statistics`, `Tokens per Day`, `Tokens per Week`, `Tokens per Model`,
+  `Total Tokens`, `Total Requests`, `Current Streak`, `Longest Streak`, `Cached Input`,
+  `Cache Hit Rate`, `Local Models`, `Tool Calls`, `Delete %1$d Conversations?`. Only descriptions,
+  counts and captions (`1924 messages`, `Nov 19, 2026 · 94M tokens`) stay in sentence case.
 - Confirmation dialog titles are bold and end with a question mark.
 - Other locales use their native casing and punctuation conventions.
 - Every default string key must exist in every supported locale.

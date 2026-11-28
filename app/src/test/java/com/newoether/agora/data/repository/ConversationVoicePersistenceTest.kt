@@ -8,7 +8,6 @@ import com.newoether.agora.data.local.ChatDatabase
 import com.newoether.agora.data.local.ChatEntity
 import com.newoether.agora.data.local.MessageEntity
 import com.newoether.agora.data.local.RunEntity
-import com.newoether.agora.data.local.decodeSelectionMap
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import com.newoether.agora.model.RunEndReason

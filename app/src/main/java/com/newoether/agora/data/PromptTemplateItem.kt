@@ -60,6 +60,12 @@ object PredefinedVariables {
         PROMPT to "[Prompt]",
     )
 
+    // Read-only compatibility for items saved by the retired conditional-guide default.
+    private val RETIRED_TOOL_GUIDES = setOf(
+        "tool_guide_memory", "tool_guide_skills", "tool_guide_past_conversations", "tool_guide_web",
+        "tool_guide_devices", "tool_guide_subagents_and_automation", "tool_guide_asking_the_user",
+    )
+
     fun compile(
         items: List<PromptTemplateItem>,
         runtimeValues: Map<String, String>,
@@ -68,9 +74,8 @@ object PredefinedVariables {
         return items.joinToString("") { item ->
             when (item.type) {
                 PromptItemType.CUSTOM -> item.value
-                PromptItemType.PREDEFINED -> runtimeValues[item.value]
-                    ?: exampleValues[item.value]
-                    ?: "{${item.value}}"
+                PromptItemType.PREDEFINED -> if (item.value in RETIRED_TOOL_GUIDES) "" else
+                    runtimeValues[item.value] ?: exampleValues[item.value] ?: "{${item.value}}"
             }
         }
     }

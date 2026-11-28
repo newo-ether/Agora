@@ -3,7 +3,13 @@ package com.newoether.agora.tool
 import com.newoether.agora.data.EmbeddingIndexer
 import com.newoether.agora.data.local.EmbeddingSearchRow
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -136,6 +142,43 @@ class BoundedSemanticEmbeddingSelectorTest {
         assertEquals(3, result.maxRetainedCandidates)
         assertEquals(listOf(1L, 2L, 3L), result.candidates.map { it.rowId })
         assertTrue("pageLoads=$pageLoads", pageLoads <= 80)
+    }
+
+    @Test
+    fun invalidQueryDoesNotScanAndLargeFiniteValuesKeepCosineFinite() = runTest {
+        val invalid = BoundedSemanticEmbeddingSelector().select(floatArrayOf(Float.NaN), 0f, 1) { _, _ ->
+            error("Invalid queries must not scan the database")
+        }
+        assertTrue(invalid.candidates.isEmpty())
+        val result = BoundedSemanticEmbeddingSelector().select(
+            floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE), 0f, 1,
+        ) { after, _ ->
+            if (after == 0L) listOf(row(1, "large", floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE)))
+            else emptyList()
+        }
+        assertEquals(1f, result.candidates.single().score, 0.00001f)
+    }
+
+    @Test
+    fun cancelledImmediateLoaderCannotScoreOrReadAnotherPage() = runTest {
+        var loads = 0
+        var returned = false
+        val job = launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                BoundedSemanticEmbeddingSelector(pageSize = 1).select(floatArrayOf(1f), 0f, 1) { _, _ ->
+                    loads++
+                    currentCoroutineContext().cancel()
+                    listOf(row(1, "cancelled", floatArrayOf(1f)))
+                }
+                returned = true
+            } catch (_: CancellationException) {
+                throw CancellationException("Expected cancellation")
+            }
+        }
+        job.join()
+        assertTrue(job.isCancelled)
+        assertFalse(returned)
+        assertEquals(1, loads)
     }
 
     private fun row(

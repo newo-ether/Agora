@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.emptyFlow
  */
 class PlaySandboxManager : SandboxManager {
 
+    override val distribution: StateFlow<SandboxDistribution> = MutableStateFlow(SandboxDistribution.ALPINE)
+    override suspend fun selectDistribution(distribution: SandboxDistribution): Boolean = false
     override val lastError: String? = null
     private val _terminalOutput = MutableStateFlow("Sandbox not available in this build.")
     override val terminalOutput: StateFlow<String> = _terminalOutput
@@ -26,6 +28,8 @@ class PlaySandboxManager : SandboxManager {
     override val isInstallingRootfs: StateFlow<Boolean> = _isInstallingRootfs
     private val _downloadProgress = MutableStateFlow<Float?>(null)
     override val downloadProgress: StateFlow<Float?> = _downloadProgress
+    private val _rootfsPhase = MutableStateFlow<RootfsInstallPhase?>(null)
+    override val rootfsPhase: StateFlow<RootfsInstallPhase?> = _rootfsPhase
     override fun installRootfs() {}
     private val _packageList = MutableStateFlow<List<SandboxManager.PackageInfo>>(emptyList())
     override val packageList: StateFlow<List<SandboxManager.PackageInfo>> = _packageList

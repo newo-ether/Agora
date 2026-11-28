@@ -31,7 +31,7 @@ class RemoteImageClientTest {
                 RemotePayloadRequest("native-image", "b".repeat(64))) { input, mime ->
                 assertEquals("image/png", mime)
                 file.outputStream().use { input.copyTo(it, 97) }
-                ToolImageAttachment(file.path, mime, file.length(), sha256 = "hash")
+                ToolImageAttachment(file.path, mime, file.length())
             }
             assertEquals(file.path, result.path)
             assertArrayEquals(bytes, file.readBytes())

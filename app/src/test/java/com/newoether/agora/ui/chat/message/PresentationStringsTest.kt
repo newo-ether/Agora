@@ -10,6 +10,7 @@ import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -79,6 +80,48 @@ class PresentationStringsTest {
             ),
             composed,
         )
+    }
+
+    @Test
+    fun liveThoughtTimerResumesFromTheGenerationClock() {
+        val sampled = thought.copy(
+            durationMs = 30_000L,
+            durationSampledAtElapsedRealtimeMs = 100_000L,
+        )
+        val thinking = message.copy(status = MessageStatus.THINKING)
+        val state = resources.compactSegmentTitleState(listOf(sampled), thinking, useLiveStatus = true)
+
+        assertEquals(30_000L, state.liveBaseMs)
+        assertEquals(100_000L, state.liveSampledAtElapsedRealtimeMs)
+        // Re-entering the screen 15s later continues at 45s instead of restarting at 30s.
+        assertEquals(45_000L, liveThoughtDurationMs(30_000L, 100_000L, 115_000L))
+        // A stale monotonic anchor never subtracts from the settled duration.
+        assertEquals(30_000L, liveThoughtDurationMs(30_000L, 115_000L, 100_000L))
+    }
+
+    @Test
+    fun liveThinkingWithoutANativeDurationStillStartsATimer() {
+        val unknownDuration = MessageSegment(type = "thought", content = "plan")
+        val thinking = message.copy(status = MessageStatus.THINKING)
+        val state = resources.compactSegmentTitleState(
+            listOf(unknownDuration),
+            thinking,
+            useLiveStatus = true,
+        )
+
+        // A running thought must never lose its header timer, even when the published snapshot
+        // has no duration yet; it starts counting from zero.
+        assertEquals(0L, state.liveBaseMs)
+        assertEquals(resources.thinkingDurationBreakdownTitle(0, live = true), state.title)
+
+        // A settled group with an unknown duration keeps the non-numeric wording.
+        val settled = resources.compactSegmentTitleState(
+            listOf(unknownDuration),
+            message,
+            useLiveStatus = false,
+        )
+        assertNull(settled.liveBaseMs)
+        assertEquals(resources.getString(R.string.thought_for_a_while), settled.title)
     }
 
     @Test

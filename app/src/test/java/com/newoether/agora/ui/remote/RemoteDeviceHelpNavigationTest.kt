@@ -55,7 +55,7 @@ class RemoteDeviceHelpNavigationTest {
         compose.onNodeWithTag("remote-filo-guide-entry").performScrollTo().performClick()
         compose.onNodeWithTag("filo-install-guide").assertExists()
         verify(exactly = 0) { vm.saveDevice(any(), any(), any()) }
-        compose.onNodeWithTag("filo-guide-return").performScrollTo().performClick()
+        compose.onNodeWithContentDescription(strings.getValue(R.string.back)).performClick()
         compose.onAllNodes(hasSetTextAction())[0].assertTextContains("Draft host")
         compose.onAllNodes(hasSetTextAction())[1].assertTextContains("http://computer:8080")
         compose.onNodeWithContentDescription(strings.getValue(R.string.save)).assertIsEnabled().performClick()

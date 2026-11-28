@@ -17,15 +17,20 @@ import java.util.Locale
 import kotlinx.coroutines.flow.map
 
 internal val Context.dataStore by preferencesDataStore(
-    name = "settings", produceMigrations = { listOf(modelProviderNamesMigration) },
+    name = "settings", produceMigrations = { listOf(modelProviderNamesMigration, toolCallDisplayModeMigration) },
 )
 
-class SettingsManager(private val context: Context) : SettingsManagerAppearanceBase(context) {
+class SettingsManager(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
     internal val modelPreferenceStore = SettingsModelPreferenceStore(context.dataStore, json)
     internal val backupPreferenceStore = SettingsBackupPreferenceStore(context.dataStore)
     internal val systemPromptStore = SettingsSystemPromptStore(context.dataStore, json)
     internal val shellDeviceStore = SettingsShellDeviceStore(context.dataStore, json)
+    internal val liveVoiceStore = SettingsLiveVoiceStore(context, json)
+    internal val attachmentStore = SettingsAttachmentStore(context.dataStore)
+    internal val localInferenceStore = SettingsLocalInferenceStore(context.dataStore)
+    internal val providerListStore = ProviderListStore(context.dataStore, json)
+    internal val providerEditorStore = ProviderEditorStore(context.dataStore, json, providerListStore)
 
     companion object {
         const val DEFAULT_PROXY_HOST = "127.0.0.1"
@@ -42,8 +47,7 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     suspend fun updateCustomProviderCache(providerId: String, enabled: Boolean? = null, ttl: String? = null) =
         modelPreferenceStore.updateCustomProviderCache(providerId, enabled, ttl)
     val providerBaseUrls: Flow<Map<String, String>> = modelPreferenceStore.providerBaseUrls
-    val customEndpointResolutions: Flow<Map<String, CustomEndpointResolution>> =
-        modelPreferenceStore.customEndpointResolutions
+    val customEndpointResolutions: Flow<Map<String, CustomEndpointResolution>> = modelPreferenceStore.customEndpointResolutions
     val availableModels: Flow<Map<String, List<String>>> = modelPreferenceStore.availableModels
     val customModels: Flow<Set<String>> = modelPreferenceStore.customModels
     val enabledModels: Flow<Set<String>> = modelPreferenceStore.enabledModels
@@ -56,10 +60,7 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     val activeSystemPromptId: Flow<String?> = systemPromptStore.activeSystemPromptId
 
     val maxContextWindow: Flow<Int> = context.dataStore.data.map { preferences ->
-        ContextBudget.normalize(
-            preferences[CONTEXT_TOKEN_BUDGET]?.toIntOrNull()
-                ?: preferences[MAX_CONTEXT_WINDOW]?.toIntOrNull()
-        )
+        ContextBudget.normalize(preferences[CONTEXT_TOKEN_BUDGET]?.toIntOrNull() ?: preferences[MAX_CONTEXT_WINDOW]?.toIntOrNull())
     }
     val visualizeContextRollout: Flow<Boolean> = context.dataStore.data.map { it[VISUALIZE_CONTEXT_ROLLOUT] ?: false }
     val contextCompactEnabled: Flow<Boolean> = context.dataStore.data.map {
@@ -98,19 +99,15 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     val openAiServiceTier: Flow<String> = context.dataStore.data.map { pref ->
         OpenAiServiceTiers.normalize(pref[OPENAI_SERVICE_TIER])
     }
-    val openAiResponsesApiEnabled: Flow<Boolean> =
-        context.dataStore.data.map { it[OPENAI_RESPONSES_API_ENABLED] ?: false }
+    val openAiResponsesApiEnabled: Flow<Boolean> = context.dataStore.data.map { it[OPENAI_RESPONSES_API_ENABLED] ?: false }
+    val replayReasoningInHistory: Flow<Boolean> = context.dataStore.data.map { it[REPLAY_REASONING_IN_HISTORY] ?: false }
     val titleGenerationEnabled: Flow<Boolean> = context.dataStore.data.map { it[TITLE_GENERATION_ENABLED] ?: true }
     val titleGenerationModel: Flow<String?> = context.dataStore.data.map { it[TITLE_GENERATION_MODEL] }
     val titleGenerationPrompt: Flow<String> = context.dataStore.data.map { pref ->
         pref[TITLE_GENERATION_PROMPT]?.takeIf { it.isNotBlank() } ?: BuiltInPrompts.TITLE_GENERATION_SYSTEM
     }
-    val titleGenerationNotificationsEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[TITLE_GENERATION_NOTIFICATIONS_ENABLED] ?: true
-    }
-    val imageTranscriptionEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[IMAGE_TRANSCRIPTION_ENABLED] ?: true
-    }
+    val titleGenerationNotificationsEnabled: Flow<Boolean> = context.dataStore.data.map { it[TITLE_GENERATION_NOTIFICATIONS_ENABLED] ?: false }
+    val imageTranscriptionEnabled: Flow<Boolean> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_ENABLED] ?: false }
     val imageTranscriptionEnabledModels: Flow<Set<String>> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_ENABLED_MODELS] ?: emptySet() }
     val imageTranscriptionModel: Flow<String?> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_MODEL] }
     val imageTranscriptionBatchSize: Flow<Int> = context.dataStore.data.map { it[IMAGE_TRANSCRIPTION_BATCH_SIZE] ?: 3 }
@@ -128,22 +125,13 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     }
     val ragSearchEnabled: Flow<Boolean> = context.dataStore.data.map { it[RAG_SEARCH_ENABLED] ?: false }
     val modelSearchMethod: Flow<String> = context.dataStore.data.map { it[MODEL_SEARCH_METHOD] ?: "keyword" }
+    val attachmentMode: Flow<String> = attachmentStore.attachmentMode
     val manualSearchMethod: Flow<String> = context.dataStore.data.map { it[MANUAL_SEARCH_METHOD] ?: "keyword" }
     val embeddingModels: Flow<List<EmbeddingModelConfig>> = context.dataStore.data.map { pref ->
         val jsonStr = pref[EMBEDDING_MODELS_JSON] ?: "[]"
         try { json.decodeFromString<List<EmbeddingModelConfig>>(jsonStr) } catch (e: Exception) { emptyList() }
     }
     val activeEmbeddingModelId: Flow<String> = context.dataStore.data.map { it[ACTIVE_EMBEDDING_MODEL_ID] ?: "" }
-    val liveVoiceConfig: Flow<com.newoether.agora.voice.live.LiveVoiceConfig> =
-        context.dataStore.data.map { pref ->
-            val jsonStr = pref[LIVE_VOICE_CONFIG_JSON] ?: ""
-            if (jsonStr.isBlank()) com.newoether.agora.voice.live.LiveVoiceConfig()
-            else try {
-                json.decodeFromString<com.newoether.agora.voice.live.LiveVoiceConfig>(jsonStr)
-            } catch (e: Exception) {
-                com.newoether.agora.voice.live.LiveVoiceConfig()
-            }
-        }
 
     val appLanguage: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE] ?: "system" }
     val webSearchEnabled: Flow<Boolean> = context.dataStore.data.map { it[WEB_SEARCH_ENABLED] ?: true }
@@ -157,6 +145,8 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     val webSearchBaseUrl: Flow<String> = context.dataStore.data.map { it[WEB_SEARCH_BASE_URL] ?: "" }
 
     // ── Image generation ──────────────────────────────────────
+    val imageQuality = ImageQualitySettingsStore(context.dataStore)
+    val speechRecognition = SpeechRecognitionSettingsStore(context.dataStore)
     val imageGenEnabled: Flow<Boolean> = context.dataStore.data.map { it[IMAGE_GEN_ENABLED] ?: false }
     // Selected image model "Provider:modelId" (null = none chosen). Creds reused from that provider.
     val imageGenModel: Flow<String?> = context.dataStore.data.map { it[IMAGE_GEN_MODEL] }
@@ -172,17 +162,21 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     val conversationSettings: Flow<Map<String, ConversationSettings>> =
         context.dataStore.data.map { preferences -> decodeConversationSettings(preferences, json) }
     val autoCacheEnabled: Flow<Boolean> = context.dataStore.data.map { it[AUTO_CACHE_ENABLED] ?: true }
-    val showUncachedNotification: Flow<Boolean> =
-        context.dataStore.data.map { it[SHOW_UNCACHED_NOTIFICATION] ?: true }
-    val autoUpdateCheck: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_CHECK] ?: true }
+    val showUncachedNotification: Flow<Boolean> = context.dataStore.data.map { it[SHOW_UNCACHED_NOTIFICATION] ?: true }
+    val liveVoiceConfig: Flow<com.newoether.agora.voice.live.LiveVoiceConfig> = liveVoiceStore.liveVoiceConfig
+    val autoUpdateCheck: Flow<Boolean> = kotlinx.coroutines.flow.flowOf(false)
+    suspend fun saveAutoUpdateCheck(enabled: Boolean) {}
     val lastUpdateCheckTime: Flow<Long> = context.dataStore.data.map { it[LAST_UPDATE_CHECK_TIME] ?: 0L }
+    suspend fun saveLastUpdateCheckTime(time: Long) { context.dataStore.edit { it[LAST_UPDATE_CHECK_TIME] = time } }
     val localChatModels: Flow<List<LocalChatModelConfig>> = modelPreferenceStore.localChatModels
-    val localModelIdleRetentionMinutes: Flow<Int> = context.dataStore.data.map {
-        normalizeLocalModelIdleRetentionMinutes(it[LOCAL_MODEL_IDLE_RETENTION_MINUTES])
-    }
-    val localLowContextModeEnabled: Flow<Boolean> = context.dataStore.data.map {
-        it[LOCAL_LOW_CONTEXT_MODE_ENABLED] ?: DEFAULT_LOCAL_LOW_CONTEXT_MODE_ENABLED
-    }
+    val phoneUse = com.newoether.agora.phone.PhoneUseSettingsStore(context.dataStore)
+    val localModelIdleRetentionMinutes: Flow<Int> = modelPreferenceStore.localModelIdleRetentionMinutes
+    val localLowContextModeEnabled: Flow<Boolean> = modelPreferenceStore.localLowContextModeEnabled
+    val localToolIncapableModels: Flow<Set<String>> = modelPreferenceStore.localToolIncapableModels
+    val localInferenceThreads: Flow<Int> = localInferenceStore.inferenceThreads
+    val localKvCacheType: Flow<String> = localInferenceStore.kvCacheType
+    suspend fun markLocalToolIncapableTemplate(modelId: String) =
+        modelPreferenceStore.markLocalToolIncapable(modelId)
     val customProviders: Flow<List<CustomProviderConfig>> = modelPreferenceStore.customProviders
 
     val showDocumentationFab: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DOCUMENTATION_FAB] ?: true }
@@ -212,6 +206,7 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     val askUserTimeoutMinutes: Flow<Int> = context.dataStore.data.map { normalizeAskUserTimeoutMinutes(it[ASK_USER_TIMEOUT_MINUTES]) }
     val todoEnabled: Flow<Boolean> = context.dataStore.data.map { it[TODO_ENABLED] ?: true }
     val subagentToolsEnabled: Flow<Boolean> = context.dataStore.data.map { it[SUBAGENT_TOOLS_ENABLED] ?: true }
+    val subagentDeleteEnabled: Flow<Boolean> = context.dataStore.data.map { it[SUBAGENT_DELETE_ENABLED] ?: false }
     val subagentMaxTotal: Flow<Int> = context.dataStore.data.map { normalizeSubagentMaxTotal(it[SUBAGENT_MAX_TOTAL]) }
     val subagentMaxConcurrent: Flow<Int> = context.dataStore.data.map {
         normalizeSubagentMaxConcurrent(it[SUBAGENT_MAX_CONCURRENT], normalizeSubagentMaxTotal(it[SUBAGENT_MAX_TOTAL]))
@@ -241,6 +236,7 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     val sandboxEnabled: Flow<Boolean> = context.dataStore.data.map { it[SANDBOX_ENABLED] ?: false }
     val sandboxSharedStorageEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[SANDBOX_SHARED_STORAGE_ENABLED] ?: false }
+    val sandboxMirror: Flow<String> = context.dataStore.data.map { it[SANDBOX_MIRROR].orEmpty() }
 
     val themeMode: Flow<String> = context.dataStore.data.map { it[THEME_MODE] ?: "FOLLOW_DEVICE" }
     val amoledEnabled: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_ENABLED] ?: false }
@@ -266,11 +262,6 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     val fontPreference: Flow<String> = context.dataStore.data.map { it[FONT_PREFERENCE] ?: "app_default" }
     val customFontPath: Flow<String> = context.dataStore.data.map { it[CUSTOM_FONT_PATH] ?: "" }
     val customFontName: Flow<String> = context.dataStore.data.map { it[CUSTOM_FONT_NAME] ?: "" }
-    val userBubbleColor: Flow<String> = context.dataStore.data.map { it[USER_BUBBLE_COLOR] ?: "" }
-    val chatBackground: Flow<String> = context.dataStore.data.map { it[CHAT_BACKGROUND] ?: "" }
-    val chatBackgroundOpacity: Flow<Float> = context.dataStore.data.map { it[CHAT_BACKGROUND_OPACITY] ?: 0.3f }
-    val chatBackgroundVideoMuted: Flow<Boolean> = context.dataStore.data.map { it[CHAT_BACKGROUND_VIDEO_MUTED] ?: true }
-    val chatBackgroundVideoLoop: Flow<Boolean> = context.dataStore.data.map { it[CHAT_BACKGROUND_VIDEO_LOOP] ?: true }
     val firstLaunchTime: Flow<Long?> = context.dataStore.data.map { it[FIRST_LAUNCH_TIME] }
     val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { it[ONBOARDING_COMPLETED] ?: false }
     val ratingPromptSubmitted: Flow<Boolean> = context.dataStore.data.map { it[RATING_PROMPT_SUBMITTED] ?: false }
@@ -307,10 +298,12 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     suspend fun saveAvailableModels(provider: String, models: List<String>) =
         modelPreferenceStore.saveAvailableModels(provider, models)
 
+    suspend fun renameProviderModelReferences(oldName: String, newName: String) = modelPreferenceStore.renameProviderModelReferences(oldName, newName)
+
     suspend fun saveCustomModels(models: Set<String>) =
         modelPreferenceStore.saveCustomModels(models)
 
-    suspend fun addCustomModel(modelId: String, alias: String, showProviderName: Boolean = true) =
+    suspend fun addCustomModel(modelId: String, alias: String, showProviderName: Boolean = providerNameShownByDefault(modelId)) =
         modelPreferenceStore.addCustomModel(modelId, alias, showProviderName)
 
     suspend fun replaceCustomModel(
@@ -424,26 +417,15 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     suspend fun saveShowUncachedNotification(enabled: Boolean) {
         context.dataStore.edit { it[SHOW_UNCACHED_NOTIFICATION] = enabled }
     }
-    suspend fun saveAutoUpdateCheck(enabled: Boolean) {
-        context.dataStore.edit { it[AUTO_UPDATE_CHECK] = enabled }
-    }
-    suspend fun saveLastUpdateCheckTime(time: Long) {
-        context.dataStore.edit { it[LAST_UPDATE_CHECK_TIME] = time }
-    }
-    suspend fun saveModelSearchMethod(method: String) {
-        context.dataStore.edit { it[MODEL_SEARCH_METHOD] = method }
-    }
-    suspend fun saveManualSearchMethod(method: String) {
-        context.dataStore.edit { it[MANUAL_SEARCH_METHOD] = method }
-    }
+    suspend fun saveLiveVoiceConfig(config: com.newoether.agora.voice.live.LiveVoiceConfig) = liveVoiceStore.saveLiveVoiceConfig(config)
+    suspend fun saveModelSearchMethod(method: String) { context.dataStore.edit { it[MODEL_SEARCH_METHOD] = method } }
+    suspend fun saveAttachmentMode(mode: String) = attachmentStore.saveAttachmentMode(mode)
+    suspend fun saveManualSearchMethod(method: String) { context.dataStore.edit { it[MANUAL_SEARCH_METHOD] = method } }
     suspend fun saveEmbeddingModels(models: List<EmbeddingModelConfig>) {
         context.dataStore.edit { it[EMBEDDING_MODELS_JSON] = json.encodeToString(models) }
     }
     suspend fun setActiveEmbeddingModelId(id: String) {
         context.dataStore.edit { it[ACTIVE_EMBEDDING_MODEL_ID] = id }
-    }
-    suspend fun saveLiveVoiceConfig(config: com.newoether.agora.voice.live.LiveVoiceConfig) {
-        context.dataStore.edit { it[LIVE_VOICE_CONFIG_JSON] = json.encodeToString(config) }
     }
     suspend fun saveAppLanguage(language: String) {
         context.dataStore.edit { it[APP_LANGUAGE] = language }
@@ -552,16 +534,13 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     suspend fun saveLocalChatModels(models: List<LocalChatModelConfig>) =
         modelPreferenceStore.saveLocalChatModels(models)
 
-    suspend fun saveLocalModelIdleRetentionMinutes(minutes: Int) {
-        context.dataStore.edit {
-            it[LOCAL_MODEL_IDLE_RETENTION_MINUTES] =
-                normalizeLocalModelIdleRetentionMinutes(minutes)
-        }
-    }
+    suspend fun saveLocalModelIdleRetentionMinutes(minutes: Int) =
+        modelPreferenceStore.saveLocalModelIdleRetentionMinutes(minutes)
 
-    suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[LOCAL_LOW_CONTEXT_MODE_ENABLED] = enabled }
-    }
+    suspend fun saveLocalLowContextModeEnabled(enabled: Boolean) =
+        modelPreferenceStore.saveLocalLowContextModeEnabled(enabled)
+    suspend fun saveLocalInferenceThreads(threads: Int) = localInferenceStore.saveInferenceThreads(threads)
+    suspend fun saveLocalKvCacheType(type: String) = localInferenceStore.saveKvCacheType(type)
 
     suspend fun saveCustomProviders(providers: List<CustomProviderConfig>) =
         modelPreferenceStore.saveCustomProviders(providers)
@@ -611,9 +590,10 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
             else it[TITLE_GENERATION_PROMPT] = prompt
         }
     }
-    suspend fun saveImageTranscriptionEnabledModels(models: Set<String>) {
+    suspend fun saveImageTranscriptionEnabledModels(models: Set<String>) =
         context.dataStore.edit { it[IMAGE_TRANSCRIPTION_ENABLED_MODELS] = models }
-    }
+    suspend fun saveReplayReasoningInHistory(enabled: Boolean) =
+        context.dataStore.edit { it[REPLAY_REASONING_IN_HISTORY] = enabled }
     suspend fun saveImageTranscriptionEnabled(enabled: Boolean) {
         context.dataStore.edit { it[IMAGE_TRANSCRIPTION_ENABLED] = enabled }
     }
@@ -698,6 +678,7 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     suspend fun saveSubagentToolsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[SUBAGENT_TOOLS_ENABLED] = enabled }
     }
+    suspend fun saveSubagentDeleteEnabled(enabled: Boolean) { context.dataStore.edit { it[SUBAGENT_DELETE_ENABLED] = enabled } }
     suspend fun saveShellDevices(devices: List<ShellDeviceConfig>) {
         context.dataStore.edit { it[SHELL_DEVICES_JSON] = encryptShellDevices(devices, json) }
     }
@@ -712,6 +693,65 @@ class SettingsManager(private val context: Context) : SettingsManagerAppearanceB
     }
     suspend fun saveSandboxSharedStorageEnabled(enabled: Boolean) {
         context.dataStore.edit { it[SANDBOX_SHARED_STORAGE_ENABLED] = enabled }
+    }
+    suspend fun saveSandboxMirror(id: String) {
+        context.dataStore.edit { it[SANDBOX_MIRROR] = id }
+    }
+    suspend fun saveThemeMode(mode: String) {
+        context.dataStore.edit { it[THEME_MODE] = mode }
+    }
+    suspend fun saveAmoledEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[AMOLED_ENABLED] = enabled }
+    }
+    suspend fun saveColorScheme(scheme: String) {
+        context.dataStore.edit { it[COLOR_SCHEME] = scheme }
+    }
+    suspend fun saveDynamicColor(enabled: Boolean) {
+        context.dataStore.edit { it[DYNAMIC_COLOR] = enabled }
+    }
+    suspend fun saveBlurEffectsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[BLUR_EFFECTS_ENABLED] = enabled }
+    }
+    suspend fun saveReduceMotion(enabled: Boolean) {
+        context.dataStore.edit { it[REDUCE_MOTION] = enabled }
+    }
+    suspend fun saveStickToBottom(enabled: Boolean) {
+        context.dataStore.edit { it[STICK_TO_BOTTOM] = enabled }
+    }
+    suspend fun saveParseInlineDollarMath(enabled: Boolean) {
+        context.dataStore.edit { it[PARSE_INLINE_DOLLAR_MATH] = enabled }
+    }
+    suspend fun saveAutoWrapCodeBlocks(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_WRAP_CODE_BLOCKS] = enabled }
+    }
+    suspend fun saveHapticsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[HAPTICS_ENABLED] = enabled }
+    }
+    suspend fun saveDetailedTokenUsage(enabled: Boolean) {
+        context.dataStore.edit { it[DETAILED_TOKEN_USAGE] = enabled }
+    }
+    suspend fun saveToolCallDisplayMode(mode: String) {
+        context.dataStore.edit { it[TOOL_CALL_DISPLAY_MODE] = ToolCallDisplayModes.normalize(mode) }
+    }
+    suspend fun saveThinkingSegmentDisplayMode(mode: String) {
+        context.dataStore.edit {
+            it[THINKING_SEGMENT_DISPLAY_MODE] = ThinkingSegmentDisplayModes.normalize(mode)
+        }
+    }
+    suspend fun saveAutoExpandActiveGroup(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_EXPAND_ACTIVE_GROUP] = enabled }
+    }
+    suspend fun saveFontPreference(value: String) {
+        context.dataStore.edit { it[FONT_PREFERENCE] = value }
+    }
+    suspend fun saveCustomFontPath(value: String) {
+        context.dataStore.edit { it[CUSTOM_FONT_PATH] = value }
+    }
+    suspend fun saveCustomFontName(value: String) {
+        context.dataStore.edit { it[CUSTOM_FONT_NAME] = value }
+    }
+    suspend fun saveSchemeStyle(style: String) {
+        context.dataStore.edit { it[SCHEME_STYLE] = style }
     }
     suspend fun saveFirstLaunchTime(time: Long) {
         context.dataStore.edit { it[FIRST_LAUNCH_TIME] = time }
