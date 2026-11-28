@@ -684,11 +684,16 @@ fun ChatApp(
                     )
                 },
             ) {
-                                ChatBottomBar(
+                androidx.compose.foundation.layout.Column {
+                    com.newoether.agora.ui.chat.bottombar.LiveVoiceTranscriptBar()
+                    ChatBottomBar(
                         submissionController = viewModel.conversationComposerSubmission,
                         composerOwnerId = composerOwnerId,
                         composerController = viewModel.conversationComposer,
                         composerSnapshot = composerSnapshot,
+                        liveVoiceButton = {
+                            com.newoether.agora.ui.chat.bottombar.ComposerLiveVoiceButton(viewModel)
+                        },
                         onStopGeneration = {
                             haptics.interrupt()
                             viewModel.stopGeneration()
@@ -727,12 +732,7 @@ fun ChatApp(
                         showLowContextMode = conversationControls.showLowContextMode,
                         lowContextModeEnabled = conversationControls.lowContextModeEnabled,
                         selectedModelToolIncapable = selectedModelToolIncapable,
-                        onLowContextModeToggle = { enabled ->
-                            haptics.toggle(enabled)
-                            viewModel.updateConversationSetting(conversationControls.settingsOwnerId) {
-                                it.copy(lowContextModeEnabled = enabled)
-                            }
-                        },
+                        onLowContextModeToggle = { enabled -> haptics.toggle(enabled); viewModel.updateConversationSetting(conversationControls.settingsOwnerId) { it.copy(lowContextModeEnabled = enabled) } },
                         // The model row owns its selection tick. Repeating it here produced the
                         // previous double buzz for one physical tap.
                         onModelSelect = { viewModel.setActiveModel(it) },
@@ -774,6 +774,7 @@ fun ChatApp(
                         onRemoveQueuedSend = viewModel::removeQueuedSend, onSendQueuedNow = viewModel::sendQueuedNow,
                         isStopping = isStopping,
                     )
+                }
             }
             }
         }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_live_voice">Live Voice</string>
+    <string name="settings_live_voice_desc">Realtime two-way voice (Live API)</string>
+    <string name="live_voice_enable">Enable Live Voice</string>
+    <string name="live_voice_enable_desc">Talk to Agora in real time using a provider\'s Live API</string>
+    <string name="live_voice_provider">Provider</string>
+    <string name="live_voice_model">Live model</string>
+    <string name="live_voice_no_models">No Live-capable models found — fetch models or type an id below</string>
+    <string name="live_voice_voice">Voice</string>
+    <string name="live_voice_system_instruction">System instruction</string>
+    <string name="live_voice_system_instruction_hint">Optional persona/instructions for the voice session</string>
+    <string name="live_voice_start">Start session</string>
+    <string name="live_voice_connecting">Connecting…</string>
+    <string name="live_voice_stop">Stop session</string>
+    <string name="live_voice_needs_key">No API key for the Live Voice provider. Add one in Settings.</string>
+    <string name="live_voice_title">Live Voice</string>
+    <string name="live_voice_start_first">Start Live Voice first to stream video.</string>
+    <string name="live_voice_error">Live Voice error: %1$s</string>
+</resources>

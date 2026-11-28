@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fileserver_title">File Server</string>
+    <string name="settings_fileserver">File Server</string>
+    <string name="settings_fileserver_desc">Share a folder over your local network</string>
+    <string name="settings_scanner">Network Scanner</string>
+    <string name="settings_scanner_desc">Discover hosts, ports, and services on your LAN</string>
+    <string name="fileserver_notification_channel">File Server</string>
+    <string name="fileserver_notification_title">File Server Running</string>
+    <string name="fileserver_notification_running">Serving at %1$s</string>
+    <string name="fileserver_notification_stop">Stop</string>
+    <string name="fileserver_running">Server running</string>
+    <string name="fileserver_copy_url">Copy URL</string>
+    <string name="fileserver_url_copied">URL copied</string>
+    <string name="fileserver_shared_directory">Shared directory</string>
+    <string name="fileserver_path">Path</string>
+    <string name="fileserver_path_placeholder">Tap “Use Agora storage” or Browse…</string>
+    <string name="fileserver_browse">Browse…</string>
+    <string name="fileserver_use_agora_storage">Use Agora storage</string>
+    <string name="fileserver_port">Port</string>
+    <string name="fileserver_https">HTTPS (self-signed)</string>
+    <string name="fileserver_pin">PIN (optional)</string>
+    <string name="fileserver_pin_placeholder">Leave empty for no auth</string>
+    <string name="fileserver_start">Start Server</string>
+    <string name="fileserver_stop">Stop Server</string>
+    <string name="fileserver_select_dir_first">Select a directory first</string>
+    <string name="fileserver_help">Serves files from the selected directory over your local network. Other devices on the same Wi-Fi can access them by opening the URL in a browser. Note: Android scoped storage lets Agora read most folders but only write to folders it owns (its own app storage or Download), so uploads to other apps\u2019 folders will be rejected.</string>
+</resources>

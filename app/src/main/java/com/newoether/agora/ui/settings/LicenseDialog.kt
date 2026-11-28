@@ -22,7 +22,7 @@ import com.newoether.agora.R
 import com.newoether.agora.ui.components.clearFocusOnTap
 
 private const val LICENSE_ASSET = "licenses/LICENSE-GPL-3.0.txt"
-private const val LICENSE_URL = "https://github.com/newo-ether/Agora/blob/master/LICENSE"
+private const val LICENSE_URL = "https://github.com/XNet-NGO/Agora/blob/master/LICENSE"
 
 /**
  * Shows the license text that ships inside the APK, so a recipient can read it without

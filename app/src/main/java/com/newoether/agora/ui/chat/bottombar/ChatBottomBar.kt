@@ -146,6 +146,7 @@ internal fun ChatBottomBar(
     showWebSearch: Boolean = true,
     showShell: Boolean = true,
     onAdvancedClick: () -> Unit = {},
+    liveVoiceButton: @Composable () -> Unit = {},
     onToolsClick: () -> Unit = {},
     compactDefaultModel: String? = null,
     compactDefaultPrompt: String = "",
@@ -500,6 +501,7 @@ internal fun ChatBottomBar(
                     },
                     onFiles = { pendingFileOwnerId = composerOwnerId; fileLauncher.launch("*/*") },
                 )
+                liveVoiceButton()
                 val activeMenuState = remember { mutableStateOf<String?>(null) }
                 var activeMenu by activeMenuState
                 var lastModelDismissTime by remember { mutableLongStateOf(0L) }

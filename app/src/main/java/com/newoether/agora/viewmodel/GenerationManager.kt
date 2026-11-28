@@ -66,7 +66,7 @@ class GenerationManager(
         description: String,
     ) -> Boolean)? = null
 
-    private val toolExecutor = GenerationToolExecutor.createDefault(
+    internal val toolExecutor = GenerationToolExecutor.createDefault(
         app = app,
         conversations = conversations,
         memoryManager = memoryManager,

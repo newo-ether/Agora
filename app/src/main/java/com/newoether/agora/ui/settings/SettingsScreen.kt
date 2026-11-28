@@ -266,6 +266,7 @@ internal val baseSettingsGroups = listOf(
     SettingsGroupData(titleRes = R.string.settings_group_multimodal, items = listOf(
         SettingsCategory("transcription", R.string.settings_transcription, R.string.settings_transcription_desc, Icons.Rounded.ImageSearch),
         SettingsCategory("imagegen", R.string.settings_image_gen, R.string.settings_image_gen_desc, Icons.Rounded.AddPhotoAlternate),
+        SettingsCategory("livevoice", R.string.settings_live_voice, R.string.settings_live_voice_desc, Icons.Rounded.GraphicEq),
         SettingsCategory("speechrecognition", R.string.settings_speech_recognition, R.string.settings_speech_recognition_desc, Icons.Rounded.Mic),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_tools, items = listOf(
@@ -283,10 +284,13 @@ internal val baseSettingsGroups = listOf(
         SettingsCategory("todo", R.string.settings_todo, R.string.settings_todo_desc, Icons.Rounded.Checklist),
         SettingsCategory("subagents", R.string.settings_subagents, R.string.settings_subagents_desc, Icons.Rounded.AccountTree),
         SettingsCategory("interaction", R.string.settings_interaction, R.string.settings_interaction_desc, Icons.Rounded.QuestionAnswer),
+        SettingsCategory("assistant", R.string.settings_assistant, R.string.settings_assistant_desc, Icons.Rounded.Assistant),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_network, items = listOf(
         SettingsCategory("proxy", R.string.settings_proxy, R.string.settings_proxy_desc, Icons.Rounded.Lan),
         SettingsCategory("webui", R.string.settings_webui, R.string.settings_webui_desc, Icons.Rounded.Web),
+        SettingsCategory("fileserver", R.string.settings_fileserver, R.string.settings_fileserver_desc, Icons.Rounded.Folder),
+        SettingsCategory("scanner", R.string.settings_scanner, R.string.settings_scanner_desc, Icons.Rounded.Wifi),
     )),
     SettingsGroupData(titleRes = R.string.settings_group_memory_data, items = listOf(
         SettingsCategory("memory", R.string.settings_memory, R.string.settings_memory_desc, Icons.Rounded.Description),
