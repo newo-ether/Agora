@@ -56,6 +56,7 @@ class PhoneOverlayThemeTest {
         every { amoledEnabled } returns MutableStateFlow(false)
         every { fontPreference } returns MutableStateFlow("app_default")
         every { customFontPath } returns MutableStateFlow("")
+        every { codeBlockFontSizeSp } returns MutableStateFlow(14)
         every { reduceMotion } returns MutableStateFlow(false)
     }
 

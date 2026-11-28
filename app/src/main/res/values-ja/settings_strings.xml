@@ -462,6 +462,9 @@
     <string name="parse_inline_dollar_math_desc">無効にすると、$ x $ のようなドル記号1つの式は通常のテキストとして表示されます。他の数式デリミターは影響を受けません。</string>
     <string name="auto_wrap_code_blocks">コードブロックの自動折り返し</string>
     <string name="auto_wrap_code_blocks_desc">コードブロック内の長い行は横スクロールせず折り返して表示します。</string>
+    <string name="code_block_font_size">コードフォントサイズ</string>
+    <string name="code_block_font_size_desc">チャット画面のコードブロック内の文字サイズを調整します。</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">モーションを減らす</string>
     <string name="reduce_motion_desc">継続的な動きや大きな空間移動を減らし、フェード、直接操作、必要な状態フィードバックは維持します。</string>
 

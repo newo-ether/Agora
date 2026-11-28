@@ -454,6 +454,9 @@
     <string name="parse_inline_dollar_math_desc">關閉後，$ x $ 這類單美元符號運算式會以一般文字顯示，其他數學公式分隔符不受影響。</string>
     <string name="auto_wrap_code_blocks">程式碼區塊自動換行</string>
     <string name="auto_wrap_code_blocks_desc">開啟後，程式碼區塊中的長行自動換行顯示；關閉後恢復橫向捲動。</string>
+    <string name="code_block_font_size">程式碼字體大小</string>
+    <string name="code_block_font_size_desc">調整聊天頁面獨立程式碼區塊中的字體大小。</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">減少動態效果</string>
     <string name="reduce_motion_desc">減少持續運動和大範圍空間位移，同時保留淡入淡出、直接手勢和必要的狀態回饋。</string>
     <string name="message_display">訊息顯示</string>

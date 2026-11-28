@@ -91,7 +91,11 @@ fun TextFileViewer(
             h4 = scaledMarkdownTextStyle(t.titleMedium.copy(fontWeight = FontWeight.Bold)),
             h5 = scaledMarkdownTextStyle(t.titleSmall.copy(fontWeight = FontWeight.Bold)),
             h6 = scaledMarkdownTextStyle(t.titleSmall.copy(fontWeight = FontWeight.Bold)),
-            code = scaledMarkdownTextStyle(t.bodyMedium.copy(fontSize = 13.sp)),
+            code = scaledMarkdownTextStyle(
+                com.newoether.agora.ui.theme.codeBlockTextStyle(
+                    com.newoether.agora.ui.theme.LocalCodeBlockFontSizeSp.current,
+                ),
+            ),
             inlineCode = scaledMarkdownTextStyle(t.bodyMedium.copy(fontSize = 13.sp)),
             textLink = linkTextStyles,
             table = viewerBodyStyle,

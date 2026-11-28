@@ -257,6 +257,7 @@ class SettingsSubagentPageTest {
         every { settings.stickToBottom } returns MutableStateFlow(true)
         every { settings.parseInlineDollarMath } returns MutableStateFlow(false)
         every { settings.autoWrapCodeBlocks } returns MutableStateFlow(false)
+        every { settings.codeBlockFontSizeSp } returns MutableStateFlow(14)
         every { settings.hapticsEnabled } returns MutableStateFlow(false)
         every { settings.toolCallDisplayMode } returns MutableStateFlow("expanded")
         every { settings.thinkingSegmentDisplayMode } returns MutableStateFlow("card")

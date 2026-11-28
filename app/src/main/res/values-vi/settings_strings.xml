@@ -457,6 +457,9 @@
     <string name="parse_inline_dollar_math_desc">Khi tắt, biểu thức một dấu $ như $ x $ sẽ là văn bản thường. Các ký tự phân cách công thức khác không đổi.</string>
     <string name="auto_wrap_code_blocks">Tự xuống dòng trong khối mã</string>
     <string name="auto_wrap_code_blocks_desc">Dòng dài trong khối mã sẽ xuống dòng thay vì cuộn ngang.</string>
+    <string name="code_block_font_size">Cỡ chữ khối mã</string>
+    <string name="code_block_font_size_desc">Điều chỉnh cỡ chữ bên trong các khối mã độc lập trong cuộc trò chuyện.</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">Giảm chuyển động</string>
     <string name="reduce_motion_desc">Giảm chuyển động liên tục và dịch chuyển không gian lớn, đồng thời giữ hiệu ứng mờ dần, cử chỉ trực tiếp và phản hồi trạng thái hữu ích.</string>
     <string name="interaction_feedback">Phản hồi tương tác</string>

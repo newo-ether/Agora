@@ -462,6 +462,9 @@
     <string name="parse_inline_dollar_math_desc">Если отключено, выражения с одиночным знаком доллара, например $ x $, остаются обычным текстом. Другие математические разделители не меняются.</string>
     <string name="auto_wrap_code_blocks">Автоперенос строк в блоках кода</string>
     <string name="auto_wrap_code_blocks_desc">Длинные строки в блоках кода переносятся вместо горизонтальной прокрутки.</string>
+    <string name="code_block_font_size">Размер шрифта кода</string>
+    <string name="code_block_font_size_desc">Изменяет размер текста в отдельных блоках кода в чате.</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">Уменьшить движение</string>
     <string name="reduce_motion_desc">Уменьшает непрерывное движение и крупные пространственные перемещения, сохраняя переходы прозрачности, прямые жесты и полезную обратную связь о состоянии.</string>
 

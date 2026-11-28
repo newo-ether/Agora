@@ -466,6 +466,9 @@
     <string name="parse_inline_dollar_math_desc">关闭后，$ x $ 这类单美元符号表达式将按普通文本显示，其他数学公式分隔符不受影响。</string>
     <string name="auto_wrap_code_blocks">代码块自动换行</string>
     <string name="auto_wrap_code_blocks_desc">开启后，代码块中的长行自动换行显示；关闭后恢复横向滚动。</string>
+    <string name="code_block_font_size">代码块字体大小</string>
+    <string name="code_block_font_size_desc">调整聊天页面独立代码块中的字体大小。</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">减少动态效果</string>
     <string name="reduce_motion_desc">减少持续运动和大范围空间位移，同时保留淡入淡出、直接手势和必要的状态反馈。</string>
     <string name="message_display">消息显示</string>

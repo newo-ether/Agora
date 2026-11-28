@@ -462,6 +462,9 @@
     <string name="parse_inline_dollar_math_desc">Quando desativado, expressões com cifrão simples como $ x $ permanecem como texto normal. Outros delimitadores matemáticos não mudam.</string>
     <string name="auto_wrap_code_blocks">Ajustar blocos de código automaticamente</string>
     <string name="auto_wrap_code_blocks_desc">As linhas longas dentro dos blocos de código são ajustadas em vez de rolar horizontalmente.</string>
+    <string name="code_block_font_size">Tamanho da fonte do código</string>
+    <string name="code_block_font_size_desc">Ajusta o tamanho do texto nos blocos de código independentes no chat.</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">Reduzir movimento</string>
     <string name="reduce_motion_desc">Reduz movimentos contínuos e grandes deslocamentos espaciais, mantendo transições por opacidade, gestos diretos e feedbacks úteis de estado.</string>
 

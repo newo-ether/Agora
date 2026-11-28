@@ -474,6 +474,9 @@
     <string name="parse_inline_dollar_math_desc">When disabled, single-dollar expressions such as $ x $ remain ordinary text. Other math delimiters are unchanged.</string>
     <string name="auto_wrap_code_blocks">Auto Wrap Code Blocks</string>
     <string name="auto_wrap_code_blocks_desc">Wrap long lines inside code blocks instead of scrolling them horizontally.</string>
+    <string name="code_block_font_size">Code Font Size</string>
+    <string name="code_block_font_size_desc">Adjust text size inside standalone code blocks in chat.</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">Reduce Motion</string>
     <string name="reduce_motion_desc">Reduce continuous and large spatial motion while keeping fades, direct gestures, and useful state feedback.</string>
     <string name="interaction_feedback">Interaction Feedback</string>

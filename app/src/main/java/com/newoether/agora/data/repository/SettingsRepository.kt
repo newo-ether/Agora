@@ -235,6 +235,7 @@ class SettingsRepository(
     val stickToBottom: StateFlow<Boolean> = publication.hot(settingsManager.stickToBottom, true)
     val parseInlineDollarMath: StateFlow<Boolean> = publication.hot(settingsManager.parseInlineDollarMath, false)
     val autoWrapCodeBlocks: StateFlow<Boolean> = publication.hot(settingsManager.autoWrapCodeBlocks, true)
+    val codeBlockFontSizeSp: StateFlow<Int> = codeBlockFontSizeSpFlow()
     val hapticsEnabled: StateFlow<Boolean> = publication.hot(settingsManager.hapticsEnabled, true)
     val detailedTokenUsage: StateFlow<Boolean> = publication.hot(settingsManager.detailedTokenUsage, false)
     val toolCallDisplayMode: StateFlow<String> = publication.hot(settingsManager.toolCallDisplayMode, ToolCallDisplayModes.DEFAULT)
@@ -682,8 +683,7 @@ class SettingsRepository(
     fun setBlurEffectsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveBlurEffectsEnabled(enabled) }
     fun setReduceMotion(enabled: Boolean) = scope.launch { settingsManager.saveReduceMotion(enabled) }
     fun setStickToBottom(enabled: Boolean) = scope.launch { settingsManager.saveStickToBottom(enabled) }
-    fun setParseInlineDollarMath(enabled: Boolean) =
-        scope.launch { settingsManager.saveParseInlineDollarMath(enabled) }
+    fun setParseInlineDollarMath(enabled: Boolean) = scope.launch { settingsManager.saveParseInlineDollarMath(enabled) }
     fun setAutoWrapCodeBlocks(enabled: Boolean) = scope.launch { settingsManager.saveAutoWrapCodeBlocks(enabled) }
     fun setHapticsEnabled(enabled: Boolean) = scope.launch { settingsManager.saveHapticsEnabled(enabled) }
     fun setDetailedTokenUsage(enabled: Boolean) =

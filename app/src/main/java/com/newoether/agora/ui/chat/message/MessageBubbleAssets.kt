@@ -42,6 +42,9 @@ import com.newoether.agora.ui.components.latexSourceForLink
 import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
 import com.newoether.agora.ui.chat.visibleMarkdownMatchRanges
 import com.newoether.agora.ui.theme.ChatType
+import com.newoether.agora.ui.theme.LocalCodeBlockFontSizeSp
+import com.newoether.agora.ui.theme.codeBlockTextStyle
+import com.newoether.agora.ui.theme.thoughtCodeBlockTextStyle
 import com.mikepenz.markdown.compose.LocalImageTransformer
 import com.mikepenz.markdown.compose.LocalMarkdownColors
 import com.mikepenz.markdown.compose.LocalMarkdownDimens
@@ -160,6 +163,7 @@ internal fun rememberChatMarkdownAssets(
     // a visible but not jarring hierarchy during long-form reading.
     val markdownBodyStyle = scaledMarkdownTextStyle(ChatType.body)
     val thoughtMarkdownBodyStyle = scaledMarkdownTextStyle(ChatType.thoughtBody)
+    val codeBlockFontSizeSp = LocalCodeBlockFontSizeSp.current
     val customTypography = markdownTypography(
         text = markdownBodyStyle,
         paragraph = markdownBodyStyle,
@@ -172,7 +176,7 @@ internal fun rememberChatMarkdownAssets(
         h4 = scaledMarkdownTextStyle(ChatType.mdH4),
         h5 = scaledMarkdownTextStyle(ChatType.mdH5),
         h6 = scaledMarkdownTextStyle(ChatType.mdH6),
-        code = scaledMarkdownTextStyle(ChatType.code),
+        code = scaledMarkdownTextStyle(codeBlockTextStyle(codeBlockFontSizeSp)),
         inlineCode = scaledMarkdownTextStyle(ChatType.code),
         textLink = linkTextStyles,
         table = markdownBodyStyle,
@@ -191,7 +195,7 @@ internal fun rememberChatMarkdownAssets(
         h4 = scaledMarkdownTextStyle(ChatType.thH4),
         h5 = scaledMarkdownTextStyle(ChatType.thH5),
         h6 = scaledMarkdownTextStyle(ChatType.thH6),
-        code = scaledMarkdownTextStyle(ChatType.thoughtCode),
+        code = scaledMarkdownTextStyle(thoughtCodeBlockTextStyle(codeBlockFontSizeSp)),
         inlineCode = scaledMarkdownTextStyle(ChatType.thoughtCode),
         textLink = linkTextStyles,
         table = thoughtMarkdownBodyStyle,
@@ -416,6 +420,7 @@ internal fun rememberChatMarkdownAssets(
         markdownFlavour,
         parseInlineDollarMath,
         preparedMarkdown,
+        autoWrapCodeBlocks,
     ) {
         ChatMarkdownRenderContext(
             colors = customMarkdownColors,
@@ -427,6 +432,7 @@ internal fun rememberChatMarkdownAssets(
             flavour = markdownFlavour,
             plainTextStyle = markdownBodyStyle,
             parseInlineDollarMath = parseInlineDollarMath,
+            autoWrapCodeBlocks = autoWrapCodeBlocks,
             preparedMarkdown = preparedMarkdown,
         )
     }
@@ -439,6 +445,7 @@ internal fun rememberChatMarkdownAssets(
         markdownFlavour,
         parseInlineDollarMath,
         preparedMarkdown,
+        autoWrapCodeBlocks,
     ) {
         ChatMarkdownRenderContext(
             colors = customMarkdownColors,
@@ -450,6 +457,7 @@ internal fun rememberChatMarkdownAssets(
             flavour = markdownFlavour,
             plainTextStyle = thoughtMarkdownBodyStyle,
             parseInlineDollarMath = parseInlineDollarMath,
+            autoWrapCodeBlocks = autoWrapCodeBlocks,
             preparedMarkdown = preparedMarkdown,
         )
     }

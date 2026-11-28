@@ -100,6 +100,7 @@ internal fun clearPortableSettings(prefs: MutablePreferences) {
     prefs.remove(STICK_TO_BOTTOM)
     prefs.remove(PARSE_INLINE_DOLLAR_MATH)
     prefs.remove(AUTO_WRAP_CODE_BLOCKS)
+    prefs.remove(CODE_BLOCK_FONT_SIZE_SP)
     prefs.remove(HAPTICS_ENABLED)
     prefs.remove(DETAILED_TOKEN_USAGE)
     prefs.remove(TOOL_CALL_DISPLAY_MODE)

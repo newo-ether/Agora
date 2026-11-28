@@ -462,6 +462,9 @@
     <string name="parse_inline_dollar_math_desc">끄면 $ x $처럼 달러 기호 한 개인 식은 일반 텍스트로 남습니다. 다른 수식 구분 기호는 그대로입니다.</string>
     <string name="auto_wrap_code_blocks">코드 블록 자동 줄바꿈</string>
     <string name="auto_wrap_code_blocks_desc">코드 블록의 긴 줄은 가로 스크롤 대신 자동 줄바꿈으로 표시됩니다.</string>
+    <string name="code_block_font_size">코드 글꼴 크기</string>
+    <string name="code_block_font_size_desc">채팅 화면의 코드 블록 글자 크기를 조절합니다.</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">모션 줄이기</string>
     <string name="reduce_motion_desc">지속적인 움직임과 큰 공간 이동을 줄이면서 페이드, 직접 제스처, 유용한 상태 피드백은 유지합니다.</string>
 

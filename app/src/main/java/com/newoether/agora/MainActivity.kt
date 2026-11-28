@@ -39,6 +39,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.newoether.agora.data.SettingsManager
+import com.newoether.agora.data.codeBlockFontSizeSp
 import com.newoether.agora.service.AgoraForegroundService
 import com.newoether.agora.service.AppForegroundTracker
 import com.newoether.agora.ui.chat.ChatApp
@@ -141,6 +142,7 @@ class MainActivity : ComponentActivity() {
             val dynamicColor by settingsManager.dynamicColor.collectAsState(initial = com.newoether.agora.data.DEFAULT_DYNAMIC_COLOR)
             val fontPreference by settingsManager.fontPreference.collectAsState(initial = "app_default")
             val customFontPath by settingsManager.customFontPath.collectAsState(initial = "")
+            val codeBlockFontSizeSp by settingsManager.codeBlockFontSizeSp.collectAsState(initial = com.newoether.agora.data.DEFAULT_CODE_BLOCK_FONT_SIZE_SP)
             val appReduceMotion by settingsManager.reduceMotion.collectAsState(initial = false)
 
             val themeModeEnum = try { com.newoether.agora.ui.theme.ThemeMode.valueOf(themeMode) } catch (_: Exception) { com.newoether.agora.ui.theme.ThemeMode.FOLLOW_DEVICE }
@@ -168,7 +170,8 @@ class MainActivity : ComponentActivity() {
                 schemeStyle = schemeStyle,
                 dynamicColor = dynamicColor,
                 fontPreference = fontPreference,
-                customFontPath = customFontPath
+                customFontPath = customFontPath,
+                codeBlockFontSizeSp = codeBlockFontSizeSp,
             ) {
                 ProvideAgoraMotionPolicy(appReduceMotion = appReduceMotion) {
                 val activity = LocalActivity.current

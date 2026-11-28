@@ -462,6 +462,9 @@
     <string name="parse_inline_dollar_math_desc">Si elle est désactivée, les expressions à dollar simple comme $ x $ restent du texte ordinaire. Les autres délimiteurs mathématiques ne changent pas.</string>
     <string name="auto_wrap_code_blocks">Retour automatique à la ligne des blocs de code</string>
     <string name="auto_wrap_code_blocks_desc">Les lignes longues des blocs de code reviennent à la ligne au lieu de défiler horizontalement.</string>
+    <string name="code_block_font_size">Taille de police du code</string>
+    <string name="code_block_font_size_desc">Ajuste la taille du texte dans les blocs de code indépendants du chat.</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">Réduire les animations</string>
     <string name="reduce_motion_desc">Réduit les mouvements continus et les grands déplacements spatiaux, tout en conservant les fondus, les gestes directs et les retours d’état utiles.</string>
 

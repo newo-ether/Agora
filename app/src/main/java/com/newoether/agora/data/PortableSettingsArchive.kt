@@ -165,6 +165,7 @@ internal object PortableSettingsArchive {
         put("stickToBottom", JsonPrimitive(sm.stickToBottom.first()))
         put("parseInlineDollarMath", JsonPrimitive(sm.parseInlineDollarMath.first()))
         put("autoWrapCodeBlocks", JsonPrimitive(sm.autoWrapCodeBlocks.first()))
+        put("codeBlockFontSizeSp", JsonPrimitive(sm.codeBlockFontSizeSp.first()))
         put("hapticsEnabled", JsonPrimitive(sm.hapticsEnabled.first()))
         put("detailedTokenUsage", JsonPrimitive(sm.detailedTokenUsage.first()))
         put("toolCallDisplayMode", JsonPrimitive(sm.toolCallDisplayMode.first()))
@@ -532,6 +533,40 @@ internal object PortableSettingsArchive {
             )
         }
 
+        restoreProxyAppearanceAndDefaults(
+            obj = obj,
+            sm = sm,
+            replace = replace,
+            restoredCustomFont = restoredCustomFont,
+            previousFontPath = previousFontPath,
+            previousFontName = previousFontName,
+        )
+
+        val activePromptKey = when {
+            obj.containsKey("activeSystemPromptId") -> "activeSystemPromptId"
+            obj.containsKey("active_system_prompt_id") -> "active_system_prompt_id"
+            else -> null
+        }
+        if (activePromptKey != null) {
+            sm.setActiveSystemPromptId(
+                resolveSystemPromptId(obj.nullableString(activePromptKey)),
+            )
+        } else if (replace) {
+            sm.setActiveSystemPromptId(null)
+        }
+
+        sm.invalidatePortableModelCaches()
+        return warnings
+    }
+
+    private suspend fun restoreProxyAppearanceAndDefaults(
+        obj: JsonObject,
+        sm: SettingsManager,
+        replace: Boolean,
+        restoredCustomFont: RestoredCustomFont?,
+        previousFontPath: String,
+        previousFontName: String,
+    ) {
         obj.boolean("proxyEnabled")?.let { sm.saveProxyEnabled(it) }
         obj.string("proxyType")?.let { sm.saveProxyType(it) }
         obj.string("proxyHost")?.let { sm.saveProxyHost(it) }
@@ -549,6 +584,7 @@ internal object PortableSettingsArchive {
         obj.boolean("stickToBottom")?.let { sm.saveStickToBottom(it) }
         obj.boolean("parseInlineDollarMath")?.let { sm.saveParseInlineDollarMath(it) }
         obj.boolean("autoWrapCodeBlocks")?.let { sm.saveAutoWrapCodeBlocks(it) }
+        obj.int("codeBlockFontSizeSp")?.let { sm.saveCodeBlockFontSizeSp(it) }
         obj.boolean("hapticsEnabled")?.let { sm.saveHapticsEnabled(it) }
         obj.boolean("detailedTokenUsage")?.let { sm.saveDetailedTokenUsage(it) }
         obj.string("toolCallDisplayMode")?.let { sm.saveToolCallDisplayMode(it) }
@@ -598,22 +634,6 @@ internal object PortableSettingsArchive {
         if (obj.containsKey("defaultPresencePenalty")) {
             sm.saveDefaultPresencePenalty(obj.float("defaultPresencePenalty"))
         }
-
-        val activePromptKey = when {
-            obj.containsKey("activeSystemPromptId") -> "activeSystemPromptId"
-            obj.containsKey("active_system_prompt_id") -> "active_system_prompt_id"
-            else -> null
-        }
-        if (activePromptKey != null) {
-            sm.setActiveSystemPromptId(
-                resolveSystemPromptId(obj.nullableString(activePromptKey)),
-            )
-        } else if (replace) {
-            sm.setActiveSystemPromptId(null)
-        }
-
-        sm.invalidatePortableModelCaches()
-        return warnings
     }
 
     private fun JsonObject.string(key: String): String? =

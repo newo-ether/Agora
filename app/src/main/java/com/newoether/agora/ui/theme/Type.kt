@@ -12,6 +12,9 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.newoether.agora.R
+import com.newoether.agora.data.DEFAULT_CODE_BLOCK_FONT_SIZE_SP
+import com.newoether.agora.data.normalizeCodeBlockFontSizeSp
+import kotlin.math.roundToInt
 
 val MonoFamily = FontFamily(
     Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
@@ -193,6 +196,33 @@ internal val LocalChatCompactWidth = compositionLocalOf { false }
 
 internal val chatCompactWidth: Boolean
     @Composable get() = LocalChatCompactWidth.current
+
+/** User-configured font size (sp) for standalone code blocks across chat screens. */
+internal val LocalCodeBlockFontSizeSp = compositionLocalOf { DEFAULT_CODE_BLOCK_FONT_SIZE_SP }
+
+/** Standalone code-block style keeping the 14sp / 20sp line-height proportion at any configured size. */
+internal fun codeBlockTextStyle(sizeSp: Int): TextStyle {
+    val clamped = normalizeCodeBlockFontSizeSp(sizeSp)
+    val lineHeightSp = (clamped * 20f / 14f).roundToInt()
+    return TextStyle(
+        fontFamily = MonoFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = clamped.sp,
+        lineHeight = lineHeightSp.sp,
+    )
+}
+
+/** Subordinate code-block style for thinking blocks, tracking [codeBlockTextStyle] two steps below. */
+internal fun thoughtCodeBlockTextStyle(sizeSp: Int): TextStyle {
+    val thoughtSize = (normalizeCodeBlockFontSizeSp(sizeSp) - 2).coerceAtLeast(9)
+    val lineHeightSp = (thoughtSize * 17f / 12f).roundToInt()
+    return TextStyle(
+        fontFamily = MonoFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = thoughtSize.sp,
+        lineHeight = lineHeightSp.sp,
+    )
+}
 
 object ChatType {
 

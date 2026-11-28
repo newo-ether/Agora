@@ -462,6 +462,9 @@
     <string name="parse_inline_dollar_math_desc">Wenn deaktiviert, bleiben Ausdrücke mit einfachen Dollarzeichen wie $ x $ normaler Text. Andere Mathematik-Begrenzer bleiben unverändert.</string>
     <string name="auto_wrap_code_blocks">Codeblöcke automatisch umbrechen</string>
     <string name="auto_wrap_code_blocks_desc">Lange Zeilen in Codeblöcken werden umgebrochen statt horizontal gescrollt.</string>
+    <string name="code_block_font_size">Code-Schriftgröße</string>
+    <string name="code_block_font_size_desc">Textgröße in eigenständigen Codeblöcken im Chat anpassen.</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">Bewegung reduzieren</string>
     <string name="reduce_motion_desc">Reduziert kontinuierliche und großflächige räumliche Bewegungen; Überblendungen, direkte Gesten und nützliche Statusrückmeldungen bleiben erhalten.</string>
 

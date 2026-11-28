@@ -462,6 +462,9 @@
     <string name="parse_inline_dollar_math_desc">عند التعطيل، تبقى التعبيرات المحاطة بعلامة دولار واحدة مثل $ x $ كنص عادي. محددات الرياضيات الأخرى لا تتأثر.</string>
     <string name="auto_wrap_code_blocks">لف الأسطر تلقائياً في كتل التعليمات البرمجية</string>
     <string name="auto_wrap_code_blocks_desc">لف الأسطر الطويلة داخل كتل التعليمات البرمجية بدلاً من تمريرها أفقياً.</string>
+    <string name="code_block_font_size">حجم خط الكود</string>
+    <string name="code_block_font_size_desc">ضبط حجم النص داخل كتل التعليمات البرمجية المستقلة في المحادثة.</string>
+    <string name="code_block_font_size_value">%1$d sp</string>
     <string name="reduce_motion">تقليل الحركة</string>
     <string name="reduce_motion_desc">يقلّل الحركة المستمرة والانتقالات المكانية الكبيرة مع الإبقاء على التلاشي والإيماءات المباشرة وملاحظات الحالة المفيدة.</string>
 

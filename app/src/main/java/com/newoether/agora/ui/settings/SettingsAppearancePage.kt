@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
+import com.newoether.agora.data.repository.setCodeBlockFontSizeSp
 import com.newoether.agora.model.ToolCallDisplayModes
 import com.newoether.agora.model.ThinkingSegmentDisplayModes
 import com.newoether.agora.ui.theme.ColorSchemePreset
@@ -67,6 +68,7 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
     val stickToBottom by viewModel.settings.stickToBottom.collectAsState()
     val parseInlineDollarMath by viewModel.settings.parseInlineDollarMath.collectAsState()
     val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
+    val codeBlockFontSizeSp by viewModel.settings.codeBlockFontSizeSp.collectAsState()
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
 
     val toolCallDisplayMode by viewModel.settings.toolCallDisplayMode.collectAsState()
@@ -493,6 +495,12 @@ fun SettingsAppearancePage(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     Switch(checked = autoWrapCodeBlocks, onCheckedChange = viewModel.settings::setAutoWrapCodeBlocks)
                                 },
                                 modifier = Modifier.clickable { viewModel.settings.setAutoWrapCodeBlocks(!autoWrapCodeBlocks) },
+                            )
+                        }
+                        add {
+                            CodeBlockFontSizeSlider(
+                                value = codeBlockFontSizeSp,
+                                onValueChange = viewModel.settings::setCodeBlockFontSizeSp,
                             )
                         }
                         add {

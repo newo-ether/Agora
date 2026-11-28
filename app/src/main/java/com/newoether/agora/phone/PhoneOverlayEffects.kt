@@ -43,12 +43,14 @@ internal fun PhoneOverlayTheme(settings: SettingsRepository, content: @Composabl
     val amoled by settings.amoledEnabled.collectAsState()
     val font by settings.fontPreference.collectAsState()
     val fontPath by settings.customFontPath.collectAsState()
+    val codeBlockFontSizeSp by settings.codeBlockFontSizeSp.collectAsState()
     val reduce by settings.reduceMotion.collectAsState()
     AgoraTheme(
         themeMode = runCatching { ThemeMode.valueOf(mode) }.getOrDefault(ThemeMode.FOLLOW_DEVICE),
         colorSchemePreset = runCatching { ColorSchemePreset.valueOf(preset) }.getOrDefault(ColorSchemePreset.FOREST),
         schemeStyle = runCatching { SchemeStyle.valueOf(style) }.getOrDefault(SchemeStyle.TONAL_SPOT),
         dynamicColor = dynamic, amoledEnabled = amoled, fontPreference = font, customFontPath = fontPath,
+        codeBlockFontSizeSp = codeBlockFontSizeSp,
     ) {
         // Match the activity root Surface without painting over the underlying application.
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {

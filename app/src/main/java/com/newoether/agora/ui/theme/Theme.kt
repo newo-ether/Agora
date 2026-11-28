@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import com.newoether.agora.data.DEFAULT_CODE_BLOCK_FONT_SIZE_SP
+import com.newoether.agora.data.normalizeCodeBlockFontSizeSp
 import java.io.File
 
 enum class ThemeMode { LIGHT, DARK, FOLLOW_DEVICE }
@@ -85,6 +87,7 @@ fun AgoraTheme(
     amoledEnabled: Boolean = false,
     fontPreference: String = "app_default",
     customFontPath: String = "",
+    codeBlockFontSizeSp: Int = DEFAULT_CODE_BLOCK_FONT_SIZE_SP,
     content: @Composable () -> Unit
 ) {
     val systemDark = isSystemInDarkTheme()
@@ -127,6 +130,7 @@ fun AgoraTheme(
         CompositionLocalProvider(
             LocalDensity provides contentDensity,
             LocalChatCompactWidth provides compact,
+            LocalCodeBlockFontSizeSp provides normalizeCodeBlockFontSizeSp(codeBlockFontSizeSp),
             content = content,
         )
     }
