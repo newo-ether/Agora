@@ -1,0 +1,5 @@
+* Phone Use bedient das Telefon auf einer Shizuku-Hintergrundanzeige: schwebende Karte, Vollbild, freie Größe, DPI-Auswahl
+* Spracheingabe schreibt ins Eingabefeld; sherpa-onnx bringt Offline-Erkennung mit Satzzeichen
+* ChatGPT- und DeepSeek-Konten melden sich mit Tarif- und Guthabenkarten an
+* Die WebUI erhält Werkzeug-Blatt, Compose-Typografie und ein kompaktes Modell im Preserve-Modus
+* Dateilinks im Chat öffnen an Ort und Stelle; die HTML-Vorschau stürzt beim Wegwischen nicht mehr ab

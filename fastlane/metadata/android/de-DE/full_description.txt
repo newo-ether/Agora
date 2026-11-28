@@ -1,0 +1,13 @@
+Agora ist ein quelloffener BYOK-LLM-Client für Android. Unterhaltungen bleiben auf deinem Gerät, und Modellanfragen gehen direkt an den Anbieter oder Endpunkt, den du einrichtest.
+
+Funktionen:
+* Neun Anbietertypen: OpenAI, Anthropic, Google Gemini, DeepSeek, Qwen/DashScope, OpenRouter, Groq, Ollama und lokale GGUF-Modelle; eigene OpenAI-, Google- und Anthropic-kompatible Endpunkte
+* Unterhaltungen als Baum: bearbeiten, neu generieren und alternative Zweige
+* Kontextverwaltung nach Token-Budget und Compact-Kapseln, die nichts zerstören
+* Agentische Werkzeuge für Websuche, Gedächtnis, RAG über frühere Unterhaltungen, Bilderzeugung, MCP-Server, Tasks/Loops und Zugriff auf Shell und Dateien aus der Ferne
+* Dauerhafte Conch-Aufträge plus SSH-Geräte; Conch verschlüsselt auf Anwendungsebene, sobald ein API-Schlüssel hinterlegt ist
+* llama.cpp-Inferenz und lokale Embeddings auf dem Gerät
+* Versionierter .agora-ZIP-Import und -Export, ChatGPT-/Claude-Import und automatische Sicherungen
+* Material-3-Oberfläche mit einstellbarer Darstellung von Denkprozessen und Werkzeugen, Schriften, haptischem Feedback und 12 Oberflächensprachen
+
+Externe Anbieter und Werkzeuge erhalten Daten nur, wenn du ihre Funktion nutzt. Nach einem Absturz wird ein anonymer Diagnosebericht lokal gespeichert und erst gesendet, wenn du es beim nächsten Start ausdrücklich bestätigst. Genaue Ziele und die Sicherheit der Sicherungen stehen in der Datenschutzdokumentation in der App und im Benutzerhandbuch.

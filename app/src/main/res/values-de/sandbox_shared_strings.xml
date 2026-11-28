@@ -8,6 +8,6 @@
     <string name="sandbox_shared_storage_warning">Damit können Sandbox-Befehle Fotos, Downloads und andere gemeinsame Dateien lesen und ändern. Verändernde Tool-Aufrufe müssen bestätigt werden.</string>
     <string name="sandbox_distribution">Distribution</string>
     <string name="sandbox_distribution_desc">Linux-Umgebung auswählen und bei Bedarf separat installieren.</string>
-    <string name="sandbox_distribution_busy">Beenden Sie laufende Sandbox-Aufträge und warten Sie, bis aktuelle Vorgänge abgeschlossen sind, bevor Sie die Distribution wechseln.</string>
-    <string name="sandbox_distribution_switch_failed">Die Distribution konnte nicht gewechselt werden. Versuchen Sie es erneut.</string>
+    <string name="sandbox_distribution_busy">Beende laufende Sandbox-Aufträge und warte, bis aktuelle Vorgänge abgeschlossen sind, bevor du die Distribution wechselst.</string>
+    <string name="sandbox_distribution_switch_failed">Die Distribution konnte nicht gewechselt werden. Versuch es erneut.</string>
 </resources>
