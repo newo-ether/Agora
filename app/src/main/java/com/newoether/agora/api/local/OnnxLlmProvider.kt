@@ -7,10 +7,13 @@ import com.newoether.agora.api.OnnxLlmEngine
 import com.newoether.agora.api.ProviderConfig
 import com.newoether.agora.api.StreamEvent
 import com.newoether.agora.data.OnnxChatModelBootstrap
+import com.newoether.agora.data.XnixMldBootstrap
+import com.newoether.agora.data.repository.SettingsRepository
 import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.Participant
 import com.newoether.agora.util.Constants
 import com.newoether.agora.util.DebugLog
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -19,12 +22,14 @@ import kotlinx.coroutines.isActive
 import kotlin.coroutines.coroutineContext
 
 /**
- * On-device LLM chat provider backed by onnxruntime-genai (the ONNX replacement for the GGUF
- * LocalProvider). Streams a single on-device Qwen3 model. Text-only; the model's built-in chat
- * template is applied via genai.
+ * On-device LLM chat provider.
+ * Supports:
+ *  1. Google Tensor G5 EdgeTPU .litertlm models via xnix-mld (AICore) daemon.
+ *  2. On-device ONNX models via onnxruntime-genai.
  */
 class OnnxLlmProvider(
     private val context: Context,
+    private val settings: SettingsRepository? = null,
 ) : LlmProvider {
 
     override val name: String = Constants.PROVIDER_LOCAL
@@ -34,7 +39,44 @@ class OnnxLlmProvider(
     override fun generateResponse(
         messages: List<ChatMessage>,
         config: ProviderConfig,
-    ): Flow<StreamEvent> = generateOnnx(messages, config)
+    ): Flow<StreamEvent> {
+        val localModelId = config.modelId.substringAfter("${Constants.PROVIDER_LOCAL}:")
+        val localConfig = settings?.localChatModels?.value?.find { it.modelId == localModelId }
+        val filePath = localConfig?.localFilePath.orEmpty()
+
+        if (filePath.endsWith(".litertlm") || filePath.endsWith(".tflite") || localModelId == XnixMldBootstrap.MODEL_ID) {
+            val targetFile = if (File(filePath).isFile) File(filePath) else XnixMldBootstrap.modelFile(context)
+            return generateXnixMld(messages, config, targetFile)
+        }
+        return generateOnnx(messages, config)
+    }
+
+    private fun generateXnixMld(
+        messages: List<ChatMessage>,
+        config: ProviderConfig,
+        modelFile: File,
+    ): Flow<StreamEvent> = flow {
+        if (!modelFile.isFile) {
+            emit(StreamEvent.Error(GenerationError.LocalModel("Model file not found: ${modelFile.name}")))
+            return@flow
+        }
+        val client = XnixMldClient.getInstance()
+        val session = client.loadLlm(modelFile)
+        if (session == null || session <= 0) {
+            emit(StreamEvent.Error(GenerationError.LocalModel("Failed to load model via xnix-mld daemon")))
+            return@flow
+        }
+
+        val prompt = buildChatMlPrompt(messages, config.systemPrompt)
+        val maxTokens = (config.maxTokens ?: DEFAULT_MAX_TOKENS).coerceIn(1, MAX_TOKENS_CAP)
+
+        val output = client.generate(prompt, maxTokens)
+        if (output != null) {
+            emit(StreamEvent.TextChunk(output))
+        } else {
+            emit(StreamEvent.Error(GenerationError.LocalModel("xnix-mld inference returned no output")))
+        }
+    }.flowOn(Dispatchers.Default)
 
     private fun generateOnnx(
         messages: List<ChatMessage>,
@@ -65,8 +107,6 @@ class OnnxLlmProvider(
             shouldStop = { !engineActive },
         ) { delta -> deltas.addLast(delta) }
 
-        // genai's generate() is blocking; emit the accumulated deltas as chunks. (A finer-grained
-        // channel could stream mid-generation; kept simple + correct for the first cut.)
         while (deltas.isNotEmpty()) {
             if (!coroutineContext.isActive) break
             emit(StreamEvent.TextChunk(deltas.removeFirst()))
@@ -76,11 +116,16 @@ class OnnxLlmProvider(
         }
     }.flowOn(Dispatchers.Default)
 
-    override suspend fun fetchModels(apiKey: String, baseUrl: String?): List<String> =
-        if (OnnxChatModelBootstrap.isInstalled(context)) listOf(OnnxChatModelBootstrap.MODEL_ID) else emptyList()
+    override suspend fun fetchModels(apiKey: String, baseUrl: String?): List<String> = buildList {
+        if (XnixMldBootstrap.isInstalled(context)) {
+            add(XnixMldBootstrap.MODEL_ID)
+        }
+        if (OnnxChatModelBootstrap.isInstalled(context)) {
+            add(OnnxChatModelBootstrap.MODEL_ID)
+        }
+    }
 
     private fun buildChatMlPrompt(messages: List<ChatMessage>, systemPrompt: String?): String {
-        // Qwen3 uses ChatML. The genai model has no embedded chat_template, so build it directly.
         val sb = StringBuilder()
         if (!systemPrompt.isNullOrBlank()) {
             sb.append("<|im_start|>system\n").append(systemPrompt).append("<|im_end|>\n")
@@ -94,8 +139,6 @@ class OnnxLlmProvider(
             sb.append("<|im_start|>").append(role).append("\n").append(m.text).append("<|im_end|>\n")
         }
         sb.append("<|im_start|>assistant\n")
-        // Qwen3 is a reasoning model; for plain chat, pre-fill an empty think block so it skips
-        // (often looping) chain-of-thought and answers directly.
         sb.append("<think>\n\n</think>\n\n")
         return sb.toString()
     }
@@ -126,6 +169,7 @@ class OnnxLlmProvider(
         fun reset() {
             try { cached?.close() } catch (_: Throwable) {}
             cached = null
+            XnixMldClient.getInstance().unload()
         }
     }
 }

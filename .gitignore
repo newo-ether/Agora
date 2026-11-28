@@ -49,3 +49,4 @@ AGENTS.md
 *.bak
 *.bak.*
 *.pre-optA.bak
+.signing/
