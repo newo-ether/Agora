@@ -549,6 +549,8 @@ class AppContainer(
             markdownVideos = com.newoether.agora.webui.WebUiMarkdownVideos(
                 context = appContext,
                 devices = { settingsRepository.shellDevices.value },
+                sandboxEnabled = { settingsRepository.sandboxEnabled.value },
+                sandbox = { sandboxManagerFactory?.takeIf { it.isAvailable() }?.create() },
                 loadMessage = loadWebUiMessage,
             ),
             htmlPreviewImage = { previewMedia.previewImage(it) },

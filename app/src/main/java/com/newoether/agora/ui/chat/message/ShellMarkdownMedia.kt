@@ -57,10 +57,38 @@ internal class ShellMarkdownMedia(
     private val previewCache by lazy { RemoteImageCache(previewDirectory) }
     private val states = mutableStateMapOf<String, MarkdownImage>()
     private val inFlight = HashMap<String, Deferred<Unit>>()
+    private val htmlPreviewCache = object : LinkedHashMap<String, String>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean = size > 16
+    }
     private val lock = Any()
 
-    /** Remote `shell://` videos are copied on demand into the media cache before playback. */
-    val videos = ShellMarkdownVideo(context, devices, scope)
+    /** Remote `shell://` and Local Sandbox rootfs videos/audio are copied on demand into the media cache before playback. */
+    val videos = ShellMarkdownVideo(
+        context = context,
+        devices = devices,
+        scope = scope,
+        cacheDirectoryName = "markdown-video",
+        sandboxEnabled = sandboxEnabled,
+        sandbox = sandbox,
+    )
+    val audio = ShellMarkdownVideo(
+        context = context,
+        devices = devices,
+        scope = scope,
+        cacheDirectoryName = "markdown-audio",
+        sandboxEnabled = sandboxEnabled,
+        sandbox = sandbox,
+    )
+    /** ViewModel-scoped audio player so playback continues when message cards scroll off screen. */
+    val audioPlayer = MarkdownAudioPlayerController(
+        context = context,
+        audioLoader = audio,
+        scope = scope,
+    )
+
+    fun release() {
+        audioPlayer.release()
+    }
 
     /** Current slot state. Destination alone determines geometry, never snapshot identity. */
     fun peek(link: String, occurrence: String? = null): MarkdownImage? {
@@ -189,6 +217,94 @@ internal class ShellMarkdownMedia(
      */
     internal data class DeviceFileCopy(val file: File, val fromCache: Boolean)
 
+    internal sealed interface HtmlPreviewFileResult {
+        data class Ready(val html: String) : HtmlPreviewFileResult
+        data class Failed(val messageResId: Int, val detail: String? = null) : HtmlPreviewFileResult
+    }
+
+    /**
+     * Reads one local, Local Sandbox, or Conch HTML file for inline `html-preview` rendering.
+     * Bytes stay bounded by [MAX_HTML_PREVIEW_FILE_BYTES] and [HtmlPreviewDocument.MAX_SOURCE_CHARS].
+     */
+    suspend fun loadHtmlPreviewFile(
+        link: String,
+        forceRefresh: Boolean = false,
+    ): HtmlPreviewFileResult {
+        val raw = markdownHtmlLink(link)
+            ?: return HtmlPreviewFileResult.Failed(com.newoether.agora.R.string.markdown_link_file_unavailable)
+        val destination = resolveMarkdownDestination(raw)
+            ?: return HtmlPreviewFileResult.Failed(com.newoether.agora.R.string.markdown_link_file_unavailable)
+        val cacheKey = destination.identity()
+        if (!forceRefresh) {
+            synchronized(lock) { htmlPreviewCache[cacheKey] }?.let { cached ->
+                return HtmlPreviewFileResult.Ready(cached)
+            }
+        }
+        return withContext(Dispatchers.IO) {
+            try {
+                val file = when (destination) {
+                    is MarkdownDestination.File -> when (val resolved = resolveLocalFileTarget(context, destination.target)) {
+                        is LocalFileResolution.Ready -> resolved.file
+                        LocalFileResolution.NotFound ->
+                            return@withContext HtmlPreviewFileResult.Failed(com.newoether.agora.R.string.markdown_link_file_missing)
+                        LocalFileResolution.NeedsSharedStorageAccess ->
+                            return@withContext HtmlPreviewFileResult.Failed(com.newoether.agora.R.string.markdown_link_shared_storage_required)
+                        LocalFileResolution.Unavailable ->
+                            return@withContext HtmlPreviewFileResult.Failed(com.newoether.agora.R.string.markdown_link_file_unavailable)
+                    }
+                    is MarkdownDestination.Device -> {
+                        if (destination.link.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
+                            if (!sandboxEnabled()) throw IOException("Local Sandbox is disabled")
+                            val manager = sandbox() ?: throw IOException("Local Sandbox is unavailable")
+                            if (!manager.isAvailable()) throw IOException("Local Sandbox is not installed")
+                            val hostFile = manager.resolveHostFile(destination.link.path)
+                                ?: throw IOException("Local Sandbox is unavailable")
+                            if (!hostFile.isFile) {
+                                return@withContext HtmlPreviewFileResult.Failed(com.newoether.agora.R.string.markdown_link_file_missing)
+                            }
+                            hostFile
+                        } else {
+                            downloadDeviceFile(
+                                target = destination.link,
+                                maxBytes = MAX_HTML_PREVIEW_FILE_BYTES,
+                            ).file
+                        }
+                    }
+                    is MarkdownDestination.Web ->
+                        return@withContext HtmlPreviewFileResult.Failed(com.newoether.agora.R.string.markdown_link_file_unavailable)
+                }
+                val size = file.length()
+                if (size > MAX_HTML_PREVIEW_FILE_BYTES) {
+                    return@withContext HtmlPreviewFileResult.Failed(
+                        com.newoether.agora.R.string.html_preview_failed,
+                        "HTML file exceeds 1 MB preview limit",
+                    )
+                }
+                val html = file.readText(Charsets.UTF_8)
+                if (html.length > HtmlPreviewDocument.MAX_SOURCE_CHARS) {
+                    return@withContext HtmlPreviewFileResult.Failed(
+                        com.newoether.agora.R.string.html_preview_failed,
+                        "HTML source exceeds 512 KB preview limit",
+                    )
+                }
+                synchronized(lock) { htmlPreviewCache[cacheKey] = html }
+                HtmlPreviewFileResult.Ready(html)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: MarkdownDeviceFileTooLarge) {
+                HtmlPreviewFileResult.Failed(
+                    com.newoether.agora.R.string.html_preview_failed,
+                    "HTML file exceeds 1 MB preview limit",
+                )
+            } catch (failure: Exception) {
+                HtmlPreviewFileResult.Failed(
+                    com.newoether.agora.R.string.html_preview_failed,
+                    failure.message?.takeIf { it.isNotBlank() },
+                )
+            }
+        }
+    }
+
     /**
      * Copies one non-image file named by a Markdown link into the shared cache, so the system app
      * that opens it reads a local file. A copy is named after the source SHA-256, which makes an
@@ -200,9 +316,10 @@ internal class ShellMarkdownMedia(
     suspend fun downloadDeviceFile(
         target: ShellMediaLink,
         onTransfer: () -> Unit = {},
+        maxBytes: Long = MARKDOWN_FILE_MAX_BYTES,
     ): DeviceFileCopy = withContext(Dispatchers.IO) {
         if (target.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
-            return@withContext copySandboxFile(target.path, onTransfer)
+            return@withContext copySandboxFile(target.path, onTransfer, maxBytes)
         }
         val device = devices().firstOrNull { it.name.equals(target.server, ignoreCase = true) }
             ?: throw IOException("Unknown shell device")
@@ -257,7 +374,11 @@ internal class ShellMarkdownMedia(
     }
 
     /** A rootfs file of the Local Sandbox has no FileProvider root of its own; copy it out. */
-    private suspend fun copySandboxFile(path: String, onTransfer: () -> Unit): DeviceFileCopy {
+    private suspend fun copySandboxFile(
+        path: String,
+        onTransfer: () -> Unit,
+        maxBytes: Long = MARKDOWN_FILE_MAX_BYTES,
+    ): DeviceFileCopy {
         if (!sandboxEnabled()) throw IOException("Local Sandbox is disabled")
         val manager = sandbox() ?: throw IOException("Local Sandbox is unavailable")
         if (!manager.isAvailable()) throw IOException("Local Sandbox is not installed")
@@ -265,7 +386,7 @@ internal class ShellMarkdownMedia(
         if (!source.isFile) throw IOException("Not a regular file")
         val size = source.length()
         if (size <= 0L) throw IOException("File is empty")
-        if (size > MARKDOWN_FILE_MAX_BYTES) throw MarkdownDeviceFileTooLarge(size)
+        if (size > maxBytes) throw MarkdownDeviceFileTooLarge(size)
         val directory = sharedFileDirectory()
         // Path, size and mtime name one version, so repeated taps reuse the copy instead of
         // leaving one cache file per tap.
@@ -304,6 +425,7 @@ internal class MarkdownDeviceFileTooLarge(size: Long) :
     IOException("File is $size bytes, over the ${MARKDOWN_FILE_MAX_BYTES shr 20} MiB limit")
 
 internal const val MARKDOWN_FILE_MAX_BYTES = 512L shl 20
+internal const val MAX_HTML_PREVIEW_FILE_BYTES = 1L shl 20
 
 private val MARKDOWN_FILE_SHA256 = Regex("[a-f0-9]{64}")
 

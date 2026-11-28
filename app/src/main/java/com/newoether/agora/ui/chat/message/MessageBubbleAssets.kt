@@ -42,6 +42,7 @@ import com.newoether.agora.ui.components.latexSourceForLink
 import com.newoether.agora.ui.chat.caseInsensitiveMatchRanges
 import com.newoether.agora.ui.chat.visibleMarkdownMatchRanges
 import com.newoether.agora.ui.theme.ChatType
+import com.mikepenz.markdown.compose.LocalImageTransformer
 import com.mikepenz.markdown.compose.LocalMarkdownColors
 import com.mikepenz.markdown.compose.LocalMarkdownDimens
 import com.mikepenz.markdown.compose.LocalMarkdownPadding
@@ -644,8 +645,10 @@ internal fun SearchHighlightedMarkdownText(
 ) {
     val settings = annotatorSettings()
     val citationTokens = LocalCitationInlineTokens.current
-    val base = remember(model.content, textNode, style, literalText, settings, citationTokens) {
-        buildCitationAwareMarkdownAnnotatedString(
+    val transformer = LocalImageTransformer.current as? LatexImageTransformer
+    val fallbackColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val base = remember(model.content, textNode, style, literalText, settings, citationTokens, transformer, fallbackColor) {
+        val annotated = buildCitationAwareMarkdownAnnotatedString(
             content = model.content,
             textNode = textNode,
             style = style,
@@ -653,6 +656,9 @@ internal fun SearchHighlightedMarkdownText(
             citationTokens = citationTokens,
             literalText = literalText,
         )
+        if (literalText == null && transformer != null) {
+            annotated.replaceUnsupportedMarkdownImages(model.content, textNode, transformer::isSupportedImage, fallbackColor)
+        } else annotated
     }
     val streamingFadeSpec = LocalStreamingGlyphFadeSpec.current
     val nodeFade = remember(streamingFadeSpec, model.content, textNode) {

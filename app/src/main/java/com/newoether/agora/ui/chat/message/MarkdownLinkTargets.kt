@@ -271,6 +271,7 @@ internal fun markdownBarePathAt(text: CharSequence, offset: Int): String? {
     if (candidate.isEmpty()) return null
     val supported = candidate.startsWith(SANDBOX_HOME_PREFIX) ||
         isFileUrlSpelling(candidate) ||
+        parseShellMediaLink(candidate) != null ||
         SHARED_STORAGE_PREFIXES.any { candidate.startsWith(it) }
     return candidate.takeIf { supported }
 }

@@ -60,4 +60,34 @@ class ShellMarkdownMediaLinkTest {
             "shell://box/%FF.png",
         ).forEach { assertNull(it, parseShellMediaLink(it)) }
     }
+
+    @Test
+    fun htmlLinksAcceptLocalReadableRootsAndShellDevicesOnly() {
+        listOf(
+            "/storage/emulated/0/Download/demo.html",
+            "/sdcard/report.HTM",
+            "/home/agora/viz.html",
+            "/mnt/shared/page.html?v=1#top",
+            "file:///storage/emulated/0/Download/page.html",
+            "shell://Local%20Sandbox/home/agora/chart.html",
+            "shell://Quantum/F:/viz/index.htm",
+            "<shell://Local Sandbox/home/agora/my chart.html>",
+        ).forEach { link ->
+            val parsed = markdownHtmlLink(link)
+            assertEquals(link.trim().removeSurrounding("<", ">"), parsed)
+            assertNull("HTML file should not enter image snapshot store: $link", markdownImageSnapshotKey(link))
+        }
+
+        listOf(
+            "https://example.com/page.html",
+            "http://example.com/index.htm",
+            "/data/data/com.termux/files/home/page.html",
+            "/tmp/page.html",
+            "/storage/1A2B-3C4D/page.html",
+            "/storage/emulated/0/Download/a.png",
+            "shell://Quantum/F:/a.pdf",
+        ).forEach { link ->
+            assertNull("Should reject HTML link: $link", markdownHtmlLink(link))
+        }
+    }
 }

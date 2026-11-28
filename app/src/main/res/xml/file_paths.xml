@@ -4,5 +4,6 @@
     <files-path name="sandbox-home" path="sandbox-home/" />
     <cache-path name="shared" path="shared/" />
     <cache-path name="markdown-video" path="markdown-video/" />
+    <cache-path name="markdown-audio" path="markdown-audio/" />
     <external-path name="shared-storage" path="." />
 </paths>

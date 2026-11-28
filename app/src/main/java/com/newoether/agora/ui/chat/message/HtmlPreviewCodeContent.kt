@@ -49,10 +49,12 @@ internal fun HtmlPreviewCodeContent(
     language: String?,
     eligible: Boolean,
     searching: Boolean,
+    headerTitle: String? = null,
+    onReload: (() -> Unit)? = null,
     source: @Composable () -> Unit,
 ) {
     if (!eligible) {
-        ChatCodeBlockHeader(language = language, code = code)
+        ChatCodeBlockHeader(language = language, code = code, displayTitle = headerTitle)
         source()
         return
     }
@@ -66,7 +68,7 @@ internal fun HtmlPreviewCodeContent(
         notify(context.getString(R.string.html_preview_export_failed))
     }
     val showingPreview = preview && !searching
-    ChatCodeBlockHeader(language = language, code = code, showCopy = !showingPreview, actions = {
+    ChatCodeBlockHeader(language = language, code = code, showCopy = !showingPreview, displayTitle = headerTitle, actions = {
         ChatCodeBlockAction(
             icon = if (showingPreview) Icons.Rounded.Code else Icons.Rounded.PlayArrow,
             label = stringResource(if (showingPreview) R.string.html_preview_source else R.string.html_preview_run),
@@ -95,7 +97,7 @@ internal fun HtmlPreviewCodeContent(
                 if (showingPreview) AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_reload)) },
                     leadingIcon = { Icon(Icons.Rounded.Refresh, null, Modifier.size(24.dp)) },
-                    onClick = { menu = false; revision++ },
+                    onClick = { menu = false; onReload?.invoke(); revision++ },
                 )
                 AgoraDropdownMenuItem(
                     text = { Text(stringResource(R.string.html_preview_share)) },
@@ -122,11 +124,11 @@ internal fun HtmlPreviewCodeContent(
                 Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
                         ChatCodeBlockSurface(modifier = Modifier.weight(1f)) {
-                            ChatCodeBlockHeader(language = language, code = code, showCopy = false, actions = {
+                            ChatCodeBlockHeader(language = language, code = code, showCopy = false, displayTitle = headerTitle, actions = {
                                 ChatCodeBlockAction(
                                     icon = Icons.Rounded.Refresh,
                                     label = stringResource(R.string.html_preview_reload),
-                                    onClick = { revision++ },
+                                    onClick = { onReload?.invoke(); revision++ },
                                 )
                             }, trailingActions = {
                                 ChatCodeBlockAction(

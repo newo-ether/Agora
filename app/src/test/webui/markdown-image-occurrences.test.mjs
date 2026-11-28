@@ -56,3 +56,21 @@ test("reference images and nested images count without ordinary links or code", 
   const markup = context.renderHtml(source, []);
   assert.deepEqual([...markup.matchAll(/data-image-ordinal="(\d+)"/g)].map(match => match[1]), ["0", "1"]);
 });
+
+test("audio destinations do not consume image snapshot ordinals", () => {
+  const source = "![song](shell://OnePlus%2013T/data/data/com.termux/files/home/a.mp3)\n\n" +
+    "![clip](https://example.test/clip.flac)\n\n![pic](shell://Quantum/F:/a.png)";
+  const markup = context.renderHtml(source, []);
+  assert.deepEqual([...markup.matchAll(/data-image-ordinal="(\d+)"/g)].map(match => match[1]), ["0"]);
+  assert.deepEqual([...markup.matchAll(/data-shell-image="([^"]+)"/g)].map(match => match[1]),
+    ["shell://Quantum/F:/a.png"]);
+});
+
+test("local and shell html destinations do not consume image snapshot ordinals", () => {
+  const source = "![chart](shell://Local%20Sandbox/home/agora/chart.html)\n\n" +
+    "![page](/storage/emulated/0/Download/page.htm)\n\n![pic](shell://Quantum/F:/a.png)";
+  const markup = context.renderHtml(source, []);
+  assert.deepEqual([...markup.matchAll(/data-image-ordinal="(\d+)"/g)].map(match => match[1]), ["0"]);
+  assert.deepEqual([...markup.matchAll(/data-shell-image="([^"]+)"/g)].map(match => match[1]),
+    ["shell://Quantum/F:/a.png"]);
+});

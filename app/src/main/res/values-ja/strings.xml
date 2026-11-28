@@ -280,8 +280,10 @@
     <string name="options">オプション</string>
     <string name="video_thumbnail">動画のサムネイル</string>
     <string name="play">再生</string>
+    <string name="pause">一時停止</string>
     <string name="video_preview">動画のプレビュー</string>
     <string name="video_playback_failed">この動画を再生できません。ファイルが見つからないか、破損している可能性があります。</string>
+    <string name="audio_playback_failed">この音声を再生できません。ファイルが見つからないか、破損している可能性があります。</string>
     <string name="total_tokens">合計: %1$d トークン</string>
     <string name="welcome_to_agora">Agora へようこそ。</string>
     <string name="database_incompatible">データベースが非互換です</string>

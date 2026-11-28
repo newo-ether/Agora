@@ -280,8 +280,10 @@
     <string name="options">الخيارات</string>
     <string name="video_thumbnail">صورة مصغّرة للفيديو</string>
     <string name="play">تشغيل</string>
+    <string name="pause">إيقاف مؤقت</string>
     <string name="video_preview">معاينة الفيديو</string>
     <string name="video_playback_failed">تعذّر تشغيل هذا الفيديو. قد يكون الملف مفقودًا أو تالفًا.</string>
+    <string name="audio_playback_failed">تعذّر تشغيل هذا الصوت. قد يكون الملف مفقودًا أو تالفًا.</string>
     <string name="total_tokens">الإجمالي: %1$d رمز</string>
     <string name="welcome_to_agora">مرحبًا بك في Agora.</string>
     <string name="database_incompatible">قاعدة البيانات غير متوافقة</string>

@@ -1,9 +1,8 @@
 package com.newoether.agora.ui.theme
 
 import androidx.compose.material3.Typography
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -187,9 +186,13 @@ internal var chatFontFamily: FontFamily = OutfitFamily
 internal const val CHAT_COMPACT_WIDTH_DP = 400
 internal const val COMPACT_FONT_SCALE = 15f / 16f
 
-/** Snapshot state so readers recompose when the window width crosses the threshold. Set from
- *  AgoraTheme before its content composes. */
-internal var chatCompactWidth by mutableStateOf(false)
+/** Window-local compact width tier, provided by [AgoraTheme] for its own composition tree so
+ *  narrow secondary windows (such as floating overlays or virtual-display surfaces) never
+ *  overwrite the main activity's layout tier. */
+internal val LocalChatCompactWidth = compositionLocalOf { false }
+
+internal val chatCompactWidth: Boolean
+    @Composable get() = LocalChatCompactWidth.current
 
 object ChatType {
 
@@ -210,8 +213,10 @@ object ChatType {
     val input get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 23.sp, letterSpacing = 0.5.sp)
 
     // Body tier. The compact tier also tightens the line height ratio by 1 sp on top of the sp scale.
-    val body get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = if (chatCompactWidth) 23.sp else 24.sp)
-    val userBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = if (chatCompactWidth) 23.2.sp else 24.2.sp)
+    val body: TextStyle
+        @Composable get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = if (chatCompactWidth) 23.sp else 24.sp)
+    val userBody: TextStyle
+        @Composable get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = if (chatCompactWidth) 23.2.sp else 24.2.sp)
     val thoughtBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 19.sp)
     val thoughtTitle get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 19.sp)
     val errorBody get() = TextStyle(fontFamily = chatFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp)

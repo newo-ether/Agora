@@ -64,6 +64,10 @@
     <string name="img_save_failed">Lưu thất bại</string>
     <string name="img_info_dimensions">Kích thước</string>
     <string name="img_info_size">Dung lượng</string>
+    <string name="audio_action_save">Lưu vào Nhạc</string>
+    <string name="audio_saved">Đã lưu vào Nhạc</string>
+    <string name="audio_info_duration">Thời lượng</string>
+    <string name="audio_info_format">Định dạng</string>
     <string name="custom_provider_name_label">Tên nhà cung cấp</string>
     <string name="custom_provider_name_error">Tên đã tồn tại hoặc không hợp lệ</string>
     <string name="custom_provider_url_error">Yêu cầu phải có URL gốc</string>

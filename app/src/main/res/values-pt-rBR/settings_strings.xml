@@ -64,6 +64,10 @@
     <string name="img_save_failed">Falha ao salvar</string>
     <string name="img_info_dimensions">Dimensões</string>
     <string name="img_info_size">Tamanho</string>
+    <string name="audio_action_save">Salvar em Música</string>
+    <string name="audio_saved">Salvo em Música</string>
+    <string name="audio_info_duration">Duração</string>
+    <string name="audio_info_format">Formato</string>
     <string name="custom_provider_name_label">Nome do provedor</string>
     <string name="custom_provider_name_error">O nome já existe ou é inválido</string>
     <string name="custom_provider_url_error">A URL base é obrigatória</string>

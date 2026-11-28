@@ -36,6 +36,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -105,7 +106,10 @@ class ImageActionsTest {
         val bytes = encodedImage(Bitmap.CompressFormat.PNG)
         val source = files.newFile("misleading.jpg").apply { writeBytes(bytes) }
 
-        assertTrue(saveImageToGallery(context, source.absolutePath))
+        val savedPath = saveImageToGallery(context, source.absolutePath)
+        assertNotNull(savedPath)
+        assertTrue(savedPath!!.replace('\\', '/').contains("Pictures/Agora/"))
+        assertTrue(savedPath.endsWith(".png"))
 
         val values = requireNotNull(galleryValues)
         assertEquals("image/png", values.getAsString(MediaStore.Images.Media.MIME_TYPE))
@@ -121,7 +125,7 @@ class ImageActionsTest {
         val bytes = encodedImage(Bitmap.CompressFormat.JPEG)
         val source = files.newFile("misleading.png").apply { writeBytes(bytes) }
 
-        assertTrue(saveImageToGallery(context, Uri.fromFile(source).toString()))
+        assertNotNull(saveImageToGallery(context, Uri.fromFile(source).toString()))
 
         val values = requireNotNull(galleryValues)
         assertEquals("image/jpeg", values.getAsString(MediaStore.Images.Media.MIME_TYPE))
@@ -168,12 +172,36 @@ class ImageActionsTest {
     fun invalidBytesCreateNeitherGalleryEntryNorSharedFile() = runTest {
         val source = files.newFile("not-an-image.png").apply { writeText("not image bytes") }
 
-        assertFalse(saveImageToGallery(context, source.absolutePath))
+        assertNull(saveImageToGallery(context, source.absolutePath))
         assertFalse(shareImage(context, source.absolutePath))
 
         assertEquals(null, galleryValues)
         assertEquals(null, chooser)
         assertTrue(cache.listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun audioSaveAndShareUseMusicStoreAndAudioMime() = runTest {
+        val bytes = byteArrayOf(0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00)
+        val source = files.newFile("track.mp3").apply { writeBytes(bytes) }
+
+        assertNotNull(saveAudioToMusic(context, source.absolutePath))
+
+        val values = requireNotNull(galleryValues)
+        assertEquals("audio/mpeg", values.getAsString(MediaStore.MediaColumns.MIME_TYPE))
+        assertEquals("Music/Agora", values.getAsString(MediaStore.MediaColumns.RELATIVE_PATH))
+        assertTrue(values.getAsString(MediaStore.MediaColumns.DISPLAY_NAME).endsWith(".mp3"))
+        assertArrayEquals(bytes, galleryBytes.toByteArray())
+        assertTrue(finalized)
+        assertFalse(deleted)
+
+        assertTrue(shareAudio(context, source.absolutePath))
+        assertShared("audio/mpeg", ".mp3", bytes)
+
+        val info = readAudioInfo(context, source.absolutePath)
+        assertNotNull(info)
+        assertEquals(bytes.size.toLong(), info!!.sizeBytes)
+        assertEquals("MP3", info.formatLabel)
     }
 
     @Test
@@ -188,7 +216,7 @@ class ImageActionsTest {
             }
         }
 
-        assertFalse(saveImageToGallery(context, source.absolutePath))
+        assertNull(saveImageToGallery(context, source.absolutePath))
 
         assertTrue(deleted)
         assertFalse(finalized)

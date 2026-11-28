@@ -55,6 +55,14 @@ internal class LatexImageTransformer(
     }
     private fun inlineImage(link: String): MarkdownImage? = messageImage(link) ?: shellMedia?.peek(link)
 
+    /** True when this transformer (or the video/audio/HTML cards paired with it) renders [link]. */
+    fun isSupportedImage(link: String): Boolean =
+        com.newoether.agora.ui.chat.message.markdownVideoLink(link) != null ||
+            com.newoether.agora.ui.chat.message.markdownAudioLink(link) != null ||
+            com.newoether.agora.ui.chat.message.markdownHtmlLink(link) != null ||
+            inlineImage(link) != null ||
+            latexImageRequest(link) != null
+
     @Composable
     fun renderInlineImage(link: String, slot: String? = null): Boolean {
         val owned = messageImage(link)
@@ -107,6 +115,30 @@ internal class LatexImageTransformer(
         if (com.newoether.agora.ui.chat.message.markdownVideoLink(link) != null) {
             val width = with(LocalDensity.current) { 160.dp.toPx() }
             val height = with(LocalDensity.current) { 90.dp.toPx() }
+            val viewport = remember(width, height) {
+                object : Painter() {
+                    override val intrinsicSize = Size(width, height)
+                    override fun DrawScope.onDraw() = Unit
+                }
+            }
+            return ImageData(painter = viewport)
+        }
+        // Audio destinations reserve their player card size without joining the image snapshot store.
+        if (com.newoether.agora.ui.chat.message.markdownAudioLink(link) != null) {
+            val width = with(LocalDensity.current) { 300.dp.toPx() }
+            val height = with(LocalDensity.current) { 80.dp.toPx() }
+            val viewport = remember(width, height) {
+                object : Painter() {
+                    override val intrinsicSize = Size(width, height)
+                    override fun DrawScope.onDraw() = Unit
+                }
+            }
+            return ImageData(painter = viewport)
+        }
+        // HTML file destinations render an inline preview card without joining the image snapshot store.
+        if (com.newoether.agora.ui.chat.message.markdownHtmlLink(link) != null) {
+            val width = with(LocalDensity.current) { 320.dp.toPx() }
+            val height = with(LocalDensity.current) { 412.dp.toPx() }
             val viewport = remember(width, height) {
                 object : Painter() {
                     override val intrinsicSize = Size(width, height)
@@ -185,15 +217,29 @@ internal class LatexImageTransformer(
         imageSize: Size,
         imageSizeChanged: ((link: String, Size) -> Unit)?,
     ): PlaceholderConfig {
+        if (com.newoether.agora.ui.chat.message.markdownVideoLink(link) != null) {
+            return PlaceholderConfig(Size(160f, 90f))
+        }
+        if (com.newoether.agora.ui.chat.message.markdownAudioLink(link) != null) {
+            val width = with(density) {
+                if (containerSize.isUnspecified) 300f else containerSize.width.toDp().value.coerceIn(1f, 320f)
+            }
+            return PlaceholderConfig(Size(width, 80f))
+        }
+        if (com.newoether.agora.ui.chat.message.markdownHtmlLink(link) != null) {
+            val width = with(density) {
+                if (containerSize.isUnspecified) 320f else containerSize.width.toDp().value.coerceAtLeast(1f)
+            }
+            return PlaceholderConfig(Size(width, 412f))
+        }
         if (inlineImage(link) != null) {
             val side = with(density) {
                 if (containerSize.isUnspecified) 300f else containerSize.width.toDp().value.coerceIn(1f, 300f)
             }
             return PlaceholderConfig(Size(side, side + 16f))
         }
-        val request = latexImageRequest(link) ?: return super.placeholderConfig(
-            link, density, containerSize, imageWidth, imageSize, imageSizeChanged
-        )
+        // Unsupported links do not fall through to the library's 200x200 blank placeholder.
+        val request = latexImageRequest(link) ?: return PlaceholderConfig(Size(1f, 1f))
         val key = LatexRenderKey(request.latex, textSize, color, request.display)
         val resolvedSize = if (imageSize.isUnspecified) {
             LatexBitmapCache.get(key)?.let { bmp ->

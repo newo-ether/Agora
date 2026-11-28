@@ -250,6 +250,7 @@ class ChatViewModel(
         chatRuntime.clients.detach(phoneClient)
         dataControl.destroy()
         speechInput.cancelAll()
+        shellMarkdownMedia.release()
     }
 
     /** Nullable on purpose: the provider settings page recomposes one frame after a custom

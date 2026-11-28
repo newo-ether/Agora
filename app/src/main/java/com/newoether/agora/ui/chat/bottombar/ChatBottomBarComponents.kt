@@ -67,9 +67,11 @@ import kotlin.math.roundToInt
 internal const val CHAT_DROPDOWN_MENU_ICON_SIZE_DP = 24
 
 // Stays concentric with the controls capsule: radius = capsule radius - 5 dp (38 dp regular, 34 dp compact).
-private val MODEL_SELECTOR_HEIGHT get() = COMPOSER_CONTROL_HEIGHT - 10.dp
+private val MODEL_SELECTOR_HEIGHT
+    @Composable get() = COMPOSER_CONTROL_HEIGHT - 10.dp
 // Narrow windows (see CHAT_COMPACT_WIDTH_DP) tighten the label padding and size so the capsule narrows.
-private val MODEL_SELECTOR_PADDING get() = if (chatCompactWidth) 5.dp else 8.dp
+private val MODEL_SELECTOR_PADDING
+    @Composable get() = if (chatCompactWidth) 5.dp else 8.dp
 private val COMPOSER_SEND_BUTTON_GAP = 14.dp
 
 /**

@@ -64,6 +64,10 @@
     <string name="img_save_failed">저장 실패</string>
     <string name="img_info_dimensions">해상도</string>
     <string name="img_info_size">크기</string>
+    <string name="audio_action_save">음악에 저장</string>
+    <string name="audio_saved">음악에 저장됨</string>
+    <string name="audio_info_duration">재생 시간</string>
+    <string name="audio_info_format">형식</string>
     <string name="custom_provider_name_label">제공자 이름</string>
     <string name="custom_provider_name_error">이름이 이미 존재하거나 유효하지 않습니다</string>
     <string name="custom_provider_url_error">기본 URL이 필요합니다</string>

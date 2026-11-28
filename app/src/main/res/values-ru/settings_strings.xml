@@ -64,6 +64,10 @@
     <string name="img_save_failed">Ошибка сохранения</string>
     <string name="img_info_dimensions">Размеры</string>
     <string name="img_info_size">Размер</string>
+    <string name="audio_action_save">Сохранить в Музыку</string>
+    <string name="audio_saved">Сохранено в Музыку</string>
+    <string name="audio_info_duration">Длительность</string>
+    <string name="audio_info_format">Формат</string>
     <string name="custom_provider_name_label">Название провайдера</string>
     <string name="custom_provider_name_error">Название уже существует или недопустимо</string>
     <string name="custom_provider_url_error">Требуется базовый URL</string>

@@ -65,8 +65,10 @@ import com.newoether.agora.ui.theme.chatCompactWidth
 internal val SettingsBarHeight = 64.dp          // fixed top bar height (below the status bar)
 internal val SettingsTitleDockTop = 18.dp       // docked title's top inside the bar
 // Narrow windows (see CHAT_COMPACT_WIDTH_DP) tighten the space above (8 dp) and below (10 dp) the big title.
-internal val SettingsTitleBottomInset get() = if (chatCompactWidth) 60.dp else 70.dp   // big title's top-left, measured up from the header bottom
-internal val SettingsTitleAreaHeight get() = if (chatCompactWidth) 72.dp else 90.dp    // big-title header room; taller = longer rise
+internal val SettingsTitleBottomInset: Dp
+    @Composable get() = if (chatCompactWidth) 60.dp else 70.dp   // big title's top-left, measured up from the header bottom
+internal val SettingsTitleAreaHeight: Dp
+    @Composable get() = if (chatCompactWidth) 72.dp else 90.dp    // big-title header room; taller = longer rise
 internal val SettingsTitleExpandedFont = 33.sp
 internal val SettingsTitleCollapsedFont = 22.sp
 internal val SettingsContentMaxWidth = 840.dp
@@ -77,7 +79,7 @@ internal val SettingsTitleEasing = CubicBezierEasing(0.2f, 0f, 0.5f, 1f)
 
 /** Travel distance (Dp) the docked title rises through, derived from the shared geometry. */
 internal val settingsTitleTravel: Dp
-    get() = SettingsBarHeight + SettingsTitleAreaHeight - SettingsTitleBottomInset - SettingsTitleDockTop
+    @Composable get() = SettingsBarHeight + SettingsTitleAreaHeight - SettingsTitleBottomInset - SettingsTitleDockTop
 
 /**
  * iOS-style collapsing title overlay. A single title [Text] whose **vertical** position is glued 1:1

@@ -64,6 +64,10 @@
     <string name="img_save_failed">Speichern fehlgeschlagen</string>
     <string name="img_info_dimensions">Abmessungen</string>
     <string name="img_info_size">Größe</string>
+    <string name="audio_action_save">In Musik speichern</string>
+    <string name="audio_saved">In Musik gespeichert</string>
+    <string name="audio_info_duration">Dauer</string>
+    <string name="audio_info_format">Format</string>
     <string name="custom_provider_name_label">Anbietername</string>
     <string name="custom_provider_name_error">Der Name existiert bereits oder ist ungültig</string>
     <string name="custom_provider_url_error">Basis-URL ist erforderlich</string>

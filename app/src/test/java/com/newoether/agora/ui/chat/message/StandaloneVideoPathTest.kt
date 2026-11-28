@@ -105,4 +105,50 @@ class StandaloneVideoPathTest {
             "/home/agora/clips/a.mp4".toRenderableMarkdownText(),
         )
     }
+
+    @Test
+    fun standaloneAudioPathAndHtmlAudioTagBecomeEmbeddedCards() {
+        assertEquals(
+            "![](/storage/emulated/0/Music/a.mp3)",
+            "/storage/emulated/0/Music/a.mp3".embedStandaloneAudioPaths(),
+        )
+        assertEquals(
+            "![](shell://OnePlus%2013T/data/data/com.termux/files/home/a.mp3)",
+            "[song](shell://OnePlus%2013T/data/data/com.termux/files/home/a.mp3)".embedStandaloneAudioPaths(),
+        )
+        assertEquals(
+            "![](/home/agora/music/a.wav)",
+            "<audio controls src=\"/home/agora/music/a.wav\"></audio>".embedHtmlAudioTags(),
+        )
+        assertEquals(
+            "![](/home/agora/music/a.mp3)",
+            "<audio controls><source src=\"/home/agora/music/a.mp3\" type=\"audio/mpeg\"></audio>".toRenderableMarkdownText(),
+        )
+        val unsupported = "/data/data/com.termux/files/home/a.mp3"
+        assertEquals(unsupported, unsupported.embedStandaloneAudioPaths())
+    }
+
+    @Test
+    fun standaloneHtmlPathBecomesEmbeddedPreviewAndRejectsWebOrUnreadablePaths() {
+        assertEquals(
+            "![](/storage/emulated/0/Download/demo.html)",
+            "/storage/emulated/0/Download/demo.html".embedStandaloneHtmlPaths(),
+        )
+        assertEquals(
+            "![](shell://Local%20Sandbox/home/agora/chart.html)",
+            "[chart](shell://Local%20Sandbox/home/agora/chart.html)".embedStandaloneHtmlPaths(),
+        )
+        assertEquals(
+            "![](/home/agora/page.htm)",
+            "/home/agora/page.htm".toRenderableMarkdownText(),
+        )
+        val remote = "https://example.com/page.html"
+        assertEquals(remote, remote.embedStandaloneHtmlPaths())
+        val unreadable = "/data/data/com.termux/files/home/page.html"
+        assertEquals(unreadable, unreadable.embedStandaloneHtmlPaths())
+        val prose = "打开 /home/agora/page.html 看看"
+        assertEquals(prose, prose.embedStandaloneHtmlPaths())
+        val fenced = "```html-preview\n/home/agora/page.html\n```"
+        assertEquals(fenced, fenced.embedStandaloneHtmlPaths())
+    }
 }

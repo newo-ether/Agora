@@ -72,12 +72,16 @@ import com.newoether.agora.viewmodel.ChatViewModel
 private const val TITLE_CAPSULE_MAX_WIDTH_DP = 260
 
 // Narrow windows (see CHAT_COMPACT_WIDTH_DP) use thinner capsules.
-private val chatTopBarCapsuleHeight get() = if (chatCompactWidth) 48.dp else 52.dp
+private val chatTopBarCapsuleHeight: Dp
+    @Composable get() = if (chatCompactWidth) 48.dp else 52.dp
 // Compact: 40 dp buttons with a 4 dp inset, so the 48 dp new-chat circle has equal padding on all sides.
-private val chatTopBarButtonInset get() = if (chatCompactWidth) 4.dp else 5.dp
-private val chatTopBarButtonSize get() = if (chatCompactWidth) 40.dp else 44.dp
+private val chatTopBarButtonInset: Dp
+    @Composable get() = if (chatCompactWidth) 4.dp else 5.dp
+private val chatTopBarButtonSize: Dp
+    @Composable get() = if (chatCompactWidth) 40.dp else 44.dp
 // Nudges the leading icon onto the capsule's vertical center line (regular: 5 + 22 - 1 = 26 = 52 / 2).
-private val chatTopBarLeadingNudge get() = chatTopBarCapsuleHeight / 2 - chatTopBarButtonInset - chatTopBarButtonSize / 2
+private val chatTopBarLeadingNudge: Dp
+    @Composable get() = chatTopBarCapsuleHeight / 2 - chatTopBarButtonInset - chatTopBarButtonSize / 2
 
 @Composable
 internal fun ChatTopBar(
@@ -486,6 +490,7 @@ internal fun ChatTopBar(
                                 onClick = onNavigateBack ?: onOpenDrawer,
                                 modifier = Modifier.size(chatTopBarButtonSize)
                             ) {
+                                val leadingNudge = chatTopBarLeadingNudge
                                 Icon(
                                     imageVector = if (onNavigateBack != null) {
                                         Icons.AutoMirrored.Rounded.ArrowBack
@@ -496,7 +501,7 @@ internal fun ChatTopBar(
                                         if (onNavigateBack != null) R.string.back else R.string.menu
                                     ),
                                     modifier = Modifier.size(26.dp).graphicsLayer {
-                                        translationX = if (onNavigateBack == null) chatTopBarLeadingNudge.toPx() else 0f
+                                        translationX = if (onNavigateBack == null) leadingNudge.toPx() else 0f
                                     },
                                 )
                             }

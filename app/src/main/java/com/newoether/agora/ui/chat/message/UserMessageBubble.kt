@@ -515,6 +515,8 @@ private val EDIT_BOTTOM_INSET = 4.dp
 
 /** Width of a single-line bubble's height (15dp padding twice plus one 24.2sp line), so the
  * shortest message is a circle rather than a pinched capsule. Compact: 30 dp + 23.2 sp * 15/16. */
-private val USER_BUBBLE_MIN_WIDTH get() = if (chatCompactWidth) 52.dp else 54.dp
+private val USER_BUBBLE_MIN_WIDTH
+    @Composable get() = if (chatCompactWidth) 52.dp else 54.dp
 // Narrow windows (see CHAT_COMPACT_WIDTH_DP) cap the bubble at roughly three quarters of the width.
-private val USER_BUBBLE_MAX_WIDTH get() = if (chatCompactWidth) 256.dp else 300.dp
+private val USER_BUBBLE_MAX_WIDTH
+    @Composable get() = if (chatCompactWidth) 256.dp else 300.dp

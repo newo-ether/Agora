@@ -6,6 +6,10 @@ import com.newoether.agora.model.ChatMessage
 import com.newoether.agora.model.MessageSegment
 import com.newoether.agora.model.MessageStatus
 import com.newoether.agora.model.Participant
+import com.newoether.agora.sandbox.SandboxManager
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -96,6 +100,38 @@ class WebUiMarkdownVideosTest {
         assertNull(videos.open("c", "m", "shell://Local%20Sandbox/home/agora/other.mp4"))
         assertNull(videos.open("other", "m", link))
         assertNull(videos.open("c", "m", "shell://Quantum/F:/private.mp4"))
+    }
+
+    @Test fun rootfsSandboxVideosResolveOnlyWhenSandboxIsEnabled() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val rootfsTmp = File(context.cacheDir, "sandbox-rootfs-tmp").apply { mkdirs() }
+        val file = File(rootfsTmp, "demo.mp4").apply { writeBytes(ByteArray(8) { it.toByte() }) }
+        val rootfsLink = "shell://Local%20Sandbox/tmp/demo.mp4"
+        val manager = mockk<SandboxManager>()
+        coEvery { manager.isAvailable() } returns true
+        every { manager.resolveHostFile("/tmp/demo.mp4") } returns file
+
+        val enabledVideos = WebUiMarkdownVideos(
+            context = context,
+            devices = { emptyList() },
+            sandboxEnabled = { true },
+            sandbox = { manager },
+        ) { conversation, id ->
+            if (conversation == "c" && id == "m") message("![clip]($rootfsLink)") else null
+        }
+        val resolved = enabledVideos.open("c", "m", rootfsLink, document = "answer")
+        assertTrue(resolved is WebUiMarkdownVideoSource.Local)
+        assertEquals(file, (resolved as WebUiMarkdownVideoSource.Local).file)
+
+        val disabledVideos = WebUiMarkdownVideos(
+            context = context,
+            devices = { emptyList() },
+            sandboxEnabled = { false },
+            sandbox = { manager },
+        ) { conversation, id ->
+            if (conversation == "c" && id == "m") message("![clip]($rootfsLink)") else null
+        }
+        assertNull(disabledVideos.open("c", "m", rootfsLink, document = "answer"))
     }
 
     @Test fun byteRangesStayBoundedAndHonourIfRange() {

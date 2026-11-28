@@ -66,6 +66,8 @@ class SystemPromptMigrationTest {
             DefaultSystemPrompt.versionWithToolGuidesForMigration(Locale.ENGLISH),
             DefaultSystemPrompt.versionBeforeHtmlPreviewForMigration(Locale.ENGLISH),
             DefaultSystemPrompt.versionBeforeMediaGuidanceForMigration(Locale.ENGLISH),
+            DefaultSystemPrompt.versionBeforeAudioMediaGuidanceForMigration(Locale.ENGLISH),
+            DefaultSystemPrompt.versionBeforeHtmlFileEmbedGuidanceForMigration(Locale.ENGLISH),
         )
         val current = DefaultSystemPrompt.create(Locale.ENGLISH)
         versions.forEachIndexed { index, original ->

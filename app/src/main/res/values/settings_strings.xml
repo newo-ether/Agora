@@ -59,7 +59,7 @@
     <string name="tool_generate_image">Generate Image</string>
     <string name="tool_generating_image">Generating image…</string>
     <string name="tool_generated_image">Generated image</string>
-    <string name="img_action_save">Save to gallery</string>
+    <string name="img_action_save">Save to Gallery</string>
     <string name="img_action_share">Share</string>
     <string name="conversation_fork">Fork Conversation?</string>
     <string name="conversation_fork_menu">Fork Conversation</string>
@@ -77,6 +77,10 @@
     <string name="img_save_failed">Save failed</string>
     <string name="img_info_dimensions">Dimensions</string>
     <string name="img_info_size">Size</string>
+    <string name="audio_action_save">Save to Music</string>
+    <string name="audio_saved">Saved to Music</string>
+    <string name="audio_info_duration">Duration</string>
+    <string name="audio_info_format">Format</string>
     <string name="custom_provider_name_label">Provider Name</string>
     <string name="custom_provider_name_error">Name already exists or is invalid</string>
     <string name="custom_provider_url_error">Base URL is required</string>

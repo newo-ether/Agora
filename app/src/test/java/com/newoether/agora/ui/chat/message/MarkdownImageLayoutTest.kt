@@ -31,8 +31,15 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import com.newoether.agora.model.MarkdownImage
+import com.newoether.agora.ui.components.LatexImageTransformer
 import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.model.ImageWidth
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -54,6 +61,77 @@ class MarkdownImageLayoutTest {
     @Test fun loadedImagesKeepTheirOwnSpaceAtPhoneDensity() = verifyLayout(320f, 1f, 3f, true)
 
     @Test fun loadedImagesKeepTheirOwnSpaceAtNarrowLargeFont() = verifyLayout(210f, 1.6f, 2.5f, true)
+
+    @Test fun unsupportedInlineImageDegradesToTextWithout200dpPlaceholder() {
+        val badPath = "/data/data/com.termux/files/home/workspace/music/wusong/wusong_tuned.mp3"
+        val content = "1. ![第一版：wusong_tuned.mp3]($badPath)"
+        val bounds = mutableMapOf<String, Rect>()
+        var inlineImageCalled = false
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 1f)) {
+                MaterialTheme {
+                    val assets = rememberChatMarkdownAssets(textColor = MaterialTheme.colorScheme.onSurface)
+                    val components = markdownComponents(
+                        text = assets.components.text,
+                        paragraph = assets.components.paragraph,
+                        image = assets.components.image,
+                        inlineImage = { model ->
+                            inlineImageCalled = true
+                            ChatMarkdownInlineImage(model)
+                        },
+                    )
+                    val ctx = assets.renderContext
+                    IncrementalStreamingMarkdownContent(
+                        content = content,
+                        isStreaming = false,
+                        renderContext = ChatMarkdownRenderContext(
+                            ctx.colors, ctx.typography, ctx.padding, components,
+                            ctx.annotator, ctx.imageTransformer, ctx.flavour,
+                            ctx.plainTextStyle, ctx.parseInlineDollarMath,
+                        ),
+                        modifier = Modifier.width(320.dp).onGloballyPositioned {
+                            bounds["message"] = Rect(it.positionInRoot(), it.size.toSize())
+                        },
+                    )
+                }
+            }
+        }
+        val expectedLabel = "第一版：wusong_tuned.mp3 ($badPath)"
+        compose.waitUntil(10_000) {
+            (bounds["message"]?.height ?: 0f) > 0f &&
+                compose.onAllNodesWithText(expectedLabel, substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText(expectedLabel, substring = true).assertIsDisplayed()
+        compose.runOnIdle {
+            assertFalse("Unsupported image should not invoke inlineImage slot", inlineImageCalled)
+            val msgHeight = requireNotNull(bounds["message"]).height
+            assertTrue("Expected compact fallback text height (0 < h < 150px), got $msgHeight", msgHeight in 1f..149f)
+        }
+    }
+
+    @Test fun placeholderConfigHandlesAudioAndUnsupportedWithout200dpDefault() {
+        val transformer = LatexImageTransformer()
+        val audioSize = transformer.placeholderConfig(
+            "/storage/emulated/0/Music/a.mp3",
+            Density(2f),
+            Size(800f, 1200f),
+            ImageWidth.MAX_WIDTH,
+            Size.Unspecified,
+            null,
+        ).size
+        assertEquals(Size(320f, 80f), audioSize)
+        val unsupportedSize = transformer.placeholderConfig(
+            "/data/data/com.termux/files/home/a.mp3",
+            Density(2f),
+            Size(800f, 1200f),
+            ImageWidth.MAX_WIDTH,
+            Size.Unspecified,
+            null,
+        ).size
+        assertEquals(Size(1f, 1f), unsupportedSize)
+    }
 
     @Test fun realPngDecodesInComposedThumbnail() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

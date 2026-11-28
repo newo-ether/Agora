@@ -38,6 +38,7 @@ import com.newoether.agora.TopLevelPresentation
 import com.newoether.agora.api.DebugProvider
 import com.newoether.agora.data.forDisplay
 import com.newoether.agora.util.gradientBlur
+import com.newoether.agora.ui.chat.message.MarkdownAudioOverlayHost
 import com.newoether.agora.ui.chat.message.chatMediaGallery
 import com.newoether.agora.ui.chat.bottombar.CHAT_BOTTOM_BAR_OUTER_SHAPE
 import com.newoether.agora.ui.chat.bottombar.ChatBottomBar
@@ -667,6 +668,7 @@ fun ChatApp(
                 onHeightChanged = { interactionBarHeightPx = it },
                 onMessageInsetChanged = { messageToolsInsetPx = it },
             )
+            MarkdownAudioOverlayHost(hidden = isExpanded)
 
             com.newoether.agora.ui.chat.bottombar.ChatComposerSurface(
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -765,9 +767,7 @@ fun ChatApp(
                         contextSystemPromptTokens = contextUsage.systemPromptTokens,
                         contextToolTokens = contextUsage.toolTokens,
                         canCompact = currentConversationId != null && !isLoading && !isSwitching && !isStopping,
-                        onCompactClick = {
-                            dialogState.showManualCompact()
-                        },
+                        onCompactClick = dialogState::showManualCompact,
                         onAdvancedClick = dialogState::showAdvanced,
                         onToolsClick = dialogState::showTools,
                         queuedSends = queuedSends,

@@ -64,6 +64,10 @@
     <string name="img_save_failed">Error al guardar</string>
     <string name="img_info_dimensions">Dimensiones</string>
     <string name="img_info_size">Tamaño</string>
+    <string name="audio_action_save">Guardar en Música</string>
+    <string name="audio_saved">Guardado en Música</string>
+    <string name="audio_info_duration">Duración</string>
+    <string name="audio_info_format">Formato</string>
     <string name="custom_provider_name_label">Nombre del proveedor</string>
     <string name="custom_provider_name_error">El nombre ya existe o no es válido</string>
     <string name="custom_provider_url_error">La URL base es obligatoria</string>

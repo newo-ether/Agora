@@ -4,7 +4,7 @@ import com.newoether.agora.tool.BuiltInToolNames
 import java.util.Locale
 
 object DefaultSystemPrompt {
-    internal const val BUILT_IN_MIGRATION_VERSION = 2
+    internal const val BUILT_IN_MIGRATION_VERSION = 4
     private const val ENGLISH_TITLE = "Default"
     private const val ARABIC_TITLE = "\u0627\u0641\u062a\u0631\u0627\u0636\u064a"
     private const val FRENCH_TITLE = "Par d\u00e9faut"
@@ -87,6 +87,36 @@ object DefaultSystemPrompt {
         userItems = userItems(),
         assistantItems = assistantItems(),
     )
+
+    /** Exact default with the initial image/video media guidance, before audio and root restrictions. */
+    internal fun versionBeforeAudioMediaGuidanceForMigration(
+        locale: Locale = Locale.getDefault(),
+    ): SystemPromptEntry {
+        val previous = systemItemsWithPreviousHtmlPreview()
+        val items = previous.take(2) + MarkdownMediaGuidance.previousItemBeforeAudioForMigration() + previous.drop(2)
+        return SystemPromptEntry(
+            title = titleForLocale(locale),
+            systemItems = mergeAdjacentText(items),
+            userItems = userItems(),
+            assistantItems = assistantItems(),
+            builtInMigrationVersion = 2,
+        )
+    }
+
+    /** Exact default after audio media guidance, before embedded HTML file guidance. */
+    internal fun versionBeforeHtmlFileEmbedGuidanceForMigration(
+        locale: Locale = Locale.getDefault(),
+    ): SystemPromptEntry {
+        val previous = systemItemsWithPreviousHtmlPreview()
+        val items = previous.take(2) + MarkdownMediaGuidance.previousItemBeforeHtmlFileForMigration() + previous.drop(2)
+        return SystemPromptEntry(
+            title = titleForLocale(locale),
+            systemItems = mergeAdjacentText(items),
+            userItems = userItems(),
+            assistantItems = assistantItems(),
+            builtInMigrationVersion = 3,
+        )
+    }
 
     /** True for the shipped default whose text blocks were split by item boundaries. */
     internal fun isUnmergedDefault(entry: SystemPromptEntry): Boolean =
@@ -189,7 +219,9 @@ object DefaultSystemPrompt {
                 entry.sameTemplateAs(versionBeforeToolGuidesForMigration()) ||
                 entry.sameTemplateAs(versionWithToolGuidesForMigration()) ||
                 entry.sameTemplateAs(versionBeforeHtmlPreviewForMigration()) ||
-                entry.sameTemplateAs(versionBeforeMediaGuidanceForMigration()))
+                entry.sameTemplateAs(versionBeforeMediaGuidanceForMigration()) ||
+                entry.sameTemplateAs(versionBeforeAudioMediaGuidanceForMigration()) ||
+                entry.sameTemplateAs(versionBeforeHtmlFileEmbedGuidanceForMigration()))
 
     private fun SystemPromptEntry.sameTemplateAs(other: SystemPromptEntry): Boolean =
         resolvedSystemItems.sameTemplateItems(other.resolvedSystemItems) &&
@@ -206,15 +238,20 @@ object DefaultSystemPrompt {
         mergeAdjacentText(systemItemsWithMediaGuidance())
 
     private fun systemItemsWithMediaGuidance(): List<PromptTemplateItem> {
-        // systemItemsWithSeparateHtmlPreview already starts with the policy text and the HTML
-        // guidance, so the media item slots in right after those two.
-        val previous = systemItemsWithSeparateHtmlPreview()
-        return previous.take(2) + MarkdownMediaGuidance.item() + previous.drop(2)
+        val previous = systemItemsBeforeHtmlPreview()
+        return listOf(
+            previous.first(),
+            HtmlPreviewGuidance.item(),
+            MarkdownMediaGuidance.item(),
+        ) + previous.drop(1)
     }
 
-    private fun systemItemsWithSeparateHtmlPreview(): List<PromptTemplateItem> {
+    private fun systemItemsWithSeparateHtmlPreview(): List<PromptTemplateItem> =
+        systemItemsWithPreviousHtmlPreview()
+
+    private fun systemItemsWithPreviousHtmlPreview(): List<PromptTemplateItem> {
         val previous = systemItemsBeforeHtmlPreview()
-        return listOf(previous.first(), HtmlPreviewGuidance.item()) + previous.drop(1)
+        return listOf(previous.first(), HtmlPreviewGuidance.previousItemBeforeFileEmbedForMigration()) + previous.drop(1)
     }
 
     /**

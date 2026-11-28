@@ -343,8 +343,10 @@
     <string name="options">選項</string>
     <string name="video_thumbnail">影片縮圖</string>
     <string name="play">播放</string>
+    <string name="pause">暫停</string>
     <string name="video_preview">影片預覽</string>
     <string name="video_playback_failed">無法播放此影片。檔案可能已遺失或損毀。</string>
+    <string name="audio_playback_failed">無法播放此音訊。檔案可能已遺失或損毀。</string>
 
     <!-- Local Chat Provider -->
     <string name="local_chat_models">本機聊天模型</string>

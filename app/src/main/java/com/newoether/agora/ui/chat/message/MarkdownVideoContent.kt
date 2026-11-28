@@ -56,23 +56,16 @@ internal sealed interface MarkdownVideoSource {
 }
 
 /**
- * Resolves a video destination. `shell://` videos on the sandbox must still resolve to one of the
- * two readable roots, a `shell://` video on any other device resolves to that Conch file, and
- * HTTP(S) videos stream directly. Every other destination keeps its ordinary text link.
+ * Resolves a video destination. Readable local roots play in place, other Local Sandbox rootfs
+ * paths and Conch devices copy into the app cache before playback, and HTTP(S) videos stream
+ * directly. Every other destination keeps its ordinary text link.
  */
 internal fun markdownVideoSource(link: String): MarkdownVideoSource? {
     val raw = markdownVideoLink(link) ?: return null
-    parseShellMediaLink(raw)?.let { shell ->
-        if (shell.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
-            return (resolveMarkdownDestination(raw) as? MarkdownDestination.File)
-                ?.let { MarkdownVideoSource.Local(it.target) }
-        }
-        return MarkdownVideoSource.Conch(shell.server, shell.path)
-    }
     return when (val target = resolveMarkdownDestination(raw)) {
         is MarkdownDestination.Web -> MarkdownVideoSource.Remote(target.url)
         is MarkdownDestination.File -> MarkdownVideoSource.Local(target.target)
-        is MarkdownDestination.Device -> null
+        is MarkdownDestination.Device -> MarkdownVideoSource.Conch(target.link.server, target.link.path)
         null -> null
     }
 }

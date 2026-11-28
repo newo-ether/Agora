@@ -64,6 +64,10 @@
     <string name="img_save_failed">Échec de l\'enregistrement</string>
     <string name="img_info_dimensions">Dimensions</string>
     <string name="img_info_size">Taille</string>
+    <string name="audio_action_save">Enregistrer dans Musique</string>
+    <string name="audio_saved">Enregistré dans Musique</string>
+    <string name="audio_info_duration">Durée</string>
+    <string name="audio_info_format">Format</string>
     <string name="custom_provider_name_label">Nom du fournisseur</string>
     <string name="custom_provider_name_error">Le nom existe déjà ou est invalide</string>
     <string name="custom_provider_url_error">L\'URL de base est obligatoire</string>

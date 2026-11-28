@@ -89,6 +89,8 @@ class DefaultSystemPromptRenderingTest {
         assertEquals(expectedCurrent, PredefinedVariables.compile(current, values))
         assertTrue(current[0].value.contains(HtmlPreviewGuidance.text))
         assertTrue(current[0].value.contains(MarkdownMediaGuidance.text))
+        assertTrue(MarkdownMediaGuidance.text.contains("shell://Local%20Sandbox/"))
+        assertFalse(MarkdownMediaGuidance.text.contains("instead of `shell://Local%20Sandbox/"))
         assertEquals(1, Regex("(?m)^## Interactive HTML preview$").findAll(expectedCurrent).count())
         assertEquals(1, Regex("(?m)^## Media links$").findAll(expectedCurrent).count())
         assertFalse(expectedCurrent.contains("\n\n\n"))

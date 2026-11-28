@@ -3,6 +3,7 @@ package com.newoether.agora.webui
 import android.content.Context
 import com.newoether.agora.data.ShellDeviceConfig
 import com.newoether.agora.model.ChatMessage
+import com.newoether.agora.sandbox.SandboxManager
 import com.newoether.agora.tool.FileTransferEndpoint
 import com.newoether.agora.tool.TRANSFER_MAX_BYTES
 import com.newoether.agora.tool.transferLong
@@ -85,6 +86,8 @@ internal fun ChatMessage.ownsMarkdownLinkedMedia(link: String, document: String)
 internal class WebUiMarkdownVideos(
     private val context: Context,
     private val devices: () -> List<ShellDeviceConfig>,
+    private val sandboxEnabled: () -> Boolean = { false },
+    private val sandbox: () -> SandboxManager? = { null },
     private val loadMessage: suspend (String, String) -> ChatMessage?,
 ) {
     suspend fun open(
@@ -102,9 +105,17 @@ internal class WebUiMarkdownVideos(
         val mimeType = videoMimeType(destination)
         val shell = parseShellMediaLink(destination)
         if (shell == null || shell.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
-            val target = resolveMarkdownDestination(destination) as? MarkdownDestination.File ?: return null
+            val target = resolveMarkdownDestination(destination) as? MarkdownDestination.File
+            if (target != null) {
+                val file = withContext(Dispatchers.IO) {
+                    (resolveLocalFileTarget(context, target.target) as? LocalFileResolution.Ready)?.file
+                } ?: return null
+                return WebUiMarkdownVideoSource.Local(file, mimeType)
+            }
+            if (shell == null || !sandboxEnabled()) return null
+            val manager = sandbox()?.takeIf { it.isAvailable() } ?: return null
             val file = withContext(Dispatchers.IO) {
-                (resolveLocalFileTarget(context, target.target) as? LocalFileResolution.Ready)?.file
+                runCatching { manager.resolveHostFile(shell.path) }.getOrNull()?.takeIf { it.isFile }
             } ?: return null
             return WebUiMarkdownVideoSource.Local(file, mimeType)
         }

@@ -327,8 +327,10 @@
     <string name="queue_clear_all">Clear all</string>
     <string name="video_thumbnail">Video thumbnail</string>
     <string name="play">Play</string>
+    <string name="pause">Pause</string>
     <string name="video_preview">Video preview</string>
     <string name="video_playback_failed">This video can\'t be played. The file may be missing or damaged.</string>
+    <string name="audio_playback_failed">This audio can\'t be played. The file may be missing or damaged.</string>
     <string name="total_tokens">Total: %1$d tokens</string>
     <string name="welcome_to_agora">Welcome to Agora.</string>
     <string name="database_incompatible">Database Incompatible</string>

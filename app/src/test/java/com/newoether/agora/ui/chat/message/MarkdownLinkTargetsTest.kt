@@ -115,6 +115,11 @@ class MarkdownLinkTargetsTest {
         assertEquals("/home/agora/out/a.png", markdownLinkAt(text, text.indexOf("out")))
         assertEquals("/home/agora/out/a.png", markdownLinkAt(text, text.indexOf("/home")))
         assertNull(markdownLinkAt(AnnotatedString("见 home/agora/out/a.png"), 6))
+        val shell = AnnotatedString("见 shell://Local%20Sandbox/tmp/report.pdf，然后")
+        assertEquals(
+            "shell://Local%20Sandbox/tmp/report.pdf",
+            markdownLinkAt(shell, shell.indexOf("report")),
+        )
     }
 
     @Test
@@ -150,12 +155,19 @@ class MarkdownLinkTargetsTest {
     }
 
     @Test
-    fun videoSourcesStayInsideSandboxHomeOrResolveToTheirConchDevice() {
+    fun videoSourcesResolveLocalRootsSandboxRootfsAndConchDevices() {
         assertEquals(
             MarkdownVideoSource.Local(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "clips/a.mp4")),
             markdownVideoSource("shell://Local Sandbox/home/agora/clips/a.mp4"),
         )
-        assertNull(markdownVideoSource("shell://Local Sandbox/etc/a.mp4"))
+        assertEquals(
+            MarkdownVideoSource.Conch("Local Sandbox", "/tmp/a.mp4"),
+            markdownVideoSource("shell://Local%20Sandbox/tmp/a.mp4"),
+        )
+        assertEquals(
+            MarkdownVideoSource.Conch("Local Sandbox", "/etc/a.mp4"),
+            markdownVideoSource("shell://Local Sandbox/etc/a.mp4"),
+        )
         assertEquals(
             MarkdownVideoSource.Conch("Workstation", "F:/out/a.mp4"),
             markdownVideoSource("shell://Workstation/F:/out/a.mp4"),
@@ -205,5 +217,93 @@ class MarkdownLinkTargetsTest {
         assertEquals(start, range.start)
         assertEquals(start + url.length, range.end)
         assertEquals(url, (range.item as LinkAnnotation.Url).url)
+    }
+
+    @Test
+    fun audioDestinationsNeverJoinTheImageSnapshotStore() {
+        val conch = "shell://OnePlus%2013T/data/data/com.termux/files/home/wusong_tuned.mp3"
+        assertEquals(conch, markdownAudioLink(conch))
+        assertNull(markdownImageSnapshotKey(conch))
+        assertNull(markdownVideoLink(conch))
+        assertEquals("https://example.com/a.flac?v=1", markdownAudioLink("https://example.com/a.flac?v=1"))
+        assertNull(markdownImageSnapshotKey("https://example.com/a.flac?v=1"))
+        assertEquals("/storage/emulated/0/Music/a.ogg", markdownAudioLink("/storage/emulated/0/Music/a.ogg"))
+        assertNull(markdownImageSnapshotKey("/storage/emulated/0/Music/a.ogg"))
+        assertNull(markdownAudioLink("/data/data/com.termux/files/home/wusong_tuned.mp3"))
+        assertNull(markdownAudioLink("https://example.com/a.png"))
+    }
+
+    @Test
+    fun audioSourcesResolveLocalRootsSandboxRootfsAndConchDevices() {
+        assertEquals(
+            MarkdownAudioSource.Local(LocalFileTarget(LocalFileRoot.SANDBOX_HOME, "music/a.mp3")),
+            markdownAudioSource("shell://Local Sandbox/home/agora/music/a.mp3"),
+        )
+        assertEquals(
+            MarkdownAudioSource.Local(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Music/a.wav")),
+            markdownAudioSource("/storage/emulated/0/Music/a.wav"),
+        )
+        assertEquals(
+            MarkdownAudioSource.Conch("Local Sandbox", "/tmp/a.mp3"),
+            markdownAudioSource("shell://Local%20Sandbox/tmp/a.mp3"),
+        )
+        assertEquals(
+            MarkdownAudioSource.Conch("OnePlus 13T", "/data/data/com.termux/files/home/wusong_tuned.mp3"),
+            markdownAudioSource("shell://OnePlus%2013T/data/data/com.termux/files/home/wusong_tuned.mp3"),
+        )
+        assertEquals(
+            MarkdownAudioSource.Remote("https://example.com/demo.m4a"),
+            markdownAudioSource("https://example.com/demo.m4a"),
+        )
+        assertNull(markdownAudioSource("/data/data/com.termux/files/home/wusong_tuned.mp3"))
+        assertNull(markdownAudioSource("/tmp/a.mp3"))
+    }
+
+    @Test
+    fun audioFormattingAndTrackMetadata() {
+        assertEquals("0:00", formatAudioTime(-500L))
+        assertEquals("0:00", formatAudioTime(0L))
+        assertEquals("0:05", formatAudioTime(5_000L))
+        assertEquals("1:05", formatAudioTime(65_000L))
+
+        assertEquals("0.75×", formatPlaybackSpeed(0.75f))
+        assertEquals("1×", formatPlaybackSpeed(1.0f))
+        assertEquals("1.25×", formatPlaybackSpeed(1.25f))
+        assertEquals("1.5×", formatPlaybackSpeed(1.5f))
+        assertEquals("2×", formatPlaybackSpeed(2.0f))
+
+        val explicit = buildMarkdownAudioTrack("/storage/emulated/0/Music/song.mp3", "Custom Title")!!
+        assertEquals("Custom Title", explicit.title)
+        assertEquals("MP3", explicit.extensionBadge)
+        assertEquals(
+            MarkdownAudioSource.Local(LocalFileTarget(LocalFileRoot.SHARED_STORAGE, "Music/song.mp3")),
+            explicit.source,
+        )
+
+        val sharedAlias = buildMarkdownAudioTrack("shell://Local%20Sandbox/mnt/shared/Music/song.mp3")!!
+        assertEquals(explicit.key, sharedAlias.key)
+        assertEquals("song.mp3", sharedAlias.title)
+
+        val rootfs = buildMarkdownAudioTrack("shell://Local%20Sandbox/tmp/my%20song.flac")!!
+        assertEquals("my song.flac", rootfs.title)
+        assertEquals("FLAC", rootfs.extensionBadge)
+        assertEquals(MarkdownAudioSource.Conch("Local Sandbox", "/tmp/my song.flac"), rootfs.source)
+
+        val remote = buildMarkdownAudioTrack("https://example.com/tracks/demo%201.m4a?token=abc")!!
+        assertEquals("demo 1.m4a", remote.title)
+        assertEquals("M4A", remote.extensionBadge)
+        assertEquals(MarkdownAudioSource.Remote("https://example.com/tracks/demo%201.m4a?token=abc"), remote.source)
+
+        assertNull(buildMarkdownAudioTrack("https://example.com/pic.png"))
+    }
+
+    @Test
+    fun unsupportedMarkdownImageLabelPreservesAltAndLink() {
+        assertEquals(
+            "第一版 (/data/data/com.termux/a.mp3)",
+            unsupportedMarkdownImageLabel("第一版", "/data/data/com.termux/a.mp3"),
+        )
+        assertEquals("/data/data/com.termux/a.mp3", unsupportedMarkdownImageLabel("", "/data/data/com.termux/a.mp3"))
+        assertEquals("same", unsupportedMarkdownImageLabel("same", "same"))
     }
 }

@@ -64,6 +64,10 @@
     <string name="img_save_failed">فشل الحفظ</string>
     <string name="img_info_dimensions">الأبعاد</string>
     <string name="img_info_size">الحجم</string>
+    <string name="audio_action_save">حفظ في الموسيقى</string>
+    <string name="audio_saved">تم الحفظ في الموسيقى</string>
+    <string name="audio_info_duration">المدة</string>
+    <string name="audio_info_format">التنسيق</string>
     <string name="custom_provider_name_label">اسم المزوّد</string>
     <string name="custom_provider_name_error">الاسم موجود بالفعل أو غير صالح</string>
     <string name="custom_provider_url_error">عنوان URL الأساسي مطلوب</string>

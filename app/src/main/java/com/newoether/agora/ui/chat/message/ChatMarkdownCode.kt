@@ -170,18 +170,28 @@ internal fun SearchHighlightedMarkdownCode(
         val previewEligible = fenced && htmlPreviewLanguage(language) &&
             LocalShellMarkdownMedia.current != null &&
             completedHtmlFence(model.content, model.node, LocalHtmlPreviewStreaming.current)
-        SearchHighlightedMarkdownCodeText(
-            code = code,
-            previewEligible = previewEligible,
-            language = language,
-            style = style,
-            spec = spec,
-            sourceMatches = sourceMatches,
-            highlightColor = highlightColor,
-            activeHighlightColor = activeHighlightColor,
-            nodeFade = nodeFade,
-            autoWrap = autoWrap,
-        )
+        val embeddedHtmlFile = if (previewEligible && language.equals("html-preview", ignoreCase = true)) {
+            embeddedHtmlFenceFileLink(code)
+        } else null
+        if (embeddedHtmlFile != null && spec == null) {
+            MarkdownHtmlPreviewCard(
+                link = embeddedHtmlFile,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            SearchHighlightedMarkdownCodeText(
+                code = code,
+                previewEligible = previewEligible,
+                language = language,
+                style = style,
+                spec = spec,
+                sourceMatches = sourceMatches,
+                highlightColor = highlightColor,
+                activeHighlightColor = activeHighlightColor,
+                nodeFade = nodeFade,
+                autoWrap = autoWrap,
+            )
+        }
     }
     if (fenced) {
         MarkdownCodeFence(model.content, model.node, model.typography.code, block)
@@ -308,6 +318,7 @@ internal fun ChatCodeBlockHeader(
     canCopy: () -> Boolean = { true },
     copyModifier: Modifier = Modifier,
     showCopy: Boolean = true,
+    displayTitle: String? = null,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     actions: @Composable () -> Unit = {},
     trailingActions: @Composable () -> Unit = {},
@@ -322,7 +333,9 @@ internal fun ChatCodeBlockHeader(
             ) {
                 Box(modifier = Modifier.weight(1f).padding(start = 8.dp, end = 4.dp)) {
                     Text(
-                        text = language?.takeIf { it.isNotBlank() }?.uppercase() ?: "CODE",
+                        text = displayTitle?.takeIf { it.isNotBlank() }
+                            ?: language?.takeIf { it.isNotBlank() }?.uppercase()
+                            ?: "CODE",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

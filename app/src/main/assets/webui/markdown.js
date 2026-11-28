@@ -18,19 +18,36 @@ const escapeHtml = (text) =>
 
 // Keep occurrence admission aligned with markdownImageSnapshotKey / parseShellMediaLink.
 const VIDEO_EXTENSIONS = new Set(["mp4", "m4v", "webm", "mov", "mkv", "avi", "3gp", "ogv"]);
+const AUDIO_EXTENSIONS = new Set(["mp3", "wav", "ogg", "oga", "opus", "m4a", "aac", "flac", "amr"]);
+const HTML_EXTENSIONS = new Set(["html", "htm"]);
 
-function videoExtension(raw) {
+function mediaExtension(raw) {
   const name = raw.split("?")[0].split("#")[0].toLowerCase();
   const dot = name.lastIndexOf(".");
   return dot < 0 ? "" : name.slice(dot + 1);
 }
 
 // Native renders these as player cards and excludes them from the image occurrence set.
-function isMarkdownVideo(link) {
+function isMarkdownMedia(link, extensions) {
   const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
   const local = !!localMediaPath(raw);
   if (!(/^shell:\/\//i.test(raw) || /^https?:\/\//i.test(raw) || local)) return false;
-  return VIDEO_EXTENSIONS.has(videoExtension(raw));
+  return extensions.has(mediaExtension(raw));
+}
+
+function isMarkdownVideo(link) {
+  return isMarkdownMedia(link, VIDEO_EXTENSIONS);
+}
+
+function isMarkdownAudio(link) {
+  return isMarkdownMedia(link, AUDIO_EXTENSIONS);
+}
+
+function isMarkdownHtmlFile(link) {
+  const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
+  const local = !!localMediaPath(raw);
+  if (!(/^shell:\/\//i.test(raw) || local)) return false;
+  return HTML_EXTENSIONS.has(mediaExtension(raw));
 }
 
 /** Same-origin card target: the phone streams readable roots and Conch videos through its server. */
@@ -41,7 +58,7 @@ function videoCardTarget(href) {
 
 function supportsImageSnapshot(link) {
   const raw = link.trim().replace(/^<([\s\S]*)>$/, "$1");
-  if (isMarkdownVideo(raw)) return false;
+  if (isMarkdownVideo(raw) || isMarkdownAudio(raw) || isMarkdownHtmlFile(raw)) return false;
   if (/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(raw)) return true;
   // Readable roots and `file:` URLs over them stream through the phone, never the browser.
   if (localMediaPath(raw)) return true;

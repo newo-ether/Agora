@@ -114,7 +114,6 @@ fun AgoraTheme(
     val windowWidthDp = with(baseDensity) { LocalWindowInfo.current.containerSize.width.toDp().value }
     // Zero before the first layout pass; keep the regular tier until a real width is known.
     val compact = windowWidthDp > 0f && windowWidthDp < CHAT_COMPACT_WIDTH_DP
-    chatCompactWidth = compact
     // Compact windows shrink every sp one step on top of the user's own font scale; dp is untouched.
     val contentDensity = remember(baseDensity, compact) {
         if (compact) Density(baseDensity.density, baseDensity.fontScale * COMPACT_FONT_SCALE) else baseDensity
@@ -125,6 +124,10 @@ fun AgoraTheme(
         colorScheme = colorScheme,
         typography = typography,
     ) {
-        CompositionLocalProvider(LocalDensity provides contentDensity, content = content)
+        CompositionLocalProvider(
+            LocalDensity provides contentDensity,
+            LocalChatCompactWidth provides compact,
+            content = content,
+        )
     }
 }

@@ -465,7 +465,9 @@ internal fun String.toRenderableMarkdownText(parseInlineDollarMath: Boolean = fa
             else span.content
         }
     }
-    return markdown.escapeForMarkdown().openTableBlocks().embedHtmlVideoTags().embedStandaloneVideoPaths()
+    return markdown.escapeForMarkdown().openTableBlocks()
+        .embedHtmlVideoTags().embedHtmlAudioTags()
+        .embedStandaloneVideoPaths().embedStandaloneAudioPaths().embedStandaloneHtmlPaths()
 }
 
 /**
@@ -473,7 +475,24 @@ internal fun String.toRenderableMarkdownText(parseInlineDollarMath: Boolean = fa
  * image, so a path written directly renders as the inline video card instead of a text link.
  * Fenced/indented code, inline code and existing links or images keep their text.
  */
-internal fun String.embedStandaloneVideoPaths(): String {
+internal fun String.embedStandaloneVideoPaths(): String =
+    embedStandaloneMediaPaths(::markdownVideoLink)
+
+/**
+ * A line that is only an audio destination becomes the same Markdown image node as an embedded
+ * image, so a path written directly renders as the inline audio card instead of a text link.
+ */
+internal fun String.embedStandaloneAudioPaths(): String =
+    embedStandaloneMediaPaths(::markdownAudioLink)
+
+/**
+ * A line that is only a local or `shell://` HTML file path becomes an embedded Markdown image node
+ * so it renders inline inside an `html-preview` card.
+ */
+internal fun String.embedStandaloneHtmlPaths(): String =
+    embedStandaloneMediaPaths(::markdownHtmlLink)
+
+private fun String.embedStandaloneMediaPaths(classify: (String) -> String?): String {
     if (indexOf('/') < 0) return this
     var fence: String? = null
     var changed = false
@@ -489,25 +508,25 @@ internal fun String.embedStandaloneVideoPaths(): String {
             return@map line
         }
         if (fence != null) return@map line
-        val destination = standaloneVideoDestination(line) ?: return@map line
+        val destination = standaloneMediaDestination(line, classify) ?: return@map line
         changed = true
         embeddedVideoNode(destination)
     }
     return if (changed) lines.joinToString("\n") else this
 }
 
-private fun standaloneVideoDestination(line: String): String? {
+private fun standaloneMediaDestination(line: String, classify: (String) -> String?): String? {
     if (line.startsWith("    ") || line.startsWith('\t')) return null
     val trimmed = line.trim()
     if (trimmed.isEmpty()) return null
-    // One whole line that is a Markdown link to a video renders as the same card.
+    // One whole line that is a Markdown link to a video or audio renders as the same card.
     STANDALONE_MARKDOWN_LINK.matchEntire(trimmed)?.let { match ->
         val destination = match.groupValues[1].removeSurrounding("<", ">")
-        return markdownVideoLink(destination)
+        return classify(destination)
     }
     if (trimmed.any(Char::isWhitespace)) return null
     if (trimmed.first() in "<[!`" || '`' in trimmed || "](" in trimmed) return null
-    return markdownVideoLink(trimmed)
+    return classify(trimmed)
 }
 
 /**
@@ -528,26 +547,44 @@ private val HTML_VIDEO_ELEMENT = Regex(
     """(?is)<video\b[^>]*/>|<video\b[^>]*>.*?</video\s*>""",
 )
 
+private val HTML_AUDIO_ELEMENT = Regex(
+    """(?is)<audio\b[^>]*/>|<audio\b[^>]*>.*?</audio\s*>""",
+)
+
 private val HTML_SRC_ATTRIBUTE = Regex("""(?is)\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""")
 
 /**
  * A raw `<video src="...">` element becomes the same Markdown image node as an embedded image,
  * so a model that writes HTML markup still gets the inline video card. Fenced code keeps its text.
  */
-internal fun String.embedHtmlVideoTags(): String {
-    if (!contains("<video", ignoreCase = true)) return this
+internal fun String.embedHtmlVideoTags(): String =
+    embedHtmlMediaTags("<video", HTML_VIDEO_ELEMENT, ::markdownVideoLink)
+
+/**
+ * A raw `<audio src="...">` element becomes the same Markdown image node as an embedded image,
+ * so a model that writes HTML markup still gets the inline audio card. Fenced code keeps its text.
+ */
+internal fun String.embedHtmlAudioTags(): String =
+    embedHtmlMediaTags("<audio", HTML_AUDIO_ELEMENT, ::markdownAudioLink)
+
+private fun String.embedHtmlMediaTags(
+    needle: String,
+    pattern: Regex,
+    classify: (String) -> String?,
+): String {
+    if (!contains(needle, ignoreCase = true)) return this
     val fenced = fencedCodeRanges()
-    return HTML_VIDEO_ELEMENT.replace(this) { match ->
+    return pattern.replace(this) { match ->
         val start = match.range.first
         val insideFence = fenced.any { start >= it.first && start <= it.last }
-        if (insideFence) match.value else htmlVideoMarkdown(match.value) ?: match.value
+        if (insideFence) match.value else htmlMediaMarkdown(match.value, classify) ?: match.value
     }
 }
 
-private fun htmlVideoMarkdown(element: String): String? {
+private fun htmlMediaMarkdown(element: String, classify: (String) -> String?): String? {
     val source = HTML_SRC_ATTRIBUTE.find(element) ?: return null
     val destination = source.groupValues.drop(1).firstOrNull(String::isNotEmpty)?.trim().orEmpty()
-    if (destination.isEmpty() || markdownVideoLink(destination) == null) return null
+    if (destination.isEmpty() || classify(destination) == null) return null
     return embeddedVideoNode(destination)
 }
 

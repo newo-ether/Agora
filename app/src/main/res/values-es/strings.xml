@@ -280,8 +280,10 @@
     <string name="options">Opciones</string>
     <string name="video_thumbnail">Miniatura del vídeo</string>
     <string name="play">Reproducir</string>
+    <string name="pause">Pausar</string>
     <string name="video_preview">Vista previa del vídeo</string>
     <string name="video_playback_failed">No se puede reproducir este vídeo. Puede que falte el archivo o esté dañado.</string>
+    <string name="audio_playback_failed">No se puede reproducir este audio. Puede que falte el archivo o esté dañado.</string>
     <string name="total_tokens">Total: %1$d tokens</string>
     <string name="welcome_to_agora">Bienvenido a Agora.</string>
     <string name="database_incompatible">Base de datos incompatible</string>

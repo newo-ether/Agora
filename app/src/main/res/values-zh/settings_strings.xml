@@ -77,6 +77,10 @@
     <string name="img_save_failed">保存失败</string>
     <string name="img_info_dimensions">尺寸</string>
     <string name="img_info_size">大小</string>
+    <string name="audio_action_save">保存到音乐</string>
+    <string name="audio_saved">已保存到音乐</string>
+    <string name="audio_info_duration">时长</string>
+    <string name="audio_info_format">格式</string>
     <string name="custom_provider_name_label">提供商名称</string>
     <string name="custom_provider_name_error">名称已存在或无效</string>
     <string name="custom_provider_url_error">需要提供 Base URL</string>

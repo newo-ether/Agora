@@ -64,6 +64,10 @@
     <string name="img_save_failed">保存に失敗しました</string>
     <string name="img_info_dimensions">寸法</string>
     <string name="img_info_size">サイズ</string>
+    <string name="audio_action_save">ミュージックに保存</string>
+    <string name="audio_saved">ミュージックに保存しました</string>
+    <string name="audio_info_duration">再生時間</string>
+    <string name="audio_info_format">形式</string>
     <string name="custom_provider_name_label">プロバイダー名</string>
     <string name="custom_provider_name_error">名前が既に存在するか、無効です</string>
     <string name="custom_provider_url_error">ベース URL は必須です</string>

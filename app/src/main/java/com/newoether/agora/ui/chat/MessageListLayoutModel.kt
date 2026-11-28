@@ -91,9 +91,15 @@ internal data class MessageListTurn(
      * per-turn content type so LazyColumn never recycles them into a different turn.
      */
     val hostsHtmlPreview: Boolean by lazy(LazyThreadSafetyMode.NONE) {
-        messages.any { message -> message.text.contains("```html", ignoreCase = true) }
+        messages.any { message -> messageTextMayHostHtmlPreview(message.text) }
     }
 }
+
+internal fun messageTextMayHostHtmlPreview(text: String): Boolean =
+    text.contains("```html", ignoreCase = true) ||
+        text.contains("~~~html", ignoreCase = true) ||
+        text.contains(".html", ignoreCase = true) ||
+        text.contains(".htm", ignoreCase = true)
 
 internal const val MessageTurnContentType = "turn"
 

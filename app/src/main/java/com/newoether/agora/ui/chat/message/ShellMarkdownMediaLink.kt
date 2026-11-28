@@ -41,7 +41,7 @@ internal fun parseShellMediaLink(link: String): ShellMediaLink? {
 
 /** The same supported destination set determines native and browser occurrence ordinals. */
 internal fun markdownImageSnapshotKey(link: String): String? {
-    if (markdownVideoLink(link) != null) return null
+    if (markdownVideoLink(link) != null || markdownAudioLink(link) != null || markdownHtmlLink(link) != null) return null
     val raw = link.trim().removeSurrounding("<", ">")
     if (HTTP_MARKDOWN_IMAGE.matches(raw)) return raw
     return when (val destination = resolveMarkdownDestination(raw)) {
@@ -52,16 +52,40 @@ internal fun markdownImageSnapshotKey(link: String): String? {
 }
 
 private val VIDEO_EXTENSIONS = setOf("mp4", "m4v", "webm", "mov", "mkv", "avi", "3gp", "ogv")
+private val AUDIO_EXTENSIONS = setOf("mp3", "wav", "ogg", "oga", "opus", "m4a", "aac", "flac", "amr")
+private val HTML_EXTENSIONS = setOf("html", "htm")
 
 /**
  * A shell, HTTP(S) or local storage Markdown destination whose file name declares a video
  * container. Video destinations render as a player card and never join the image snapshot store.
  */
-internal fun markdownVideoLink(link: String): String? {
+internal fun markdownVideoLink(link: String): String? = markdownMediaLinkWithExtensions(link, VIDEO_EXTENSIONS)
+
+/**
+ * A shell, HTTP(S) or local storage Markdown destination whose file name declares an audio
+ * container. Audio destinations render as an inline audio card and never join the image snapshot store.
+ */
+internal fun markdownAudioLink(link: String): String? = markdownMediaLinkWithExtensions(link, AUDIO_EXTENSIONS)
+
+/**
+ * A local storage or `shell://` Markdown destination whose file name declares an HTML document.
+ * Remote HTTP(S) URLs stay ordinary links and are never embedded as HTML previews.
+ */
+internal fun markdownHtmlLink(link: String): String? {
     val raw = link.trim().removeSurrounding("<", ">")
     if (raw.isEmpty()) return null
     val extension = raw.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase()
-    if (extension !in VIDEO_EXTENSIONS) return null
+    if (extension !in HTML_EXTENSIONS) return null
+    val supported = parseShellMediaLink(raw) != null ||
+        resolveMarkdownDestination(raw) is MarkdownDestination.File
+    return raw.takeIf { supported }
+}
+
+private fun markdownMediaLinkWithExtensions(link: String, extensions: Set<String>): String? {
+    val raw = link.trim().removeSurrounding("<", ">")
+    if (raw.isEmpty()) return null
+    val extension = raw.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase()
+    if (extension !in extensions) return null
     val supported = parseShellMediaLink(raw) != null || HTTP_MARKDOWN_IMAGE.matches(raw) ||
         resolveMarkdownDestination(raw) is MarkdownDestination.File
     return raw.takeIf { supported }

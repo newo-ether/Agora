@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,10 +28,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -50,6 +56,7 @@ import com.mikepenz.markdown.compose.LocalReferenceLinkHandler
 import com.mikepenz.markdown.compose.components.MarkdownComponentModel
 import com.mikepenz.markdown.compose.elements.MarkdownImage
 import com.mikepenz.markdown.compose.elements.MarkdownInlineImage
+import com.mikepenz.markdown.utils.MARKDOWN_TAG_IMAGE_URL
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import com.mikepenz.markdown.model.ReferenceLinkHandler
 import org.intellij.markdown.IElementType
@@ -120,6 +127,7 @@ internal fun MarkdownImageThumbnail(link: String, image: MarkdownImage, onClick:
 @Composable
 internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
     val link = markdownImageLink(model.content, model.node, LocalReferenceLinkHandler.current)
+    val alt = remember(model.content, model.node) { markdownImageAltText(model.content, model.node) }
     markdownVideoLink(link ?: "").let { video ->
         if (video != null) {
             MarkdownVideoCard(
@@ -129,7 +137,28 @@ internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
             return
         }
     }
-    if (link != null && (LocalImageTransformer.current as? LatexImageTransformer)
+    markdownAudioLink(link ?: "").let { audio ->
+        if (audio != null) {
+            MarkdownAudioCard(
+                link = audio,
+                title = alt,
+                modifier = Modifier.padding(vertical = 4.dp).widthIn(max = 320.dp).fillMaxWidth(),
+            )
+            return
+        }
+    }
+    markdownHtmlLink(link ?: "").let { htmlFile ->
+        if (htmlFile != null) {
+            MarkdownHtmlPreviewCard(
+                link = htmlFile,
+                title = alt,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            return
+        }
+    }
+    val transformer = LocalImageTransformer.current as? LatexImageTransformer
+    if (link != null && transformer
             ?.renderInlineImage(link, LocalMarkdownImageOccurrences.current[model.node]) == true) return
     // Any formula on its own line, display or inline promoted out of its paragraph, is one
     // selectable unit that copies its source.
@@ -138,7 +167,18 @@ internal fun ScrollableDisplayLatexImage(model: MarkdownComponentModel) {
         DisplayLatexBlock(link, latexSource, model.typography.paragraph)
         return
     }
-    MarkdownImage(model.content, model.node)
+    if (transformer == null || (link != null && transformer.isSupportedImage(link))) {
+        MarkdownImage(model.content, model.node)
+    } else {
+        val fallback = unsupportedMarkdownImageLabel(alt, link)
+        if (fallback.isNotEmpty()) {
+            Text(
+                text = fallback,
+                style = model.typography.paragraph,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable
@@ -150,10 +190,104 @@ internal fun ChatMarkdownInlineImage(model: MarkdownComponentModel) {
             return
         }
     }
+    markdownAudioLink(model.content).let { audio ->
+        if (audio != null) {
+            MarkdownAudioCard(
+                link = audio,
+                modifier = Modifier.padding(vertical = 4.dp).widthIn(max = 320.dp).fillMaxWidth(),
+            )
+            return
+        }
+    }
+    markdownHtmlLink(model.content).let { htmlFile ->
+        if (htmlFile != null) {
+            MarkdownHtmlPreviewCard(
+                link = htmlFile,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            return
+        }
+    }
     if ((LocalImageTransformer.current as? LatexImageTransformer)
             ?.renderInlineImage(model.content, LocalMarkdownImageOccurrences.current[model.node]) != true) {
         MarkdownInlineImage(model.content, model.node)
     }
+}
+
+/** Extracts the unescaped alt text of a Markdown `IMAGE` node, or null when blank. */
+internal fun markdownImageAltText(content: String, node: ASTNode): String? {
+    fun ASTNode.descendant(type: IElementType): ASTNode? {
+        for (child in children) {
+            if (child.type == type) return child
+            child.descendant(type)?.let { return it }
+        }
+        return null
+    }
+    val textNode = node.descendant(MarkdownElementTypes.LINK_TEXT)
+        ?: node.descendant(MarkdownElementTypes.LINK_LABEL)
+        ?: return null
+    return textNode.getUnescapedTextInNode(content)
+        .removePrefix("[")
+        .removeSuffix("]")
+        .trim()
+        .takeIf { it.isNotEmpty() }
+}
+
+/** Readable plain-text fallback when a Markdown image destination cannot be rendered. */
+internal fun unsupportedMarkdownImageLabel(alt: String?, link: String?): String {
+    val cleanAlt = alt?.trim().orEmpty()
+    val cleanLink = link?.trim()?.removeSurrounding("<", ">").orEmpty()
+    return when {
+        cleanAlt.isNotEmpty() && cleanLink.isNotEmpty() && cleanAlt != cleanLink ->
+            "$cleanAlt ($cleanLink)"
+        cleanAlt.isNotEmpty() -> cleanAlt
+        cleanLink.isNotEmpty() -> cleanLink
+        else -> ""
+    }
+}
+
+/**
+ * Replaces unsupported inline image placeholders with selectable fallback text so destinations
+ * the renderer cannot open never collapse into blank 200dp placeholders or drop their alt text.
+ */
+internal fun AnnotatedString.replaceUnsupportedMarkdownImages(
+    sourceContent: String,
+    textNode: ASTNode,
+    isSupported: (String) -> Boolean,
+    fallbackColor: Color,
+): AnnotatedString {
+    val prefix = "${MARKDOWN_TAG_IMAGE_URL}_"
+    val annotations = getStringAnnotations(0, length)
+        .filter { it.item.startsWith(prefix) }
+        .sortedBy { it.start }
+    if (annotations.isEmpty()) return this
+    val unsupported = annotations.withIndex().filter { (_, range) ->
+        !isSupported(range.item.removePrefix(prefix))
+    }
+    if (unsupported.isEmpty()) return this
+    val imageNodes = mutableListOf<ASTNode>()
+    fun visit(node: ASTNode) {
+        if (node.type == MarkdownElementTypes.IMAGE) imageNodes += node
+        node.children.forEach(::visit)
+    }
+    visit(textNode)
+    val builder = AnnotatedString.Builder()
+    var copiedFrom = 0
+    for ((index, range) in unsupported) {
+        if (range.start < copiedFrom) continue
+        if (copiedFrom < range.start) builder.append(this, copiedFrom, range.start)
+        val link = range.item.removePrefix(prefix)
+        val alt = imageNodes.getOrNull(index)?.let { markdownImageAltText(sourceContent, it) }
+        val fallback = unsupportedMarkdownImageLabel(alt, link)
+        if (fallback.isNotEmpty()) {
+            builder.withStyle(SpanStyle(color = fallbackColor)) {
+                append(fallback)
+            }
+        }
+        copiedFrom = range.end
+    }
+    if (copiedFrom < length) builder.append(this, copiedFrom, length)
+    return builder.toAnnotatedString()
 }
 
 /** Resolve the existing Markdown AST with the renderer's public unescaping/reference helpers. */

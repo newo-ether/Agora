@@ -4,13 +4,11 @@ import com.newoether.agora.ui.components.DialogWindowEdgeToEdge
 import com.newoether.agora.ui.components.DialogWindowNoSystemAnimation
 import com.newoether.agora.ui.components.DialogWindowNoSystemDim
 
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
-import android.provider.MediaStore
 import android.webkit.MimeTypeMap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -73,7 +71,7 @@ private fun directImageFile(url: String): File? {
     return path?.let(::File)?.takeIf(File::isFile)
 }
 
-private class OpenedImageSource(
+internal class OpenedImageSource(
     input: InputStream,
     val sizeBytes: Long?,
     private val reopenInput: () -> InputStream,
@@ -96,7 +94,7 @@ private class OpenedImageSource(
     }
 }
 
-private fun openImageSource(
+internal fun openImageSource(
     context: Context,
     url: String,
     checkActive: () -> Unit = {},
@@ -153,7 +151,7 @@ private fun openImageSource(
     }
 }
 
-private fun imageSourceType(source: OpenedImageSource): Pair<String, String> {
+internal fun imageSourceType(source: OpenedImageSource): Pair<String, String> {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeStream(source.input, null, bounds)
     val mime = bounds.outMimeType?.lowercase(Locale.ROOT)
@@ -168,7 +166,7 @@ private fun imageSourceType(source: OpenedImageSource): Pair<String, String> {
     return mime to extension
 }
 
-private fun copyImageBytes(input: InputStream, output: OutputStream, checkActive: () -> Unit) {
+internal fun copyImageBytes(input: InputStream, output: OutputStream, checkActive: () -> Unit) {
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
     while (true) {
         checkActive()
@@ -191,54 +189,32 @@ private fun countImageBytes(context: Context, url: String): Long? =
         total
     }
 
-/** Save the image into the device gallery (Pictures/Agora). Returns true on success. */
-suspend fun saveImageToGallery(context: Context, url: String): Boolean = withContext(Dispatchers.IO) {
-    val resolver = context.contentResolver
-    val actionContext = currentCoroutineContext()
-    var destination: Uri? = null
-    try {
-        val imageSource = openImageSource(context, url, actionContext::ensureActive)
-            ?: return@withContext false
-        imageSource.use { source ->
-            val (mime, extension) = imageSourceType(source)
-            actionContext.ensureActive()
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, "agora_${System.currentTimeMillis()}.$extension")
-                put(MediaStore.Images.Media.MIME_TYPE, mime)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Agora")
-                    put(MediaStore.Images.Media.IS_PENDING, 1)
-                }
-            }
-            val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                ?: return@withContext false
-            destination = uri
-            val output = resolver.openOutputStream(uri)
-                ?: throw IOException("Unable to open gallery destination")
-            output.use { sink -> copyImageBytes(source.input, sink, actionContext::ensureActive) }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
-        }
-        true
-    } catch (failure: Exception) {
-        destination?.let { runCatching { resolver.delete(it, null, null) } }
-        if (failure is CancellationException) throw failure
-        false
-    }
+private enum class MediaActionKind {
+    IMAGE,
+    VIDEO,
+    AUDIO,
 }
 
-/** Share the image via a content Uri (copied into the exposed cache dir for FileProvider). */
-suspend fun shareImage(context: Context, url: String): Boolean = withContext(Dispatchers.IO) {
+internal data class MediaInfo(
+    val width: Int = 0,
+    val height: Int = 0,
+    val durationMs: Long? = null,
+    val formatLabel: String? = null,
+    val sizeBytes: Long? = null,
+)
+
+private suspend fun shareMedia(
+    context: Context,
+    url: String,
+    resolveType: (Context, OpenedImageSource) -> Pair<String, String>,
+): Boolean = withContext(Dispatchers.IO) {
     val actionContext = currentCoroutineContext()
     var destination: File? = null
     try {
-        val imageSource = openImageSource(context, url, actionContext::ensureActive)
+        val mediaSource = openImageSource(context, url, actionContext::ensureActive)
             ?: return@withContext false
-        val mime = imageSource.use { source ->
-            val (mime, extension) = imageSourceType(source)
+        val mime = mediaSource.use { source ->
+            val (mime, extension) = resolveType(context, source)
             actionContext.ensureActive()
             val dir = File(context.cacheDir, "shared").apply { mkdirs() }
             val file = File.createTempFile("agora_${System.currentTimeMillis()}_", ".$extension", dir)
@@ -268,97 +244,28 @@ suspend fun shareImage(context: Context, url: String): Boolean = withContext(Dis
     }
 }
 
-private data class ImageInfo(val width: Int, val height: Int, val sizeBytes: Long?)
-
-private fun mediaExtension(url: String): String =
-    url.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase(Locale.ROOT)
-
-private fun videoMimeAndExtension(context: Context, url: String): Pair<String, String> {
-    val declared = if (url.startsWith("content://", true) || url.startsWith("file://", true)) {
-        runCatching { context.contentResolver.getType(Uri.parse(url)) }.getOrNull()
-    } else null
-    val extension = mediaExtension(url)
-    val mime = declared ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "video/mp4"
-    val resolvedExtension = extension.ifEmpty {
-        MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "mp4"
-    }
-    return mime to resolvedExtension
-}
-
-/** Save a video into the device gallery (Movies/Agora). Returns true on success. */
-suspend fun saveVideoToGallery(context: Context, url: String): Boolean = withContext(Dispatchers.IO) {
-    val resolver = context.contentResolver
-    val actionContext = currentCoroutineContext()
-    var destination: Uri? = null
-    try {
-        val videoSource = openImageSource(context, url, actionContext::ensureActive)
-            ?: return@withContext false
-        videoSource.use { source ->
-            val (mime, extension) = videoMimeAndExtension(context, url)
-            actionContext.ensureActive()
-            val values = ContentValues().apply {
-                put(MediaStore.Video.Media.DISPLAY_NAME, "agora_${System.currentTimeMillis()}.$extension")
-                put(MediaStore.Video.Media.MIME_TYPE, mime)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Agora")
-                    put(MediaStore.Video.Media.IS_PENDING, 1)
-                }
-            }
-            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                ?: return@withContext false
-            destination = uri
-            val output = resolver.openOutputStream(uri)
-                ?: throw IOException("Unable to open gallery destination")
-            output.use { sink -> copyImageBytes(source.input, sink, actionContext::ensureActive) }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Video.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
-        }
-        true
-    } catch (failure: Exception) {
-        destination?.let { runCatching { resolver.delete(it, null, null) } }
-        if (failure is CancellationException) throw failure
-        false
-    }
-}
+/** Share the image via a content Uri (copied into the exposed cache dir for FileProvider). */
+suspend fun shareImage(context: Context, url: String): Boolean = shareMedia(
+    context = context,
+    url = url,
+    resolveType = { _, source -> imageSourceType(source) },
+)
 
 /** Share a video via a content Uri (copied into the exposed cache dir for FileProvider). */
-suspend fun shareVideo(context: Context, url: String): Boolean = withContext(Dispatchers.IO) {
-    val actionContext = currentCoroutineContext()
-    var destination: File? = null
-    try {
-        val (mime, extension) = videoMimeAndExtension(context, url)
-        val videoSource = openImageSource(context, url, actionContext::ensureActive)
-            ?: return@withContext false
-        videoSource.use { source ->
-            val dir = File(context.cacheDir, "shared").apply { mkdirs() }
-            val file = File.createTempFile("agora_${System.currentTimeMillis()}_", ".$extension", dir)
-            destination = file
-            file.outputStream().use { sink ->
-                copyImageBytes(source.input, sink, actionContext::ensureActive)
-            }
-        }
-        val file = checkNotNull(destination)
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = mime
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        withContext(Dispatchers.Main) {
-            context.startActivity(Intent.createChooser(intent, context.getString(R.string.img_action_share)))
-        }
-        true
-    } catch (failure: Exception) {
-        destination?.delete()
-        if (failure is CancellationException) throw failure
-        false
-    }
-}
+suspend fun shareVideo(context: Context, url: String): Boolean = shareMedia(
+    context = context,
+    url = url,
+    resolveType = { ctx, _ -> videoMimeAndExtension(ctx, url) },
+)
 
-private fun readImageInfo(context: Context, url: String): ImageInfo? {
+/** Share an audio clip via a content Uri (copied into the exposed cache dir for FileProvider). */
+suspend fun shareAudio(context: Context, url: String): Boolean = shareMedia(
+    context = context,
+    url = url,
+    resolveType = { ctx, _ -> audioMimeAndExtension(ctx, url) },
+)
+
+private fun readImageInfo(context: Context, url: String): MediaInfo? {
     return try {
         val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
         val imageSource = openImageSource(context, url) ?: return null
@@ -367,7 +274,7 @@ private fun readImageInfo(context: Context, url: String): ImageInfo? {
             source.sizeBytes
         }
         if (opts.outWidth <= 0 || opts.outHeight <= 0) return null
-        ImageInfo(
+        MediaInfo(
             width = opts.outWidth,
             height = opts.outHeight,
             sizeBytes = reportedSize ?: countImageBytes(context, url),
@@ -377,14 +284,15 @@ private fun readImageInfo(context: Context, url: String): ImageInfo? {
     }
 }
 
-private fun readVideoInfo(context: Context, url: String): ImageInfo? = try {
+private fun readVideoInfo(context: Context, url: String): MediaInfo? = try {
     val retriever = android.media.MediaMetadataRetriever()
     try {
-        val uri = Uri.parse(url)
-        if (url.startsWith("content://", true) || url.startsWith("file://", true) || directImageFile(url) != null) {
-            retriever.setDataSource(context, uri)
-        } else {
-            retriever.setDataSource(url)
+        val localFile = directImageFile(url)
+        when {
+            localFile != null -> retriever.setDataSource(localFile.absolutePath)
+            url.startsWith("content://", true) || url.startsWith("file://", true) ->
+                retriever.setDataSource(context, Uri.parse(url))
+            else -> retriever.setDataSource(url, emptyMap())
         }
         val width = retriever.extractMetadata(
             android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH,
@@ -393,12 +301,69 @@ private fun readVideoInfo(context: Context, url: String): ImageInfo? = try {
             android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT,
         )?.toIntOrNull() ?: 0
         val size = openImageSource(context, url)?.use { it.sizeBytes } ?: countImageBytes(context, url)
-        if (width <= 0 || height <= 0) null else ImageInfo(width, height, size)
+        if (width <= 0 || height <= 0) null else MediaInfo(width = width, height = height, sizeBytes = size)
     } finally {
         retriever.release()
     }
 } catch (_: Exception) {
     null
+}
+
+internal fun readAudioInfo(context: Context, url: String): MediaInfo? {
+    var durationMs: Long? = null
+    var bitrateBps: Int? = null
+    var retrievedMime: String? = null
+    runCatching {
+        val retriever = android.media.MediaMetadataRetriever()
+        try {
+            val localFile = directImageFile(url)
+            when {
+                localFile != null -> retriever.setDataSource(localFile.absolutePath)
+                url.startsWith("content://", true) || url.startsWith("file://", true) ->
+                    retriever.setDataSource(context, Uri.parse(url))
+                else -> retriever.setDataSource(url, emptyMap())
+            }
+            durationMs = retriever.extractMetadata(
+                android.media.MediaMetadataRetriever.METADATA_KEY_DURATION,
+            )?.toLongOrNull()?.takeIf { it > 0L }
+            bitrateBps = retriever.extractMetadata(
+                android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE,
+            )?.toIntOrNull()?.takeIf { it > 0 }
+            retrievedMime = retriever.extractMetadata(
+                android.media.MediaMetadataRetriever.METADATA_KEY_MIMETYPE,
+            )
+        } finally {
+            retriever.release()
+        }
+    }
+    val size = runCatching {
+        openImageSource(context, url)?.use { it.sizeBytes } ?: countImageBytes(context, url)
+    }.getOrNull()
+    val ext = mediaExtension(url).ifEmpty {
+        retrievedMime?.let { MimeTypeMap.getSingleton().getExtensionFromMimeType(it) }.orEmpty()
+    }.uppercase(Locale.ROOT)
+    val formatParts = buildList {
+        if (ext.isNotEmpty()) add(ext)
+        bitrateBps?.let { bps ->
+            val kbps = (bps + 500) / 1000
+            if (kbps > 0) add("$kbps kbps")
+        }
+    }
+    val formatLabel = formatParts.joinToString(" · ").ifEmpty { null }
+    if (durationMs == null && formatLabel == null && size == null) return null
+    return MediaInfo(durationMs = durationMs, formatLabel = formatLabel, sizeBytes = size)
+}
+
+private fun formatMediaDuration(ms: Long): String {
+    val totalSeconds = ms.coerceAtLeast(0L) / 1000L
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+    return if (hours > 0L) {
+        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    } else {
+        "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
 }
 
 private fun formatBytes(n: Long): String = when {
@@ -409,28 +374,34 @@ private fun formatBytes(n: Long): String = when {
 
 @Composable
 fun ImageActionsSheet(url: String, onMessage: (String) -> Unit, onDismiss: () -> Unit) {
-    MediaActionsSheet(url = url, isVideo = false, onMessage = onMessage, onDismiss = onDismiss)
+    MediaActionsSheet(url = url, kind = MediaActionKind.IMAGE, onMessage = onMessage, onDismiss = onDismiss)
 }
 
 /** The same Save/Share/Info sheet for a playing video. */
 @Composable
 fun VideoActionsSheet(url: String, onMessage: (String) -> Unit, onDismiss: () -> Unit) {
-    MediaActionsSheet(url = url, isVideo = true, onMessage = onMessage, onDismiss = onDismiss)
+    MediaActionsSheet(url = url, kind = MediaActionKind.VIDEO, onMessage = onMessage, onDismiss = onDismiss)
+}
+
+/** The same Save/Share/Info sheet for an inline audio clip. */
+@Composable
+fun AudioActionsSheet(url: String, onMessage: (String) -> Unit, onDismiss: () -> Unit) {
+    MediaActionsSheet(url = url, kind = MediaActionKind.AUDIO, onMessage = onMessage, onDismiss = onDismiss)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MediaActionsSheet(
     url: String,
-    isVideo: Boolean,
+    kind: MediaActionKind,
     onMessage: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showInfo by remember { mutableStateOf(false) }
-    var imageInfo by remember(url) { mutableStateOf<ImageInfo?>(null) }
-    var imageInfoLoading by remember(url) { mutableStateOf(false) }
+    var mediaInfo by remember(url, kind) { mutableStateOf<MediaInfo?>(null) }
+    var mediaInfoLoading by remember(url, kind) { mutableStateOf(false) }
     var sheetVisible by remember(url) { mutableStateOf(true) }
     var actionInFlight by remember(url) { mutableStateOf(false) }
     val motionPolicy = LocalAgoraMotionPolicy.current
@@ -452,30 +423,48 @@ private fun MediaActionsSheet(
     }
 
     // Routed through the single global snackbar host (a new message dismisses the previous one).
-    val savedMsg = stringResource(R.string.img_saved)
+    val saveLabel = stringResource(
+        if (kind == MediaActionKind.AUDIO) R.string.audio_action_save else R.string.img_action_save,
+    )
+    val savedMsg = stringResource(
+        if (kind == MediaActionKind.AUDIO) R.string.audio_saved else R.string.img_saved,
+    )
     val failMsg = stringResource(R.string.img_save_failed)
     fun doSave() {
         // Keep the sheet in composition until the save finishes — dismissing first would cancel
         // this scope (it's tied to the sheet) and abort both the save and the snackbar.
         scope.launch {
-            val ok = if (isVideo) saveVideoToGallery(context, url) else saveImageToGallery(context, url)
-            onMessage(if (ok) savedMsg else failMsg)
+            val savedPath = when (kind) {
+                MediaActionKind.IMAGE -> saveImageToGallery(context, url)
+                MediaActionKind.VIDEO -> saveVideoToGallery(context, url)
+                MediaActionKind.AUDIO -> saveAudioToMusic(context, url)
+            }
+            // Name the exact file so the user knows where it landed.
+            onMessage(savedPath?.let { "$savedMsg\n$it" } ?: failMsg)
             onDismiss()
         }
     }
     fun doShare() {
         scope.launch {
-            if (isVideo) shareVideo(context, url) else shareImage(context, url)
+            when (kind) {
+                MediaActionKind.IMAGE -> shareImage(context, url)
+                MediaActionKind.VIDEO -> shareVideo(context, url)
+                MediaActionKind.AUDIO -> shareAudio(context, url)
+            }
             onDismiss()
         }
     }
-    LaunchedEffect(showInfo, url) {
-        if (showInfo && imageInfo == null) {
-            imageInfoLoading = true
-            imageInfo = withContext(Dispatchers.IO) {
-                if (isVideo) readVideoInfo(context, url) else readImageInfo(context, url)
+    LaunchedEffect(showInfo, url, kind) {
+        if (showInfo && mediaInfo == null) {
+            mediaInfoLoading = true
+            mediaInfo = withContext(Dispatchers.IO) {
+                when (kind) {
+                    MediaActionKind.IMAGE -> readImageInfo(context, url)
+                    MediaActionKind.VIDEO -> readVideoInfo(context, url)
+                    MediaActionKind.AUDIO -> readAudioInfo(context, url)
+                }
             }
-            imageInfoLoading = false
+            mediaInfoLoading = false
         }
     }
     // Pre-Q gallery writes need WRITE_EXTERNAL_STORAGE; request it then save.
@@ -488,7 +477,7 @@ private fun MediaActionsSheet(
             DialogWindowEdgeToEdge()
             DialogWindowNoSystemDim()
             Column(modifier = Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
-                ActionRow(Icons.Rounded.Download, stringResource(R.string.img_action_save)) {
+                ActionRow(Icons.Rounded.Download, saveLabel) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) collapseThen { doSave() }
                     else permLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 }
@@ -504,8 +493,9 @@ private fun MediaActionsSheet(
 
     if (showInfo) {
         StableImageInfoDialog(
-            imageInfo = imageInfo,
-            loading = imageInfoLoading,
+            kind = kind,
+            mediaInfo = mediaInfo,
+            loading = mediaInfoLoading,
             onDismissed = {
                 showInfo = false
                 onDismiss()
@@ -516,7 +506,8 @@ private fun MediaActionsSheet(
 
 @Composable
 private fun StableImageInfoDialog(
-    imageInfo: ImageInfo?,
+    kind: MediaActionKind,
+    mediaInfo: MediaInfo?,
     loading: Boolean,
     onDismissed: () -> Unit,
 ) {
@@ -627,13 +618,25 @@ private fun StableImageInfoDialog(
                             }
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                InfoLine(
-                                    stringResource(R.string.img_info_dimensions),
-                                    imageInfo?.let { "${it.width} × ${it.height}" } ?: "—",
-                                )
+                                if (kind == MediaActionKind.AUDIO) {
+                                    InfoLine(
+                                        stringResource(R.string.audio_info_duration),
+                                        mediaInfo?.durationMs?.let(::formatMediaDuration) ?: "—",
+                                    )
+                                    InfoLine(
+                                        stringResource(R.string.audio_info_format),
+                                        mediaInfo?.formatLabel ?: "—",
+                                    )
+                                } else {
+                                    InfoLine(
+                                        stringResource(R.string.img_info_dimensions),
+                                        mediaInfo?.takeIf { it.width > 0 && it.height > 0 }
+                                            ?.let { "${it.width} × ${it.height}" } ?: "—",
+                                    )
+                                }
                                 InfoLine(
                                     stringResource(R.string.img_info_size),
-                                    imageInfo?.sizeBytes?.let(::formatBytes) ?: "—",
+                                    mediaInfo?.sizeBytes?.let(::formatBytes) ?: "—",
                                 )
                             }
                         }

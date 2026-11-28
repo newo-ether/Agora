@@ -59,7 +59,8 @@ internal val CHAT_BOTTOM_BAR_OUTER_SHAPE = RoundedCornerShape(CHAT_BOTTOM_BAR_OU
 // The controls capsule and the send button share one height and sit 10 dp from the start/end and
 // bottom edges. They are not concentric with the outer corners: the owner chose larger controls.
 // Narrow windows (see CHAT_COMPACT_WIDTH_DP) shrink both to 44 dp.
-internal val COMPOSER_CONTROL_HEIGHT get() = if (chatCompactWidth) 44.dp else 48.dp
+internal val COMPOSER_CONTROL_HEIGHT
+    @Composable get() = if (chatCompactWidth) 44.dp else 48.dp
 internal val COMPOSER_CONTROLS_INSET = 10.dp
 // The expand icon sits 18 dp from the top and end edges. The expand button's circle is a fade to
 // transparent, so only its 20 dp icon is placed, not the circle.
@@ -68,8 +69,10 @@ internal val COMPOSER_CORNER_CONTENT_INSET = 18.dp
 // controls.
 internal val COMPOSER_TEXT_START_INSET = 18.dp
 // Narrow windows (see CHAT_COMPACT_WIDTH_DP) tighten both to 13 dp and 18 dp.
-internal val COMPOSER_TEXT_TOP_INSET get() = if (chatCompactWidth) 13.dp else 16.dp
-internal val COMPOSER_TEXT_CONTROLS_GAP get() = if (chatCompactWidth) 18.dp else 22.dp
+internal val COMPOSER_TEXT_TOP_INSET
+    @Composable get() = if (chatCompactWidth) 13.dp else 16.dp
+internal val COMPOSER_TEXT_CONTROLS_GAP
+    @Composable get() = if (chatCompactWidth) 18.dp else 22.dp
 internal val COMPOSER_EXPAND_BUTTON_SIZE = 40.dp
 internal val COMPOSER_EXPAND_ICON_SIZE = 20.dp
 // The host padding the status rows, attachment previews and expanded collapse button share.

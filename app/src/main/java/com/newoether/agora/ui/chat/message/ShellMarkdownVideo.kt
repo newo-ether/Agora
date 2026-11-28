@@ -2,6 +2,7 @@ package com.newoether.agora.ui.chat.message
 
 import androidx.compose.runtime.mutableStateMapOf
 import com.newoether.agora.data.ShellDeviceConfig
+import com.newoether.agora.sandbox.SandboxManager
 import com.newoether.agora.tool.FileTransferEndpoint
 import com.newoether.agora.tool.TRANSFER_CHUNK_BYTES
 import com.newoether.agora.tool.TRANSFER_MAX_BYTES
@@ -34,19 +35,23 @@ internal sealed interface MarkdownVideoDownload {
 }
 
 /**
- * On-demand local copy of a video that lives on a Conch device.
+ * On-demand local copy of a video or audio file that lives on a Conch device or inside the Local
+ * Sandbox rootfs.
  *
- * The player reads from a file, so a remote destination is copied once through the authenticated
- * Conch binary transfer envelope into the app cache. The copy is named after the source SHA-256,
- * which makes an existing file provably current and lets repeated views reuse it without a second
- * download.
+ * The player reads from a cache-backed file (with FileProvider coverage for videos), so a remote
+ * or sandbox-rootfs destination is copied once into the app cache. The copy is named after the
+ * source SHA-256, which makes an existing file provably current and lets repeated views reuse it
+ * without a second copy.
  */
 internal class ShellMarkdownVideo(
     private val context: android.content.Context,
     private val devices: () -> List<ShellDeviceConfig>,
     private val scope: CoroutineScope,
+    private val cacheDirectoryName: String = "markdown-video",
+    private val sandboxEnabled: () -> Boolean = { false },
+    private val sandbox: () -> SandboxManager? = { null },
 ) {
-    private val directory by lazy { File(context.applicationContext.cacheDir, "markdown-video") }
+    private val directory by lazy { File(context.applicationContext.cacheDir, cacheDirectoryName) }
     private val receiptDirectory by lazy { File(directory, "receipts") }
     private val posterDirectory by lazy { File(directory, "posters") }
     private var posterSweepStarted = false
@@ -99,7 +104,28 @@ internal class ShellMarkdownVideo(
         task.start()
     }
 
+    /**
+     * Ensures [link] is present in the local cache and returns the file, reusing any cached
+     * receipt or in-flight transfer. Throws [IOException] if the destination is unsupported or
+     * transfer fails.
+     */
+    suspend fun fetchFile(link: String): File {
+        val target = parseShellMediaLink(link) ?: throw IOException(UNSUPPORTED)
+        (peek(link) as? MarkdownVideoDownload.Ready)?.let { return it.file }
+        withContext(Dispatchers.Main.immediate) { start(link) }
+        val running = synchronized(lock) { inFlight[target.key] }
+        running?.await()
+        return when (val current = withContext(Dispatchers.Main.immediate) { states[target.key] } ?: peek(link)) {
+            is MarkdownVideoDownload.Ready -> current.file
+            is MarkdownVideoDownload.Failed -> throw IOException(current.message)
+            else -> throw IOException("Media download did not complete")
+        }
+    }
+
     private suspend fun download(target: ShellMediaLink): File = withContext(Dispatchers.IO) {
+        if (target.server.equals(LOCAL_SANDBOX_SERVER, ignoreCase = true)) {
+            return@withContext copySandboxMedia(target)
+        }
         val device = devices().firstOrNull { it.name.equals(target.server, ignoreCase = true) }
             ?: throw IOException("Unknown shell device")
         if (device.type == "ssh") throw IOException("SSH devices do not serve videos")
@@ -150,6 +176,56 @@ internal class ShellMarkdownVideo(
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING,
             )
+            writeReceipt(target.key, file)
+            file
+        } finally {
+            staging.delete()
+        }
+    }
+
+    /** A rootfs file of the Local Sandbox has no FileProvider root of its own; copy it into cache. */
+    private suspend fun copySandboxMedia(target: ShellMediaLink): File {
+        if (!sandboxEnabled()) throw IOException("Local Sandbox is disabled")
+        val manager = sandbox() ?: throw IOException("Local Sandbox is unavailable")
+        if (!manager.isAvailable()) throw IOException("Local Sandbox is not installed")
+        val source = manager.resolveHostFile(target.path) ?: throw IOException("Local Sandbox is unavailable")
+        if (!source.isFile) throw IOException("Not a regular file")
+        val size = source.length()
+        if (size !in 1..TRANSFER_MAX_BYTES) throw IOException("Invalid video source metadata")
+        directory.mkdirs()
+        val staging = File.createTempFile(".markdown-video-", ".tmp", directory)
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(TRANSFER_CHUNK_BYTES)
+            var offset = 0L
+            source.inputStream().use { input ->
+                FileOutputStream(staging).use { output ->
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        offset += read
+                        if (offset > TRANSFER_MAX_BYTES) throw IOException("Invalid video source metadata")
+                        output.write(buffer, 0, read)
+                        digest.update(buffer, 0, read)
+                        withContext(Dispatchers.Main.immediate) {
+                            states[target.key] = MarkdownVideoDownload.Downloading(offset, size)
+                        }
+                    }
+                    output.fd.sync()
+                }
+            }
+            if (offset <= 0L) throw IOException("Invalid video source metadata")
+            val hash = digest.digest().toHex()
+            val file = File(directory, markdownVideoCacheFileName(hash, target.path))
+            if (!file.isFile || file.length() != offset) {
+                Files.move(
+                    staging.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            }
             writeReceipt(target.key, file)
             file
         } finally {
