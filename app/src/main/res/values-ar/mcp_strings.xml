@@ -2,6 +2,8 @@
 <resources>
     <string name="mcp_title">MCP</string>
     <string name="mcp_desc">الاتصال بخوادم أدوات خارجية</string>
+    <string name="mcp_enable">تفعيل أدوات MCP</string>
+    <string name="mcp_enable_desc">السماح للنموذج باستخدام أدوات من خوادم MCP خارجية</string>
     <string name="mcp_servers">خوادم MCP</string>
     <string name="mcp_no_servers">لا توجد خوادم MCP</string>
     <string name="mcp_no_servers_desc">أضف نقطة نهاية Streamable HTTP أو SSE لإتاحة أدواتها في المحادثات.</string>

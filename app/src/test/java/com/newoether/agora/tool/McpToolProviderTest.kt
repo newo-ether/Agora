@@ -33,7 +33,27 @@ class McpToolProviderTest {
     )
 
     init {
+        every { context.mcpToolsEnabled } returns true
         every { registry.enabledServerNames() } returns emptyList()
+    }
+
+    @Test fun `disabled mcpToolsEnabled advertises no definitions and rejects execution`() = runTest {
+        val disabled = mockk<GenerationContext>()
+        every { disabled.mcpToolsEnabled } returns false
+        assertTrue(provider.definitions(disabled).isEmpty())
+        val listResult = provider.executeOneShotResult("mcp_list_servers", "{}", disabled)
+        assertTrue(listResult.isError)
+        assertEquals("MCP tools are disabled in Settings", listResult.text)
+        val searchResult = provider.executeOneShotResult("mcp_search_tools", """{"query":""}""", disabled)
+        assertTrue(searchResult.isError)
+        assertEquals("MCP tools are disabled in Settings", searchResult.text)
+        val callEvents = provider.executeEvents(
+            "mcp_call_tool", """{"tool_id":"${descriptor.publicName}","arguments":{}}""", disabled,
+        ).toList()
+        val completed = callEvents.single() as ToolExecutionEvent.Completed
+        assertTrue(completed.result.isError)
+        assertEquals("MCP tools are disabled in Settings", completed.result.text)
+        verify { registry wasNot Called }
     }
 
     @Test fun `definitions are fixed when no registry state is available and only entries are handled`() {

@@ -2,6 +2,8 @@
 <resources>
     <string name="mcp_title">MCP</string>
     <string name="mcp_desc">Externe Tool-Server verbinden</string>
+    <string name="mcp_enable">MCP-Tools aktivieren</string>
+    <string name="mcp_enable_desc">Dem Modell erlauben, Tools von externen MCP-Servern zu verwenden</string>
     <string name="mcp_servers">MCP-Server</string>
     <string name="mcp_no_servers">Keine MCP-Server</string>
     <string name="mcp_no_servers_desc">Füge einen Streamable-HTTP- oder SSE-Endpunkt hinzu, um dessen Tools in Unterhaltungen zu verwenden.</string>

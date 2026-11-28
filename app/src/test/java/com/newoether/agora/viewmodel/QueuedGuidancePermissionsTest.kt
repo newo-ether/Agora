@@ -21,6 +21,7 @@ class QueuedGuidancePermissionsTest {
         askUserEnabled = allowed,
         automationToolsEnabled = allowed,
         shellEnabled = allowed,
+        mcpToolsEnabled = allowed,
         sandboxEnabled = allowed,
         sandboxSharedStorageEnabled = allowed,
         imageTranscriptionEnabled = allowed,
@@ -47,7 +48,7 @@ class QueuedGuidancePermissionsTest {
         context.subagentToolsEnabled, context.todoEnabled, context.accessSavedMemories, context.accessActiveMemory,
         context.skillReadAccess, context.skillModifyAccess, context.accessPastConversations, context.webSearchEnabled,
         context.imageGenEnabled, context.askUserEnabled, context.automationToolsEnabled, context.shellEnabled,
-        context.sandboxEnabled, context.sandboxSharedStorageEnabled, context.imageTranscriptionEnabled,
+        context.mcpToolsEnabled, context.sandboxEnabled, context.sandboxSharedStorageEnabled, context.imageTranscriptionEnabled,
     )
 
     @Test fun parentDeniedPermissionsSurviveLaterTypedSnapshotWithoutChangingSelectedConfiguration() {
@@ -68,7 +69,7 @@ class QueuedGuidancePermissionsTest {
                 accessActiveMemory = false, skillReadAccess = false, skillModifyAccess = false,
                 accessPastConversations = false, webSearchEnabled = false, imageGenEnabled = false,
                 askUserEnabled = false, automationToolsEnabled = false, shellEnabled = false,
-                sandboxEnabled = false, sandboxSharedStorageEnabled = false, imageTranscriptionEnabled = false,
+                mcpToolsEnabled = false, sandboxEnabled = false, sandboxSharedStorageEnabled = false, imageTranscriptionEnabled = false,
             ),
             automaticCompact = chosen.automaticCompact.copy(
                 generationContext = chosen.automaticCompact.generationContext.copy(
@@ -76,7 +77,7 @@ class QueuedGuidancePermissionsTest {
                     accessActiveMemory = false, skillReadAccess = false, skillModifyAccess = false,
                     accessPastConversations = false, webSearchEnabled = false, imageGenEnabled = false,
                     askUserEnabled = false, automationToolsEnabled = false, shellEnabled = false,
-                    sandboxEnabled = false, sandboxSharedStorageEnabled = false, imageTranscriptionEnabled = false,
+                    mcpToolsEnabled = false, sandboxEnabled = false, sandboxSharedStorageEnabled = false, imageTranscriptionEnabled = false,
                 ),
             ),
         ), result)

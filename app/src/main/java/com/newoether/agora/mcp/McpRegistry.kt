@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -140,7 +141,9 @@ class McpRegistry(
 
     init {
         scope.launch(workDispatcher) {
-            settings.mcpServers.collect(::reconcile)
+            combine(settings.mcpToolsEnabled, settings.mcpServers) { enabled, servers ->
+                if (enabled) servers else emptyList()
+            }.collect(::reconcile)
         }
     }
 
@@ -230,6 +233,7 @@ class McpRegistry(
 
     fun refresh(serverId: String) {
         scope.launch(workDispatcher) {
+            if (!settings.mcpToolsEnabled.value) return@launch
             val current = currentConfig(serverId) ?: return@launch
             rebuildRuntime(current, McpRuntimeRefreshReason.EXPLICIT)
         }
@@ -237,6 +241,7 @@ class McpRegistry(
 
     fun refreshOnPageEntry() {
         scope.launch(workDispatcher) {
+            if (!settings.mcpToolsEnabled.value) return@launch
             val configs = settings.mcpServers.value
             val serverIds = mcpServerIdsForPageEntryRefresh(
                 configs = configs,

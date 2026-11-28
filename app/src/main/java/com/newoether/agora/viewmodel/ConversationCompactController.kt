@@ -289,6 +289,7 @@ internal class ConversationCompactController(
             imageGenEnabled = false,
             askUserEnabled = false,
             automationToolsEnabled = false,
+            mcpToolsEnabled = false,
             shellEnabled = false,
             sandboxEnabled = false,
             sandboxSharedStorageEnabled = false,

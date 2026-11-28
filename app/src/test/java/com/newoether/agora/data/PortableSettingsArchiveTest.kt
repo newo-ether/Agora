@@ -47,47 +47,70 @@ class PortableSettingsArchiveTest {
         try {
             val manager = SettingsManager(context)
             assertTrue(manager.todoEnabled.first())
-            assertTrue(manager.subagentToolsEnabled.first())
+            assertFalse(manager.subagentToolsEnabled.first())
+            assertFalse(manager.accessSkills.first())
+            assertFalse(manager.accessSkillsModify.first())
+            assertFalse(manager.mcpToolsEnabled.first())
             manager.saveTodoEnabled(false)
-            manager.saveSubagentToolsEnabled(false)
+            manager.saveSubagentToolsEnabled(true)
+            manager.saveAccessSkills(true)
+            manager.saveMcpToolsEnabled(true)
             manager.saveLocalLowContextModeEnabled(true)
             val conversationSettings = mapOf("conversation" to ConversationSettings(shellEnabled = false))
             manager.saveConversationSettingsMap(conversationSettings)
             val reopened = SettingsManager(context)
             assertFalse(reopened.todoEnabled.first())
-            assertFalse(reopened.subagentToolsEnabled.first())
+            assertTrue(reopened.subagentToolsEnabled.first())
+            assertTrue(reopened.accessSkills.first())
+            assertTrue(reopened.mcpToolsEnabled.first())
             val exported = PortableSettingsArchive.toJsonObject(manager, false)
             assertEquals(JsonPrimitive(false), exported["todoEnabled"])
-            assertEquals(JsonPrimitive(false), exported["subagentToolsEnabled"])
+            assertEquals(JsonPrimitive(true), exported["subagentToolsEnabled"])
+            assertEquals(JsonPrimitive(true), exported["accessSkills"])
+            assertEquals(JsonPrimitive(true), exported["mcpToolsEnabled"])
             val permissions = JsonObject(exported.filterKeys {
-                it == "todoEnabled" || it == "subagentToolsEnabled"
+                it == "todoEnabled" || it == "subagentToolsEnabled" ||
+                    it == "accessSkills" || it == "mcpToolsEnabled"
             })
             val empty = JsonObject(emptyMap())
             PortableSettingsArchive.restoreFromJsonObject(empty, manager, false, false, null) { it }
             assertFalse(manager.todoEnabled.first())
-            assertFalse(manager.subagentToolsEnabled.first())
+            assertTrue(manager.subagentToolsEnabled.first())
+            assertTrue(manager.accessSkills.first())
+            assertTrue(manager.mcpToolsEnabled.first())
             PortableSettingsArchive.restoreFromJsonObject(
                 JsonObject(mapOf("todoEnabled" to JsonPrimitive(true))), manager, false, false, null,
             ) { it }
             assertTrue(manager.todoEnabled.first())
-            assertFalse(manager.subagentToolsEnabled.first())
+            assertTrue(manager.subagentToolsEnabled.first())
+            assertTrue(manager.mcpToolsEnabled.first())
             PortableSettingsArchive.restoreFromJsonObject(
-                JsonObject(mapOf("subagentToolsEnabled" to JsonPrimitive(true))), manager, false, false, null,
+                JsonObject(mapOf(
+                    "subagentToolsEnabled" to JsonPrimitive(false),
+                    "mcpToolsEnabled" to JsonPrimitive(false),
+                )), manager, false, false, null,
             ) { it }
             assertTrue(manager.todoEnabled.first())
-            assertTrue(manager.subagentToolsEnabled.first())
+            assertFalse(manager.subagentToolsEnabled.first())
+            assertFalse(manager.mcpToolsEnabled.first())
             PortableSettingsArchive.restoreFromJsonObject(permissions, manager, false, false, null) { it }
             assertFalse(manager.todoEnabled.first())
-            assertFalse(manager.subagentToolsEnabled.first())
+            assertTrue(manager.subagentToolsEnabled.first())
+            assertTrue(manager.accessSkills.first())
+            assertTrue(manager.mcpToolsEnabled.first())
             PortableSettingsArchive.restoreFromJsonObject(empty, manager, true, false, null) { it }
             assertTrue(manager.todoEnabled.first())
-            assertTrue(manager.subagentToolsEnabled.first())
+            assertFalse(manager.subagentToolsEnabled.first())
+            assertFalse(manager.accessSkills.first())
+            assertFalse(manager.mcpToolsEnabled.first())
             assertTrue(manager.localLowContextModeEnabled.first())
             assertEquals(conversationSettings, manager.conversationSettings.first())
             PortableSettingsArchive.restoreFromJsonObject(permissions, manager, true, false, null) { it }
             val restored = SettingsManager(context)
             assertFalse(restored.todoEnabled.first())
-            assertFalse(restored.subagentToolsEnabled.first())
+            assertTrue(restored.subagentToolsEnabled.first())
+            assertTrue(restored.accessSkills.first())
+            assertTrue(restored.mcpToolsEnabled.first())
             assertTrue(restored.localLowContextModeEnabled.first())
             assertEquals(conversationSettings, restored.conversationSettings.first())
         } finally {

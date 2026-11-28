@@ -62,6 +62,7 @@ class McpToolProvider(
     }
 
     override fun definitions(ctx: GenerationContext): List<ToolDefinition> {
+        if (!ctx.mcpToolsEnabled) return emptyList()
         val servers = registry.enabledServerNames()
         if (servers.isEmpty()) return definitions
         val note = serverNote(servers)
@@ -98,13 +99,20 @@ class McpToolProvider(
         name: String,
         arguments: String,
         ctx: GenerationContext,
-    ): ToolExecutionResult = route(name, arguments)
+    ): ToolExecutionResult {
+        if (!ctx.mcpToolsEnabled) return error("MCP tools are disabled in Settings")
+        return route(name, arguments)
+    }
 
     override fun executeEvents(
         name: String,
         arguments: String,
         ctx: GenerationContext,
     ): Flow<ToolExecutionEvent> = flow {
+        if (!ctx.mcpToolsEnabled) {
+            emit(ToolExecutionEvent.Completed(error("MCP tools are disabled in Settings")))
+            return@flow
+        }
         // Parse once at execution, including when a large arguments object precedes tool_id.
         val root = parseObject(arguments)
         if (name == CALL) {

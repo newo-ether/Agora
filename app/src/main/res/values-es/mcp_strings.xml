@@ -2,6 +2,8 @@
 <resources>
     <string name="mcp_title">MCP</string>
     <string name="mcp_desc">Conecta servidores de herramientas externos</string>
+    <string name="mcp_enable">Activar herramientas MCP</string>
+    <string name="mcp_enable_desc">Permite que el modelo use herramientas de servidores MCP externos</string>
     <string name="mcp_servers">Servidores MCP</string>
     <string name="mcp_no_servers">No hay servidores MCP</string>
     <string name="mcp_no_servers_desc">Añade un endpoint HTTP transmisible o SSE para usar sus herramientas en las conversaciones.</string>

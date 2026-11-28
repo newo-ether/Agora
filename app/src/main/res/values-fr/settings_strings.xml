@@ -255,7 +255,7 @@
     <!-- Settings - Shell Page -->
     <string name="shell_title">Terminal</string>
     <string name="shell_desc">Exécution de commandes shell à distance</string>
-    <string name="shell_enable">Activer l\'outil shell</string>
+    <string name="shell_enable">Activer les outils shell</string>
     <string name="shell_enable_desc">Permettre au modèle d\'exécuter des commandes shell sur des serveurs distants</string>
     <string name="shell_device_name">Nom</string>
     <string name="shell_device_name_hint">Mon serveur</string>

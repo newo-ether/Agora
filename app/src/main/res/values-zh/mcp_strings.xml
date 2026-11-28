@@ -2,6 +2,8 @@
 <resources>
     <string name="mcp_title">MCP</string>
     <string name="mcp_desc">连接外部工具服务器</string>
+    <string name="mcp_enable">启用 MCP 工具</string>
+    <string name="mcp_enable_desc">允许模型使用外部 MCP 服务器提供的工具</string>
     <string name="mcp_servers">MCP 服务器</string>
     <string name="mcp_no_servers">暂无 MCP 服务器</string>
     <string name="mcp_no_servers_desc">添加 Streamable HTTP 或 SSE 端点后，其工具即可用于对话。</string>

@@ -32,6 +32,7 @@ internal fun rememberContextProjectionInvalidationKey(
     val phoneUse by settings.phoneUse.collectAsState()
     val sandboxEnabled by settings.sandboxEnabled.collectAsState()
     val sandboxSharedStorageEnabled by settings.sandboxSharedStorageEnabled.collectAsState()
+    val mcpToolsEnabled by settings.mcpToolsEnabled.collectAsState()
     val mcpServers by viewModel.mcpServerSnapshots.collectAsState()
     val activeMemoryRevision by viewModel.memoryManager.activeMemoryRevision.collectAsState()
     val skillCatalogRevision by viewModel.skillManager.catalogRevision.collectAsState()
@@ -56,6 +57,7 @@ internal fun rememberContextProjectionInvalidationKey(
         phoneUse,
         sandboxEnabled,
         sandboxSharedStorageEnabled,
+        mcpToolsEnabled,
         mcpServers,
         activeMemoryRevision,
         skillCatalogRevision,

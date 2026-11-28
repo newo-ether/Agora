@@ -2,6 +2,8 @@
 <resources>
     <string name="mcp_title">MCP</string>
     <string name="mcp_desc">Подключение внешних серверов инструментов</string>
+    <string name="mcp_enable">Включить инструменты MCP</string>
+    <string name="mcp_enable_desc">Разрешить модели использовать инструменты внешних серверов MCP</string>
     <string name="mcp_servers">Серверы MCP</string>
     <string name="mcp_no_servers">Нет серверов MCP</string>
     <string name="mcp_no_servers_desc">Добавьте конечную точку Streamable HTTP или SSE, чтобы использовать её инструменты в диалогах.</string>

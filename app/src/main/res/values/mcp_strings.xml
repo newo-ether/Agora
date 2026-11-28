@@ -2,6 +2,8 @@
 <resources>
     <string name="mcp_title">MCP</string>
     <string name="mcp_desc">Connect external tool servers</string>
+    <string name="mcp_enable">Enable MCP Tools</string>
+    <string name="mcp_enable_desc">Allow the model to use tools from external MCP servers</string>
     <string name="mcp_servers">MCP Servers</string>
     <string name="mcp_no_servers">No MCP servers</string>
     <string name="mcp_no_servers_desc">Add a Streamable HTTP or SSE endpoint to make its tools available in conversations.</string>

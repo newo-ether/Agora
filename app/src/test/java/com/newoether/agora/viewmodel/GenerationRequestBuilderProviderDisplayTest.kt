@@ -720,6 +720,7 @@ internal class RequestBuilderFixture(
         every { settings.webSearchEnabled } returns MutableStateFlow(true)
         every { settings.phoneUse } returns MutableStateFlow(com.newoether.agora.phone.PhoneUseSettings())
         every { settings.shellEnabled } returns MutableStateFlow(true)
+        every { settings.mcpToolsEnabled } returns MutableStateFlow(false)
         every { settings.askUserEnabled } returns MutableStateFlow(true)
         every { settings.askUserTimeoutMinutes } returns MutableStateFlow(5)
         every { settings.todoEnabled } returns MutableStateFlow(true)

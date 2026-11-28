@@ -313,9 +313,47 @@ class McpRegistryDispatchTest {
         verify(exactly = 0) { anyConstructed<McpProtocolClient>().close() }
     }
 
+    @Test
+    fun `disabling global mcpToolsEnabled prevents connection and closes active runtimes`() = runTest {
+        val configs = MutableStateFlow(listOf(server))
+        val enabled = MutableStateFlow(false)
+        val settings = mockk<SettingsRepository>()
+        every { settings.mcpToolsEnabled } returns enabled
+        every { settings.mcpServers } returns configs
+        val context = mockk<Context>()
+        every { context.applicationContext } returns context
+        every { context.filesDir } returns File(System.getProperty("java.io.tmpdir"))
+        val registry = McpRegistry(
+            context = context,
+            settings = settings,
+            scope = backgroundScope,
+            workDispatcher = StandardTestDispatcher(testScheduler),
+        )
+
+        runCurrent()
+        assertTrue(registry.snapshots.value.isEmpty())
+        coVerify(exactly = 0) { anyConstructed<McpProtocolClient>().listTools() }
+
+        registry.refreshOnPageEntry()
+        registry.refresh(server.id)
+        runCurrent()
+        coVerify(exactly = 0) { anyConstructed<McpProtocolClient>().listTools() }
+
+        enabled.value = true
+        runCurrent()
+        assertEquals(McpConnectionStatus.CONNECTED, registry.snapshots.value[server.id]?.status)
+        coVerify(exactly = 1) { anyConstructed<McpProtocolClient>().listTools() }
+
+        enabled.value = false
+        runCurrent()
+        assertTrue(registry.snapshots.value.isEmpty())
+        verify(exactly = 1) { anyConstructed<McpProtocolClient>().close() }
+    }
+
     private fun TestScope.connectedRegistry(): Pair<McpRegistry, MutableStateFlow<List<McpServerConfig>>> {
         val configs = MutableStateFlow(listOf(server))
         val settings = mockk<SettingsRepository>()
+        every { settings.mcpToolsEnabled } returns MutableStateFlow(true)
         every { settings.mcpServers } returns configs
         val context = mockk<Context>()
         every { context.applicationContext } returns context

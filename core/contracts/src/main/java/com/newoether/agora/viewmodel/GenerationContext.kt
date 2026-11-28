@@ -53,6 +53,7 @@ data class GenerationContext(
     /** Workers use WorkManager's foreground execution instead of starting our service. */
     val foregroundServiceManagedExternally: Boolean = false,
     val shellEnabled: Boolean = false,
+    val mcpToolsEnabled: Boolean = false,
     val shellDevices: List<com.newoether.agora.data.ShellDeviceConfig> = emptyList(),
     val sandboxEnabled: Boolean = false,
     val sandboxSharedStorageEnabled: Boolean = false,

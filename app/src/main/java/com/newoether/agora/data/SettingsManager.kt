@@ -117,10 +117,10 @@ class SettingsManager(internal val context: Context) {
     val accessPastConversations: Flow<Boolean> = context.dataStore.data.map { it[ACCESS_PAST_CONVERSATIONS] ?: true }
     val accessSavedMemories: Flow<Boolean> = context.dataStore.data.map { it[ACCESS_SAVED_MEMORIES] ?: true }
     val accessActiveMemory: Flow<Boolean> = context.dataStore.data.map { it[ACCESS_ACTIVE_MEMORY] ?: true }
-    val accessSkills: Flow<Boolean> = context.dataStore.data.map { it[ACCESS_SKILLS] ?: true }
+    val accessSkills: Flow<Boolean> = context.dataStore.data.map { it[ACCESS_SKILLS] ?: false }
     /** Modify access follows the legacy single access_skills value until explicitly set. */
     val accessSkillsModify: Flow<Boolean> = context.dataStore.data.map { pref ->
-        pref[ACCESS_SKILLS_MODIFY] ?: pref[ACCESS_SKILLS] ?: true
+        pref[ACCESS_SKILLS_MODIFY] ?: pref[ACCESS_SKILLS] ?: false
     }
     val ragSearchEnabled: Flow<Boolean> = context.dataStore.data.map { it[RAG_SEARCH_ENABLED] ?: false }
     val modelSearchMethod: Flow<String> = context.dataStore.data.map { it[MODEL_SEARCH_METHOD] ?: "keyword" }
@@ -201,7 +201,7 @@ class SettingsManager(internal val context: Context) {
     val askUserEnabled: Flow<Boolean> = context.dataStore.data.map { it[ASK_USER_ENABLED] ?: true }
     val askUserTimeoutMinutes: Flow<Int> = context.dataStore.data.map { normalizeAskUserTimeoutMinutes(it[ASK_USER_TIMEOUT_MINUTES]) }
     val todoEnabled: Flow<Boolean> = context.dataStore.data.map { it[TODO_ENABLED] ?: true }
-    val subagentToolsEnabled: Flow<Boolean> = context.dataStore.data.map { it[SUBAGENT_TOOLS_ENABLED] ?: true }
+    val subagentToolsEnabled: Flow<Boolean> = context.dataStore.data.map { it[SUBAGENT_TOOLS_ENABLED] ?: false }
     val subagentDeleteEnabled: Flow<Boolean> = context.dataStore.data.map { it[SUBAGENT_DELETE_ENABLED] ?: false }
     val subagentMaxTotal: Flow<Int> = context.dataStore.data.map { normalizeSubagentMaxTotal(it[SUBAGENT_MAX_TOTAL]) }
     val subagentMaxConcurrent: Flow<Int> = context.dataStore.data.map {

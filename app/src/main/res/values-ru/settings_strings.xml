@@ -255,7 +255,7 @@
     <!-- Settings - Shell Page -->
     <string name="shell_title">Оболочка</string>
     <string name="shell_desc">Удалённое выполнение команд оболочки</string>
-    <string name="shell_enable">Включить инструмент оболочки</string>
+    <string name="shell_enable">Включить инструменты оболочки</string>
     <string name="shell_enable_desc">Разрешить модели выполнять команды оболочки на удалённых серверах</string>
     <string name="shell_device_name">Название</string>
     <string name="shell_device_name_hint">Мой сервер</string>

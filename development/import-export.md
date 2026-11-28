@@ -200,7 +200,7 @@ The following JSON field names are the complete current portable allowlist.
 | Language, Web Search, and image generation | `appLanguage`, `webSearchEnabled`, `webSearchProvider`, `webSearchNumResults`, `webSearchBaseUrl`, `imageGenEnabled`, `imageGenModel`, `imageGenSize`, `autoUpdateCheck` |
 | Image quality | `imageQualityMode`, `imageQualityMaxLongEdge`, `imageQualityJpegQuality` |
 | Image transcription | `imageTranscriptionEnabled`, `imageTranscriptionEnabledModels`, `imageTranscriptionModel`, `imageTranscriptionBatchSize`, `imageTranscriptionPrompt` |
-| Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, `providerList`, `hiddenProviderModels`, secret-free `mcpServers` |
+| Shell, automation, custom Providers, and MCP | `shellEnabled`, `shellConfirmEnabled`, secret-free `shellDevices`, `automationToolsEnabled`, `exactExecutionEnabled`, `customProviders`, `providerList`, `hiddenProviderModels`, `mcpToolsEnabled`, secret-free `mcpServers` |
 | Proxy | `proxyEnabled`, `proxyType`, `proxyHost`, `proxyPort`, `proxyUsername`, `proxyBypass` |
 | Appearance | `showDocumentationFab`, `themeMode`, `amoledEnabled`, `colorScheme`, `dynamicColor`, `blurEffectsEnabled`, `reduceMotion`, `stickToBottom`, `parseInlineDollarMath`, `hapticsEnabled`, `detailedTokenUsage`, `toolCallDisplayMode`, `thinkingSegmentDisplayMode`, `autoExpandActiveGroup`, `schemeStyle` |
 | Custom font | `fontPreference`; `customFontName` only when `custom_font/font` is included. The device file path is never portable. |
@@ -248,10 +248,12 @@ these presets normalize to 5. MERGE preserves either absent field. REPLACE clear
 restoring present fields, so older archives restore enabled/five-minute defaults. Export writes the
 effective values. These preferences never restore pending questions or restart an admitted wait.
 
-`todoEnabled` and `subagentToolsEnabled` are default-true portable booleans. MERGE preserves each
-local preference when its field is absent. REPLACE clears both keys before restoring present fields,
-so older archives resolve to true. They control tool admission, not conversation Todo contents or
-subagent ownership, and contain no credentials or device paths.
+`todoEnabled` is a default-true portable boolean; `subagentToolsEnabled` and `mcpToolsEnabled` are
+default-false portable booleans. MERGE preserves each local preference when its field is absent.
+REPLACE clears these keys before restoring present fields, so older archives resolve `todoEnabled`
+to true and `subagentToolsEnabled` / `mcpToolsEnabled` to false. They control tool admission, not
+conversation Todo contents, MCP server configurations, or subagent ownership, and contain no
+credentials or device paths.
 `subagentDeleteEnabled` is a default-false portable boolean with the same MERGE/REPLACE rules;
 older archives resolve to false. It controls only `agent_delete` admission.
 

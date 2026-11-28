@@ -6,11 +6,14 @@ checkpoint, recovery and terminal persistence. MCP does not create a second life
 
 ## Fixed request prefix
 
-`McpToolProvider` exposes exactly `mcp_list_servers`, `mcp_search_tools`, then `mcp_call_tool`, in
-normal tool-enabled contexts. All three definitions are fixed even when the MCP catalog is empty,
-disabled, connecting, disconnected or in error. Existing Compact and Local low-context tool
-disablement still applies. Schemas are fixed. The `mcp_search_tools` description tells the model
-that MCP servers extend Agora and must be searched before it says a capability is unavailable.
+`McpToolProvider` exposes `mcp_list_servers`, `mcp_search_tools`, then `mcp_call_tool` when global
+`mcpToolsEnabled` (default false) is enabled in normal tool-enabled contexts. When `mcpToolsEnabled`
+is false, `McpToolProvider` advertises no tool definitions, rejects execution, and `McpRegistry`
+maintains no active server connections. When `mcpToolsEnabled` is true, all three definitions are
+fixed even when the MCP catalog is empty, connecting, disconnected or in error. Existing Compact and
+Local low-context tool disablement still applies. Schemas are fixed. The `mcp_search_tools`
+description tells the model that MCP servers extend Agora and must be searched before it says a
+capability is unavailable.
 
 Prefix rule (shared with Subagent model IDs and Shell device names): the request prefix may carry
 user-edited configuration, never runtime state. When at least one server is enabled, the

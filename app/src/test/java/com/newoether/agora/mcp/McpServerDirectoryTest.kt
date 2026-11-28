@@ -248,6 +248,7 @@ class McpServerDirectoryTest {
 
     private fun TestScope.registry(configs: MutableStateFlow<List<McpServerConfig>>): McpRegistry {
         val settings = mockk<SettingsRepository>()
+        every { settings.mcpToolsEnabled } returns MutableStateFlow(true)
         every { settings.mcpServers } returns configs
         val context = mockk<Context>()
         every { context.applicationContext } returns context

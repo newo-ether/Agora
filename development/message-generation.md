@@ -754,11 +754,12 @@ Compact success suppression, and exactly one final result after Compact/ordinary
 
 ## 9. Context assembly contract in module terms
 
-Global `todoEnabled` and `subagentToolsEnabled` preferences default on and are frozen with other
-permission switches when a generation context is captured. Request preparation and context-display
-projection may narrow delegation access for children but must never turn a disabled permission on.
-Compact narrows both to false. Disabling these tools does not delete lists, cancel admitted children,
-remove existing navigation or suppress ordinary completion delivery.
+Global `todoEnabled` (default on), `subagentToolsEnabled` (default off), and `mcpToolsEnabled`
+(default off) preferences are frozen with other permission switches when a generation context is
+captured. Request preparation and context-display projection may narrow delegation access for
+children but must never turn a disabled permission on. Compact narrows them to false. Disabling
+these tools does not delete lists, cancel admitted children, remove existing navigation or suppress
+ordinary completion delivery.
 
 `GenerationApiPathBuilder` receives one immutable durable snapshot and a requested parent ID. It
 walks only that parent chain, stops at the first successful Compact encountered upward, expands

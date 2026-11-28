@@ -603,6 +603,7 @@ class GenerationRequestBuilder(
             imageGenModel = resolveImageGenModelId(imageGenModel),
             imageGenSize = settings.imageGenSize.value,
             automationToolsEnabled = settings.automationToolsEnabled.value,
+            mcpToolsEnabled = settings.mcpToolsEnabled.value,
             shellEnabled = effectiveSettings.shellEnabled ?: settings.shellEnabled.value,
             disabledToolGroups = effectiveSettings.disabledToolGroups.orEmpty(),
             shellDevices = settings.shellDevices.value,

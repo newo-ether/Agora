@@ -255,7 +255,7 @@
     <!-- Settings - Shell Page -->
     <string name="shell_title">Terminal</string>
     <string name="shell_desc">Ausführung von Remote-Shell-Befehlen</string>
-    <string name="shell_enable">Shell-Werkzeug aktivieren</string>
+    <string name="shell_enable">Shell-Werkzeuge aktivieren</string>
     <string name="shell_enable_desc">Dem Modell erlauben, Shell-Befehle auf Remote-Servern auszuführen</string>
     <string name="shell_device_name">Name</string>
     <string name="shell_device_name_hint">Mein Server</string>

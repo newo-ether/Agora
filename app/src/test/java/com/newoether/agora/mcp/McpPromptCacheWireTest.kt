@@ -69,6 +69,7 @@ class McpPromptCacheWireTest {
         every { CloudDebugLog.e(any(), any()) } just Runs
         every { CloudDebugLog.w(any(), any()) } just Runs
         // Configured names stay fixed while runtime catalog/directory state changes below.
+        every { context.mcpToolsEnabled } returns true
         every { registry.enabledServerNames() } returns listOf("config" to "Config Server")
         every { registry.listServers(any(), any()) } answers { directory }
         every { registry.searchTools(any(), any(), any(), any()) } answers {

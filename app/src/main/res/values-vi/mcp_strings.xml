@@ -2,6 +2,8 @@
 <resources>
     <string name="mcp_title">MCP</string>
     <string name="mcp_desc">Kết nối máy chủ công cụ bên ngoài</string>
+    <string name="mcp_enable">Bật công cụ MCP</string>
+    <string name="mcp_enable_desc">Cho phép mô hình sử dụng công cụ từ máy chủ MCP bên ngoài</string>
     <string name="mcp_servers">Máy chủ MCP</string>
     <string name="mcp_no_servers">Không có máy chủ MCP</string>
     <string name="mcp_no_servers_desc">Thêm điểm cuối Streamable HTTP hoặc SSE để dùng các công cụ của máy chủ trong cuộc trò chuyện.</string>

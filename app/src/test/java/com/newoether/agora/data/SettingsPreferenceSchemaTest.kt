@@ -18,6 +18,8 @@ class SettingsPreferenceSchemaTest {
         assertEquals("anthropic_cache_enabled", ANTHROPIC_CACHE_ENABLED.name)
         assertEquals("anthropic_cache_ttl", ANTHROPIC_CACHE_TTL.name)
         assertEquals("mcp_servers_json", MCP_SERVERS_JSON.name)
+        assertEquals("mcp_tools_enabled", MCP_TOOLS_ENABLED.name)
+        assertFalse(DEFAULT_MCP_TOOLS_ENABLED)
         assertEquals("todo_enabled", TODO_ENABLED.name)
         assertEquals("subagent_tools_enabled", SUBAGENT_TOOLS_ENABLED.name)
         assertEquals("subagent_max_total", SUBAGENT_MAX_TOTAL.name)

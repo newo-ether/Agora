@@ -255,7 +255,7 @@
     <!-- Settings - Shell Page -->
     <string name="shell_title">الصدفة</string>
     <string name="shell_desc">تنفيذ أوامر الصدفة عن بُعد</string>
-    <string name="shell_enable">تفعيل أداة الصدفة</string>
+    <string name="shell_enable">تفعيل أدوات الصدفة</string>
     <string name="shell_enable_desc">السماح للنموذج بتنفيذ أوامر الصدفة عبر الخوادم البعيدة</string>
     <string name="shell_device_name">الاسم</string>
     <string name="shell_device_name_hint">خادمي</string>

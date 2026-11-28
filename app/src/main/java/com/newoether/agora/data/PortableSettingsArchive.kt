@@ -146,6 +146,7 @@ internal object PortableSettingsArchive {
         putEncoded("customProviders", sm.customProviders.first())
         putEncoded("providerList", sm.providerListStore.providerList.first())
         putEncoded("hiddenProviderModels", sm.providerListStore.hiddenProviderModels.first())
+        put("mcpToolsEnabled", JsonPrimitive(sm.mcpToolsEnabled.first()))
         putEncoded("mcpServers", sm.mcpServers.first().map(McpServerConfig::withoutSecrets))
 
         put("proxyEnabled", JsonPrimitive(sm.proxyEnabled.first()))
@@ -516,6 +517,7 @@ internal object PortableSettingsArchive {
             replace = replace,
         )
 
+        obj.boolean("mcpToolsEnabled")?.let { sm.saveMcpToolsEnabled(it) }
         val mcpElement = obj["mcpServers"]
         if (mcpElement != null || replace) {
             val decoded = mcpElement

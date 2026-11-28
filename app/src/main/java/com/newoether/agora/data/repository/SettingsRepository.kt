@@ -155,8 +155,8 @@ class SettingsRepository(
     val accessPastConversations: StateFlow<Boolean> = publication.hot(settingsManager.accessPastConversations, true)
     val accessSavedMemories: StateFlow<Boolean> = publication.hot(settingsManager.accessSavedMemories, true)
     val accessActiveMemory: StateFlow<Boolean> = publication.hot(settingsManager.accessActiveMemory, true)
-    val accessSkills: StateFlow<Boolean> = publication.hot(settingsManager.accessSkills, true)
-    val accessSkillsModify: StateFlow<Boolean> = publication.hot(settingsManager.accessSkillsModify, true)
+    val accessSkills: StateFlow<Boolean> = publication.hot(settingsManager.accessSkills, false)
+    val accessSkillsModify: StateFlow<Boolean> = publication.hot(settingsManager.accessSkillsModify, false)
     val ragSearchEnabled: StateFlow<Boolean> = publication.hot(settingsManager.ragSearchEnabled, false)
     val autoCacheEnabled: StateFlow<Boolean> = publication.hot(settingsManager.autoCacheEnabled, true)
     val showUncachedNotification: StateFlow<Boolean> = publication.hot(settingsManager.showUncachedNotification, true)
@@ -201,7 +201,7 @@ class SettingsRepository(
     val askUserEnabled: StateFlow<Boolean> = publication.hot(settingsManager.askUserEnabled, true)
     val askUserTimeoutMinutes: StateFlow<Int> = publication.hot(settingsManager.askUserTimeoutMinutes, com.newoether.agora.data.DEFAULT_ASK_USER_TIMEOUT_MINUTES)
     val todoEnabled: StateFlow<Boolean> = publication.hot(settingsManager.todoEnabled, true)
-    val subagentToolsEnabled: StateFlow<Boolean> = publication.hot(settingsManager.subagentToolsEnabled, true)
+    val subagentToolsEnabled: StateFlow<Boolean> = publication.hot(settingsManager.subagentToolsEnabled, false)
     val subagentDeleteEnabled: StateFlow<Boolean> = publication.hot(settingsManager.subagentDeleteEnabled, false)
     val subagentMaxTotal: StateFlow<Int> = publication.hot(settingsManager.subagentMaxTotal, DEFAULT_SUBAGENT_MAX_TOTAL)
     val subagentMaxConcurrent: StateFlow<Int> = publication.hot(settingsManager.subagentMaxConcurrent, DEFAULT_SUBAGENT_MAX_CONCURRENT)
@@ -215,6 +215,7 @@ class SettingsRepository(
     fun setSubagentRecommendedModel(model: String?) = scope.launch { settingsManager.saveSubagentRecommendedModel(model) }
     suspend fun getSubagentModelIds(): Set<String> = settingsManager.subagentModelIds.first()
     val shellDevices: StateFlow<List<ShellDeviceConfig>> = publication.hot(settingsManager.shellDevices, emptyList())
+    val mcpToolsEnabled: StateFlow<Boolean> = mcpToolsEnabledFlow()
     val mcpServers: StateFlow<List<McpServerConfig>> = publication.hot(settingsManager.mcpServers, emptyList())
     val sandboxEnabled: StateFlow<Boolean> = publication.hot(settingsManager.sandboxEnabled, false)
     val sandboxSharedStorageEnabled: StateFlow<Boolean> =
@@ -715,11 +716,7 @@ class SettingsRepository(
         persistShellDevice(device, creating = false, onResult, onError)
     fun addMcpServer(server: McpServerConfig) =
         scope.launch { settingsManager.saveMcpServers(mcpServers.value + server) }
-    fun updateMcpServer(server: McpServerConfig) = scope.launch {
-        settingsManager.saveMcpServers(
-            mcpServers.value.map { if (it.id == server.id) server else it },
-        )
-    }
+    fun updateMcpServer(server: McpServerConfig) = replaceMcpServer(server)
 
     // ── Derived lookups ─────────────────────────────────────────
     /** Resolves the currently-active cleartext API key for [provider], or `null`. */

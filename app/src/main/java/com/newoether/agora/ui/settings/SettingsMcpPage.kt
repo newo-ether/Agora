@@ -2,6 +2,7 @@ package com.newoether.agora.ui.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import com.newoether.agora.R
 import com.newoether.agora.data.McpServerConfig
 import com.newoether.agora.data.McpTransportType
+import com.newoether.agora.data.repository.setMcpToolsEnabled
 import com.newoether.agora.mcp.McpConnectionStatus
 import com.newoether.agora.mcp.McpServerSnapshot
 import com.newoether.agora.util.noOpBringIntoView
@@ -82,14 +85,17 @@ fun SettingsMcpPage(
     viewModel: ChatViewModel,
     onBack: () -> Unit,
 ) {
+    val mcpToolsEnabled by viewModel.settings.mcpToolsEnabled.collectAsState()
     val servers by viewModel.settings.mcpServers.collectAsState()
     val snapshots by viewModel.mcpServerSnapshots.collectAsState()
     val showDocFab by viewModel.settings.showDocumentationFab.collectAsState()
     var editorRoute by remember { mutableStateOf<McpEditorRoute?>(null) }
     var deleteId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        viewModel.refreshMcpServersOnPageEntry()
+    LaunchedEffect(mcpToolsEnabled) {
+        if (mcpToolsEnabled) {
+            viewModel.refreshMcpServersOnPageEntry()
+        }
     }
 
     BackHandler(enabled = editorRoute != null) {
@@ -130,7 +136,32 @@ fun SettingsMcpPage(
             ) {
                 SettingsGroupColumn {
                     SettingsGroup(
-                        title = stringResource(R.string.mcp_servers),
+                        title = stringResource(R.string.mcp_title),
+                        items = listOf {
+                            SettingsItem(
+                                headlineContent = { Text(stringResource(R.string.mcp_enable)) },
+                                supportingContent = { Text(stringResource(R.string.mcp_enable_desc)) },
+                                leadingContent = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_mcp),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                },
+                                trailingContent = {
+                                    Switch(checked = mcpToolsEnabled, onCheckedChange = null)
+                                },
+                                modifier = Modifier.toggleable(
+                                    value = mcpToolsEnabled,
+                                    role = Role.Switch,
+                                    onValueChange = viewModel.settings::setMcpToolsEnabled,
+                                ),
+                            )
+                        },
+                    )
+                    if (mcpToolsEnabled) {
+                        SettingsGroup(
+                            title = stringResource(R.string.mcp_servers),
                         items = buildList {
                             if (servers.isEmpty()) {
                                 add {
@@ -286,7 +317,8 @@ fun SettingsMcpPage(
                                 )
                             }
                         },
-                    )
+                        )
+                    }
                 }
             }
         }

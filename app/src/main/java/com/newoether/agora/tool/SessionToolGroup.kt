@@ -73,6 +73,5 @@ internal fun SessionToolGroup.featureEnabled(
     SessionToolGroup.SUBAGENT -> context.subagentToolsEnabled
     SessionToolGroup.AUTOMATION -> context.automationToolsEnabled
     SessionToolGroup.ASK_USER -> context.askUserEnabled
-    // No user switch of its own: MCP tools exist only when a server published some.
-    SessionToolGroup.MCP -> true
+    SessionToolGroup.MCP -> context.mcpToolsEnabled
 }

@@ -91,6 +91,7 @@ internal fun clearPortableSettings(prefs: MutablePreferences) {
     prefs.remove(SUBAGENT_CAPSULE_DISPLAY_MODE)
     prefs.remove(SUBAGENT_ENABLED_MODELS)
     prefs.remove(SUBAGENT_RECOMMENDED_MODEL)
+    prefs.remove(MCP_TOOLS_ENABLED)
     prefs.remove(THEME_MODE)
     prefs.remove(AMOLED_ENABLED)
     prefs.remove(COLOR_SCHEME)

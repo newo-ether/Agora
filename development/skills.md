@@ -39,7 +39,7 @@ the exact context projection/request preview that consumes the catalog; it is no
 
 ## 3. Access and generation admission
 
-One default-enabled `accessSkills` setting controls Skill tool availability and whether the
+One default-disabled `accessSkills` setting controls Skill tool availability and whether the
 `{skill_catalog}` predefined variable may resolve. It does not independently inject catalog text.
 Skill tool definitions and execution authority may be frozen at ordinary Run admission under the
 shared tool contract. Prompt projection is separate: when the Run's prompt template is captured, the

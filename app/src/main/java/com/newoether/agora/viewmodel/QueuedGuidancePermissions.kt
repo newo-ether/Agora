@@ -41,6 +41,7 @@ private fun GenerationContext.narrowPermissions(restrictions: List<GenerationCon
         imageGenEnabled = allowed { it.imageGenEnabled },
         askUserEnabled = allowed { it.askUserEnabled },
         automationToolsEnabled = allowed { it.automationToolsEnabled },
+        mcpToolsEnabled = allowed { it.mcpToolsEnabled },
         shellEnabled = allowed { it.shellEnabled },
         sandboxEnabled = allowed { it.sandboxEnabled },
         sandboxSharedStorageEnabled = allowed { it.sandboxSharedStorageEnabled },

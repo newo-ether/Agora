@@ -2,6 +2,8 @@
 <resources>
     <string name="mcp_title">MCP</string>
     <string name="mcp_desc">外部ツールサーバーに接続</string>
+    <string name="mcp_enable">MCP ツールを有効にする</string>
+    <string name="mcp_enable_desc">モデルが外部 MCP サーバーのツールを使用できるようにする</string>
     <string name="mcp_servers">MCP サーバー</string>
     <string name="mcp_no_servers">MCP サーバーがありません</string>
     <string name="mcp_no_servers_desc">Streamable HTTP または SSE エンドポイントを追加すると、そのツールを会話で利用できます。</string>

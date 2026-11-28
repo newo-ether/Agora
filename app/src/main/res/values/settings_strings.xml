@@ -263,7 +263,7 @@
     <!-- Settings - Shell Page -->
     <string name="shell_title">Shell</string>
     <string name="shell_desc">Remote shell command execution</string>
-    <string name="shell_enable">Enable Shell Tool</string>
+    <string name="shell_enable">Enable Shell Tools</string>
     <string name="shell_enable_desc">Allow the model to execute shell commands via remote servers</string>
     <string name="shell_device_name">Name</string>
     <string name="shell_device_name_hint">My Server</string>

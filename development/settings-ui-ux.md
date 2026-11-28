@@ -368,10 +368,13 @@ in the existing editor. Source links retain the established external-link icon a
   action and `sheetState.hide()` together. The sheet remains composed until hide completes; one
   in-flight/generation guard rejects double taps and stale hide completion. Reduced Motion applies
   both state changes immediately.
-- MCP Settings page entry reconnects every enabled server except an exact pending build or a runtime
-  currently reporting `CONNECTING`. An `ERROR` runtime sleeping in backoff is cancelled and rebuilt
-  immediately. A process-owned two-permit coroutine semaphore wraps only actual connect/tool-discovery
-  work, never backoff or UI collection; per-row tool counts are memoized by that row's tool snapshot.
+- MCP Settings has a default-off master switch (`Enable MCP Tools`, immediate save) in an `MCP`
+  group above `MCP Servers`. When disabled, `MCP Servers` is hidden and `McpRegistry` holds no
+  active connections. When enabled, MCP Settings page entry reconnects every enabled server except
+  an exact pending build or a runtime currently reporting `CONNECTING`. An `ERROR` runtime sleeping
+  in backoff is cancelled and rebuilt immediately. A process-owned two-permit coroutine semaphore
+  wraps only actual connect/tool-discovery work, never backoff or UI collection; per-row tool counts
+  are memoized by that row's tool snapshot.
 - Conversation Search keeps one fixed status slot and one fixed action slot per Embedding model.
   Both slots crossfade for 250 ms and expose exactly four states. Loading is shown only while the
   embedding-message count-loading worker is running and no count snapshot is known; it uses an
@@ -585,9 +588,10 @@ in the existing editor. Source links retain the established external-link icon a
 - Tools contains separate Todo List (Checklist icon) and Subagents (AccountTree icon) destinations.
   Each uses the existing Interaction settings reference: collapsing scaffold, named group, and one
   whole-row SettingsItem switch with a leading icon, title and supporting description. No Save action.
-- Enable Todo List controls model read/update tools; Enable Subagents controls delegation tools.
-  Both global switches default on, persist immediately and enter newly captured generation contexts.
-  Child conversations never receive delegation tools even when enabled; Compact still disables both.
+- Enable Todo List (default on) controls model read/update tools; Enable Subagents (default off)
+  controls delegation tools. Both global switches persist immediately and enter newly captured
+  generation contexts. Child conversations never receive delegation tools even when enabled;
+  Compact still disables both.
 - Subagents adds an immediate-save model list copied from Image Transcription: model/provider rows,
   provider or Local icons, per-row remove menu, and the same multi-select Add Models dialog geometry,
   typography, controls and spacing. It contains only
