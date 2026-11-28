@@ -80,6 +80,8 @@ fun ChatApp(
     onSnackbarOffsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {},
     processTextRequest: com.newoether.agora.ProcessTextRequest? = null,
     onProcessTextConsumed: (String) -> Unit = {},
+    shareRequest: com.newoether.agora.ShareRequest? = null,
+    onShareConsumed: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -321,16 +323,11 @@ fun ChatApp(
         viewModel = viewModel,
         textFieldState = textFieldState,
     )
-    ProcessTextComposerEffect(
-        ownerId = composerOwnerId,
-        draftLoaded = composerSnapshot.loaded,
-        switching = isSwitching,
-        request = processTextRequest,
-        textFieldState = textFieldState,
-        onConsumed = onProcessTextConsumed,
-        persistText = viewModel.conversationComposer::persistIngressText,
-        ingressRetryVersion = composerSnapshot.ingressRetryVersion,
-        newChatOnly = true,
+    ChatIngressEffects(
+        viewModel = viewModel, composer = composer, composerSnapshot = composerSnapshot,
+        ownerId = composerOwnerId, switching = isSwitching, textFieldState = textFieldState,
+        processTextRequest = processTextRequest, onProcessTextConsumed = onProcessTextConsumed,
+        shareRequest = shareRequest, onShareConsumed = onShareConsumed,
     )
 
     val animatedScrollRequest by viewModel.scrollRequests.request.collectAsState()

@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
 
     private val notificationConversationId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     private val processTextInbox = ProcessTextInbox()
+    private val shareInbox = ShareInbox()
 
     companion object {
         const val EXTRA_CONVERSATION_ID = "com.newoether.agora.extra.CONVERSATION_ID"
@@ -91,6 +92,10 @@ class MainActivity : ComponentActivity() {
         processTextInbox.restore(restoredProcessText)
         savedStateRegistry.registerSavedStateProvider(ProcessTextInbox.SAVED_STATE_KEY, processTextInbox::save)
         if (restoredProcessText == null) processTextInbox.receive(intent)
+        val restoredShare = savedStateRegistry.consumeRestoredStateForKey(ShareInbox.SAVED_STATE_KEY)
+        shareInbox.restore(restoredShare)
+        savedStateRegistry.registerSavedStateProvider(ShareInbox.SAVED_STATE_KEY, shareInbox::save)
+        if (restoredShare == null) receiveShare(intent)
         handleNavigationIntent(intent)
 
         com.newoether.agora.util.DebugLog.init(this)
@@ -237,6 +242,7 @@ class MainActivity : ComponentActivity() {
                         }
                         false -> {
                             val processTextRequests by processTextInbox.requests.collectAsState()
+                            val shareRequests by shareInbox.requests.collectAsState()
                             MainNavigation(
                                 viewModel = viewModel,
                                 settingsManager = settingsManager,
@@ -247,6 +253,8 @@ class MainActivity : ComponentActivity() {
                                 screenshotDestination = intent?.getStringExtra(EXTRA_SCREENSHOT_DESTINATION),
                                 processTextRequest = processTextRequests.firstOrNull(),
                                 onProcessTextConsumed = processTextInbox::consume,
+                                shareRequest = shareRequests.firstOrNull(),
+                                onShareConsumed = shareInbox::consume,
                             )
                         }
                     }
@@ -276,7 +284,18 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         processTextInbox.receive(intent)
+        receiveShare(intent)
         handleNavigationIntent(intent)
+    }
+
+    /**
+     * The share trampoline already copied the sender's streams into app cache, so the forwarded
+     * payload is safe to hold across activity recreation.
+     */
+    private fun receiveShare(intent: Intent?) {
+        val raw = intent?.getStringExtra(EXTRA_SHARE_REQUEST) ?: return
+        intent.removeExtra(EXTRA_SHARE_REQUEST)
+        shareInbox.enqueue(shareRequestFromJson(raw) ?: return)
     }
 
     private fun handleNavigationIntent(intent: Intent?) {
@@ -298,6 +317,8 @@ fun MainNavigation(
     screenshotDestination: String? = null,
     processTextRequest: ProcessTextRequest? = null,
     onProcessTextConsumed: (String) -> Unit = {},
+    shareRequest: ShareRequest? = null,
+    onShareConsumed: (String) -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
     val motionPolicy = LocalAgoraMotionPolicy.current
@@ -392,20 +413,25 @@ fun MainNavigation(
         pdfViewerSelection = selection
     }
     var pdfPreviewFromDialog by remember { mutableStateOf(false) }
+    // Selected text and shares always start their own conversation, never the one already open.
+    val presentIngressConversation: () -> Unit = {
+        viewModel.createNewChat()
+        showSettings = false
+        showRemote = false
+        showTasks = false
+        taskToOpen = null
+        taskEditorSession.clear()
+        viewModel.mediaPreview.clear()
+        mediaPreviewTarget = null
+        pdfPreviewFromDialog = false
+        topLevelPresentation.present(TopLevelPresentation.CHAT)
+    }
     LaunchedEffect(processTextRequest?.id) {
-        if (processTextRequest != null) {
-            // Selected text always starts its own conversation, never the one already open.
-            viewModel.createNewChat()
-            showSettings = false
-            showRemote = false
-            showTasks = false
-            taskToOpen = null
-            taskEditorSession.clear()
-            viewModel.mediaPreview.clear()
-            mediaPreviewTarget = null
-            pdfPreviewFromDialog = false
-            topLevelPresentation.present(TopLevelPresentation.CHAT)
-        }
+        if (processTextRequest != null) presentIngressConversation()
+    }
+    LaunchedEffect(shareRequest?.id) {
+        // A rejected-only share has nothing to attach; the composer reports it in place.
+        if (shareRequest?.hasContent == true) presentIngressConversation()
     }
     val hapticsEnabled by viewModel.settings.hapticsEnabled.collectAsState()
     val autoWrapCodeBlocks by viewModel.settings.autoWrapCodeBlocks.collectAsState()
@@ -506,6 +532,8 @@ fun MainNavigation(
                     initialComposerFocusReady = initialComposerFocusReady,
                     processTextRequest = processTextRequest,
                     onProcessTextConsumed = onProcessTextConsumed,
+                    shareRequest = shareRequest,
+                    onShareConsumed = onShareConsumed,
                     onNavigateBack = subagentParentId?.takeIf { !isNewChatMode }?.let { parent ->
                         { viewModel.selectConversation(parent); Unit }
                     } ?: taskHistoryPreview.backTaskId(currentConversationId, isNewChatMode)
