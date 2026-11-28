@@ -90,6 +90,14 @@ class MemoryToolProviderTest {
         assertEquals(listOf("content", "mode"), active.parameters.required)
         assertFalse(active.description.contains("Default is replace"))
         assertFalse(active.parameters.properties.getValue("mode").description.contains("Default is replace"))
+
+        val descriptionsByName = definitions.associate { it.function.name to it.function.description }
+        assertTrue(descriptionsByName.getValue("memory_list").contains("not disk files"))
+        for (name in listOf("memory_read", "memory_create", "memory_edit", "memory_delete")) {
+            assertFalse(descriptionsByName.getValue(name).contains("not disk files"))
+        }
+        assertTrue(descriptionsByName.getValue("active_memory_update").contains("prompt cache"))
+        assertFalse(descriptionsByName.getValue("active_memory_read").contains("prompt cache"))
     }
 
     @Test

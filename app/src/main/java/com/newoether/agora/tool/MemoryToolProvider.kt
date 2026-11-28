@@ -30,14 +30,14 @@ class MemoryToolProvider(
                     ToolDefinition(
                         function = ToolFunction(
                             name = "memory_list",
-                            description = "List named entries in Agora's internal long-term memory store with their descriptions. Entries are not disk files; use file_read for device files.",
+                            description = "List named entries in Agora's internal long-term memory store with their descriptions. Entries are not disk files; use file_* for device files.",
                             parameters = ToolParameters(properties = emptyMap())
                         )
                     ),
                     ToolDefinition(
                         function = ToolFunction(
                             name = "memory_read",
-                            description = "Read one or more named entries in Agora's internal long-term memory store. Entries are not disk files; use file_read with server for device files.",
+                            description = "Read one or more named memory entries.",
                             parameters = ToolParameters(
                                 properties = mapOf(
                                     "name" to ToolProperty("string", "The entry name to read."),
@@ -54,7 +54,7 @@ class MemoryToolProvider(
                     ToolDefinition(
                         function = ToolFunction(
                             name = "memory_create",
-                            description = "Create a named entry in Agora's internal long-term memory store with content and an optional description. Entries are not disk files; use file_* for device files.",
+                            description = "Create a named memory entry with content and an optional description.",
                             parameters = ToolParameters(
                                 properties = mapOf(
                                     "name" to ToolProperty("string", "The entry name to create (e.g., 'notes.md')."),
@@ -71,7 +71,7 @@ class MemoryToolProvider(
                     ToolDefinition(
                         function = ToolFunction(
                             name = "memory_edit",
-                            description = "Edit a named entry in Agora's internal long-term memory store. Entries are not disk files; use file_* for device files. operation must be replace, patch, rename, or describe.",
+                            description = "Edit a named memory entry. operation must be replace, patch, rename, or describe.",
                             parameters = ToolParameters(
                                 properties = mapOf(
                                     "name" to ToolProperty("string", "The current entry name."),
@@ -107,7 +107,7 @@ class MemoryToolProvider(
                     ToolDefinition(
                         function = ToolFunction(
                             name = "memory_delete",
-                            description = "Delete a named entry from Agora's internal long-term memory store. Entries are not disk files; use file_* for device files.",
+                            description = "Delete a named memory entry.",
                             parameters = ToolParameters(
                                 properties = mapOf("name" to ToolProperty("string", "The entry name to delete.")),
                                 required = listOf("name")
@@ -122,7 +122,7 @@ class MemoryToolProvider(
                 ToolDefinition(
                     function = ToolFunction(
                         name = "active_memory_read",
-                        description = "Read Agora's active memory, injected into the system prompt every turn. Editing it invalidates the prompt cache. The copy in the system prompt is captured once per turn, so edits made during this turn appear here but not in the prompt until the next turn.",
+                        description = "Read Agora's active memory. Unlike the prompt copy captured once per turn, this reflects edits made during the current turn.",
                         parameters = ToolParameters(properties = emptyMap())
                     )
                 )
@@ -131,7 +131,7 @@ class MemoryToolProvider(
                 ToolDefinition(
                     function = ToolFunction(
                         name = "active_memory_update",
-                        description = "Update Agora's active memory, injected into the system prompt every turn. Editing it invalidates the prompt cache; batch changes. Specify mode explicitly: 'replace' (overwrite with 'content'), 'append' (add 'content' to end), 'prepend' (add 'content' to beginning), 'patch' (find 'old_string' exactly once and replace with 'new_string').",
+                        description = "Update Agora's active memory (injected into the system prompt every turn; editing invalidates the prompt cache, so batch changes). Specify mode explicitly: 'replace' (overwrite with 'content'), 'append' (add 'content' to end), 'prepend' (add 'content' to beginning), 'patch' (find 'old_string' exactly once and replace with 'new_string').",
                         parameters = ToolParameters(
                             properties = mapOf(
                                 "content" to ToolProperty("string", "The content to write (for replace/append/prepend modes)."),
