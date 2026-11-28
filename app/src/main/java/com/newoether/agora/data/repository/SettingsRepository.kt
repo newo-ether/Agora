@@ -160,8 +160,8 @@ class SettingsRepository(
     val ragSearchEnabled: StateFlow<Boolean> = publication.hot(settingsManager.ragSearchEnabled, false)
     val autoCacheEnabled: StateFlow<Boolean> = publication.hot(settingsManager.autoCacheEnabled, true)
     val showUncachedNotification: StateFlow<Boolean> = publication.hot(settingsManager.showUncachedNotification, true)
-    val autoUpdateCheck: StateFlow<Boolean> = publication.hot(settingsManager.autoUpdateCheck, true)
-    val lastUpdateCheckTime: StateFlow<Long> = publication.hot(settingsManager.lastUpdateCheckTime, 0L)
+    val liveVoiceConfig: StateFlow<com.newoether.agora.voice.live.LiveVoiceConfig> =
+        publication.hot(settingsManager.liveVoiceConfig, com.newoether.agora.voice.live.LiveVoiceConfig())
     val modelSearchMethod: StateFlow<String> = publication.hot(settingsManager.modelSearchMethod, "keyword")
     val attachmentMode: StateFlow<String> = publication.hot(settingsManager.attachmentMode, Constants.ATTACHMENT_MODE_SANDBOX_LINK)
     val manualSearchMethod: StateFlow<String> = publication.hot(settingsManager.manualSearchMethod, "keyword")
@@ -612,7 +612,7 @@ class SettingsRepository(
     fun setRagSearchEnabled(enabled: Boolean) = scope.launch { settingsManager.saveRagSearchEnabled(enabled) }
     fun setAutoCacheEnabled(enabled: Boolean) = scope.launch { settingsManager.saveAutoCacheEnabled(enabled) }
     fun setShowUncachedNotification(enabled: Boolean) = scope.launch { settingsManager.saveShowUncachedNotification(enabled) }
-    fun setAutoUpdateCheck(enabled: Boolean) = scope.launch { settingsManager.saveAutoUpdateCheck(enabled) }
+    fun setLiveVoiceConfig(config: com.newoether.agora.voice.live.LiveVoiceConfig) = scope.launch { settingsManager.saveLiveVoiceConfig(config) }
     fun setLastUpdateCheckTime(time: Long) = scope.launch { settingsManager.saveLastUpdateCheckTime(time) }
     fun setModelSearchMethod(method: String) = scope.launch { settingsManager.saveModelSearchMethod(method) }
     fun setAttachmentMode(mode: String) = scope.launch { settingsManager.saveAttachmentMode(mode) }

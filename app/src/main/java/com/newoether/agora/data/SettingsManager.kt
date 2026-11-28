@@ -26,6 +26,7 @@ class SettingsManager(private val context: Context) {
     internal val backupPreferenceStore = SettingsBackupPreferenceStore(context.dataStore)
     internal val systemPromptStore = SettingsSystemPromptStore(context.dataStore, json)
     internal val shellDeviceStore = SettingsShellDeviceStore(context.dataStore, json)
+    internal val liveVoiceStore = SettingsLiveVoiceStore(context, json)
     internal val attachmentStore = SettingsAttachmentStore(context.dataStore)
     internal val localInferenceStore = SettingsLocalInferenceStore(context.dataStore)
     internal val providerListStore = ProviderListStore(context.dataStore, json)
@@ -162,8 +163,11 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { preferences -> decodeConversationSettings(preferences, json) }
     val autoCacheEnabled: Flow<Boolean> = context.dataStore.data.map { it[AUTO_CACHE_ENABLED] ?: true }
     val showUncachedNotification: Flow<Boolean> = context.dataStore.data.map { it[SHOW_UNCACHED_NOTIFICATION] ?: true }
-    val autoUpdateCheck: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_CHECK] ?: true }
+    val liveVoiceConfig: Flow<com.newoether.agora.voice.live.LiveVoiceConfig> = liveVoiceStore.liveVoiceConfig
+    val autoUpdateCheck: Flow<Boolean> = kotlinx.coroutines.flow.flowOf(false)
+    suspend fun saveAutoUpdateCheck(enabled: Boolean) {}
     val lastUpdateCheckTime: Flow<Long> = context.dataStore.data.map { it[LAST_UPDATE_CHECK_TIME] ?: 0L }
+    suspend fun saveLastUpdateCheckTime(time: Long) { context.dataStore.edit { it[LAST_UPDATE_CHECK_TIME] = time } }
     val localChatModels: Flow<List<LocalChatModelConfig>> = modelPreferenceStore.localChatModels
     val phoneUse = com.newoether.agora.phone.PhoneUseSettingsStore(context.dataStore)
     val localModelIdleRetentionMinutes: Flow<Int> = modelPreferenceStore.localModelIdleRetentionMinutes
@@ -413,12 +417,7 @@ class SettingsManager(private val context: Context) {
     suspend fun saveShowUncachedNotification(enabled: Boolean) {
         context.dataStore.edit { it[SHOW_UNCACHED_NOTIFICATION] = enabled }
     }
-    suspend fun saveAutoUpdateCheck(enabled: Boolean) {
-        context.dataStore.edit { it[AUTO_UPDATE_CHECK] = enabled }
-    }
-    suspend fun saveLastUpdateCheckTime(time: Long) {
-        context.dataStore.edit { it[LAST_UPDATE_CHECK_TIME] = time }
-    }
+    suspend fun saveLiveVoiceConfig(config: com.newoether.agora.voice.live.LiveVoiceConfig) = liveVoiceStore.saveLiveVoiceConfig(config)
     suspend fun saveModelSearchMethod(method: String) { context.dataStore.edit { it[MODEL_SEARCH_METHOD] = method } }
     suspend fun saveAttachmentMode(mode: String) = attachmentStore.saveAttachmentMode(mode)
     suspend fun saveManualSearchMethod(method: String) { context.dataStore.edit { it[MANUAL_SEARCH_METHOD] = method } }

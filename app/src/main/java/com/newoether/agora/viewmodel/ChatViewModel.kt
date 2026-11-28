@@ -70,7 +70,7 @@ class ChatViewModel(
     internal val askUser: AskUserController,
     private val mcpRegistry: com.newoether.agora.mcp.McpRegistry,
     // Process-scoped chat runtime shared by every client (see [ChatRuntime]).
-    private val chatRuntime: ChatRuntime,
+    internal val chatRuntime: ChatRuntime,
 ) : AndroidViewModel(application) {
 
     val settings: SettingsRepository = settingsRepository
@@ -80,7 +80,7 @@ class ChatViewModel(
      * branch-selection and stuck-message logic live in [ConversationRepository]; managers
      * receive the repository (not raw DAO) for a uniform boundary.
      */
-    private val convRepo: ConversationRepository = conversationRepository
+    internal val convRepo: ConversationRepository = conversationRepository
     private val conversationWorkspaces = ConversationWorkspaceStore(
         conversations = conversationRepository,
         settings = settingsRepository,
@@ -218,7 +218,7 @@ class ChatViewModel(
     // Per-conversation generation lifecycle (IO scope, job, slot, race-free stop/persist tokens)
     // lives in [ConversationGenerationState], one per conversation via [generationRegistry].
 
-    private val generationManager: GenerationManager get() = chatRuntime.generationManager
+    internal val generationManager: GenerationManager get() = chatRuntime.generationManager
     private val semanticSearchService by lazy {
         SemanticSearchService(
             settings = settings,
@@ -257,7 +257,7 @@ class ChatViewModel(
     fun getProviderInstanceOrNull(name: String): LlmProvider? = providerRegistry.getInstanceOrNull(name)
 
     internal val scrollRequests = ScrollRequestCoordinator()
-    private val selectionController: ConversationSelectionController by lazy {
+    internal val selectionController: ConversationSelectionController by lazy {
         ConversationSelectionController(
             scope = viewModelScope,
             conversations = convRepo,

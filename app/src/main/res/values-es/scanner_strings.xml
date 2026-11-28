@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scanner_title">Network Scanner</string>
+    <string name="scanner_discover">Scan Network</string>
+    <string name="scanner_cancel">Cancel</string>
+    <string name="scanner_local_ip">Local: %1$s</string>
+    <string name="scanner_wan_ip">WAN: %1$s</string>
+    <string name="scanner_gateway">gateway</string>
+    <string name="scanner_scan_ports">Scan ports</string>
+    <string name="scanner_scan_udp">Probe UDP</string>
+    <string name="scanner_wake">Wake</string>
+    <string name="scanner_copy_ip">Copy IP</string>
+    <string name="scanner_ip_copied">IP copied</string>
+    <string name="scanner_wake_sent">Magic packet sent</string>
+    <string name="scanner_wake_failed">Could not send (no MAC?)</string>
+    <string name="scanner_rescan">Rescan</string>
+    <string name="scanner_dns_title">DNS lookup</string>
+    <string name="scanner_dns_host">Hostname</string>
+    <string name="scanner_dns_lookup">Look up</string>
+    <string name="scanner_dns_reverse">Reverse DNS</string>
+    <string name="scanner_custom_title">Custom scan</string>
+    <string name="scanner_custom_hosts">Hosts (IP, 1.2.3.10-20, or 1.2.3.0/24)</string>
+    <string name="scanner_custom_ports">Ports (blank = all; 22,80,443 or 1-1024)</string>
+    <string name="scanner_custom_run">Run scan</string>
+    <string name="scanner_close">Close</string>
+    <string name="scanner_no_hosts">No hosts found yet. Tap Scan Network to discover devices on your LAN.</string>
+    <string name="scanner_hosts_count">%1$d hosts</string>
+    <string name="scanner_help">Discovers live hosts on your local network with open ports and services. Scan only networks you own or are authorized to test.</string>
+</resources>
