@@ -1,104 +1,202 @@
 <div align="center">
-  <img src="app/src/main/assets/agora_transparent_large.png" alt="Agora Logo" width="120" />
+  <img src="app/src/main/assets/agora_transparent_large.png" alt="Agora Logo" width="128" />
 
-  # Agora
+  # Agora (XNet Fork)
 
-  **BYOK LLM client with multi-provider access, agentic workflows, and remote device control.**
+  **The Sovereign Android AI Companion — Multimodal Live Voice, On-Device STT, System Assistant Overlay, Local ONNX Embeddings, and Autonomous Tool Workflows.**
 
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-  [![Platform: Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com)
-  [![Kotlin](https://img.shields.io/badge/Kotlin-Native-blue.svg)](https://kotlinlang.org/)
+  [![Platform: Android](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--36)-green.svg)](https://developer.android.com)
+  [![Kotlin](https://img.shields.io/badge/Kotlin-2.0%2B-purple.svg)](https://kotlinlang.org/)
+  [![Release](https://img.shields.io/badge/Release-v2.2.0-blue.svg)](https://github.com/XNet-NGO/Agora/releases/tag/v2.2.0)
+  [![Page Size](https://img.shields.io/badge/16KB%20Page%20Aligned-Android%2015%2B-brightgreen.svg)](https://developer.android.com/guide/practices/page-sizes)
 
-  [Website](https://agora.newoether.com) · [User Manual](https://newo-ether.github.io/Agora/)
-
-  <img src="assets/feature_graphic.png" alt="Agora — A BYOK AI app that takes back your data sovereignty." width="100%" />
+  [Latest Release](https://github.com/XNet-NGO/Agora/releases/latest) · [Architecture Guide](ARCHITECTURE.md) · [Privacy Policy](PRIVACY.md) · [Assistant Spec](ASSISTANT-LAYER1-SPEC.md)
 </div>
 
-## Announcement: third-party app “金龙AI-Pro”
+---
 
-An Android app named “金龙AI-Pro” (Jinlong AI-Pro, package `com.youlong.ai`) is distributed as a component of the Android toolbox “游龙工具箱 9.0”, first published on 2026-09-19. It is built from Agora’s code and assets under a different name and package, is signed with a third-party certificate, and still calls Agora’s `newoether.space` endpoints. Agora has not authorized any third party to release it under another name, and Agora is not affiliated with that app in any way.
+## About This Fork
 
-The full technical analysis is in **[INCIDENT-2026-09-jinlong-ai-pro.md](INCIDENT-2026-09-jinlong-ai-pro.md)**: sample hashes, signature and certificate details, the identifiers still present in that build, the capabilities it adds, its distribution channels and download counts, and the method to reproduce every result.
+**Agora (XNet Fork)** is an independent, sovereign downstream fork of [`newo-ether/Agora`](https://github.com/newo-ether/Agora) maintained by **XNet Inc. / Foxnet Labs / XNet NGO**.
 
-As a consequence, Agora is relicensed. **v2.2.0 and later are released under GPL-3.0** ([LICENSE](LICENSE)); v2.1.0 and earlier remain MIT (see the [historical license](https://github.com/newo-ether/Agora/blob/9fc92fc3518c880158111ae1e9534ed8ffd09c6d/LICENSE)).
+While upstream Agora established a pioneering Bring-Your-Own-Key (BYOK) multi-provider client, our fork radically expands Agora into a full **System AI Assistant** and **local multimodal platform**. We have re-engineered the native execution stack, introduced on-device neural speech processing, integrated direct bidirectional live multimodal voice with real-time tool loops, and ported sovereign tooling without sacrificing privacy or requiring cloud intermediaries.
 
-## Introducing Agora
+### Why We Forked & Key Architectural Upgrades
 
-[![Watch Introducing Agora on YouTube](https://i.ytimg.com/vi/P0p5PzROC0I/maxresdefault.jpg)](https://youtu.be/P0p5PzROC0I)
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Agora (XNet Fork)                                │
+├──────────────────────────┬─────────────────────────────┬───────────────┤
+│    Assistant & Voice     │     Native Intelligence     │  Local Tools  │
+├──────────────────────────┼─────────────────────────────┼───────────────┤
+│ • System Assistant Role  │ • Pure ONNX Runtime (ORT)   │ • LAN Server  │
+│ • Floating Overlay FGS   │ • sherpa-onnx On-Device STT │ • Net Scanner │
+│ • Screen/Camera Vision   │ • Local Document RAG Vector │ • Alpine PRoot│
+│ • Gemini Live Voice      │ • 16KB Page-Aligned JNI     │ • MCP Client  │
+└──────────────────────────┴─────────────────────────────┴───────────────┘
+```
 
-[Watch on YouTube](https://youtu.be/P0p5PzROC0I)
+1. **Pure ONNX Runtime Architecture (llama.cpp stripped):**
+   Upstream bundled `llama.cpp` JNI binaries, which suffered from crashes on varied mobile chipsets, high battery drain, and memory-alignment incompatibilities on modern Android kernels. We replaced the local inference engine with **ONNX Runtime (ORT 1.28.2)** and **onnxruntime-genai**, providing robust on-device embeddings (`document_embeddings` vector store) and fast, crash-free execution.
+2. **On-Device Speech-to-Text (Sherpa-ONNX):**
+   Built-in offline speech recognition powered by next-gen Kaldi / `sherpa-onnx`. Transcribe voice input locally in the composer with zero cloud audio transmission, zero latency, and persistent model caching.
+3. **Gemini Live Voice & Real-Time Multimodal Video:**
+   Direct bidirectional WebSocket streaming to Google Gemini Live with low-latency PCM audio, acoustic echo cancellation, and speakerphone routing. Supports live camera and screen capture video streaming directly into the multimodal reasoning loop, complete with **mid-speech device tool execution**.
+4. **Layer 1 Android System Assistant & Multi-Tasking Overlay:**
+   Full Android Assistant role integration (`android.service.voice.VoiceInteractionService`). Replace default platform assistants with Agora to trigger via home button or power key hold. Includes an optional floating multi-tasking overlay (`SYSTEM_ALERT_WINDOW`) with touch pass-through for quick prompting without leaving active apps.
+5. **Integrated Sovereign Tool Suite:**
+   Directly incorporates AIOPE-native tools:
+   - **PIN-Protected LAN File Server:** Share selected directories over local WiFi with a built-in HTTP server.
+   - **Network Scanner:** Discover local network devices, scan ports, and analyze gateway topologies.
+   - **Device Tool Provider:** Manage contacts, calendar, alarms, battery, and app launching locally.
+   - **Isolated PRoot Sandbox:** Run an on-device minimal Alpine Linux environment with package installation and command execution.
+6. **16KB Page-Aligned Modern Packaging:**
+   Native shared libraries (`.so`) are uncompressed and aligned to 16KB boundaries (`useLegacyPackaging = false`), fully conforming to Android 15/16 16KB memory page kernel requirements.
+7. **100% Standalone Non-System Application:**
+   Completely decoupled from custom OS daemons. Installs and functions cleanly as a standard user-space app on any AOSP, GrapheneOS, or Google-certified Android device (Android 8.0+ / API 26 to Android 16 / API 36).
 
-## Download
+---
 
-[![F-Droid](https://img.shields.io/badge/F--Droid-Install-blue?logo=fdroid)](https://f-droid.org/packages/com.newoether.agora/)
-&nbsp;&nbsp;
-[![Google Play](https://img.shields.io/badge/Google_Play-Install-blue?logo=google-play)](https://play.google.com/store/apps/details?id=com.newoether.agora)
-&nbsp;&nbsp;
-[![GitHub Releases](https://img.shields.io/badge/GitHub-Releases-blue?logo=github)](https://github.com/newo-ether/Agora/releases)
+## Download & Installation
 
-Agora is an open-source Android client for using your own model accounts and endpoints. It stores conversations locally, sends model requests directly to the selected provider, supports non-linear message branches and Context Compact, and can extend agent runs with MCP, automation, search, memory, local models, and remote shell tools.
+Grab the latest signed, optimized APK release directly from GitHub:
 
-## Screenshots
+[![Download Latest Release](https://img.shields.io/badge/Download-Agora--v2.2.0.apk-success?style=for-the-badge&logo=android)](https://github.com/XNet-NGO/Agora/releases/latest)
 
-<table>
-<tr>
-<td width="33%"><img src="assets/screenshot_1.jpg?v=20260920" alt="Chat" width="100%"/></td>
-<td width="33%"><img src="assets/screenshot_2.jpg?v=20260920" alt="Tools" width="100%"/></td>
-<td width="33%"><img src="assets/screenshot_3.jpg?v=20260920" alt="Settings" width="100%"/></td>
-</tr>
-</table>
+> [!TIP]
+> **Signature Verification:** All official XNet APK builds are signed with our official release key:
+> - **Owner:** `CN=Joshua Doucette, OU=Executives, O=XNet Inc, L=Boise, ST=Idaho, C=US`
+> - **SHA-256 Fingerprint:** `1E:80:0F:BD:28:0F:9C:AC:DB:43:ED:F4:B3:09:01:75:8C:98:25:5D:7A:30:71:7E:2C:B0:5C:54:4A:CB:65:97`
 
-## Features
+---
 
-- **Ten built-in provider types:** OpenAI, Anthropic, Google Gemini, DeepSeek, Qwen/DashScope, OpenRouter, OpenCode Go, Groq, Ollama, and Local llama.cpp; custom endpoints support OpenAI-compatible, Google, or Anthropic protocols.
-- **Tree-structured conversations:** edit or regenerate earlier messages without discarding alternative branches.
-- **Token-budget context:** 4K–1M estimated-token budgets and non-destructive Compact capsules that retain a verbatim recent suffix.
-- **Agentic tools:** web search, memory, past-conversation RAG, image generation, MCP servers, Tasks/Loops, remote shell/files, durable Conch jobs, and an F-Droid Alpine sandbox.
-- **Local intelligence:** GGUF chat models and local embeddings through llama.cpp.
-- **Portable data:** versioned `.agora` ZIP archives, ChatGPT/Claude imports, and scheduled backups.
-- **Customizable UI:** Material 3 themes, fonts, haptics, thinking/tool presentation, and 12 explicit interface languages plus system default.
+## Core Capabilities
 
-Conch application-layer encryption is enabled when an API key is configured. A blank-key Conch endpoint sends plain JSON and should use HTTPS. External providers and tools receive only the data needed for the feature you invoke; see the privacy documentation for the full boundary.
+### 🎙️ On-Device Voice & Multimodal Interaction
+- **Sherpa-ONNX Voice Dictation:** One-tap on-device dictation directly into the message composer. Models (SenseVoice / Whisper / Conformer) are downloaded on-demand and cached in app storage.
+- **Gemini Live Multimodal Voice:** Real-time bidirectional conversational speech. Stream audio input/output simultaneously with ultra-low latency.
+- **Live Video Streaming:** Stream front/rear camera video or real-time display frames (`MediaProjection`) during Live Voice sessions for visual Q&A and screen guidance.
+- **Tool Calling in Voice:** The live model can invoke MCP tools, device utilities, or search queries mid-conversation and speak the results back to you.
 
-## Documentation
+### 🪄 System Assistant & Multi-Tasking Overlay
+- **Default Assistant Role:** Set Agora as your device's Assistant app under **Settings → Apps → Default apps → Digital assistant app**. Invoke Agora by holding the home button or power key.
+- **Floating Overlay:** A persistent, collapsible bubble that floats over any application. Features touch pass-through, voice capture, and instant text queries without switching away from your current workflow.
 
-- 📖 **[User Manual](https://newo-ether.github.io/Agora/)** — 28 maintained manual pages covering setup, providers, Context Compact, MCP, automation, tools, privacy, and data management.
-- 🏗️ **[Architecture Guide](ARCHITECTURE.md)** — current runtime, persistence, providers, tools, and data flows.
-- 🧰 **[Development documentation](development/documentation-maintenance.md)** — internal contracts, baselines, and documentation-maintenance policy.
+### 🧠 Bring-Your-Own-Key (BYOK) Cloud & Local Providers
+Connect directly to any model provider using your own API credentials without intermediaries:
+- **Cloud Providers:** OpenAI (GPT-4o, o1, o3-mini), Anthropic (Claude 3.5 Sonnet / Haiku / Opus), Google Gemini (Gemini 2.0 Flash / Pro / Live), DeepSeek (V3, R1), Qwen / DashScope, Groq, OpenRouter, OpenCode Go.
+- **Local & Custom Endpoints:** Connect to Ollama, LM Studio, vLLM, or any custom endpoint compatible with OpenAI, Anthropic, or Google APIs.
+- **Local ONNX Embeddings:** Fast on-device vector embeddings for past-conversation RAG and document context matching.
 
-Public manuals live under `docs/<locale>/`. Internal engineering documents live under `development/`.
+### 🛠️ Agentic Tool Ecosystem & Automation
+- **Model Context Protocol (MCP):** Connect to local and remote MCP servers via stdio or SSE transports. Expose custom tools, APIs, and databases directly to the reasoning loop.
+- **Past-Conversation RAG:** Vector-indexed retrieval across past chat histories to augment current prompts with relevant historical context.
+- **Alpine PRoot Linux Sandbox:** Built-in terminal running a lightweight Linux rootfs directly on the device. Install packages (`apk add ...`), run Python scripts, and test code safely.
+- **Scheduled Automation Tasks:** Define recurring scheduled tasks with cron or interval schedules via Android WorkManager.
+- **Local File Server:** Share files and folders from your device over local WiFi with a PIN-secured web interface.
+- **Network Scanner:** Discover devices and inspect services on your local LAN.
+
+### 🌲 Non-Linear Conversation Trees & Context Capsules
+- **Message Branching:** Edit or regenerate earlier messages without losing prior replies. Switch between branches at any point in the tree.
+- **Token-Budget Compact:** Compress long conversations into compact context capsules with token limits ranging from 4K up to 1M tokens, preserving system instructions and the most recent message suffix.
+
+---
 
 ## Getting Started
 
-1. Install Agora and open **Settings** from the conversation drawer.
-2. Add credentials under **Providers**.
-3. Sync and enable models under **Models**.
-4. Select a model from the chat bottom bar and send a message.
+1. **Install the APK:** Download and install [Agora-2.2.0.apk](https://github.com/XNet-NGO/Agora/releases/latest).
+2. **Add a Provider:**
+   - Open Agora and navigate to **Settings (gear icon) → Providers**.
+   - Select your provider (e.g. Google Gemini, Anthropic, or OpenAI) and enter your API key.
+3. **Sync Models:** Tap **Sync Models** to fetch the latest available models for your account.
+4. **Configure Speech & Assistant (Optional):**
+   - **On-Device STT:** Go to **Settings → Speech-to-Text**, download a model (e.g., SenseVoice Small), and tap the microphone icon in the chat composer to dictate.
+   - **Live Voice:** Go to **Settings → Live Voice**, enable Gemini Live, and pick a voice.
+   - **Assistant Role:** Go to **Settings → Assistant**, tap **Request Assistant Role**, and set Agora as default.
 
-See the [Getting Started manual](https://newo-ether.github.io/Agora/getting-started/).
+---
 
-### Build from source
+## Architecture & Technology Stack
 
-The current project targets Android SDK 36 and uses JDK 21 in its repository workflow. Install Android Studio plus the required SDK/NDK components, then use the root project scripts and instructions.
+| Layer | Technologies |
+| :--- | :--- |
+| **Language & Toolchain** | Kotlin 2.0+, Kotlin Coroutines & Flow, Java 17/21 bytecode target |
+| **UI Framework** | Jetpack Compose (Material 3), Compose Navigation, Coil (Async Images) |
+| **Persistence** | Room 2.6 (SQLite vector schemas), Jetpack DataStore (Preferences & Credentials) |
+| **Networking & Streaming** | OkHttp 4, Server-Sent Events (SSE), WebSockets (RFC 6455) |
+| **On-Device Machine Learning** | ONNX Runtime (ORT 1.28.2), sherpa-onnx (Kaldi STT engine) |
+| **Native Components (NDK)** | Android NDK r28c, CMake 3.22+, 16KB uncompressed JNI packaging (`agora_proot`) |
+| **Serialization & Parsing** | `kotlinx.serialization` (JSON), Markdown/LaTeX math renderer |
 
-## Tech stack
+For an in-depth architectural breakdown of message generation loops, tool providers, and database schemas, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
-Kotlin, Jetpack Compose Material 3, Coroutines/Flow, Room, DataStore, OkHttp/SSE, `kotlinx.serialization`, Android NDK/CMake, llama.cpp, Coil, and Markdown/LaTeX rendering.
+---
 
-## Privacy
+## Building from Source
 
-Agora does not relay chat completions or run general analytics. Conversations remain in app-managed local storage, while configured providers and tools are contacted directly when used. Optional update checks and explicitly submitted ratings have documented network destinations. After a crash, one report is kept locally and is sent only if the user confirms on the next launch; it contains diagnostics but no conversation text or credentials. Secret settings normally use an Android Keystore AES-GCM envelope, but legacy values and a deliberate encryption-failure fallback can remain plaintext in DataStore; exported secrets are also unencrypted inside a selected `.agora` archive.
+### Prerequisites
+- **Android SDK:** Platform SDK 36 (Android 16), Build Tools 36.0.0
+- **Android NDK:** r28c (`28.2.13676435`)
+- **JDK:** OpenJDK 17 or OpenJDK 21
+- **Gradle:** Managed via bundled `./gradlew` (Gradle 9.5+)
 
-Read [Privacy & Security](https://newo-ether.github.io/Agora/privacy/) and the repository [Privacy Policy](PRIVACY.md).
+### Build Commands
 
-## Contributing and license
+```bash
+# Clone the repository
+git clone https://github.com/XNet-NGO/Agora.git
+cd Agora
 
-Contributions are welcome through issues and pull requests. By submitting a pull request you agree that your contribution is licensed under the license in effect when it is merged.
+# Verify Kotlin source code contracts (handwritten files <= 800 lines limit)
+./gradlew verifyKotlinFileSize
 
-**Current license: [GNU General Public License v3.0](LICENSE).** This applies to Agora v2.2.0 and later.
+# Build debug APK (includes developer diagnostics)
+./gradlew assembleFdroidDebug
 
-**Historical releases:** v2.1.0 and earlier remain available under their [original MIT License](https://github.com/newo-ether/Agora/blob/9fc92fc3518c880158111ae1e9534ed8ffd09c6d/LICENSE). These licenses apply to different versions; the current project is not offered under a choice of MIT or GPL.
+# Build optimized release APK (with R8 minification and resource shrinking)
+./gradlew assembleFdroidRelease
+```
 
-For GPL releases, redistributors must keep the copyright and license notices, state that they changed the files, and make the complete corresponding source available under the same license. The Agora name, logo, and screenshots are not covered by the code license, and modified builds must not imply that they are official or endorsed; the announcement above documents the incident that prompted this change.
+Generated APKs are located at:
+```text
+app/build/outputs/apk/fdroid/release/app-fdroid-release.apk
+```
 
-Bundled third-party payloads keep their own licenses. The Termux bootstrap and toolchain that Agora provisions (see `build-proot.sh` and `thirdparty/`) include GPLv3 components, and their corresponding source is available from the upstream projects they come from.
+---
+
+## Privacy, Security & Secret Safety
+
+- **Direct Endpoints Only:** Agora has **no** proxy servers, cloud telemetry relays, or usage trackers. Requests travel directly from your phone to your configured provider endpoints over TLS.
+- **Zero Cloud Voice Relaying:** When using offline STT (sherpa-onnx), your voice data never leaves your device's memory.
+- **Hardware-Backed Credential Storage:** API keys and sensitive tokens are encrypted using an Android Keystore AES-GCM envelope before persistence.
+- **Local Memory & Chat Storage:** All chat logs, vector embeddings, attachments, and settings reside in private app sandbox storage (`/data/data/com.newoether.agora/`).
+
+Read our full [Privacy Policy](PRIVACY.md) for complete details.
+
+---
+
+## Contributing & Upstream Synchronization
+
+We welcome issues and pull requests from the community.
+
+- **Upstream Synchronization:** We track and cherry-pick non-conflicting improvements, bug fixes, and provider additions from upstream `newo-ether/Agora`.
+- **Code Standards:** All handwritten Kotlin files strictly adhere to the project's **800-line size limit**, enforced by `./gradlew verifyKotlinFileSize`.
+- **Privacy Contract:** No PR will be merged that introduces third-party tracking, telemetry, or analytics.
+
+---
+
+## License
+
+Agora is licensed under the **GNU General Public License v3.0 ([GPL-3.0](LICENSE))**.
+
+- Releases v2.2.0 and later are licensed under GPL-3.0.
+- Historical releases v2.1.0 and earlier remain under their original MIT license.
+- Portions derived from upstream `newo-ether/Agora` are copyright by their respective authors under GPL-3.0.
+- Bundled native libraries and third-party tools retain their respective licenses (ONNX Runtime: MIT; sherpa-onnx: Apache 2.0; Termux PRoot: GPLv3).
+
+---
+
+<div align="center">
+  <b>Built with sovereignty by <a href="https://github.com/XNet-NGO">XNet Inc. / Foxnet Labs</a></b>
+</div>
