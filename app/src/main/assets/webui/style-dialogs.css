@@ -215,14 +215,17 @@
 }
 .conversation-editor section { padding: 24px; }
 .conversation-editor h2 { margin-bottom: 16px; }
-/* ChatManualCompactDialog's AlertDialog title is bold headlineSmall in onSurfaceVariant. */
+/* ChatManualCompactDialog's AlertDialog title is bold headlineSmall in onSurface
+   (AlertDialogDefaults.titleContentColor); it is not the variant gray. */
 .conversation-editor[data-editor="compact"] h2 {
-  color: var(--md-on-surface-variant); font-size: 23px; line-height: 29px; font-weight: 700; letter-spacing: 0;
+  color: var(--md-on-surface); font-size: 23px; line-height: 29px; font-weight: 700; letter-spacing: 0;
 }
 .conversation-editor-body { display: grid; gap: 12px; max-height: calc(100dvh - 230px); overflow-y: auto; }
-/* OutlinedTextField supportingText is bodySmall with 16 dp horizontal and 4 dp top inset. */
+/* OutlinedTextField supportingText is bodySmall with 16 dp horizontal and 4 dp top inset. It only
+   appears while Preserve Context disables the field, so it carries the disabled 38 % onSurface. */
 .compact-model-section p.supporting {
   margin: 4px 16px 0; font-size: 11px; line-height: 16px; letter-spacing: .4px;
+  color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
 }
 
 .advanced-param { padding: 6px 0; }
@@ -282,6 +285,16 @@
 }
 .conversation-editor .outlined-field .editor-dropdown-field:disabled { cursor: default; color: color-mix(in srgb, var(--md-on-surface) 38%, transparent); }
 .conversation-editor .outlined-field .editor-dropdown-field:disabled .editor-dropdown-icon svg { fill: currentColor; }
+/* A disabled OutlinedTextField dims its whole shell: onSurface 38 % for the floating label, 12 % for
+   the outline. Only the value used to dim, which left the label and border reading as enabled. */
+.conversation-editor .outlined-field:has(.editor-dropdown-field:disabled) .outlined-label,
+.conversation-editor .outlined-field:has(:is(textarea, input):disabled) .outlined-label {
+  color: color-mix(in srgb, var(--md-on-surface) 38%, transparent);
+}
+.conversation-editor .outlined-field :is(.editor-dropdown-field, textarea, input):disabled {
+  --md-field-color: color-mix(in srgb, var(--md-on-surface) 12%, transparent);
+  border-color: var(--md-field-color);
+}
 .editor-dropdown-field > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-dropdown-icon { flex: none; display: grid; place-items: center; width: 24px; height: 24px; transition: transform 150ms linear; }
 .editor-dropdown-icon.open { transform: rotate(180deg); }

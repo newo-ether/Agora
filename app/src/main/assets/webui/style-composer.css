@@ -92,14 +92,16 @@
 .subagent-status svg { width: 18px; height: 18px; fill: currentColor; }
 .subagent-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .subagent-text > small { font-size: 10px; line-height: 12px; font-weight: 500; color: var(--md-on-surface-variant); transition: color 250ms linear; }
-.subagent-title { display: grid; max-width: 100%; font-size: 14px; line-height: 20px; font-weight: 700; }
+/* CapsuleLabel's title is titleSmall: Medium (500), never bold. */
+.subagent-title { display: grid; max-width: 100%; font-size: 14px; line-height: 20px; font-weight: 500; }
 .subagent-title > span { grid-area: 1 / 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0; }
 .subagent-choices { padding: 4px 24px calc(32px + env(safe-area-inset-bottom)); }
 .subagent-choice { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; border: 0; border-radius: 24px; background: transparent; color: var(--md-on-surface); font: inherit; text-align: start; cursor: pointer; }
 .subagent-choice[aria-current="page"] { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
 .subagent-choice-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.subagent-choice-text > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; line-height: 24px; font-weight: 600; }
-.subagent-choice-text > small { font-size: 12px; line-height: 16px; color: var(--md-on-surface-variant); }
+/* GroupedSubagentRow: titleMedium Medium (500) for the name, labelMedium Medium for the status. */
+.subagent-choice-text > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; line-height: 24px; font-weight: 500; }
+.subagent-choice-text > small { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--md-on-surface-variant); }
 .subagent-choice[aria-current="page"] .subagent-choice-text > small { color: inherit; }
 .subagent-capsule[aria-current="page"] .subagent-text > small { color: inherit; }
 .todo-list { padding: 4px 24px calc(32px + env(safe-area-inset-bottom)); }

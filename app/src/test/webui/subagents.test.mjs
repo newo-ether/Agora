@@ -7,6 +7,17 @@ import { Fragment, h } from "../../main/assets/webui/vendor/preact.mjs";
 import htm from "../../main/assets/webui/vendor/htm.mjs";
 
 const html = htm.bind(h);
+/** The declarations of one rule, read from the concatenated WebUI stylesheets. */
+function declarations(selector) {
+  const css = readWebUiStyles();
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = [...css.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, "g"))];
+  assert.equal(matches.length, 1, selector);
+  return new Map(matches[0][1].split(";").filter(part => part.trim()).map(part => {
+    const colon = part.indexOf(":");
+    return [part.slice(0, colon).trim(), part.slice(colon + 1).trim()];
+  }));
+}
 const source = fs.readFileSync(new URL("../../main/assets/webui/subagents.js", import.meta.url), "utf8");
 function harness(name, extra = {}) {
   const hooks = [], pending = [], opens = [];
@@ -282,15 +293,6 @@ test("same-family capsules retain admitted node identity through a closed conver
 
 test("selection colors fade for 250ms without spatial or Reduced Motion overrides", () => {
   const css = readWebUiStyles();
-  const declarations = selector => {
-    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const matches = [...css.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, "g"))];
-    assert.equal(matches.length, 1, selector);
-    return new Map(matches[0][1].split(";").filter(part => part.trim()).map(part => {
-      const colon = part.indexOf(":");
-      return [part.slice(0, colon).trim(), part.slice(colon + 1).trim()];
-    }));
-  };
   const normal = declarations(".subagent-capsule");
   const selected = declarations('.subagent-capsule[aria-current="page"]');
   assert.equal(normal.get("--md-component-transition"), "background-color 250ms linear, color 250ms linear");
@@ -305,6 +307,16 @@ test("selection colors fade for 250ms without spatial or Reduced Motion override
   assert.equal(normal.get("box-shadow"), "var(--shadow-4)");
   assert.equal(declarations(".subagent-text > small").get("transition"), "color 250ms linear");
   assert.doesNotMatch(css, /(?:reduce-motion|prefers-reduced-motion)[^{]*\{[^}]*\.subagent-capsule/);
+});
+
+test("capsule and grouped-row weights follow Compose's type scale", () => {
+  // ChatType: titleSmall and titleMedium are Medium; the TODO title alone is titleSmall + Bold.
+  assert.equal(declarations(".todo-capsule strong").get("font-weight"), "700");
+  assert.equal(declarations(".todo-capsule > span").get("font-weight"), "500");
+  assert.equal(declarations(".subagent-title").get("font-weight"), "500");
+  assert.equal(declarations(".subagent-text > small").get("font-weight"), "500");
+  assert.equal(declarations(".subagent-choice-text > strong").get("font-weight"), "500");
+  assert.equal(declarations(".subagent-choice-text > small").get("font-weight"), "500");
 });
 
 test("idle and completed use the branch icon while failure and stop stay distinct", () => {

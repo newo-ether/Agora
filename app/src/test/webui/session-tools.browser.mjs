@@ -150,19 +150,22 @@ try {
     const compact = await page.evaluate(() => {
       const title = document.querySelector("dialog[data-editor='compact'] h2");
       const support = document.querySelector(".compact-model-section > p.supporting");
+      const label = document.querySelector(".compact-model-section .outlined-label");
       const model = document.querySelector(".editor-dropdown-field");
       const titleStyle = getComputedStyle(title), supportStyle = getComputedStyle(support);
       const probe = document.createElement("div");
-      probe.style.color = "var(--md-on-surface-variant)";
       document.body.appendChild(probe);
-      const expectedColor = getComputedStyle(probe).color;
-      probe.style.color = "color-mix(in srgb, var(--md-on-surface) 38%, transparent)";
-      const expectedModelColor = getComputedStyle(probe).color;
+      const resolved = value => { probe.style.color = value; return getComputedStyle(probe).color; };
+      const expectedColor = resolved("var(--md-on-surface)");
+      const disabledText = resolved("color-mix(in srgb, var(--md-on-surface) 38%, transparent)");
+      const disabledOutline = resolved("color-mix(in srgb, var(--md-on-surface) 12%, transparent)");
       probe.remove();
       return { title: [titleStyle.color, titleStyle.fontSize, titleStyle.lineHeight, titleStyle.fontWeight],
         support: [supportStyle.fontSize, supportStyle.lineHeight, supportStyle.letterSpacing,
           supportStyle.marginTop, supportStyle.marginLeft, supportStyle.marginRight],
-        expectedColor, expectedModelColor, modelColor: getComputedStyle(model).color,
+        expectedColor, disabledText, disabledOutline,
+        labelColor: getComputedStyle(label).color, supportColor: supportStyle.color,
+        modelColor: getComputedStyle(model).color, modelBorder: getComputedStyle(model).borderTopColor,
         modelIconFill: getComputedStyle(model.querySelector("svg")).fill,
         wrappedField: !!document.querySelector(".compact-model-section > .outlined-field"),
         modelDisabled: model.disabled };
@@ -171,8 +174,12 @@ try {
     assert.deepEqual(compact.support, ["11px", "16px", "0.4px", "4px", "16px", "16px"]);
     assert.equal(compact.wrappedField, true);
     assert.equal(compact.modelDisabled, true);
-    assert.equal(compact.modelColor, compact.expectedModelColor);
-    assert.equal(compact.modelIconFill, compact.expectedModelColor);
+    // A disabled OutlinedTextField dims its label, value, supporting text and outline together.
+    assert.equal(compact.labelColor, compact.disabledText);
+    assert.equal(compact.supportColor, compact.disabledText);
+    assert.equal(compact.modelColor, compact.disabledText);
+    assert.equal(compact.modelBorder, compact.disabledOutline);
+    assert.equal(compact.modelIconFill, compact.disabledText);
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ width, reduced, initialStyle, during, compact, passed: true }));
     await page.close();

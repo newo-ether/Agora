@@ -1576,10 +1576,11 @@ uses a clipped 400ms height interpolation starting at its visible two-line heigh
 full text height. A hidden group records its real height when it becomes visible instead of seeding
 the description animation with zero. App Reduced Motion alone snaps spatial geometry and description
 height while retaining the allowed group fade. Browser and OS motion preferences do not participate.
-The Compact dialog carries `data-editor="compact"`. Its title uses onSurfaceVariant and Compose's
+The Compact dialog carries `data-editor="compact"`. Its title uses onSurface and Compose's
 23px/29px Bold headlineSmall metrics. Compact-model supporting text uses bodySmall at 11px/16px with
 0.4px tracking, a 4px top inset and 16px horizontal insets. When Preserve Context disables the model
-field, its value and dropdown icon use onSurface at 38% alpha.
+field, the whole disabled shell matches OutlinedTextField: its floating label, value, dropdown icon and
+supporting text use onSurface at 38% alpha, and its outline drops to onSurface at 12%.
 Effective tool controls use the same pure Compose projection of global preferences, provider
 availability and per-conversation overrides. Existing-conversation edits transform the canonical
 SettingsRepository value instead of replacing unrelated fields; New Chat overrides remain in the
@@ -1856,8 +1857,9 @@ another timeline scroll owner. Shared shell focus, selection, motion and Reduced
 ## 39. Subagent Navigation
 Ordinary conversations may own one level of isolated child conversations. Native and WebUI place
 individual 48dp/px Subagent capsules after Todo in the shared horizontal tools row, with 8dp/px
-gaps and the established titleSmall typography. Subagents keep ascending durable creation-time order;
-new children append after existing children, and message/title/status updates never reorder them.
+gaps and the established titleSmall typography at its Medium weight. Subagents keep ascending durable
+creation-time order; new children append after existing children, and message/title/status updates
+never reorder them.
 Equal creation times use the stable child ID as a deterministic tie-breaker. Native, WebUI and
 agent_list consume the same parent-scoped ordering. Each capsule has a 4dp-equivalent shadow, a small
 localized Subagent label above its name, and ordinary runtime status. Idle, successfully completed
@@ -1911,7 +1913,7 @@ At two or more, tapping the grouped capsule opens the shared SmoothBottomSheet w
 Todo-style header and scrollable32dp bottom/navigation inset. Rows show each child's name and status
 in the same creation order; the current child has selected colors/semantics. Both surfaces use
 24dp/px rounded option backgrounds and ripple, a 24sp/px / 32sp/px Bold sheet title, and
-16sp/px / 24sp/px SemiBold child-name titles. The count/status retain their existing label metrics.
+16sp/px / 24sp/px Medium child-name titles and Medium status labels, never a heavier face.
 Selecting a row invokes
 ordinary conversation selection and dismisses the sheet; it never starts or restarts an agent. The
 sheet closes if the family/connection becomes invalid, mode changes, or fewer than two children
