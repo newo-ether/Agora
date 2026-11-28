@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -269,9 +270,6 @@ private fun SearchHighlightedMarkdownCodeText(
         )
     }
 
-    val horizontalScrollState = rememberScrollState()
-    TrackStreamingHorizontalScroll(horizontalScrollState)
-
     ChatCodeBlockSurface(modifier = Modifier.padding(vertical = 8.dp)) {
         HtmlPreviewCodeContent(
             code = code,
@@ -279,17 +277,48 @@ private fun SearchHighlightedMarkdownCodeText(
             eligible = previewEligible,
             searching = spec != null,
         ) {
-            MarkdownBasicText(
+            ChatCodeBlockSourceText(
                 text = renderedText,
-                style = if (autoWrap) style.copy(lineBreak = LineBreak.Simple) else style,
-                modifier = Modifier
-                    .then(if (autoWrap) Modifier else Modifier.horizontalScroll(horizontalScrollState))
-                    .padding(LocalMarkdownPadding.current.codeBlock)
-                    .onGloballyPositioned { coordinates = it },
+                style = style,
+                autoWrap = autoWrap,
                 onTextLayout = { layoutResult = it },
+                onPlaced = { coordinates = it },
             )
         }
     }
+}
+
+/**
+ * Whether code blocks wrap. Fenced code and an HTML file card read the same switch, so a loaded
+ * document reads exactly like the fence it replaces.
+ */
+internal val LocalCodeBlockAutoWrap = compositionLocalOf { true }
+
+/**
+ * The one source leaf behind every code block: fenced code, standalone code, an `html-preview`
+ * fence, and an HTML file card all read through it, so a loaded file and a pasted fence render
+ * with the same font, wrapping, and padding.
+ */
+@Composable
+internal fun ChatCodeBlockSourceText(
+    text: AnnotatedString,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    autoWrap: Boolean = true,
+    onTextLayout: (TextLayoutResult) -> Unit = {},
+    onPlaced: ((LayoutCoordinates) -> Unit)? = null,
+) {
+    val horizontalScrollState = rememberScrollState()
+    TrackStreamingHorizontalScroll(horizontalScrollState)
+    MarkdownBasicText(
+        text = text,
+        style = if (autoWrap) style.copy(lineBreak = LineBreak.Simple) else style,
+        modifier = modifier
+            .then(if (autoWrap) Modifier else Modifier.horizontalScroll(horizontalScrollState))
+            .padding(LocalMarkdownPadding.current.codeBlock)
+            .then(if (onPlaced == null) Modifier else Modifier.onGloballyPositioned(onPlaced)),
+        onTextLayout = onTextLayout,
+    )
 }
 
 /** Shared tonal shell for fenced code, standalone code and the fullscreen HTML preview. */

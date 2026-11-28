@@ -1,6 +1,5 @@
 package com.newoether.agora.ui.chat.message
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,14 +22,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
+import com.mikepenz.markdown.compose.LocalMarkdownTypography
 import com.newoether.agora.R
 import com.newoether.agora.ui.chat.MEDIA_LOADING_INDICATOR_STROKE_WIDTH
 import com.newoether.agora.ui.motion.MotionAwareCircularProgressIndicator
-import com.newoether.agora.ui.theme.MonoFamily
 
 /**
  * Recognizes a closed `html-preview` fence whose body is a single local, Local Sandbox, or
@@ -92,12 +88,6 @@ internal fun MarkdownHtmlPreviewCard(
     ChatCodeBlockSurface(modifier = modifier.padding(vertical = 8.dp)) {
         when (val current = state) {
             is HtmlFileLoadState.Ready -> {
-                val horizontalScrollState = rememberScrollState()
-                TrackStreamingHorizontalScroll(horizontalScrollState)
-                val codeStyle = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = MonoFamily,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
                 HtmlPreviewCodeContent(
                     code = current.html,
                     language = "html-preview",
@@ -106,12 +96,10 @@ internal fun MarkdownHtmlPreviewCard(
                     headerTitle = headerTitle,
                     onReload = { loadTrigger++ },
                 ) {
-                    MarkdownBasicText(
+                    ChatCodeBlockSourceText(
                         text = AnnotatedString(current.html),
-                        style = codeStyle.copy(lineBreak = LineBreak.Simple),
-                        modifier = Modifier
-                            .horizontalScroll(horizontalScrollState)
-                            .padding(12.dp),
+                        style = LocalMarkdownTypography.current.code,
+                        autoWrap = LocalCodeBlockAutoWrap.current,
                     )
                 }
             }

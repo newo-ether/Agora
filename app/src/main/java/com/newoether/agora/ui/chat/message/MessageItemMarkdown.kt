@@ -172,6 +172,7 @@ internal class ChatMarkdownRenderContext(
     val flavour: MarkdownFlavourDescriptor,
     val plainTextStyle: TextStyle,
     val parseInlineDollarMath: Boolean,
+    val autoWrapCodeBlocks: Boolean = true,
     val preparedMarkdown: Map<String, State.Success> = emptyMap(),
 )
 
@@ -369,7 +370,10 @@ private fun MarkdownPreparedTextContent(
                 ?.loadParsedImages(parsed.content, occurrences, parsed.referenceLinkHandler)
         }
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalMarkdownImageOccurrences provides occurrences) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalMarkdownImageOccurrences provides occurrences,
+        LocalCodeBlockAutoWrap provides renderContext.autoWrapCodeBlocks,
+    ) {
     com.mikepenz.markdown.compose.Markdown(
         state = documentState,
         modifier = modifier,

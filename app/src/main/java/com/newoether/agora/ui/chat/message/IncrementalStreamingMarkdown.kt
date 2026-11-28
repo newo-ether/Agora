@@ -739,7 +739,10 @@ private fun ParsedMarkdownBlockContent(
         (renderContext.imageTransformer as? com.newoether.agora.ui.components.LatexImageTransformer)
             ?.loadParsedImages(sourceContent, occurrences, referenceHandler)
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalMarkdownImageOccurrences provides occurrences) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalMarkdownImageOccurrences provides occurrences,
+        LocalCodeBlockAutoWrap provides renderContext.autoWrapCodeBlocks,
+    ) {
     com.mikepenz.markdown.compose.Markdown(
         state = state,
         modifier = Modifier.fillMaxWidth(),
