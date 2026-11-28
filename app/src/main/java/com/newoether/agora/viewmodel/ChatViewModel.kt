@@ -176,8 +176,8 @@ class ChatViewModel(
             settings = settings,
             scope = viewModelScope,
             currentVersion = ::getCurrentVersion,
-            checkUpdate = UpdateChecker::check,
-            onUpdateFound = { _updateDialogData.value = it },
+            checkUpdate = { null },
+            onUpdateFound = { /* update checking disabled in fork */ },
             startAutoBackup = dataControl::startAutoBackup,
             startSemanticIndex = ragManager::startPostList,
         )
@@ -645,11 +645,7 @@ class ChatViewModel(
     fun getCurrentVersion(): String {
         return try { appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName ?: "?" } catch (_: Exception) { "?" }
     }
-    suspend fun checkForUpdates(): UpdateInfo? {
-        return withContext(Dispatchers.IO) {
-            UpdateChecker.check(getCurrentVersion())
-        }
-    }
+    suspend fun checkForUpdates(): UpdateInfo? = null
     suspend fun semanticSearch(query: String, limit: Int = 20) =
         semanticSearchService.search(query, limit)
     suspend fun searchMessages(query: String, limit: Int = 20) = convRepo.searchMessages(query, limit)
