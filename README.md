@@ -1,32 +1,33 @@
 <div align="center">
   <img src="app/src/main/assets/agora_transparent_large.png" alt="Agora Logo" width="120" />
 
-  # Agora
+  # Agora (XNet Fork)
 
-  **BYOK LLM client with multi-provider access, agentic workflows, and remote device control.**
+  **Sovereign BYOK LLM client with multi-provider access, agentic workflows, on-device sherpa-onnx STT, and ecosystem device tooling.**
 
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
   [![Platform: Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com)
   [![Kotlin](https://img.shields.io/badge/Kotlin-Native-blue.svg)](https://kotlinlang.org/)
+  [![Upstream: v2.3.2](https://img.shields.io/badge/Upstream-v2.3.2-blueviolet.svg)](https://github.com/newo-ether/Agora/releases/tag/v2.3.2)
 
-  [Website](https://agora.newoether.com) · [User Manual](https://newo-ether.github.io/Agora/)
+  [XNet Repository](https://github.com/XNet-NGO/Agora) · [Releases](https://github.com/XNet-NGO/Agora/releases) · [Upstream Agora](https://github.com/newo-ether/Agora)
 
   <img src="assets/feature_graphic.png" alt="Agora — A BYOK AI app that takes back your data sovereignty." width="100%" />
 </div>
 
-## Introducing Agora
+## XNet Fork Architecture (v2.3.2 Sync)
 
-[![Watch Introducing Agora on YouTube](https://i.ytimg.com/vi/P0p5PzROC0I/maxresdefault.jpg)](https://youtu.be/P0p5PzROC0I)
+This branch synchronizes our fork with upstream **Agora v2.3.2**, adopting the modular engine structure (`core:model`, `core:contracts`, `core:presentation`, `data:database`, `provider:cloud`) and upstream's on-device `sherpa-onnx` STT, Shizuku background virtual display, WebUI tools sheet, and ChatGPT/DeepSeek provider accounts.
 
-[Watch on YouTube](https://youtu.be/P0p5PzROC0I)
+### Maintained By
+- **Organization**: XNet Inc. · Foxnet Labs · XNet NGO
+- **Ecosystem Integration**: Interoperates with [ShellBox](https://github.com/xnet-admin-1/shellbox), [Switchboard](https://github.com/XNet-NGO/switchboard), [re-adb](https://github.com/XNet-NGO/re-adb), and [NeuralBridge](https://github.com/XNet-NGO/NeuralBridge-System).
+- **Packaging & Security**: Configured with uncompressed JNI packaging (`useLegacyPackaging = false`) for strict 16KB ELF page-alignment compatibility on Android 15+.
+- **Update Checking**: Disconnected from third-party update checking; updates are distributed through official XNet channels.
 
 ## Download
 
-[![F-Droid](https://img.shields.io/badge/F--Droid-Install-blue?logo=fdroid)](https://f-droid.org/packages/com.newoether.agora/)
-&nbsp;&nbsp;
-[![Google Play](https://img.shields.io/badge/Google_Play-Install-blue?logo=google-play)](https://play.google.com/store/apps/details?id=com.newoether.agora)
-&nbsp;&nbsp;
-[![GitHub Releases](https://img.shields.io/badge/GitHub-Releases-blue?logo=github)](https://github.com/newo-ether/Agora/releases)
+[![GitHub Releases](https://img.shields.io/badge/GitHub-Releases-blue?logo=github)](https://github.com/XNet-NGO/Agora/releases)
 
 Agora is an open-source Android client for using your own model accounts and endpoints. It stores conversations locally, sends model requests directly to the selected provider, supports non-linear message branches and Context Compact, and can extend agent runs with MCP, automation, search, memory, local models, and remote shell tools.
 

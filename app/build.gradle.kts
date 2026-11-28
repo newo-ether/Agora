@@ -119,7 +119,7 @@ android {
     @Suppress("UnstableApiUsage")
     packaging {
         jniLibs {
-            useLegacyPackaging = true
+            useLegacyPackaging = false
         }
         resources {
             // bcprov, bcutil and bcpkix each ship the same BouncyCastle (MIT) license text.
