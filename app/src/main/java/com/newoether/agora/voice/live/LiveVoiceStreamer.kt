@@ -182,6 +182,7 @@ class LiveVoiceStreamer(
                     )
                     // Expose Agora's tool set (incl. MCP) to the live model as functionDeclarations.
                     val decls = toolBridge?.functionDeclarations()
+                    Log.i(TAG, "setup tools: bridge=${toolBridge != null} declarations=${decls?.length() ?: 0}")
                     if (decls != null && decls.length() > 0) {
                         put("tools", JSONArray().put(JSONObject().apply { put("functionDeclarations", decls) }))
                     }

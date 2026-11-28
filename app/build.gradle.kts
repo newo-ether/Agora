@@ -158,7 +158,7 @@ android {
     @Suppress("UnstableApiUsage")
     packaging {
         jniLibs {
-            useLegacyPackaging = true
+            useLegacyPackaging = false
             // We vendor a matched, self-built ONNX Runtime (libonnxruntime.so +
             // libonnxruntime4j_jni.so, ORT 1.28.2, NDK r28c, arm64-v8a) under
             // src/main/jniLibs. sherpa-onnx's AAR bundles its own libonnxruntime.so (also
