@@ -9,6 +9,17 @@ object MarkdownMediaGuidance {
 
     val text: String = "\n\n" + """
         $HEADING
+        - Embed an image, video, audio, or HTML preview file with Markdown image syntax: `![label](shell://Local%20Sandbox/home/agora/a.png)` or `![label](/storage/emulated/0/DCIM/a.jpg)`. Supported extensions render inline: images (`png`, `jpg`, `jpeg`, `gif`, `webp`, `bmp`, `avif`), video (`mp4`, `m4v`, `webm`, `mov`, `mkv`, `avi`, `3gp`, `ogv`), audio (`mp3`, `wav`, `ogg`, `oga`, `opus`, `m4a`, `aac`, `flac`, `amr`), and local or `shell://` HTML files (`html`, `htm`, rendered inside an interactive preview card). Remote `http(s)://` image, video, and audio URLs also render inline; remote HTML URLs stay ordinary links.
+        - A standalone line containing only a video, audio, or local/`shell://` HTML path (or `[label](path)` without unencoded spaces) also renders inline as a card. Inside prose, a bare path or `shell://` link stays a tappable link.
+        - For files on any shell server, including Local Sandbox and Conch servers (such as Termux `/data/data/com.termux/...` or sandbox paths like `/home/agora/...` and `/tmp/...`), prefer `shell://SERVER/absolute/path` (for example `shell://Local%20Sandbox/home/agora/out.mp3`).
+        - Bare absolute paths and `file://` URLs are accepted ONLY under phone-readable roots: `/storage/emulated/0/...` (or `/sdcard/...`, `/storage/self/primary/...`), `/mnt/shared/...`, and `/home/agora/...`. Any other bare path (such as `/data/data/...`, `/tmp/...`, or external SD cards like `/storage/1A2B-3C4D/...`) cannot be read directly; use `shell://SERVER/absolute/path` or copy the file into `/storage/emulated/0/...` first.
+        - Encode spaces as `%20` (works everywhere), or wrap Markdown image/link destinations in angle brackets: `![label](<shell://Local Sandbox/home/agora/My Files/a b.png>)`.
+        - Any other file (such as a PDF or archive) stays tappable as a link: phone-readable files open in place, while other `shell://` files are copied into the app cache before opening.
+    """.trimIndent()
+
+    /** Shipped media guidance text after embedded HTML files, before standalone-line and remote media clarifications. */
+    internal val previousTextBeforeStandaloneMediaGuidanceForMigration: String = "\n\n" + """
+        $HEADING
         - Embed an image, video, audio, or HTML preview file with Markdown image syntax: `![label](shell://Local%20Sandbox/home/agora/a.png)` or `![label](/storage/emulated/0/DCIM/a.jpg)`. Supported extensions render inline: images (`png`, `jpg`, `jpeg`, `gif`, `webp`, `bmp`, `avif`), video (`mp4`, `m4v`, `webm`, `mov`, `mkv`, `avi`, `3gp`, `ogv`), audio (`mp3`, `wav`, `ogg`, `oga`, `opus`, `m4a`, `aac`, `flac`, `amr`), and local or `shell://` HTML files (`html`, `htm`, rendered inside an interactive preview card). A bare path or `shell://` link in prose is tappable too.
         - For files on any shell server, including Local Sandbox and Conch servers (such as Termux `/data/data/com.termux/...` or sandbox paths like `/home/agora/...` and `/tmp/...`), prefer `shell://SERVER/absolute/path` (for example `shell://Local%20Sandbox/home/agora/out.mp3`).
         - Bare absolute paths and `file://` URLs are accepted ONLY under phone-readable roots: `/storage/emulated/0/...` (or `/sdcard/...`, `/storage/self/primary/...`), `/mnt/shared/...`, and `/home/agora/...`. Any other bare path (such as `/data/data/...`, `/tmp/...`, or external SD cards like `/storage/1A2B-3C4D/...`) cannot be read directly; use `shell://SERVER/absolute/path` or copy the file into `/storage/emulated/0/...` first.
@@ -38,6 +49,9 @@ object MarkdownMediaGuidance {
     """.trimIndent()
 
     fun item(): PromptTemplateItem = PromptTemplateItem(type = PromptItemType.CUSTOM, value = text)
+
+    internal fun previousItemBeforeStandaloneMediaGuidanceForMigration(): PromptTemplateItem =
+        PromptTemplateItem(type = PromptItemType.CUSTOM, value = previousTextBeforeStandaloneMediaGuidanceForMigration)
 
     internal fun previousItemBeforeHtmlFileForMigration(): PromptTemplateItem =
         PromptTemplateItem(type = PromptItemType.CUSTOM, value = previousTextBeforeHtmlFileForMigration)

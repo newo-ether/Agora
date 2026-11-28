@@ -6,6 +6,18 @@ object HtmlPreviewGuidance {
 
     val text: String = "\n\n" + """
         $HEADING
+        Agora renders interactive HTML in two ways (up to 512K characters of source, and 1 MB on disk for embedded files):
+        - Inline source in the reply: use a closed `html-preview` fenced block to render automatically only after the closing fence, or a closed `html` fence to show source with a manual Run action.
+        - File-backed preview: write a `.html`/`.htm` file to phone-readable storage, Local Sandbox, or a Conch device first, then embed it as an auto-rendered preview card using `![title](shell://SERVER/absolute/path.html)` or `![title](/storage/emulated/0/Download/page.html)`, a standalone line with only that path or `[title](path)`, or a closed `html-preview` fence containing only that single path. Prefer a file when the page is large, iteratively edited, or meant to be saved; after editing an already-loaded file, the user must tap Reload to refresh the cached preview. Remote `http(s)://` HTML URLs stay ordinary links.
+        - Keep each document self-contained with inline HTML, CSS, JavaScript, and data. HTTPS static JS/CSS/fonts may load only from cdnjs.cloudflare.com, cdn.jsdelivr.net, unpkg.com, or esm.sh, with paths ending in .js, .mjs, .css, .woff, .woff2, or .ttf. Use exact versioned URLs without query strings or redirects.
+        - Maps may load numeric PNG tiles from https://tile.openstreetmap.org/{z}/{x}/{y}.png. Do not use fetch, API requests, WebSockets, or other network access.
+        - For Local Sandbox or Conch raster images, use static quoted <img src="shell://SERVER/absolute/path.png"> sources. Percent-encode spaces in server names and paths. Do not construct shell URLs in JavaScript. Video is unsupported.
+        - Interaction state can reset on reload, re-entry, fullscreen transitions, or process restart. Do not rely on persistent storage.
+    """.trimIndent()
+
+    /** Shipped HTML preview guidance after embedded HTML files, before explicit inline vs file-backed modes. */
+    internal val previousTextBeforeHtmlModesForMigration: String = "\n\n" + """
+        $HEADING
         - Use a closed `html-preview` fenced block for an interactive visualization in native Agora chat; it renders automatically only after the closing fence. An `html` fence shows source with a manual Run action.
         - To embed an existing local, Local Sandbox, or Conch `.html`/`.htm` file directly as a preview card (up to 1 MB / 512 KB source), use Markdown image syntax `![title](shell://SERVER/absolute/path.html)` or `![title](/storage/emulated/0/Download/page.html)`, or put that single path inside a closed `html-preview` fence. Remote `http(s)://` HTML URLs stay ordinary links.
         - Keep each document self-contained with inline HTML, CSS, JavaScript, and data. HTTPS static JS/CSS/fonts may load only from cdnjs.cloudflare.com, cdn.jsdelivr.net, unpkg.com, or esm.sh, with paths ending in .js, .mjs, .css, .woff, .woff2, or .ttf. Use exact versioned URLs without query strings or redirects.
@@ -25,6 +37,9 @@ object HtmlPreviewGuidance {
     """.trimIndent()
 
     fun item(): PromptTemplateItem = PromptTemplateItem(type = PromptItemType.CUSTOM, value = text)
+
+    internal fun previousItemBeforeHtmlModesForMigration(): PromptTemplateItem =
+        PromptTemplateItem(type = PromptItemType.CUSTOM, value = previousTextBeforeHtmlModesForMigration)
 
     internal fun previousItemBeforeFileEmbedForMigration(): PromptTemplateItem =
         PromptTemplateItem(type = PromptItemType.CUSTOM, value = previousTextBeforeFileEmbedForMigration)

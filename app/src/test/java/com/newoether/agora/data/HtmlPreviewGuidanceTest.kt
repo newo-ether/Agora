@@ -46,6 +46,12 @@ class HtmlPreviewGuidanceTest {
             "Do not construct shell URLs in JavaScript", "Video is unsupported",
             "reload, re-entry, fullscreen transitions, or process restart", "persistent storage",
             "![title](shell://SERVER/absolute/path.html)",
+            "Inline source in the reply",
+            "File-backed preview",
+            "512K characters",
+            "1 MB on disk",
+            "standalone line",
+            "tap Reload",
             "Remote `http(s)://` HTML URLs stay ordinary links",
         ).forEach { assertTrue("Missing guidance: $it", text.contains(it)) }
         assertFalse(text.contains("152"))

@@ -4,7 +4,7 @@ import com.newoether.agora.tool.BuiltInToolNames
 import java.util.Locale
 
 object DefaultSystemPrompt {
-    internal const val BUILT_IN_MIGRATION_VERSION = 4
+    internal const val BUILT_IN_MIGRATION_VERSION = 5
     private const val ENGLISH_TITLE = "Default"
     private const val ARABIC_TITLE = "\u0627\u0641\u062a\u0631\u0627\u0636\u064a"
     private const val FRENCH_TITLE = "Par d\u00e9faut"
@@ -118,6 +118,25 @@ object DefaultSystemPrompt {
         )
     }
 
+    /** Exact default after embedded HTML file guidance, before inline/file modes and standalone media clarifications. */
+    internal fun versionBeforeHtmlModesGuidanceForMigration(
+        locale: Locale = Locale.getDefault(),
+    ): SystemPromptEntry {
+        val previous = systemItemsBeforeHtmlPreview()
+        val items = listOf(
+            previous.first(),
+            HtmlPreviewGuidance.previousItemBeforeHtmlModesForMigration(),
+            MarkdownMediaGuidance.previousItemBeforeStandaloneMediaGuidanceForMigration(),
+        ) + previous.drop(1)
+        return SystemPromptEntry(
+            title = titleForLocale(locale),
+            systemItems = mergeAdjacentText(items),
+            userItems = userItems(),
+            assistantItems = assistantItems(),
+            builtInMigrationVersion = 4,
+        )
+    }
+
     /** True for the shipped default whose text blocks were split by item boundaries. */
     internal fun isUnmergedDefault(entry: SystemPromptEntry): Boolean =
         entry.sameTemplateAs(versionWithSeparateHtmlPreviewForMigration())
@@ -221,7 +240,8 @@ object DefaultSystemPrompt {
                 entry.sameTemplateAs(versionBeforeHtmlPreviewForMigration()) ||
                 entry.sameTemplateAs(versionBeforeMediaGuidanceForMigration()) ||
                 entry.sameTemplateAs(versionBeforeAudioMediaGuidanceForMigration()) ||
-                entry.sameTemplateAs(versionBeforeHtmlFileEmbedGuidanceForMigration()))
+                entry.sameTemplateAs(versionBeforeHtmlFileEmbedGuidanceForMigration()) ||
+                entry.sameTemplateAs(versionBeforeHtmlModesGuidanceForMigration()))
 
     private fun SystemPromptEntry.sameTemplateAs(other: SystemPromptEntry): Boolean =
         resolvedSystemItems.sameTemplateItems(other.resolvedSystemItems) &&
