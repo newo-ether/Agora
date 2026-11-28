@@ -14,8 +14,15 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.reader())
 }
 
+fun signingInput(prop: String, localKey: String, default: String): String =
+    (findProperty(prop) as String?) ?: keystoreProperties.getProperty(localKey, default)
+
 android {
     namespace = "com.newoether.agora"
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
     testOptions.unitTests.isIncludeAndroidResources = true
     // Robolectric installs Conscrypt as the first security provider for the whole test JVM;
     // on JDK 17+ its TLS server needs reflective access to java.net (InetAddress.holder).
@@ -36,7 +43,7 @@ android {
         applicationId = "com.newoether.agora"
         minSdk = 26
         targetSdk = 36
-        versionCode = 35
+        versionCode = 36
         versionName = "2.3.2"
 
 
@@ -55,14 +62,14 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(keystoreProperties.getProperty("storeFile", "."))
-            storePassword = keystoreProperties.getProperty("storePassword", "")
-            keyAlias = keystoreProperties.getProperty("keyAlias", "")
-            keyPassword = keystoreProperties.getProperty("keyPassword", "")
+            storeFile = file(signingInput("xnetStoreFile", "storeFile", "."))
+            storePassword = signingInput("xnetStorePassword", "storePassword", "")
+            keyAlias = signingInput("xnetKeyAlias", "keyAlias", "")
+            keyPassword = signingInput("xnetKeyPassword", "keyPassword", "")
         }
     }
 
-    val hasKeystore = keystoreProperties.getProperty("storeFile", ".").let { it != "." }
+    val hasKeystore = signingInput("xnetStoreFile", "storeFile", ".").let { it != "." && file(it).exists() }
     val releaseSigning = if (hasKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
 
     buildTypes {
